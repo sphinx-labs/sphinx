@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-contract ConstructorArgOverrides {
+contract ConstructorArgs {
     int public immutable intArg;
     uint public immutable uintArg;
     address public immutable addressArg;
-    address public immutable defaultAndIncorrectOverrideArg;
+    address public immutable otherAddressArg;
 
     constructor(
         int _intArg,
         uint _uintArg,
         address _addressArg,
-        address _defaultAndIncorrectOverrideArg
+        address _otherAddressArg
     ) {
         intArg = _intArg;
         uintArg = _uintArg;
         addressArg = _addressArg;
-        defaultAndIncorrectOverrideArg = _defaultAndIncorrectOverrideArg;
+        otherAddressArg = _otherAddressArg;
     }
 }

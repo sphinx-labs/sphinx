@@ -104,7 +104,7 @@ export const compileRemoteBundles = async (
 
   const configCache = await getConfigCache(
     provider,
-    compilerConfig.contracts,
+    compilerConfig,
     configArtifacts,
     getSphinxRegistryAddress(),
     compilerConfig.manager

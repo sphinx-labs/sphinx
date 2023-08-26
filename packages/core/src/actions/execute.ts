@@ -142,8 +142,6 @@ const findMaxBatchSize = async (
   return min
 }
 
-// TODO: do this logic in solidity too after testing that the TS logic works
-
 /**
  * Helper function for executing a list of actions in batches.
  *

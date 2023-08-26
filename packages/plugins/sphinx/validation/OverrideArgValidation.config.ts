@@ -1,7 +1,14 @@
 import { UserSphinxConfig } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
-const projectName = 'ConstructorArgValidation'
+const projectName = 'ConstructorArgOverrideValidation'
+
+const correctConstructorArgs = {
+  _intArg: 0,
+  _uintArg: 0,
+  _addressArg: ethers.ZeroAddress,
+  _otherAddressArg: ethers.ZeroAddress,
+}
 
 const config: UserSphinxConfig = {
   projectName,
@@ -14,20 +21,17 @@ const config: UserSphinxConfig = {
     testnets: ['optimism-goerli', 'arbitrum-goerli'],
   },
   contracts: {
-    ConstructorArgOverrides: {
-      contract: 'ConstructorArgOverrides',
+    IncorrectConstructorArgOverrides: {
+      contract: 'ConstructorArgs',
       kind: 'immutable',
-      constructorArgs: {
-        incorrectDefaultArg: 1,
-        _defaultAndIncorrectOverrideArg: ethers.ZeroAddress,
-      },
+      constructorArgs: correctConstructorArgs,
       overrides: [
         {
           chains: ['anvil'],
           constructorArgs: {
             incorrectOverrideArg: 1,
             _addressArg: ethers.ZeroAddress,
-            _defaultAndIncorrectOverrideWrong: '0x' + '11'.repeat(20),
+            otherIncorrectOverrideArg: '0x' + '11'.repeat(20),
           },
         },
         {

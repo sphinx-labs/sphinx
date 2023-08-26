@@ -119,7 +119,7 @@ MyFirstContract: {
 }
 ```
 
-The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `MyFirstContract`. You can use the contract reference `{{ MyFirstContract }}` as a constructor argument value anywhere in your config file. For example, if you have another contract in your config file, you can do this:
+The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `MyFirstContract`. You can use the contract reference `{{ MyFirstContract }}` as a replacement for the address of `MyFirstContract`. You can use contract references anywhere in your config file. For example, if you have another contract in your config file, you can do this:
 
 ```ts
 MySecondContract: {

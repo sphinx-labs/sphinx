@@ -23,6 +23,8 @@ import {
   getEmptyCanonicalConfig,
   toHexString,
   fromHexString,
+  getCallHash,
+  isSupportedChainId,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -493,6 +495,12 @@ export const makeActionBundleFromConfig = (
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache
 ): SphinxActionBundle => {
+  const { chainId } = configCache
+
+  if (!isSupportedChainId(chainId)) {
+    throw new Error(`Chain ID ${chainId} is not supported.`)
+  }
+
   const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
 
@@ -578,16 +586,23 @@ export const makeActionBundleFromConfig = (
   // Next, we add any `CALL` actions. We currently only support `CALL` actions that occur after all
   // contracts have been deployed, but before an upgrade is initiated. In other words, we put them
   // after all `DEPLOY_CONTRACT` actions and before any `SET_STORAGE` actions.
-  for (const { to, payload, salt } of parsedConfig.postDeploy) {
-    actions.push({
-      referenceName: '',
-      contractKindHash: ethers.ZeroHash,
-      addr: to,
-      index: actionIndex,
-      payload,
-      salt,
-    })
-    actionIndex += 1
+  const postDeployActions = parsedConfig.postDeploy[chainId]
+  if (postDeployActions) {
+    for (const { to, payload, salt } of postDeployActions) {
+      const callHash = getCallHash(to, payload, salt)
+      const skip = configCache.callHashesToSkip[callHash]
+      if (!skip) {
+        actions.push({
+          referenceName: '',
+          contractKindHash: ethers.ZeroHash,
+          addr: to,
+          index: actionIndex,
+          payload,
+          salt,
+        })
+        actionIndex += 1
+      }
+    }
   }
 
   // TODO(docs): Next, we add the `SET_STORAGE` actions. We do this in a separate loop because...

@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -28,7 +28,7 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getConstructorArgs, getImplAddress } from './utils'
+import { getFunctionArgValueArray, getImplAddress } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -65,9 +65,10 @@ export const verifySphinxConfig = async (
   )) {
     const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
-    const constructorArgValues = getConstructorArgs(
+    const iface = new ethers.Interface(abi)
+    const constructorArgValues = getFunctionArgValueArray(
       compilerConfig.contracts[referenceName].constructorArgs[Number(chainId)],
-      abi
+      iface.fragments.find(ConstructorFragment.isFragment)
     )
 
     const implementationAddress =

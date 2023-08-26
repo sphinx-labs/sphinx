@@ -115,10 +115,8 @@ contract SphinxManagerEvents {
      *
      * @param deploymentId ID of the deployment in which the call was executed.
      * @param actionIndex Index of the `CALL` action that was executed.
-     * @param callHash     Hash of the call that was executed. Specifically, this is the hash of the
-        ABI-encoded target address, the bytes payload, and the bytes32 salt (in that order).
      */
-    event CallExecuted(bytes32 indexed deploymentId, uint256 actionIndex, bytes32 callHash);
+    event CallExecuted(bytes32 indexed deploymentId, uint256 actionIndex);
 
     /**
      * @notice Emitted when a contract deployment is skipped. This occurs when a contract already

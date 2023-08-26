@@ -1,4 +1,4 @@
-import { Fragment } from 'ethers'
+import { Fragment, Interface, InterfaceAbi } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 
@@ -66,8 +66,10 @@ export type BuildInfo = {
   output: CompilerOutput
 }
 
+// TODO(docs): abi is this type to match hardhat's type. it's not an ethers Fragment type b/c
+// Fragments have add'l fields
 export type ContractArtifact = {
-  abi: Array<Fragment>
+  abi: Array<any>
   sourceName: string
   contractName: string
   bytecode: string
@@ -86,7 +88,7 @@ export interface CompilerOutputMetadata {
 }
 
 export interface CompilerOutputContract {
-  abi: Array<Fragment>
+  abi: Array<any>
   storageLayout?: SolidityStorageLayout
   evm: {
     bytecode: CompilerOutputBytecode

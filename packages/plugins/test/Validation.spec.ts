@@ -363,7 +363,7 @@ describe('Validate', () => {
 
   it('did catch extra variables', async () => {
     expect(validationOutput).to.have.string(
-      'defined in the Sphinx config file that do not exist in the contract'
+      'defined in the Sphinx config file which do not exist in the contract'
     )
     expect(validationOutput).to.have.string('extraVar')
     expect(validationOutput).to.have.string('anotherExtraVar')
@@ -377,14 +377,17 @@ describe('Validate', () => {
 
   it('did catch extra constructor argument', async () => {
     expect(validationOutput).to.have.string(
-      'but are not present in the contract constructor'
+      `The config contains default arguments in the constructor of ConstructorArgsValidationPartOne which do not exist in the contract:\n` +
+        `_immutableUint`
     )
     expect(validationOutput).to.have.string('_immutableUint')
   })
 
   it('did catch missing constructor argument', async () => {
-    expect(validationOutput).to.have.string('but were not found in your config')
-    expect(validationOutput).to.have.string('_immutableBytes')
+    expect(validationOutput).to.have.string(
+      `The config is missing the following default arguments for the constructor of ConstructorArgsValidationPartOne:\n` +
+        `_immutableBytes`
+    )
   })
 
   it('did catch variables in immutable contract', async () => {
@@ -455,53 +458,13 @@ describe('Validate', () => {
 
   it('did catch incorrect overridden contructor args', async () => {
     expect(validationOutput).to.have.string(
-      `The following overridden constructor arguments were found in your config for ConstructorArgOverrides, but are not present in the contract constructor:`
+      `The config contains argument overrides in the constructor of IncorrectConstructorArgOverrides which do not exist in the contract:`
     )
     expect(validationOutput).to.have.string(
       `incorrectOverrideArg on network: anvil`
     )
     expect(validationOutput).to.have.string(
-      `_defaultAndIncorrectOverrideWrong on network: anvil`
-    )
-  })
-
-  it('did catch incorrect default args', async () => {
-    expect(validationOutput).to.have.string(
-      `The following default constructor arguments were found in your config for ConstructorArgOverrides, but are not present in the contract constructor:\nincorrectDefaultArg`
-    )
-  })
-
-  it('did catch missing required args for overrides', async () => {
-    expect(validationOutput).to.have.string(
-      `The following constructor arguments are required by the constructor for ConstructorArgOverrides, but were not found in your config for one or more networks. Please either define a default value for these arguments or specify a value for every network.`
-    )
-    expect(validationOutput).to.have.string(
-      `_intArg on network: optimism-goerli`,
-      `_uintArg on network: optimism-goerli`
-    )
-    expect(validationOutput).to.have.string(
-      `_uintArg on network: optimism-goerli`,
-      `_intArg on network: optimism-goerli`
-    )
-    expect(validationOutput).to.have.string(
-      `_intArg on network: anvil`,
-      `_uintArg on network: anvil`
-    )
-    expect(validationOutput).to.have.string(
-      `_uintArg on network: anvil`,
-      `_intArg on network: anvil`
-    )
-    expect(validationOutput).to.have.string(
-      `_intArg on network: arbitrum-goerli`,
-      `_intArg on network: arbitrum-goerli`
-    )
-    expect(validationOutput).to.have.string(
-      `_uintArg on network: arbitrum-goerli`,
-      `_uintArg on network: arbitrum-goerli`
-    )
-    expect(validationOutput).to.have.string(
-      `_addressArg on network: arbitrum-goerli`,
-      `_addressArg on network: arbitrum-goerli`
+      `otherIncorrectOverrideArg on network: anvil`
     )
   })
 })

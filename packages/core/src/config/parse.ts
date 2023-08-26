@@ -2,7 +2,7 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { ethers } from 'ethers'
+import { ConstructorFragment, FunctionFragment, ethers } from 'ethers'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import {
   astDereferencer,
@@ -16,7 +16,11 @@ import {
   StorageLayout,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
-import { ProxyABI, SphinxRegistryABI } from '@sphinx-labs/contracts'
+import {
+  ProxyABI,
+  SphinxManagerABI,
+  SphinxRegistryABI,
+} from '@sphinx-labs/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import { ContractDefinition, Expression } from 'solidity-ast'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
@@ -45,6 +49,11 @@ import {
   resolveNetwork,
   sortHexStrings,
   remove0x,
+  getCallHash,
+  findReferenceNameForAddress,
+  getNetworkNameForChainId,
+  isUserConstructorArgOverride,
+  getFunctionArgValueArray,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -71,8 +80,12 @@ import {
   UserConfig,
   MinimalConfigCache,
   ConfigCache,
-  UserConstructorArgOverrides,
-  ParsedConstructorArgsPerChain,
+  UserConstructorArgOverride,
+  ParsedFunctionArgsPerChain,
+  ParsedCallAction,
+  UserCallAction,
+  ParsedCallActionsPerChain,
+  UserArgOverride,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -178,25 +191,45 @@ export const getParsedConfigWithOptions = async (
 
   const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-  const contractConfigs = getUnvalidatedContractConfigs(
+  const { resolvedUserConfig, contractAddresses } = resolveContractReferences(
     userConfig,
-    [...userConfig.options.mainnets, ...userConfig.options.testnets],
-    configArtifacts,
-    cre,
-    failureAction,
     managerAddress
   )
+
+  const networks = [
+    ...userConfig.options.mainnets,
+    ...userConfig.options.testnets,
+  ]
+  const contractConfigs = getUnvalidatedContractConfigs(
+    resolvedUserConfig,
+    networks,
+    configArtifacts,
+    contractAddresses,
+    cre,
+    failureAction
+  )
+
+  const postDeployActions = resolvedUserConfig.postDeploy
+    ? parsePostDeploymentActions(
+        resolvedUserConfig.postDeploy,
+        contractConfigs,
+        networks,
+        configArtifacts,
+        cre
+      )
+    : {}
 
   const parsedConfig: ParsedConfigWithOptions = {
     manager: managerAddress,
     options: parsedConfigOptions,
     contracts: contractConfigs,
-    projectName: userConfig.projectName,
+    projectName: resolvedUserConfig.projectName,
+    postDeploy: postDeployActions,
   }
 
   const configCache = await getConfigCache(
     provider,
-    contractConfigs,
+    parsedConfig,
     configArtifacts,
     getSphinxRegistryAddress(),
     managerAddress
@@ -276,35 +309,52 @@ export const getParsedConfig = async (
   const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
   const chainId = await provider.getNetwork().then((n) => n.chainId)
-  const network = Object.entries(SUPPORTED_NETWORKS).find(
+
+  const networkArray = Object.entries(SUPPORTED_NETWORKS).find(
     (entry) => BigInt(entry[1]) === chainId
   )
-
-  if (!network) {
+  if (!networkArray) {
     throw new ValidationError(
       `Network with ID ${chainId} is not supported by Sphinx.`
     )
   }
+  const network = [networkArray[0]]
 
-  const contractConfigs = getUnvalidatedContractConfigs(
+  const { resolvedUserConfig, contractAddresses } = resolveContractReferences(
     userConfig,
-    [network[0]],
-    configArtifacts,
-    cre,
-    failureAction,
     managerAddress
   )
+
+  const contractConfigs = getUnvalidatedContractConfigs(
+    resolvedUserConfig,
+    network,
+    configArtifacts,
+    contractAddresses,
+    cre,
+    failureAction
+  )
+
+  const postDeployActions = resolvedUserConfig.postDeploy
+    ? parsePostDeploymentActions(
+        resolvedUserConfig.postDeploy,
+        contractConfigs,
+        network,
+        configArtifacts,
+        cre
+      )
+    : {}
 
   const parsedConfig: ParsedOwnerConfig = {
     owner: ownerAddress,
     contracts: contractConfigs,
-    projectName: userConfig.projectName,
+    projectName: resolvedUserConfig.projectName,
     manager: managerAddress,
+    postDeploy: postDeployActions,
   }
 
   const configCache = await getConfigCache(
     provider,
-    contractConfigs,
+    parsedConfig,
     configArtifacts,
     getSphinxRegistryAddress(),
     managerAddress
@@ -449,7 +499,6 @@ export const assertValidUserConfig = (
     if (contractConfig.variables !== undefined) {
       // Check that all contract references in variables are valid.
       assertValidContractReferences(
-        contractConfig,
         contractConfig.variables,
         validReferenceNames,
         cre
@@ -459,11 +508,21 @@ export const assertValidUserConfig = (
     if (contractConfig.constructorArgs !== undefined) {
       // Check that all contract references in constructor args are valid.
       assertValidContractReferences(
-        contractConfig,
         contractConfig.constructorArgs,
         validReferenceNames,
         cre
       )
+    }
+
+    if (contractConfig.overrides !== undefined) {
+      for (const override of contractConfig.overrides) {
+        // Check that all contract references are valid in the constructor arg overrides.
+        assertValidContractReferences(
+          override.constructorArgs,
+          validReferenceNames,
+          cre
+        )
+      }
     }
 
     if (contractConfig.constructorArgs !== undefined) {
@@ -517,6 +576,26 @@ export const assertValidUserConfig = (
         cre.silent,
         cre.stream
       )
+    }
+  }
+
+  if (config.postDeploy) {
+    for (const callAction of config.postDeploy) {
+      // Check that all contract references are valid in the TODO(docs).
+      assertValidContractReferences(
+        callAction.contractReferenceOrAddress,
+        validReferenceNames,
+        cre
+      )
+      if (callAction.addressOverrides) {
+        for (const override of Object.values(callAction.addressOverrides)) {
+          assertValidContractReferences(
+            override.address,
+            validReferenceNames,
+            cre
+          )
+        }
+      }
     }
   }
 
@@ -1366,7 +1445,7 @@ const parseContractVariables = (
 
       logValidationError(
         'error',
-        `Detected variables defined in the Sphinx config file that do not exist in the contract ${contractConfig.contract}:`,
+        `Detected variables defined in the Sphinx config file which do not exist in the contract ${contractConfig.contract}:`,
         lines,
         cre.silent,
         cre.stream
@@ -1402,15 +1481,15 @@ const parseContractVariables = (
   return parsedConfigVariables
 }
 
-const parseArrayConstructorArg = (
+const parseArrayArg = (
   input: ethers.ParamType,
   name: string,
-  constructorArgValue: UserConfigVariable,
+  argValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
 ): ParsedConfigVariable[] => {
-  if (!Array.isArray(constructorArgValue)) {
+  if (!Array.isArray(argValue)) {
     throw new ValidationError(
-      `Expected array for ${input.name} but got ${typeof constructorArgValue}`
+      `Expected array for ${input.name} but got ${typeof argValue}`
     )
   }
 
@@ -1421,34 +1500,32 @@ const parseArrayConstructorArg = (
   }
 
   if (input.arrayLength !== -1) {
-    if (constructorArgValue.length !== input.arrayLength) {
+    if (argValue.length !== input.arrayLength) {
       throw new ValidationError(
-        `Expected array of length ${input.arrayLength} for ${name} but got array of length ${constructorArgValue.length}`
+        `Expected array of length ${input.arrayLength} for ${name} but got array of length ${argValue.length}`
       )
     }
   }
 
   const parsedValues: ParsedConfigVariable = []
-  for (const element of constructorArgValue) {
+  for (const element of argValue) {
     parsedValues.push(
-      parseAndValidateConstructorArg(input.arrayChildren, name, element, cre)
+      parseAndValidateArg(input.arrayChildren, name, element, cre)
     )
   }
 
   return parsedValues
 }
 
-export const parseStructConstructorArg = (
+export const parseStructArg = (
   paramType: ethers.ParamType,
   name: string,
-  constructorArgValue: UserConfigVariable,
+  argValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
 ) => {
-  if (typeof constructorArgValue !== 'object') {
+  if (typeof argValue !== 'object') {
     throw new ValidationError(
-      `Expected object for ${
-        paramType.name
-      } but got ${typeof constructorArgValue}`
+      `Expected object for ${paramType.name} but got ${typeof argValue}`
     )
   }
 
@@ -1460,14 +1537,14 @@ export const parseStructConstructorArg = (
 
   const memberErrors: string[] = []
   const parsedValues: ParsedConfigVariable = {}
-  for (const [key, value] of Object.entries(constructorArgValue)) {
+  for (const [key, value] of Object.entries(argValue)) {
     const inputChild = paramType.components.find((component) => {
       return component.name === key
     })
     if (inputChild === undefined) {
       memberErrors.push(`Extra member(s) in struct ${paramType.name}: ${key}`)
     } else {
-      parsedValues[key] = parseAndValidateConstructorArg(
+      parsedValues[key] = parseAndValidateArg(
         inputChild,
         `${name}.${key}`,
         value,
@@ -1498,13 +1575,13 @@ export const parseStructConstructorArg = (
   return parsedValues
 }
 
-const parseAndValidateConstructorArg = (
+const parseAndValidateArg = (
   input: ethers.ParamType,
   name: string,
-  constructorArgValue: UserConfigVariable,
+  argValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
 ): ParsedConfigVariable => {
-  const constructorArgType = input.type
+  const argType = input.type
   // We fetch a new ParamType using the input type even though input is a ParamType object
   // This is b/c input is an incomplete object, so fetching the new ParamType yields
   // an object with more useful information on it
@@ -1516,18 +1593,14 @@ const parseAndValidateConstructorArg = (
       paramType.baseType.startsWith('int'))
   ) {
     // Since the number of bytes is not easily accessible, we parse it from the type string.
-    const suffix = constructorArgType.replace(/u?int/g, '')
+    const suffix = argType.replace(/u?int/g, '')
     const bits = parseInt(suffix, 10)
     const numberOfBytes = bits / 8
 
-    if (constructorArgType.startsWith('int')) {
-      return parseInteger(constructorArgValue, name, numberOfBytes.toString())
+    if (argType.startsWith('int')) {
+      return parseInteger(argValue, name, numberOfBytes.toString())
     } else {
-      return parseUnsignedInteger(
-        constructorArgValue,
-        name,
-        numberOfBytes.toString()
-      )
+      return parseUnsignedInteger(argValue, name, numberOfBytes.toString())
     }
   } else if (paramType.baseType === 'address') {
     // if the value is a contract reference, then we don't parse it and assume it is correct given
@@ -1536,95 +1609,163 @@ const parseAndValidateConstructorArg = (
     // so any references here will be those to no-proxied contracts which must be resolve separately
     // after we've parsed the constructor args.
     if (
-      typeof constructorArgValue === 'string' &&
-      constructorArgValue.startsWith('{{') &&
-      constructorArgValue.endsWith('}}')
+      typeof argValue === 'string' &&
+      argValue.startsWith('{{') &&
+      argValue.endsWith('}}')
     ) {
-      return constructorArgValue
+      return argValue
     } else {
-      return parseAddress(constructorArgValue, name)
+      return parseAddress(argValue, name)
     }
   } else if (paramType.baseType === 'bool') {
-    return parseBool(constructorArgValue, name)
+    return parseBool(argValue, name)
   } else if (
     paramType.baseType === 'string' ||
     paramType.baseType === 'bytes'
   ) {
-    return parseBytes(constructorArgValue, name, paramType.type, 0)
+    return parseBytes(argValue, name, paramType.type, 0)
   } else if (paramType.baseType && paramType.baseType.startsWith('bytes')) {
-    const suffix = constructorArgType.replace(/bytes/g, '')
+    const suffix = argType.replace(/bytes/g, '')
     const numberOfBytes = parseInt(suffix, 10).toString()
 
-    return parseFixedBytes(
-      constructorArgValue,
-      constructorArgType,
-      name,
-      numberOfBytes
-    )
+    return parseFixedBytes(argValue, argType, name, numberOfBytes)
   } else if (paramType.baseType === 'array') {
-    return parseArrayConstructorArg(paramType, name, constructorArgValue, cre)
+    return parseArrayArg(paramType, name, argValue, cre)
   } else if (paramType.type === 'tuple') {
-    return parseStructConstructorArg(paramType, name, constructorArgValue, cre)
+    return parseStructArg(paramType, name, argValue, cre)
   } else {
     // throw or log error
     throw new ValidationError(
-      `Unsupported constructor argument type: ${paramType.type} for argument ${name}`
+      `Unsupported argument type: ${paramType.type} for argument ${name}`
     )
   }
 }
 
+// TODO: do we VALIDATE contract references for the SphinxContract constructor args #1 and #3, as well
+// as the call action's `functionArgs` and `overrides.params`? this list is exhaustive
+
+// TODO(parse):
+// SphinxContract constructor:
+// - field 1: assert ethers.isAddress (docs: since contract reference was validated + parsed in a previous step)
+// - field 2: none
+// - field 3:
+//    - assert that there are no unsupported network names in `mergedChains`. after this, convert the network names to chain IDs.
+//    - assert that there are no duplicated elements in `mergedChainIds`, which is an array that contains all of the chain IDs, concatenated.
+//    - assert ethers.isAddress on all of the `address` fields. (docs: contract references were validated + parsed in a previous step)
+// ---
+// function calls(TODO):
+// - user supplies external address but no ABI (already written)
+// - check ethersJS logic
+// ---
+// the above list is exhaustive
+
+// TODO(md): update constructor-args.md -> chain-specific overrides b/c the user must specify all of
+// their default constructor args now.
+
+// TODO(md): the `constructor-args.md` doc should probably be named something else, since it now
+// applies to function calls too. if you do this, make sure you change the file name, all reference
+// to the file name, and the main readme.
+
 /**
- * Parses and validates constructor args for a single contract in a config file.
+ * Parses and validates function arguments and chain-specific overrides for a single contract in a
+ * config file.
  *
  * @param userContractConfig Unparsed User-defined contract definition in a Sphinx config.
  * @param referenceName Name of the contract as it appears in the Sphinx config file.
- * @param abi ABI of the contract.
- * @param contractReferences Map of contract names to their addresses used to resolve contract references.
+ * @param userDefaultArgs TODO(docs) this is optional because...
+ * @param fragment TODO(docs) this is optional because...
  * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
  */
-export const parseContractConstructorArgs = (
-  userContractConfig: UserContractConfig,
-  referenceName: string,
+export const parseFunctionArgsAndOverrides = (
+  fragmentLogName: string,
   networks: string[],
-  abi: Array<ethers.Fragment>,
-  cre: SphinxRuntimeEnvironment
-): ParsedConstructorArgsPerChain => {
-  const userDefaultConstructorArgs: UserConfigVariables =
-    userContractConfig.constructorArgs ?? {}
-  const userContructorArgOverrides: UserConstructorArgOverrides[] =
-    userContractConfig.overrides ?? []
+  cre: SphinxRuntimeEnvironment,
+  userDefaultArgs: UserConfigVariable = {},
+  userOverrides: Array<UserArgOverride> = [],
+  fragment?: ethers.Fragment
+): ParsedFunctionArgsPerChain => {
+  // TODO(docs)
+  const parsedArgsPerChain: ParsedFunctionArgsPerChain = {}
 
-  const parsedConstructorArgs: ParsedConstructorArgsPerChain = {}
+  const fragmentInputs = fragment ? fragment.inputs : []
 
-  const constructorFragment = abi.find(
-    (fragment) => fragment.type === 'constructor'
+  // validate default values first
+
+  const functionTypeArgs: Array<string> = []
+  const argNames = fragmentInputs
+    .filter((el) => el.type !== 'function')
+    .map((input) => input.name)
+  const incorrectDefaultArgNames = Object.keys(userDefaultArgs).filter(
+    (argName) => !argNames.includes(argName)
   )
+  const missingDefaultArgNames: Array<string> = []
+  const inputDefaultFormatErrors: string[] = []
 
-  if (constructorFragment === undefined) {
-    if (Object.keys(userDefaultConstructorArgs).length > 0) {
-      throw new ValidationError(
-        `User entered constructor arguments in the Sphinx config file for ${referenceName}, but\n` +
-          `no constructor exists in the contract.`
-      )
+  const parsedDefaultArgs: ParsedConfigVariables = {}
+
+  fragmentInputs.forEach((input) => {
+    if (input.type === 'function') {
+      functionTypeArgs.push(input.name)
     } else {
-      return parsedConstructorArgs
+      const defaultArgValue = userDefaultArgs[input.name]
+      if (defaultArgValue === undefined) {
+        missingDefaultArgNames.push(input.name)
+      } else {
+        try {
+          parsedDefaultArgs[input.name] = parseAndValidateArg(
+            input,
+            input.name,
+            defaultArgValue,
+            cre
+          )
+        } catch (e) {
+          inputDefaultFormatErrors.push((e as Error).message)
+        }
+      }
     }
-  }
+  })
 
-  const functionConstructorArgs = constructorFragment.inputs.filter(
-    (el) => el.type === 'function'
-  )
-  if (functionConstructorArgs.length > 0) {
+  if (functionTypeArgs.length > 0) {
     logValidationError(
       'error',
-      `Detected function type in constructor arguments for ${referenceName}. Function types are not allowed in constructor arugments.`,
-      [],
+      `The ${fragmentLogName} contains function type arguments, which are not allowed. Please remove the following fields:`,
+      functionTypeArgs,
       cre.silent,
       cre.stream
     )
   }
 
-  const invalidOverrideChains = userContractConfig.overrides?.flatMap((el) =>
+  if (missingDefaultArgNames.length > 0) {
+    logValidationError(
+      'error',
+      `The config is missing the following default arguments for the ${fragmentLogName}:`,
+      missingDefaultArgNames,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (incorrectDefaultArgNames.length > 0) {
+    logValidationError(
+      'error',
+      `The config contains default arguments in the ${fragmentLogName} which do not exist in the contract:`,
+      incorrectDefaultArgNames,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (inputDefaultFormatErrors.length > 0) {
+    logValidationError(
+      'error',
+      `The config contains incorrectly formatted default arguments in the ${fragmentLogName}:`,
+      inputDefaultFormatErrors,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const invalidOverrideChains = userOverrides?.flatMap((el) =>
     el.chains.filter(
       (name) =>
         !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
@@ -1632,25 +1773,33 @@ export const parseContractConstructorArgs = (
         !Object.keys(SUPPORTED_LOCAL_NETWOKRS).includes(name)
     )
   )
+  // TODO(docs): we throw a validation error here if the default user args are invalid. this
+  // is because the rest of the function assumes that the default user args are valid. we
+  // don't use the `EXIT` failure action because...
+  assertNoValidationErrors(FailureAction.THROW)
 
   // Check if there are any variables which have ambiguous overrides (due to fields being listed multiple times for a given network)
-  const ambigiousArgOverrides: {
+  const ambiguousArgOverrides: {
     [key in SupportedChainId]?: {
       [name: string]: UserConfigVariable[]
     }
   } = {}
 
-  for (const override of userContructorArgOverrides) {
+  for (const override of userOverrides) {
     for (const networkName of override.chains) {
-      for (const [arg, value] of Object.entries(override.constructorArgs)) {
-        if (ambigiousArgOverrides[networkName] === undefined) {
-          ambigiousArgOverrides[networkName] = {}
+      const overrideArgs = isUserConstructorArgOverride(override)
+        ? override.constructorArgs
+        : override.args
+
+      for (const [arg, value] of Object.entries(overrideArgs)) {
+        if (ambiguousArgOverrides[networkName] === undefined) {
+          ambiguousArgOverrides[networkName] = {}
         }
 
-        if (ambigiousArgOverrides[networkName]![arg] === undefined) {
-          ambigiousArgOverrides[networkName]![arg] = [value]
+        if (ambiguousArgOverrides[networkName]![arg] === undefined) {
+          ambiguousArgOverrides[networkName]![arg] = [value]
         } else {
-          ambigiousArgOverrides[networkName]![arg].push(value)
+          ambiguousArgOverrides[networkName]![arg].push(value)
         }
       }
     }
@@ -1658,77 +1807,32 @@ export const parseContractConstructorArgs = (
 
   // fill in the default values for any networks not defined in the overrides
   for (const networkName of networks) {
-    if (!ambigiousArgOverrides[networkName]) {
-      ambigiousArgOverrides[networkName] = {}
+    if (!ambiguousArgOverrides[networkName]) {
+      ambiguousArgOverrides[networkName] = {}
     }
   }
 
-  // validate default values first
-  const constructorArgNames = constructorFragment.inputs
-    .filter((el) => el.type !== 'function')
-    .map((input) => input.name)
-  const incorrectDefaultConstructorArgNames = Object.keys(
-    userDefaultConstructorArgs
-  ).filter((argName) => !constructorArgNames.includes(argName))
-  const undefinedConstructorArgNames: string[] = []
-  const inputDefaultFormatErrors: string[] = []
   const inputOverridesFormatErrors: string[] = []
-  const incorrectOverriddenConstructorArgs: string[] = []
-
-  const parsedDefaultConstructorArgs: {
-    [name: string]: UserConfigVariable
-  } = {}
-
-  constructorFragment.inputs.forEach((input) => {
-    if (input.type === 'function') {
-      return
-    }
-
-    const constructorArgValue = userDefaultConstructorArgs[input.name]
-    if (constructorArgValue === undefined) {
-      return
-    }
-
-    try {
-      parsedDefaultConstructorArgs[input.name] = parseAndValidateConstructorArg(
-        input,
-        input.name,
-        constructorArgValue,
-        cre
-      )
-    } catch (e) {
-      inputDefaultFormatErrors.push((e as Error).message)
-    }
-  })
+  const incorrectOverrideArgNameErrors: string[] = []
 
   const ambiguousArgOutput: string[] = []
   for (const [networkName, overrides] of Object.entries(
-    ambigiousArgOverrides
+    ambiguousArgOverrides
   )) {
     // Detect any incorrect override names
-    const incorrectConstructorArgNames = Object.keys(overrides).filter(
-      (argName) => !constructorArgNames.includes(argName)
+    const incorrectOverrideArgNames = Object.keys(overrides).filter(
+      (argName) => !argNames.includes(argName)
     )
-    incorrectOverriddenConstructorArgs.push(
-      ...incorrectConstructorArgNames.map(
+    incorrectOverrideArgNameErrors.push(
+      ...incorrectOverrideArgNames.map(
         (name) => `${name} on network: ${networkName}`
       )
     )
 
     const chainId = SUPPORTED_NETWORKS[networkName]
 
-    // Detect any incorrect arg names in overrides
-    const incorrectConstructorArgOverriddeNames = Object.keys(overrides).filter(
-      (argName) => !constructorArgNames.includes(argName)
-    )
-    incorrectConstructorArgOverriddeNames.forEach((name) => {
-      if (!constructorArgNames.includes(name)) {
-        constructorArgNames.push(name)
-      }
-    })
-
-    if (parsedConstructorArgs[chainId] === undefined) {
-      parsedConstructorArgs[chainId] = {}
+    if (parsedArgsPerChain[chainId] === undefined) {
+      parsedArgsPerChain[chainId] = {}
     }
 
     for (const [arg, values] of Object.entries(overrides)) {
@@ -1739,54 +1843,34 @@ export const parseContractConstructorArgs = (
             .join(', ')}`
         )
       }
+      const argValue = values[0]
 
-      // Use override value if available, otherwise use default value
-      const constructorArgValue = values[0]
-
-      const constructorInput = constructorFragment.inputs.find(
-        (input) => input.name === arg
-      )
+      const fragmentInput = fragmentInputs.find((input) => input.name === arg)
 
       // If we can't find the input, then skip b/c this arg isn't valid anyway and will be logged
-      if (!constructorInput) {
+      if (!fragmentInput) {
         continue
       }
 
       try {
-        parsedConstructorArgs[chainId][constructorInput.name] =
-          parseAndValidateConstructorArg(
-            constructorInput,
-            constructorInput.name,
-            constructorArgValue,
-            cre
-          )
+        parsedArgsPerChain[chainId][fragmentInput.name] = parseAndValidateArg(
+          fragmentInput,
+          fragmentInput.name,
+          argValue,
+          cre
+        )
       } catch (e) {
         inputOverridesFormatErrors.push((e as Error).message)
       }
     }
   }
 
-  // Fill in default values for anything not overridden
-  for (const [chainId, args] of Object.entries(parsedConstructorArgs)) {
-    constructorFragment.inputs.forEach((input) => {
-      if (input.type === 'function') {
-        return
-      }
+  // Fill in default values for anything not overridden.
+  for (const [chainId, argOverrides] of Object.entries(parsedArgsPerChain)) {
+    argNames.forEach((argName) => {
+      const parsedArgValue = argOverrides[argName] ?? parsedDefaultArgs[argName]
 
-      const constructorArgValue =
-        args[input.name] ?? parsedDefaultConstructorArgs[input.name]
-
-      const networkName = Object.entries(SUPPORTED_NETWORKS).find(
-        (network) => network[1] === parseInt(chainId, 10)
-      )?.[0]
-
-      if (constructorArgValue === undefined) {
-        undefinedConstructorArgNames.push(
-          `${input.name} on network: ${networkName}`
-        )
-      }
-
-      parsedConstructorArgs[chainId][input.name] = constructorArgValue
+      parsedArgsPerChain[chainId][argName] = parsedArgValue
     })
   }
 
@@ -1803,7 +1887,7 @@ export const parseContractConstructorArgs = (
   if (ambiguousArgOutput.length > 0) {
     logValidationError(
       'error',
-      `Detected ambiguous constructor argument overrides for ${referenceName}:`,
+      `The config contains ambiguous argument overrides for the ${fragmentLogName}:`,
       ambiguousArgOutput,
       cre.silent,
       cre.stream
@@ -1819,60 +1903,24 @@ export const parseContractConstructorArgs = (
 
     logValidationError(
       'error',
-      'Detected incorrectly defined constructor argument overrides:',
+      `The config contains incorrectly formatted argument overrides in the ${fragmentLogName}:`,
       lines,
       cre.silent,
       cre.stream
     )
   }
 
-  if (inputDefaultFormatErrors.length > 0) {
-    const lines: string[] = []
-
-    for (const error of inputDefaultFormatErrors) {
-      lines.push(error)
-    }
-
+  if (incorrectOverrideArgNameErrors.length > 0) {
     logValidationError(
       'error',
-      'Detected incorrectly defined default constructor arguments:',
-      lines,
+      `The config contains argument overrides in the ${fragmentLogName} which do not exist in the contract:`,
+      incorrectOverrideArgNameErrors,
       cre.silent,
       cre.stream
     )
   }
 
-  if (incorrectOverriddenConstructorArgs.length > 0) {
-    logValidationError(
-      'error',
-      `The following overridden constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:`,
-      incorrectOverriddenConstructorArgs,
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (incorrectDefaultConstructorArgNames.length > 0) {
-    logValidationError(
-      'error',
-      `The following default constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:`,
-      incorrectDefaultConstructorArgNames,
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (undefinedConstructorArgNames.length > 0) {
-    logValidationError(
-      'error',
-      `The following constructor arguments are required by the constructor for ${referenceName}, but were not found in your config for one or more networks. Please either define a default value for these arguments or specify a value for every network.`,
-      undefinedConstructorArgNames,
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  return parsedConstructorArgs
+  return parsedArgsPerChain
 }
 
 export const assertStorageCompatiblePreserveKeywords = (
@@ -1936,7 +1984,6 @@ export const assertStorageCompatiblePreserveKeywords = (
  * @param validReferenceNames Valid reference names for this Sphinx config file.
  */
 export const assertValidContractReferences = (
-  contract: UserContractConfig,
   variable: UserConfigVariable,
   validReferenceNames: string[],
   cre: SphinxRuntimeEnvironment
@@ -1978,17 +2025,12 @@ export const assertValidContractReferences = (
     }
   } else if (Array.isArray(variable)) {
     for (const element of variable) {
-      assertValidContractReferences(contract, element, validReferenceNames, cre)
+      assertValidContractReferences(element, validReferenceNames, cre)
     }
   } else if (typeof variable === 'object') {
     for (const [varName, varValue] of Object.entries(variable)) {
-      assertValidContractReferences(contract, varName, validReferenceNames, cre)
-      assertValidContractReferences(
-        contract,
-        varValue,
-        validReferenceNames,
-        cre
-      )
+      assertValidContractReferences(varName, validReferenceNames, cre)
+      assertValidContractReferences(varValue, validReferenceNames, cre)
     }
   } else if (
     typeof variable === 'boolean' ||
@@ -2066,7 +2108,7 @@ export const assertValidParsedSphinxFile = async (
         const currProxyAdmin = importCache.currProxyAdmin
         if (!currProxyAdmin) {
           throw new Error(
-            `ConfigCache does not contain current admin of ${referenceName}. Should never happen.`
+            `ConfigCache does not contain current admin. Should never happen.`
           )
         }
 
@@ -2370,21 +2412,14 @@ const logUnsafeOptions = (
   }
 }
 
-export const assertValidConstructorArgs = (
+export const resolveContractReferences = (
   userConfig: UserSphinxConfig,
-  networks: string[],
-  configArtifacts: ConfigArtifacts,
-  managerAddress: string,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction
+  managerAddress: string
 ): {
-  validUserConfig: UserSphinxConfig
-  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
-  contractReferences: { [referenceName: string]: string }
+  resolvedUserConfig: UserSphinxConfig
+  contractAddresses: { [referenceName: string]: string }
 } => {
-  // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
-  const cachedConstructorArgs = {}
-  const contractReferences: { [referenceName: string]: string } = {}
+  const contractAddresses: { [referenceName: string]: string } = {}
 
   // Determine the addresses for all contracts.
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -2394,31 +2429,50 @@ export const assertValidConstructorArgs = (
 
     // Set the address to the user-defined value if it exists, otherwise set it to the
     // Create3 address given to contracts deployed within the Sphinx system.
-    contractReferences[referenceName] =
+    contractAddresses[referenceName] =
       address ?? getTargetAddress(managerAddress, referenceName, salt)
   }
 
   // Resolve all contract references.
-  const validUserConfig: UserSphinxConfig = JSON.parse(
+  const resolvedUserConfig: UserSphinxConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(userConfig))({
-      ...contractReferences,
+      ...contractAddresses,
     })
   )
 
+  return { resolvedUserConfig, contractAddresses }
+}
+
+export const assertValidConstructorArgs = (
+  userConfig: UserSphinxConfig,
+  networks: string[],
+  configArtifacts: ConfigArtifacts,
+  cre: SphinxRuntimeEnvironment,
+  failureAction: FailureAction
+): { [referenceName: string]: ParsedConfigVariables } => {
+  // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
+  const cachedConstructorArgs = {}
+
   // Parse and validate all the constructor arguments.
   for (const [referenceName, userContractConfig] of Object.entries(
-    validUserConfig.contracts
+    userConfig.contracts
   )) {
-    const { artifact } = configArtifacts[referenceName]
+    const { abi } = configArtifacts[referenceName].artifact
+    const iface = new ethers.Interface(abi)
 
-    const args = parseContractConstructorArgs(
-      userContractConfig,
-      referenceName,
-      networks,
-      artifact.abi,
-      cre
-    )
-    cachedConstructorArgs[referenceName] = args
+    try {
+      const args = parseFunctionArgsAndOverrides(
+        `constructor of ${referenceName}`,
+        networks,
+        cre,
+        userContractConfig.constructorArgs,
+        userContractConfig.overrides,
+        iface.fragments.find(ConstructorFragment.isFragment)
+      )
+      cachedConstructorArgs[referenceName] = args
+    } catch (e) {
+      // Do nothing. TODO(docs)
+    }
   }
 
   // Exit if any validation errors were detected up to this point. We exit early here because invalid
@@ -2426,11 +2480,7 @@ export const assertValidConstructorArgs = (
   assertNoValidationErrors(failureAction)
 
   // We return the cached values so we can use them in later steps without rereading the files
-  return {
-    validUserConfig,
-    cachedConstructorArgs,
-    contractReferences,
-  }
+  return cachedConstructorArgs
 }
 
 const assertValidContractVariables = (
@@ -2560,9 +2610,9 @@ export const getUnvalidatedContractConfigs = (
   userConfig: UserSphinxConfig,
   networks: string[],
   configArtifacts: ConfigArtifacts,
+  contractAddresses: { [referenceName: string]: string },
   cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction,
-  managerAddress: string
+  failureAction: FailureAction
 ): ParsedContractConfigs => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
@@ -2573,29 +2623,26 @@ export const getUnvalidatedContractConfigs = (
   const configWithDefaultContractFields = setDefaultContractFields(userConfig)
 
   // Parse and validate contract constructor args
-  // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the parsed constructor args so we don't have to re-read them later
-  const { validUserConfig, cachedConstructorArgs, contractReferences } =
-    assertValidConstructorArgs(
-      configWithDefaultContractFields,
-      networks,
-      configArtifacts,
-      managerAddress,
-      cre,
-      failureAction
-    )
+  const cachedConstructorArgs = assertValidConstructorArgs(
+    configWithDefaultContractFields,
+    networks,
+    configArtifacts,
+    cre,
+    failureAction
+  )
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
-    validUserConfig,
+    userConfig,
     configArtifacts,
     cre
   )
 
   const parsedContractConfigs = parseContractConfigs(
-    validUserConfig,
+    userConfig,
     configArtifacts,
-    contractReferences,
+    contractAddresses,
     parsedVariables,
     cachedConstructorArgs,
     cre
@@ -2777,7 +2824,7 @@ export const assertImmutableDeploymentsDoNotRevert = (
 
 export const getConfigCache = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  contractConfigs: ParsedContractConfigs,
+  parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   registryAddress: string,
   managerAddress: string
@@ -2801,7 +2848,7 @@ export const getConfigCache = async (
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
-    contractConfigs
+    parsedConfig.contracts
   )) {
     const { abi, bytecode } = configArtifacts[referenceName].artifact
     const { address, constructorArgs } = parsedContractConfig
@@ -2911,6 +2958,30 @@ export const getConfigCache = async (
     }
   }
 
+  const SphinxManager = new ethers.Contract(
+    managerAddress,
+    SphinxManagerABI,
+    provider
+  )
+  // TODO(docs): => skip
+  const callHashesToSkip: { [callHash: string]: boolean } = {}
+  for (const callActionsForChain of Object.values(parsedConfig.postDeploy)) {
+    for (const callAction of callActionsForChain) {
+      const { to, payload, salt } = callAction
+      const callHash = getCallHash(to, payload, salt)
+      if (!isManagerDeployed_) {
+        callHashesToSkip[callHash] = false
+      } else {
+        const skipCallHash = await SphinxManager.callHashes(callHash)
+        if (skipCallHash) {
+          callHashesToSkip[callHash] = true
+        } else {
+          callHashesToSkip[callHash] = false
+        }
+      }
+    }
+  }
+
   return {
     isManagerDeployed: isManagerDeployed_,
     chainId,
@@ -2918,8 +2989,13 @@ export const getConfigCache = async (
     blockGasLimit,
     networkName,
     contractConfigCache,
+    callHashesToSkip,
   }
 }
+
+// TODO: where do we assert that the user is on a supported chain ID? if we don't already have this,
+// we should put it in post-parsing validation b/c it's after `getConfigCache`, where we get the
+// chain ID
 
 const assertNoValidationErrors = (failureAction: FailureAction): void => {
   if (validationErrors) {
@@ -3194,4 +3270,118 @@ export const parseConfigOptions = (
     ownerThreshold,
     proposers,
   }
+}
+
+// TODO(docs): contract references were already resolved before calling
+// `parsePostDeploymentActions`. put this in the docs where you call this function
+
+const parsePostDeploymentActions = (
+  userActions: Array<UserCallAction>,
+  contractConfigs: ParsedContractConfigs,
+  networks: Array<string>,
+  configArtifacts: ConfigArtifacts,
+  cre: SphinxRuntimeEnvironment
+): ParsedCallActionsPerChain => {
+  const parsedActionsPerChain: ParsedCallActionsPerChain = {}
+
+  // TODO(docs)
+  const salts: { [chainId: string]: { [addressWithPayload: string]: string } } =
+    {}
+
+  for (const callAction of userActions) {
+    // TODO(docs): contract reference was already resolved
+    const address = callAction.contractReferenceOrAddress
+
+    const referenceName = findReferenceNameForAddress(address, contractConfigs)
+
+    let abi: Array<any>
+    if (callAction.abi) {
+      abi = callAction.abi
+    } else {
+      if (referenceName) {
+        abi = configArtifacts[referenceName].artifact.abi
+      } else {
+        logValidationError(
+          'error',
+          `You must include an ABI when instantiating the 'SphinxContractTODO' class for ` +
+            `the contract at address ${address}.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+        // TODO(docs)
+        continue
+      }
+    }
+
+    // TODO(docs): used for displaying logs to the user
+    const fragmentLogName = referenceName
+      ? `function '${callAction.functionName}' of '${referenceName}'`
+      : `function '${callAction.functionName}' at ${address}`
+
+    const iface = new ethers.Interface(abi)
+    const fragment = iface.fragments.find(
+      (_fragment) =>
+        FunctionFragment.isFragment(_fragment) &&
+        _fragment.name === callAction.functionName
+    )
+
+    let argsPerChain: ParsedFunctionArgsPerChain
+    try {
+      argsPerChain = parseFunctionArgsAndOverrides(
+        fragmentLogName,
+        networks,
+        cre,
+        callAction.functionArgs,
+        callAction.functionArgOverrides,
+        fragment
+      )
+    } catch (e) {
+      // TODO(docs) - same as other call to `parseFunction...`. say that we move on to the next _.
+      continue
+    }
+
+    for (const [chainId, args] of Object.entries(argsPerChain)) {
+      if (salts[chainId] === undefined) {
+        salts[chainId] = {}
+      }
+
+      const argValues = getFunctionArgValueArray(args, fragment)
+
+      const payload = iface.encodeFunctionData(
+        callAction.functionName,
+        argValues
+      )
+
+      const addressWithPayload = ethers.concat([address, payload])
+
+      const salt = salts[chainId][addressWithPayload] ?? ethers.ZeroHash
+
+      const parsedAction = {
+        to: address,
+        payload,
+        salt,
+      }
+
+      const parsedActions: Array<ParsedCallAction> | undefined =
+        parsedActionsPerChain[chainId]
+
+      if (parsedActions) {
+        parsedActions.push(parsedAction)
+      } else {
+        parsedActionsPerChain[chainId] = [parsedAction]
+      }
+
+      // Increment the salt.
+      const newSaltBN = BigInt(salt) + 1n
+
+      // Convert the salt to a 32 byte hex string.
+      const newSaltBytes32 = ethers.zeroPadValue(ethers.toBeHex(newSaltBN), 32)
+
+      // Update the salt.
+      salts[chainId][addressWithPayload] = newSaltBytes32
+    }
+  }
+
+  return parsedActionsPerChain
 }
