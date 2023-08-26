@@ -95,6 +95,9 @@ contract SphinxManager is
      */
     uint256 internal immutable executionLockTime;
 
+    // TODO(docs)
+    mapping(bytes32 => bool) public callHashes;
+
     /**
      * @notice Mapping of deployment IDs to deployment state.
      */
@@ -573,7 +576,12 @@ contract SphinxManager is
                 (bool success, ) = action.addr.call(payload);
                 if (success) {
                     bytes32 callHash = keccak256(abi.encode(action.addr, payload, salt));
-                    emit CallExecuted(activeDeploymentId, action.index, callHash);
+
+                    if (!callHashes[callHash]) {
+                        callHashes[callHash] = true;
+                    }
+
+                    emit CallExecuted(activeDeploymentId, action.index);
                     registry.announce("CallExecuted");
                 } else {
                     _deploymentFailed(deployment, action.index);

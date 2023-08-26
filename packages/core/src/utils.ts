@@ -15,6 +15,7 @@ import {
   AbiCoder,
   Provider,
   JsonRpcSigner,
+  ConstructorFragment,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -57,7 +58,6 @@ import {
   ContractKind,
   ParsedConfigVariables,
   ParsedConfigVariable,
-  GetConfigArtifacts,
   ConfigArtifacts,
   GetCanonicalConfig,
   UserConfigWithOptions,
@@ -65,9 +65,13 @@ import {
   ParsedConfig,
   ParsedConfigWithOptions,
   NetworkType,
+  ParsedContractConfigs,
+  UserConstructorArgOverride,
+  UserArgOverride,
+  UserFunctionArgOverride,
+  UserConfigVariable,
 } from './config/types'
 import {
-  AuthLeaf,
   SphinxActionBundle,
   SphinxActionType,
   SphinxBundles,
@@ -93,18 +97,13 @@ import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,
-  getAuthLeafsForChain,
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
-import {
-  assertValidConfigOptions,
-  getParsedConfigWithOptions,
-  parseConfigOptions,
-} from './config/parse'
+import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS } from './networks'
+import { SUPPORTED_NETWORKS, SupportedChainId } from './networks'
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -634,25 +633,23 @@ export const isEqualType = (
   return isEqual
 }
 
-export const getConstructorArgs = (
-  constructorArgs: ParsedConfigVariables,
-  abi: Array<Fragment>
+// TODO(docs): converts the variables from the object format used by Sphinx into an ordered array
+// which can be used by ethersJS and etherscan
+export const getFunctionArgValueArray = (
+  args: ParsedConfigVariables,
+  fragment?: Fragment
 ): Array<ParsedConfigVariable> => {
-  const constructorArgValues: Array<ParsedConfigVariable> = []
+  const argValues: Array<ParsedConfigVariable> = []
 
-  const constructorFragment = abi.find(
-    (fragment) => fragment.type === 'constructor'
-  )
-
-  if (constructorFragment === undefined) {
-    return constructorArgValues
+  if (fragment === undefined) {
+    return argValues
   }
 
-  constructorFragment.inputs.forEach((input) => {
-    constructorArgValues.push(constructorArgs[input.name])
+  fragment.inputs.forEach((input) => {
+    argValues.push(args[input.name])
   })
 
-  return constructorArgValues
+  return argValues
 }
 
 export const getCreationCodeWithConstructorArgs = (
@@ -660,9 +657,11 @@ export const getCreationCodeWithConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: ContractArtifact['abi']
 ): string => {
-  const constructorArgValues = getConstructorArgs(constructorArgs, abi)
-
   const iface = new ethers.Interface(abi)
+  const constructorArgValues = getFunctionArgValueArray(
+    constructorArgs,
+    iface.fragments.find(ConstructorFragment.isFragment)
+  )
 
   const creationCodeWithConstructorArgs = bytecode.concat(
     remove0x(iface.encodeDeploy(constructorArgValues))
@@ -1092,7 +1091,7 @@ export const getImplAddress = (
   managerAddress: string,
   bytecode: string,
   constructorArgs: ParsedConfigVariables,
-  abi: Array<Fragment>
+  abi: ContractArtifact['abi']
 ): string => {
   const implInitCode = getCreationCodeWithConstructorArgs(
     bytecode,
@@ -1599,4 +1598,58 @@ export const isHttpNetworkConfig = (
   config: NetworkConfig
 ): config is HttpNetworkConfig => {
   return 'url' in config
+}
+
+export const getCallHash = (
+  to: string,
+  payload: string,
+  salt: string
+): string => {
+  return ethers.keccak256(
+    AbiCoder.defaultAbiCoder().encode(
+      ['address', 'bytes', 'bytes32'],
+      [to, payload, salt]
+    )
+  )
+}
+
+export const findReferenceNameForAddress = (
+  address: string,
+  contractConfigs: ParsedContractConfigs
+): string | undefined => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    if (
+      ethers.getAddress(contractConfig.address) === ethers.getAddress(address)
+    ) {
+      return referenceName
+    }
+  }
+  return undefined
+}
+
+export const isSupportedChainId = (
+  chainId: number
+): chainId is SupportedChainId => {
+  return Object.values(SUPPORTED_NETWORKS).some(
+    (supportedChainId) => supportedChainId === chainId
+  )
+}
+
+export const isUserConstructorArgOverride = (
+  arg: UserArgOverride
+): arg is UserConstructorArgOverride => {
+  return (arg as UserConstructorArgOverride).constructorArgs !== undefined
+}
+
+export const isUserFunctionArgOverrideArray = (
+  arg: Array<UserArgOverride> | UserConfigVariable | undefined
+): arg is Array<UserFunctionArgOverride> => {
+  return (
+    Array.isArray(arg) &&
+    arg.every((e) => {
+      return (e as UserFunctionArgOverride).args !== undefined
+    })
+  )
 }

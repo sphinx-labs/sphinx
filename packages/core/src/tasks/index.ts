@@ -142,10 +142,10 @@ export const proposeAbstractTask = async (
   // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
   // there aren't any network-specific errors that are caused by the config. These errors would most
   // likely occur in the `postParsingValidation` function that's a few calls inside of
-  // `getParsedConfigWithOptions`. Note that the parsed config will be the same on each chain ID because the
-  // network-specific validation does not change any fields in the parsed config. Likewise, the
-  // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
-  // `ConfigCache` object.
+  // `getParsedConfigWithOptions`. TODO: this isn't true anymore: Note that the parsed config will
+  // be the same on each chain ID because the network-specific validation does not change any fields
+  // in the parsed config. Likewise, the `ConfigArtifacts` object will be the same on each chain.
+  // The only thing that will change is the `ConfigCache` object.
   let parsedConfig: ParsedConfigWithOptions | undefined
   let configArtifacts: ConfigArtifacts | undefined
   const leafs: Array<AuthLeaf> = []
@@ -165,6 +165,8 @@ export const proposeAbstractTask = async (
     const provider = getProviderForChainId(chainId)
 
     await ensureSphinxInitialized(provider, wallet.connect(provider))
+
+    // TODO: collect the post-deployment actions, probably keyed by chain ID
 
     const parsedConfigValues = await getParsedConfigWithOptions(
       userConfig,

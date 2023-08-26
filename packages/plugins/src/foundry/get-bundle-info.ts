@@ -116,6 +116,7 @@ const ownerAddress = args[3]
       manager: managerAddress,
       contracts: contractConfigs,
       projectName: userConfig.projectName,
+      postDeploy: {}, // TODO
     }
 
     await postParsingValidation(

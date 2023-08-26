@@ -9,15 +9,12 @@ import {
 } from '@sphinx-labs/contracts'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import { CompilerInput } from 'hardhat/types'
+import { InterfaceAbi } from 'ethers/lib.commonjs/abi/interface'
+import { ethers } from 'ethers'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import {
-  SupportedChainId,
-  SupportedLocalChainId,
-  SupportedLocalNetworkName,
-  SupportedNetworkName,
-} from '../networks'
+import { SupportedChainId, SupportedNetworkName } from '../networks'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -83,11 +80,6 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export type UserCallAction = {
-  rawReferenceName: string
-  args: Array<any>
-}
-
 export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 
 export type UserConfig = {
@@ -100,8 +92,17 @@ export type UserConfig = {
 export type UserConfigWithOptions = {
   projectName: string
   contracts: UserContractConfigs
-  postDeploy: Array<UserCallAction>
   options: UserConfigOptions
+  postDeploy: Array<UserCallAction>
+}
+
+export type UserCallAction = {
+  functionName: string
+  functionArgs: Array<UserConfigVariable>
+  contractReferenceOrAddress: string
+  abi?: Array<any>
+  addressOverrides?: Array<UserAddressOverrides>
+  functionArgOverrides?: Array<UserFunctionArgOverride>
 }
 
 /**
@@ -131,10 +132,17 @@ export interface ConfigOptions {
   proposers: Array<string>
 }
 
+export type ParsedCallAction = {
+  to: string
+  payload: string
+  salt: string
+}
+
 export interface ParsedConfig {
   projectName: string
   manager: string
   contracts: ParsedContractConfigs
+  postDeploy: ParsedCallActionsPerChain
 }
 
 export interface ParsedOwnerConfig extends ParsedConfig {
@@ -168,7 +176,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
-  overrides?: Array<UserConstructorArgOverrides>
+  overrides?: Array<UserConstructorArgOverride>
   salt?: UserSalt
   unsafeAllow?: UnsafeAllow
 }
@@ -183,11 +191,27 @@ export type UserConfigVariables = {
   [name: string]: UserConfigVariable
 }
 
-export type UserConstructorArgOverrides = {
-  chains: Array<SupportedNetworkName | SupportedLocalNetworkName>
+export type UserArgOverride =
+  | UserConstructorArgOverride
+  | UserFunctionArgOverride
+
+export type UserConstructorArgOverride = {
+  chains: Array<SupportedNetworkName>
   constructorArgs: {
     [name: string]: UserConfigVariable
   }
+}
+
+export type UserFunctionArgOverride = {
+  chains: Array<SupportedNetworkName>
+  args: {
+    [name: string]: UserConfigVariable
+  }
+}
+
+export type UserAddressOverrides = {
+  chains: Array<SupportedNetworkName>
+  address: string
 }
 
 /**
@@ -200,7 +224,7 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  constructorArgs: ParsedConstructorArgsPerChain
+  constructorArgs: ParsedFunctionArgsPerChain
   isUserDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
   salt: string
@@ -212,8 +236,12 @@ export type ParsedContractConfigs = {
   [referenceName: string]: ParsedContractConfig
 }
 
-export type ParsedConstructorArgsPerChain = {
-  [key in SupportedChainId | SupportedLocalChainId]?: ParsedConfigVariables
+export type ParsedFunctionArgsPerChain = {
+  [key in SupportedChainId]?: ParsedConfigVariables
+}
+
+export type ParsedCallActionsPerChain = {
+  [key in SupportedChainId]?: Array<ParsedCallAction>
 }
 
 export type ParsedConfigVariables = {
@@ -246,12 +274,15 @@ export type ConfigArtifacts = {
  * @notice This is the ConfigCache that's used in the Foundry plugin. It's a subset of the
  * ConfigCache that's used in the Hardhat Sphinx plugin. The fields that are missing from this type
  * are either difficult to retrieve in Solidity or not needed in the Foundry plugin.
+ *
+ * @param callHashesToSkip TODO(docs)
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
   blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
+  callHashesToSkip: { [callHash: string]: boolean }
 }
 
 /**

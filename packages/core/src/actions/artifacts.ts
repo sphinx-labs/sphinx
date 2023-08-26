@@ -1,4 +1,4 @@
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import {
   ProxyABI,
   ProxyArtifact,
@@ -16,7 +16,7 @@ import {
 } from '../languages/solidity/types'
 import {
   writeDeploymentFolderForNetwork,
-  getConstructorArgs,
+  getFunctionArgValueArray,
   writeDeploymentArtifact,
 } from '../utils'
 import 'core-js/features/array/at'
@@ -119,9 +119,10 @@ export const writeDeploymentArtifacts = async (
       const referenceName = deploymentEvent.args.referenceName
       const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
-      const constructorArgValues = getConstructorArgs(
+      const iface = new ethers.Interface(abi)
+      const constructorArgValues = getFunctionArgValueArray(
         parsedConfig.contracts[referenceName].constructorArgs,
-        abi
+        iface.fragments.find(ConstructorFragment.isFragment)
       )
       const { metadata } = buildInfo.output.contracts[sourceName][contractName]
       const storageLayout = getStorageLayout(
