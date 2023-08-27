@@ -19,6 +19,7 @@ import {
   proposeThenApproveDeploymentThenExecute,
   registerProject,
   setupThenProposeThenApproveDeploymentThenExecute,
+  revertSnapshots,
 } from './helpers'
 import {
   cre,
@@ -57,23 +58,7 @@ describe('Multi chain projects', () => {
     [network: string]: string
   } = {}
   beforeEach(async () => {
-    // Revert to a snapshot of the blockchain state before each test. The snapshot is taken after
-    // the `before` hook above is run.
-    for (const network of allTestnets) {
-      const provider = rpcProviders[network]
-
-      const snapshotId = snapshotIds[network]
-      // Attempt to revert to the previous snapshot.
-      try {
-        await provider.send('evm_revert', [snapshotId])
-      } catch (e) {
-        // An error will be thrown when this `beforeEach` hook is run for the first time. This is
-        // because there is no `snapshotId` yet. We can ignore this error.
-      }
-
-      const newSnapshotId = await provider.send('evm_snapshot', [])
-      snapshotIds[network] = newSnapshotId
-    }
+    await revertSnapshots(allTestnets, snapshotIds)
   })
 
   for (const projectTestInfo of multichainTestInfo) {

@@ -29,10 +29,8 @@ export const DeploymentStatus = {
 export interface RawSphinxAction {
   actionType: SphinxActionType
   index: number
-  referenceName: string
   data: string
   addr: string
-  contractKindHash: string
 }
 
 export interface SphinxTarget {
@@ -45,7 +43,6 @@ export interface SphinxTarget {
  * SetStorage action data.
  */
 export interface SetStorageAction {
-  referenceName: string
   addr: string
   contractKindHash: string
   index: number
@@ -58,21 +55,17 @@ export interface SetStorageAction {
  * DeployContract action data.
  */
 export interface DeployContractAction {
-  referenceName: string
   addr: string
-  contractKindHash: string
   index: number
   salt: string
   code: string
 }
 
 export interface CallAction {
-  referenceName: string
   addr: string
-  contractKindHash: string
   index: number
-  payload: string
-  salt: string
+  data: string
+  nonce: number
 }
 
 export interface SphinxBundles {
@@ -91,6 +84,7 @@ export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
 export type BundledSphinxAction = {
   action: RawSphinxAction
   siblings: string[]
+  gas: bigint
 }
 
 /**

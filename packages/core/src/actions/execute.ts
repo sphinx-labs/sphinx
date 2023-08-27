@@ -17,7 +17,6 @@ export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
   blockGasLimit: bigint,
-  configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   logger?: Logger | undefined
 ): Promise<{
@@ -45,7 +44,6 @@ export const executeDeployment = async (
     false,
     manager,
     maxGasLimit,
-    configArtifacts,
     provider,
     logger
   )
@@ -77,7 +75,6 @@ export const executeDeployment = async (
     true,
     manager,
     maxGasLimit,
-    configArtifacts,
     provider,
     logger
   )
@@ -110,12 +107,11 @@ export const executeDeployment = async (
  */
 const findMaxBatchSize = async (
   actions: BundledSphinxAction[],
-  maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts
+  maxGasLimit: bigint
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(actions, maxGasLimit, configArtifacts)) {
+  if (await executable(actions, maxGasLimit)) {
     return actions.length
   }
 
@@ -125,7 +121,7 @@ const findMaxBatchSize = async (
   let max = actions.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(actions.slice(0, mid), maxGasLimit, configArtifacts)) {
+    if (await executable(actions.slice(0, mid), maxGasLimit)) {
       min = mid
     } else {
       max = mid - 1
@@ -152,7 +148,6 @@ const executeBatchActions = async (
   isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts,
   provider: Provider,
   logger?: Logger | undefined
 ): Promise<{
@@ -181,8 +176,7 @@ const executeBatchActions = async (
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),
-      maxGasLimit,
-      configArtifacts
+      maxGasLimit
     )
 
     // Pull out the next batch of actions.
@@ -238,30 +232,11 @@ const executeBatchActions = async (
  */
 export const executable = async (
   selected: BundledSphinxAction[],
-  maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts
+  maxGasLimit: bigint
 ): Promise<boolean> => {
-  let estGasUsed = BigInt(0)
-
-  for (const action of selected) {
-    const { actionType, referenceName } = action.action
-    if (actionType === SphinxActionType.DEPLOY_CONTRACT) {
-      const { buildInfo, artifact } = configArtifacts[referenceName]
-      const { sourceName, contractName } = artifact
-
-      const deployContractCost = getEstDeployContractCost(
-        buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-      )
-
-      // We add 150k as an estimate for the cost of the transaction that executes the DeployContract
-      // action.
-      estGasUsed = estGasUsed + deployContractCost + 150_000n
-    } else if (actionType === SphinxActionType.SET_STORAGE) {
-      estGasUsed = estGasUsed + BigInt(150_000)
-    } else {
-      throw new Error(`Unknown action type. Should never happen.`)
-    }
-  }
+  const estGasUsed = selected
+    .map((action) => action.gas)
+    .reduce((a, b) => a + b)
 
   return maxGasLimit > estGasUsed
 }

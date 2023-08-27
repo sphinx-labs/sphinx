@@ -1,23 +1,7 @@
-import { writeFileSync } from 'fs'
-
-import {
-  BaseContract,
-  BaseContractMethod,
-  Contract,
-  ContractInterface,
-  ContractMethodArgs,
-  ContractRunner,
-  Fragment,
-  Interface,
-  InterfaceAbi,
-  isError,
-} from 'ethers'
-
 import {
   UserAddressOverrides,
   UserCallAction,
   UserConfigVariable,
-  UserConfigVariables,
   UserFunctionArgOverride,
 } from './config'
 import 'core-js/features/array/at'
@@ -81,26 +65,24 @@ const HelloSphinxABI = [
   },
 ]
 
-// TODO: SphinxContract -> Contract
-
 // TODO(docs) everywhere in this file
 
-// TODO(docs): the SphinxContract class shouldn't have any public properties because...
+// TODO(docs): the Contract class shouldn't have any public properties because...
 
 type MethodArgs = [...Array<UserConfigVariable | UserFunctionArgOverride>]
 type Method = (...args: MethodArgs) => UserCallAction
 
-export class SphinxContract {
+export class Contract {
   [name: string]: Method
 
-  #contractReferenceOrAddress: string
+  #address: string
 
   #abi?: Array<any>
 
   #addressOverrides?: Array<UserAddressOverrides>
 
   #buildWrappedMethod = (
-    sphinxContract: SphinxContract,
+    sphinxContract: Contract,
     functionName: string
   ): Method => {
     sphinxContract
@@ -125,7 +107,7 @@ export class SphinxContract {
         functionName,
         functionArgs,
         abi: sphinxContract.#abi,
-        contractReferenceOrAddress: sphinxContract.#contractReferenceOrAddress,
+        address: sphinxContract.#address,
         addressOverrides: sphinxContract.#addressOverrides,
         functionArgOverrides,
       }
@@ -140,12 +122,18 @@ export class SphinxContract {
   // TODO(docs): natspec docs here for the user
   constructor(
     address: string,
-    overrides?: Array<UserAddressOverrides>,
-    abi?: Array<any>
+    options?: {
+      abi?: Array<any>
+      overrides?: Array<UserAddressOverrides>
+    }
   ) {
-    this.#contractReferenceOrAddress = address
-    this.#abi = abi
-    this.#addressOverrides = overrides
+    if (options) {
+      const { abi, overrides } = options
+      this.#abi = abi
+      this.#addressOverrides = overrides
+    }
+
+    this.#address = address
 
     // Return a Proxy that will respond to functions
     return new Proxy(this, {
@@ -160,32 +148,32 @@ export class SphinxContract {
   }
 }
 
-const ct = new SphinxContract('{{ MyContract }}')
-const a = ct.increment()
-const b = ct.increment('2', '3', '4')
-const c = ct.increment('2', '3', {
-  chains: ['anvil'],
-  args: {},
-})
-// const ct2 = new SphinxContract('0x1234...', HelloSphinxABI)
-// const ct3 = new SphinxContract('0x1234...', HelloSphinxABI, [
-//   {
-//     chains: ['ethereum', 'optimism'],
-//     address: '0x1234...',
-//   },
-// ])
+// const ct = new Contract('{{ MyContract }}')
+// const a = ct.increment()
+// const b = ct.increment('2', '3', '4')
+// const c = ct.increment('2', '3', {
+//   chains: ['anvil'],
+//   args: {},
+// })
+// // const ct2 = new Contract('0x1234...', HelloSphinxABI)
+// // const ct3 = new Contract('0x1234...', HelloSphinxABI, [
+// //   {
+// //     chains: ['ethereum', 'optimism'],
+// //     address: '0x1234...',
+// //   },
+// // ])
 
-const main = async () => {
-  ct.then('2', '3')
-  // ct.increment('2', '3')
-  ct.increment('4', '5', [
-    {
-      chains: ['ethereum', 'optimism'],
-      params: {
-        _myNumber: 1,
-      },
-    },
-  ])
-}
+// const main = async () => {
+//   ct.then('2', '3')
+//   // ct.increment('2', '3')
+//   ct.increment('4', '5', [
+//     {
+//       chains: ['ethereum', 'optimism'],
+//       params: {
+//         _myNumber: 1,
+//       },
+//     },
+//   ])
+// }
 
-main()
+// main()

@@ -33,7 +33,7 @@ declare module 'hardhat/types/runtime' {
       getContract: (
         projectName: string,
         referenceName: string,
-        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
+        owner: ethers.Signer,
         salt?: UserSalt
       ) => Promise<ethers.Contract>
     }
@@ -58,7 +58,7 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
       getContract: async (
         projectName: string,
         referenceName: string,
-        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
+        owner: ethers.Signer,
         salt?: UserSalt
       ): Promise<ethers.Contract> => {
         const contract = await getContract(

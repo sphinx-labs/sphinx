@@ -20,7 +20,7 @@ export const createSphinxRuntime = (
     confirm,
     stream,
     silent,
-    // TODO: add this back to the CRE when adding support for OpenZeppelin upgradeable contracts
+    // TODO(upgrades): add this back to the CRE when adding support for OpenZeppelin upgradeable contracts
     // importOpenZeppelinStorageLayout,
     hre,
   }

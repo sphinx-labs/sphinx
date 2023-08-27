@@ -22,7 +22,7 @@ const config: UserSphinxConfig = {
   },
   contracts: {
     IncorrectConstructorArgOverrides: {
-      contract: 'ConstructorArgs',
+      contract: 'MyContract1',
       kind: 'immutable',
       constructorArgs: correctConstructorArgs,
       overrides: [

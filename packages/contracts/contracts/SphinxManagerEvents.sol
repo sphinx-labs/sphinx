@@ -94,19 +94,13 @@ contract SphinxManagerEvents {
     /**
      * @notice Emitted when a contract is deployed by this contract.
      *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
-     * @param referenceName     String reference name.
-     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
-        string indexed referenceNameHash,
         address indexed contractAddress,
         bytes32 indexed deploymentId,
-        string referenceName,
-        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 
@@ -119,20 +113,24 @@ contract SphinxManagerEvents {
     event CallExecuted(bytes32 indexed deploymentId, uint256 actionIndex);
 
     /**
+     * @notice Emitted when a `CALL` action is skipped, which occurs if its nonce is incorrect.
+     *
+     * @param deploymentId ID of the deployment in which the call was skipped.
+     * @param actionIndex Index of the `CALL` action that was skipped.
+     */
+    event CallSkipped(bytes32 indexed deploymentId, uint256 actionIndex);
+
+    /**
      * @notice Emitted when a contract deployment is skipped. This occurs when a contract already
        exists at the Create3 address.
      *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
-     * @param referenceName     String reference name.
      * @param actionIndex Index of the action that attempted to deploy the contract.
      */
     event ContractDeploymentSkipped(
-        string indexed referenceNameHash,
         address indexed contractAddress,
         bytes32 indexed deploymentId,
-        string referenceName,
         uint256 actionIndex
     );
 
