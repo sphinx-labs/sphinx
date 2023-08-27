@@ -9,8 +9,6 @@ import {
 } from '@sphinx-labs/contracts'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import { CompilerInput } from 'hardhat/types'
-import { InterfaceAbi } from 'ethers/lib.commonjs/abi/interface'
-import { ethers } from 'ethers'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -85,7 +83,7 @@ export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 export type UserConfig = {
   projectName: string
   contracts: UserContractConfigs
-  postDeploy: Array<UserCallAction>
+  postDeploy?: Array<UserCallAction>
   options?: never
 }
 
@@ -93,13 +91,13 @@ export type UserConfigWithOptions = {
   projectName: string
   contracts: UserContractConfigs
   options: UserConfigOptions
-  postDeploy: Array<UserCallAction>
+  postDeploy?: Array<UserCallAction>
 }
 
 export type UserCallAction = {
   functionName: string
   functionArgs: Array<UserConfigVariable>
-  contractReferenceOrAddress: string
+  address: string
   abi?: Array<any>
   addressOverrides?: Array<UserAddressOverrides>
   functionArgOverrides?: Array<UserFunctionArgOverride>
@@ -134,8 +132,8 @@ export interface ConfigOptions {
 
 export type ParsedCallAction = {
   to: string
-  payload: string
-  salt: string
+  data: string
+  nonce: number
 }
 
 export interface ParsedConfig {
@@ -210,7 +208,7 @@ export type UserFunctionArgOverride = {
 }
 
 export type UserAddressOverrides = {
-  chains: Array<SupportedNetworkName>
+  chains: Array<string>
   address: string
 }
 
@@ -274,15 +272,14 @@ export type ConfigArtifacts = {
  * @notice This is the ConfigCache that's used in the Foundry plugin. It's a subset of the
  * ConfigCache that's used in the Hardhat Sphinx plugin. The fields that are missing from this type
  * are either difficult to retrieve in Solidity or not needed in the Foundry plugin.
- *
- * @param callHashesToSkip TODO(docs)
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
   blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
-  callHashesToSkip: { [callHash: string]: boolean }
+  callNonces: { [callHash: string]: number }
+  undeployedExternalContracts: { [address: string]: boolean }
 }
 
 /**

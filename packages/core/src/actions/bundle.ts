@@ -51,7 +51,7 @@ import {
 import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
 import { getProjectBundleInfo } from '../tasks'
-import { getDeployContractCosts } from '../estimate'
+import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
 import { SupportedChainId } from '../networks'
 
 /**
@@ -84,8 +84,8 @@ export const isDeployContractAction = (
 
 export const isCallAction = (action: SphinxAction): action is CallAction => {
   return (
-    (action as CallAction).payload !== undefined &&
-    (action as CallAction).salt !== undefined
+    (action as CallAction).data !== undefined &&
+    (action as CallAction).nonce !== undefined
   )
 }
 
@@ -128,20 +128,16 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
     return {
       actionType: SphinxActionType.SET_STORAGE,
       addr: action.addr,
-      contractKindHash: action.contractKindHash,
-      referenceName: action.referenceName,
       index: action.index,
       data: coder.encode(
-        ['bytes32', 'uint8', 'bytes'],
-        [action.key, action.offset, action.value]
+        ['bytes32', 'bytes32', 'uint8', 'bytes'],
+        [action.contractKindHash, action.key, action.offset, action.value]
       ),
     }
   } else if (isDeployContractAction(action)) {
     return {
       actionType: SphinxActionType.DEPLOY_CONTRACT,
       addr: action.addr,
-      contractKindHash: action.contractKindHash,
-      referenceName: action.referenceName,
       index: action.index,
       data: coder.encode(['bytes32', 'bytes'], [action.salt, action.code]),
     }
@@ -149,10 +145,8 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
     return {
       actionType: SphinxActionType.CALL,
       addr: action.addr,
-      contractKindHash: action.contractKindHash,
-      referenceName: action.referenceName,
       index: action.index,
-      data: coder.encode(['bytes32', 'bytes'], [action.salt, action.payload]),
+      data: coder.encode(['uint256', 'bytes'], [action.nonce, action.data]),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -170,14 +164,13 @@ export const fromRawSphinxAction = (
 ): SphinxAction => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.SET_STORAGE) {
-    const [key, offset, value] = coder.decode(
-      ['bytes32', 'uint8', 'bytes'],
+    const [contractKindHash, key, offset, value] = coder.decode(
+      ['bytes32', 'bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
     return {
-      referenceName: rawAction.referenceName,
       addr: rawAction.addr,
-      contractKindHash: rawAction.contractKindHash,
+      contractKindHash,
       index: rawAction.index,
       key,
       offset,
@@ -186,22 +179,18 @@ export const fromRawSphinxAction = (
   } else if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
     const [salt, code] = coder.decode(['bytes32', 'bytes'], rawAction.data)
     return {
-      referenceName: rawAction.referenceName,
       addr: rawAction.addr,
-      contractKindHash: rawAction.contractKindHash,
       index: rawAction.index,
       salt,
       code,
     }
   } else if (rawAction.actionType === SphinxActionType.CALL) {
-    const [salt, payload] = coder.decode(['bytes32', 'bytes'], rawAction.data)
+    const [nonce, data] = coder.decode(['uint256', 'bytes'], rawAction.data)
     return {
-      referenceName: rawAction.referenceName,
       addr: rawAction.addr,
-      contractKindHash: rawAction.contractKindHash,
       index: rawAction.index,
-      payload,
-      salt,
+      data,
+      nonce,
     }
   } else {
     throw new Error(`unknown action type`)
@@ -218,14 +207,8 @@ export const getActionHash = (action: RawSphinxAction): string => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   return ethers.keccak256(
     coder.encode(
-      ['string', 'address', 'uint8', 'bytes32', 'bytes'],
-      [
-        action.referenceName,
-        action.addr,
-        action.actionType,
-        action.contractKindHash,
-        action.data,
-      ]
+      ['address', 'uint8', 'bytes'],
+      [action.addr, action.actionType, action.data]
     )
   )
 }
@@ -412,7 +395,8 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  * @return Bundled actions.
  */
 export const makeActionBundle = (
-  actions: SphinxAction[]
+  actions: SphinxAction[],
+  costs: bigint[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -433,6 +417,7 @@ export const makeActionBundle = (
     actions: rawActions.map((action, idx) => {
       return {
         action,
+        gas: costs[idx],
         siblings: tree.getProof(getActionHash(action), idx).map((element) => {
           return element.data
         }),
@@ -503,6 +488,7 @@ export const makeActionBundleFromConfig = (
 
   const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
+  const costs: bigint[] = []
 
   // TODO(docs)
   let actionIndex = 0
@@ -510,18 +496,20 @@ export const makeActionBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { artifact } = configArtifacts[referenceName]
-    const { abi, bytecode } = artifact
+    const { artifact, buildInfo } = configArtifacts[referenceName]
+    const { abi, bytecode, sourceName, contractName } = artifact
     const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
     const { kind, address, salt, constructorArgs } = contractConfig
+
+    const deployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    )
 
     if (!isTargetDeployed) {
       if (kind === 'immutable') {
         // Add a DEPLOY_CONTRACT action for the unproxied contract.
         actions.push({
-          referenceName,
           addr: address,
-          contractKindHash: contractKindHashes[kind],
           index: actionIndex,
           salt,
           code: getCreationCodeWithConstructorArgs(
@@ -530,16 +518,16 @@ export const makeActionBundleFromConfig = (
             abi
           ),
         })
+        costs.push(deployContractCost)
       } else if (kind === 'proxy') {
         // Add a DEPLOY_CONTRACT action for the default proxy.
         actions.push({
-          referenceName,
           addr: address,
-          contractKindHash: contractKindHashes[kind],
           index: actionIndex,
           salt,
           code: getDefaultProxyInitCode(managerAddress),
         })
+        costs.push(deployContractCost)
       } else {
         throw new Error(
           `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
@@ -568,38 +556,32 @@ export const makeActionBundleFromConfig = (
       const implAddress = getCreate3Address(managerAddress, implSalt)
 
       actions.push({
-        referenceName,
         addr: implAddress,
-        contractKindHash: contractKindHashes['implementation'],
         index: actionIndex,
         salt: implSalt,
         code: implInitCode,
       })
+      costs.push(deployContractCost)
       actionIndex += 1
     }
   }
-
-  // TODO: referenceName and contractKindHash are unused for CALL actions. we should encode them for
-  // the other two actions, and remove them for CALL actions. first, you should actually check if
-  // we use both of these fields for both of those actions.
 
   // Next, we add any `CALL` actions. We currently only support `CALL` actions that occur after all
   // contracts have been deployed, but before an upgrade is initiated. In other words, we put them
   // after all `DEPLOY_CONTRACT` actions and before any `SET_STORAGE` actions.
   const postDeployActions = parsedConfig.postDeploy[chainId]
   if (postDeployActions) {
-    for (const { to, payload, salt } of postDeployActions) {
-      const callHash = getCallHash(to, payload, salt)
-      const skip = configCache.callHashesToSkip[callHash]
-      if (!skip) {
+    for (const { to, data, nonce } of postDeployActions) {
+      const callHash = getCallHash(to, data)
+      const currentNonce = configCache.callNonces[callHash]
+      if (nonce >= currentNonce) {
         actions.push({
-          referenceName: '',
-          contractKindHash: ethers.ZeroHash,
           addr: to,
           index: actionIndex,
-          payload,
-          salt,
+          data,
+          nonce,
         })
+        costs.push(75_000n)
         actionIndex += 1
       }
     }
@@ -631,7 +613,6 @@ export const makeActionBundleFromConfig = (
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const segment of segments) {
       actions.push({
-        referenceName,
         addr: address,
         contractKindHash: contractKindHashes[kind],
         index: actionIndex,
@@ -639,12 +620,13 @@ export const makeActionBundleFromConfig = (
         offset: segment.offset,
         value: segment.val,
       })
+      costs.push(150_000n)
       actionIndex += 1
     }
   }
 
   // Generate a bundle from the list of actions.
-  return makeActionBundle(actions)
+  return makeActionBundle(actions, costs)
 }
 
 /**

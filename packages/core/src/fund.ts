@@ -7,7 +7,6 @@ import {
   isDeployContractAction,
   isSetStorageAction,
 } from './actions'
-import { contractKindHashes } from './config/types'
 
 export const estimateExecutionGas = async (
   provider: SphinxJsonRpcProvider,
@@ -28,10 +27,6 @@ export const estimateExecutionGas = async (
     .map(async (action: DeployContractAction) => {
       if (await isContractDeployed(action.addr, provider)) {
         return BigInt(0)
-      } else if (action.contractKindHash === contractKindHashes['proxy']) {
-        // If the contract is a default proxy, then estimate 550k gas. This is a minor optimization
-        // that we can make because we know the cost of deploying the proxy ahead of time.
-        return BigInt(550_000)
       } else {
         return provider.estimateGas({
           data: action.code,

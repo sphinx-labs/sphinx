@@ -3,8 +3,11 @@ import fs from 'fs'
 
 import {
   ValidationError,
+  assertValidPostDeploymentActions,
   getUnvalidatedContractConfigs,
+  parsePostDeploymentActions,
   postParsingValidation,
+  resolveContractReferences,
 } from '@sphinx-labs/core/dist/config/parse'
 import { FailureAction } from '@sphinx-labs/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
@@ -103,20 +106,45 @@ const ownerAddress = args[3]
       )
     }
 
-    const contractConfigs = getUnvalidatedContractConfigs(
+    const { resolvedUserConfig, contractAddresses } = resolveContractReferences(
       userConfig,
-      [network[0]],
-      configArtifacts,
-      cre,
-      FailureAction.THROW,
       managerAddress
     )
+
+    const contractConfigs = getUnvalidatedContractConfigs(
+      resolvedUserConfig,
+      [network[0]],
+      configArtifacts,
+      contractAddresses,
+      cre,
+      FailureAction.THROW
+    )
+
+    if (resolvedUserConfig.postDeploy) {
+      assertValidPostDeploymentActions(
+        resolvedUserConfig.postDeploy,
+        contractConfigs,
+        FailureAction.THROW,
+        cre
+      )
+    }
+
+    const postDeployActions = resolvedUserConfig.postDeploy
+      ? parsePostDeploymentActions(
+          resolvedUserConfig.postDeploy,
+          contractConfigs,
+          [network[0]],
+          configArtifacts,
+          cre,
+          FailureAction.THROW
+        )
+      : {}
 
     const parsedConfig = {
       manager: managerAddress,
       contracts: contractConfigs,
-      projectName: userConfig.projectName,
-      postDeploy: {}, // TODO
+      projectName: resolvedUserConfig.projectName,
+      postDeploy: postDeployActions,
     }
 
     await postParsingValidation(

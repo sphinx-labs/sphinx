@@ -184,55 +184,55 @@ contract SphinxUtils is
     }
 
     function decodeBundleInfo(bytes memory _data) public view returns (BundleInfo memory) {
-        // The success boolean is the last 32 bytes of the result.
-        bytes memory successBytes = this.slice(_data, _data.length - 32, _data.length);
-        bool success = abi.decode(successBytes, (bool));
+        // // The success boolean is the last 32 bytes of the result.
+        // bytes memory successBytes = this.slice(_data, _data.length - 32, _data.length);
+        // bool success = abi.decode(successBytes, (bool));
 
-        bytes memory data = this.slice(_data, 0, _data.length - 32);
+        // bytes memory data = this.slice(_data, 0, _data.length - 32);
 
-        if (success) {
-            // Next, we decode the result into the bundle info, which consists of the
-            // SphinxBundles, the config URI, the cost of deploying each contract, and any
-            // warnings that occurred when parsing the config. We can't decode all of this in a
-            // single `abi.decode` call because this fails with a "Stack too deep" error. This is
-            // because the SphinxBundles struct is too large for Solidity to decode all at once.
-            // So, we decode the SphinxActionBundle and SphinxTargetBundle separately. This
-            // requires that we know where to split the raw bytes before decoding anything. To solve
-            // this, we use two `splitIdx` variables. The first marks the point where the action
-            // bundle ends and the target bundle begins. The second marks the point where the target
-            // bundle ends and the rest of the bundle info (config URI, warnings, etc) begins.
-            (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
-                this.slice(data, data.length - 64, data.length),
-                (uint256, uint256)
-            );
+        // if (success) {
+        //     // Next, we decode the result into the bundle info, which consists of the
+        //     // SphinxBundles, the config URI, the cost of deploying each contract, and any
+        //     // warnings that occurred when parsing the config. We can't decode all of this in a
+        //     // single `abi.decode` call because this fails with a "Stack too deep" error. This is
+        //     // because the SphinxBundles struct is too large for Solidity to decode all at once.
+        //     // So, we decode the SphinxActionBundle and SphinxTargetBundle separately. This
+        //     // requires that we know where to split the raw bytes before decoding anything. To solve
+        //     // this, we use two `splitIdx` variables. The first marks the point where the action
+        //     // bundle ends and the target bundle begins. The second marks the point where the target
+        //     // bundle ends and the rest of the bundle info (config URI, warnings, etc) begins.
+        //     (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
+        //         this.slice(data, data.length - 64, data.length),
+        //         (uint256, uint256)
+        //     );
 
-            SphinxActionBundle memory decodedActionBundle = abi.decode(
-                this.slice(data, 0, splitIdx1),
-                (SphinxActionBundle)
-            );
-            SphinxTargetBundle memory decodedTargetBundle = abi.decode(
-                this.slice(data, splitIdx1, splitIdx2),
-                (SphinxTargetBundle)
-            );
+        //     SphinxActionBundle memory decodedActionBundle = abi.decode(
+        //         this.slice(data, 0, splitIdx1),
+        //         (SphinxActionBundle)
+        //     );
+        //     SphinxTargetBundle memory decodedTargetBundle = abi.decode(
+        //         this.slice(data, splitIdx1, splitIdx2),
+        //         (SphinxTargetBundle)
+        //     );
 
-            bytes memory remainingBundleInfo = this.slice(data, splitIdx2, data.length);
-            (
-                string memory configUri,
-                DeployContractCost[] memory costs,
-                string memory warnings
-            ) = abi.decode(remainingBundleInfo, (string, DeployContractCost[], string));
+        //     bytes memory remainingBundleInfo = this.slice(data, splitIdx2, data.length);
+        //     (
+        //         string memory configUri,
+        //         DeployContractCost[] memory costs,
+        //         string memory warnings
+        //     ) = abi.decode(remainingBundleInfo, (string, DeployContractCost[], string));
 
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle);
-        } else {
-            (string memory errors, string memory warnings) = abi.decode(data, (string, string));
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            revert(errors);
-        }
+        //     if (bytes(warnings).length > 0) {
+        //         console.log(StdStyle.yellow(warnings));
+        //     }
+        //     return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle);
+        // } else {
+        //     (string memory errors, string memory warnings) = abi.decode(data, (string, string));
+        //     if (bytes(warnings).length > 0) {
+        //         console.log(StdStyle.yellow(warnings));
+        //     }
+        //     revert(errors);
+        // }TODO
     }
 
     // Provides an easy way to get the EOA that's signing transactions in a Forge script. When a
@@ -274,23 +274,19 @@ contract SphinxUtils is
         SphinxTargetBundle memory _targetBundle,
         string memory _configUri
     ) external pure returns (bytes32) {
-        bytes32 actionRoot = _actionBundle.root;
-        bytes32 targetRoot = _targetBundle.root;
-        uint256 numTargets = _targetBundle.targets.length;
+        // (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actionBundle.actions);
 
-        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actionBundle.actions);
-
-        return
-            keccak256(
-                abi.encode(
-                    actionRoot,
-                    targetRoot,
-                    numInitialActions,
-                    numSetStorageActions,
-                    numTargets,
-                    _configUri
-                )
-            );
+        // return
+        //     keccak256(
+        //         abi.encode(
+        //             _actionBundle.root,
+        //             _targetBundle.root,
+        //             numInitialActions,
+        //             numSetStorageActions,
+        //             _targetBundle.targets.length,
+        //             _configUri
+        //         )
+        //     );
     }
 
     function getCurrentSphinxManagerVersion() public pure returns (Version memory) {
@@ -352,26 +348,26 @@ contract SphinxUtils is
         uint maxGasLimit,
         DeployContractCost[] memory costs
     ) public pure returns (bool) {
-        uint256 estGasUsed = 0;
+        // uint256 estGasUsed = 0;
 
-        for (uint i = 0; i < selected.length; i++) {
-            BundledSphinxAction memory action = selected[i];
+        // for (uint i = 0; i < selected.length; i++) {
+        //     BundledSphinxAction memory action = selected[i];
 
-            SphinxActionType actionType = action.action.actionType;
-            string memory referenceName = action.action.referenceName;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                uint256 deployContractCost = findCost(referenceName, costs);
+        //     SphinxActionType actionType = action.action.actionType;
+        //     string memory referenceName = ''; // TODO
+        //     if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
+        //         uint256 deployContractCost = findCost(referenceName, costs);
 
-                // We add 150k as an estimate for the cost of the transaction that executes the
-                // DeployContract action.
-                estGasUsed += deployContractCost + 150_000;
-            } else if (actionType == SphinxActionType.SET_STORAGE) {
-                estGasUsed += 150_000;
-            } else {
-                revert("Unknown action type. Should never happen.");
-            }
-        }
-        return maxGasLimit > estGasUsed;
+        //         // We add 150k as an estimate for the cost of the transaction that executes the
+        //         // DeployContract action.
+        //         estGasUsed += deployContractCost + 150_000;
+        //     } else if (actionType == SphinxActionType.SET_STORAGE) {
+        //         estGasUsed += 150_000;
+        //     } else {
+        //         revert("Unknown action type. Should never happen.");
+        //     }
+        // }
+        // return maxGasLimit > estGasUsed;
     }
 
     function findCost(
@@ -399,30 +395,30 @@ contract SphinxUtils is
         uint maxGasLimit,
         DeployContractCost[] memory costs
     ) public pure returns (uint) {
-        // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(actions, maxGasLimit, costs)) {
-            return actions.length;
-        }
+        // // Optimization, try to execute the entire batch at once before doing a binary search
+        // if (executable(actions, maxGasLimit, costs)) {
+        //     return actions.length;
+        // }
 
-        // If the full batch isn't executavle, then do a binary search to find the largest executable batch size
-        uint min = 0;
-        uint max = actions.length;
-        while (min < max) {
-            uint mid = Math.ceilDiv((min + max), 2);
-            BundledSphinxAction[] memory left = inefficientSlice(actions, 0, mid);
-            if (executable(left, maxGasLimit, costs)) {
-                min = mid;
-            } else {
-                max = mid - 1;
-            }
-        }
+        // // If the full batch isn't executavle, then do a binary search to find the largest executable batch size
+        // uint min = 0;
+        // uint max = actions.length;
+        // while (min < max) {
+        //     uint mid = Math.ceilDiv((min + max), 2);
+        //     BundledSphinxAction[] memory left = inefficientSlice(actions, 0, mid);
+        //     if (executable(left, maxGasLimit, costs)) {
+        //         min = mid;
+        //     } else {
+        //         max = mid - 1;
+        //     }
+        // }
 
-        // No possible size works, this is a problem and should never happen
-        if (min == 0) {
-            revert("Unable to find a batch size that does not exceed the block gas limit");
-        }
+        // // No possible size works, this is a problem and should never happen
+        // if (min == 0) {
+        //     revert("Unable to find a batch size that does not exceed the block gas limit");
+        // }
 
-        return min;
+        // return min;
     }
 
     function equals(string memory _str1, string memory _str2) public pure returns (bool) {
@@ -436,17 +432,17 @@ contract SphinxUtils is
     function getNumActions(
         BundledSphinxAction[] memory _actions
     ) public pure returns (uint256, uint256) {
-        uint256 numInitialActions = 0;
-        uint256 numSetStorageActions = 0;
-        for (uint256 i = 0; i < _actions.length; i++) {
-            SphinxActionType actionType = _actions[i].action.actionType;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT || actionType == SphinxActionType.CALL) {
-                numInitialActions += 1;
-            } else if (actionType == SphinxActionType.SET_STORAGE) {
-                numSetStorageActions += 1;
-            }
-        }
-        return (numInitialActions, numSetStorageActions);
+        // uint256 numInitialActions = 0;
+        // uint256 numSetStorageActions = 0;
+        // for (uint256 i = 0; i < _actions.length; i++) {
+        //     SphinxActionType actionType = _actions[i].action.actionType;
+        //     if (actionType == SphinxActionType.DEPLOY_CONTRACT || actionType == SphinxActionType.CALL) {
+        //         numInitialActions += 1;
+        //     } else if (actionType == SphinxActionType.SET_STORAGE) {
+        //         numSetStorageActions += 1;
+        //     }
+        // }
+        // return (numInitialActions, numSetStorageActions);
     }
 
     function getConfigCache(
@@ -456,74 +452,74 @@ contract SphinxUtils is
         string memory _rpcUrl,
         string memory _mainFfiScriptPath
     ) external returns (ConfigCache memory) {
-        bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
+        // bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
 
-        ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
-            _minimalConfig.contracts.length
-        );
-        for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            FoundryContractConfig memory contractConfig = _minimalConfig.contracts[i];
+        // ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
+        //     _minimalConfig.contracts.length
+        // );
+        // for (uint256 i = 0; i < contractConfigCache.length; i++) {
+        //     FoundryContractConfig memory contractConfig = _minimalConfig.contracts[i];
 
-            bool isTargetDeployed = contractConfig.addr.code.length > 0;
+        //     bool isTargetDeployed = contractConfig.addr.code.length > 0;
 
-            OptionalString memory previousConfigUri = isTargetDeployed &&
-                contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? ffiGetPreviousConfigUri(contractConfig.addr, _rpcUrl, _mainFfiScriptPath)
-                : OptionalString({ exists: false, value: "" });
+        //     OptionalString memory previousConfigUri = isTargetDeployed &&
+        //         contractConfig.kind != ContractKindEnum.IMMUTABLE
+        //         ? ffiGetPreviousConfigUri(contractConfig.addr, _rpcUrl, _mainFfiScriptPath)
+        //         : OptionalString({ exists: false, value: "" });
 
-            // At this point in the TypeScript version of this function, we attempt to deploy all of
-            // the non-proxy contracts. We skip this step here because it's unnecessary in this
-            // context. Forge does local simulation before broadcasting any transactions, so if a
-            // constructor reverts, it'll be caught before anything happens on the live network.
-            DeploymentRevert memory deploymentRevert = DeploymentRevert({
-                deploymentReverted: false,
-                revertString: OptionalString({ exists: false, value: "" })
-            });
+        //     // At this point in the TypeScript version of this function, we attempt to deploy all of
+        //     // the non-proxy contracts. We skip this step here because it's unnecessary in this
+        //     // context. Forge does local simulation before broadcasting any transactions, so if a
+        //     // constructor reverts, it'll be caught before anything happens on the live network.
+        //     DeploymentRevert memory deploymentRevert = DeploymentRevert({
+        //         deploymentReverted: false,
+        //         revertString: OptionalString({ exists: false, value: "" })
+        //     });
 
-            ImportCache memory importCache;
-            if (isTargetDeployed) {
-                // In the TypeScript version, we check if the SphinxManager has permission to
-                // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
-                // fails in Solidity when called on a state-changing function (which 'upgradeTo'
-                // is). We also can't attempt an external call because it could be broadcasted.
-                // So, we skip this step here, which is fine because Forge automatically does local
-                // simulation before broadcasting any transactions. If the SphinxManager doesn't
-                // have permission to call 'upgradeTo', an error will be thrown when simulating the
-                // execution logic, which will happen before any transactions are broadcasted.
+        //     ImportCache memory importCache;
+        //     if (isTargetDeployed) {
+        //         // In the TypeScript version, we check if the SphinxManager has permission to
+        //         // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
+        //         // fails in Solidity when called on a state-changing function (which 'upgradeTo'
+        //         // is). We also can't attempt an external call because it could be broadcasted.
+        //         // So, we skip this step here, which is fine because Forge automatically does local
+        //         // simulation before broadcasting any transactions. If the SphinxManager doesn't
+        //         // have permission to call 'upgradeTo', an error will be thrown when simulating the
+        //         // execution logic, which will happen before any transactions are broadcasted.
 
-                if (
-                    contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT
-                ) {
-                    // Check that the SphinxManager is the owner of the Transparent proxy.
-                    address currProxyAdmin = getEIP1967ProxyAdminAddress(contractConfig.addr);
+        //         if (
+        //             contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT ||
+        //             contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT ||
+        //             contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT
+        //         ) {
+        //             // Check that the SphinxManager is the owner of the Transparent proxy.
+        //             address currProxyAdmin = getEIP1967ProxyAdminAddress(contractConfig.addr);
 
-                    if (currProxyAdmin != address(_manager)) {
-                        importCache = ImportCache({
-                            requiresImport: true,
-                            currProxyAdmin: OptionalAddress({ exists: true, value: currProxyAdmin })
-                        });
-                    }
-                }
-            }
+        //             if (currProxyAdmin != address(_manager)) {
+        //                 importCache = ImportCache({
+        //                     requiresImport: true,
+        //                     currProxyAdmin: OptionalAddress({ exists: true, value: currProxyAdmin })
+        //                 });
+        //             }
+        //         }
+        //     }
 
-            contractConfigCache[i] = ContractConfigCache({
-                referenceName: contractConfig.referenceName,
-                isTargetDeployed: isTargetDeployed,
-                deploymentRevert: deploymentRevert,
-                importCache: importCache,
-                previousConfigUri: previousConfigUri
-            });
-        }
+        //     contractConfigCache[i] = ContractConfigCache({
+        //         referenceName: contractConfig.referenceName,
+        //         isTargetDeployed: isTargetDeployed,
+        //         deploymentRevert: deploymentRevert,
+        //         importCache: importCache,
+        //         previousConfigUri: previousConfigUri
+        //     });
+        // }
 
-        return
-            ConfigCache({
-                isManagerDeployed: isManagerDeployed_,
-                blockGasLimit: block.gaslimit,
-                chainId: block.chainid,
-                contractConfigCache: contractConfigCache
-            });
+        // return
+        //     ConfigCache({
+        //         isManagerDeployed: isManagerDeployed_,
+        //         blockGasLimit: block.gaslimit,
+        //         chainId: block.chainid,
+        //         contractConfigCache: contractConfigCache
+        //     });
     }
 
     function ffiGetPreviousConfigUri(
@@ -557,52 +553,52 @@ contract SphinxUtils is
         BundledSphinxAction[] memory _actions,
         uint256 _actionsExecuted
     ) external pure returns (BundledSphinxAction[] memory) {
-        uint numActionsToExecute = 0;
-        for (uint i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (action.action.index >= _actionsExecuted) {
-                numActionsToExecute += 1;
-            }
-        }
+        // uint numActionsToExecute = 0;
+        // for (uint i = 0; i < _actions.length; i++) {
+        //     BundledSphinxAction memory action = _actions[i];
+        //     if (action.action.index >= _actionsExecuted) {
+        //         numActionsToExecute += 1;
+        //     }
+        // }
 
-        BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](numActionsToExecute);
-        uint filteredArrayIndex = 0;
-        for (uint i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (action.action.index >= _actionsExecuted) {
-                filteredActions[filteredArrayIndex] = action;
-                filteredArrayIndex += 1;
-            }
-        }
-        return filteredActions;
+        // BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](numActionsToExecute);
+        // uint filteredArrayIndex = 0;
+        // for (uint i = 0; i < _actions.length; i++) {
+        //     BundledSphinxAction memory action = _actions[i];
+        //     if (action.action.index >= _actionsExecuted) {
+        //         filteredActions[filteredArrayIndex] = action;
+        //         filteredArrayIndex += 1;
+        //     }
+        // }
+        // return filteredActions;
     }
 
     function splitActions(
         BundledSphinxAction[] memory _actions
     ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
-        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
-            _actions
-        );
+        // (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
+        //     _actions
+        // );
 
-        BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](
-            numInitialActions
-        );
-        BundledSphinxAction[] memory setStorageActions = new BundledSphinxAction[](
-            numSetStorageActions
-        );
-        uint initialActionArrayIndex = 0;
-        uint setStorageArrayIndex = 0;
-        for (uint i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (action.action.actionType == SphinxActionType.DEPLOY_CONTRACT || action.action.actionType == SphinxActionType.CALL) {
-                initialActions[initialActionArrayIndex] = action;
-                initialActionArrayIndex += 1;
-            } else if (action.action.actionType == SphinxActionType.SET_STORAGE) {
-                setStorageActions[setStorageArrayIndex] = action;
-                setStorageArrayIndex += 1;
-            }
-        }
-        return (initialActions, setStorageActions);
+        // BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](
+        //     numInitialActions
+        // );
+        // BundledSphinxAction[] memory setStorageActions = new BundledSphinxAction[](
+        //     numSetStorageActions
+        // );
+        // uint initialActionArrayIndex = 0;
+        // uint setStorageArrayIndex = 0;
+        // for (uint i = 0; i < _actions.length; i++) {
+        //     BundledSphinxAction memory action = _actions[i];
+        //     if (action.action.actionType == SphinxActionType.DEPLOY_CONTRACT || action.action.actionType == SphinxActionType.CALL) {
+        //         initialActions[initialActionArrayIndex] = action;
+        //         initialActionArrayIndex += 1;
+        //     } else if (action.action.actionType == SphinxActionType.SET_STORAGE) {
+        //         setStorageActions[setStorageArrayIndex] = action;
+        //         setStorageArrayIndex += 1;
+        //     }
+        // }
+        // return (initialActions, setStorageActions);
     }
 
     function getCodeSize(address _addr) external view returns (uint256) {

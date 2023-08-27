@@ -39,16 +39,12 @@ struct DeploymentState {
  * @custom:field index TODO(docs)
  * @custom:field data The ABI-encoded data associated with the action.
  * @custom:field addr The address to which the action applies.
- * @custom:field contractKindHash The hash of the contract kind associated with this contract.
- * @custom:field referenceName The reference name associated with the contract.
  */
 struct RawSphinxAction {
     SphinxActionType actionType;
     uint256 index;
     bytes data;
     address payable addr;
-    bytes32 contractKindHash;
-    string referenceName;
 }
 
 /**

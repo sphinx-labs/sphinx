@@ -70,6 +70,7 @@ import {
   UserArgOverride,
   UserFunctionArgOverride,
   UserConfigVariable,
+  UserCallAction,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -103,7 +104,7 @@ import {
 import { getCreate3Address } from './config/utils'
 import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS, SupportedChainId } from './networks'
+import { SUPPORTED_NETWORKS, SupportedChainId, SupportedNetworkName } from './networks'
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -951,7 +952,7 @@ export const getDeploymentEvents = async (
   }
 
   const contractDeployedEvents = await SphinxManager.queryFilter(
-    SphinxManager.filters.ContractDeployed(null, null, deploymentId),
+    SphinxManager.filters.ContractDeployed(null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
@@ -1600,16 +1601,9 @@ export const isHttpNetworkConfig = (
   return 'url' in config
 }
 
-export const getCallHash = (
-  to: string,
-  payload: string,
-  salt: string
-): string => {
+export const getCallHash = (to: string, data: string): string => {
   return ethers.keccak256(
-    AbiCoder.defaultAbiCoder().encode(
-      ['address', 'bytes', 'bytes32'],
-      [to, payload, salt]
-    )
+    AbiCoder.defaultAbiCoder().encode(['address', 'bytes'], [to, data])
   )
 }
 
@@ -1652,4 +1646,22 @@ export const isUserFunctionArgOverrideArray = (
       return (e as UserFunctionArgOverride).args !== undefined
     })
   )
+}
+
+export const getCallActionAddressForNetwork = (
+  networkName: string,
+  callAction: UserCallAction
+): string => {
+  const { address: defaultAddress, addressOverrides } = callAction
+  if (addressOverrides === undefined) {
+    return defaultAddress
+  }
+
+  for (const override of addressOverrides) {
+    if (override.chains.includes(networkName)) {
+      return override.address
+    }
+  }
+
+  return defaultAddress
 }

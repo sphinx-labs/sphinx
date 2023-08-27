@@ -1,5 +1,7 @@
 import hre from 'hardhat'
-import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
+
+import * as plugins from '../dist'
+
 import '@nomicfoundation/hardhat-ethers'
 import {
   AuthState,
@@ -24,6 +26,9 @@ import {
   ProposalRequest,
   SupportedNetworkName,
   SphinxJsonRpcProvider,
+  getParsedConfig,
+  UserConfig,
+  deployAbstractTask,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -242,7 +247,6 @@ export const proposeThenApproveDeploymentThenExecute = async (
       manager,
       bundles,
       blockGasLimit,
-      configArtifacts,
       provider
     )
 
@@ -364,4 +368,62 @@ const getSignatures = async (
     }
   }
   return signatures
+}
+
+export const deploy = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider,
+  deployerPrivateKey: string
+) => {
+  const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+  const ownerAddress = await wallet.getAddress()
+
+  const compilerConfigPath = hre.config.paths.compilerConfigs
+
+  const deploymentFolder = hre.config.paths.deployments
+
+  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
+    config,
+    provider,
+    cre,
+    plugins.makeGetConfigArtifacts(hre),
+    ownerAddress
+  )
+
+  await deployAbstractTask(
+    provider,
+    wallet,
+    compilerConfigPath,
+    deploymentFolder,
+    'hardhat',
+    cre,
+    parsedConfig,
+    configCache,
+    configArtifacts
+  )
+}
+
+export const revertSnapshots = async (
+  networks: Array<string>,
+  snapshotIds: {
+    [network: string]: string
+  }
+) => {
+  // Revert to a snapshot of the blockchain state before each test. The snapshot is taken after
+  // the `before` hook above is run.
+  for (const network of networks) {
+    const provider = rpcProviders[network]
+
+    const snapshotId = snapshotIds[network]
+    // Attempt to revert to the previous snapshot.
+    try {
+      await provider.send('evm_revert', [snapshotId])
+    } catch (e) {
+      // An error will be thrown when this `beforeEach` hook is run for the first time. This is
+      // because there is no `snapshotId` yet. We can ignore this error.
+    }
+
+    const newSnapshotId = await provider.send('evm_snapshot', [])
+    snapshotIds[network] = newSnapshotId
+  }
 }

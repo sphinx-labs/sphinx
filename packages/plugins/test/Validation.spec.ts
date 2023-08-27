@@ -377,7 +377,7 @@ describe('Validate', () => {
 
   it('did catch extra constructor argument', async () => {
     expect(validationOutput).to.have.string(
-      `The config contains default arguments in the constructor of ConstructorArgsValidationPartOne which do not exist in the contract:\n` +
+      `The config contains arguments in the constructor of ConstructorArgsValidationPartOne which do not exist in the contract:\n` +
         `_immutableUint`
     )
     expect(validationOutput).to.have.string('_immutableUint')
@@ -385,7 +385,7 @@ describe('Validate', () => {
 
   it('did catch missing constructor argument', async () => {
     expect(validationOutput).to.have.string(
-      `The config is missing the following default arguments for the constructor of ConstructorArgsValidationPartOne:\n` +
+      `The config is missing the following arguments for the constructor of ConstructorArgsValidationPartOne:\n` +
         `_immutableBytes`
     )
   })

@@ -134,7 +134,7 @@ export const makeGetProviderFromChainId = (
 // ): Promise<StorageLayout> => {
 //   const { kind } = parsedContractConfig
 //   const proxy = parsedContractConfig.address
-// TODO: you may want to change `hre.network.provider` since it may not be tied
+// TODO(upgrades): you may want to change `hre.network.provider` since it may not be tied
 // to the network that we actually care about
 //   const manifest = await Manifest.forNetwork(hre.network.provider)
 //   const deployData = await getDeployData(

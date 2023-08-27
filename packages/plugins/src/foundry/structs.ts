@@ -17,7 +17,8 @@ export const decodeCachedConfig = (
     chainId: parseInt(configCache.chainId, 10),
     isManagerDeployed: configCache.isManagerDeployed,
     contractConfigCache: {},
-    callHashes: {}, // TODO
+    callNonces: {}, // TODO
+    undeployedExternalContracts: {}, // TODO
   }
 
   for (const cachedContract of configCache.contractConfigCache) {

@@ -96,7 +96,7 @@ contract SphinxManager is
     uint256 internal immutable executionLockTime;
 
     // TODO(docs)
-    mapping(bytes32 => bool) public callHashes;
+    mapping(bytes32 => uint256) public callNonces;
 
     /**
      * @notice Mapping of deployment IDs to deployment state.
@@ -554,10 +554,8 @@ contract SphinxManager is
                     deployment.actionRoot,
                     keccak256(
                         abi.encode(
-                            action.referenceName,
                             action.addr,
                             action.actionType,
-                            action.contractKindHash,
                             action.data
                         )
                     ),
@@ -572,21 +570,23 @@ contract SphinxManager is
             deployment.actionsExecuted++;
 
             if (action.actionType == SphinxActionType.CALL) {
-                (bytes32 salt, bytes memory payload) = abi.decode(action.data, (bytes32, bytes));
-                (bool success, ) = action.addr.call(payload);
-                if (success) {
-                    bytes32 callHash = keccak256(abi.encode(action.addr, payload, salt));
-
-                    if (!callHashes[callHash]) {
-                        callHashes[callHash] = true;
-                    }
-
-                    emit CallExecuted(activeDeploymentId, action.index);
-                    registry.announce("CallExecuted");
+                (uint256 nonce, bytes memory data) = abi.decode(action.data, (uint256, bytes));
+                bytes32 callHash = keccak256(abi.encode(action.addr, data));
+                uint256 currentNonce = callNonces[callHash];
+                if (nonce != currentNonce) {
+                    emit CallSkipped(activeDeploymentId, action.index);
+                    registry.announce("CallSkipped");
                 } else {
-                    _deploymentFailed(deployment, action.index);
-                    // TODO(docs)
-                    return;
+                    (bool success, ) = action.addr.call(data);
+                    if (success) {
+                        callNonces[callHash] = currentNonce + 1;
+                        emit CallExecuted(activeDeploymentId, action.index);
+                        registry.announce("CallExecuted");
+                    } else {
+                        _deploymentFailed(deployment, action.index);
+                        // TODO(docs)
+                        return;
+                    }
                 }
             } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
@@ -594,7 +594,6 @@ contract SphinxManager is
                     (bytes32, bytes)
                 );
 
-                string memory referenceName = action.referenceName;
                 address expectedAddress = action.addr;
 
                 // Check if the contract has already been deployed.
@@ -602,18 +601,17 @@ contract SphinxManager is
                     // Skip deploying the contract if it already exists. Execution would halt if we attempt
                     // to deploy a contract that has already been deployed at the same address.
                     emit ContractDeploymentSkipped(
-                        referenceName,
                         expectedAddress,
                         activeDeploymentId,
-                        referenceName,
                         action.index
                     );
                     registry.announce("ContractDeploymentSkipped");
                 } else {
-                    // We delegatecall the Create3 contract so that the SphinxManager address is used in the
-                    // address calculation of the deployed contract. If we call the Create3 contract instead
-                    // of delegatecalling it, it'd be possible for an attacker to snipe a user's contract by
-                    // calling the `deploy` function on the Create3 contract directly.
+                    // We delegatecall the Create3 contract so that the SphinxManager address is
+                    // used in the address calculation of the deployed contract. If we call the
+                    // Create3 contract instead of delegatecalling it, it'd be possible for an
+                    // attacker to deploy a malicious contract at the expected address by calling
+                    // the `deploy` function on the Create3 contract directly.
                     (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
                         abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
                     );
@@ -623,11 +621,8 @@ contract SphinxManager is
                         address actualAddress = abi.decode(actualAddressBytes, (address));
 
                         emit ContractDeployed(
-                            referenceName,
                             actualAddress,
                             activeDeploymentId,
-                            referenceName,
-                            action.contractKindHash,
                             keccak256(creationCodeWithConstructorArgs)
                         );
                         registry.announce("ContractDeployed");
@@ -770,10 +765,8 @@ contract SphinxManager is
                     deployment.actionRoot,
                     keccak256(
                         abi.encode(
-                            action.referenceName,
                             action.addr,
                             action.actionType,
-                            action.contractKindHash,
                             action.data
                         )
                     ),
@@ -787,20 +780,21 @@ contract SphinxManager is
 
             deployment.actionsExecuted++;
 
+            (bytes32 contractKindHash, bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+                action.data,
+                (bytes32, bytes32, uint8, bytes)
+            );
+
             if (
-                action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
-                action.contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
+                contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
+                contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
             ) {
                 revert OnlyProxiesAllowed();
             }
 
             // Get the adapter for this reference name.
-            address adapter = registry.adapters(action.contractKindHash);
+            address adapter = registry.adapters(contractKindHash);
 
-            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-                action.data,
-                (bytes32, uint8, bytes)
-            );
             // Delegatecall the adapter to call `setStorage` on the proxy.
             // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(

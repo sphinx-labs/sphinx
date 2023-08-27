@@ -54,6 +54,8 @@ import {
   getNetworkNameForChainId,
   isUserConstructorArgOverride,
   getFunctionArgValueArray,
+  hyperlink,
+  getCallActionAddressForNetwork,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -117,6 +119,7 @@ import {
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
   SupportedChainId,
+  SupportedNetworkName,
 } from '../networks'
 
 export class ValidationError extends Error {
@@ -209,13 +212,25 @@ export const getParsedConfigWithOptions = async (
     failureAction
   )
 
+  // TODO(docs): natspec of this fn should mention that this fn assumes the contract references have
+  // already been validated + parsed
+  if (resolvedUserConfig.postDeploy) {
+    assertValidPostDeploymentActions(
+      resolvedUserConfig.postDeploy,
+      contractConfigs,
+      failureAction,
+      cre
+    )
+  }
+
   const postDeployActions = resolvedUserConfig.postDeploy
     ? parsePostDeploymentActions(
         resolvedUserConfig.postDeploy,
         contractConfigs,
         networks,
         configArtifacts,
-        cre
+        cre,
+        failureAction
       )
     : {}
 
@@ -340,7 +355,8 @@ export const getParsedConfig = async (
         contractConfigs,
         network,
         configArtifacts,
-        cre
+        cre,
+        failureAction
       )
     : {}
 
@@ -583,7 +599,7 @@ export const assertValidUserConfig = (
     for (const callAction of config.postDeploy) {
       // Check that all contract references are valid in the TODO(docs).
       assertValidContractReferences(
-        callAction.contractReferenceOrAddress,
+        callAction.address,
         validReferenceNames,
         cre
       )
@@ -594,6 +610,19 @@ export const assertValidUserConfig = (
             validReferenceNames,
             cre
           )
+        }
+      }
+
+      // Check that all contract references are valid in the function args.
+      assertValidContractReferences(
+        callAction.functionArgs,
+        validReferenceNames,
+        cre
+      )
+      // Check that all contract references are valid in the function arg overrides.
+      if (callAction.functionArgOverrides) {
+        for (const override of Object.values(callAction.functionArgOverrides)) {
+          assertValidContractReferences(override.args, validReferenceNames, cre)
         }
       }
     }
@@ -1641,24 +1670,6 @@ const parseAndValidateArg = (
   }
 }
 
-// TODO: do we VALIDATE contract references for the SphinxContract constructor args #1 and #3, as well
-// as the call action's `functionArgs` and `overrides.params`? this list is exhaustive
-
-// TODO(parse):
-// SphinxContract constructor:
-// - field 1: assert ethers.isAddress (docs: since contract reference was validated + parsed in a previous step)
-// - field 2: none
-// - field 3:
-//    - assert that there are no unsupported network names in `mergedChains`. after this, convert the network names to chain IDs.
-//    - assert that there are no duplicated elements in `mergedChainIds`, which is an array that contains all of the chain IDs, concatenated.
-//    - assert ethers.isAddress on all of the `address` fields. (docs: contract references were validated + parsed in a previous step)
-// ---
-// function calls(TODO):
-// - user supplies external address but no ABI (already written)
-// - check ethersJS logic
-// ---
-// the above list is exhaustive
-
 // TODO(md): update constructor-args.md -> chain-specific overrides b/c the user must specify all of
 // their default constructor args now.
 
@@ -1666,36 +1677,22 @@ const parseAndValidateArg = (
 // applies to function calls too. if you do this, make sure you change the file name, all reference
 // to the file name, and the main readme.
 
-/**
- * Parses and validates function arguments and chain-specific overrides for a single contract in a
- * config file.
- *
- * @param userContractConfig Unparsed User-defined contract definition in a Sphinx config.
- * @param referenceName Name of the contract as it appears in the Sphinx config file.
- * @param userDefaultArgs TODO(docs) this is optional because...
- * @param fragment TODO(docs) this is optional because...
- * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
- */
-export const parseFunctionArgsAndOverrides = (
-  fragmentLogName: string,
-  networks: string[],
-  cre: SphinxRuntimeEnvironment,
-  userDefaultArgs: UserConfigVariable = {},
-  userOverrides: Array<UserArgOverride> = [],
-  fragment?: ethers.Fragment
-): ParsedFunctionArgsPerChain => {
-  // TODO(docs)
-  const parsedArgsPerChain: ParsedFunctionArgsPerChain = {}
+// TODO(md): the supported networks in config-file.md are not up-to-date
 
+const parseDefaultConstructorArgs = (
+  fragmentLogName: string,
+  cre: SphinxRuntimeEnvironment,
+  userConstructorArgs: UserConfigVariables = {},
+  fragment?: ethers.ConstructorFragment
+): ParsedConfigVariables => {
   const fragmentInputs = fragment ? fragment.inputs : []
 
-  // validate default values first
-
-  const functionTypeArgs: Array<string> = []
   const argNames = fragmentInputs
     .filter((el) => el.type !== 'function')
     .map((input) => input.name)
-  const incorrectDefaultArgNames = Object.keys(userDefaultArgs).filter(
+
+  const functionTypeArgs: Array<string> = []
+  const incorrectDefaultArgNames = Object.keys(userConstructorArgs).filter(
     (argName) => !argNames.includes(argName)
   )
   const missingDefaultArgNames: Array<string> = []
@@ -1707,7 +1704,7 @@ export const parseFunctionArgsAndOverrides = (
     if (input.type === 'function') {
       functionTypeArgs.push(input.name)
     } else {
-      const defaultArgValue = userDefaultArgs[input.name]
+      const defaultArgValue = userConstructorArgs[input.name]
       if (defaultArgValue === undefined) {
         missingDefaultArgNames.push(input.name)
       } else {
@@ -1738,7 +1735,7 @@ export const parseFunctionArgsAndOverrides = (
   if (missingDefaultArgNames.length > 0) {
     logValidationError(
       'error',
-      `The config is missing the following default arguments for the ${fragmentLogName}:`,
+      `The config is missing the following arguments for the ${fragmentLogName}:`,
       missingDefaultArgNames,
       cre.silent,
       cre.stream
@@ -1748,7 +1745,7 @@ export const parseFunctionArgsAndOverrides = (
   if (incorrectDefaultArgNames.length > 0) {
     logValidationError(
       'error',
-      `The config contains default arguments in the ${fragmentLogName} which do not exist in the contract:`,
+      `The config contains arguments in the ${fragmentLogName} which do not exist in the contract:`,
       incorrectDefaultArgNames,
       cre.silent,
       cre.stream
@@ -1758,25 +1755,42 @@ export const parseFunctionArgsAndOverrides = (
   if (inputDefaultFormatErrors.length > 0) {
     logValidationError(
       'error',
-      `The config contains incorrectly formatted default arguments in the ${fragmentLogName}:`,
+      `The config contains incorrectly formatted arguments in the ${fragmentLogName}:`,
       inputDefaultFormatErrors,
       cre.silent,
       cre.stream
     )
   }
 
-  const invalidOverrideChains = userOverrides?.flatMap((el) =>
-    el.chains.filter(
-      (name) =>
-        !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
-        !Object.keys(SUPPORTED_TESTNETS).includes(name) &&
-        !Object.keys(SUPPORTED_LOCAL_NETWOKRS).includes(name)
-    )
-  )
-  // TODO(docs): we throw a validation error here if the default user args are invalid. this
-  // is because the rest of the function assumes that the default user args are valid. we
-  // don't use the `EXIT` failure action because...
-  assertNoValidationErrors(FailureAction.THROW)
+  return parsedDefaultArgs
+}
+
+/**
+ * Parses and validates function arguments and chain-specific overrides for a single contract in a
+ * config file.
+ *
+ * @param userContractConfig Unparsed User-defined contract definition in a Sphinx config.
+ * @param referenceName Name of the contract as it appears in the Sphinx config file.
+ * @param userDefaultArgs TODO(docs) this is optional because...
+ * @param fragment TODO(docs) this is optional because...
+ * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
+ */
+export const parseFunctionOverrides = (
+  fragmentLogName: string,
+  networks: string[],
+  cre: SphinxRuntimeEnvironment,
+  parsedDefaultArgs: ParsedConfigVariables,
+  userOverrides: Array<UserArgOverride> = [],
+  fragment?: ethers.Fragment
+): ParsedFunctionArgsPerChain => {
+  // TODO(docs)
+  const parsedArgsPerChain: ParsedFunctionArgsPerChain = {}
+
+  const fragmentInputs = fragment ? fragment.inputs : []
+
+  const argNames = fragmentInputs
+    .filter((el) => el.type !== 'function')
+    .map((input) => input.name)
 
   // Check if there are any variables which have ambiguous overrides (due to fields being listed multiple times for a given network)
   const ambiguousArgOverrides: {
@@ -2460,14 +2474,33 @@ export const assertValidConstructorArgs = (
     const { abi } = configArtifacts[referenceName].artifact
     const iface = new ethers.Interface(abi)
 
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
+    )
+    const fragmentLogName = `constructor of ${referenceName}`
     try {
-      const args = parseFunctionArgsAndOverrides(
-        `constructor of ${referenceName}`,
-        networks,
+      const parsedDefaultArgs = parseDefaultConstructorArgs(
+        fragmentLogName,
         cre,
         userContractConfig.constructorArgs,
+        constructorFragment
+      )
+
+      // TODO(docs): we continue to the next contract config if the call above resulted in any
+      // validation errors. we do this because the rest of the function assumes that the default
+      // user args are valid. we don't exit the process here because this allows us to display
+      // more validation errors to the user in one run.
+      if (validationErrors) {
+        continue
+      }
+
+      const args = parseFunctionOverrides(
+        fragmentLogName,
+        networks,
+        cre,
+        parsedDefaultArgs,
         userContractConfig.overrides,
-        iface.fragments.find(ConstructorFragment.isFragment)
+        constructorFragment
       )
       cachedConstructorArgs[referenceName] = args
     } catch (e) {
@@ -2958,27 +2991,37 @@ export const getConfigCache = async (
     }
   }
 
+  const postDeployActions: Array<ParsedCallAction> =
+    parsedConfig.postDeploy[chainId] ?? []
+
+  const uniquePostDeployAddresses = Array.from(
+    new Set(postDeployActions.map((e) => e.to))
+  )
+
+  const undeployedExternalContracts: { [address: string]: boolean } = {}
+  for (const address of uniquePostDeployAddresses) {
+    const isExternalAddress =
+      findReferenceNameForAddress(address, parsedConfig.contracts) === undefined
+    if (isExternalAddress && (await provider.getCode(address)) === '0x') {
+      undeployedExternalContracts[address] = true
+    }
+  }
+
   const SphinxManager = new ethers.Contract(
     managerAddress,
     SphinxManagerABI,
     provider
   )
   // TODO(docs): => skip
-  const callHashesToSkip: { [callHash: string]: boolean } = {}
-  for (const callActionsForChain of Object.values(parsedConfig.postDeploy)) {
-    for (const callAction of callActionsForChain) {
-      const { to, payload, salt } = callAction
-      const callHash = getCallHash(to, payload, salt)
-      if (!isManagerDeployed_) {
-        callHashesToSkip[callHash] = false
-      } else {
-        const skipCallHash = await SphinxManager.callHashes(callHash)
-        if (skipCallHash) {
-          callHashesToSkip[callHash] = true
-        } else {
-          callHashesToSkip[callHash] = false
-        }
-      }
+  const callNonces: { [callHash: string]: number } = {}
+  for (const callAction of postDeployActions) {
+    const { to, data } = callAction
+    const callHash = getCallHash(to, data)
+    if (!isManagerDeployed_) {
+      callNonces[callHash] = 0
+    } else {
+      const currentNonce = await SphinxManager.callNonces(callHash)
+      callNonces[callHash] = currentNonce
     }
   }
 
@@ -2989,13 +3032,15 @@ export const getConfigCache = async (
     blockGasLimit,
     networkName,
     contractConfigCache,
-    callHashesToSkip,
+    callNonces,
+    undeployedExternalContracts,
   }
 }
 
-// TODO: where do we assert that the user is on a supported chain ID? if we don't already have this,
-// we should put it in post-parsing validation b/c it's after `getConfigCache`, where we get the
-// chain ID
+// TODO(test): where do we assert that the user is on a supported chain ID in the proposal task? if
+// we don't already have this, we should put it in post-parsing validation b/c it's after
+// `getConfigCache`, where we get the chain ID. we shouldn't put it outside the parsing logic b/c
+// this should be included in the parsing logic, and not in some other piece of functionality.
 
 const assertNoValidationErrors = (failureAction: FailureAction): void => {
   if (validationErrors) {
@@ -3074,7 +3119,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       buildInfo.output,
       parsedContractConfig
     ).layout
-    // TODO: uncomment when we enable importing OpenZeppelin contracts
+    // TODO(upgrades): uncomment when we enable importing OpenZeppelin contracts
     // } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
     //   const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
     //     cre.hre,
@@ -3275,92 +3320,176 @@ export const parseConfigOptions = (
 // TODO(docs): contract references were already resolved before calling
 // `parsePostDeploymentActions`. put this in the docs where you call this function
 
-const parsePostDeploymentActions = (
+export const parsePostDeploymentActions = (
   userActions: Array<UserCallAction>,
   contractConfigs: ParsedContractConfigs,
   networks: Array<string>,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment
+  cre: SphinxRuntimeEnvironment,
+  failureAction: FailureAction
 ): ParsedCallActionsPerChain => {
   const parsedActionsPerChain: ParsedCallActionsPerChain = {}
+  for (const network of networks) {
+    const callNonces: { [payload: string]: number } = {}
 
-  // TODO(docs)
-  const salts: { [chainId: string]: { [addressWithPayload: string]: string } } =
-    {}
+    // TODO(docs): this will attempt to parse every deployment action, regardless if an
+    // error is caught midway. this allows us to display more validation errors to the user
+    // at a single time. if any validation errors are caught, we'll exit after this loop.
+    for (const callAction of userActions) {
+      // TODO(docs): contract reference was already resolved
+      const address = getCallActionAddressForNetwork(network, callAction)
 
-  for (const callAction of userActions) {
-    // TODO(docs): contract reference was already resolved
-    const address = callAction.contractReferenceOrAddress
+      const referenceName = findReferenceNameForAddress(
+        address,
+        contractConfigs
+      )
 
-    const referenceName = findReferenceNameForAddress(address, contractConfigs)
-
-    let abi: Array<any>
-    if (callAction.abi) {
-      abi = callAction.abi
-    } else {
-      if (referenceName) {
-        abi = configArtifacts[referenceName].artifact.abi
+      let abi: Array<any>
+      if (callAction.abi) {
+        abi = callAction.abi
       } else {
+        if (referenceName) {
+          abi = configArtifacts[referenceName].artifact.abi
+        } else {
+          logValidationError(
+            'error',
+            `You must include an ABI when instantiating the contract at address ${address}.`,
+            [],
+            cre.silent,
+            cre.stream
+          )
+          // TODO(docs): we skip to the next action becaus the rest of this logic won't work
+          // properly if there isn't a valid abi.
+          continue
+        }
+      }
+
+      // TODO(test): c/f in ethers docs: "This still fails, since there is no way to know which".
+      // we should have the same behavior as ethers.
+
+      // TODO(test): what happens if we use a BigInt as a default param in a function call? sphinx
+      // doesn't normally allow this but ethers does. another example is probably a struct that's
+      // represented as an array instead of an object.
+
+      const iface = new ethers.Interface(abi)
+
+      try {
+        // TODO:
+        // - error if missing args
+        // - error if extra args
+        // - error if incorrect arg types (e.g. uint = 'abc')
+        // - error if ambiguous overloaded function signature
+        // - error if function name does not exist in contract (see if this is duplicated w/ `.hasFunction`)
+        iface.encodeFunctionData(
+          callAction.functionName,
+          callAction.functionArgs
+        )
+      } catch (e) {
+        e // TODO: logValidationError
+
+        continue // TODO(docs): we continue b/c the rest of this function won't work properly without a valid default function call
+      }
+
+      // TODO(docs)
+      const fragment = iface.getFunction(
+        callAction.functionName,
+        callAction.functionArgs
+      )
+      if (fragment === null) {
+        // TODO(docs): should never happen since the `encodeFunctionData` call above should
+        // catch any issues
+        // TODO: logValidationError()
+        continue
+      }
+
+      // TODO(test): what happens if we input a BigNumber as a variable in a default function call?
+      // (not a bigint). sphinx accepts these but i'm not sure if ethers does.
+
+      const functionTypeArgs: Array<string> = []
+      const incorrectlyFormattedArgs: Array<string> = []
+      const parsedDefaultArgs: ParsedConfigVariables = {}
+      fragment.inputs.forEach((input, index) => {
+        if (input.type === 'function') {
+          functionTypeArgs.push(input.name)
+        } else {
+          const defaultArgValue = callAction.functionArgs[index]
+          // TODO(docs): this will catch any variables that are correctly formatted in ethers,
+          // but incorrectly formatted in sphinx
+          try {
+            parsedDefaultArgs[input.name] = parseAndValidateArg(
+              input,
+              input.name,
+              defaultArgValue,
+              cre
+            )
+          } catch (e) {
+            incorrectlyFormattedArgs.push((e as Error).message)
+          }
+        }
+      })
+
+      // TODO(docs): used for displaying logs to the user
+      const functionLogName = referenceName
+        ? `function '${referenceName}.${callAction.functionName}'`
+        : `function '${callAction.functionName}' at ${address}`
+
+      if (functionTypeArgs.length > 0) {
         logValidationError(
           'error',
-          `You must include an ABI when instantiating the 'SphinxContractTODO' class for ` +
-            `the contract at address ${address}.`,
-          [],
+          `The ${functionLogName} contains function type arguments, which are not allowed. Please remove the following fields:`,
+          functionTypeArgs,
           cre.silent,
           cre.stream
         )
-        // TODO(docs)
+      }
+
+      // TODO: include link to constructor-args.md, since this is the error array that catches params valid in ethers but not sphinx
+      if (incorrectlyFormattedArgs.length > 0) {
+        logValidationError(
+          'error',
+          `The config contains incorrectly formatted arguments in the ${functionLogName}:`,
+          incorrectlyFormattedArgs,
+          cre.silent,
+          cre.stream
+        )
+      }
+
+      // TODO(docs): the rest of the function relies on the parsed default params being correct, so we
+      // continue to the next action if any validation errors have occurred.
+      if (validationErrors) {
         continue
       }
-    }
 
-    // TODO(docs): used for displaying logs to the user
-    const fragmentLogName = referenceName
-      ? `function '${callAction.functionName}' of '${referenceName}'`
-      : `function '${callAction.functionName}' at ${address}`
-
-    const iface = new ethers.Interface(abi)
-    const fragment = iface.fragments.find(
-      (_fragment) =>
-        FunctionFragment.isFragment(_fragment) &&
-        _fragment.name === callAction.functionName
-    )
-
-    let argsPerChain: ParsedFunctionArgsPerChain
-    try {
-      argsPerChain = parseFunctionArgsAndOverrides(
-        fragmentLogName,
-        networks,
-        cre,
-        callAction.functionArgs,
-        callAction.functionArgOverrides,
-        fragment
-      )
-    } catch (e) {
-      // TODO(docs) - same as other call to `parseFunction...`. say that we move on to the next _.
-      continue
-    }
-
-    for (const [chainId, args] of Object.entries(argsPerChain)) {
-      if (salts[chainId] === undefined) {
-        salts[chainId] = {}
+      let argsPerChain: ParsedFunctionArgsPerChain
+      try {
+        argsPerChain = parseFunctionOverrides(
+          functionLogName,
+          [network], // TODO(docs)
+          cre,
+          parsedDefaultArgs,
+          callAction.functionArgOverrides,
+          fragment
+        )
+      } catch (e) {
+        // TODO(docs) - same as other call to `parseFunction...`. say that we move on to the next _.
+        continue
       }
 
-      const argValues = getFunctionArgValueArray(args, fragment)
+      const chainId = SUPPORTED_NETWORKS[network]
+      const parsedArgs: ParsedConfigVariables = argsPerChain[chainId]
 
-      const payload = iface.encodeFunctionData(
-        callAction.functionName,
-        argValues
-      )
+      const argValues = getFunctionArgValueArray(parsedArgs, fragment)
 
-      const addressWithPayload = ethers.concat([address, payload])
+      const data = iface.encodeFunctionData(callAction.functionName, argValues)
 
-      const salt = salts[chainId][addressWithPayload] ?? ethers.ZeroHash
+      const payload = ethers.concat([address, data])
+
+      const nonce = callNonces[payload] ?? 0
 
       const parsedAction = {
         to: address,
-        payload,
-        salt,
+        data,
+        nonce,
       }
 
       const parsedActions: Array<ParsedCallAction> | undefined =
@@ -3372,16 +3501,144 @@ const parsePostDeploymentActions = (
         parsedActionsPerChain[chainId] = [parsedAction]
       }
 
-      // Increment the salt.
-      const newSaltBN = BigInt(salt) + 1n
-
-      // Convert the salt to a 32 byte hex string.
-      const newSaltBytes32 = ethers.zeroPadValue(ethers.toBeHex(newSaltBN), 32)
-
       // Update the salt.
-      salts[chainId][addressWithPayload] = newSaltBytes32
+      callNonces[payload] += 1
     }
   }
 
+  assertNoValidationErrors(failureAction)
+
   return parsedActionsPerChain
+}
+
+export const assertValidPostDeploymentActions = (
+  postDeployActions: Array<UserCallAction>,
+  contractConfigs: ParsedContractConfigs,
+  failureAction: FailureAction,
+  cre: SphinxRuntimeEnvironment
+) => {
+  for (const action of postDeployActions) {
+    const referenceName = findReferenceNameForAddress(
+      action.address,
+      contractConfigs
+    )
+
+    // First, we TODO(docs): validate the fields that were passed into the Contract constructor.
+
+    if (!ethers.isAddress(action.address)) {
+      logValidationError(
+        'error',
+        // TODO(docs): we know that the user explicitly specified an address and not a contract
+        // reference because we would've already thrown an error for an invalid contract reference
+        // earlier in the parsing logic.
+        `Contract was instantiated with an invalid address: ${action.address}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    if (action.abi) {
+      try {
+        new ethers.Interface(action.abi)
+      } catch (e) {
+        logValidationError(
+          'error',
+          `An invalid ABI was used to instantiate the contract: ${
+            referenceName ?? action.address
+          }.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      }
+    }
+
+    const allNetworkNamesForAddressOverrides: Array<string> = []
+    if (action.addressOverrides) {
+      action.addressOverrides.forEach((override) =>
+        allNetworkNamesForAddressOverrides.push(...override.chains)
+      )
+    }
+
+    const invalidNetworksForAddressOverrides =
+      allNetworkNamesForAddressOverrides.filter(
+        (network) => !SUPPORTED_NETWORKS[network]
+      )
+
+    if (invalidNetworksForAddressOverrides.length > 0) {
+      logValidationError(
+        'error',
+        `The constructor of ${
+          referenceName ?? action.address
+        } contains unsupported networks in its address overrides: ${invalidNetworksForAddressOverrides.join(
+          ', '
+        )}.\n` +
+          `See ${hyperlink(
+            'here',
+            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#options'
+          )} for a list of supported networks.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    const duplicatedNetworks = getDuplicateElements(
+      allNetworkNamesForAddressOverrides
+    )
+    if (duplicatedNetworks.length > 0) {
+      logValidationError(
+        'error',
+        `The constructor of ${
+          referenceName ?? action.address
+        } contains duplicated networks in its address overrides:`,
+        duplicatedNetworks,
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    const invalidAddressOverrides = []
+    if (action.addressOverrides) {
+      for (const override of action.addressOverrides) {
+        if (!ethers.isAddress(override.address)) {
+          invalidAddressOverrides.push(override.address)
+        }
+      }
+    }
+
+    if (invalidAddressOverrides.length > 0) {
+      logValidationError(
+        'error',
+        // TODO(docs): contract references were validated + parsed in a previous step
+        `The constructor of ${
+          referenceName ?? action.address
+        } contains invalid overriding addresses:`,
+        invalidAddressOverrides,
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    // Next, we validate the TODO(docs). TODO(docs): we validate the function arguments in a
+    // later step because...
+    if (action.abi) {
+      const iface = new ethers.Interface(action.abi)
+      // TODO: is this necessary anymore? if so, what does it return for an overloaded function?
+      if (!iface.hasFunction(action.functionName)) {
+        logValidationError(
+          'error',
+          `The function '${action.functionName}' does not exist in the ABI of ${
+            referenceName ?? action.address
+          }.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      }
+    }
+  }
+
+  assertNoValidationErrors(failureAction)
 }
