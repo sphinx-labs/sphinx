@@ -152,7 +152,7 @@ describe('Post-Deployment Actions', () => {
         abi: ExternalContractABI,
       })
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
-      userConfig.postDeploy = [ExternalContract1.updateMyContract2(1)]
+      userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
       await Promise.all(
         initialTestnets.map((network) =>
@@ -176,7 +176,7 @@ describe('Post-Deployment Actions', () => {
         overrides: addressOverrides,
         abi: ExternalContractABI,
       })
-      userConfig.postDeploy = [ExternalContract.updateMyContract2(2)]
+      userConfig.postDeploy = [ExternalContract.incrementMyContract2(2)]
 
       await Promise.all(
         allTestnets.map((network) =>
@@ -259,7 +259,7 @@ describe('Post-Deployment Actions', () => {
       ]
     })
 
-    it('Function with no arguments', async () => {
+    it('Single function with no arguments', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ConfigContract1.incrementUint()]
 
@@ -279,9 +279,9 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it('Function with one argument', async () => {
+    it('Single function with one argument', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
-      userConfig.postDeploy = [ExternalContract1.updateMyContract2(5)]
+      userConfig.postDeploy = [ExternalContract1.incrementMyContract2(5)]
 
       await Promise.all(
         initialTestnets.map((network) =>
@@ -329,7 +329,7 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it('Function with three arguments', async () => {
+    it('Single function with three arguments', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [
         ConfigContract1.setInts(-1, -2, ethers.MinInt256.toString()),
@@ -355,7 +355,7 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it('Function with chain-specific overrides', async () => {
+    it('Single function with chain-specific overrides', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [
         ConfigContract1.setInts(1, 2, 3, functionArgOverrides),
@@ -393,12 +393,12 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it.only('Complex post-deployment actions', async () => {
+    it('Complex post-deployment actions', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [
         ConfigContract1.incrementUint(),
         ConfigContract1.incrementUint(),
-        ExternalContract1.updateMyContract2(6, [
+        ExternalContract1.incrementMyContract2(6, [
           { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
         ]),
         ConfigContract1.incrementUint(),
@@ -443,19 +443,192 @@ describe('Post-Deployment Actions', () => {
         }
       }
     })
+
+    it.only('Skips actions that have already been executed', async () => {
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      // Since these function increment values, we can use them to check that the actions were
+      // executed only once after multiple deployments.
+      userConfig.postDeploy = [
+        ConfigContract1.incrementUint(),
+        ConfigContract1.incrementUint(),
+        ExternalContract1.incrementMyContract2(6, [
+          { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+        ]),
+      ]
+
+      await Promise.all(
+        initialTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      // Define a helper function to assert that the actions were executed. This will be called
+      // multiple times.
+      const assertActionsExecuted = async (network: string) => {
+        const provider = rpcProviders[network]
+        const ConfigContract1_Deployed = await hre.ethers.getContractAt(
+          'MyContract1',
+          configContract1Address,
+          provider
+        )
+        // Increment was called 2 times
+        expect(await ConfigContract1_Deployed.uintArg()).equals(2n)
+
+        const ExternalContract_Deployed = await hre.ethers.getContractAt(
+          'MyContract2',
+          externalContractAddress1,
+          provider
+        )
+        if (network === 'goerli' || network === 'arbitrum-goerli') {
+          expect(await ExternalContract_Deployed.number()).equals(7n)
+        } else {
+          expect(await ExternalContract_Deployed.number()).equals(6n)
+        }
+      }
+
+      // Assert that the actions were executed
+      for (const network of initialTestnets) {
+        await assertActionsExecuted(network)
+      }
+
+      // Add a contract to the config. If we don't do this, the deployment ID will be skipped because
+      // the deployment ID is based on the config, and the config hasn't changed.
+      userConfig.contracts.ConfigContract3 = {
+        kind: 'immutable',
+        contract: 'MyContract1',
+        constructorArgs,
+      }
+
+      // Deploy again
+      await Promise.all(
+        initialTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      for (const network of initialTestnets) {
+        const provider = rpcProviders[network]
+
+        // Check that the new contract was deployed, which indicates that the second config wasn't
+        // skipped.
+        const configContract3Address = getTargetAddress(
+          sphinxManagerAddress,
+          'ConfigContract3'
+        )
+        expect(await provider.getCode(configContract3Address)).to.not.equal(
+          '0x'
+        )
+
+        // Check that the actions were not executed again
+        await assertActionsExecuted(network)
+      }
+    })
+
+    it('Skips previously executed actions and executes new actions', async () => {
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      userConfig.postDeploy = [
+        ConfigContract1.incrementUint(),
+        ConfigContract1.incrementUint(),
+        ExternalContract1.incrementMyContract2(6, [
+          { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+        ]),
+      ]
+
+      await Promise.all(
+        initialTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      // Define a helper function to assert that the actions were executed. This will be called
+      // multiple times.
+      const assertActionsExecuted = async (
+        provider: ethers.JsonRpcProvider,
+        vals: {
+          configContract: bigint
+          externalContract: {
+            goerli: bigint
+            'arbitrum-goerli': bigint
+            'optimism-goerli': bigint
+          }
+        }
+      ) => {
+        const ConfigContract1_Deployed = await hre.ethers.getContractAt(
+          'MyContract1',
+          configContract1Address,
+          provider
+        )
+        // Increment was called 2 times
+        expect(await ConfigContract1_Deployed.uintArg()).equals(
+          vals.configContract
+        )
+
+        const ExternalContract_Deployed = await hre.ethers.getContractAt(
+          'MyContract2',
+          externalContractAddress1,
+          provider
+        )
+        if (network === 'goerli') {
+          expect(await ExternalContract_Deployed.number()).equals(
+            vals.externalContract.goerli
+          )
+        } else if (network === 'arbitrum-goerli') {
+          expect(await ExternalContract_Deployed.number()).equals(
+            vals.externalContract['arbitrum-goerli']
+          )
+        } else {
+          expect(await ExternalContract_Deployed.number()).equals(
+            vals.externalContract['optimism-goerli']
+          )
+        }
+      }
+
+      // Assert that the actions were executed
+      for (const network of initialTestnets) {
+        await assertActionsExecuted(network, {
+          configContract: 2n,
+          externalContract: {
+            goerli: 7n,
+            'arbitrum-goerli': 7n,
+            'optimism-goerli': 6n,
+          },
+        })
+      }
+
+      // Add new post-deploy actions
+      userConfig.postDeploy.push(ConfigContract1.incrementUint())
+      userConfig.postDeploy.push(
+        ExternalContract1.incrementMyContract2(6, [
+          { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+        ])
+      )
+
+      // Deploy again
+      await Promise.all(
+        initialTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      for (const network of initialTestnets) {
+        const provider = rpcProviders[network]
+
+        // Check that the actions were not executed again
+        await assertActionsExecuted(network)
+      }
+    })
   })
 })
 
 // TODO
 // function calls:
-// - [ct.fn1(), ct2.fn2(a)]
-// - [ct.fn1(), ct.fn1(), ct.fn2()]
-// - [ct.fn1(), ct2.fn2(a)] -> [ct.fn1(), ct2.fn2(a)]: second deployment should result in no calls
-// - [ct.fn1(), ct2.fn2(a)] -> [ct.fn1(), ct2.fn2(a)]: second deployment should result in no calls
 // - [ct.fn1(), ct2.fn2(a)] -> [ct.fn1(), ct2.fn2(a), ct.fn1()]: only the third call should be executed
+// - add a different override, but keep the rest of the post-deploy actions the same. this should be skipped
+//   everywhere except the overridden chain
 // - [ct.fn1(), ct2.fn2(a)] -> add new chain -> [ct.fn1(), ct2.fn2(a)]
 // - [ct.fn1(), ct2.fn2(a)] -> add new chain -> [ct.fn1(), ct2.fn2(a), ct1.fn1()]
 // - just sanity check that it works with the proposal flow. you don't need leave the test in here.
+// - review the test where you override one refence name with another
 
 // TODO(docs): this test suite is separated into two main components: tests that vary the constructor args while keeping
 // the function calls simple, and tests that _. We've separated it this way because the logic that handles these two

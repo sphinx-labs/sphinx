@@ -3502,7 +3502,7 @@ export const parsePostDeploymentActions = (
       }
 
       // Update the salt.
-      callNonces[payload] += 1
+      callNonces[payload] = nonce + 1
     }
   }
 
