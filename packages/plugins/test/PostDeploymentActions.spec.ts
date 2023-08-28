@@ -254,8 +254,8 @@ describe('Post-Deployment Actions', () => {
       })
 
       functionArgOverrides = [
-        { chains: ['optimism-goerli', 'goerli'], args: { b: 2, c: 3 } },
-        { chains: ['arbitrum-goerli'], args: { a: 1 } },
+        { chains: ['optimism-goerli', 'goerli'], args: { _b: 5, _c: 6 } },
+        { chains: ['arbitrum-goerli'], args: { _a: 4 } },
       ]
     })
 
@@ -355,13 +355,99 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it('Function with chain-specific overrides', async () => {})
+    it('Function with chain-specific overrides', async () => {
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      userConfig.postDeploy = [
+        ConfigContract1.setInts(1, 2, 3, functionArgOverrides),
+      ]
+
+      await Promise.all(
+        allTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      for (const network of allTestnets) {
+        const ConfigContract1_Deployed = await hre.ethers.getContractAt(
+          'MyContract1',
+          configContract1Address,
+          rpcProviders[network]
+        )
+
+        // Default values
+        let _a = 1n
+        let _b = 2n
+        let _c = 3n
+
+        // Overridding values
+        if (network === 'optimism-goerli' || network === 'goerli') {
+          _b = 5n
+          _c = 6n
+        } else if (network === 'arbitrum-goerli') {
+          _a = 4n
+        }
+
+        expect(await ConfigContract1_Deployed.intArg()).equals(_a)
+        expect(await ConfigContract1_Deployed.secondIntArg()).equals(_b)
+        expect(await ConfigContract1_Deployed.thirdIntArg()).equals(_c)
+      }
+    })
+
+    it.only('Complex post-deployment actions', async () => {
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      userConfig.postDeploy = [
+        ConfigContract1.incrementUint(),
+        ConfigContract1.incrementUint(),
+        ExternalContract1.updateMyContract2(6, [
+          { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+        ]),
+        ConfigContract1.incrementUint(),
+        ConfigContract1['set(int,int)'](-3, -4, [
+          { chains: ['optimism-goerli'], args: { _secondInt: -5 } },
+        ]),
+        ConfigContract1.incrementUint(),
+      ]
+
+      await Promise.all(
+        initialTestnets.map((network) =>
+          deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+        )
+      )
+
+      for (const network of initialTestnets) {
+        const ConfigContract1_Deployed = await hre.ethers.getContractAt(
+          'MyContract1',
+          configContract1Address,
+          rpcProviders[network]
+        )
+        // Increment was called 4 times
+        expect(await ConfigContract1_Deployed.uintArg()).equals(4n)
+
+        const ExternalContract_Deployed = await hre.ethers.getContractAt(
+          'MyContract2',
+          externalContractAddress1,
+          rpcProviders[network]
+        )
+        if (network === 'goerli' || network === 'arbitrum-goerli') {
+          expect(await ExternalContract_Deployed.number()).equals(7n)
+        } else {
+          expect(await ExternalContract_Deployed.number()).equals(6n)
+        }
+
+        // Default values
+        expect(await ConfigContract1_Deployed.intArg()).equals(-3n)
+        if (network === 'optimism-goerli') {
+          expect(await ConfigContract1_Deployed.secondIntArg()).equals(-5n)
+        } else {
+          expect(await ConfigContract1_Deployed.secondIntArg()).equals(-4n)
+        }
+      }
+    })
   })
 })
 
 // TODO
 // function calls:
-// - fn4(a, b, c, overrides)
 // - [ct.fn1(), ct2.fn2(a)]
 // - [ct.fn1(), ct.fn1(), ct.fn2()]
 // - [ct.fn1(), ct2.fn2(a)] -> [ct.fn1(), ct2.fn2(a)]: second deployment should result in no calls
