@@ -103,6 +103,9 @@ contract SphinxManager is
      */
     mapping(bytes32 => DeploymentState) private _deployments;
 
+    // TODO: add openzeppelin's storage slot checker to the initialization logic, then
+    // see if the checker errors on the manager, which it should.
+
     /**
      * @notice ID of the currently active deployment.
      */

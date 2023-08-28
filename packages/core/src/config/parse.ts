@@ -114,7 +114,7 @@ import {
 } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import {
-  SUPPORTED_LOCAL_NETWOKRS,
+  SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_MAINNETS,
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
@@ -1893,7 +1893,7 @@ export const parseFunctionOverrides = (
       (name) =>
         !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
         !Object.keys(SUPPORTED_TESTNETS).includes(name) &&
-        !Object.keys(SUPPORTED_LOCAL_NETWOKRS).includes(name)
+        !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(name)
     )
   )
 
