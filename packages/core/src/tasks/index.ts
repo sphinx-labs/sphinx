@@ -358,9 +358,15 @@ export const proposeAbstractTask = async (
   const newCanonicalConfig: CanonicalConfig = {
     manager: prevConfig.manager,
     options: parsedConfig.options,
-    contracts: parsedConfig.contracts,
+    contracts: {
+      ...prevConfig.contracts,
+      ...parsedConfig.contracts,
+    },
     projectName: parsedConfig.projectName,
-    chainStates: newChainStates,
+    chainStates: {
+      ...prevConfig.chainStates,
+      ...newChainStates,
+    },
   }
 
   // We calculate the auth address based on the current owners since this is used to store the
