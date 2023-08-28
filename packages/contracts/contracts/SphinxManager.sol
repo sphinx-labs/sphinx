@@ -619,6 +619,8 @@ contract SphinxManager is
                         abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
                     );
 
+                    // TODO: remove this line. first, consider the fact that this require statement is
+                    // nice UX when the user is deploying their config locally.
                     require(deploySuccess, string(abi.encodePacked("Failed to deploy contract: ", expectedAddress)));
 
                     address actualAddress = abi.decode(actualAddressBytes, (address));
