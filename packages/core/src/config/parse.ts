@@ -1888,8 +1888,6 @@ export const parseFunctionOverrides = (
     })
   }
 
-<<<<<<< HEAD
-=======
   const invalidOverrideChains = userOverrides.flatMap((el) =>
     el.chains.filter(
       (name) =>
@@ -1899,11 +1897,10 @@ export const parseFunctionOverrides = (
     )
   )
 
->>>>>>> 341cf0da (a)
   if (invalidOverrideChains && invalidOverrideChains.length > 0) {
     logValidationError(
       'error',
-      `Detected invalid override network names for ${referenceName}:`,
+      `Detected invalid override network names for ${fragmentLogName}:`,
       invalidOverrideChains,
       cre.silent,
       cre.stream
