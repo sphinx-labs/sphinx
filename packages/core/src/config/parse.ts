@@ -2759,7 +2759,10 @@ export const assertImmutableDeploymentsDoNotRevert = (
     }
   }
 
-  if (Object.keys(revertStrings).length > 0) {
+  if (
+    Object.keys(revertStrings).length > 0 &&
+    !process.env.SPHINX_INTERNAL__ALLOW_REVERTING_CONSTRUCTORS
+  ) {
     logValidationError(
       'error',
       `The following constructors will revert:`,
