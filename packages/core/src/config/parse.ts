@@ -114,7 +114,7 @@ import {
 } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import {
-  SUPPORTED_LOCAL_NETWOKRS,
+  SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_MAINNETS,
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
@@ -1888,6 +1888,18 @@ export const parseFunctionOverrides = (
     })
   }
 
+<<<<<<< HEAD
+=======
+  const invalidOverrideChains = userOverrides.flatMap((el) =>
+    el.chains.filter(
+      (name) =>
+        !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
+        !Object.keys(SUPPORTED_TESTNETS).includes(name) &&
+        !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(name)
+    )
+  )
+
+>>>>>>> 341cf0da (a)
   if (invalidOverrideChains && invalidOverrideChains.length > 0) {
     logValidationError(
       'error',
