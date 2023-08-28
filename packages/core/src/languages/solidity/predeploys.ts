@@ -24,6 +24,7 @@ import {
   getImpersonatedSigner,
   getNetworkType,
   resolveNetwork,
+  getOpenZeppelinUpgradableContract,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
@@ -171,6 +172,9 @@ export const initializeSphinx = async (
     throw new Error('Failed to get latest block.')
   }
   assertValidBlockGasLimit(block.gasLimit)
+
+  // TODO: refactor
+  // const upgradeableSphinxManager = getOpenZeppelinUpgradableContract('contracts/SphinxManager.sol:SphinxManager', )
 
   for (const {
     artifact,
