@@ -2,7 +2,7 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { ConstructorFragment, FunctionFragment, ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import {
   astDereferencer,
@@ -51,7 +51,6 @@ import {
   remove0x,
   getCallHash,
   findReferenceNameForAddress,
-  getNetworkNameForChainId,
   isUserConstructorArgOverride,
   getFunctionArgValueArray,
   hyperlink,
@@ -82,7 +81,6 @@ import {
   UserConfig,
   MinimalConfigCache,
   ConfigCache,
-  UserConstructorArgOverride,
   ParsedFunctionArgsPerChain,
   ParsedCallAction,
   UserCallAction,
@@ -114,12 +112,11 @@ import {
 } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import {
-  SUPPORTED_LOCAL_NETWOKRS,
+  SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_MAINNETS,
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
   SupportedChainId,
-  SupportedNetworkName,
 } from '../networks'
 
 export class ValidationError extends Error {
@@ -1893,7 +1890,7 @@ export const parseFunctionOverrides = (
       (name) =>
         !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
         !Object.keys(SUPPORTED_TESTNETS).includes(name) &&
-        !Object.keys(SUPPORTED_LOCAL_NETWOKRS).includes(name)
+        !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(name)
     )
   )
 
