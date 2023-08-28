@@ -49,13 +49,15 @@ export const getFoundryConfig = (
 export const readUserConfig = async (
   configPath: string
 ): Promise<UserConfig> => {
-  const userConfig = await readUserSphinxConfig(configPath)
+  const userConfig = (await readUserSphinxConfig(configPath)) as UserConfig
+
+  // We should refactor the deploy task so it still uses the options
+  // For now, we just delete the options field if it exists and cast this to a UserConfig so that
+  // the deploy task doesn't break.
   if (userConfig.options) {
-    throw new Error(
-      `Detected 'options' field in config. Please use 'readUserConfigWithOptions' instead.`
-    )
+    delete userConfig.options
   }
-  return userConfig
+  return userConfig as UserConfig
 }
 
 export const readUserConfigWithOptions = async (
