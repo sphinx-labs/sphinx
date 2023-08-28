@@ -48,7 +48,7 @@ contract MyContract2 {
 
     uint public number;
 
-    function updateMyContract2(uint _num) external {
-        number = _num;
+    function incrementMyContract2(uint _num) external {
+        number += _num;
     }
 }

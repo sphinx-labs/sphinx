@@ -55,7 +55,7 @@ export const testnetsToAdd: Array<SupportedNetworkName> = [
   'gnosis-chiado',
 ]
 export const allTestnets = initialTestnets.concat(testnetsToAdd)
-export const rpcProviders = {
+export const rpcProviders: { [network: string]: SphinxJsonRpcProvider } = {
   goerli: new SphinxJsonRpcProvider('http://127.0.0.1:42005'),
   'optimism-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42420'),
   'gnosis-chiado': new SphinxJsonRpcProvider('http://127.0.0.1:42200'),
