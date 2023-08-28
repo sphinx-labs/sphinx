@@ -233,37 +233,6 @@ export const fetchURLForNetwork = (chainId: number) => {
   if (!process.env.ALCHEMY_API_KEY) {
     throw new Error('ALCHEMY_API_KEY key not defined')
   }
-  if (!process.env.BNB_TESTNET_URL) {
-    throw new Error('BNB_TESTNET_URL key not defined')
-  }
-  if (!process.env.BNB_MAINNET_URL) {
-    throw new Error('BNB_MAINNET_URL key not defined')
-  }
-  if (!process.env.CHIADO_RPC_URL) {
-    throw new Error('CHIADO_RPC_URL key not defined')
-  }
-  if (!process.env.GNOSIS_MAINNET_URL) {
-    throw new Error('GNOSIS_MAINNET_URL key not defined')
-  }
-  if (!process.env.POLYGON_ZKEVM_MAINNET_URL) {
-    throw new Error('POLYGON_ZKEVM_MAINNET_URL key not defined')
-  }
-  if (!process.env.POLYGON_ZKEVM_TESTNET_URL) {
-    throw new Error('POLYGON_ZKEVM_TESTNET_URL key not defined')
-  }
-  if (!process.env.FANTOM_TESTNET_RPC_URL) {
-    throw new Error('FANTOM_TESTNET_RPC_URL key not defined')
-  }
-  if (!process.env.FANTOM_MAINNET_RPC_URL) {
-    throw new Error('FANTOM_MAINNET_RPC_URL key not defined')
-  }
-  if (!process.env.BASE_MAINNET_URL) {
-    throw new Error('BASE_MAINNET_URL key not defined')
-  }
-  if (!process.env.BASE_GOERLI_URL) {
-    throw new Error('BASE_GOERLI_URL key not defined')
-  }
-
   switch (chainId) {
     // mainnet
     case 1:
@@ -285,13 +254,25 @@ export const fetchURLForNetwork = (chainId: number) => {
       return `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     // bnbt
     case 97:
+      if (!process.env.BNB_TESTNET_URL) {
+        throw new Error('BNB_TESTNET_URL key not defined')
+      }
       return process.env.BNB_TESTNET_URL
     case 56:
+      if (!process.env.BNB_MAINNET_URL) {
+        throw new Error('BNB_MAINNET_URL key not defined')
+      }
       return process.env.BNB_MAINNET_URL
     // gnosis chiado
     case 10200:
+      if (!process.env.CHIADO_RPC_URL) {
+        throw new Error('CHIADO_RPC_URL key not defined')
+      }
       return process.env.CHIADO_RPC_URL
     case 100:
+      if (!process.env.GNOSIS_MAINNET_URL) {
+        throw new Error('GNOSIS_MAINNET_URL key not defined')
+      }
       return process.env.GNOSIS_MAINNET_URL
     // polygon mumbai
     case 80001:
@@ -299,24 +280,42 @@ export const fetchURLForNetwork = (chainId: number) => {
     case 137:
       return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     case 1101:
+      if (!process.env.POLYGON_ZKEVM_MAINNET_URL) {
+        throw new Error('POLYGON_ZKEVM_MAINNET_URL key not defined')
+      }
       return process.env.POLYGON_ZKEVM_MAINNET_URL
     case 1442:
+      if (!process.env.POLYGON_ZKEVM_TESTNET_URL) {
+        throw new Error('POLYGON_ZKEVM_TESTNET_URL key not defined')
+      }
       return process.env.POLYGON_ZKEVM_TESTNET_URL
     case 59144:
       return `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`
     case 59140:
       return `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`
     case 4002:
+      if (!process.env.FANTOM_TESTNET_RPC_URL) {
+        throw new Error('FANTOM_TESTNET_RPC_URL key not defined')
+      }
       return process.env.FANTOM_TESTNET_RPC_URL
     case 250:
+      if (!process.env.FANTOM_MAINNET_RPC_URL) {
+        throw new Error('FANTOM_MAINNET_RPC_URL key not defined')
+      }
       return process.env.FANTOM_MAINNET_RPC_URL
     case 43113:
       return `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`
     case 43114:
       return `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`
     case 8453:
+      if (!process.env.BASE_MAINNET_URL) {
+        throw new Error('BASE_MAINNET_URL key not defined')
+      }
       return process.env.BASE_MAINNET_URL
     case 84531:
+      if (!process.env.BASE_GOERLI_URL) {
+        throw new Error('BASE_GOERLI_URL key not defined')
+      }
       return process.env.BASE_GOERLI_URL
     default:
       throw new Error(`Unsupported chain for id ${chainId}`)

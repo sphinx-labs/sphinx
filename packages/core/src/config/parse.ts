@@ -114,6 +114,7 @@ import {
 } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import {
+  SUPPORTED_LOCAL_NETWOKRS,
   SUPPORTED_MAINNETS,
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
@@ -1885,6 +1886,25 @@ export const parseFunctionOverrides = (
 
       parsedArgsPerChain[chainId][argName] = parsedArgValue
     })
+  }
+
+  const invalidOverrideChains = userOverrides.flatMap((el) =>
+    el.chains.filter(
+      (name) =>
+        !Object.keys(SUPPORTED_MAINNETS).includes(name) &&
+        !Object.keys(SUPPORTED_TESTNETS).includes(name) &&
+        !Object.keys(SUPPORTED_LOCAL_NETWOKRS).includes(name)
+    )
+  )
+
+  if (invalidOverrideChains && invalidOverrideChains.length > 0) {
+    logValidationError(
+      'error',
+      `Detected invalid override network names for the ${fragmentLogName}:`,
+      invalidOverrideChains,
+      cre.silent,
+      cre.stream
+    )
   }
 
   if (ambiguousArgOutput.length > 0) {
