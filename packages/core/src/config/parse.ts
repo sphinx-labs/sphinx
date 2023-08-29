@@ -3428,12 +3428,6 @@ export const parsePostDeploymentActions = (
         continue
       }
 
-      // TODO(test): we may want to consider moving away from ethers.BigNumber in our parsing logic
-      // since ethers V6 doesn't allow them, which causes post-deployment actions to fail if they
-      // have a default function arg that's a bignumber
-
-      // TODO: rm @ethersproject/bignumber from demo
-
       const functionTypeArgs: Array<string> = []
       const incorrectlyFormattedArgs: Array<string> = []
       const parsedDefaultArgs: ParsedConfigVariables = {}
@@ -3467,7 +3461,7 @@ export const parsePostDeploymentActions = (
         )
       }
 
-      // TODO: include link to constructor-args.md, since this is the error array that catches params valid in ethers but not sphinx
+      // TODO(docs): include link to constructor-args.md, since this is the error array that catches params valid in ethers but not sphinx
       if (incorrectlyFormattedArgs.length > 0) {
         logValidationError(
           'error',

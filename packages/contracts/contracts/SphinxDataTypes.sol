@@ -76,9 +76,6 @@ enum SphinxActionType {
     CALL
 }
 
-// TODO: test that an upgrade from a prev manager to a new manager works as expected. This is particularly
-// important to sanity check that the storage layout functions properly.
-
 /**
  * @notice Enum representing the status of the deployment. These steps occur in sequential order,
    with the `CANCELLED` status being an exception.
