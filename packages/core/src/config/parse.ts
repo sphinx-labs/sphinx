@@ -3385,11 +3385,11 @@ export const parsePostDeploymentActions = (
 
       try {
         // TODO:
-        // - error if missing args
-        // - error if extra args
-        // - error if incorrect arg types (e.g. uint = 'abc')
-        // - error if ambiguous overloaded function signature
-        // - error if function name does not exist in contract (see if this is duplicated w/ `.hasFunction`)
+        // - error if missing args (done)
+        // - error if extra args (done)
+        // - error if incorrect arg types (e.g. uint = 'abc') (done)
+        // - error if ambiguous overloaded function signature (done)
+        // - error if function name does not exist in contract (done)
         iface.encodeFunctionData(
           callAction.functionName,
           callAction.functionArgs
@@ -3405,8 +3405,7 @@ export const parsePostDeploymentActions = (
               callAction.functionName,
               callAction.functionArgs
             )}\n` +
-            `EthersJS error message:\n` +
-            `${e.message}`,
+            `Reason: ${e.message}`,
           [],
           cre.silent,
           cre.stream
@@ -3420,10 +3419,17 @@ export const parsePostDeploymentActions = (
         callAction.functionName,
         callAction.functionArgs
       )
+      // We check for the null case to avoid a TypeScript type error
       if (fragment === null) {
-        // TODO(docs): should never happen since the `encodeFunctionData` call above should
+        // We check for the hould never happen since the `encodeFunctionData` call above should
         // catch any issues
-        // TODO: logValidationError()
+        logValidationError(
+          'error',
+          `Failed to get the fragment for the ${functionLogName}. Should never happen.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
         continue
       }
 
@@ -3643,24 +3649,6 @@ export const assertValidPostDeploymentActions = (
         cre.silent,
         cre.stream
       )
-    }
-
-    // Next, we validate the TODO(docs). TODO(docs): we validate the function arguments in a
-    // later step because...
-    if (action.abi) {
-      const iface = new ethers.Interface(action.abi)
-      // TODO: is this necessary anymore? if so, what does it return for an overloaded function?
-      if (!iface.hasFunction(action.functionName)) {
-        logValidationError(
-          'error',
-          `The function '${action.functionName}' does not exist in the ABI of ${
-            referenceName ?? action.address
-          }.`,
-          [],
-          cre.silent,
-          cre.stream
-        )
-      }
     }
   }
 
