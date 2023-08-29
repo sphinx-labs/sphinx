@@ -70,7 +70,11 @@ export const verifyDeployment = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
+  const { bundles } = makeBundlesFromConfig(
+    config,
+    configArtifacts,
+    configCache
+  )
 
   if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(
@@ -110,7 +114,7 @@ export const compileRemoteBundles = async (
     compilerConfig.manager
   )
 
-  const bundles = makeBundlesFromConfig(
+  const { bundles } = makeBundlesFromConfig(
     compilerConfig,
     configArtifacts,
     configCache

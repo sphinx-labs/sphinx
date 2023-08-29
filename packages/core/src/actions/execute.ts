@@ -173,6 +173,13 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
+    const mostRecentState: DeploymentState = await manager.deployments(
+      activeDeploymentId
+    )
+    if (mostRecentState.status === DeploymentStatus.FAILED) {
+      return { status: mostRecentState.status, receipts }
+    }
+
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),

@@ -134,6 +134,7 @@ export type ParsedCallAction = {
   to: string
   data: string
   nonce: number
+  readableSignature: string
 }
 
 export interface ParsedConfig {

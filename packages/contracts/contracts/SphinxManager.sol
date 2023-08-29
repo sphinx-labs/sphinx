@@ -938,11 +938,11 @@ contract SphinxManager is
 
     // TODO(docs)
     function _deploymentFailed(DeploymentState storage _deployment, uint256 _actionIndex) private {
-        activeDeploymentId = bytes32(0);
-        _deployment.status = DeploymentStatus.FAILED;
-
         emit DeploymentFailed(activeDeploymentId, _actionIndex);
         registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
+
+        activeDeploymentId = bytes32(0);
+        _deployment.status = DeploymentStatus.FAILED;
     }
 
     /**

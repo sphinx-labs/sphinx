@@ -79,6 +79,16 @@ export interface SphinxBundles {
 export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
 
 /**
+ * Human-readable Sphinx action.
+ */
+export type HumanReadableActions = {
+  [index: number]: {
+    action: string
+    type: SphinxActionType.CALL | SphinxActionType.DEPLOY_CONTRACT
+  }
+}
+
+/**
  * Sphinx action that is part of a bundle.
  */
 export type BundledSphinxAction = {

@@ -3529,6 +3529,10 @@ export const parsePostDeploymentActions = (
         to: address,
         data,
         nonce,
+        readableSignature: `${referenceName ?? address}.${prettyFunctionCall(
+          callAction.functionName,
+          argValues
+        )}`,
       }
 
       const parsedActions: Array<ParsedCallAction> | undefined =

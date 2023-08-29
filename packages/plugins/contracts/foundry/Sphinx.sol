@@ -224,7 +224,7 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
-            bool executionSuccess = executeDeployment(
+            ( bool executionSuccess, string memory reason ) = executeDeployment(
                 manager,
                 bundleInfo.actionBundle,
                 bundleInfo.targetBundle,
@@ -238,7 +238,8 @@ abstract contract Sphinx {
                         abi.encodePacked(
                             "Sphinx: failed to execute ",
                             configs.minimalConfig.projectName,
-                            " likely because one of the user's transactions in the deployment reverted."
+                            " because the following action failed: ",
+                            reason
                         )
                     )
                 );
@@ -409,7 +410,7 @@ abstract contract Sphinx {
         ISphinxManager manager,
         uint bufferedGasLimit,
         DeployContractCost[] memory deployContractCosts
-    ) private returns (DeploymentStatus) {
+    ) private returns (DeploymentStatus, string memory) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
         DeploymentState memory state = manager.deployments(activeDeploymentId);
@@ -421,7 +422,7 @@ abstract contract Sphinx {
 
         // We can return early if there are no actions to execute.
         if (filteredActions.length == 0) {
-            return state.status;
+            return (state.status, "" );
         }
 
         uint executed = 0;
@@ -446,13 +447,16 @@ abstract contract Sphinx {
             if (isSetStorageActionArray) {
                 manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
             } else {
+                vm.recordLogs();
                 manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
             }
 
             // Return early if the deployment failed.
             state = manager.deployments(activeDeploymentId);
             if (state.status == DeploymentStatus.FAILED) {
-                return state.status;
+                Vm.Log[] memory entries = vm.getRecordedLogs();
+                console.logUint(abi.decode(entries[0].data, (uint)));
+                return ( state.status, "" );
             }
 
             // Move to next batch if necessary
@@ -460,7 +464,7 @@ abstract contract Sphinx {
         }
 
         // Return the final deployment status
-        return state.status;
+        return ( state.status, "" );
     }
 
     function executeDeployment(
@@ -469,14 +473,14 @@ abstract contract Sphinx {
         SphinxTargetBundle memory targetBundle,
         uint256 blockGasLimit,
         DeployContractCost[] memory deployContractCosts
-    ) private returns (bool) {
+    ) private returns (bool, string memory) {
         vm.recordLogs();
 
         (BundledSphinxAction[] memory initialActions, BundledSphinxAction[] memory setStorageActions) = sphinxUtils.splitActions(actionBundle.actions);
 
         uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
         // Execute all the deploy contract actions and exit early if the deployment failed
-        DeploymentStatus status = executeBatchActions(
+        (DeploymentStatus status, ) = executeBatchActions(
             initialActions,
             false,
             manager,
@@ -484,9 +488,9 @@ abstract contract Sphinx {
             deployContractCosts
         );
         if (status == DeploymentStatus.FAILED) {
-            return false;
+            return ( false, "" );
         } else if (status == DeploymentStatus.COMPLETED) {
-            return true;
+            return ( true, "" );
         }
 
         // Dissemble the set storage actions
@@ -509,7 +513,7 @@ abstract contract Sphinx {
 
         pushRecordedLogs();
 
-        return true;
+        return ( true, "" );
     }
 
     function pushRecordedLogs() private {

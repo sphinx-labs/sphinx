@@ -4,7 +4,7 @@ import process from 'process'
 import { join, sep } from 'path'
 
 import * as dotenv from 'dotenv'
-import { ethers } from 'ethers'
+import { EventLog, ethers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
@@ -73,6 +73,7 @@ import {
   ProjectDeployment,
   fromRawSphinxAction,
   isSetStorageAction,
+  HumanReadableActions,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -576,11 +577,8 @@ export const deployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
-    parsedConfig,
-    configArtifacts,
-    configCache
-  )
+  const { configUri, bundles, compilerConfig, humanReadableActions } =
+    await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
 
   if (
     bundles.actionBundle.actions.length === 0 &&
@@ -643,6 +641,26 @@ export const deployAbstractTask = async (
     )
 
     if (!success) {
+      const failureEvent = (
+        await Manager.queryFilter(
+          Manager.filters.DeploymentFailed(deploymentId)
+        )
+      ).at(-1)
+
+      if (failureEvent) {
+        const log = Manager.interface.parseLog({
+          topics: failureEvent.topics as string[],
+          data: failureEvent.data,
+        })
+
+        if (log?.args[1]) {
+          const action = humanReadableActions[Number(log?.args[1])]
+          throw new Error(
+            `Failed to execute ${projectName}, because the following action failed: ${action.action}`
+          )
+        }
+      }
+
       throw new Error(
         `Failed to execute ${projectName}, likely because a transaction reverted during the deployment.`
       )
@@ -964,6 +982,7 @@ export const getProjectBundleInfo = async (
   configUri: string
   compilerConfig: CompilerConfig
   bundles: SphinxBundles
+  humanReadableActions: HumanReadableActions
 }> => {
   const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
     parsedConfig,
@@ -971,11 +990,11 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const bundles = makeBundlesFromConfig(
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
   )
 
-  return { configUri, compilerConfig, bundles }
+  return { configUri, compilerConfig, bundles, humanReadableActions }
 }
