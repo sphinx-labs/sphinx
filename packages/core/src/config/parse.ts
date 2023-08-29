@@ -2486,34 +2486,31 @@ export const assertValidConstructorArgs = (
       ConstructorFragment.isFragment
     )
     const fragmentLogName = `constructor of ${referenceName}`
-    try {
-      const parsedDefaultArgs = parseDefaultConstructorArgs(
-        fragmentLogName,
-        cre,
-        userContractConfig.constructorArgs,
-        constructorFragment
-      )
 
-      // TODO(docs): we continue to the next contract config if the call above resulted in any
-      // validation errors. we do this because the rest of the function assumes that the default
-      // user args are valid. we don't exit the process here because this allows us to display
-      // more validation errors to the user in one run.
-      if (validationErrors) {
-        continue
-      }
+    const parsedDefaultArgs = parseDefaultConstructorArgs(
+      fragmentLogName,
+      cre,
+      userContractConfig.constructorArgs,
+      constructorFragment
+    )
 
-      const args = parseFunctionOverrides(
-        fragmentLogName,
-        networks,
-        cre,
-        parsedDefaultArgs,
-        userContractConfig.overrides,
-        constructorFragment
-      )
-      cachedConstructorArgs[referenceName] = args
-    } catch (e) {
-      // Do nothing. TODO(docs)
+    // TODO(docs): we continue to the next contract config if the call above resulted in any
+    // validation errors. we do this because the rest of the function assumes that the default
+    // user args are valid. we don't exit the process here because this allows us to display
+    // more validation errors to the user in one run.
+    if (validationErrors) {
+      continue
     }
+
+    const args = parseFunctionOverrides(
+      fragmentLogName,
+      networks,
+      cre,
+      parsedDefaultArgs,
+      userContractConfig.overrides,
+      constructorFragment
+    )
+    cachedConstructorArgs[referenceName] = args
   }
 
   // Exit if any validation errors were detected up to this point. We exit early here because invalid
@@ -3395,7 +3392,6 @@ export const parsePostDeploymentActions = (
           callAction.functionArgs
         )
       } catch (e) {
-        // TODO: the referenceName ?? address thing should be refactored
         logValidationError(
           'error',
           `Failed to encode data for the function call on ${
@@ -3419,10 +3415,9 @@ export const parsePostDeploymentActions = (
         callAction.functionName,
         callAction.functionArgs
       )
-      // We check for the null case to avoid a TypeScript type error
+      // We check for the null case to narrow the TypeScript type. The fragment should never be null
+      // since we already successfully encoded the function data above.
       if (fragment === null) {
-        // We check for the hould never happen since the `encodeFunctionData` call above should
-        // catch any issues
         logValidationError(
           'error',
           `Failed to get the fragment for the ${functionLogName}. Should never happen.`,
@@ -3433,8 +3428,11 @@ export const parsePostDeploymentActions = (
         continue
       }
 
-      // TODO(test): what happens if we input a BigNumber as a variable in a default function call?
-      // (not a bigint). sphinx accepts these but i'm not sure if ethers does.
+      // TODO(test): we may want to consider moving away from ethers.BigNumber in our parsing logic
+      // since ethers V6 doesn't allow them, which causes post-deployment actions to fail if they
+      // have a default function arg that's a bignumber
+
+      // TODO: rm @ethersproject/bignumber from demo
 
       const functionTypeArgs: Array<string> = []
       const incorrectlyFormattedArgs: Array<string> = []
@@ -3454,7 +3452,7 @@ export const parsePostDeploymentActions = (
               cre
             )
           } catch (e) {
-            incorrectlyFormattedArgs.push((e as Error).message)
+            incorrectlyFormattedArgs.push(e.message)
           }
         }
       })
@@ -3486,18 +3484,18 @@ export const parsePostDeploymentActions = (
         continue
       }
 
-      let argsPerChain: ParsedFunctionArgsPerChain
-      try {
-        argsPerChain = parseFunctionOverrides(
-          functionLogName,
-          [network], // TODO(docs)
-          cre,
-          parsedDefaultArgs,
-          callAction.functionArgOverrides,
-          fragment
-        )
-      } catch (e) {
-        // TODO(docs) - same as other call to `parseFunction...`. say that we move on to the next _.
+      const argsPerChain = parseFunctionOverrides(
+        functionLogName,
+        [network], // TODO(docs)
+        cre,
+        parsedDefaultArgs,
+        callAction.functionArgOverrides,
+        fragment
+      )
+
+      // TODO(docs): the rest of the function relies on the parsed overridden params being correct,
+      // so we continue to the next action if any validation errors occurred in the previous call.
+      if (validationErrors) {
         continue
       }
 

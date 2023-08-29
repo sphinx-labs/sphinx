@@ -42,6 +42,7 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
+    "@ethersproject/bignumber": "^5.7.0",
     "@sphinx-labs/contracts": "^0.10.0",
     "@sphinx-labs/core": "^0.15.0",
     "@sphinx-labs/plugins": "^0.20.0",
