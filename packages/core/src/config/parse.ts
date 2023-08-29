@@ -2,7 +2,7 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { ConstructorFragment, FunctionFragment, ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import {
   astDereferencer,
@@ -51,12 +51,9 @@ import {
   remove0x,
   getCallHash,
   findReferenceNameForAddress,
-  getNetworkNameForChainId,
   isUserConstructorArgOverride,
   getFunctionArgValueArray,
-  hyperlink,
   getCallActionAddressForNetwork,
-  prettyFunctionCall,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -83,7 +80,6 @@ import {
   UserConfig,
   MinimalConfigCache,
   ConfigCache,
-  UserConstructorArgOverride,
   ParsedFunctionArgsPerChain,
   ParsedCallAction,
   UserCallAction,
@@ -120,7 +116,6 @@ import {
   SUPPORTED_NETWORKS,
   SUPPORTED_TESTNETS,
   SupportedChainId,
-  SupportedNetworkName,
 } from '../networks'
 import {
   contractInstantiatedWithDuplicatedNetworkOverrides,
@@ -1954,7 +1949,10 @@ export const parseFunctionOverrides = (
   if (incorrectOverrideArgNameErrors.length > 0) {
     logValidationError(
       'error',
-      `The config contains argument overrides in the ${fragmentLogName} which do not exist in the contract:`,
+      `The config contains argument overrides in the ${fragmentLogName} which do not exist in the contract.\n` +
+        `Allowed overrides:\n` +
+        `${argNames.length > 0 ? argNames.join(', ') : 'None'}\n` +
+        `Invalid overrides:`,
       incorrectOverrideArgNameErrors,
       cre.silent,
       cre.stream

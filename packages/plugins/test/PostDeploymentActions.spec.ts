@@ -813,6 +813,38 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
+      // TODO: .only
+      it.only('Single function with struct argument', async () => {
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [
+          ConfigContract1.setMyStructValues({
+            b: 2,
+            c: {
+              d: '0x' + '11'.repeat(20),
+            },
+            a: 1,
+          }),
+        ]
+
+        await Promise.all(
+          initialTestnets.map((network) =>
+            deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+          )
+        )
+
+        for (const network of initialTestnets) {
+          const ConfigContract1_Deployed = new ethers.Contract(
+            configContract1Address,
+            ConfigContractABI,
+            rpcProviders[network]
+          )
+          expect(await ConfigContract1_Deployed.uintArg()).equals(3n)
+          expect(await ConfigContract1_Deployed.addressArg()).equals(
+            '0x' + '11'.repeat(20)
+          )
+        }
+      })
+
       it('Overloaded functions with two arguments', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         const newAddress1 = '0x' + '11'.repeat(20)
@@ -909,7 +941,59 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      it('Complex post-deployment actions', async () => {
+      it.only('Overrides nested struct values', async () => {
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [
+          ConfigContract1.setMyStructValues(
+            {
+              b: 2,
+              c: {
+                d: '0x' + '11'.repeat(20),
+              },
+              a: 1,
+            },
+            [
+              {
+                chains: ['goerli', 'optimism-goerli'],
+                args: {
+                  _myStruct: { a: 4, b: 5, c: { d: '0x' + '22'.repeat(20) } },
+                },
+              },
+            ]
+          ),
+        ]
+
+        await Promise.all(
+          initialTestnets.map((network) =>
+            deploy(userConfig, rpcProviders[network], deployerPrivateKey)
+          )
+        )
+        for (const network of initialTestnets) {
+          const ConfigContract1_Deployed = new ethers.Contract(
+            configContract1Address,
+            ConfigContractABI,
+            rpcProviders[network]
+          )
+          if (network === 'optimism-goerli' || network === 'goerli') {
+            expect(await ConfigContract1_Deployed.intArg()).equals(4n)
+            expect(await ConfigContract1_Deployed.secondIntArg()).equals(5n)
+            expect(await ConfigContract1_Deployed.addressArg()).equals(
+              '0x' + '22'.repeat(20)
+            )
+          } else {
+            expect(await ConfigContract1_Deployed.intArg()).equals(1n)
+            expect(await ConfigContract1_Deployed.secondIntArg()).equals(2n)
+            expect(await ConfigContract1_Deployed.addressArg()).equals(
+              '0x' + '11'.repeat(20)
+            )
+          }
+        }
+      })
+
+      // TODO: when you run `yarn test:hardhat` twice, the initialization logic fails, which could
+      // be a user-facing issue.
+
+      it.only('Complex post-deployment actions', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [
           ConfigContract1.incrementUint(),

@@ -11,6 +11,17 @@ contract MyContract1 {
     address public addressArg;
     address public otherAddressArg;
 
+// TODO: improve these field names
+    struct MyStruct {
+        int a;
+        int b;
+        MyNestedStruct c;
+    }
+
+    struct MyNestedStruct {
+        address d;
+    }
+
     constructor(
         int _intArg,
         uint _uintArg,
@@ -41,6 +52,12 @@ contract MyContract1 {
         intArg = _a;
         secondIntArg = _b;
         thirdIntArg = _c;
+    }
+
+    function setMyStructValues(MyStruct memory _myStruct) external {
+        intArg = _myStruct.a;
+        secondIntArg = _myStruct.b;
+        addressArg = _myStruct.c.d;
     }
 }
 
