@@ -57,10 +57,6 @@ export class Contract {
     return method
   }
 
-  // TODO(test): https://docs.ethers.org/v6/migrating/#migrate-contracts
-  // TODO(test): ct['increment(uint15)']. this reverts w/ ethers.contract, but it shouldn't revert for us until
-  // the parsing logic.
-
   // TODO(docs): natspec docs here for the user
   constructor(
     address: string,

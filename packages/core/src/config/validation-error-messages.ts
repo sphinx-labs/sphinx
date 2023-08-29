@@ -1,4 +1,6 @@
-import { hyperlink } from '../utils'
+import { CallAction } from '../actions/types'
+import { hyperlink, prettyFunctionCall } from '../utils'
+import { UserCallAction } from './types'
 
 export const contractInstantiatedWithInvalidAddress = (
   address: string
@@ -50,4 +52,31 @@ export const contractInstantiatedWithInvalidOverridingAddresses = (
   return `The contract ${
     referenceName ?? address
   } was instantiated with invalid overriding addresses:`
+}
+
+export const externalContractMustIncludeAbi = (address: string): string => {
+  return `You must include an ABI when instantiating the contract at address ${address}.`
+}
+
+export const failedToEncodeFunctionCall = (
+  ethersErrorMessage: string,
+  callAction: UserCallAction,
+  referenceName?: string
+): string => {
+  return (
+    `Failed to encode data for the function call on ${
+      referenceName ?? callAction.address
+    }:\n` +
+    `${prettyFunctionCall(
+      callAction.functionName,
+      callAction.functionArgs
+    )}\n` +
+    `Reason: ${ethersErrorMessage}`
+  )
+}
+
+export const functionTypeArgumentsAreNotAllowed = (
+  functionLogName: string
+): string => {
+  return `The ${functionLogName} contains function type arguments, which are not allowed. Please remove the following fields:`
 }

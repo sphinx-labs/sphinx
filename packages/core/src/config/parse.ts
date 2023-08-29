@@ -128,6 +128,9 @@ import {
   contractInstantiatedWithInvalidAddress,
   contractInstantiatedWithInvalidNetworkOverrides,
   contractInstantiatedWithInvalidOverridingAddresses,
+  externalContractMustIncludeAbi,
+  failedToEncodeFunctionCall,
+  functionTypeArgumentsAreNotAllowed,
 } from './validation-error-messages'
 
 export class ValidationError extends Error {
@@ -3374,7 +3377,7 @@ export const parsePostDeploymentActions = (
         } else {
           logValidationError(
             'error',
-            `You must include an ABI when instantiating the contract at address ${address}.`,
+            externalContractMustIncludeAbi(address),
             [],
             cre.silent,
             cre.stream
@@ -3390,9 +3393,6 @@ export const parsePostDeploymentActions = (
         ? `function '${referenceName}.${callAction.functionName}'`
         : `function '${callAction.functionName}' at ${address}`
 
-      // TODO(test): c/f in ethers docs: "This still fails, since there is no way to know which".
-      // we should have the same behavior as ethers.
-
       // TODO(test): what happens if we use a BigInt as a default param in a function call? sphinx
       // doesn't normally allow this but ethers does. another example is probably a struct that's
       // represented as an array instead of an object.
@@ -3400,12 +3400,6 @@ export const parsePostDeploymentActions = (
       const iface = new ethers.Interface(abi)
 
       try {
-        // TODO(test):
-        // - error if missing args (done)
-        // - error if extra args (done)
-        // - error if incorrect arg types (e.g. uint = 'abc') (done)
-        // - error if ambiguous overloaded function signature (done)
-        // - error if function name does not exist in contract (done)
         iface.encodeFunctionData(
           callAction.functionName,
           callAction.functionArgs
@@ -3413,14 +3407,7 @@ export const parsePostDeploymentActions = (
       } catch (e) {
         logValidationError(
           'error',
-          `Failed to encode data for the function call on ${
-            referenceName ?? address
-          }:\n` +
-            `${prettyFunctionCall(
-              callAction.functionName,
-              callAction.functionArgs
-            )}\n` +
-            `Reason: ${e.message}`,
+          failedToEncodeFunctionCall(e.message, callAction, referenceName),
           [],
           cre.silent,
           cre.stream
@@ -3473,7 +3460,7 @@ export const parsePostDeploymentActions = (
       if (functionTypeArgs.length > 0) {
         logValidationError(
           'error',
-          `The ${functionLogName} contains function type arguments, which are not allowed. Please remove the following fields:`,
+          functionTypeArgumentsAreNotAllowed(functionLogName),
           functionTypeArgs,
           cre.silent,
           cre.stream

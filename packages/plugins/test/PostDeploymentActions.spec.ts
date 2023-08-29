@@ -1,11 +1,12 @@
-import { config, expect } from 'chai'
-import hre, { sphinx } from 'hardhat'
-import { JsonRpcSigner, ethers } from 'ethers'
+import { expect } from 'chai'
+import hre from 'hardhat'
+import { ethers } from 'ethers'
 import {
   Contract,
   FailureAction,
   SupportedNetworkName,
   UserAddressOverrides,
+  UserCallAction,
   UserConfig,
   UserFunctionArgOverride,
   contractInstantiatedWithDuplicatedNetworkOverrides,
@@ -15,14 +16,15 @@ import {
   contractInstantiatedWithInvalidOverridingAddresses,
   createSphinxLog,
   ensureSphinxInitialized,
-  getParsedConfig,
   getSphinxManagerAddress,
   getTargetAddress,
-  sphinxLog,
 } from '@sphinx-labs/core'
 import { SphinxManagerABI } from '@sphinx-labs/contracts'
+import {
+  externalContractMustIncludeAbi,
+  failedToEncodeFunctionCall,
+} from '@sphinx-labs/core/src'
 
-import * as plugins from '../dist'
 import {
   deployerPrivateKey,
   multichainTestInfo,
@@ -131,8 +133,7 @@ describe('Post-Deployment Actions', () => {
     )
   })
 
-  // TODO: .only
-  describe.only('Validation', () => {
+  describe('Validation', () => {
     let validationOutput = ''
 
     const cre = createSphinxRuntime(
@@ -151,6 +152,11 @@ describe('Post-Deployment Actions', () => {
         validationOutput += message
         return true
       }
+    })
+
+    beforeEach(() => {
+      // Reset the validation output before each test.
+      validationOutput = ''
     })
 
     it('Contract instantiated with invalid address', async () => {
@@ -336,10 +342,271 @@ describe('Post-Deployment Actions', () => {
       )
       expect(validationOutput).to.have.string(expectedOutput)
     })
-  })
 
-  // TODO: console.log the validation output at the end just to see that the error messages are
-  // what you expect. then, probably make each one a strict equality instead of a substring.
+    it('External contract must include ABI', async () => {
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      const ExternalContract1 = new Contract(externalContractAddress1)
+      userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
+
+      try {
+        await deploy(
+          userConfig,
+          rpcProviders['goerli'],
+          deployerPrivateKey,
+          cre,
+          FailureAction.THROW
+        )
+      } catch (e) {
+        /* empty */
+      }
+
+      expect(validationOutput).to.have.string(
+        externalContractMustIncludeAbi(externalContractAddress1)
+      )
+    })
+
+    describe('Fails to encode function call', () => {
+      const ConfigContract1 = new Contract('{{ ConfigContract1 }}')
+      const configContract1Address = getTargetAddress(
+        sphinxManagerAddress,
+        'ConfigContract1'
+      )
+      const configContract1ReferenceName = 'ConfigContract1'
+      const ConfigContract1_Iface = new ethers.Interface(ConfigContractABI)
+
+      it('Missing argument', async () => {
+        const functionArgs = [1, 2]
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
+
+        try {
+          await deploy(
+            userConfig,
+            rpcProviders['goerli'],
+            deployerPrivateKey,
+            cre,
+            FailureAction.THROW
+          )
+        } catch (e) {
+          /* empty */
+        }
+
+        let ethersErrorMessage: string | undefined
+        try {
+          ConfigContract1_Iface.encodeFunctionData('setInts', functionArgs)
+        } catch (e) {
+          ethersErrorMessage = e.message
+        }
+
+        const callAction: UserCallAction = {
+          address: configContract1Address,
+          functionName: 'setInts',
+          functionArgs,
+        }
+        // This narrows the type of `ethersErrorMessage` to `string` so that it can be used in the
+        // `expect` assertion.
+        if (ethersErrorMessage === undefined) {
+          throw new Error(
+            'Could not get ethers error message. Should never happen.'
+          )
+        }
+
+        expect(validationOutput).to.have.string(
+          failedToEncodeFunctionCall(
+            ethersErrorMessage,
+            callAction,
+            configContract1ReferenceName
+          )
+        )
+      })
+
+      it('Extra argument', async () => {
+        const functionArgs = [1, 2, 3, 4]
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
+
+        try {
+          await deploy(
+            userConfig,
+            rpcProviders['goerli'],
+            deployerPrivateKey,
+            cre,
+            FailureAction.THROW
+          )
+        } catch (e) {
+          /* empty */
+        }
+
+        let ethersErrorMessage: string | undefined
+        try {
+          ConfigContract1_Iface.encodeFunctionData('setInts', functionArgs)
+        } catch (e) {
+          ethersErrorMessage = e.message
+        }
+
+        const callAction: UserCallAction = {
+          address: configContract1Address,
+          functionName: 'setInts',
+          functionArgs,
+        }
+        // This narrows the type of `ethersErrorMessage` to `string` so that it can be used in the
+        // `expect` assertion.
+        if (ethersErrorMessage === undefined) {
+          throw new Error(
+            'Could not get ethers error message. Should never happen.'
+          )
+        }
+
+        expect(validationOutput).to.have.string(
+          failedToEncodeFunctionCall(
+            ethersErrorMessage,
+            callAction,
+            configContract1ReferenceName
+          )
+        )
+      })
+
+      it('Invalid argument type', async () => {
+        const functionArgs = [1, 'abc', 3]
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
+
+        try {
+          await deploy(
+            userConfig,
+            rpcProviders['goerli'],
+            deployerPrivateKey,
+            cre,
+            FailureAction.THROW
+          )
+        } catch (e) {
+          /* empty */
+        }
+
+        let ethersErrorMessage: string | undefined
+        try {
+          ConfigContract1_Iface.encodeFunctionData('setInts', functionArgs)
+        } catch (e) {
+          ethersErrorMessage = e.message
+        }
+
+        const callAction: UserCallAction = {
+          address: configContract1Address,
+          functionName: 'setInts',
+          functionArgs,
+        }
+        // This narrows the type of `ethersErrorMessage` to `string` so that it can be used in the
+        // `expect` assertion.
+        if (ethersErrorMessage === undefined) {
+          throw new Error(
+            'Could not get ethers error message. Should never happen.'
+          )
+        }
+
+        expect(validationOutput).to.have.string(
+          failedToEncodeFunctionCall(
+            ethersErrorMessage,
+            callAction,
+            configContract1ReferenceName
+          )
+        )
+      })
+
+      it('Ambiguous overloaded function signature', async () => {
+        const functionName = 'set'
+        const functionArgs = [1, 2]
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [ConfigContract1[functionName](...functionArgs)]
+
+        try {
+          await deploy(
+            userConfig,
+            rpcProviders['goerli'],
+            deployerPrivateKey,
+            cre,
+            FailureAction.THROW
+          )
+        } catch (e) {
+          /* empty */
+        }
+
+        let ethersErrorMessage: string | undefined
+        try {
+          ConfigContract1_Iface.encodeFunctionData(functionName, functionArgs)
+        } catch (e) {
+          ethersErrorMessage = e.message
+        }
+
+        const callAction: UserCallAction = {
+          address: configContract1Address,
+          functionName,
+          functionArgs,
+        }
+        // This narrows the type of `ethersErrorMessage` to `string` so that it can be used in the
+        // `expect` assertion.
+        if (ethersErrorMessage === undefined) {
+          throw new Error(
+            'Could not get ethers error message. Should never happen.'
+          )
+        }
+
+        expect(validationOutput).to.have.string(
+          failedToEncodeFunctionCall(
+            ethersErrorMessage,
+            callAction,
+            configContract1ReferenceName
+          )
+        )
+      })
+
+      it('Function name does not exist in contract', async () => {
+        const functionName = 'invalidFunctionName'
+        const functionArgs = []
+        const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+        userConfig.postDeploy = [ConfigContract1[functionName](...functionArgs)]
+
+        try {
+          await deploy(
+            userConfig,
+            rpcProviders['goerli'],
+            deployerPrivateKey,
+            cre,
+            FailureAction.THROW
+          )
+        } catch (e) {
+          /* empty */
+        }
+
+        let ethersErrorMessage: string | undefined
+        try {
+          ConfigContract1_Iface.encodeFunctionData(functionName, functionArgs)
+        } catch (e) {
+          ethersErrorMessage = e.message
+        }
+
+        const callAction: UserCallAction = {
+          address: configContract1Address,
+          functionName,
+          functionArgs,
+        }
+        // This narrows the type of `ethersErrorMessage` to `string` so that it can be used in the
+        // `expect` assertion.
+        if (ethersErrorMessage === undefined) {
+          throw new Error(
+            'Could not get ethers error message. Should never happen.'
+          )
+        }
+
+        expect(validationOutput).to.have.string(
+          failedToEncodeFunctionCall(
+            ethersErrorMessage,
+            callAction,
+            configContract1ReferenceName
+          )
+        )
+      })
+    })
+  })
 
   describe('Execution', () => {
     const configContract1Address = getTargetAddress(
@@ -993,7 +1260,7 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      it('Executes actions on new chain, skips previously executed actions on existing chains, and executes new actions on existing chains', async () => {
+      it('Executes actions on new chain, skips previous actions on existing chains, and executes new actions on existing chains', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [
           ConfigContract1.incrementUint(),
@@ -1158,7 +1425,7 @@ const assertActionsExecuted = async (
     provider
   )
   const callSkippedEvents = await SphinxManager.queryFilter(
-    SphinxManager.filters.CallSkaipped()
+    SphinxManager.filters.CallSkipped()
   )
   expect(callSkippedEvents.length).equals(0)
 }
