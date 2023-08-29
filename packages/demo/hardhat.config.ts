@@ -24,32 +24,62 @@ const config: HardhatUserConfig = {
   networks: {
     goerli: {
       chainId: 5,
-      url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-      accounts,
-    },
-    ethereum: {
-      chainId: 1,
-      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: 'http://127.0.0.1:42005',
       accounts,
     },
     'optimism-goerli': {
       chainId: 420,
-      url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-      accounts,
-    },
-    optimism: {
-      chainId: 10,
-      url: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-      accounts,
-    },
-    arbitrum: {
-      chainId: 42161,
-      url: 'https://arb1.arbitrum.io/rpc',
+      url: 'http://127.0.0.1:42420',
       accounts,
     },
     'arbitrum-goerli': {
       chainId: 421613,
-      url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: 'http://127.0.0.1:42613',
+      accounts,
+    },
+    'gnosis-chiado': {
+      chainId: 10200,
+      url: 'http://127.0.0.1:42200',
+      accounts,
+    },
+    bnbt: {
+      chainId: 97,
+      url: 'http://127.0.0.1:42097',
+      accounts,
+    },
+    maticmum: {
+      chainId: 80001,
+      url: 'http://127.0.0.1:42001',
+      accounts,
+    },
+    ethereum: {
+      chainId: 1,
+      url: 'http://127.0.0.1:10001',
+      accounts,
+    },
+    optimism: {
+      chainId: 10,
+      url: 'http://127.0.0.1:10010',
+      accounts,
+    },
+    arbitrum: {
+      chainId: 42161,
+      url: 'http://127.0.0.1:10161',
+      accounts,
+    },
+    gnosis: {
+      chainId: 100,
+      url: 'http://127.0.0.1:10100',
+      accounts,
+    },
+    bnb: {
+      chainId: 56,
+      url: 'http://127.0.0.1:10056',
+      accounts,
+    },
+    polygon: {
+      chainId: 137,
+      url: 'http://127.0.0.1:10137',
       accounts,
     },
   },

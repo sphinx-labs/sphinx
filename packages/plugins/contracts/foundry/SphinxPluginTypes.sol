@@ -2,9 +2,35 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import {
-    SphinxActionBundle,
-    SphinxTargetBundle
+    SphinxTarget,
+    RawSphinxAction
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+
+struct SphinxBundles {
+    SphinxActionBundle actionBundle;
+    SphinxTargetBundle targetBundle;
+}
+
+struct SphinxActionBundle {
+    bytes32 root;
+    BundledSphinxAction[] actions;
+}
+
+struct SphinxTargetBundle {
+    bytes32 root;
+    BundledSphinxTarget[] targets;
+}
+
+struct BundledSphinxAction {
+    RawSphinxAction action;
+    bytes32[] siblings;
+    uint256 gas;
+}
+
+struct BundledSphinxTarget {
+    SphinxTarget target;
+    bytes32[] siblings;
+}
 
 struct Configs {
     FoundryConfig minimalConfig;

@@ -122,6 +122,13 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from '../networks'
+import {
+  contractInstantiatedWithDuplicatedNetworkOverrides,
+  contractInstantiatedWithInvalidAbi,
+  contractInstantiatedWithInvalidAddress,
+  contractInstantiatedWithInvalidNetworkOverrides,
+  contractInstantiatedWithInvalidOverridingAddresses,
+} from './validation-error-messages'
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -347,6 +354,15 @@ export const getParsedConfig = async (
     cre,
     failureAction
   )
+
+  if (resolvedUserConfig.postDeploy) {
+    assertValidPostDeploymentActions(
+      resolvedUserConfig.postDeploy,
+      contractConfigs,
+      failureAction,
+      cre
+    )
+  }
 
   const postDeployActions = resolvedUserConfig.postDeploy
     ? parsePostDeploymentActions(
@@ -3384,7 +3400,7 @@ export const parsePostDeploymentActions = (
       const iface = new ethers.Interface(abi)
 
       try {
-        // TODO:
+        // TODO(test):
         // - error if missing args (done)
         // - error if extra args (done)
         // - error if incorrect arg types (e.g. uint = 'abc') (done)
@@ -3543,11 +3559,6 @@ export const assertValidPostDeploymentActions = (
   cre: SphinxRuntimeEnvironment
 ) => {
   for (const action of postDeployActions) {
-    const referenceName = findReferenceNameForAddress(
-      action.address,
-      contractConfigs
-    )
-
     // First, we TODO(docs): validate the fields that were passed into the Contract constructor.
 
     if (!ethers.isAddress(action.address)) {
@@ -3556,22 +3567,32 @@ export const assertValidPostDeploymentActions = (
         // TODO(docs): we know that the user explicitly specified an address and not a contract
         // reference because we would've already thrown an error for an invalid contract reference
         // earlier in the parsing logic.
-        `Contract was instantiated with an invalid address: ${action.address}`,
+        contractInstantiatedWithInvalidAddress(action.address),
         [],
         cre.silent,
         cre.stream
       )
+      // We continue to the next action because the rest of this function relies on the address
+      // being valid.
+      continue
     }
+
+    const referenceName = findReferenceNameForAddress(
+      action.address,
+      contractConfigs
+    )
 
     if (action.abi) {
       try {
-        new ethers.Interface(action.abi)
+        action.abi.forEach((fragment) => ethers.Fragment.from(fragment))
       } catch (e) {
         logValidationError(
           'error',
-          `An invalid ABI was used to instantiate the contract: ${
-            referenceName ?? action.address
-          }.`,
+          contractInstantiatedWithInvalidAbi(
+            e.message,
+            action.address,
+            referenceName
+          ),
           [],
           cre.silent,
           cre.stream
@@ -3594,15 +3615,11 @@ export const assertValidPostDeploymentActions = (
     if (invalidNetworksForAddressOverrides.length > 0) {
       logValidationError(
         'error',
-        `The constructor of ${
-          referenceName ?? action.address
-        } contains unsupported networks in its address overrides: ${invalidNetworksForAddressOverrides.join(
-          ', '
-        )}.\n` +
-          `See ${hyperlink(
-            'here',
-            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#options'
-          )} for a list of supported networks.`,
+        contractInstantiatedWithInvalidNetworkOverrides(
+          invalidNetworksForAddressOverrides,
+          action.address,
+          referenceName
+        ),
         [],
         cre.silent,
         cre.stream
@@ -3615,9 +3632,10 @@ export const assertValidPostDeploymentActions = (
     if (duplicatedNetworks.length > 0) {
       logValidationError(
         'error',
-        `The constructor of ${
-          referenceName ?? action.address
-        } contains duplicated networks in its address overrides:`,
+        contractInstantiatedWithDuplicatedNetworkOverrides(
+          action.address,
+          referenceName
+        ),
         duplicatedNetworks,
         cre.silent,
         cre.stream
@@ -3637,9 +3655,10 @@ export const assertValidPostDeploymentActions = (
       logValidationError(
         'error',
         // TODO(docs): contract references were validated + parsed in a previous step
-        `The constructor of ${
-          referenceName ?? action.address
-        } contains invalid overriding addresses:`,
+        contractInstantiatedWithInvalidOverridingAddresses(
+          action.address,
+          referenceName
+        ),
         invalidAddressOverrides,
         cre.silent,
         cre.stream

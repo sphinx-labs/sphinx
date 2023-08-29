@@ -12,14 +12,14 @@ import {
     DeploymentState,
     Version,
     DeploymentStatus,
+    RawSphinxAction
+} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import {
     BundledSphinxAction,
-    RawSphinxAction,
     SphinxTarget,
     BundledSphinxTarget,
     SphinxActionBundle,
-    SphinxTargetBundle
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import {
+    SphinxTargetBundle,
     FoundryConfig,
     Configs,
     BundleInfo,

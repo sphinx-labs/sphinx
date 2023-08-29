@@ -120,31 +120,6 @@ struct RegistrationInfo {
     bytes managerInitializerData;
 }
 
-struct SphinxBundles {
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
-}
-
-struct SphinxActionBundle {
-    bytes32 root;
-    BundledSphinxAction[] actions;
-}
-
-struct SphinxTargetBundle {
-    bytes32 root;
-    BundledSphinxTarget[] targets;
-}
-
-struct BundledSphinxAction {
-    RawSphinxAction action;
-    bytes32[] siblings;
-}
-
-struct BundledSphinxTarget {
-    SphinxTarget target;
-    bytes32[] siblings;
-}
-
 /**
  * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
    authenticated action taken by a permissioned account such as an owner or proposer.

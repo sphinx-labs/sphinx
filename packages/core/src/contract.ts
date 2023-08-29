@@ -7,65 +7,6 @@ import {
 import 'core-js/features/array/at'
 import { isUserFunctionArgOverrideArray } from './utils'
 
-// TODO: rm
-const HelloSphinxABI = [
-  {
-    inputs: [
-      {
-        internalType: 'uint8',
-        name: '_myNumber',
-        type: 'uint8',
-      },
-      {
-        internalType: 'address',
-        name: '_myAddress',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'constructor',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint8',
-        name: '_x',
-        type: 'uint8',
-      },
-    ],
-    name: 'increment',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'myAddress',
-    outputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'myNumber',
-    outputs: [
-      {
-        internalType: 'uint8',
-        name: '',
-        type: 'uint8',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-]
-
 // TODO(docs) everywhere in this file
 
 // TODO(docs): the Contract class shouldn't have any public properties because...

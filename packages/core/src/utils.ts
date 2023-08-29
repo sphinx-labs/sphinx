@@ -272,6 +272,16 @@ export const sphinxLog = (
     return
   }
 
+  const log = createSphinxLog(logLevel, title, lines)
+
+  stream.write(log)
+}
+
+export const createSphinxLog = (
+  logLevel: 'warning' | 'error' = 'warning',
+  title: string,
+  lines: string[]
+): string => {
   const prefix = logLevel.charAt(0).toUpperCase() + logLevel.slice(1)
 
   const chalkColor = logLevel === 'warning' ? chalk.yellow : chalk.red
@@ -282,7 +292,7 @@ export const sphinxLog = (
     parts.push(lines.map((l) => l + '\n').join(''))
   }
 
-  stream.write(parts.join('\n') + '\n')
+  return parts.join('\n') + '\n'
 }
 
 export const displayDeploymentTable = (
@@ -470,7 +480,7 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  // TODO: `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
+  // TODO(upgrade): `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
   // exists. Also, `isInternalDefaultProxy` may not be necessary anymore -- not sure.
   // if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
   //   return false

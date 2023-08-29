@@ -6,13 +6,13 @@ import { VmSafe } from "forge-std/Vm.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
-    Version,
+    Version
+} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import {
     SphinxActionBundle,
     BundledSphinxAction,
     RawSphinxAction,
-    SphinxTargetBundle
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import {
+    SphinxTargetBundle,
     ConfigCache,
     DeployContractCost,
     OptionalString,
@@ -27,7 +27,7 @@ interface ISphinxUtils {
         bool exists;
     }
 
-    function actionBundle() external pure returns (SphinxActionBundle memory);
+    function bundledActions() external pure returns (BundledSphinxAction[] memory);
 
     function configCache() external pure returns (ConfigCache memory);
 

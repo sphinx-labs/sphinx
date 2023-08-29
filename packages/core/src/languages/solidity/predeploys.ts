@@ -175,23 +175,10 @@ export const initializeSphinx = async (
   }
   assertValidBlockGasLimit(block.gasLimit)
 
-  // TODO: refactor
-  const previousSphinxManager = new UpgradeableContract(
-    'contracts/SphinxManager.sol:SphinxManager',
-    prevBuildInfo.input,
-    prevBuildInfo.output
-  )
-  const upgradedSphinxManager = new UpgradeableContract(
-    'contracts/SphinxManager.sol:SphinxManager',
-    buildInfo.input,
-    buildInfo.output
-  )
-  const managerUpgradeReport = previousSphinxManager.getStorageUpgradeReport(
-    upgradedSphinxManager
-  )
-  if (!managerUpgradeReport.ok) {
-    throw new Error(managerUpgradeReport.explain())
-  }
+  // Check that the previous storage layout of these contracts is compatible with the current
+  // one.
+  assertStorageLayoutCompatible('contracts/SphinxManager.sol:SphinxManager')
+  assertStorageLayoutCompatible('contracts/SphinxAuth.sol:SphinxAuth')
 
   // Do the same thing for the SphinxAuth contract.
   const previousSphinxAuth = new UpgradeableContract(
@@ -627,4 +614,21 @@ export const doDeterministicDeploy = async (
   }
 
   return new ethers.Contract(address, options.contract.abi, options.signer)
+}
+
+const assertStorageLayoutCompatible = (fullyQualifiedName: string) => {
+  const previousContract = new UpgradeableContract(
+    fullyQualifiedName,
+    prevBuildInfo.input,
+    prevBuildInfo.output
+  )
+  const upgradedContract = new UpgradeableContract(
+    fullyQualifiedName,
+    buildInfo.input,
+    buildInfo.output
+  )
+  const report = previousContract.getStorageUpgradeReport(upgradedContract)
+  if (!report.ok) {
+    throw new Error(report.explain())
+  }
 }

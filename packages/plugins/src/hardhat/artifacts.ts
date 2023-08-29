@@ -10,6 +10,7 @@ import {
   ConfigArtifacts,
   SphinxJsonRpcProvider,
   isHttpNetworkConfig,
+  getNetworkNameForChainId,
 } from '@sphinx-labs/core'
 
 /**
@@ -109,7 +110,9 @@ export const makeGetProviderFromChainId = (
     )
     if (networkConfig === undefined) {
       throw new Error(
-        `Unable to find the network for chain ID ${chainId} in your Hardhat config.`
+        `Unable to find the network ${getNetworkNameForChainId(
+          chainId
+        )} in your Hardhat config.`
       )
     }
 

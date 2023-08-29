@@ -29,6 +29,8 @@ import {
   getParsedConfig,
   UserConfig,
   deployAbstractTask,
+  SphinxRuntimeEnvironment,
+  FailureAction,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -44,12 +46,12 @@ import {
   makeGetProviderFromChainId,
 } from '../src/hardhat/artifacts'
 import {
-  cre,
   rpcProviders,
   relayerPrivateKey,
   MultiChainProjectTestInfo,
   OWNER_ROLE_HASH,
   proposerPrivateKey,
+  defaultCre,
 } from './constants'
 
 export const registerProject = async (
@@ -225,7 +227,7 @@ export const proposeThenApproveDeploymentThenExecute = async (
         managerAddress,
         true,
         provider,
-        cre,
+        defaultCre,
         makeGetConfigArtifacts(hre)
       )
     const { configUri, bundles } = await getProjectBundleInfo(
@@ -239,7 +241,11 @@ export const proposeThenApproveDeploymentThenExecute = async (
     expect(authState.status).equals(AuthStatus.COMPLETED)
 
     // Execute the deployment.
-    const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+    const block = await provider.getBlock('latest')
+    if (block === null) {
+      throw new Error('The block is null. Should never happen.')
+    }
+    const blockGasLimit = block.gasLimit
     const manager = getSphinxManager(managerAddress, relayer)
 
     await Manager.claimDeployment()
@@ -268,7 +274,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
   const { proposalRequest } = await proposeAbstractTask(
     userConfig,
     true, // Is testnet
-    cre,
+    defaultCre,
     true, // Skip relaying the meta transaction to the back-end
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
@@ -373,7 +379,9 @@ const getSignatures = async (
 export const deploy = async (
   config: UserConfig,
   provider: ethers.JsonRpcProvider,
-  deployerPrivateKey: string
+  deployerPrivateKey: string,
+  cre: SphinxRuntimeEnvironment = defaultCre,
+  failureAction?: FailureAction
 ) => {
   const wallet = new ethers.Wallet(deployerPrivateKey, provider)
   const ownerAddress = await wallet.getAddress()
@@ -387,7 +395,8 @@ export const deploy = async (
     provider,
     cre,
     plugins.makeGetConfigArtifacts(hre),
-    ownerAddress
+    ownerAddress,
+    failureAction
   )
 
   await deployAbstractTask(

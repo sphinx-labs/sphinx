@@ -37,7 +37,7 @@ export const DUMMY_ORG_ID = '1111'
 // contract inherits.
 export const OWNER_ROLE_HASH = ethers.ZeroHash
 
-export const cre = createSphinxRuntime(
+export const defaultCre = createSphinxRuntime(
   'hardhat',
   false,
   hre.config.networks.hardhat.allowUnlimitedContractSize,
@@ -83,12 +83,14 @@ export const relayerPrivateKey =
   '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6'
 
 const contractConfig: UserContractConfigs = {
-  MyContract: {
-    contract: 'Stateless',
+  ConfigContract1: {
+    contract: 'MyContract1',
     kind: 'immutable',
     constructorArgs: {
-      _immutableUint: 1,
-      _immutableAddress: '0x' + '11'.repeat(20),
+      _intArg: 0,
+      _uintArg: 0,
+      _addressArg: ethers.ZeroAddress,
+      _otherAddressArg: ethers.ZeroAddress,
     },
   },
 }

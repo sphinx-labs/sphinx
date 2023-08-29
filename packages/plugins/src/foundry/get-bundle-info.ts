@@ -179,8 +179,8 @@ const ownerAddress = args[3]
       )
     }
 
-    const actionBundleType = SphinxUtilsABI.find(
-      (fragment) => fragment.name === 'actionBundle'
+    const bundledActionType = SphinxUtilsABI.find(
+      (fragment) => fragment.name === 'bundledActions'
     ).outputs[0]
     const targetBundleType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'targetBundle'
@@ -191,8 +191,8 @@ const ownerAddress = args[3]
 
     const coder = AbiCoder.defaultAbiCoder()
     const encodedActionBundle = coder.encode(
-      [actionBundleType],
-      [bundles.actionBundle]
+      [bundledActionType],
+      [bundles.actionBundle.actions]
     )
     const encodedTargetBundle = coder.encode(
       [targetBundleType],
@@ -206,7 +206,8 @@ const ownerAddress = args[3]
     )
 
     // This is where the encoded action bundle ends and the target bundle begins.
-    const splitIdx1 = remove0x(encodedActionBundle).length / 2
+    // TODO(docs): explain where the 32 comes from
+    const splitIdx1 = 32 + remove0x(encodedActionBundle).length / 2
 
     // This is where the target bundle ends and the rest of the bundle info (config URI, warnings,
     // etc) begins.
@@ -218,6 +219,7 @@ const ownerAddress = args[3]
     )
 
     const encodedSuccess = concat([
+      bundles.actionBundle.root,
       encodedActionBundle,
       encodedTargetBundle,
       encodedConfigUriAndWarnings,

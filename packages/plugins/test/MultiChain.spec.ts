@@ -22,7 +22,7 @@ import {
   revertSnapshots,
 } from './helpers'
 import {
-  cre,
+  defaultCre,
   rpcProviders,
   relayerPrivateKey,
   initialTestnets,
@@ -91,7 +91,7 @@ describe('Multi chain projects', () => {
               managerAddress,
               true,
               Object.values(rpcProviders)[0], // Use a random provider
-              cre,
+              defaultCre,
               makeGetConfigArtifacts(hre)
             )
 
@@ -109,19 +109,21 @@ describe('Multi chain projects', () => {
           const newProjectTestInfo = structuredClone(projectTestInfo)
 
           // Add a new contract to the config.
-          newProjectTestInfo.userConfig.contracts['MyContract2'] = {
-            contract: 'Stateless',
+          newProjectTestInfo.userConfig.contracts['ConfigContract2'] = {
+            contract: 'MyContract1',
             kind: 'immutable',
             constructorArgs: {
-              _immutableUint: 2,
-              _immutableAddress: '0x' + '22'.repeat(20),
+              _intArg: 3,
+              _uintArg: 4,
+              _addressArg: '0x' + '33'.repeat(20),
+              _otherAddressArg: '0x' + '44'.repeat(20),
             },
           }
 
           const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
-            cre,
+            defaultCre,
             true, // Skip relaying the meta transaction to the back-end
             getConfigArtifacts,
             getProviderFromChainId,
@@ -156,12 +158,14 @@ describe('Multi chain projects', () => {
           const newProjectTestInfo = structuredClone(projectTestInfo)
 
           newProjectTestInfo.userConfig.options.testnets.push(...testnetsToAdd)
-          newProjectTestInfo.userConfig.contracts['MyContract2'] = {
-            contract: 'Stateless',
+          newProjectTestInfo.userConfig.contracts['ConfigContract2'] = {
+            contract: 'MyContract1',
             kind: 'immutable',
             constructorArgs: {
-              _immutableUint: 2,
-              _immutableAddress: '0x' + '22'.repeat(20),
+              _intArg: 3,
+              _uintArg: 4,
+              _addressArg: '0x' + '33'.repeat(20),
+              _otherAddressArg: '0x' + '44'.repeat(20),
             },
           }
 
@@ -176,7 +180,7 @@ describe('Multi chain projects', () => {
           const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
-            cre,
+            defaultCre,
             true, // Skip relaying the meta transaction to the back-end
             getConfigArtifacts,
             getProviderFromChainId,
