@@ -104,7 +104,11 @@ import {
 import { getCreate3Address } from './config/utils'
 import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS, SupportedChainId, SupportedNetworkName } from './networks'
+import {
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+  SupportedNetworkName,
+} from './networks'
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -1664,4 +1668,16 @@ export const getCallActionAddressForNetwork = (
   }
 
   return defaultAddress
+}
+
+// TODO(docs): this function can't encode BigInt values, since JSON.stringify can't parse them.
+export const prettyFunctionCall = (
+  functionName: string,
+  args: Array<UserConfigVariable>
+): string => {
+  const stringified = JSON.stringify(args, null, 2)
+  // Removes the first and last characters, which are '[' and ']'.
+  const removedBrackets = stringified.substring(1, stringified.length - 1)
+
+  return `${functionName}(${removedBrackets})`
 }

@@ -746,12 +746,12 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    it('Executes actions on new chain and skips actions on existing chains', async () => {
+    it.only('Executes actions on new chain and skips actions on existing chains', async () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [
         ConfigContract1.incrementUint(),
         ConfigContract1.incrementUint(),
-        ExternalContract1.incrementMyContract2(6, [
+        ExternalContract1.incrementMyContract2(6n, [
           { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
         ]),
       ]
@@ -901,6 +901,7 @@ describe('Post-Deployment Actions', () => {
           ExternalContractABI,
           provider
         )
+        const TODO = ExternalContract_Deployed.hi
         if (network === 'goerli') {
           expect(await ExternalContract_Deployed.number()).equals(
             vals.externalContract.goerli

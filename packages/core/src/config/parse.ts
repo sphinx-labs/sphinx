@@ -56,6 +56,7 @@ import {
   getFunctionArgValueArray,
   hyperlink,
   getCallActionAddressForNetwork,
+  prettyFunctionCall,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -212,8 +213,6 @@ export const getParsedConfigWithOptions = async (
     failureAction
   )
 
-  // TODO(docs): natspec of this fn should mention that this fn assumes the contract references have
-  // already been validated + parsed
   if (resolvedUserConfig.postDeploy) {
     assertValidPostDeploymentActions(
       resolvedUserConfig.postDeploy,
@@ -3370,6 +3369,11 @@ export const parsePostDeploymentActions = (
         }
       }
 
+      // TODO(docs): used for displaying logs to the user
+      const functionLogName = referenceName
+        ? `function '${referenceName}.${callAction.functionName}'`
+        : `function '${callAction.functionName}' at ${address}`
+
       // TODO(test): c/f in ethers docs: "This still fails, since there is no way to know which".
       // we should have the same behavior as ethers.
 
@@ -3391,7 +3395,22 @@ export const parsePostDeploymentActions = (
           callAction.functionArgs
         )
       } catch (e) {
-        e // TODO: logValidationError
+        // TODO: the referenceName ?? address thing should be refactored
+        logValidationError(
+          'error',
+          `Failed to encode data for the function call on ${
+            referenceName ?? address
+          }:\n` +
+            `${prettyFunctionCall(
+              callAction.functionName,
+              callAction.functionArgs
+            )}\n` +
+            `EthersJS error message:\n` +
+            `${e.message}`,
+          [],
+          cre.silent,
+          cre.stream
+        )
 
         continue // TODO(docs): we continue b/c the rest of this function won't work properly without a valid default function call
       }
@@ -3433,11 +3452,6 @@ export const parsePostDeploymentActions = (
           }
         }
       })
-
-      // TODO(docs): used for displaying logs to the user
-      const functionLogName = referenceName
-        ? `function '${referenceName}.${callAction.functionName}'`
-        : `function '${callAction.functionName}' at ${address}`
 
       if (functionTypeArgs.length > 0) {
         logValidationError(
@@ -3517,6 +3531,10 @@ export const parsePostDeploymentActions = (
   return parsedActionsPerChain
 }
 
+/**
+ * @notice This function assumes that the contract references in the post-deployment actions have
+ * already been validated and parsed into addresses.
+ */
 export const assertValidPostDeploymentActions = (
   postDeployActions: Array<UserCallAction>,
   contractConfigs: ParsedContractConfigs,

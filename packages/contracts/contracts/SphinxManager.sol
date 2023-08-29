@@ -95,9 +95,6 @@ contract SphinxManager is
      */
     uint256 internal immutable executionLockTime;
 
-    // TODO(docs)
-    mapping(bytes32 => uint256) public callNonces;
-
     /**
      * @notice Mapping of deployment IDs to deployment state.
      */
@@ -110,6 +107,9 @@ contract SphinxManager is
      * @notice ID of the currently active deployment.
      */
     bytes32 public activeDeploymentId;
+
+    // TODO(docs)
+    mapping(bytes32 => uint256) public callNonces;
 
     /**
      * @notice Reverts if the caller is not a remote executor.

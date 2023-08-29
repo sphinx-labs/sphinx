@@ -14,9 +14,12 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   AuthFactoryABI,
   SphinxRegistryABI,
+  buildInfo,
+  prevBuildInfo,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import { UpgradeableContract } from '@openzeppelin/upgrades-core'
 
 import {
   isContractDeployed,
@@ -24,7 +27,6 @@ import {
   getImpersonatedSigner,
   getNetworkType,
   resolveNetwork,
-  getOpenZeppelinUpgradableContract,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
@@ -174,7 +176,39 @@ export const initializeSphinx = async (
   assertValidBlockGasLimit(block.gasLimit)
 
   // TODO: refactor
-  // const upgradeableSphinxManager = getOpenZeppelinUpgradableContract('contracts/SphinxManager.sol:SphinxManager', )
+  const previousSphinxManager = new UpgradeableContract(
+    'contracts/SphinxManager.sol:SphinxManager',
+    prevBuildInfo.input,
+    prevBuildInfo.output
+  )
+  const upgradedSphinxManager = new UpgradeableContract(
+    'contracts/SphinxManager.sol:SphinxManager',
+    buildInfo.input,
+    buildInfo.output
+  )
+  const managerUpgradeReport = previousSphinxManager.getStorageUpgradeReport(
+    upgradedSphinxManager
+  )
+  if (!managerUpgradeReport.ok) {
+    throw new Error(managerUpgradeReport.explain())
+  }
+
+  // Do the same thing for the SphinxAuth contract.
+  const previousSphinxAuth = new UpgradeableContract(
+    'contracts/SphinxAuth.sol:SphinxAuth',
+    prevBuildInfo.input,
+    prevBuildInfo.output
+  )
+  const upgradedSphinxAuth = new UpgradeableContract(
+    'contracts/SphinxAuth.sol:SphinxAuth',
+    buildInfo.input,
+    buildInfo.output
+  )
+  const authUpgradeReport =
+    previousSphinxAuth.getStorageUpgradeReport(upgradedSphinxAuth)
+  if (!authUpgradeReport.ok) {
+    throw new Error(authUpgradeReport.explain())
+  }
 
   for (const {
     artifact,
@@ -194,6 +228,9 @@ export const initializeSphinx = async (
       args: constructorArgs,
       salt: ethers.ZeroHash,
     })
+
+    // TODO(0.2.0): update versions of contracts that use semver (e.g. manager + auth contracts).
+    // also update the "V1" contract address logic, and also change `CURRENT_SPHINX_MANAGER_VERSION`
 
     const addr = await contract.getAddress()
     assert(addr === expectedAddress, `address mismatch for ${contractName}`)

@@ -20,16 +20,18 @@ pragma solidity >=0.7.4 <0.9.0;
  */
 struct DeploymentState {
     DeploymentStatus status;
-    uint256 numInitialActions;
-    uint256 numSetStorageActions;
+    bool[] actions; // TODO(docs): legacy; don't use
     uint256 targets;
     bytes32 actionRoot;
     bytes32 targetRoot;
+    uint256 numImmutableContracts; // TODO(docs): legacy; don't use
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
     bool remoteExecution;
     string configUri;
+    uint256 numInitialActions;
+    uint256 numSetStorageActions;
 }
 
 /**
@@ -74,6 +76,9 @@ enum SphinxActionType {
     CALL
 }
 
+// TODO: test that an upgrade from a prev manager to a new manager works as expected. This is particularly
+// important to sanity check that the storage layout functions properly.
+
 /**
  * @notice Enum representing the status of the deployment. These steps occur in sequential order,
    with the `CANCELLED` status being an exception.
@@ -91,12 +96,12 @@ enum SphinxActionType {
 enum DeploymentStatus {
     EMPTY,
     APPROVED,
-    INITIAL_ACTIONS_EXECUTED,
     PROXIES_INITIATED,
-    SET_STORAGE_ACTIONS_EXECUTED,
     COMPLETED,
     CANCELLED,
-    FAILED
+    FAILED,
+    INITIAL_ACTIONS_EXECUTED,
+    SET_STORAGE_ACTIONS_EXECUTED
 }
 
 /**

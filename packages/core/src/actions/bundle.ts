@@ -581,11 +581,14 @@ export const makeActionBundleFromConfig = (
           data,
           nonce,
         })
-        costs.push(75_000n)
+        costs.push(250_000n)
         actionIndex += 1
       }
     }
   }
+
+  // TODO(md): if the user is performing permissioned actions on their contracts, make sure that
+  // they transfer ownership to their final owner at the end of the `postDeploy` array!
 
   // TODO(docs): Next, we add the `SET_STORAGE` actions. We do this in a separate loop because...
   for (const [referenceName, contractConfig] of Object.entries(
