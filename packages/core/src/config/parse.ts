@@ -55,7 +55,7 @@ import {
   getFunctionArgValueArray,
   getCallActionAddressForNetwork,
   isSupportedChainId,
-  getNetworkNameForChainId,
+  prettyFunctionCall,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {

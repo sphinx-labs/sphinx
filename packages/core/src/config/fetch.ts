@@ -1,6 +1,6 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { SphinxBundles } from '../actions/types'
+import { HumanReadableActions, SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
   getDeploymentId,
@@ -97,6 +97,7 @@ export const compileRemoteBundles = async (
   bundles: SphinxBundles
   compilerConfig: CompilerConfig
   configArtifacts: ConfigArtifacts
+  humanReadableActions: HumanReadableActions
 }> => {
   const compilerConfig = await callWithTimeout<CompilerConfig>(
     sphinxFetchSubtask({ configUri }),
@@ -114,7 +115,7 @@ export const compileRemoteBundles = async (
     compilerConfig.manager
   )
 
-  const { bundles } = makeBundlesFromConfig(
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(
     compilerConfig,
     configArtifacts,
     configCache
@@ -123,5 +124,6 @@ export const compileRemoteBundles = async (
     bundles,
     compilerConfig,
     configArtifacts,
+    humanReadableActions,
   }
 }

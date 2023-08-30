@@ -81,11 +81,17 @@ export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
 /**
  * Human-readable Sphinx action.
  */
+export type HumanReadableAction = {
+  reason: string
+  actionType: SphinxActionType
+  actionIndex: number
+}
+
+/**
+ * Set of human-readable Sphinx actions.
+ */
 export type HumanReadableActions = {
-  [index: number]: {
-    action: string
-    type: SphinxActionType.CALL | SphinxActionType.DEPLOY_CONTRACT
-  }
+  [index: number]: HumanReadableAction
 }
 
 /**

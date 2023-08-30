@@ -4,7 +4,7 @@ import process from 'process'
 import { join, sep } from 'path'
 
 import * as dotenv from 'dotenv'
-import { EventLog, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
@@ -74,6 +74,7 @@ import {
   fromRawSphinxAction,
   isSetStorageAction,
   HumanReadableActions,
+  SphinxActionType,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -636,6 +637,8 @@ export const deployAbstractTask = async (
     const { success } = await executeDeployment(
       Manager,
       bundles,
+      deploymentId,
+      humanReadableActions,
       blockGasLimit,
       provider
     )
@@ -653,11 +656,18 @@ export const deployAbstractTask = async (
           data: failureEvent.data,
         })
 
-        if (log?.args[1]) {
+        if (log?.args[1] !== undefined) {
           const action = humanReadableActions[Number(log?.args[1])]
-          throw new Error(
-            `Failed to execute ${projectName}, because the following action failed: ${action.action}`
-          )
+
+          if (action.actionType === SphinxActionType.CALL) {
+            throw new Error(
+              `Failed to execute ${projectName}, because the following post deployment action reverted: ${action.reason}`
+            )
+          } else {
+            throw new Error(
+              `Failed to execute ${projectName}, because the constructor of ${action.reason} reverted`
+            )
+          }
         }
       }
 

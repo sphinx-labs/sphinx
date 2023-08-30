@@ -46,8 +46,14 @@ export const verifySphinxConfig = async (
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
-  apiKey: string
+  apiKey: string,
+  deployedContractReferenceNames: string[] = []
 ) => {
+  // Default to verifying all contracts if the caller does not specify a subset
+  if (deployedContractReferenceNames.length === 0) {
+    deployedContractReferenceNames = Object.keys(compilerConfig.contracts)
+  }
+
   const managerAddress = compilerConfig.manager
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
@@ -63,6 +69,11 @@ export const verifySphinxConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     compilerConfig.contracts
   )) {
+    // Skip contracts that are not listed as deployed
+    if (!deployedContractReferenceNames.includes(referenceName)) {
+      continue
+    }
+
     const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
     const iface = new ethers.Interface(abi)

@@ -616,12 +616,9 @@ contract SphinxManager is
                         abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
                     );
 
-                    require(deploySuccess, string(abi.encodePacked("Failed to deploy contract: ", expectedAddress)));
-
-                    address actualAddress = abi.decode(actualAddressBytes, (address));
-
-                    if (expectedAddress == actualAddress) {
+                    if (deploySuccess) {
                         // Contract was deployed successfully.
+                        address actualAddress = abi.decode(actualAddressBytes, (address));
 
                         emit ContractDeployed(
                             actualAddress,

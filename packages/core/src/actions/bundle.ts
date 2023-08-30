@@ -500,7 +500,7 @@ export const makeActionBundleFromConfig = (
   // TODO(docs)
   let actionIndex = 0
 
-  const humanReadableActions = {}
+  const humanReadableActions: HumanReadableActions = {}
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -528,11 +528,6 @@ export const makeActionBundleFromConfig = (
           ),
         })
 
-        humanReadableActions[actionIndex] = {
-          action: referenceName,
-          type: SphinxActionType.DEPLOY_CONTRACT,
-        }
-
         costs.push(deployContractCost)
       } else if (kind === 'proxy') {
         // Add a DEPLOY_CONTRACT action for the default proxy.
@@ -548,6 +543,13 @@ export const makeActionBundleFromConfig = (
           `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
         )
       }
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: referenceName,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
+      }
+
       actionIndex += 1
     }
 
@@ -579,8 +581,9 @@ export const makeActionBundleFromConfig = (
       costs.push(deployContractCost)
 
       humanReadableActions[actionIndex] = {
-        action: referenceName,
-        type: SphinxActionType.DEPLOY_CONTRACT,
+        actionIndex,
+        reason: referenceName,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
 
       actionIndex += 1
@@ -605,15 +608,15 @@ export const makeActionBundleFromConfig = (
         costs.push(250_000n)
 
         humanReadableActions[actionIndex] = {
-          action: readableSignature,
-          type: SphinxActionType.DEPLOY_CONTRACT,
+          actionIndex,
+          reason: readableSignature,
+          actionType: SphinxActionType.CALL,
         }
 
         actionIndex += 1
       }
     }
   }
-
 
   // TODO(md): if the user is performing permissioned actions on their contracts, make sure that
   // they transfer ownership to their final owner at the end of the `postDeploy` array!
@@ -652,6 +655,13 @@ export const makeActionBundleFromConfig = (
         value: segment.val,
       })
       costs.push(150_000n)
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: '',
+        actionType: SphinxActionType.SET_STORAGE,
+      }
+
       actionIndex += 1
     }
   }
