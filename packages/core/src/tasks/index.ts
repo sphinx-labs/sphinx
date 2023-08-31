@@ -1,5 +1,3 @@
-Error.stackTraceLimit = Infinity // TODO
-
 import process from 'process'
 import { join, sep } from 'path'
 

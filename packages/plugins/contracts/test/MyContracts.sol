@@ -11,7 +11,6 @@ contract MyContract1 {
     address public addressArg;
     address public otherAddressArg;
 
-// TODO: improve these field names
     struct MyStruct {
         int a;
         int b;

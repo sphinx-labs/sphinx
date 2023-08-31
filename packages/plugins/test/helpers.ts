@@ -1,7 +1,7 @@
+import { existsSync, rmSync, writeFileSync } from 'fs'
+import { join } from 'path'
+
 import hre from 'hardhat'
-
-import * as plugins from '../dist'
-
 import '@nomicfoundation/hardhat-ethers'
 import {
   AuthState,
@@ -43,6 +43,7 @@ import {
 import { expect } from 'chai'
 import { ethers } from 'ethers'
 
+import * as plugins from '../dist'
 import {
   makeGetConfigArtifacts,
   makeGetProviderFromChainId,
@@ -55,9 +56,6 @@ import {
   proposerPrivateKey,
   defaultCre,
 } from './constants'
-
-import { existsSync, rm, rmSync, writeFileSync } from 'fs'
-import { join } from 'path'
 
 export const registerProject = async (
   provider: SphinxJsonRpcProvider,
@@ -428,13 +426,12 @@ export const deploy = async (
     process.env['SPHINX_INTERNAL_CONFIG_PATH'] = tmpFoundryConfigPath
     process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
     process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
+    process.env['SPHINX_INTERNAL_BROADCAST'] = 'true'
 
     // Execute the deployment.
-    const { stdout, stderr } = await execAsync(
+    await execAsync(
       `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
     )
-    console.log(stdout)
-    console.error(stderr) // TODO
 
     // Remove the config file at the temporary path.
     if (existsSync(tmpFoundryConfigPath)) {

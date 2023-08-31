@@ -43,8 +43,6 @@ const checkStateVariables = async (
 
 const deployerAddress = new ethers.Wallet(deployerPrivateKey).address
 
-// TODO: the deployment table is displayed a bunch of times when running this test
-
 describe('ChainOverrides', () => {
   before(async () => {
     await Promise.all(
@@ -52,7 +50,7 @@ describe('ChainOverrides', () => {
         const provider = rpcProviders[network]
         const deployer = new ethers.Wallet(deployerPrivateKey, provider)
         await ensureSphinxInitialized(provider, deployer)
-        await deploy(ChainOverrides, provider, deployerPrivateKey)
+        await deploy(ChainOverrides, provider, deployerPrivateKey, 'hardhat')
       })
     )
   })

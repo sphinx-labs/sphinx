@@ -57,8 +57,8 @@ import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 
 /**
- * @notice This contract should not define mutable variables since it may be delegatecalled
-   by other contracts.
+ * @notice This contract should not define mutable variables since it may be delegatecalled by other
+   contracts.
  */
 contract SphinxUtils is
     Test,
@@ -139,8 +139,8 @@ contract SphinxUtils is
         }
     }
 
-    // These provide an easy way to get complex data types off-chain (via the ABI) without needing to
-    // hard-code them.
+    // These provide an easy way to get complex data types off-chain (via the ABI) without needing
+    // to hard-code them.
     function bundledActions() external pure returns (BundledSphinxAction[] memory) {}
 
     function targetBundle() external pure returns (SphinxTargetBundle memory) {}
@@ -194,23 +194,24 @@ contract SphinxUtils is
         bytes memory data = this.slice(_data, 0, _data.length - 32);
 
         if (success) {
-            // Next, we decode the result into the bundle info, which consists of the
-            // SphinxBundles, the config URI, the cost of deploying each contract, and any
-            // warnings that occurred when parsing the config. We can't decode all of this in a
-            // single `abi.decode` call because this fails with a "Stack too deep" error. This is
-            // because the SphinxBundles struct is too large for Solidity to decode all at once.
-            // So, we decode the SphinxActionBundle and SphinxTargetBundle separately. This
-            // requires that we know where to split the raw bytes before decoding anything. To solve
-            // this, we use two `splitIdx` variables. The first marks the point where the action
-            // bundle ends and the target bundle begins. The second marks the point where the target
-            // bundle ends and the rest of the bundle info (config URI, warnings, etc) begins.
+            // Next, we decode the result into the bundle info, which consists of the SphinxBundles,
+            // the config URI, the cost of deploying each contract, and any warnings that occurred
+            // when parsing the config. We can't decode all of this in a single `abi.decode` call
+            // because this fails with a "Stack too deep" error. This is because the SphinxBundles
+            // struct is too large for Solidity to decode all at once. So, we decode the
+            // SphinxActionBundle and SphinxTargetBundle separately. This requires that we know
+            // where to split the raw bytes before decoding anything. To solve this, we use two
+            // `splitIdx` variables. The first marks the point where the action bundle ends and the
+            // target bundle begins. The second marks the point where the target bundle ends and the
+            // rest of the bundle info (config URI, warnings, etc) begins.
             (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
                 this.slice(data, data.length - 64, data.length),
                 (uint256, uint256)
             );
 
-            // TODO(docs): We can't decode the entire action bundle at once because we'd get a
-            // "stack too deep" error. So, we decode the root and the actions separately.
+            // We can't decode the entire action bundle at once because we'd get a "stack too deep"
+            // error when calling `abi.decode`. This occurs because the action bundle struct is too
+            // large to be decoded at one time. So, we decode the root and the actions separately.
             bytes32 actionRoot = abi.decode(this.slice(data, 0, 32), (bytes32));
             BundledSphinxAction[] memory actions = abi.decode(
                 this.slice(data, 32, splitIdx1),
@@ -353,7 +354,8 @@ contract SphinxUtils is
     }
 
     /**
-     * Helper function that determines if a given batch is executable within the specified gas limit.
+     * Helper function that determines if a given batch is executable within the specified gas
+       limit.
      */
     function executable(
         BundledSphinxAction[] memory selected,
@@ -383,7 +385,8 @@ contract SphinxUtils is
             return actions.length;
         }
 
-        // If the full batch isn't executavle, then do a binary search to find the largest executable batch size
+        // If the full batch isn't executavle, then do a binary search to find the largest
+        // executable batch size
         uint min = 0;
         uint max = actions.length;
         while (min < max) {
@@ -464,8 +467,8 @@ contract SphinxUtils is
                 // In the TypeScript version, we check if the SphinxManager has permission to
                 // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
                 // fails in Solidity when called on a state-changing function (which 'upgradeTo'
-                // is). We also can't attempt an external call because it could be broadcasted.
-                // So, we skip this step here, which is fine because Forge automatically does local
+                // is). We also can't attempt an external call because it could be broadcasted. So,
+                // we skip this step here, which is fine because Forge automatically does local
                 // simulation before broadcasting any transactions. If the SphinxManager doesn't
                 // have permission to call 'upgradeTo', an error will be thrown when simulating the
                 // execution logic, which will happen before any transactions are broadcasted.

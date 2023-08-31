@@ -1,4 +1,5 @@
-import { expect } from 'chai'
+import chai from 'chai'
+import chaiAsPromised from 'chai-as-promised'
 import hre from 'hardhat'
 import { ethers } from 'ethers'
 import {
@@ -42,8 +43,8 @@ import {
 } from './helpers'
 import { createSphinxRuntime } from '../src/cre'
 
-// TODO: make sure that ryan's foundry deployment bug is reproduced in the automated test before
-// it's fixed.
+chai.use(chaiAsPromised)
+const expect = chai.expect
 
 const initialTestnets: Array<SupportedNetworkName> = [
   'goerli',
@@ -143,8 +144,6 @@ describe('Post-Deployment Actions', () => {
     await revertSnapshots(allTestnets, snapshotIds)
   })
 
-  // TODO: yarn test:hardhat -> yarn test:ts
-
   describe('Validation', () => {
     let validationOutput = ''
 
@@ -179,10 +178,8 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      // TODO: instead of try/catching, you should probably do "await expect(...).to.revert"
-
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -190,9 +187,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
+      ).to.be.rejected
 
       expect(validationOutput).to.have.string(
         `${contractInstantiatedWithInvalidAddress(invalidAddress)}`
@@ -207,8 +202,8 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -216,10 +211,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
-
+      ).to.be.rejected
       let ethersErrorMessage: string | undefined
       try {
         ethers.Fragment.from(invalidFragment)
@@ -257,8 +249,8 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -266,10 +258,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
-
+      ).to.be.rejected
       expect(validationOutput).to.have.string(
         contractInstantiatedWithInvalidNetworkOverrides(
           invalidNetworks,
@@ -296,8 +285,8 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -305,10 +294,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
-
+      ).to.be.rejected
       const expectedOutput = createSphinxLog(
         'error',
         contractInstantiatedWithDuplicatedNetworkOverrides(
@@ -339,8 +325,8 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -348,10 +334,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
-
+      ).to.be.rejected
       const expectedOutput = createSphinxLog(
         'error',
         contractInstantiatedWithInvalidOverridingAddresses(
@@ -367,8 +350,8 @@ describe('Post-Deployment Actions', () => {
       const ExternalContract1 = new Contract(externalContractAddress1)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -376,10 +359,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch (e) {
-        /* empty */
-      }
-
+      ).to.be.rejected
       expect(validationOutput).to.have.string(
         externalContractMustIncludeAbi(externalContractAddress1)
       )
@@ -399,8 +379,8 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
 
-        try {
-          await deploy(
+        await expect(
+          deploy(
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
@@ -408,9 +388,7 @@ describe('Post-Deployment Actions', () => {
             cre,
             FailureAction.THROW
           )
-        } catch (e) {
-          /* empty */
-        }
+        ).to.be.rejected
 
         let ethersErrorMessage: string | undefined
         try {
@@ -446,8 +424,8 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
 
-        try {
-          await deploy(
+        await expect(
+          deploy(
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
@@ -455,9 +433,7 @@ describe('Post-Deployment Actions', () => {
             cre,
             FailureAction.THROW
           )
-        } catch (e) {
-          /* empty */
-        }
+        ).to.be.rejected
 
         let ethersErrorMessage: string | undefined
         try {
@@ -493,8 +469,8 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1.setInts(...functionArgs)]
 
-        try {
-          await deploy(
+        await expect(
+          deploy(
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
@@ -502,9 +478,7 @@ describe('Post-Deployment Actions', () => {
             cre,
             FailureAction.THROW
           )
-        } catch (e) {
-          /* empty */
-        }
+        ).to.be.rejected
 
         let ethersErrorMessage: string | undefined
         try {
@@ -541,8 +515,8 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1[functionName](...functionArgs)]
 
-        try {
-          await deploy(
+        await expect(
+          deploy(
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
@@ -550,9 +524,7 @@ describe('Post-Deployment Actions', () => {
             cre,
             FailureAction.THROW
           )
-        } catch (e) {
-          /* empty */
-        }
+        ).to.be.rejected
 
         let ethersErrorMessage: string | undefined
         try {
@@ -589,8 +561,8 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1[functionName](...functionArgs)]
 
-        try {
-          await deploy(
+        await expect(
+          deploy(
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
@@ -598,9 +570,7 @@ describe('Post-Deployment Actions', () => {
             cre,
             FailureAction.THROW
           )
-        } catch (e) {
-          /* empty */
-        }
+        ).to.be.rejected
 
         let ethersErrorMessage: string | undefined
         try {
@@ -647,8 +617,8 @@ describe('Post-Deployment Actions', () => {
         ExternalContract2.incrementMyContract2(1),
       ]
 
-      try {
-        await deploy(
+      await expect(
+        deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
@@ -656,9 +626,7 @@ describe('Post-Deployment Actions', () => {
           cre,
           FailureAction.THROW
         )
-      } catch {
-        // Do nothing.
-      }
+      ).to.be.rejected
 
       const expectedOutput = createSphinxLog(
         'error',
@@ -670,7 +638,7 @@ describe('Post-Deployment Actions', () => {
     })
   })
 
-  const integrations: Array<Integration> = ['foundry']
+  const integrations: Array<Integration> = ['foundry', 'hardhat']
   for (const integration of integrations) {
     describe(`Execution on ${integration}`, () => {
       const configContract1Address = getTargetAddress(
@@ -1585,22 +1553,34 @@ describe('Post-Deployment Actions', () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [ConfigContract1.reverter()]
 
-        try {
-          await deploy(userConfig, provider, deployerPrivateKey, integration)
-        } catch (err) {
-          err
-          // We expect this to throw. Do nothing.
-        }
+        const deployPromise = deploy(
+          userConfig,
+          provider,
+          deployerPrivateKey,
+          integration
+        )
 
-        const SphinxManager = new ethers.Contract(
-          sphinxManagerAddress,
-          SphinxManagerABI,
-          provider
-        )
-        const deploymentFailedEvents = await SphinxManager.queryFilter(
-          SphinxManager.filters.DeploymentFailed()
-        )
-        expect(deploymentFailedEvents.length).equals(1)
+        if (integration === 'hardhat') {
+          await expect(deployPromise).to.be.rejected
+
+          const SphinxManager = new ethers.Contract(
+            sphinxManagerAddress,
+            SphinxManagerABI,
+            provider
+          )
+          const deploymentFailedEvents = await SphinxManager.queryFilter(
+            SphinxManager.filters.DeploymentFailed()
+          )
+          expect(deploymentFailedEvents.length).equals(1)
+        } else if (integration === 'foundry') {
+          // The transaction failure is caught in Foundry's simulation, so no transactions are
+          // actually broadcasted.
+          await expect(deployPromise).to.be.rejectedWith(
+            `Sphinx: failed to execute PostDeploymentActions likely because one of the user's transactions in the deployment reverted.`
+          )
+        } else {
+          throw new Error(`Invalid integration: ${integration}`)
+        }
       })
     })
   }

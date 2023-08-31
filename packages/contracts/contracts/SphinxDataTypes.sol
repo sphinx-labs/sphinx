@@ -5,12 +5,16 @@ pragma solidity >=0.7.4 <0.9.0;
  * @notice Struct representing the state of a deployment.
  *
  * @custom:field status The status of the deployment.
+ * @custom:field actions An array of actions in the deployment. This is a legacy field that should
+   not be used.
  * @custom:field numInitialActions The number of initial actions in the deployment, which are either
  *               `CALL` or `DEPLOY_CONTRACT` actions.
  * @custom:field numSetStorageActions The number of `SET_STORAGE` actions in the deployment.
  * @custom:field targets The number of targets in the deployment.
  * @custom:field actionRoot The root of the Merkle tree of actions.
  * @custom:field targetRoot The root of the Merkle tree of targets.
+ * @custom:field numImmutableContracts The number of immutable contracts in the deployment. This is
+   a legacy field that should not be used.
  * @custom:field actionsExecuted The number of actions that have been executed so far in the
    deployment.
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
@@ -20,11 +24,11 @@ pragma solidity >=0.7.4 <0.9.0;
  */
 struct DeploymentState {
     DeploymentStatus status;
-    bool[] actions; // TODO(docs): legacy; don't use
+    bool[] actions;
     uint256 targets;
     bytes32 actionRoot;
     bytes32 targetRoot;
-    uint256 numImmutableContracts; // TODO(docs): legacy; don't use
+    uint256 numImmutableContracts;
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
@@ -38,7 +42,8 @@ struct DeploymentState {
  * @notice Struct representing a Sphinx action.
  *
  * @custom:field actionType The type of action.
- * @custom:field index TODO(docs)
+ * @custom:field index The unique index of the action in the deployment. Actions must be executed in
+   ascending order according to their index.
  * @custom:field data The ABI-encoded data associated with the action.
  * @custom:field addr The address to which the action applies.
  */
@@ -82,7 +87,8 @@ enum SphinxActionType {
  *
  * @custom:value EMPTY The deployment does not exist.
  * @custom:value APPROVED The deployment has been approved by the owner.
- * @custom:value INITIAL_ACTIONS_EXECUTED TODO(docs)
+ * @custom:value INITIAL_ACTIONS_EXECUTED The initial `DEPLOY_CONTRACT` and `CALL` actions in the
+   deployment have been executed.
  * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
  * @custom:value SET_STORAGE_ACTIONS_EXECUTED The `SET_STORAGE` actions in the deployment have been
                  executed.

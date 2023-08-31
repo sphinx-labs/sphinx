@@ -1,4 +1,3 @@
-// Import 'chai-as-promised'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 
@@ -9,10 +8,8 @@ import {
   messageArtifactNotFound,
   getContractArtifact,
   messageMultipleArtifactsFound,
-} from '../../src/foundry/utils'
-import { getFoundryConfigOptions } from '../../src/foundry/options'
-
-// TODO: make sure that your new test files run automatically when you `yarn test`
+} from '../../../src/foundry/utils'
+import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {
