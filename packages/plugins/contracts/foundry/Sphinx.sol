@@ -12,7 +12,8 @@ import {
     DeploymentState,
     Version,
     DeploymentStatus,
-    RawSphinxAction
+    RawSphinxAction,
+    SphinxActionType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
@@ -26,7 +27,8 @@ import {
     FoundryContractConfig,
     ConfigCache,
     DeployContractCost,
-    OptionalAddress
+    OptionalAddress,
+    HumanReadableAction
 } from "./SphinxPluginTypes.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 
@@ -224,22 +226,31 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
-            bool executionSuccess = executeDeployment(
+            ( bool executionSuccess, HumanReadableAction memory readableAction ) = executeDeployment(
                 manager,
-                bundleInfo.actionBundle,
-                bundleInfo.targetBundle,
+                bundleInfo,
                 configCache.blockGasLimit,
                 bundleInfo.deployContractCosts
             );
 
             if (!executionSuccess) {
+                bytes memory revertMessage =
+                    readableAction.actionType == SphinxActionType.CALL ? abi.encodePacked(
+                        "Sphinx: failed to execute ",
+                        configs.minimalConfig.projectName,
+                        " because the following post deployment action reverted: ",
+                        readableAction.reason
+                    ) : abi.encodePacked(
+                        "Sphinx: failed to execute ",
+                        configs.minimalConfig.projectName,
+                        " because the constructor of ",
+                        readableAction.reason,
+                        " reverted"
+                    );
+
                 revert(
                     string(
-                        abi.encodePacked(
-                            "Sphinx: failed to execute ",
-                            configs.minimalConfig.projectName,
-                            " likely because one of the user's transactions in the deployment reverted."
-                        )
+                        revertMessage
                     )
                 );
             }
@@ -446,6 +457,7 @@ abstract contract Sphinx {
             if (isSetStorageActionArray) {
                 manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
             } else {
+                vm.recordLogs();
                 manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
             }
 
@@ -465,14 +477,13 @@ abstract contract Sphinx {
 
     function executeDeployment(
         ISphinxManager manager,
-        SphinxActionBundle memory actionBundle,
-        SphinxTargetBundle memory targetBundle,
+        BundleInfo memory bundleInfo,
         uint256 blockGasLimit,
         DeployContractCost[] memory deployContractCosts
-    ) private returns (bool) {
+    ) private returns (bool, HumanReadableAction memory) {
         vm.recordLogs();
 
-        (BundledSphinxAction[] memory initialActions, BundledSphinxAction[] memory setStorageActions) = sphinxUtils.splitActions(actionBundle.actions);
+        (BundledSphinxAction[] memory initialActions, BundledSphinxAction[] memory setStorageActions) = sphinxUtils.splitActions(bundleInfo.actionBundle.actions);
 
         uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
         // Execute all the deploy contract actions and exit early if the deployment failed
@@ -484,16 +495,32 @@ abstract contract Sphinx {
             deployContractCosts
         );
         if (status == DeploymentStatus.FAILED) {
-            return false;
+            // Get logs
+            Vm.Log[] memory entries = vm.getRecordedLogs();
+
+            // Find the failure event
+            Vm.Log memory failedEvent;
+            for (uint8 i = 0; i < entries.length; i++) {
+                if (entries[i].topics[0] == keccak256("DeploymentFailed(bytes32,uint256)")) {
+                    failedEvent = entries[i];
+                    break;
+                }
+            }
+
+            // Decode the action index that caused the failure
+            uint failedActionIndex = abi.decode(failedEvent.data, (uint));
+
+            // Return with the relevant human readable action
+            return ( false, bundleInfo.humanReadableActions[failedActionIndex] );
         } else if (status == DeploymentStatus.COMPLETED) {
-            return true;
+            return ( true, HumanReadableAction("", 0, SphinxActionType.CALL) );
         }
 
         // Dissemble the set storage actions
-        SphinxTarget[] memory targets = new SphinxTarget[](targetBundle.targets.length);
-        bytes32[][] memory proofs = new bytes32[][](targetBundle.targets.length);
-        for (uint i = 0; i < targetBundle.targets.length; i++) {
-            BundledSphinxTarget memory target = targetBundle.targets[i];
+        SphinxTarget[] memory targets = new SphinxTarget[](bundleInfo.targetBundle.targets.length);
+        bytes32[][] memory proofs = new bytes32[][](bundleInfo.targetBundle.targets.length);
+        for (uint i = 0; i < bundleInfo.targetBundle.targets.length; i++) {
+            BundledSphinxTarget memory target = bundleInfo.targetBundle.targets[i];
             targets[i] = target.target;
             proofs[i] = target.siblings;
         }
@@ -509,7 +536,7 @@ abstract contract Sphinx {
 
         pushRecordedLogs();
 
-        return true;
+        return ( true, HumanReadableAction("", 0, SphinxActionType.CALL) );
     }
 
     function pushRecordedLogs() private {

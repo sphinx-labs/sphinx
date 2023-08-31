@@ -55,7 +55,7 @@ import {
   getFunctionArgValueArray,
   getCallActionAddressForNetwork,
   isSupportedChainId,
-  getNetworkNameForChainId,
+  prettyFunctionCall,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -3534,6 +3534,10 @@ export const parsePostDeploymentActions = (
         to: address,
         data,
         nonce,
+        readableSignature: `${referenceName ?? address}.${prettyFunctionCall(
+          callAction.functionName,
+          argValues
+        )}`,
       }
 
       const parsedActions: Array<ParsedCallAction> | undefined =

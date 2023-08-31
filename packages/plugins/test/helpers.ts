@@ -233,11 +233,8 @@ export const proposeThenApproveDeploymentThenExecute = async (
         defaultCre,
         makeGetConfigArtifacts(hre)
       )
-    const { configUri, bundles } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
-    )
+    const { configUri, bundles, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
     const deploymentId = getDeploymentId(bundles, configUri)
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
     authState = await Auth.authStates(root)
@@ -255,6 +252,8 @@ export const proposeThenApproveDeploymentThenExecute = async (
     const { success } = await executeDeployment(
       manager,
       bundles,
+      deploymentId,
+      humanReadableActions,
       blockGasLimit,
       provider
     )

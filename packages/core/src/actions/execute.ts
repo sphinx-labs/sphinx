@@ -3,25 +3,27 @@ import { Logger } from '@eth-optimism/common-ts'
 
 import {
   BundledSphinxAction,
-  SphinxActionType,
   SphinxBundles,
   DeploymentState,
   DeploymentStatus,
+  HumanReadableAction,
+  HumanReadableActions,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
-import { getEstDeployContractCost } from '../estimate'
-import { ConfigArtifacts } from '../config'
 
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
+  deploymentId: string,
+  humanReadableActions: HumanReadableActions,
   blockGasLimit: bigint,
   provider: ethers.Provider,
   logger?: Logger | undefined
 ): Promise<{
   success: boolean
   receipts: ethers.TransactionReceipt[]
+  failureAction?: HumanReadableAction
 }> => {
   const { actionBundle, targetBundle } = bundles
 
@@ -49,6 +51,24 @@ export const executeDeployment = async (
   )
   if (status === DeploymentStatus.FAILED) {
     logger?.error(`[Sphinx]: failed to execute initial actions`)
+
+    // fetch deployment action
+    const failureEvent = (
+      await manager.queryFilter(manager.filters.DeploymentFailed(deploymentId))
+    ).at(-1)
+
+    if (failureEvent) {
+      const log = manager.interface.parseLog({
+        topics: failureEvent.topics as string[],
+        data: failureEvent.data,
+      })
+
+      if (log?.args[1] !== undefined) {
+        const failureAction = humanReadableActions[log?.args[1]]
+        return { success: false, receipts, failureAction }
+      }
+    }
+
     return { success: false, receipts }
   } else if (status === DeploymentStatus.COMPLETED) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
@@ -173,6 +193,13 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
+    const mostRecentState: DeploymentState = await manager.deployments(
+      activeDeploymentId
+    )
+    if (mostRecentState.status === DeploymentStatus.FAILED) {
+      return { status: mostRecentState.status, receipts }
+    }
+
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),

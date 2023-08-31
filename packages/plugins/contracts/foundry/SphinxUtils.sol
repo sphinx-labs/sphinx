@@ -39,6 +39,7 @@ import {
     FoundryContractConfig,
     ConfigCache,
     DeployContractCost,
+    HumanReadableAction,
     ContractConfigCache,
     DeploymentRevert,
     ImportCache,
@@ -151,6 +152,8 @@ contract SphinxUtils is
 
     function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
 
+    function humanReadableActions() external pure returns (HumanReadableAction[] memory) {}
+
     function slice(
         bytes calldata _data,
         uint256 _start,
@@ -232,13 +235,14 @@ contract SphinxUtils is
             (
                 string memory configUri,
                 DeployContractCost[] memory costs,
+                HumanReadableAction[] memory readableActions,
                 string memory warnings
-            ) = abi.decode(remainingBundleInfo, (string, DeployContractCost[], string));
+            ) = abi.decode(remainingBundleInfo, (string, DeployContractCost[], HumanReadableAction[], string));
 
             if (bytes(warnings).length > 0) {
                 console.log(StdStyle.yellow(warnings));
             }
-            return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle);
+            return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle, readableActions);
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
             if (bytes(warnings).length > 0) {
