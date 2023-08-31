@@ -1,5 +1,9 @@
 import { CallAction } from '../actions/types'
-import { hyperlink, prettyFunctionCall } from '../utils'
+import {
+  getNetworkNameForChainId,
+  hyperlink,
+  prettyFunctionCall,
+} from '../utils'
 import { UserCallAction } from './types'
 
 export const contractInstantiatedWithInvalidAddress = (
@@ -79,4 +83,10 @@ export const functionTypeArgumentsAreNotAllowed = (
   functionLogName: string
 ): string => {
   return `The ${functionLogName} contains function type arguments, which are not allowed. Please remove the following fields:`
+}
+
+export const externalContractsMustBeDeployed = (chainId: number): string => {
+  return `The following contracts in your config are not deployed on ${getNetworkNameForChainId(
+    chainId
+  )}:`
 }

@@ -59,6 +59,10 @@ contract MyContract1 {
         secondIntArg = _myStruct.b;
         addressArg = _myStruct.c.d;
     }
+
+    function reverter() external pure {
+        revert("reverter");
+    }
 }
 
 contract MyContract2 {

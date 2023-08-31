@@ -59,6 +59,8 @@ interface ISphinxManager {
 
     function deployments(bytes32 _deploymentId) external view returns (DeploymentState memory);
 
+    function callNonces(bytes32 _callHash) external view returns (uint256);
+
     function executeInitialActions(
         RawSphinxAction[] memory _actions,
         bytes32[][] memory _proofs

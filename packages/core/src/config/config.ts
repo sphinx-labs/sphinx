@@ -3,6 +3,8 @@ import { resolve } from 'path'
 import {
   FoundryConfig,
   FoundryContractConfig,
+  ParsedConfig,
+  ParsedContractConfigs,
   UserConfig,
   UserConfigWithOptions,
   UserSphinxConfig,
@@ -17,32 +19,35 @@ import { getSphinxManagerAddress } from '../addresses'
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
 export const getFoundryConfig = (
-  userConfig: UserSphinxConfig,
+  parsedConfig: ParsedConfig,
+  chainId: string,
   owner: string
 ): FoundryConfig => {
-  const manager = getSphinxManagerAddress(owner, userConfig.projectName)
-
   const minimalContractConfigs: Array<FoundryContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    userConfig.contracts
+    parsedConfig.contracts
   )) {
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ?? getTargetAddress(manager, referenceName, salt)
+      address ?? getTargetAddress(parsedConfig.manager, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
       addr: targetAddress,
-      kind: toContractKindEnum(kind ?? 'proxy'),
+      kind: toContractKindEnum(kind),
       userSaltHash: getUserSaltHash(salt),
     })
   }
+
+  const postDeploy = parsedConfig.postDeploy[chainId] ?? []
+
   return {
-    manager,
+    manager: parsedConfig.manager,
     owner,
-    projectName: userConfig.projectName,
+    projectName: parsedConfig.projectName,
     contracts: minimalContractConfigs,
+    postDeploy,
   }
 }
 

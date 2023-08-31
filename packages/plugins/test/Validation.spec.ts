@@ -458,7 +458,7 @@ describe('Validate', () => {
 
   it('did catch incorrect overridden contructor args', async () => {
     expect(validationOutput).to.have.string(
-      `The config contains argument overrides in the constructor of IncorrectConstructorArgOverrides which do not exist in the contract:`
+      `The config contains argument overrides in the constructor of IncorrectConstructorArgOverrides which do not exist in the contract.`
     )
     expect(validationOutput).to.have.string(
       `incorrectOverrideArg on network: anvil`

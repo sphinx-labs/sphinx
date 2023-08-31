@@ -22,6 +22,7 @@ import {
 import { SphinxManagerABI } from '@sphinx-labs/contracts'
 import {
   externalContractMustIncludeAbi,
+  externalContractsMustBeDeployed,
   failedToEncodeFunctionCall,
 } from '@sphinx-labs/core/src'
 
@@ -41,6 +42,9 @@ import {
 import { createSphinxRuntime } from '../src/cre'
 
 // TODO: do you need to test the foundry logic too?
+
+// TODO: make sure that ryan's foundry deployment bug is reproduced in the automated test before
+// it's fixed.
 
 const initialTestnets: Array<SupportedNetworkName> = [
   'goerli',
@@ -606,6 +610,42 @@ describe('Post-Deployment Actions', () => {
         )
       })
     })
+
+    it('External contracts must be deployed', async () => {
+      const randomExternalContractAddressOne = '0x' + '11'.repeat(20)
+      const randomExternalContractAddressTwo = '0x' + '22'.repeat(20)
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      const ExternalContract1 = new Contract(randomExternalContractAddressOne, {
+        abi: ExternalContractABI,
+      })
+      const ExternalContract2 = new Contract(randomExternalContractAddressTwo, {
+        abi: ExternalContractABI,
+      })
+      userConfig.postDeploy = [
+        ExternalContract1.incrementMyContract2(1),
+        ExternalContract2.incrementMyContract2(1),
+      ]
+
+      try {
+        await deploy(
+          userConfig,
+          rpcProviders['goerli'],
+          deployerPrivateKey,
+          cre,
+          FailureAction.THROW
+        )
+      } catch {
+        // Do nothing.
+      }
+
+      const expectedOutput = createSphinxLog(
+        'error',
+        externalContractsMustBeDeployed(5),
+        [randomExternalContractAddressOne, randomExternalContractAddressTwo]
+      )
+
+      expect(validationOutput).to.have.string(expectedOutput)
+    })
   })
 
   describe('Execution', () => {
@@ -813,8 +853,7 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      // TODO: .only
-      it.only('Single function with struct argument', async () => {
+      it('Single function with struct argument', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [
           ConfigContract1.setMyStructValues({
@@ -838,7 +877,8 @@ describe('Post-Deployment Actions', () => {
             ConfigContractABI,
             rpcProviders[network]
           )
-          expect(await ConfigContract1_Deployed.uintArg()).equals(3n)
+          expect(await ConfigContract1_Deployed.intArg()).equals(1n)
+          expect(await ConfigContract1_Deployed.secondIntArg()).equals(2n)
           expect(await ConfigContract1_Deployed.addressArg()).equals(
             '0x' + '11'.repeat(20)
           )
@@ -941,7 +981,7 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      it.only('Overrides nested struct values', async () => {
+      it('Overrides nested struct value', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [
           ConfigContract1.setMyStructValues(
@@ -990,10 +1030,7 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      // TODO: when you run `yarn test:hardhat` twice, the initialization logic fails, which could
-      // be a user-facing issue.
-
-      it.only('Complex post-deployment actions', async () => {
+      it('Complex post-deployment actions', async () => {
         const userConfig = structuredClone(userConfigWithoutPostDeployActions)
         userConfig.postDeploy = [
           ConfigContract1.incrementUint(),
@@ -1413,7 +1450,7 @@ describe('Post-Deployment Actions', () => {
         }
       })
 
-      it('Works with proposals', async () => {
+      it('Proposal', async () => {
         // We'll just test the multi-sig config here.
         const projectTestInfo = multichainTestInfo[1]
 
@@ -1455,6 +1492,30 @@ describe('Post-Deployment Actions', () => {
           )
         }
       })
+    })
+
+    it('Marks the deployment as failed if call action reverts on-chain', async () => {
+      const network = 'goerli'
+      const provider = rpcProviders[network]
+      const ConfigContract1 = new Contract('{{ ConfigContract1 }}')
+      const userConfig = structuredClone(userConfigWithoutPostDeployActions)
+      userConfig.postDeploy = [ConfigContract1.reverter()]
+
+      try {
+        await deploy(userConfig, provider, deployerPrivateKey)
+      } catch {
+        // We expect this to throw. Do nothing.
+      }
+
+      const SphinxManager = new ethers.Contract(
+        sphinxManagerAddress,
+        SphinxManagerABI,
+        provider
+      )
+      const deploymentFailedEvents = await SphinxManager.queryFilter(
+        SphinxManager.filters.DeploymentFailed()
+      )
+      expect(deploymentFailedEvents.length).equals(1)
     })
   })
 })

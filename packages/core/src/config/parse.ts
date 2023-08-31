@@ -54,6 +54,8 @@ import {
   isUserConstructorArgOverride,
   getFunctionArgValueArray,
   getCallActionAddressForNetwork,
+  isSupportedChainId,
+  getNetworkNameForChainId,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -124,6 +126,7 @@ import {
   contractInstantiatedWithInvalidNetworkOverrides,
   contractInstantiatedWithInvalidOverridingAddresses,
   externalContractMustIncludeAbi,
+  externalContractsMustBeDeployed,
   failedToEncodeFunctionCall,
   functionTypeArgumentsAreNotAllowed,
 } from './validation-error-messages'
@@ -193,6 +196,9 @@ export const getParsedConfigWithOptions = async (
       cre.stream
     )
   }
+
+  // Validate top level config, contracts, and post-deployment actions.
+  assertValidUserConfig(userConfig, cre, failureAction)
 
   assertValidConfigOptions(userConfig.options, cre, failureAction)
 
@@ -319,6 +325,9 @@ export const getParsedConfig = async (
       cre.stream
     )
   }
+
+  // Validate top level config, contracts, and post-deployment actions.
+  assertValidUserConfig(userConfig, cre, failureAction)
 
   const managerAddress = getSphinxManagerAddress(
     ownerAddress,
@@ -2672,9 +2681,6 @@ export const getUnvalidatedContractConfigs = (
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
-  // Validate top level config and contract options
-  assertValidUserConfig(userConfig, cre, failureAction)
-
   const configWithDefaultContractFields = setDefaultContractFields(userConfig)
 
   // Parse and validate contract constructor args
@@ -2735,12 +2741,16 @@ export const postParsingValidation = async (
   configCache: MinimalConfigCache,
   failureAction: FailureAction
 ) => {
-  const { blockGasLimit, contractConfigCache } = configCache
+  const { blockGasLimit, contractConfigCache, chainId } = configCache
   const { contracts, manager } = parsedConfig
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
+
+  assertSupportedChainId(chainId, cre)
+
+  assertExternalContractsAreDeployed(configCache, cre)
 
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
@@ -2804,6 +2814,21 @@ export const assertValidBlockGasLimit = (blockGasLimit: bigint): void => {
       `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
         blockGasLimit.toString
       }`
+    )
+  }
+}
+
+export const assertSupportedChainId = (
+  chainId: number,
+  cre: SphinxRuntimeEnvironment
+): void => {
+  if (!isSupportedChainId(chainId)) {
+    logValidationError(
+      'error',
+      `Unsupported chain id: ${chainId}.`,
+      [],
+      cre.silent,
+      cre.stream
     )
   }
 }
@@ -3016,16 +3041,17 @@ export const getConfigCache = async (
   const postDeployActions: Array<ParsedCallAction> =
     parsedConfig.postDeploy[chainId] ?? []
 
+  // Get an array of undeployed external contracts.
+  const undeployedExternalContracts: Array<string> = []
   const uniquePostDeployAddresses = Array.from(
     new Set(postDeployActions.map((e) => e.to))
   )
-
-  const undeployedExternalContracts: { [address: string]: boolean } = {}
   for (const address of uniquePostDeployAddresses) {
     const isExternalAddress =
       findReferenceNameForAddress(address, parsedConfig.contracts) === undefined
+
     if (isExternalAddress && (await provider.getCode(address)) === '0x') {
-      undeployedExternalContracts[address] = true
+      undeployedExternalContracts.push(address)
     }
   }
 
@@ -3034,7 +3060,7 @@ export const getConfigCache = async (
     SphinxManagerABI,
     provider
   )
-  // TODO(docs): => skip
+  // TODO(docs)
   const callNonces: { [callHash: string]: number } = {}
   for (const callAction of postDeployActions) {
     const { to, data } = callAction
@@ -3058,11 +3084,6 @@ export const getConfigCache = async (
     undeployedExternalContracts,
   }
 }
-
-// TODO(test): where do we assert that the user is on a supported chain ID in the proposal task? if
-// we don't already have this, we should put it in post-parsing validation b/c it's after
-// `getConfigCache`, where we get the chain ID. we shouldn't put it outside the parsing logic b/c
-// this should be included in the parsing logic, and not in some other piece of functionality.
 
 const assertNoValidationErrors = (failureAction: FailureAction): void => {
   if (validationErrors) {
@@ -3391,10 +3412,6 @@ export const parsePostDeploymentActions = (
         ? `function '${referenceName}.${callAction.functionName}'`
         : `function '${callAction.functionName}' at ${address}`
 
-      // TODO(test): what happens if we use a BigInt as a default param in a function call? sphinx
-      // doesn't normally allow this but ethers does. another example is probably a struct that's
-      // represented as an array instead of an object.
-
       const iface = new ethers.Interface(abi)
 
       try {
@@ -3652,4 +3669,19 @@ export const assertValidPostDeploymentActions = (
   }
 
   assertNoValidationErrors(failureAction)
+}
+
+const assertExternalContractsAreDeployed = (
+  configCache: MinimalConfigCache,
+  cre: SphinxRuntimeEnvironment
+): void => {
+  if (configCache.undeployedExternalContracts.length > 0) {
+    logValidationError(
+      'error',
+      externalContractsMustBeDeployed(configCache.chainId),
+      configCache.undeployedExternalContracts,
+      cre.silent,
+      cre.stream
+    )
+  }
 }

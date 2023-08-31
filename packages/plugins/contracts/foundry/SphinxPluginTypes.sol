@@ -34,7 +34,7 @@ struct BundledSphinxTarget {
 
 struct Configs {
     FoundryConfig minimalConfig;
-    string userConfigStr;
+    string parsedConfigStr;
 }
 
 struct BundleInfo {
@@ -49,6 +49,7 @@ struct FoundryConfig {
     address owner;
     string projectName;
     FoundryContractConfig[] contracts;
+    ParsedCallAction[] postDeploy;
 }
 
 struct DeployContractCost {
@@ -68,6 +69,8 @@ struct ConfigCache {
     uint256 blockGasLimit;
     uint256 chainId;
     ContractConfigCache[] contractConfigCache;
+    CallNonces[] callNonces;
+    address[] undeployedExternalContracts;
 }
 
 struct ContractConfigCache {
@@ -78,9 +81,20 @@ struct ContractConfigCache {
     OptionalString previousConfigUri;
 }
 
+struct CallNonces {
+    bytes32 callHash;
+    uint256 nonce;
+}
+
 struct DeploymentRevert {
     bool deploymentReverted;
     OptionalString revertString;
+}
+
+struct ParsedCallAction {
+    address to;
+    bytes data;
+    uint256 nonce;
 }
 
 struct ImportCache {

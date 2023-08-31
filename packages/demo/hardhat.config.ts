@@ -24,7 +24,7 @@ const config: HardhatUserConfig = {
   networks: {
     goerli: {
       chainId: 5,
-      url: 'http://127.0.0.1:42005',
+      url: 'http://127.0.0.1:42544', // TODO
       accounts,
     },
     'optimism-goerli': {

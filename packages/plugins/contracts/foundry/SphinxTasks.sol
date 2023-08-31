@@ -25,7 +25,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         string memory _rpcUrl
     ) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
-        address signer = utils.msgSender();
+        address signer = sphinxUtils.msgSender();
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
 
@@ -35,9 +35,9 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
         // check if we can fetch the owner address from the expected slot
         // and that the caller is in fact the owner
-        address ownerAddress = utils.getEIP1967ProxyAdminAddress(_proxy);
+        address ownerAddress = sphinxUtils.getEIP1967ProxyAdminAddress(_proxy);
 
-        address deployer = utils.msgSender();
+        address deployer = sphinxUtils.msgSender();
         require(ownerAddress == deployer, "Sphinx: You are not the owner of this proxy.");
 
         // TODO: transfer ownership of the proxy
@@ -53,7 +53,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         string memory _rpcUrl
     ) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
-        address signer = utils.msgSender();
+        address signer = sphinxUtils.msgSender();
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
         FoundryConfig memory minimalConfig = configs.minimalConfig;
@@ -96,7 +96,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
     function cancel(string memory _configPath, string memory _rpcUrl) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
-        address signer = utils.msgSender();
+        address signer = sphinxUtils.msgSender();
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
 

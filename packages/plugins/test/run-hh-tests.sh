@@ -4,7 +4,6 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
-# TODO
 npx hardhat test test/ManagerUpgrade.spec.ts --config-path \
   sphinx/manager-upgrade.config.ts --signer 8 &&
 npx hardhat test test/Validation.spec.ts test/Create3.spec.ts

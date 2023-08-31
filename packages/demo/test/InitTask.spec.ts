@@ -126,6 +126,17 @@ describe('Init Task', () => {
     // Check that the deployment artifacts have been created
     expect(fs.existsSync(deploymentArtifactOne)).to.be.true
     expect(fs.existsSync(deploymentArtifactTwo)).to.be.true
+
+    // Check that the correct number of transactions were broadcasted. There should be three:
+    // 1. Deploying the SphinxManager via the SphinxRegistry
+    // 2. Calling `SphinxManager.approve`.
+    // 3. Executing the deployment.
+    // This is important because it ensures that we don't accidentally create transactions
+    // in our Solidity deployment code.
+    const broadcast = JSON.parse(
+      fs.readFileSync('./broadcast/Deploy.sol/31337/run-latest.json', 'utf8')
+    )
+    expect(broadcast.transactions.length).to.equal(3)
   })
 
   it('Succeeds for a sample Hardhat project with a TypeScript Sphinx config', async () => {

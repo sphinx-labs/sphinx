@@ -48,7 +48,9 @@ import {
     OptionalAddress,
     OptionalBool,
     OptionalString,
-    OptionalBytes32
+    OptionalBytes32,
+CallNonces,
+ParsedCallAction
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
@@ -167,19 +169,18 @@ contract SphinxUtils is
      */
     function ffiGetEncodedBundleInfo(
         ConfigCache memory _configCache,
-        string memory _userConfigStr,
+        string memory _parsedConfigStr,
         string memory _rootFfiPath,
         address _owner
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](7);
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
         cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _userConfigStr;
+        cmds[4] = _parsedConfigStr;
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
-        cmds[6] = vm.toString(_owner);
 
         bytes memory result = vm.ffi(cmds);
         return result;
@@ -365,10 +366,8 @@ contract SphinxUtils is
             BundledSphinxAction memory action = selected[i];
 
             SphinxActionType actionType = action.action.actionType;
-            string memory referenceName = ''; // TODO
             if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                // uint256 deployContractCost = findCost(referenceName, costs);
-                uint256 deployContractCost = 0; // TODO
+                uint256 deployContractCost = action.gas;
 
                 // We add 150k as an estimate for the cost of the transaction that executes the
                 // DeployContract action.
@@ -380,21 +379,6 @@ contract SphinxUtils is
             }
         }
         return maxGasLimit > estGasUsed;
-    }
-
-    function findCost(
-        string memory referenceName,
-        DeployContractCost[] memory costs
-    ) public pure returns (uint256) {
-        for (uint i = 0; i < costs.length; i++) {
-            DeployContractCost memory deployContractCost = costs[i];
-            if (equals(deployContractCost.referenceName, referenceName)) {
-                return deployContractCost.cost;
-            }
-        }
-        revert(
-            "Could not find contract config corresponding to a reference name. Should never happen."
-        );
     }
 
     /**
@@ -525,12 +509,39 @@ contract SphinxUtils is
             });
         }
 
+        // Get an array of undeployed external contracts. To do this, we first need to get the
+        // addresses of all of the post-deployment actions. Then, we use this to get an array of
+        // unique addresses. Finally, we use this to get an array of undeployed external contracts.
+        address[] memory postDeployAddresses = new address[](_minimalConfig.postDeploy.length);
+        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
+            postDeployAddresses[i] = _minimalConfig.postDeploy[i].to;
+        }
+        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(
+            getUniqueAddresses(postDeployAddresses),
+            _minimalConfig.contracts
+        );
+
+        CallNonces[] memory callNonces = new CallNonces[](
+            _minimalConfig.postDeploy.length
+        );
+        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
+            bytes32 callHash = getCallHash(_minimalConfig.postDeploy[i].to, _minimalConfig.postDeploy[i].data);
+            if (!isManagerDeployed_) {
+                callNonces[i] = CallNonces({ callHash: callHash, nonce: 0 });
+            } else {
+                uint256 currentNonce = _manager.callNonces(callHash);
+                callNonces[i] = CallNonces({ callHash: callHash, nonce: currentNonce });
+            }
+        }
+
         return
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
                 blockGasLimit: block.gaslimit,
                 chainId: block.chainid,
-                contractConfigCache: contractConfigCache
+                contractConfigCache: contractConfigCache,
+                callNonces: callNonces,
+                undeployedExternalContracts: undeployedExternalContracts
             });
     }
 
@@ -619,5 +630,89 @@ contract SphinxUtils is
             size := extcodesize(_addr)
         }
         return size;
+    }
+
+    function getCallHash(address _to, bytes memory _data) private pure returns (bytes32) {
+        return keccak256(abi.encode(_to, _data));
+    }
+
+    function findReferenceNameForAddress(
+        address _addr,
+        FoundryContractConfig[] memory _contractConfigs
+    ) internal pure returns (OptionalString memory) {
+        for (uint i = 0; i < _contractConfigs.length; i++) {
+            FoundryContractConfig memory contractConfig = _contractConfigs[i];
+            if (contractConfig.addr == _addr) {
+                return OptionalString({ exists: true, value: contractConfig.referenceName });
+            }
+        }
+        return OptionalString({ exists: false, value: "" });
+    }
+
+    /**
+     * @notice Returns an array of unique addresses from a given array of addresses, which may
+     *         contain duplicates.
+     *
+     * @param _addresses An array of addresses that may contain duplicates.
+     */
+    function getUniqueAddresses(address[] memory _addresses) internal pure returns (address[] memory) {
+        // First, we get an array of unique addresses. We do this by iterating over the input array
+        // and adding each address to a new array if it hasn't been added already.
+        address[] memory uniqueAddresses = new address[](_addresses.length);
+        uint256 uniqueAddressCount = 0;
+        for (uint256 i = 0; i < _addresses.length; i++) {
+            bool isUnique = true;
+            // Check if the address has already been added to the uniqueAddresses array.
+            for (uint256 j = 0; j < uniqueAddressCount; j++) {
+                if (_addresses[i] == uniqueAddresses[j]) {
+                    isUnique = false;
+                    break;
+                }
+            }
+            // If the address hasn't been added yet, add it to the uniqueAddresses array.
+            if (isUnique) {
+                uniqueAddresses[uniqueAddressCount] = _addresses[i];
+                uniqueAddressCount += 1;
+            }
+        }
+
+        // Next, we create a new array with the correct length and copy the unique addresses into
+        // it. This is necessary because the uniqueAddresses array may contain empty addresses at
+        // the end.
+        address[] memory trimmedUniqueAddresses = new address[](uniqueAddressCount);
+        for (uint256 i = 0; i < uniqueAddressCount; i++) {
+            trimmedUniqueAddresses[i] = uniqueAddresses[i];
+        }
+
+        return trimmedUniqueAddresses;
+    }
+
+    function getUndeployedExternalContracts(
+        address[] memory _uniquePostDeployAddresses,
+        FoundryContractConfig[] memory _contractConfigs
+    ) internal view returns (address[] memory) {
+        address[] memory undeployedExternalAddresses = new address[](_uniquePostDeployAddresses.length);
+        uint256 undeployedExternalContractCount = 0;
+        for (uint i = 0; i < _uniquePostDeployAddresses.length; i++) {
+            bool isExternalAddress = findReferenceNameForAddress(
+                _uniquePostDeployAddresses[i],
+                _contractConfigs
+            ).exists == false;
+
+            if (isExternalAddress && _uniquePostDeployAddresses[i].code.length == 0) {
+                undeployedExternalAddresses[undeployedExternalContractCount] = _uniquePostDeployAddresses[i];
+                undeployedExternalContractCount += 1;
+            }
+        }
+
+        // Next, we create a new array with the correct length and copy the undeployed external
+        // addresses into it. This is necessary because the `undeployedExternalAddresses` array may
+        // contain empty addresses at the end.
+        address[] memory trimmedUndeployedExternalAddresses = new address[](undeployedExternalContractCount);
+        for (uint256 i = 0; i < undeployedExternalContractCount; i++) {
+            trimmedUndeployedExternalAddresses[i] = undeployedExternalAddresses[i];
+        }
+
+        return trimmedUndeployedExternalAddresses;
     }
 }

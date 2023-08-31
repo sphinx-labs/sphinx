@@ -18,7 +18,7 @@ export const decodeCachedConfig = (
     isManagerDeployed: configCache.isManagerDeployed,
     contractConfigCache: {},
     callNonces: {}, // TODO
-    undeployedExternalContracts: {}, // TODO
+    undeployedExternalContracts: [], // TODO
   }
 
   for (const cachedContract of configCache.contractConfigCache) {

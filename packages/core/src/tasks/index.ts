@@ -644,7 +644,7 @@ export const deployAbstractTask = async (
 
     if (!success) {
       throw new Error(
-        `Failed to execute ${projectName}, likely because one of the user's transaction reverted during the deployment.`
+        `Failed to execute ${projectName}, likely because a transaction reverted during the deployment.`
       )
     }
   }

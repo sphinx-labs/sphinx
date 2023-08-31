@@ -279,7 +279,7 @@ export interface MinimalConfigCache {
   chainId: number
   contractConfigCache: ContractConfigCache
   callNonces: { [callHash: string]: number }
-  undeployedExternalContracts: { [address: string]: boolean }
+  undeployedExternalContracts: Array<string>
 }
 
 /**
@@ -325,6 +325,7 @@ export type FoundryConfig = {
   owner: string
   projectName: string
   contracts: Array<FoundryContractConfig>
+  postDeploy: Array<ParsedCallAction>
 }
 
 export type FoundryContractConfig = {

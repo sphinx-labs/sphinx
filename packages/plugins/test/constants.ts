@@ -44,7 +44,7 @@ export const defaultCre = createSphinxRuntime(
   true, // Automatically confirm proposals
   hre.config.paths.compilerConfigs,
   hre,
-  false // TODO
+  true
 )
 export const initialTestnets: Array<SupportedNetworkName> = [
   'goerli',
