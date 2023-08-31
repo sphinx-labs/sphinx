@@ -76,11 +76,8 @@ const broadcasting = args[2] === 'true'
       FailureAction.THROW
     )
 
-    const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
-    )
+    const { configUri, bundles, compilerConfig, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
 
     if (broadcasting) {
       writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
@@ -109,6 +106,9 @@ const broadcasting = args[2] === 'true'
     const deployContractCostsType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'deployContractCosts'
     ).outputs[0]
+    const humanReadableActionsType = SphinxUtilsABI.find(
+      (fragment) => fragment.name === 'humanReadableActions'
+    ).outputs[0]
 
     const coder = AbiCoder.defaultAbiCoder()
     const encodedActionBundle = coder.encode(
@@ -122,8 +122,13 @@ const broadcasting = args[2] === 'true'
 
     const deployContractCosts = getDeployContractCosts(configArtifacts)
     const encodedConfigUriAndWarnings = coder.encode(
-      ['string', deployContractCostsType, 'string'],
-      [configUri, deployContractCosts, getPrettyWarnings()]
+      ['string', deployContractCostsType, humanReadableActionsType, 'string'],
+      [
+        configUri,
+        deployContractCosts,
+        Object.values(humanReadableActions),
+        getPrettyWarnings(),
+      ]
     )
 
     // This is where the encoded action bundle ends and the target bundle begins.

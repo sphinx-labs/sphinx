@@ -47,6 +47,7 @@ import {
   ProposalRequestLeaf,
   ProjectDeployment,
   CallAction,
+  HumanReadableActions,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
@@ -454,8 +455,11 @@ export const makeBundlesFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache
-): SphinxBundles => {
-  const actionBundle = makeActionBundleFromConfig(
+): {
+  bundles: SphinxBundles
+  humanReadableActions: HumanReadableActions
+} => {
+  const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
@@ -465,7 +469,7 @@ export const makeBundlesFromConfig = (
     configArtifacts,
     configCache.chainId as SupportedChainId
   )
-  return { actionBundle, targetBundle }
+  return { bundles: { actionBundle, targetBundle }, humanReadableActions }
 }
 
 /**
@@ -479,7 +483,10 @@ export const makeActionBundleFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache
-): SphinxActionBundle => {
+): {
+  actionBundle: SphinxActionBundle
+  humanReadableActions: HumanReadableActions
+} => {
   const { chainId } = configCache
 
   if (!isSupportedChainId(chainId)) {
@@ -492,6 +499,8 @@ export const makeActionBundleFromConfig = (
 
   // TODO(docs)
   let actionIndex = 0
+
+  const humanReadableActions: HumanReadableActions = {}
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -518,6 +527,7 @@ export const makeActionBundleFromConfig = (
             abi
           ),
         })
+
         costs.push(deployContractCost)
       } else if (kind === 'proxy') {
         // Add a DEPLOY_CONTRACT action for the default proxy.
@@ -533,6 +543,13 @@ export const makeActionBundleFromConfig = (
           `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
         )
       }
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: referenceName,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
+      }
+
       actionIndex += 1
     }
 
@@ -562,6 +579,13 @@ export const makeActionBundleFromConfig = (
         code: implInitCode,
       })
       costs.push(deployContractCost)
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: referenceName,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
+      }
+
       actionIndex += 1
     }
   }
@@ -571,7 +595,7 @@ export const makeActionBundleFromConfig = (
   // after all `DEPLOY_CONTRACT` actions and before any `SET_STORAGE` actions.
   const postDeployActions = parsedConfig.postDeploy[chainId]
   if (postDeployActions) {
-    for (const { to, data, nonce } of postDeployActions) {
+    for (const { to, data, nonce, readableSignature } of postDeployActions) {
       const callHash = getCallHash(to, data)
       const currentNonce = configCache.callNonces[callHash]
       if (nonce >= currentNonce) {
@@ -582,11 +606,17 @@ export const makeActionBundleFromConfig = (
           nonce,
         })
         costs.push(250_000n)
+
+        humanReadableActions[actionIndex] = {
+          actionIndex,
+          reason: readableSignature,
+          actionType: SphinxActionType.CALL,
+        }
+
         actionIndex += 1
       }
     }
   }
-
 
   // TODO(md): if the user is performing permissioned actions on their contracts, make sure that
   // they transfer ownership to their final owner at the end of the `postDeploy` array!
@@ -625,12 +655,22 @@ export const makeActionBundleFromConfig = (
         value: segment.val,
       })
       costs.push(150_000n)
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: '',
+        actionType: SphinxActionType.SET_STORAGE,
+      }
+
       actionIndex += 1
     }
   }
 
   // Generate a bundle from the list of actions.
-  return makeActionBundle(actions, costs)
+  return {
+    actionBundle: makeActionBundle(actions, costs),
+    humanReadableActions,
+  }
 }
 
 /**

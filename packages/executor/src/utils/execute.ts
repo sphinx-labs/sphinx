@@ -17,6 +17,7 @@ import {
   estimateExecutionCost,
   getManagedServiceAddress,
   SphinxJsonRpcProvider,
+  HumanReadableActions,
 } from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -226,13 +227,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
   let bundles: SphinxBundles
   let compilerConfig: CompilerConfig
   let configArtifacts: ConfigArtifacts
+  let humanReadableActions: HumanReadableActions
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
-      rpcProvider,
-      deploymentState.configUri
-    ))
+    ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
+      await compileRemoteBundles(rpcProvider, deploymentState.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
@@ -368,6 +368,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const { success, receipts } = await executeDeployment(
       manager,
       bundles,
+      activeDeploymentId,
+      humanReadableActions,
       blockGasLimit,
       rpcProvider
     )

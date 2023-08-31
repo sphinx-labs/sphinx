@@ -73,6 +73,8 @@ import {
   ProjectDeployment,
   fromRawSphinxAction,
   isSetStorageAction,
+  HumanReadableActions,
+  SphinxActionType,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -576,11 +578,8 @@ export const deployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
-    parsedConfig,
-    configArtifacts,
-    configCache
-  )
+  const { configUri, bundles, compilerConfig, humanReadableActions } =
+    await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
 
   if (
     bundles.actionBundle.actions.length === 0 &&
@@ -638,11 +637,40 @@ export const deployAbstractTask = async (
     const { success } = await executeDeployment(
       Manager,
       bundles,
+      deploymentId,
+      humanReadableActions,
       blockGasLimit,
       provider
     )
 
     if (!success) {
+      const failureEvent = (
+        await Manager.queryFilter(
+          Manager.filters.DeploymentFailed(deploymentId)
+        )
+      ).at(-1)
+
+      if (failureEvent) {
+        const log = Manager.interface.parseLog({
+          topics: failureEvent.topics as string[],
+          data: failureEvent.data,
+        })
+
+        if (log?.args[1] !== undefined) {
+          const action = humanReadableActions[Number(log?.args[1])]
+
+          if (action.actionType === SphinxActionType.CALL) {
+            throw new Error(
+              `Failed to execute ${projectName}, because the following post deployment action reverted: ${action.reason}`
+            )
+          } else {
+            throw new Error(
+              `Failed to execute ${projectName}, because the constructor of ${action.reason} reverted`
+            )
+          }
+        }
+      }
+
       throw new Error(
         `Failed to execute ${projectName}, likely because a transaction reverted during the deployment.`
       )
@@ -964,6 +992,7 @@ export const getProjectBundleInfo = async (
   configUri: string
   compilerConfig: CompilerConfig
   bundles: SphinxBundles
+  humanReadableActions: HumanReadableActions
 }> => {
   const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
     parsedConfig,
@@ -971,11 +1000,11 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const bundles = makeBundlesFromConfig(
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
   )
 
-  return { configUri, compilerConfig, bundles }
+  return { configUri, compilerConfig, bundles, humanReadableActions }
 }

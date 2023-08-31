@@ -3,7 +3,8 @@ pragma solidity >=0.7.4 <0.9.0;
 
 import {
     SphinxTarget,
-    RawSphinxAction
+    RawSphinxAction,
+    SphinxActionType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct SphinxBundles {
@@ -32,6 +33,12 @@ struct BundledSphinxTarget {
     bytes32[] siblings;
 }
 
+struct HumanReadableAction {
+  string reason;
+  uint actionIndex;
+  SphinxActionType actionType;
+}
+
 struct Configs {
     FoundryConfig minimalConfig;
     string parsedConfigStr;
@@ -42,6 +49,7 @@ struct BundleInfo {
     DeployContractCost[] deployContractCosts;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
+    HumanReadableAction[] humanReadableActions;
 }
 
 struct FoundryConfig {
