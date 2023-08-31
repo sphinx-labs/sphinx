@@ -66,8 +66,11 @@ export type BuildInfo = {
   output: CompilerOutput
 }
 
-// TODO(docs): abi is this type to match hardhat's type. it's not an ethers Fragment type b/c
-// Fragments have add'l fields
+/**
+ * @param abi The ABI of the contract. We use the `any` type here to match the type used by
+ * Hardhat. We don't use Ethers' `Fragment` type because it has additional fields that Hardhat
+ * doesn't include.
+ */
 export type ContractArtifact = {
   abi: Array<any>
   sourceName: string

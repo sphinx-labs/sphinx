@@ -56,6 +56,7 @@ import {
   getCallActionAddressForNetwork,
   isSupportedChainId,
   prettyFunctionCall,
+  hyperlink,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
@@ -3433,16 +3434,18 @@ export const parsePostDeploymentActions = (
           cre.stream
         )
 
-        continue // TODO(docs): we continue b/c the rest of this function won't work properly without a valid default function call
+        // We skip to the next call action because the rest of this logic won't work properly if
+        // the function call is invalid.
+        continue
       }
 
-      // TODO(docs)
       const fragment = iface.getFunction(
         callAction.functionName,
         callAction.functionArgs
       )
       // We check for the null case to narrow the TypeScript type. The fragment should never be null
-      // since we already successfully encoded the function data above.
+      // since we already successfully encoded the function data above. We check this case anyway
+      // just to be safe.
       if (fragment === null) {
         logValidationError(
           'error',
@@ -3462,8 +3465,9 @@ export const parsePostDeploymentActions = (
           functionTypeArgs.push(input.name)
         } else {
           const defaultArgValue = callAction.functionArgs[index]
-          // TODO(docs): this will catch any variables that are correctly formatted in ethers,
-          // but incorrectly formatted in sphinx
+          // This will catch any variables that are correctly formatted in Ethers, but incorrectly
+          // formatted in Sphinx. For example, this will catch the case where the user defines a
+          // struct as an array of values instead of an object, which is valid in Ethers.
           try {
             parsedDefaultArgs[input.name] = parseAndValidateArg(
               input,
@@ -3487,34 +3491,42 @@ export const parsePostDeploymentActions = (
         )
       }
 
-      // TODO(docs): include link to constructor-args.md, since this is the error array that catches params valid in ethers but not sphinx
+      // TODO(md): probably change constructor-args.md everywhere since it's no longer for just
+      // constructor args.
+
       if (incorrectlyFormattedArgs.length > 0) {
         logValidationError(
           'error',
-          `The config contains incorrectly formatted arguments in the ${functionLogName}:`,
+          `The config contains incorrectly formatted arguments in the ${functionLogName}. See ${hyperlink(
+            'here',
+            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md'
+          )} for valid formats.\n` + `Incorrectly formatted arguments:`,
           incorrectlyFormattedArgs,
           cre.silent,
           cre.stream
         )
       }
 
-      // TODO(docs): the rest of the function relies on the parsed default params being correct, so we
-      // continue to the next action if any validation errors have occurred.
+      // The rest of the function relies on the parsed default params being correct, so we continue
+      // to the next action if any validation errors have occurred.
       if (validationErrors) {
         continue
       }
 
       const argsPerChain = parseFunctionOverrides(
         functionLogName,
-        [network], // TODO(docs)
+        // We use a single network here because the current function is looping through each network
+        // individually. If we used multiple networks, here, we'd immediately discard all but the
+        // current network.
+        [network],
         cre,
         parsedDefaultArgs,
         callAction.functionArgOverrides,
         fragment
       )
 
-      // TODO(docs): the rest of the function relies on the parsed overridden params being correct,
-      // so we continue to the next action if any validation errors occurred in the previous call.
+      // The rest of the function relies on the parsed overridden function args being correct, so we
+      // continue to the next action if any validation errors have occurred.
       if (validationErrors) {
         continue
       }
@@ -3549,7 +3561,6 @@ export const parsePostDeploymentActions = (
         parsedActionsPerChain[chainId] = [parsedAction]
       }
 
-      // Update the salt.
       callNonces[payload] = nonce + 1
     }
   }
@@ -3570,14 +3581,12 @@ export const assertValidPostDeploymentActions = (
   cre: SphinxRuntimeEnvironment
 ) => {
   for (const action of postDeployActions) {
-    // First, we TODO(docs): validate the fields that were passed into the Contract constructor.
-
     if (!ethers.isAddress(action.address)) {
       logValidationError(
         'error',
-        // TODO(docs): we know that the user explicitly specified an address and not a contract
-        // reference because we would've already thrown an error for an invalid contract reference
-        // earlier in the parsing logic.
+        // We know that the user explicitly specified an address and not a contract reference
+        // because we would've already thrown an error for an invalid contract reference earlier in
+        // the parsing logic.
         contractInstantiatedWithInvalidAddress(action.address),
         [],
         cre.silent,
@@ -3653,6 +3662,8 @@ export const assertValidPostDeploymentActions = (
       )
     }
 
+    // Get a list of invalid overriding addresses. We know that these aren't contract references
+    // because we check for invalid contract references earlier in the parsing logic.
     const invalidAddressOverrides = []
     if (action.addressOverrides) {
       for (const override of action.addressOverrides) {
@@ -3665,7 +3676,6 @@ export const assertValidPostDeploymentActions = (
     if (invalidAddressOverrides.length > 0) {
       logValidationError(
         'error',
-        // TODO(docs): contract references were validated + parsed in a previous step
         contractInstantiatedWithInvalidOverridingAddresses(
           action.address,
           referenceName

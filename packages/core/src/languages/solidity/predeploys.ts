@@ -216,9 +216,6 @@ export const initializeSphinx = async (
       salt: ethers.ZeroHash,
     })
 
-    // TODO(0.2.0): update versions of contracts that use semver (e.g. manager + auth contracts).
-    // also update the "V1" contract address logic, and also change `CURRENT_SPHINX_MANAGER_VERSION`
-
     const addr = await contract.getAddress()
     assert(addr === expectedAddress, `address mismatch for ${contractName}`)
 

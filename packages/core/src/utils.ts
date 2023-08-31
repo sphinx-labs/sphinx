@@ -480,7 +480,7 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  // TODO(upgrade): `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
+  // TODO(upgrades): `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
   // exists. Also, `isInternalDefaultProxy` may not be necessary anymore -- not sure.
   // if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
   //   return false
@@ -1696,4 +1696,22 @@ export const prettyFunctionCall = (
   const removedBrackets = stringified.substring(1, stringified.length - 1)
 
   return `${functionName}(${removedBrackets})`
+}
+
+/**
+ * @notice Encodes the data that initializes a SphinxManager contract via the SphinxRegistry.
+ *
+ * @param owner Address of the SphinxManager's owner, which should be the SphinxAuth contract.
+ */
+export const getRegistryData = (owner: string, projectName: string): string => {
+  return AbiCoder.defaultAbiCoder().encode(
+    ['address', 'string', 'bytes'],
+    [
+      owner,
+      projectName,
+      // Empty bytes. Useful in case future versions of the SphinxManager contract has additional
+      // fields.
+      '0x',
+    ]
+  )
 }

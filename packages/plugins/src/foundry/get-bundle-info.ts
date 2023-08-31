@@ -131,8 +131,8 @@ const broadcasting = args[2] === 'true'
       ]
     )
 
-    // This is where the encoded action bundle ends and the target bundle begins.
-    // TODO(docs): explain where the 32 comes from
+    // This is where the encoded action bundle ends and the target bundle begins. We add 32 because
+    // the first 32 bytes are reserved for the action bundle's root.
     const splitIdx1 = 32 + remove0x(encodedActionBundle).length / 2
 
     // This is where the target bundle ends and the rest of the bundle info (config URI, warnings,

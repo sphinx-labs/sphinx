@@ -640,6 +640,11 @@ describe('Post-Deployment Actions', () => {
 
   const integrations: Array<Integration> = ['foundry', 'hardhat']
   for (const integration of integrations) {
+    // This section of the test suite is separated into two main components: tests that
+    // vary the complexity of the Sphinx contract instance while keeping the function calls simple,
+    // and tests that vary the complexity of the function calls while keeping the Sphinx contract
+    // instance simple. We've separated it this way because the logic that handles these two
+    // components is distinct.
     describe(`Execution on ${integration}`, () => {
       const configContract1Address = getTargetAddress(
         sphinxManagerAddress,
@@ -806,7 +811,6 @@ describe('Post-Deployment Actions', () => {
 
         let ExternalContract1: Contract
         let functionArgOverrides: Array<UserFunctionArgOverride>
-        // TODO(docs)
         before(() => {
           ExternalContract1 = new Contract(externalContractAddress1, {
             abi: ExternalContractABI,
@@ -1687,7 +1691,3 @@ const assertActionsExecuted = async (
   )
   expect(callSkippedEvents.length).equals(0)
 }
-
-// TODO(docs): this test suite is separated into two main components: tests that vary the constructor args while keeping
-// the function calls simple, and tests that _. We've separated it this way because the logic that handles these two
-// components is distinct.
