@@ -363,20 +363,7 @@ contract SphinxUtils is
         uint256 estGasUsed = 0;
 
         for (uint i = 0; i < selected.length; i++) {
-            BundledSphinxAction memory action = selected[i];
-
-            SphinxActionType actionType = action.action.actionType;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                uint256 deployContractCost = action.gas;
-
-                // We add 150k as an estimate for the cost of the transaction that executes the
-                // DeployContract action.
-                estGasUsed += deployContractCost + 150_000;
-            } else if (actionType == SphinxActionType.SET_STORAGE) {
-                estGasUsed += 150_000;
-            } else {
-                revert("Unknown action type. Should never happen.");
-            }
+            estGasUsed += selected[i].gas;
         }
         return maxGasLimit > estGasUsed;
     }

@@ -46,7 +46,7 @@ const command = args[0]
       } catch (e) {
         // The 'could not detect network' error will occur on the in-process Anvil node,
         // since we can't access it in TypeScript.
-        if (!e.reason.includes('could not detect network')) {
+        if (!e.reason || !e.reason.includes('could not detect network')) {
           throw e
         }
       }

@@ -67,7 +67,7 @@ export const executeDeployment = async (
       )
     ).wait()
   )
-  logger?.info(`[Sphinx]: initiated upgrde`)
+  logger?.info(`[Sphinx]: initiated upgrade`)
 
   logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
   const { receipts: setStorageReceipts } = await executeBatchActions(

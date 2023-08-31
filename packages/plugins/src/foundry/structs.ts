@@ -1,9 +1,12 @@
-import { MinimalConfigCache } from '@sphinx-labs/core/dist/config/types'
+import {
+  ContractConfigCache,
+  MinimalConfigCache,
+} from '@sphinx-labs/core/dist/config/types'
 import { AbiCoder } from 'ethers'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
-  SphinxUtilsABI: any
+  SphinxUtilsABI: Array<any>
 ): MinimalConfigCache => {
   const configCacheType = SphinxUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
@@ -12,17 +15,9 @@ export const decodeCachedConfig = (
   const coder = AbiCoder.defaultAbiCoder()
   const configCache = coder.decode([configCacheType], encodedConfigCache)[0]
 
-  const structuredConfigCache: MinimalConfigCache = {
-    blockGasLimit: configCache.blockGasLimit,
-    chainId: parseInt(configCache.chainId, 10),
-    isManagerDeployed: configCache.isManagerDeployed,
-    contractConfigCache: {},
-    callNonces: {}, // TODO
-    undeployedExternalContracts: [], // TODO
-  }
-
+  const contractConfigCache: ContractConfigCache = {}
   for (const cachedContract of configCache.contractConfigCache) {
-    structuredConfigCache.contractConfigCache[cachedContract.referenceName] = {
+    contractConfigCache[cachedContract.referenceName] = {
       isTargetDeployed: cachedContract.isTargetDeployed,
       deploymentRevert: {
         deploymentReverted: cachedContract.deploymentRevert.deploymentReverted,
@@ -40,6 +35,20 @@ export const decodeCachedConfig = (
         ? cachedContract.previousConfigUri.value
         : undefined,
     }
+  }
+
+  const callNonces: { [callHash: string]: number } = {}
+  for (const callNonce of configCache.callNonces) {
+    callNonces[callNonce.callHash] = callNonce.nonce
+  }
+
+  const structuredConfigCache: MinimalConfigCache = {
+    blockGasLimit: configCache.blockGasLimit,
+    chainId: parseInt(configCache.chainId, 10),
+    isManagerDeployed: configCache.isManagerDeployed,
+    contractConfigCache,
+    callNonces,
+    undeployedExternalContracts: configCache.undeployedExternalContracts,
   }
 
   return structuredConfigCache

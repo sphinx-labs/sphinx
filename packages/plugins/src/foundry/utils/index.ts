@@ -46,48 +46,78 @@ export const getBuildInfo = (
   return false
 }
 
+export const messageArtifactNotFound = (
+  contractNameOrFullyQualifiedName: string
+): string => {
+  return (
+    `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please make sure that this contract\n` +
+    `exists in your contract, script, or test directory.`
+  )
+}
+
+export const messageMultipleArtifactsFound = (
+  contractNameOrFullyQualifiedName: string
+): string => {
+  return (
+    `Detected multiple contracts with the name ${contractNameOrFullyQualifiedName}. Please use the fully \n` +
+    `qualified name for this contract in the format: 'path/to/file/File.sol:MyContract'`
+  )
+}
+
 export const getContractArtifact = async (
-  name: string,
-  artifactFilder: string,
-  cachedContractNames: Record<string, string[]>
+  contractNameOrFullyQualifiedName: string,
+  artifactFolder: string,
+  cachedContractNames: { [contractName: string]: string[] | undefined }
 ): Promise<ContractArtifact> => {
-  const sources = cachedContractNames[name]
-  if (sources?.length > 1) {
-    throw new Error(
-      `Detected multiple contracts with the name ${name} in different files, to resolve this:
-- Use the fully qualified name for this contract: 'path/to/file/SomeFile.sol:MyContract'
-- Or rename one of the contracts and force recompile: 'forge build --force'`
+  // If a fully qualified name is passed in, the basename will be e.g. `SomeFile.sol:MyContract`.
+  // If a contract name is passed in, the basename will be e.g. `MyContract`.
+  const basename = path.basename(contractNameOrFullyQualifiedName)
+
+  const isFullyQualifiedName = basename.includes(':')
+  if (isFullyQualifiedName) {
+    const [sourceName, contractName] = basename.split(':')
+    const artifactPath = join(
+      artifactFolder,
+      sourceName,
+      `${contractName}.json`
+    )
+    if (!fs.existsSync(artifactPath)) {
+      throw new Error(
+        `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please reload your artifacts by running:\n` +
+          `forge clean`
+      )
+    }
+    return parseFoundryArtifact(
+      JSON.parse(await readFileAsync(artifactPath, 'utf8'))
     )
   }
 
-  // Try to find the artifact in the standard format
-  const folderName = `${name}.sol`
-  const fileName = `${name}.json`
-  const standardFilePath = join(artifactFilder, folderName, fileName)
+  // If we make it to this point, the user entered a contract name instead of a fully qualified name.
 
-  // Try to find the artifact in the qualified format
-  // Technically we don't need the full path to the file b/c foundry outputs a flat directory structure
-  // For clarity and consistency with other tools, we still handle the fully qualified format and recommend it
-  const qualifiedSections = name.split('/').pop()
-  const [file, contract] = qualifiedSections?.split(':') ?? ['', '']
-  const qualifiedFilePath = join(artifactFilder, file, `${contract}.json`)
-
-  if (fs.existsSync(standardFilePath)) {
-    return parseFoundryArtifact(
-      JSON.parse(await readFileAsync(standardFilePath, 'utf8'))
-    )
-  } else if (fs.existsSync(qualifiedFilePath)) {
-    return parseFoundryArtifact(
-      JSON.parse(await readFileAsync(qualifiedFilePath, 'utf8'))
+  const sourceNames = cachedContractNames[contractNameOrFullyQualifiedName]
+  if (sourceNames === undefined || sourceNames.length === 0) {
+    throw new Error(messageArtifactNotFound(contractNameOrFullyQualifiedName))
+  } else if (sourceNames.length > 1) {
+    throw new Error(
+      messageMultipleArtifactsFound(contractNameOrFullyQualifiedName)
     )
   } else {
-    // If we can't find the artifact, throw an error and recommend checking their options and using fully qualified format
-    throw new Error(
-      `Could not find artifact for: ${name}.
-- Please make sure that this contract exists in either your contract, script, or test directory that you've configured in your foundry.toml.
-- If you have multiple contracts in the same file or have files with different names from the contracts they contain, please use the fully qualified name for the contract.
-  For example: 'path/to/file/SomeFile.sol:MyContract'
-`
+    // There is only one source file that contains the contract name.
+    const sourcePath = sourceNames[0]
+    const sourceName = path.basename(sourcePath)
+    const artifactPath = join(
+      artifactFolder,
+      sourceName,
+      `${contractNameOrFullyQualifiedName}.json`
+    )
+    if (!fs.existsSync(artifactPath)) {
+      throw new Error(
+        `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please reload your artifacts by running:\n` +
+          `forge clean`
+      )
+    }
+    return parseFoundryArtifact(
+      JSON.parse(await readFileAsync(artifactPath, 'utf8'))
     )
   }
 }

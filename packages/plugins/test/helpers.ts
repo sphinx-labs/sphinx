@@ -31,6 +31,8 @@ import {
   deployAbstractTask,
   SphinxRuntimeEnvironment,
   FailureAction,
+  Integration,
+  execAsync,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -53,6 +55,9 @@ import {
   proposerPrivateKey,
   defaultCre,
 } from './constants'
+
+import { existsSync, rm, rmSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 export const registerProject = async (
   provider: SphinxJsonRpcProvider,
@@ -381,35 +386,61 @@ export const deploy = async (
   provider: ethers.JsonRpcProvider,
   deployerPrivateKey: string,
   cre: SphinxRuntimeEnvironment = defaultCre,
-  failureAction?: FailureAction
+  failureAction: FailureAction = FailureAction.EXIT,
+  integration: Integration = 'hardhat'
 ) => {
-  const wallet = new ethers.Wallet(deployerPrivateKey, provider)
-  const ownerAddress = await wallet.getAddress()
+  if (integration === 'hardhat') {
+    const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+    const ownerAddress = await wallet.getAddress()
 
-  const compilerConfigPath = hre.config.paths.compilerConfigs
+    const compilerConfigPath = hre.config.paths.compilerConfigs
 
-  const deploymentFolder = hre.config.paths.deployments
+    const deploymentFolder = hre.config.paths.deployments
 
-  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
-    config,
-    provider,
-    cre,
-    plugins.makeGetConfigArtifacts(hre),
-    ownerAddress,
-    failureAction
-  )
+    const { parsedConfig, configCache, configArtifacts } =
+      await getParsedConfig(
+        config,
+        provider,
+        cre,
+        plugins.makeGetConfigArtifacts(hre),
+        ownerAddress,
+        failureAction
+      )
 
-  await deployAbstractTask(
-    provider,
-    wallet,
-    compilerConfigPath,
-    deploymentFolder,
-    'hardhat',
-    cre,
-    parsedConfig,
-    configCache,
-    configArtifacts
-  )
+    await deployAbstractTask(
+      provider,
+      wallet,
+      compilerConfigPath,
+      deploymentFolder,
+      'hardhat',
+      cre,
+      parsedConfig,
+      configCache,
+      configArtifacts
+    )
+  } else if (integration === 'foundry') {
+    const tmpFoundryConfigFileName = 'tmp-foundry-config.json'
+    const tmpFoundryConfigPath = join(__dirname, tmpFoundryConfigFileName)
+    // Write the config to a temporary file.
+    writeFileSync(tmpFoundryConfigPath, JSON.stringify(config))
+
+    const rpcUrl = provider._getConnection().url
+    process.env['SPHINX_INTERNAL_CONFIG_PATH'] = tmpFoundryConfigPath
+    process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
+    process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
+
+    // Execute the deployment.
+    await execAsync(
+      `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
+    )
+
+    // Remove the config file at the temporary path.
+    if (existsSync(tmpFoundryConfigPath)) {
+      rmSync(tmpFoundryConfigPath)
+    }
+  } else {
+    throw new Error('Invalid integration.')
+  }
 }
 
 export const revertSnapshots = async (
