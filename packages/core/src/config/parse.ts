@@ -619,12 +619,13 @@ export const assertValidUserConfig = (
 
   if (config.postDeploy) {
     for (const callAction of config.postDeploy) {
-      // Check that all contract references are valid in the TODO(docs).
+      // Check that the default address is a valid contract reference, if applicable.
       assertValidContractReferences(
         callAction.address,
         validReferenceNames,
         cre
       )
+      // Check that all contract references in the address overrides are valid.
       if (callAction.addressOverrides) {
         for (const override of Object.values(callAction.addressOverrides)) {
           assertValidContractReferences(
@@ -1793,8 +1794,9 @@ const parseDefaultConstructorArgs = (
  *
  * @param userContractConfig Unparsed User-defined contract definition in a Sphinx config.
  * @param referenceName Name of the contract as it appears in the Sphinx config file.
- * @param userDefaultArgs TODO(docs) this is optional because...
- * @param fragment TODO(docs) this is optional because...
+ * @param userDefaultArgs User-defined default function arguments for the contract.
+ * @param fragment The fragment for the function being called. This may be undefined if the fragment
+ * does not exist in the ABI.
  * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
  */
 export const parseFunctionOverrides = (
@@ -1805,7 +1807,6 @@ export const parseFunctionOverrides = (
   userOverrides: Array<UserArgOverride> = [],
   fragment?: ethers.Fragment
 ): ParsedFunctionArgsPerChain => {
-  // TODO(docs)
   const parsedArgsPerChain: ParsedFunctionArgsPerChain = {}
 
   const fragmentInputs = fragment ? fragment.inputs : []
@@ -2519,11 +2520,10 @@ export const assertValidConstructorArgs = (
       userContractConfig.constructorArgs,
       constructorFragment
     )
-
-    // TODO(docs): we continue to the next contract config if the call above resulted in any
-    // validation errors. we do this because the rest of the function assumes that the default
-    // user args are valid. we don't exit the process here because this allows us to display
-    // more validation errors to the user in one run.
+    // We continue to the next contract config if the `parseDefaultConstructorArgs` above resulted
+    // in any validation errors. We do this because the rest of the function assumes that the
+    // default user-defined constructor arguments are valid. We don't exit the process here because
+    // this allows us to display more validation errors to the user in one run of the parsing logic.
     if (validationErrors) {
       continue
     }
@@ -3060,7 +3060,9 @@ export const getConfigCache = async (
     SphinxManagerABI,
     provider
   )
-  // TODO(docs)
+
+  // Get a mapping of call hashes to their current nonces. We'll use this later to determine which
+  // call actions to skip in the deployment, if any.
   const callNonces: { [callHash: string]: number } = {}
   for (const callAction of postDeployActions) {
     const { to, data } = callAction
@@ -3360,9 +3362,10 @@ export const parseConfigOptions = (
   }
 }
 
-// TODO(docs): contract references were already resolved before calling
-// `parsePostDeploymentActions`. put this in the docs where you call this function
-
+/**
+ * @notice Parses the post-deployment actions in the Sphinx config file. Note that
+ * contract references have already been resolved before calling this function.
+ */
 export const parsePostDeploymentActions = (
   userActions: Array<UserCallAction>,
   contractConfigs: ParsedContractConfigs,
@@ -3375,11 +3378,12 @@ export const parsePostDeploymentActions = (
   for (const network of networks) {
     const callNonces: { [payload: string]: number } = {}
 
-    // TODO(docs): this will attempt to parse every deployment action, regardless if an
-    // error is caught midway. this allows us to display more validation errors to the user
-    // at a single time. if any validation errors are caught, we'll exit after this loop.
+    // We'll attempt to parse every call action even if an error is caught midway. This allows us to
+    // display more validation errors to the user in one run of the parsing logic. If any validation
+    // errors are caught, we'll exit immediately after this loop.
     for (const callAction of userActions) {
-      // TODO(docs): contract reference was already resolved
+      // Contract reference was already resolved before this function, so we know that this will
+      // return an address.
       const address = getCallActionAddressForNetwork(network, callAction)
 
       const referenceName = findReferenceNameForAddress(
@@ -3401,13 +3405,14 @@ export const parsePostDeploymentActions = (
             cre.silent,
             cre.stream
           )
-          // TODO(docs): we skip to the next action becaus the rest of this logic won't work
-          // properly if there isn't a valid abi.
+          // We continue to the next action because the rest of this logic won't work properly if
+          // there isn't a valid ABI.
           continue
         }
       }
 
-      // TODO(docs): used for displaying logs to the user
+      // This is used for logging purposes only. It's a convenient way to share error messages
+      // between logic that handles constructor and function calls.
       const functionLogName = referenceName
         ? `function '${referenceName}.${callAction.functionName}'`
         : `function '${callAction.functionName}' at ${address}`

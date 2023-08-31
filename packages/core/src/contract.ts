@@ -7,15 +7,15 @@ import {
 import 'core-js/features/array/at'
 import { isUserFunctionArgOverrideArray } from './utils'
 
-// TODO(docs) everywhere in this file
-
-// TODO(docs): the Contract class shouldn't have any public properties because...
-
 type MethodArgs = [...Array<UserConfigVariable | UserFunctionArgOverride>]
-type Method = (...args: MethodArgs) => UserCallAction
+type ContractMethod = (...args: MethodArgs) => UserCallAction
 
 export class Contract {
-  [name: string]: Method
+  // This is an index signature. It allows the user to call arbitrary methods on this class without
+  // throwing a type error. This is necessary because function calls can be named anything. A
+  // consequence of this is that Typescript will throw an error if we define any public properties
+  // on this class, since it will conflict with the index signature.
+  [name: string]: ContractMethod
 
   #address: string
 
@@ -26,11 +26,17 @@ export class Contract {
   #buildWrappedMethod = (
     sphinxContract: Contract,
     functionName: string
-  ): Method => {
+  ): ContractMethod => {
     sphinxContract
     functionName
 
-    // TODO(docs): args is the function args and optionally the overrides
+    /**
+     * @notice This is the function that the user will call on their contract.
+     *
+     * @param args The arguments that the user supplies to their contract function call. It includes
+     * function arguments and overrides.
+     * @returns {UserCallAction}
+     */
     const method = (...args: MethodArgs): UserCallAction => {
       const firstArgs = args.slice(0, -1)
       const lastArg = args.at(-1)
@@ -41,7 +47,7 @@ export class Contract {
         functionArgs = firstArgs
         functionArgOverrides = lastArg
       } else {
-        // TODO(docs)
+        // No overrides were provided, so we just use the args as-is.
         functionArgs = args
       }
 
@@ -57,12 +63,20 @@ export class Contract {
     return method
   }
 
-  // TODO(docs): natspec docs here for the user
+  /**
+   * @notice Create a new Sphinx contract instance.
+   *
+   * @param address The address of the contract. This can either be a reference name (e.g. `{{
+   * MyContract }}`) or an address (e.g. `0x1234...`
+   * @param options The options for the contract. This includes a field for any chain-specific
+   * address overrides. It also includes a field for the contract ABI, which must be supplied if the
+   * contract is an external contract that isn't defined in the Sphinx config.
+   */
   constructor(
     address: string,
     options?: {
-      abi?: Array<any>
       overrides?: Array<UserAddressOverrides>
+      abi?: Array<any>
     }
   ) {
     if (options) {
@@ -85,33 +99,3 @@ export class Contract {
     })
   }
 }
-
-// const ct = new Contract('{{ MyContract }}')
-// const a = ct.increment()
-// const b = ct.increment('2', '3', '4')
-// const c = ct.increment('2', '3', {
-//   chains: ['anvil'],
-//   args: {},
-// })
-// // const ct2 = new Contract('0x1234...', HelloSphinxABI)
-// // const ct3 = new Contract('0x1234...', HelloSphinxABI, [
-// //   {
-// //     chains: ['ethereum', 'optimism'],
-// //     address: '0x1234...',
-// //   },
-// // ])
-
-// const main = async () => {
-//   ct.then('2', '3')
-//   // ct.increment('2', '3')
-//   ct.increment('4', '5', [
-//     {
-//       chains: ['ethereum', 'optimism'],
-//       params: {
-//         _myNumber: 1,
-//       },
-//     },
-//   ])
-// }
-
-// main()

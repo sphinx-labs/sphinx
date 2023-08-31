@@ -648,8 +648,10 @@ export const isEqualType = (
   return isEqual
 }
 
-// TODO(docs): converts the variables from the object format used by Sphinx into an ordered array
-// which can be used by ethersJS and etherscan
+/**
+ * @notice Converts the variables from the object format used by Sphinx into an ordered array
+ * which can be used by ethers.js and Etherscan.
+ */
 export const getFunctionArgValueArray = (
   args: ParsedConfigVariables,
   fragment?: Fragment
@@ -1680,7 +1682,11 @@ export const getCallActionAddressForNetwork = (
   return defaultAddress
 }
 
-// TODO(docs): this function can't encode BigInt values, since JSON.stringify can't parse them.
+/**
+ * @notice Returns a string that represents a function call in a string format that can be
+ * displayed in a terminal. Note that this function does not support function calls with BigInt
+ * arguments, since JSON.stringify can't parse them.
+ */
 export const prettyFunctionCall = (
   functionName: string,
   args: Array<UserConfigVariable>

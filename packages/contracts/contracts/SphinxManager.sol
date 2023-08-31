@@ -32,21 +32,22 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
  * @title SphinxManager
  * @custom:version 1.0.0
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
-   deployments. It contains the functionality for approving and executing deployments and exporting
-   proxies out of the Sphinx system if desired. It exists as a single implementation contract behind
-   SphinxManagerProxy contracts, which are each owned by a single project team.
-
-   After a deployment is approved, it is executed in the following steps, which must occur in order.
-    1. The `executeInitialActions` function: `DEPLOY_CONTRACT` and `CALL` actions are executed in
-       ascending order according to their index.
-
-    (Optional) If the deployment contains upgradeable proxies:
-    2. The `initiateProxies` function: sets the implementation of each proxy to a contract that can
-       only be called by the user's SphinxManager. This ensures that the upgrade is atomic, which
-       means that all proxies are upgraded in a single transaction.
-    3. Execute all of the `SET_STORAGE` actions using the `executeActions` function.
-    4. The `completeUpgrade` function, which upgrades all of the proxies to their new
-       implementations in a single transaction.
+ *         deployments. It contains the functionality for approving and executing deployments and
+ *         exporting proxies out of the Sphinx system if desired. It exists as a single
+ *         implementation contract behind SphinxManagerProxy contracts, which are each owned by a
+ *         single project team.
+ *
+ *         After a deployment is approved, it is executed in the following steps, which must occur
+ *         in order:
+ *         1. The `executeInitialActions` function: `DEPLOY_CONTRACT` and `CALL` actions are
+ *            executed in ascending order according to their index.
+ *         The next steps only occur if the deployment is upgrading proxies.
+ *         2. The `initiateProxies` function: sets the implementation of each proxy to a contract
+ *            that can only be called by the user's SphinxManager. This ensures that the upgrade is
+ *            atomic, which means that all proxies are upgraded in a single transaction.
+ *         3. Execute all of the `SET_STORAGE` actions using the `executeActions` function.
+ *         4. The `completeUpgrade` function, which upgrades all of the proxies to their new
+ *            implementations in a single transaction.
  */
 contract SphinxManager is
     OwnableUpgradeable,

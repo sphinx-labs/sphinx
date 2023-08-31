@@ -490,7 +490,9 @@ export const makeActionBundleFromConfig = (
   const actions: SphinxAction[] = []
   const costs: bigint[] = []
 
-  // TODO(docs)
+  // The action index keeps track of the order that actions are executed on-chain. We proceed by
+  // adding the `DEPLOY_CONTRACT` actions first, then the `CALL` actions, and finally the
+  // `SET_STORAGE` actions.
   let actionIndex = 0
 
   for (const [referenceName, contractConfig] of Object.entries(
@@ -587,12 +589,10 @@ export const makeActionBundleFromConfig = (
     }
   }
 
-
   // TODO(md): if the user is performing permissioned actions on their contracts, make sure that
   // they transfer ownership to their final owner at the end of the `postDeploy` array! and of
   // course, they should test their deployment locally. (link to the relevant docs).
 
-  // TODO(docs): Next, we add the `SET_STORAGE` actions. We do this in a separate loop because...
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {

@@ -72,10 +72,10 @@ export const writeDeploymentArtifacts = async (
     )
 
     if (!referenceName) {
-      // TODO(docs): TODO(upgrades): the reference name can be undefined if the contract address is an
-      // implementation contract of a proxy. this means we currently don't write deployment
-      // artifacts for implementation contracts. when supporting upgradeable contracts,
-      // implementation contract's info should be added to the parsed config, and the
+      // TODO(upgrades): The reference name will be undefined if the contract address is an
+      // implementation contract of a proxy. This means we currently don't write deployment
+      // artifacts for implementation contracts. When we add support for upgradeable contracts, we
+      // should add implementation contract info to the parsed config, and the
       // `findReferenceNameForAddress` function should be updated to support this case.
       continue
     }

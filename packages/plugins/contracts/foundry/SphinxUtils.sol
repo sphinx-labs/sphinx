@@ -511,6 +511,8 @@ contract SphinxUtils is
             _minimalConfig.contracts
         );
 
+        // Get an array where each element contains a call hash and its current nonce. We'll use
+        // this later to determine which call actions to skip in the deployment, if any.
         CallNonces[] memory callNonces = new CallNonces[](
             _minimalConfig.postDeploy.length
         );
