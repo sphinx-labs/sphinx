@@ -238,7 +238,7 @@ abstract contract Sphinx {
                         abi.encodePacked(
                             "Sphinx: failed to execute ",
                             configs.minimalConfig.projectName,
-                            "likely because one of the user's transactions in the deployment reverted."
+                            " likely because one of the user's transactions in the deployment reverted."
                         )
                     )
                 );

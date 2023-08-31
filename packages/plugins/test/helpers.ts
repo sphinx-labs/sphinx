@@ -385,9 +385,9 @@ export const deploy = async (
   config: UserConfig,
   provider: ethers.JsonRpcProvider,
   deployerPrivateKey: string,
+  integration: Integration,
   cre: SphinxRuntimeEnvironment = defaultCre,
-  failureAction: FailureAction = FailureAction.EXIT,
-  integration: Integration = 'hardhat'
+  failureAction: FailureAction = FailureAction.EXIT
 ) => {
   if (integration === 'hardhat') {
     const wallet = new ethers.Wallet(deployerPrivateKey, provider)
@@ -430,9 +430,11 @@ export const deploy = async (
     process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
 
     // Execute the deployment.
-    await execAsync(
+    const { stdout, stderr } = await execAsync(
       `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
     )
+    console.log(stdout)
+    console.error(stderr) // TODO
 
     // Remove the config file at the temporary path.
     if (existsSync(tmpFoundryConfigPath)) {

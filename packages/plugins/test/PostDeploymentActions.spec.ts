@@ -179,11 +179,14 @@ describe('Post-Deployment Actions', () => {
       const userConfig = structuredClone(userConfigWithoutPostDeployActions)
       userConfig.postDeploy = [ExternalContract1.incrementMyContract2(1)]
 
+      // TODO: instead of try/catching, you should probably do "await expect(...).to.revert"
+
       try {
         await deploy(
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -209,6 +212,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -258,6 +262,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -296,6 +301,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -338,6 +344,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -365,6 +372,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -396,6 +404,7 @@ describe('Post-Deployment Actions', () => {
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
+            'hardhat',
             cre,
             FailureAction.THROW
           )
@@ -442,6 +451,7 @@ describe('Post-Deployment Actions', () => {
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
+            'hardhat',
             cre,
             FailureAction.THROW
           )
@@ -488,6 +498,7 @@ describe('Post-Deployment Actions', () => {
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
+            'hardhat',
             cre,
             FailureAction.THROW
           )
@@ -535,6 +546,7 @@ describe('Post-Deployment Actions', () => {
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
+            'hardhat',
             cre,
             FailureAction.THROW
           )
@@ -582,6 +594,7 @@ describe('Post-Deployment Actions', () => {
             userConfig,
             rpcProviders['goerli'],
             deployerPrivateKey,
+            'hardhat',
             cre,
             FailureAction.THROW
           )
@@ -639,6 +652,7 @@ describe('Post-Deployment Actions', () => {
           userConfig,
           rpcProviders['goerli'],
           deployerPrivateKey,
+          'hardhat',
           cre,
           FailureAction.THROW
         )
@@ -694,8 +708,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -724,8 +736,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -755,8 +765,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -800,8 +808,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -854,8 +860,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -881,8 +885,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -916,8 +918,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -952,8 +952,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -988,8 +986,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1021,8 +1017,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1082,8 +1076,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1131,8 +1123,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1186,8 +1176,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1226,8 +1214,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1280,8 +1266,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1320,8 +1304,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1362,8 +1344,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1402,8 +1382,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1446,8 +1424,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1486,8 +1462,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1541,8 +1515,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1581,8 +1553,6 @@ describe('Post-Deployment Actions', () => {
                 userConfig,
                 rpcProviders[network],
                 deployerPrivateKey,
-                undefined,
-                undefined,
                 integration
               )
             )
@@ -1616,8 +1586,9 @@ describe('Post-Deployment Actions', () => {
         userConfig.postDeploy = [ConfigContract1.reverter()]
 
         try {
-          await deploy(userConfig, provider, deployerPrivateKey)
-        } catch {
+          await deploy(userConfig, provider, deployerPrivateKey, integration)
+        } catch (err) {
+          err
           // We expect this to throw. Do nothing.
         }
 
