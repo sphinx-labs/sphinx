@@ -8,7 +8,6 @@ import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat/types/config'
 import 'hardhat/types/runtime'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { ethers } from 'ethers'
 import { UserSalt } from '@sphinx-labs/core'
 
@@ -33,7 +32,7 @@ declare module 'hardhat/types/runtime' {
       getContract: (
         projectName: string,
         referenceName: string,
-        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
+        owner: ethers.Signer,
         salt?: UserSalt
       ) => Promise<ethers.Contract>
     }
@@ -58,7 +57,7 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
       getContract: async (
         projectName: string,
         referenceName: string,
-        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
+        owner: ethers.Signer,
         salt?: UserSalt
       ): Promise<ethers.Contract> => {
         const contract = await getContract(

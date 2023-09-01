@@ -28,7 +28,7 @@ import {
   DEFAULT_UPDATER_ADDRESS,
   getSphinxRegistryAddress,
   getRegistryConstructorValues,
-  getSphinxManagerV1Address,
+  getSphinxManagerImplAddress,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
@@ -38,15 +38,19 @@ import {
   REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
   AUTH_FACTORY_ADDRESS,
-  AUTH_IMPL_V1_ADDRESS,
   getReferenceBalanceContractAddress,
   getReferenceBalanceConstructorArgs,
   getReferenceEscrowConstructorArgs,
   getBalanceFactoryAddress,
   getReferenceEscrowContractAddress,
   ReferenceAuthProxyAddress,
+  getAuthImplAddress,
 } from './addresses'
 import { USDC_ADDRESSES } from './networks'
+import {
+  CURRENT_SPHINX_AUTH_VERSION,
+  CURRENT_SPHINX_MANAGER_VERSION,
+} from './constants'
 
 export const getSphinxConstants = async (
   provider: Provider
@@ -67,8 +71,14 @@ export const getSphinxConstants = async (
     },
     {
       artifact: SphinxManagerArtifact,
-      expectedAddress: getSphinxManagerV1Address(chainId),
-      constructorArgs: getManagerConstructorValues(chainId),
+      expectedAddress: getSphinxManagerImplAddress(
+        chainId,
+        CURRENT_SPHINX_MANAGER_VERSION
+      ),
+      constructorArgs: getManagerConstructorValues(
+        chainId,
+        CURRENT_SPHINX_MANAGER_VERSION
+      ),
     },
     {
       artifact: DefaultAdapterArtifact,
@@ -127,8 +137,8 @@ export const getSphinxConstants = async (
     },
     {
       artifact: AuthArtifact,
-      expectedAddress: AUTH_IMPL_V1_ADDRESS,
-      constructorArgs: [[1, 0, 0]],
+      expectedAddress: getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION),
+      constructorArgs: [Object.values(CURRENT_SPHINX_AUTH_VERSION)],
     },
     {
       artifact: AuthFactoryArtifact,

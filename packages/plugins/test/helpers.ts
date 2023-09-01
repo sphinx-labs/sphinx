@@ -1,5 +1,7 @@
+import { writeFileSync } from 'fs'
+import { join } from 'path'
+
 import hre from 'hardhat'
-import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
 import '@nomicfoundation/hardhat-ethers'
 import {
   AuthState,
@@ -24,6 +26,15 @@ import {
   ProposalRequest,
   SupportedNetworkName,
   SphinxJsonRpcProvider,
+  getParsedConfig,
+  UserConfig,
+  deployAbstractTask,
+  SphinxRuntimeEnvironment,
+  FailureAction,
+  Integration,
+  execAsync,
+  CURRENT_SPHINX_MANAGER_VERSION,
+  CURRENT_SPHINX_AUTH_VERSION,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -33,18 +44,20 @@ import {
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
+import * as plugins from '../dist'
 import {
   makeGetConfigArtifacts,
   makeGetProviderFromChainId,
 } from '../src/hardhat/artifacts'
 import {
-  cre,
   rpcProviders,
   relayerPrivateKey,
   MultiChainProjectTestInfo,
   OWNER_ROLE_HASH,
   proposerPrivateKey,
+  defaultCre,
 } from './constants'
 
 export const registerProject = async (
@@ -159,6 +172,11 @@ export const proposeThenApproveDeploymentThenExecute = async (
     const containsSetupLeaf = leaves.some(
       (leaf) => leaf.leafType === 'setup' && leaf.chainId === chainId
     )
+    const containsUpgradeLeaf = leaves.some(
+      (leaf) =>
+        leaf.leafType === 'upgradeManagerAndAuthImpl' &&
+        leaf.chainId === chainId
+    )
     const expectedNumLeafs = leaves.filter(
       (leaf) => leaf.chainId === chainId
     ).length
@@ -169,9 +187,12 @@ export const proposeThenApproveDeploymentThenExecute = async (
       proposalLeafIndex,
       chainId
     )
+    const approvalLeafIndex = containsUpgradeLeaf
+      ? proposalLeafIndex + 2
+      : proposalLeafIndex + 1
     const approveDeploymentLeaf = findProposalRequestLeaf(
       leaves,
-      proposalLeafIndex + 1,
+      approvalLeafIndex,
       chainId
     )
 
@@ -187,6 +208,7 @@ export const proposeThenApproveDeploymentThenExecute = async (
       1
     )
     expect(proposerSignatureArray.length).equals(1)
+
     await Auth.propose(
       root,
       fromProposalRequestLeafToRawAuthLeaf(proposalLeaf),
@@ -205,6 +227,37 @@ export const proposeThenApproveDeploymentThenExecute = async (
     // Check that there is no active deployment before approving the deployment.
     expect(await Manager.activeDeploymentId()).equals(ethers.ZeroHash)
 
+    // Trigger upgrade if the upgrade leaf is present
+    if (containsUpgradeLeaf) {
+      const upgradeManagerLeaf = findProposalRequestLeaf(
+        leaves,
+        proposalLeafIndex + 1,
+        chainId
+      )
+      await Auth.upgradeManagerAndAuthImpl(
+        root,
+        fromProposalRequestLeafToRawAuthLeaf(upgradeManagerLeaf),
+        ownerSignatures,
+        upgradeManagerLeaf.siblings
+      )
+
+      // Expect the manager and auth implementations to be upgraded
+      const authVersion = await Auth.version()
+      const managerVersion = await Manager.version()
+      expect(authVersion).to.eql([BigInt(9), BigInt(9), BigInt(9)])
+      expect(managerVersion).to.eql([BigInt(9), BigInt(9), BigInt(9)])
+    } else {
+      // Expect the manager and auth implementations to be the current versions
+      const authVersion = await Auth.version()
+      const managerVersion = await Manager.version()
+      expect(authVersion).to.eql(
+        Object.values(CURRENT_SPHINX_AUTH_VERSION).map((num) => BigInt(num))
+      )
+      expect(managerVersion).to.eql(
+        Object.values(CURRENT_SPHINX_MANAGER_VERSION).map((num) => BigInt(num))
+      )
+    }
+
     await Auth.approveDeployment(
       root,
       fromProposalRequestLeafToRawAuthLeaf(approveDeploymentLeaf),
@@ -220,29 +273,33 @@ export const proposeThenApproveDeploymentThenExecute = async (
         managerAddress,
         true,
         provider,
-        cre,
+        defaultCre,
         makeGetConfigArtifacts(hre)
       )
-    const { configUri, bundles } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
-    )
+
+    const { configUri, bundles, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
     const deploymentId = getDeploymentId(bundles, configUri)
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.COMPLETED)
 
     // Execute the deployment.
-    const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+    const block = await provider.getBlock('latest')
+    if (block === null) {
+      throw new Error('The block is null. Should never happen.')
+    }
+    const blockGasLimit = block.gasLimit
     const manager = getSphinxManager(managerAddress, relayer)
 
     await Manager.claimDeployment()
+
     const { success } = await executeDeployment(
       manager,
       bundles,
+      deploymentId,
+      humanReadableActions,
       blockGasLimit,
-      configArtifacts,
       provider
     )
 
@@ -264,7 +321,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
   const { proposalRequest } = await proposeAbstractTask(
     userConfig,
     true, // Is testnet
-    cre,
+    defaultCre,
     true, // Skip relaying the meta transaction to the back-end
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
@@ -364,4 +421,115 @@ const getSignatures = async (
     }
   }
   return signatures
+}
+
+export const deploy = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider,
+  deployerPrivateKey: string,
+  integration: Integration,
+  cre: SphinxRuntimeEnvironment = defaultCre,
+  failureAction: FailureAction = FailureAction.EXIT
+) => {
+  if (integration === 'hardhat') {
+    await deployUsingHardhat(
+      config,
+      provider,
+      deployerPrivateKey,
+      cre,
+      failureAction
+    )
+  } else if (integration === 'foundry') {
+    await deployUsingFoundry(config, provider, deployerPrivateKey)
+  } else {
+    throw new Error('Invalid integration.')
+  }
+}
+
+export const deployUsingHardhat = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider | HardhatEthersProvider,
+  deployerPrivateKey: string,
+  cre: SphinxRuntimeEnvironment = defaultCre,
+  failureAction: FailureAction = FailureAction.EXIT
+) => {
+  const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+  const ownerAddress = await wallet.getAddress()
+
+  const compilerConfigPath = hre.config.paths.compilerConfigs
+
+  const deploymentFolder = hre.config.paths.deployments
+
+  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
+    config,
+    provider,
+    cre,
+    plugins.makeGetConfigArtifacts(hre),
+    ownerAddress,
+    failureAction
+  )
+
+  await deployAbstractTask(
+    provider,
+    wallet,
+    compilerConfigPath,
+    deploymentFolder,
+    'hardhat',
+    cre,
+    parsedConfig,
+    configCache,
+    configArtifacts
+  )
+}
+
+export const deployUsingFoundry = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider,
+  deployerPrivateKey: string
+) => {
+  const tmpFoundryConfigFileName = 'tmp-foundry-config.json'
+  const tmpFoundryConfigPath = join(
+    __dirname,
+    '..',
+    'cache',
+    tmpFoundryConfigFileName
+  )
+  // Write the config to a temporary file.
+  writeFileSync(tmpFoundryConfigPath, JSON.stringify(config))
+
+  const rpcUrl = provider._getConnection().url
+  process.env['SPHINX_INTERNAL_CONFIG_PATH'] = tmpFoundryConfigPath
+  process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
+  process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
+  process.env['SPHINX_INTERNAL_BROADCAST'] = 'true'
+
+  // Execute the deployment.
+  await execAsync(
+    `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
+  )
+}
+
+export const revertSnapshots = async (
+  networks: Array<string>,
+  snapshotIds: {
+    [network: string]: string
+  }
+) => {
+  // Revert to a snapshot of the blockchain state before each test. The snapshot is taken after
+  // the `before` hook above is run.
+  for (const network of networks) {
+    const provider = rpcProviders[network]
+
+    const snapshotId = snapshotIds[network]
+    // Attempt to revert to the previous snapshot.
+    try {
+      await provider.send('evm_revert', [snapshotId])
+    } catch (e) {
+      // An error will be thrown when this `beforeEach` hook is run for the first time. This is
+      // because there is no `snapshotId` yet. We can ignore this error.
+    }
+
+    const newSnapshotId = await provider.send('evm_snapshot', [])
+    snapshotIds[network] = newSnapshotId
+  }
 }

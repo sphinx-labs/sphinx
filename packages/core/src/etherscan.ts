@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -28,7 +28,7 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getConstructorArgs, getImplAddress } from './utils'
+import { getFunctionArgValueArray, getImplAddress } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -46,8 +46,14 @@ export const verifySphinxConfig = async (
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
-  apiKey: string
+  apiKey: string,
+  deployedContractReferenceNames: string[] = []
 ) => {
+  // Default to verifying all contracts if the caller does not specify a subset
+  if (deployedContractReferenceNames.length === 0) {
+    deployedContractReferenceNames = Object.keys(compilerConfig.contracts)
+  }
+
   const managerAddress = compilerConfig.manager
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
@@ -63,11 +69,17 @@ export const verifySphinxConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     compilerConfig.contracts
   )) {
+    // Skip contracts that are not listed as deployed
+    if (!deployedContractReferenceNames.includes(referenceName)) {
+      continue
+    }
+
     const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
-    const constructorArgValues = getConstructorArgs(
+    const iface = new ethers.Interface(abi)
+    const constructorArgValues = getFunctionArgValueArray(
       compilerConfig.contracts[referenceName].constructorArgs[Number(chainId)],
-      abi
+      iface.fragments.find(ConstructorFragment.isFragment)
     )
 
     const implementationAddress =

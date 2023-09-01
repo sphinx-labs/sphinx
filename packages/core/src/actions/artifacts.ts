@@ -1,23 +1,20 @@
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import {
   ProxyABI,
   ProxyArtifact,
   buildInfo as sphinxBuildInfo,
 } from '@sphinx-labs/contracts'
 
-import {
-  ConfigArtifacts,
-  ParsedConfig,
-  contractKindHashes,
-} from '../config/types'
+import { ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
 } from '../languages/solidity/types'
 import {
   writeDeploymentFolderForNetwork,
-  getConstructorArgs,
+  getFunctionArgValueArray,
   writeDeploymentArtifact,
+  findReferenceNameForAddress,
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -67,8 +64,23 @@ export const writeDeploymentArtifacts = async (
     }
 
     const receipt = await deploymentEvent.getTransactionReceipt()
+    const { contractAddress } = deploymentEvent.args
 
-    if (deploymentEvent.args.contractKindHash === contractKindHashes['proxy']) {
+    const referenceName = findReferenceNameForAddress(
+      contractAddress,
+      parsedConfig.contracts
+    )
+
+    if (!referenceName) {
+      // TODO(upgrades): The reference name will be undefined if the contract address is an
+      // implementation contract of a proxy. This means we currently don't write deployment
+      // artifacts for implementation contracts. When we add support for upgradeable contracts, we
+      // should add implementation contract info to the parsed config, and the
+      // `findReferenceNameForAddress` function should be updated to support this case.
+      continue
+    }
+
+    if (parsedConfig.contracts[referenceName].kind === 'proxy') {
       // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
         sphinxBuildInfo.output.contracts[
@@ -81,7 +93,7 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the proxy.
       const proxyArtifact = {
-        address: deploymentEvent.args.contractAddress,
+        address: contractAddress,
         abi: ProxyABI,
         transactionHash: deploymentEvent.transactionHash,
         solcInputHash: sphinxBuildInfo.id,
@@ -99,9 +111,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: [managerAddress],
         bytecode: ProxyArtifact.bytecode,
-        deployedBytecode: await provider.getCode(
-          deploymentEvent.args.contractAddress
-        ),
+        deployedBytecode: await provider.getCode(contractAddress),
         devdoc,
         userdoc,
         storageLayout,
@@ -112,16 +122,16 @@ export const writeDeploymentArtifacts = async (
         networkDirName,
         deploymentFolderPath,
         proxyArtifact,
-        `${deploymentEvent.args.referenceName}Proxy`
+        `${referenceName}Proxy`
       )
     } else {
       // Get the deployed contract's info.
-      const referenceName = deploymentEvent.args.referenceName
       const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
-      const constructorArgValues = getConstructorArgs(
+      const iface = new ethers.Interface(abi)
+      const constructorArgValues = getFunctionArgValueArray(
         parsedConfig.contracts[referenceName].constructorArgs,
-        abi
+        iface.fragments.find(ConstructorFragment.isFragment)
       )
       const { metadata } = buildInfo.output.contracts[sourceName][contractName]
       const storageLayout = getStorageLayout(
@@ -136,7 +146,7 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the deployed contract.
       const contractArtifact = {
-        address: deploymentEvent.args.contractAddress,
+        address: contractAddress,
         abi,
         transactionHash: deploymentEvent.transactionHash,
         solcInputHash: buildInfo.id,
@@ -154,9 +164,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: constructorArgValues,
         bytecode,
-        deployedBytecode: await provider.getCode(
-          deploymentEvent.args.contractAddress
-        ),
+        deployedBytecode: await provider.getCode(contractAddress),
         devdoc,
         userdoc,
         storageLayout,

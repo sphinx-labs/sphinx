@@ -1,4 +1,3 @@
-import { Fragment } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 
@@ -66,8 +65,13 @@ export type BuildInfo = {
   output: CompilerOutput
 }
 
+/**
+ * @param abi The ABI of the contract. We use the `any` type here to match the type used by
+ * Hardhat. We don't use Ethers' `Fragment` type because it has additional fields that Hardhat
+ * doesn't include.
+ */
 export type ContractArtifact = {
-  abi: Array<Fragment>
+  abi: Array<any>
   sourceName: string
   contractName: string
   bytecode: string
@@ -86,7 +90,7 @@ export interface CompilerOutputMetadata {
 }
 
 export interface CompilerOutputContract {
-  abi: Array<Fragment>
+  abi: Array<any>
   storageLayout?: SolidityStorageLayout
   evm: {
     bytecode: CompilerOutputBytecode

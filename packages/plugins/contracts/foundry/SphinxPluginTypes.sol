@@ -2,13 +2,47 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import {
-    SphinxActionBundle,
-    SphinxTargetBundle
+    SphinxTarget,
+    RawSphinxAction,
+    SphinxActionType,
+    Version
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+
+struct SphinxBundles {
+    SphinxActionBundle actionBundle;
+    SphinxTargetBundle targetBundle;
+}
+
+struct SphinxActionBundle {
+    bytes32 root;
+    BundledSphinxAction[] actions;
+}
+
+struct SphinxTargetBundle {
+    bytes32 root;
+    BundledSphinxTarget[] targets;
+}
+
+struct BundledSphinxAction {
+    RawSphinxAction action;
+    bytes32[] siblings;
+    uint256 gas;
+}
+
+struct BundledSphinxTarget {
+    SphinxTarget target;
+    bytes32[] siblings;
+}
+
+struct HumanReadableAction {
+    string reason;
+    uint actionIndex;
+    SphinxActionType actionType;
+}
 
 struct Configs {
     FoundryConfig minimalConfig;
-    string userConfigStr;
+    string parsedConfigStr;
 }
 
 struct BundleInfo {
@@ -16,6 +50,7 @@ struct BundleInfo {
     DeployContractCost[] deployContractCosts;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
+    HumanReadableAction[] humanReadableActions;
 }
 
 struct FoundryConfig {
@@ -23,6 +58,7 @@ struct FoundryConfig {
     address owner;
     string projectName;
     FoundryContractConfig[] contracts;
+    ParsedCallAction[] postDeploy;
 }
 
 struct DeployContractCost {
@@ -39,9 +75,12 @@ struct FoundryContractConfig {
 
 struct ConfigCache {
     bool isManagerDeployed;
+    Version managerVersion;
     uint256 blockGasLimit;
     uint256 chainId;
     ContractConfigCache[] contractConfigCache;
+    CallNonces[] callNonces;
+    address[] undeployedExternalContracts;
 }
 
 struct ContractConfigCache {
@@ -52,9 +91,20 @@ struct ContractConfigCache {
     OptionalString previousConfigUri;
 }
 
+struct CallNonces {
+    bytes32 callHash;
+    uint256 nonce;
+}
+
 struct DeploymentRevert {
     bool deploymentReverted;
     OptionalString revertString;
+}
+
+struct ParsedCallAction {
+    address to;
+    bytes data;
+    uint256 nonce;
 }
 
 struct ImportCache {

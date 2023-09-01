@@ -29,6 +29,7 @@ if (fileNames.length !== 1) {
 }
 
 export const buildInfo = require(`../artifacts/build-info/${fileNames[0]}`)
+export const prevBuildInfo = require('./prev-build-info.json')
 
 export const SphinxRegistryABI = SphinxRegistryArtifact.abi
 export const SphinxManagerABI = SphinxManagerArtifact.abi

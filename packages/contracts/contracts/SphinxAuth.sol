@@ -30,7 +30,7 @@ import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 1.0.0
+ * @custom:version 0.2.0
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
@@ -450,22 +450,22 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         {
             (
                 address managerImpl,
-                bytes memory managerData,
+                bytes memory managerInitCallData,
                 address authImpl,
-                bytes memory authData
+                bytes memory authInitCallData
             ) = abi.decode(_leaf.data, (address, bytes, address, bytes));
 
             SphinxManagerProxy managerProxy = SphinxManagerProxy(payable(address(manager)));
             SphinxManagerProxy authProxy = SphinxManagerProxy(payable(address(this)));
 
-            if (managerData.length > 0) {
-                managerProxy.upgradeToAndCall(managerImpl, managerData);
+            if (managerInitCallData.length > 0) {
+                managerProxy.upgradeToAndCall(managerImpl, managerInitCallData);
             } else {
                 managerProxy.upgradeTo(managerImpl);
             }
 
-            if (authData.length > 0) {
-                authProxy.upgradeToAndCall(authImpl, authData);
+            if (authInitCallData.length > 0) {
+                authProxy.upgradeToAndCall(authImpl, authInitCallData);
             } else {
                 authProxy.upgradeTo(authImpl);
             }
@@ -531,9 +531,9 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.approve(
             approval.actionRoot,
             approval.targetRoot,
-            approval.numActions,
+            approval.numInitialActions,
+            approval.numSetStorageActions,
             approval.numTargets,
-            approval.numImmutableContracts,
             approval.configUri,
             true
         );

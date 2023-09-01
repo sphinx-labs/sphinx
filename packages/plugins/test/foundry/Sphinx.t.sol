@@ -58,7 +58,7 @@ contract SphinxTest is Sphinx, Test {
         myStateless = Stateless(getAddress(storageConfig,"Stateless"));
         myComplexConstructorArgs = ComplexConstructorArgs(getAddress(storageConfig, "ComplexConstructorArgs"));
 
-        registry = utils.getSphinxRegistry();
+        registry = sphinxUtils.getSphinxRegistry();
     }
 
     function testDeployStatelessImmutableContract() public {

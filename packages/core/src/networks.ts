@@ -32,6 +32,7 @@ export type SupportedTestnetNetworkName =
 export type SupportedNetworkName =
   | SupportedMainnetNetworkName
   | SupportedTestnetNetworkName
+  | SupportedLocalNetworkName
 
 // Maps a live network name to its chain ID. Does not include testnets.
 export const SUPPORTED_MAINNETS: Record<
@@ -51,7 +52,7 @@ export const SUPPORTED_MAINNETS: Record<
   base: 8453,
 }
 
-export const SUPPORTED_LOCAL_NETWOKRS: Record<
+export const SUPPORTED_LOCAL_NETWORKS: Record<
   SupportedLocalNetworkName,
   SupportedLocalChainId
 > = {
@@ -78,7 +79,7 @@ export const SUPPORTED_TESTNETS: Record<
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,
   ...SUPPORTED_TESTNETS,
-  ...SUPPORTED_LOCAL_NETWOKRS,
+  ...SUPPORTED_LOCAL_NETWORKS,
 }
 
 // Used when it's necessary to enumerate the ids of supported networks.
@@ -111,7 +112,10 @@ export type SupportedTestnetChainId =
   | 43113
   | 4002
   | 84531
-export type SupportedChainId = SupportedMainnetChainId | SupportedTestnetChainId
+export type SupportedChainId =
+  | SupportedMainnetChainId
+  | SupportedTestnetChainId
+  | SupportedLocalChainId
 
 export const MinimumWalletBalanceTestnets = {
   goerli: '0.15',
