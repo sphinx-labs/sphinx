@@ -32,8 +32,9 @@ import {
   keccak256,
 } from 'ethers'
 
-import { CURRENT_SPHINX_MANAGER_VERSION, REFERENCE_ORG_ID } from './constants'
+import { REFERENCE_ORG_ID } from './constants'
 import { USDC_ADDRESSES } from './networks'
+import { SemverVersion } from './types'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -190,34 +191,42 @@ export const AUTH_FACTORY_ADDRESS = getCreate2Address(
   )
 )
 
-export const AUTH_IMPL_V1_ADDRESS = getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ZeroHash,
-  solidityPackedKeccak256(
-    ['bytes', 'bytes'],
-    [
-      AuthArtifact.bytecode,
-      AbiCoder.defaultAbiCoder().encode(
-        ['uint256', 'uint256', 'uint256'],
-        [1, 0, 0]
-      ),
-    ]
+export const getAuthImplAddress = (version: SemverVersion) => {
+  return getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    ZeroHash,
+    solidityPackedKeccak256(
+      ['bytes', 'bytes'],
+      [
+        AuthArtifact.bytecode,
+        AbiCoder.defaultAbiCoder().encode(
+          ['uint256', 'uint256', 'uint256'],
+          Object.values(version)
+        ),
+      ]
+    )
   )
-)
+}
 
-export const getManagerConstructorValues = (chainId: number) => [
+export const getManagerConstructorValues = (
+  chainId: number,
+  version: SemverVersion
+) => [
   getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
   getManagedServiceAddress(chainId),
   EXECUTION_LOCK_TIME,
-  Object.values(CURRENT_SPHINX_MANAGER_VERSION),
+  Object.values(version),
 ]
 
 const [managerConstructorFragment] = SphinxManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 
-export const getSphinxManagerV1Address = (chainId: number) => {
+export const getSphinxManagerImplAddress = (
+  chainId: number,
+  version: SemverVersion
+) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -227,7 +236,7 @@ export const getSphinxManagerV1Address = (chainId: number) => {
         SphinxManagerArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           managerConstructorFragment.inputs,
-          getManagerConstructorValues(chainId)
+          getManagerConstructorValues(chainId, version)
         ),
       ]
     )

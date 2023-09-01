@@ -28,18 +28,25 @@ The standalone CLI tool is free to use and fully open-source. All of the code is
 - Foundry:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
 - Hardhat:
   - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
   - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
+
+### DevOps Platform
+
+- Foundry:
+  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
+  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+- Hardhat:
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
   - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-hardhat-proposals.md)
 
 ### References
 
 - [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
+- [Post-Deployment Actions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/post-deployment-actions.md): How to call arbitrary functions after your contracts are deployed.
+- [Constructor Argument Overrides](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-arg-overrides.md): How to set constructor arguments on a chain-by-chain basis.
+- [Contract Variables](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Shows how to define every type of contract variable in your Sphinx config file (structs, arrays, etc.).
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 

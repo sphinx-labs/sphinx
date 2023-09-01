@@ -6,8 +6,25 @@ import {
   getParsedConfigWithOptions,
   GetCanonicalConfig,
   proposeAbstractTask,
+  doDeterministicDeploy,
+  getSphinxRegistryAddress,
+  DEFAULT_CREATE3_ADDRESS,
+  getManagedServiceAddress,
+  getSphinxRegistry,
+  getGasPriceOverrides,
+  getImpersonatedSigner,
+  AUTH_FACTORY_ADDRESS,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
+import {
+  AuthABI,
+  AuthArtifact,
+  AuthFactoryABI,
+  EXECUTION_LOCK_TIME,
+  OWNER_MULTISIG_ADDRESS,
+  SphinxManagerABI,
+  SphinxManagerArtifact,
+} from '@sphinx-labs/contracts'
 
 import {
   makeGetConfigArtifacts,
@@ -19,9 +36,10 @@ import {
   proposeThenApproveDeploymentThenExecute,
   registerProject,
   setupThenProposeThenApproveDeploymentThenExecute,
+  revertSnapshots,
 } from './helpers'
 import {
-  cre,
+  defaultCre,
   rpcProviders,
   relayerPrivateKey,
   initialTestnets,
@@ -50,6 +68,61 @@ describe('Multi chain projects', () => {
       for (const projectTestInfo of multichainTestInfo) {
         await registerProject(provider, projectTestInfo)
       }
+
+      const owner = await getImpersonatedSigner(
+        OWNER_MULTISIG_ADDRESS,
+        provider
+      )
+
+      // Deploy new auth and manager implementations on all chains for testing upgrades
+      const NewManagerImplementation = await doDeterministicDeploy(provider, {
+        signer: owner,
+        contract: {
+          abi: SphinxManagerABI,
+          bytecode: SphinxManagerArtifact.bytecode,
+        },
+        args: [
+          getSphinxRegistryAddress(),
+          DEFAULT_CREATE3_ADDRESS,
+          getManagedServiceAddress(
+            Number((await provider.getNetwork()).chainId)
+          ),
+          EXECUTION_LOCK_TIME,
+          [9, 9, 9],
+        ],
+        salt: ethers.ZeroHash,
+      })
+
+      const NewAuthImplementation = await doDeterministicDeploy(provider, {
+        signer: owner,
+        contract: {
+          abi: AuthABI,
+          bytecode: AuthArtifact.bytecode,
+        },
+        args: [[9, 9, 9]],
+        salt: ethers.ZeroHash,
+      })
+
+      // Add new implementations as valid versions on the registry
+      const SphinxRegistry = getSphinxRegistry(owner)
+      await (
+        await SphinxRegistry.addVersion(
+          await NewManagerImplementation.getAddress(),
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+
+      const AuthFactory = new ethers.Contract(
+        AUTH_FACTORY_ADDRESS,
+        AuthFactoryABI,
+        owner
+      )
+      await (
+        await AuthFactory.addVersion(
+          await NewAuthImplementation.getAddress(),
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
   })
 
@@ -57,23 +130,7 @@ describe('Multi chain projects', () => {
     [network: string]: string
   } = {}
   beforeEach(async () => {
-    // Revert to a snapshot of the blockchain state before each test. The snapshot is taken after
-    // the `before` hook above is run.
-    for (const network of allTestnets) {
-      const provider = rpcProviders[network]
-
-      const snapshotId = snapshotIds[network]
-      // Attempt to revert to the previous snapshot.
-      try {
-        await provider.send('evm_revert', [snapshotId])
-      } catch (e) {
-        // An error will be thrown when this `beforeEach` hook is run for the first time. This is
-        // because there is no `snapshotId` yet. We can ignore this error.
-      }
-
-      const newSnapshotId = await provider.send('evm_snapshot', [])
-      snapshotIds[network] = newSnapshotId
-    }
+    await revertSnapshots(allTestnets, snapshotIds)
   })
 
   for (const projectTestInfo of multichainTestInfo) {
@@ -106,7 +163,7 @@ describe('Multi chain projects', () => {
               managerAddress,
               true,
               Object.values(rpcProviders)[0], // Use a random provider
-              cre,
+              defaultCre,
               makeGetConfigArtifacts(hre)
             )
 
@@ -124,19 +181,21 @@ describe('Multi chain projects', () => {
           const newProjectTestInfo = structuredClone(projectTestInfo)
 
           // Add a new contract to the config.
-          newProjectTestInfo.userConfig.contracts['MyContract2'] = {
-            contract: 'Stateless',
+          newProjectTestInfo.userConfig.contracts['ConfigContract2'] = {
+            contract: 'MyContract1',
             kind: 'immutable',
             constructorArgs: {
-              _immutableUint: 2,
-              _immutableAddress: '0x' + '22'.repeat(20),
+              _intArg: 3,
+              _uintArg: 4,
+              _addressArg: '0x' + '33'.repeat(20),
+              _otherAddressArg: '0x' + '44'.repeat(20),
             },
           }
 
           const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
-            cre,
+            defaultCre,
             true, // Skip relaying the meta transaction to the back-end
             getConfigArtifacts,
             getProviderFromChainId,
@@ -166,17 +225,22 @@ describe('Multi chain projects', () => {
           )
         })
 
-        it('Add contract to config -> Deploy project on new and existing chains', async () => {
+        it('Add contract to config -> Upgrade to new manager and auth impl -> Deploy project on new and existing chains', async () => {
           // Add a new contract to the config.
           const newProjectTestInfo = structuredClone(projectTestInfo)
 
+          // This is a type error here, but it's not an issue because we use an environment variable to make the test version count as valid
+          newProjectTestInfo.userConfig.options.managerVersion = 'v9.9.9'
+
           newProjectTestInfo.userConfig.options.testnets.push(...testnetsToAdd)
-          newProjectTestInfo.userConfig.contracts['MyContract2'] = {
-            contract: 'Stateless',
+          newProjectTestInfo.userConfig.contracts['ConfigContract2'] = {
+            contract: 'MyContract1',
             kind: 'immutable',
             constructorArgs: {
-              _immutableUint: 2,
-              _immutableAddress: '0x' + '22'.repeat(20),
+              _intArg: 3,
+              _uintArg: 4,
+              _addressArg: '0x' + '33'.repeat(20),
+              _otherAddressArg: '0x' + '44'.repeat(20),
             },
           }
 
@@ -191,7 +255,7 @@ describe('Multi chain projects', () => {
           const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
-            cre,
+            defaultCre,
             true, // Skip relaying the meta transaction to the back-end
             getConfigArtifacts,
             getProviderFromChainId,

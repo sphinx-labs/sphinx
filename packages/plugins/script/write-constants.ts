@@ -11,15 +11,16 @@ import {
   CURRENT_SPHINX_MANAGER_VERSION,
   getSphinxRegistryAddress,
   getManagerProxyInitCodeHash,
-  getSphinxManagerV1Address,
+  getSphinxManagerImplAddress,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   getSphinxConstants,
   AUTH_FACTORY_ADDRESS,
-  AUTH_IMPL_V1_ADDRESS,
   remove0x,
+  getAuthImplAddress,
+  CURRENT_SPHINX_AUTH_VERSION,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -77,7 +78,7 @@ const writeConstants = async () => {
     },
     managerImplementationAddress: {
       type: 'address',
-      value: getSphinxManagerV1Address(31337),
+      value: getSphinxManagerImplAddress(31337, CURRENT_SPHINX_MANAGER_VERSION),
     },
     ozTransparentAdapterAddr: {
       type: 'address',
@@ -101,7 +102,7 @@ const writeConstants = async () => {
     },
     authImplV1Address: {
       type: 'address',
-      value: AUTH_IMPL_V1_ADDRESS,
+      value: getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION),
     },
   }
 

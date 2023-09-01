@@ -96,6 +96,11 @@ It contains the following fields:
   * Polygon: `'matic'`
   * BNB Smart Chain (aka BSC): `'bnb'`
   * Gnosis Chain: `'xdai'`
+  * Linea: `'linea'`
+  * Polygon zkEVM: `'polygon-zkevm'`
+  * Avalanche C-Chain: `'avalanche'`
+  * Fantom: `'fantom'`
+  * Base: `'base'`
 * `testnets`: The list of testnets that your project will be deployed on. Valid fields:
   * Ethereum Goerli: `'goerli'`
   * Optimism Goerli: `'optimism-goerli'`
@@ -103,6 +108,11 @@ It contains the following fields:
   * Polygon Mumbai: `'maticmum'`
   * BNB Smart Chain Testnet: `'bnbt'`
   * Gnosis Chiado: `'gnosis-chiado'`
+  * Linea Goerli: `'linea-goerli'`
+  * Polygon zkEVM Testnet: `'polygon-zkevm-goerli'`
+  * Avalanche Fuji: `'avalanche-fuji'`
+  * Fantom Testnet: `'fantom-testnet'`
+  * Base Goerli: `'base-goerli'`
 * `owners`: The list of addresses that own this project. Owners can perform permissioned actions such as approving deployments via the Sphinx UI. We recommend that the owner accounts are hardware wallets.
 * `ownerThreshold`: The number of owners that must sign a permissioned action, such as approving a deployment, before the action can be executed on-chain.
 * `proposers`: The list of addresses that are allowed to propose changes to the Sphinx config file. Any change to the Sphinx config file, including contract deployments, must be proposed before it can be approved by the project owners. We recommend that proposals occur in a CI process, but you can also propose from the command line.
@@ -146,5 +156,5 @@ Each contract definition has the following fields:
 
 * `contract`: The name of the contract in your Solidity source file. In the sample Sphinx config above, both contracts are named `HelloSphinx`.
 * `kind`: The kind of contract you're deploying. Sphinx only supports `immutable` contract kinds, but it will support more kinds in the future, such as Transparent proxies.
-* `constructorArgs`: Object containing the contract's constructor arguments and their values. In the sample Sphinx config above, both contracts have a constructor argument named `_myNumber` with a value of `1` and `2`, respectively. Both contracts also use a _contract reference_ as the value of the constructor argument `_myAddress`. The contract reference `{{ MyFirstContract }}` equals the address of `MyFirstContract`. To learn more about how to define constructor arguments of every variable type, including contract references, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md).
+* `constructorArgs`: Object containing the contract's constructor arguments and their values. In the sample Sphinx config above, both contracts have a constructor argument named `_myNumber` with a value of `1` and `2`, respectively. Both contracts also use a _contract reference_ as the value of the constructor argument `_myAddress`. The contract reference `{{ MyFirstContract }}` equals the address of `MyFirstContract`. To learn more about how to define constructor arguments of every variable type, including contract references, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md).
 * `salt`: (optional): A string or number that changes the `CREATE3` address of the contract.

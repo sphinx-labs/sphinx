@@ -17,27 +17,29 @@ import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.s
 import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
 import { SphinxRegistryEvents } from "@sphinx-labs/contracts/contracts/SphinxRegistryEvents.sol";
 import {
-    SphinxBundles,
+    RawSphinxAction,
     DeploymentState,
     DeploymentStatus,
-    BundledSphinxAction,
-    RawSphinxAction,
     SphinxActionType,
     SphinxTarget,
-    BundledSphinxTarget,
-    SphinxActionBundle,
-    SphinxTargetBundle,
-    BundledSphinxTarget,
     Version
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
 import {
+    SphinxBundles,
+    BundledSphinxAction,
+    BundledSphinxTarget,
+    SphinxActionBundle,
+    BundledSphinxAction,
+    SphinxTargetBundle,
+    BundledSphinxTarget,
     FoundryConfig,
     Configs,
     BundleInfo,
     FoundryContractConfig,
     ConfigCache,
     DeployContractCost,
+    HumanReadableAction,
     ContractConfigCache,
     DeploymentRevert,
     ImportCache,
@@ -47,15 +49,18 @@ import {
     OptionalAddress,
     OptionalBool,
     OptionalString,
-    OptionalBytes32
+    OptionalBytes32,
+    CallNonces,
+    ParsedCallAction
 } from "./SphinxPluginTypes.sol";
+import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 
 /**
- * @notice This contract should not define mutable variables since it may be delegatecalled
-   by other contracts.
+ * @notice This contract should not define mutable variables since it may be delegatecalled by other
+   contracts.
  */
 contract SphinxUtils is
     Test,
@@ -136,8 +141,9 @@ contract SphinxUtils is
         }
     }
 
-    // These provide an easy way to get structs off-chain via the ABI.
-    function actionBundle() external pure returns (SphinxActionBundle memory) {}
+    // These provide an easy way to get complex data types off-chain (via the ABI) without needing
+    // to hard-code them.
+    function bundledActions() external pure returns (BundledSphinxAction[] memory) {}
 
     function targetBundle() external pure returns (SphinxTargetBundle memory) {}
 
@@ -146,6 +152,8 @@ contract SphinxUtils is
     function minimalConfig() external pure returns (FoundryConfig memory) {}
 
     function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
+
+    function humanReadableActions() external pure returns (HumanReadableAction[] memory) {}
 
     function slice(
         bytes calldata _data,
@@ -165,19 +173,18 @@ contract SphinxUtils is
      */
     function ffiGetEncodedBundleInfo(
         ConfigCache memory _configCache,
-        string memory _userConfigStr,
+        string memory _parsedConfigStr,
         string memory _rootFfiPath,
         address _owner
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](7);
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
         cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _userConfigStr;
+        cmds[4] = _parsedConfigStr;
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
-        cmds[6] = vm.toString(_owner);
 
         bytes memory result = vm.ffi(cmds);
         return result;
@@ -191,25 +198,35 @@ contract SphinxUtils is
         bytes memory data = this.slice(_data, 0, _data.length - 32);
 
         if (success) {
-            // Next, we decode the result into the bundle info, which consists of the
-            // SphinxBundles, the config URI, the cost of deploying each contract, and any
-            // warnings that occurred when parsing the config. We can't decode all of this in a
-            // single `abi.decode` call because this fails with a "Stack too deep" error. This is
-            // because the SphinxBundles struct is too large for Solidity to decode all at once.
-            // So, we decode the SphinxActionBundle and SphinxTargetBundle separately. This
-            // requires that we know where to split the raw bytes before decoding anything. To solve
-            // this, we use two `splitIdx` variables. The first marks the point where the action
-            // bundle ends and the target bundle begins. The second marks the point where the target
-            // bundle ends and the rest of the bundle info (config URI, warnings, etc) begins.
+            // Next, we decode the result into the bundle info, which consists of the SphinxBundles,
+            // the config URI, the cost of deploying each contract, and any warnings that occurred
+            // when parsing the config. We can't decode all of this in a single `abi.decode` call
+            // because this fails with a "Stack too deep" error. This is because the SphinxBundles
+            // struct is too large for Solidity to decode all at once. So, we decode the
+            // SphinxActionBundle and SphinxTargetBundle separately. This requires that we know
+            // where to split the raw bytes before decoding anything. To solve this, we use two
+            // `splitIdx` variables. The first marks the point where the action bundle ends and the
+            // target bundle begins. The second marks the point where the target bundle ends and the
+            // rest of the bundle info (config URI, warnings, etc) begins.
             (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
                 this.slice(data, data.length - 64, data.length),
                 (uint256, uint256)
             );
 
-            SphinxActionBundle memory decodedActionBundle = abi.decode(
-                this.slice(data, 0, splitIdx1),
-                (SphinxActionBundle)
+            // We can't decode the entire action bundle at once because we'd get a "stack too deep"
+            // error when calling `abi.decode`. This occurs because the action bundle struct is too
+            // large to be decoded at one time. So, we decode the root and the actions separately.
+            bytes32 actionRoot = abi.decode(this.slice(data, 0, 32), (bytes32));
+            BundledSphinxAction[] memory actions = abi.decode(
+                this.slice(data, 32, splitIdx1),
+                (BundledSphinxAction[])
             );
+
+            SphinxActionBundle memory decodedActionBundle = SphinxActionBundle({
+                root: actionRoot,
+                actions: actions
+            });
+
             SphinxTargetBundle memory decodedTargetBundle = abi.decode(
                 this.slice(data, splitIdx1, splitIdx2),
                 (SphinxTargetBundle)
@@ -219,13 +236,24 @@ contract SphinxUtils is
             (
                 string memory configUri,
                 DeployContractCost[] memory costs,
+                HumanReadableAction[] memory readableActions,
                 string memory warnings
-            ) = abi.decode(remainingBundleInfo, (string, DeployContractCost[], string));
+            ) = abi.decode(
+                    remainingBundleInfo,
+                    (string, DeployContractCost[], HumanReadableAction[], string)
+                );
 
             if (bytes(warnings).length > 0) {
                 console.log(StdStyle.yellow(warnings));
             }
-            return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle);
+            return
+                BundleInfo(
+                    configUri,
+                    costs,
+                    decodedActionBundle,
+                    decodedTargetBundle,
+                    readableActions
+                );
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
             if (bytes(warnings).length > 0) {
@@ -274,20 +302,18 @@ contract SphinxUtils is
         SphinxTargetBundle memory _targetBundle,
         string memory _configUri
     ) external pure returns (bytes32) {
-        bytes32 actionRoot = _actionBundle.root;
-        bytes32 targetRoot = _targetBundle.root;
-        uint256 numActions = _actionBundle.actions.length;
-        uint256 numTargets = _targetBundle.targets.length;
-        (uint256 numImmutableContracts, ) = getNumActions(_actionBundle.actions);
+        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
+            _actionBundle.actions
+        );
 
         return
             keccak256(
                 abi.encode(
-                    actionRoot,
-                    targetRoot,
-                    numActions,
-                    numTargets,
-                    numImmutableContracts,
+                    _actionBundle.root,
+                    _targetBundle.root,
+                    numInitialActions,
+                    numSetStorageActions,
+                    _targetBundle.targets.length,
                     _configUri
                 )
             );
@@ -332,22 +358,21 @@ contract SphinxUtils is
      */
     function disassembleActions(
         BundledSphinxAction[] memory actions
-    ) public pure returns (RawSphinxAction[] memory, uint256[] memory, bytes32[][] memory) {
+    ) public pure returns (RawSphinxAction[] memory, bytes32[][] memory) {
         RawSphinxAction[] memory rawActions = new RawSphinxAction[](actions.length);
-        uint256[] memory _actionIndexes = new uint256[](actions.length);
         bytes32[][] memory _proofs = new bytes32[][](actions.length);
         for (uint i = 0; i < actions.length; i++) {
             BundledSphinxAction memory action = actions[i];
             rawActions[i] = action.action;
-            _actionIndexes[i] = action.proof.actionIndex;
-            _proofs[i] = action.proof.siblings;
+            _proofs[i] = action.siblings;
         }
 
-        return (rawActions, _actionIndexes, _proofs);
+        return (rawActions, _proofs);
     }
 
     /**
-     * Helper function that determines if a given batch is executable within the specified gas limit.
+     * Helper function that determines if a given batch is executable within the specified gas
+       limit.
      */
     function executable(
         BundledSphinxAction[] memory selected,
@@ -357,38 +382,9 @@ contract SphinxUtils is
         uint256 estGasUsed = 0;
 
         for (uint i = 0; i < selected.length; i++) {
-            BundledSphinxAction memory action = selected[i];
-
-            SphinxActionType actionType = action.action.actionType;
-            string memory referenceName = action.action.referenceName;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                uint256 deployContractCost = findCost(referenceName, costs);
-
-                // We add 150k as an estimate for the cost of the transaction that executes the
-                // DeployContract action.
-                estGasUsed += deployContractCost + 150_000;
-            } else if (actionType == SphinxActionType.SET_STORAGE) {
-                estGasUsed += 150_000;
-            } else {
-                revert("Unknown action type. Should never happen.");
-            }
+            estGasUsed += selected[i].gas;
         }
         return maxGasLimit > estGasUsed;
-    }
-
-    function findCost(
-        string memory referenceName,
-        DeployContractCost[] memory costs
-    ) public pure returns (uint256) {
-        for (uint i = 0; i < costs.length; i++) {
-            DeployContractCost memory deployContractCost = costs[i];
-            if (equals(deployContractCost.referenceName, referenceName)) {
-                return deployContractCost.cost;
-            }
-        }
-        revert(
-            "Could not find contract config corresponding to a reference name. Should never happen."
-        );
     }
 
     /**
@@ -406,7 +402,8 @@ contract SphinxUtils is
             return actions.length;
         }
 
-        // If the full batch isn't executavle, then do a binary search to find the largest executable batch size
+        // If the full batch isn't executavle, then do a binary search to find the largest
+        // executable batch size
         uint min = 0;
         uint max = actions.length;
         while (min < max) {
@@ -438,17 +435,20 @@ contract SphinxUtils is
     function getNumActions(
         BundledSphinxAction[] memory _actions
     ) public pure returns (uint256, uint256) {
-        uint256 numDeployContractActions = 0;
+        uint256 numInitialActions = 0;
         uint256 numSetStorageActions = 0;
         for (uint256 i = 0; i < _actions.length; i++) {
             SphinxActionType actionType = _actions[i].action.actionType;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                numDeployContractActions += 1;
+            if (
+                actionType == SphinxActionType.DEPLOY_CONTRACT ||
+                actionType == SphinxActionType.CALL
+            ) {
+                numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
                 numSetStorageActions += 1;
             }
         }
-        return (numDeployContractActions, numSetStorageActions);
+        return (numInitialActions, numSetStorageActions);
     }
 
     function getConfigCache(
@@ -487,8 +487,8 @@ contract SphinxUtils is
                 // In the TypeScript version, we check if the SphinxManager has permission to
                 // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
                 // fails in Solidity when called on a state-changing function (which 'upgradeTo'
-                // is). We also can't attempt an external call because it could be broadcasted.
-                // So, we skip this step here, which is fine because Forge automatically does local
+                // is). We also can't attempt an external call because it could be broadcasted. So,
+                // we skip this step here, which is fine because Forge automatically does local
                 // simulation before broadcasting any transactions. If the SphinxManager doesn't
                 // have permission to call 'upgradeTo', an error will be thrown when simulating the
                 // execution logic, which will happen before any transactions are broadcasted.
@@ -519,12 +519,53 @@ contract SphinxUtils is
             });
         }
 
+        // Get an array of undeployed external contracts. To do this, we first need to get the
+        // addresses of all of the post-deployment actions. Then, we use this to get an array of
+        // unique addresses. Finally, we use this to get an array of undeployed external contracts.
+        address[] memory postDeployAddresses = new address[](_minimalConfig.postDeploy.length);
+        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
+            postDeployAddresses[i] = _minimalConfig.postDeploy[i].to;
+        }
+        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(
+            getUniqueAddresses(postDeployAddresses),
+            _minimalConfig.contracts
+        );
+
+        // Get an array where each element contains a call hash and its current nonce. We'll use
+        // this later to determine which call actions to skip in the deployment, if any.
+        CallNonces[] memory callNonces = new CallNonces[](_minimalConfig.postDeploy.length);
+        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
+            bytes32 callHash = getCallHash(
+                _minimalConfig.postDeploy[i].to,
+                _minimalConfig.postDeploy[i].data
+            );
+            if (!isManagerDeployed_) {
+                callNonces[i] = CallNonces({ callHash: callHash, nonce: 0 });
+            } else {
+                uint256 currentNonce = _manager.callNonces(callHash);
+                callNonces[i] = CallNonces({ callHash: callHash, nonce: currentNonce });
+            }
+        }
+
+        // Fetch the version from the manager if it is deployed, otherwise use the default version.
+        Semver semverManager = Semver(address(_manager));
+        Version memory managerVersion = isManagerDeployed_
+            ? semverManager.version()
+            : Version({
+                major: SphinxConstants.major,
+                minor: SphinxConstants.minor,
+                patch: SphinxConstants.patch
+            });
+
         return
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
+                managerVersion: managerVersion,
                 blockGasLimit: block.gaslimit,
                 chainId: block.chainid,
-                contractConfigCache: contractConfigCache
+                contractConfigCache: contractConfigCache,
+                callNonces: callNonces,
+                undeployedExternalContracts: undeployedExternalContracts
             });
     }
 
@@ -555,34 +596,57 @@ contract SphinxUtils is
         return this.slice(_data, 4, _data.length);
     }
 
-    function getActionsByType(
-        SphinxActionBundle memory _actionBundle
-    ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
-        // Get number of deploy contract and set state actions
-        (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(
-            _actionBundle.actions
-        );
+    function removeExecutedActions(
+        BundledSphinxAction[] memory _actions,
+        uint256 _actionsExecuted
+    ) external pure returns (BundledSphinxAction[] memory) {
+        uint numActionsToExecute = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (action.action.index >= _actionsExecuted) {
+                numActionsToExecute += 1;
+            }
+        }
 
-        // Split up the deploy contract and set storage actions
-        BundledSphinxAction[] memory deployContractActions = new BundledSphinxAction[](
-            numDeployContractActions
+        BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](
+            numActionsToExecute
         );
+        uint filteredArrayIndex = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (action.action.index >= _actionsExecuted) {
+                filteredActions[filteredArrayIndex] = action;
+                filteredArrayIndex += 1;
+            }
+        }
+        return filteredActions;
+    }
+
+    function splitActions(
+        BundledSphinxAction[] memory _actions
+    ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
+        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actions);
+
+        BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](numInitialActions);
         BundledSphinxAction[] memory setStorageActions = new BundledSphinxAction[](
             numSetStorageActions
         );
-        uint deployContractIndex = 0;
-        uint setStorageIndex = 0;
-        for (uint i = 0; i < _actionBundle.actions.length; i++) {
-            BundledSphinxAction memory action = _actionBundle.actions[i];
-            if (action.action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                deployContractActions[deployContractIndex] = action;
-                deployContractIndex += 1;
-            } else {
-                setStorageActions[setStorageIndex] = action;
-                setStorageIndex += 1;
+        uint initialActionArrayIndex = 0;
+        uint setStorageArrayIndex = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (
+                action.action.actionType == SphinxActionType.DEPLOY_CONTRACT ||
+                action.action.actionType == SphinxActionType.CALL
+            ) {
+                initialActions[initialActionArrayIndex] = action;
+                initialActionArrayIndex += 1;
+            } else if (action.action.actionType == SphinxActionType.SET_STORAGE) {
+                setStorageActions[setStorageArrayIndex] = action;
+                setStorageArrayIndex += 1;
             }
         }
-        return (deployContractActions, setStorageActions);
+        return (initialActions, setStorageActions);
     }
 
     function getCodeSize(address _addr) external view returns (uint256) {
@@ -591,5 +655,97 @@ contract SphinxUtils is
             size := extcodesize(_addr)
         }
         return size;
+    }
+
+    function getCallHash(address _to, bytes memory _data) private pure returns (bytes32) {
+        return keccak256(abi.encode(_to, _data));
+    }
+
+    function findReferenceNameForAddress(
+        address _addr,
+        FoundryContractConfig[] memory _contractConfigs
+    ) internal pure returns (OptionalString memory) {
+        for (uint i = 0; i < _contractConfigs.length; i++) {
+            FoundryContractConfig memory contractConfig = _contractConfigs[i];
+            if (contractConfig.addr == _addr) {
+                return OptionalString({ exists: true, value: contractConfig.referenceName });
+            }
+        }
+        return OptionalString({ exists: false, value: "" });
+    }
+
+    /**
+     * @notice Returns an array of unique addresses from a given array of addresses, which may
+     *         contain duplicates.
+     *
+     * @param _addresses An array of addresses that may contain duplicates.
+     */
+    function getUniqueAddresses(
+        address[] memory _addresses
+    ) internal pure returns (address[] memory) {
+        // First, we get an array of unique addresses. We do this by iterating over the input array
+        // and adding each address to a new array if it hasn't been added already.
+        address[] memory uniqueAddresses = new address[](_addresses.length);
+        uint256 uniqueAddressCount = 0;
+        for (uint256 i = 0; i < _addresses.length; i++) {
+            bool isUnique = true;
+            // Check if the address has already been added to the uniqueAddresses array.
+            for (uint256 j = 0; j < uniqueAddressCount; j++) {
+                if (_addresses[i] == uniqueAddresses[j]) {
+                    isUnique = false;
+                    break;
+                }
+            }
+            // If the address hasn't been added yet, add it to the uniqueAddresses array.
+            if (isUnique) {
+                uniqueAddresses[uniqueAddressCount] = _addresses[i];
+                uniqueAddressCount += 1;
+            }
+        }
+
+        // Next, we create a new array with the correct length and copy the unique addresses into
+        // it. This is necessary because the uniqueAddresses array may contain empty addresses at
+        // the end.
+        address[] memory trimmedUniqueAddresses = new address[](uniqueAddressCount);
+        for (uint256 i = 0; i < uniqueAddressCount; i++) {
+            trimmedUniqueAddresses[i] = uniqueAddresses[i];
+        }
+
+        return trimmedUniqueAddresses;
+    }
+
+    function getUndeployedExternalContracts(
+        address[] memory _uniquePostDeployAddresses,
+        FoundryContractConfig[] memory _contractConfigs
+    ) internal view returns (address[] memory) {
+        address[] memory undeployedExternalAddresses = new address[](
+            _uniquePostDeployAddresses.length
+        );
+        uint256 undeployedExternalContractCount = 0;
+        for (uint i = 0; i < _uniquePostDeployAddresses.length; i++) {
+            bool isExternalAddress = findReferenceNameForAddress(
+                _uniquePostDeployAddresses[i],
+                _contractConfigs
+            ).exists == false;
+
+            if (isExternalAddress && _uniquePostDeployAddresses[i].code.length == 0) {
+                undeployedExternalAddresses[
+                    undeployedExternalContractCount
+                ] = _uniquePostDeployAddresses[i];
+                undeployedExternalContractCount += 1;
+            }
+        }
+
+        // Next, we create a new array with the correct length and copy the undeployed external
+        // addresses into it. This is necessary because the `undeployedExternalAddresses` array may
+        // contain empty addresses at the end.
+        address[] memory trimmedUndeployedExternalAddresses = new address[](
+            undeployedExternalContractCount
+        );
+        for (uint256 i = 0; i < undeployedExternalContractCount; i++) {
+            trimmedUndeployedExternalAddresses[i] = undeployedExternalAddresses[i];
+        }
+
+        return trimmedUndeployedExternalAddresses;
     }
 }

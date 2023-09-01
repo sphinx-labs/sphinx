@@ -1,20 +1,14 @@
 import path, { resolve } from 'path'
 import fs from 'fs'
 
-import {
-  ValidationError,
-  getUnvalidatedContractConfigs,
-  postParsingValidation,
-} from '@sphinx-labs/core/dist/config/parse'
+import { postParsingValidation } from '@sphinx-labs/core/dist/config/parse'
 import { FailureAction } from '@sphinx-labs/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import {
-  UserSphinxConfig,
-  getSphinxManagerAddress,
   getDeployContractCosts,
   writeCompilerConfig,
   remove0x,
-  SUPPORTED_NETWORKS,
+  ParsedConfig,
 } from '@sphinx-labs/core/dist'
 import { AbiCoder, concat } from 'ethers'
 
@@ -30,10 +24,9 @@ import {
 
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
-const userConfigStr = args[1]
-const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
+const parsedConfigStr = args[1]
+const parsedConfig: ParsedConfig = JSON.parse(parsedConfigStr)
 const broadcasting = args[2] === 'true'
-const ownerAddress = args[3]
 
 // This function must not rely on a provider object being available because a provider doesn't exist
 // outside of Solidity for the in-process Anvil node.
@@ -41,20 +34,8 @@ const ownerAddress = args[3]
   process.stderr.write = validationStderrWrite
 
   try {
-    const {
-      artifactFolder,
-      buildInfoFolder,
-      compilerConfigFolder,
-      storageLayout,
-      gasEstimates,
-      cachePath,
-    } = await getFoundryConfigOptions()
-
-    if (!storageLayout || !gasEstimates) {
-      throw Error(
-        "foundry.toml file must include both 'storageLayout' and 'evm.gasEstimates' in 'extra_output':\n extra_output = ['storageLayout', 'evm.gasEstimates']"
-      )
-    }
+    const { compilerConfigFolder, cachePath, artifactFolder, buildInfoFolder } =
+      await getFoundryConfigOptions()
 
     const rootImportPath =
       process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
@@ -85,38 +66,7 @@ const ownerAddress = args[3]
       cachePath
     )
 
-    const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-    const managerAddress = getSphinxManagerAddress(
-      ownerAddress,
-      userConfig.projectName
-    )
-
-    const network = Object.entries(SUPPORTED_NETWORKS).find(
-      (entry) => entry[1] === configCache.chainId
-    )
-    if (!network) {
-      throw new ValidationError(
-        `Network with ID ${
-          configCache.chainId
-        } is not supported by Sphinx: ${JSON.stringify(network, null, 2)}.`
-      )
-    }
-
-    const contractConfigs = getUnvalidatedContractConfigs(
-      userConfig,
-      [network[0]],
-      configArtifacts,
-      cre,
-      FailureAction.THROW,
-      managerAddress
-    )
-
-    const parsedConfig = {
-      manager: managerAddress,
-      contracts: contractConfigs,
-      projectName: userConfig.projectName,
-    }
+    const configArtifacts = await getConfigArtifacts(parsedConfig.contracts)
 
     await postParsingValidation(
       parsedConfig,
@@ -126,11 +76,8 @@ const ownerAddress = args[3]
       FailureAction.THROW
     )
 
-    const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
-    )
+    const { configUri, bundles, compilerConfig, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
 
     if (broadcasting) {
       writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
@@ -150,8 +97,8 @@ const ownerAddress = args[3]
       )
     }
 
-    const actionBundleType = SphinxUtilsABI.find(
-      (fragment) => fragment.name === 'actionBundle'
+    const bundledActionType = SphinxUtilsABI.find(
+      (fragment) => fragment.name === 'bundledActions'
     ).outputs[0]
     const targetBundleType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'targetBundle'
@@ -159,11 +106,14 @@ const ownerAddress = args[3]
     const deployContractCostsType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'deployContractCosts'
     ).outputs[0]
+    const humanReadableActionsType = SphinxUtilsABI.find(
+      (fragment) => fragment.name === 'humanReadableActions'
+    ).outputs[0]
 
     const coder = AbiCoder.defaultAbiCoder()
     const encodedActionBundle = coder.encode(
-      [actionBundleType],
-      [bundles.actionBundle]
+      [bundledActionType],
+      [bundles.actionBundle.actions]
     )
     const encodedTargetBundle = coder.encode(
       [targetBundleType],
@@ -172,12 +122,18 @@ const ownerAddress = args[3]
 
     const deployContractCosts = getDeployContractCosts(configArtifacts)
     const encodedConfigUriAndWarnings = coder.encode(
-      ['string', deployContractCostsType, 'string'],
-      [configUri, deployContractCosts, getPrettyWarnings()]
+      ['string', deployContractCostsType, humanReadableActionsType, 'string'],
+      [
+        configUri,
+        deployContractCosts,
+        Object.values(humanReadableActions),
+        getPrettyWarnings(),
+      ]
     )
 
-    // This is where the encoded action bundle ends and the target bundle begins.
-    const splitIdx1 = remove0x(encodedActionBundle).length / 2
+    // This is where the encoded action bundle ends and the target bundle begins. We add 32 because
+    // the first 32 bytes are reserved for the action bundle's root.
+    const splitIdx1 = 32 + remove0x(encodedActionBundle).length / 2
 
     // This is where the target bundle ends and the rest of the bundle info (config URI, warnings,
     // etc) begins.
@@ -189,6 +145,7 @@ const ownerAddress = args[3]
     )
 
     const encodedSuccess = concat([
+      bundles.actionBundle.root,
       encodedActionBundle,
       encodedTargetBundle,
       encodedConfigUriAndWarnings,

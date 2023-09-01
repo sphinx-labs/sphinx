@@ -2,6 +2,12 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { Integration } from './constants'
 
+export type SemverVersion = {
+  major: number
+  minor: number
+  patch: number
+}
+
 export type SphinxRuntimeEnvironment = {
   integration: Integration
   compilerConfigPath: string
@@ -19,12 +25,12 @@ export type SphinxRuntimeEnvironment = {
 
 /**
  * @param EXIT Exit the process without throwing an error. This cannot be caught in a try/catch.
- * Should be used in the Hardhat plugin.
- * @param THROW Throw an error. Can be caught in a try/catch. This should be used in the Foundry plugin.
+ * @param THROW Throw an error. Can be caught in a try/catch. This should be the default
+ * FailureAction in the Foundry plugin.
  */
 export enum FailureAction {
-  EXIT, // Exit the process without throwing an error. This cannot be caught in a try/catch.
-  THROW, // Throw an error. Can be caught in a try/catch.
+  EXIT,
+  THROW,
 }
 
 export enum ProposalRoute {

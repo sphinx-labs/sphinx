@@ -2,6 +2,17 @@ import { exec } from 'child_process'
 import { join, resolve } from 'path'
 import { promisify } from 'util'
 
+export type FoundryToml = {
+  artifactFolder: string
+  buildInfoFolder: string
+  deploymentFolder: string
+  compilerConfigFolder: string
+  cachePath: string
+  storageLayout: boolean
+  gasEstimates: boolean
+  rpcEndpoints: { [chainAlias: string]: string }
+}
+
 export const cleanPath = (dirtyPath: string) => {
   let cleanQuotes = dirtyPath.replace(/'/g, '')
   cleanQuotes = cleanQuotes.replace(/"/g, '')
@@ -30,16 +41,7 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
  * variables are injected into the output of `forge config` automatically, so there's no additional
  * parsing needed to support them.
  */
-export const getFoundryConfigOptions = async (): Promise<{
-  artifactFolder: string
-  buildInfoFolder: string
-  deploymentFolder: string
-  compilerConfigFolder: string
-  cachePath: string
-  storageLayout: boolean
-  gasEstimates: boolean
-  rpcEndpoints: { [chainAlias: string]: string }
-}> => {
+export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
   const execAsync = promisify(exec)
 
   const forgeConfigOutput = await execAsync('forge config --json')

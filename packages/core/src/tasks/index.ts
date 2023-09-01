@@ -60,7 +60,6 @@ import {
   RoleType,
   executeDeployment,
   getAuthLeafSignerInfo,
-  getNumDeployContractActions,
   makeAuthBundle,
   makeBundlesFromConfig,
   writeDeploymentArtifacts,
@@ -70,6 +69,10 @@ import {
   getAuthLeafsForChain,
   getGasEstimates,
   ProjectDeployment,
+  fromRawSphinxAction,
+  isSetStorageAction,
+  HumanReadableActions,
+  SphinxActionType,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -143,10 +146,10 @@ export const proposeAbstractTask = async (
   // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
   // there aren't any network-specific errors that are caused by the config. These errors would most
   // likely occur in the `postParsingValidation` function that's a few calls inside of
-  // `getParsedConfigWithOptions`. Note that the parsed config will be the same on each chain ID because the
-  // network-specific validation does not change any fields in the parsed config. Likewise, the
-  // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
-  // `ConfigCache` object.
+  // `getParsedConfigWithOptions`. Note that the parsed config will be the same on each chain ID
+  // because the network-specific validation does not change any fields in the parsed config.
+  // Likewise, the `ConfigArtifacts` object will be the same on each chain. The only thing that will
+  // change is the `ConfigCache` object.
   let parsedConfig: ParsedConfigWithOptions | undefined
   let configArtifacts: ConfigArtifacts | undefined
   const leafs: Array<AuthLeaf> = []
@@ -393,6 +396,7 @@ export const proposeAbstractTask = async (
     threshold: newCanonicalConfig.options.ownerThreshold,
     authAddress,
     managerAddress,
+    managerVersion: parsedConfig.options.managerVersion,
     canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
@@ -573,11 +577,8 @@ export const deployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
-    parsedConfig,
-    configArtifacts,
-    configCache
-  )
+  const { configUri, bundles, compilerConfig, humanReadableActions } =
+    await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
 
   if (
     bundles.actionBundle.actions.length === 0 &&
@@ -603,13 +604,18 @@ export const deployAbstractTask = async (
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been deployed before.`)
     spinner.start(`Approving ${projectName}...`)
+    const numTotalActions = bundles.actionBundle.actions.length
+    const numSetStorageActions = bundles.actionBundle.actions
+      .map((action) => fromRawSphinxAction(action.action))
+      .filter(isSetStorageAction).length
+    const numInitialActions = numTotalActions - numSetStorageActions
     await (
       await Manager.approve(
         bundles.actionBundle.root,
         bundles.targetBundle.root,
-        bundles.actionBundle.actions.length,
+        numInitialActions,
+        numSetStorageActions,
         bundles.targetBundle.targets.length,
-        getNumDeployContractActions(bundles.actionBundle),
         configUri,
         false,
         await getGasPriceOverrides(provider)
@@ -621,26 +627,57 @@ export const deployAbstractTask = async (
 
   if (
     currDeploymentStatus === DeploymentStatus.APPROVED ||
-    currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED
+    currDeploymentStatus === DeploymentStatus.INITIAL_ACTIONS_EXECUTED ||
+    currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED ||
+    currDeploymentStatus === DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
   ) {
     spinner.start(`Executing ${projectName}...`)
 
     const { success } = await executeDeployment(
       Manager,
       bundles,
+      deploymentId,
+      humanReadableActions,
       blockGasLimit,
-      configArtifacts,
       provider
     )
 
     if (!success) {
+      const failureEvent = (
+        await Manager.queryFilter(
+          Manager.filters.DeploymentFailed(deploymentId)
+        )
+      ).at(-1)
+
+      if (failureEvent) {
+        const log = Manager.interface.parseLog({
+          topics: failureEvent.topics as string[],
+          data: failureEvent.data,
+        })
+
+        if (log?.args[1] !== undefined) {
+          const action = humanReadableActions[Number(log?.args[1])]
+
+          if (action.actionType === SphinxActionType.CALL) {
+            throw new Error(
+              `Failed to execute ${projectName} because the following post-deployment action reverted:\n` +
+                `${action.reason}`
+            )
+          } else {
+            throw new Error(
+              `Failed to execute ${projectName} because the constructor of ${action.reason} reverted.`
+            )
+          }
+        }
+      }
+
       throw new Error(
-        `Failed to execute ${projectName}, likely because one of the user's constructors reverted during the deployment.`
+        `Failed to execute ${projectName}, likely because a transaction reverted during the deployment.`
       )
     }
   }
 
-  initialDeploymentStatus === BigInt(DeploymentStatus.COMPLETED)
+  initialDeploymentStatus === DeploymentStatus.COMPLETED
     ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     : spinner.succeed(`Executed ${projectName}.`)
 
@@ -900,7 +937,7 @@ export const sphinxImportProxyAbstractTask = async (
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
 
-  // TODO: These checks were written when we didn't prompt the user for their proxy type. Now that
+  // TODO(upgrades): These checks were written when we didn't prompt the user for their proxy type. Now that
   // we do, we should run just the function that corresponds to the proxy type they selected. E.g.
   // if they selected oz-uups, then we should only run `isUUPSProxy`. Also, the
   // `isInternalDefaultProxy` function relies on the `DefaultProxyDeployed` event, which no longer
@@ -955,6 +992,7 @@ export const getProjectBundleInfo = async (
   configUri: string
   compilerConfig: CompilerConfig
   bundles: SphinxBundles
+  humanReadableActions: HumanReadableActions
 }> => {
   const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
     parsedConfig,
@@ -962,42 +1000,11 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const bundles = makeBundlesFromConfig(
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
   )
 
-  return { configUri, compilerConfig, bundles }
-}
-
-export const approveDeployment = async (
-  projectName: string,
-  bundles: SphinxBundles,
-  configUri: string,
-  manager: ethers.Contract,
-  signerAddress: string,
-  provider: ethers.Provider
-) => {
-  const projectOwnerAddress = await manager.owner()
-  if (signerAddress !== projectOwnerAddress) {
-    throw new Error(
-      `Caller is not the project owner.\n` +
-        `Caller's address: ${signerAddress}\n` +
-        `Owner's address: ${projectOwnerAddress}`
-    )
-  }
-
-  await (
-    await manager.approve(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
-      getNumDeployContractActions(bundles.actionBundle),
-      configUri,
-      false,
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
+  return { configUri, compilerConfig, bundles, humanReadableActions }
 }
