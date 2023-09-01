@@ -66,10 +66,7 @@ interface ISphinxManager {
         bytes32[][] memory _proofs
     ) external;
 
-    function setStorage(
-        RawSphinxAction[] memory _actions,
-        bytes32[][] memory _proofs
-    ) external;
+    function setStorage(RawSphinxAction[] memory _actions, bytes32[][] memory _proofs) external;
 
     function initiateUpgrade(SphinxTarget[] memory _targets, bytes32[][] memory _proofs) external;
 

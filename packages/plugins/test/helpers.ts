@@ -42,6 +42,7 @@ import {
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import * as plugins from '../dist'
 import {
@@ -387,57 +388,74 @@ export const deploy = async (
   failureAction: FailureAction = FailureAction.EXIT
 ) => {
   if (integration === 'hardhat') {
-    const wallet = new ethers.Wallet(deployerPrivateKey, provider)
-    const ownerAddress = await wallet.getAddress()
-
-    const compilerConfigPath = hre.config.paths.compilerConfigs
-
-    const deploymentFolder = hre.config.paths.deployments
-
-    const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfig(
-        config,
-        provider,
-        cre,
-        plugins.makeGetConfigArtifacts(hre),
-        ownerAddress,
-        failureAction
-      )
-
-    await deployAbstractTask(
-      provider,
-      wallet,
-      compilerConfigPath,
-      deploymentFolder,
-      'hardhat',
-      cre,
-      parsedConfig,
-      configCache,
-      configArtifacts
-    )
+    deployUsingHardhat(config, provider, deployerPrivateKey, cre, failureAction)
   } else if (integration === 'foundry') {
-    const tmpFoundryConfigFileName = 'tmp-foundry-config.json'
-    const tmpFoundryConfigPath = join(__dirname, tmpFoundryConfigFileName)
-    // Write the config to a temporary file.
-    writeFileSync(tmpFoundryConfigPath, JSON.stringify(config))
-
-    const rpcUrl = provider._getConnection().url
-    process.env['SPHINX_INTERNAL_CONFIG_PATH'] = tmpFoundryConfigPath
-    process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
-    process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
-    process.env['SPHINX_INTERNAL_BROADCAST'] = 'true'
-
-    // Execute the deployment.
-    await execAsync(
-      `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
-    )
-
-    // Remove the config file at the temporary path.
-    if (existsSync(tmpFoundryConfigPath)) {
-      rmSync(tmpFoundryConfigPath)
-    }
+    deployUsingFoundry(config, provider, deployerPrivateKey)
   } else {
     throw new Error('Invalid integration.')
+  }
+}
+
+export const deployUsingHardhat = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider | HardhatEthersProvider,
+  deployerPrivateKey: string,
+  cre: SphinxRuntimeEnvironment = defaultCre,
+  failureAction: FailureAction = FailureAction.EXIT
+) => {
+  const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+  const ownerAddress = await wallet.getAddress()
+
+  const compilerConfigPath = hre.config.paths.compilerConfigs
+
+  const deploymentFolder = hre.config.paths.deployments
+
+  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
+    config,
+    provider,
+    cre,
+    plugins.makeGetConfigArtifacts(hre),
+    ownerAddress,
+    failureAction
+  )
+
+  await deployAbstractTask(
+    provider,
+    wallet,
+    compilerConfigPath,
+    deploymentFolder,
+    'hardhat',
+    cre,
+    parsedConfig,
+    configCache,
+    configArtifacts
+  )
+}
+
+export const deployUsingFoundry = async (
+  config: UserConfig,
+  provider: ethers.JsonRpcProvider,
+  deployerPrivateKey: string
+) => {
+  const tmpFoundryConfigFileName = 'tmp-foundry-config.json'
+  const tmpFoundryConfigPath = join(__dirname, tmpFoundryConfigFileName)
+  // Write the config to a temporary file.
+  writeFileSync(tmpFoundryConfigPath, JSON.stringify(config))
+
+  const rpcUrl = provider._getConnection().url
+  process.env['SPHINX_INTERNAL_CONFIG_PATH'] = tmpFoundryConfigPath
+  process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
+  process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = deployerPrivateKey
+  process.env['SPHINX_INTERNAL_BROADCAST'] = 'true'
+
+  // Execute the deployment.
+  await execAsync(
+    `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
+  )
+
+  // Remove the config file at the temporary path.
+  if (existsSync(tmpFoundryConfigPath)) {
+    rmSync(tmpFoundryConfigPath)
   }
 }
 

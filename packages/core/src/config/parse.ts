@@ -121,6 +121,7 @@ import {
   SupportedChainId,
 } from '../networks'
 import {
+  REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER,
   contractInstantiatedWithDuplicatedNetworkOverrides,
   contractInstantiatedWithInvalidAbi,
   contractInstantiatedWithInvalidAddress,
@@ -611,6 +612,16 @@ export const assertValidUserConfig = (
       logValidationError(
         'error',
         `The 'salt' field for ${referenceName} in the Sphinx config file must be a string or number.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    if (referenceName === 'SphinxManager') {
+      logValidationError(
+        'error',
+        REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER,
         [],
         cre.silent,
         cre.stream
@@ -2055,7 +2066,10 @@ export const assertValidContractReferences = (
 
     const contractReference = variable.substring(2, variable.length - 2).trim()
 
-    if (!validReferenceNames.includes(contractReference)) {
+    if (
+      !validReferenceNames.includes(contractReference) &&
+      contractReference !== 'SphinxManager'
+    ) {
       logValidationError(
         'error',
         `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
@@ -2477,6 +2491,7 @@ export const resolveContractReferences = (
   // Resolve all contract references.
   const resolvedUserConfig: UserSphinxConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(userConfig))({
+      SphinxManager: managerAddress,
       ...contractAddresses,
     })
   )
@@ -3487,7 +3502,7 @@ export const parsePostDeploymentActions = (
           'error',
           `The config contains incorrectly formatted arguments in the ${functionLogName}. See ${hyperlink(
             'here',
-            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md'
+            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md'
           )} for valid formats.\n` + `Incorrectly formatted arguments:`,
           incorrectlyFormattedArgs,
           cre.silent,

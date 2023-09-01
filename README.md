@@ -44,7 +44,9 @@ The standalone CLI tool is free to use and fully open-source. All of the code is
 ### References
 
 - [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
+- [Post-Deployment Actions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/post-deployment-actions.md): How to call arbitrary functions after your contracts are deployed.
+- [Constructor Argument Overrides](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-arg-overrides.md): How to set constructor arguments on a per-chain basis.
+- [Contract Variables](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Shows how to define every type of contract variable in your Sphinx config file (structs, arrays, etc.).
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 

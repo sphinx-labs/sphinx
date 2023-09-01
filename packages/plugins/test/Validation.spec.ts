@@ -1,8 +1,10 @@
-import hre from 'hardhat'
+import hre, { ethers } from 'hardhat'
 import '../dist' // Imports Sphinx type extensions for Hardhat
-import { expect } from 'chai'
+import chai from 'chai'
+import chaiAsPromised from 'chai-as-promised'
 import {
   FailureAction,
+  UserSphinxConfig,
   ensureSphinxInitialized,
   getAuthAddress,
   getParsedConfig,
@@ -10,11 +12,15 @@ import {
   getSphinxManagerAddress,
   readUserConfig,
   readUserConfigWithOptions,
+  REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER,
 } from '@sphinx-labs/core'
 import '@nomicfoundation/hardhat-ethers'
 
 import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
+
+chai.use(chaiAsPromised)
+const expect = chai.expect
 
 const validationConfigPath = './sphinx/validation/Validation.config.ts'
 const constructorArgValidationConfigPath =
@@ -26,8 +32,19 @@ const overriddenConfigPath =
 describe('Validate', () => {
   let validationOutput = ''
 
+  const cre = createSphinxRuntime(
+    'hardhat',
+    false,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
+    true,
+    hre.config.paths.compilerConfigs,
+    hre,
+    false,
+    process.stderr
+  )
+  const provider = hre.ethers.provider
+
   before(async () => {
-    const provider = hre.ethers.provider
     const signer = await provider.getSigner()
     const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
@@ -36,17 +53,6 @@ describe('Validate', () => {
     }
 
     await ensureSphinxInitialized(provider, signer)
-
-    const cre = createSphinxRuntime(
-      'hardhat',
-      false,
-      hre.config.networks.hardhat.allowUnlimitedContractSize,
-      true,
-      hre.config.paths.compilerConfigs,
-      hre,
-      false,
-      process.stderr
-    )
 
     try {
       await getParsedConfig(
@@ -465,6 +471,35 @@ describe('Validate', () => {
     )
     expect(validationOutput).to.have.string(
       `otherIncorrectOverrideArg on network: anvil`
+    )
+  })
+
+  it('did catch reference name called SphinxManager', async () => {
+    const invalidUserConfig: UserSphinxConfig = {
+      projectName: 'Validation',
+      contracts: {
+        SphinxManager: {
+          contract: 'MyCntract1',
+          kind: 'immutable',
+        },
+      },
+    }
+
+    try {
+      await getParsedConfig(
+        invalidUserConfig,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre),
+        ethers.ZeroAddress,
+        FailureAction.THROW
+      )
+    } catch {
+      // Do nothing.
+    }
+
+    expect(validationOutput).to.have.string(
+      REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER
     )
   })
 })

@@ -60,6 +60,9 @@ const { abi: ExternalContractABI } =
   hre.artifacts.readArtifactSync('MyContract2')
 const { abi: MyOwnableContractABI } =
   hre.artifacts.readArtifactSync('MyOwnableContract')
+const { abi: MyAccessControlContractABI } = hre.artifacts.readArtifactSync(
+  'MyAccessControlContract'
+)
 
 const constructorArgs = {
   _intArg: 0,
@@ -1591,8 +1594,7 @@ describe('Post-Deployment Actions', () => {
     })
   }
 
-  // TODO: .only
-  it.only("Executes permissioned action and transfers ownership using OpenZeppelin's Ownable", async () => {
+  it("Executes permissioned action and transfers ownership using OpenZeppelin's Ownable", async () => {
     const MyOwnableContract = new Contract('{{ MyOwnableContract }}')
     const finalOwner = '0x' + '11'.repeat(20)
     const userConfig: UserConfig = {
@@ -1625,8 +1627,7 @@ describe('Post-Deployment Actions', () => {
     expect(await MyOwnableContract_Deployed.owner()).equals(finalOwner)
   })
 
-  // TODO: .only
-  it.only("Executes permissioned action and transfers ownership using OpenZeppelin's AccessControl", async () => {
+  it("Executes permissioned action and transfers ownership using OpenZeppelin's AccessControl", async () => {
     const MyAccessControlContract = new Contract(
       '{{ MyAccessControlContract }}'
     )
@@ -1643,8 +1644,12 @@ describe('Post-Deployment Actions', () => {
         },
       },
       postDeploy: [
-        MyAccessControlContract.myAccessControlFunction(123),
-        MyAccessControlContract.transferOwnership(finalOwner),
+        MyAccessControlContract.myAccessControlFunction(345),
+        MyAccessControlContract.grantRole(ethers.ZeroHash, finalOwner),
+        MyAccessControlContract.renounceRole(
+          ethers.ZeroHash,
+          sphinxManagerAddress
+        ),
       ],
     }
     const network = 'goerli'
@@ -1657,8 +1662,20 @@ describe('Post-Deployment Actions', () => {
       MyAccessControlContractABI,
       provider
     )
-    expect(await MyAccessControlContract_Deployed.value()).equals(123n)
-    expect(await MyAccessControlContract_Deployed.owner()).equals(finalOwner)
+    expect(await MyAccessControlContract_Deployed.value()).equals(345n)
+    expect(
+      await MyAccessControlContract_Deployed.hasRole(
+        ethers.ZeroHash,
+        finalOwner
+      )
+    ).to.equal(true)
+    // Check that the deployer no longer has the role.
+    expect(
+      await MyAccessControlContract_Deployed.hasRole(
+        ethers.ZeroHash,
+        sphinxManagerAddress
+      )
+    ).to.equal(false)
   })
 
   it('Proposal', async () => {

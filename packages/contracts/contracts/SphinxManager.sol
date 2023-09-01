@@ -556,13 +556,7 @@ contract SphinxManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(
-                        abi.encode(
-                            action.addr,
-                            action.actionType,
-                            action.data
-                        )
-                    ),
+                    keccak256(abi.encode(action.addr, action.actionType, action.data)),
                     action.index,
                     proof,
                     numTotalActions
@@ -675,7 +669,8 @@ contract SphinxManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (deployment.status != DeploymentStatus.INITIAL_ACTIONS_EXECUTED) revert InvalidDeploymentStatus();
+        if (deployment.status != DeploymentStatus.INITIAL_ACTIONS_EXECUTED)
+            revert InvalidDeploymentStatus();
 
         uint256 numTargets = _targets.length;
         if (numTargets != deployment.targets) {
@@ -747,7 +742,8 @@ contract SphinxManager is
         bytes32[][] memory _proofs
     ) public nonReentrant {
         DeploymentState storage deployment = _deployments[activeDeploymentId];
-        if (deployment.status != DeploymentStatus.PROXIES_INITIATED) revert InvalidDeploymentStatus();
+        if (deployment.status != DeploymentStatus.PROXIES_INITIATED)
+            revert InvalidDeploymentStatus();
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
@@ -774,13 +770,7 @@ contract SphinxManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(
-                        abi.encode(
-                            action.addr,
-                            action.actionType,
-                            action.data
-                        )
-                    ),
+                    keccak256(abi.encode(action.addr, action.actionType, action.data)),
                     action.index,
                     proof,
                     numTotalActions
@@ -839,7 +829,8 @@ contract SphinxManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (deployment.status != DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED) revert InvalidDeploymentStatus();
+        if (deployment.status != DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED)
+            revert InvalidDeploymentStatus();
 
         uint256 numTargets = _targets.length;
         if (numTargets != deployment.targets) {

@@ -1,10 +1,9 @@
-# Constructor Args in a Sphinx Config File
+# Contract Variables in a Sphinx Config File
 
-This is a reference that shows how to define constructor arguments in your Sphinx config file.
+This is a reference that shows how to define every type of variable in your Sphinx config file.
 
 ## Table of Contents
 
-- [Defaults Args & Chain Overrides](#default-constructor-args--chain-specific-overrides)
 - [Booleans](#booleans)
 - [Integers](#integers)
   - [Unsigned Integers (`uint`)](#unsigned-integers-uint)
@@ -25,51 +24,6 @@ This is a reference that shows how to define constructor arguments in your Sphin
 - [Structs](#structs)
   - [Complex structs](#complex-structs)
 - [User-Defined Value Types](#user-defined-value-types)
-
-## Default Constructor Args & Chain-specific Overrides
-Since with Sphinx, you can trigger deployments across multiple networks at once, there may be cases where you need to define different constructor arguments for different networks. For example, you may need to define a different fee level or specify a different set of addresses for third-party contracts that your system integrates with.
-
-To handle these cases, Sphinx allows you to define two types of constructor arguments in your config file: default constructor arguments and chain-specific overrides.
-
-### Default Arguments
-Default constructor arguments can be defined using the `constructorArgs` field on your contract definitions like you may have seen in previous guides:
-```
-constructorArgs: {
-  myArgument: 1
-}
-```
-
-Default constructor arguments will be used automatically when deploying this contract on any chain where there are no constructor argument overrides.
-
-### Chain-specific Overrides
-Chain-specific overrides can be defined using the `overrides` field on your contract definitions. The `overrides` field accepts an array of override objects:
-```
-constructorArgs: {
-  feePercentage: 10
-}
-overrides: [
-  {
-    chains: ['arbitrum', 'optimism'],
-    constructorArgs: {
-      feePercentage: 50
-    }
-  },
-  {
-    chains: ['ethereum'],
-    constructorArgs: {
-      feePercentage: 3
-    }
-  }
-]
-```
-
-Chain-specific overrides give you a great deal of flexibility in how you define your constructor arguments. In the above example, we've defined the default `feePercentage` to be 10. On Arbitrum and Optimism, we've set it to 50, and on Ethereum 3. When we deploy using this config, Sphinx will automatically select the correct constructor argument based on the target chain(s).
-
-There are a few rules you must follow when defining your chain-specific overrides, or Sphinx will output a validation error when you attempt to deploy:
-- Every constructor argument must have either a default value, an override, or both for every chain you want to deploy on.
-- Constructor arguments cannot have more than 1 override for each chain.
-
-While not required, we recommend setting default values for every constructor argument and then defining custom values for chains as needed.
 
 ## Booleans
 
@@ -115,18 +69,19 @@ For example, say you have a contract defined in your config file like this:
 MyFirstContract: {
   contract: 'HelloSphinx',
   kind: 'immutable',
-  constructorArgs: { ... }
+  constructorArgs: ...
 }
 ```
 
-The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `MyFirstContract`. You can use the contract reference `{{ MyFirstContract }}` as a replacement for the address of `MyFirstContract`. You can use contract references anywhere in your config file. For example, if you have another contract in your config file, you can do this:
+The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `MyFirstContract`. The contract reference is the reference name surrounded by `{{ }}`. For example, the contract reference of `MyFirstContract` is `{{ MyFirstContract }}`. You can use a contract reference as a replacement for a contract's address anywhere in your config file. For example:
 
 ```ts
 MySecondContract: {
   contract: 'HelloSphinx',
   kind: 'immutable',
   constructorArgs: {
-    _myFirstContract: '{{ MyFirstContract }}' // Address of MyFirstContract
+    // Address of MyFirstContract:
+    _myAddress: '{{ MyFirstContract }}'
   }
 }
 ```
@@ -137,6 +92,8 @@ Contract references are case-sensitive. So, in the example above, this is not va
 ```ts
 _myFirstContract: '{{ CONTRACTONE }}' // Invalid reference name
 ```
+
+To use the address of your `SphinxManager` contract in your config, you can use the contract reference `{{ SphinxManager }}`.
 
 ## Fixed-size bytes (`bytes1`, `bytes2`, ..., `bytes32`)
 

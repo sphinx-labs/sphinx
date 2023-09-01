@@ -90,3 +90,6 @@ export const externalContractsMustBeDeployed = (chainId: number): string => {
     chainId
   )}:`
 }
+
+export const REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER =
+  'Cannot name your contract "SphinxManager" in your config file. Please choose a different name.'
