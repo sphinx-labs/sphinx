@@ -26,7 +26,6 @@ import {
     BundleInfo,
     FoundryContractConfig,
     ConfigCache,
-    DeployContractCost,
     OptionalAddress,
     HumanReadableAction
 } from "./SphinxPluginTypes.sol";
@@ -155,7 +154,7 @@ abstract contract Sphinx {
         require(success, string(sphinxUtils.removeSelector(retdata)));
         ConfigCache memory configCache = abi.decode(retdata, (ConfigCache));
 
-        BundleInfo memory bundleInfo = getBundleInfo(configCache, configs.parsedConfigStr, owner);
+        BundleInfo memory bundleInfo = getBundleInfo(configCache, configs.parsedConfigStr);
 
         require(
             owner == configs.minimalConfig.owner,
@@ -231,8 +230,7 @@ abstract contract Sphinx {
             (bool executionSuccess, HumanReadableAction memory readableAction) = executeDeployment(
                 manager,
                 bundleInfo,
-                configCache.blockGasLimit,
-                bundleInfo.deployContractCosts
+                configCache.blockGasLimit
             );
 
             if (!executionSuccess) {
@@ -280,16 +278,14 @@ abstract contract Sphinx {
 
     function getBundleInfo(
         ConfigCache memory _configCache,
-        string memory _parsedConfigStr,
-        address _owner
+        string memory _parsedConfigStr
     ) private returns (BundleInfo memory) {
         (bool success, bytes memory retdata) = address(sphinxUtils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.ffiGetEncodedBundleInfo.selector,
                 _configCache,
                 _parsedConfigStr,
-                rootFfiPath,
-                _owner
+                rootFfiPath
             )
         );
         require(success, string(sphinxUtils.removeSelector(retdata)));
@@ -417,8 +413,7 @@ abstract contract Sphinx {
         BundledSphinxAction[] memory actions,
         bool isSetStorageActionArray,
         ISphinxManager manager,
-        uint bufferedGasLimit,
-        DeployContractCost[] memory deployContractCosts
+        uint bufferedGasLimit
     ) private returns (DeploymentStatus) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
@@ -439,8 +434,7 @@ abstract contract Sphinx {
             // Figure out the maximum number of actions that can be executed in a single batch
             uint batchSize = sphinxUtils.findMaxBatchSize(
                 sphinxUtils.inefficientSlice(filteredActions, executed, filteredActions.length),
-                bufferedGasLimit - ((bufferedGasLimit) * 20) / 100,
-                deployContractCosts
+                bufferedGasLimit - ((bufferedGasLimit) * 20) / 100
             );
             BundledSphinxAction[] memory batch = sphinxUtils.inefficientSlice(
                 filteredActions,
@@ -475,8 +469,7 @@ abstract contract Sphinx {
     function executeDeployment(
         ISphinxManager manager,
         BundleInfo memory bundleInfo,
-        uint256 blockGasLimit,
-        DeployContractCost[] memory deployContractCosts
+        uint256 blockGasLimit
     ) private returns (bool, HumanReadableAction memory) {
         vm.recordLogs();
 
@@ -491,8 +484,7 @@ abstract contract Sphinx {
             initialActions,
             false,
             manager,
-            bufferedGasLimit,
-            deployContractCosts
+            bufferedGasLimit
         );
         if (status == DeploymentStatus.FAILED) {
             // Get logs
@@ -533,8 +525,7 @@ abstract contract Sphinx {
             setStorageActions,
             true,
             manager,
-            bufferedGasLimit,
-            deployContractCosts
+            bufferedGasLimit
         );
 
         // Complete the upgrade

@@ -5,7 +5,6 @@ import { postParsingValidation } from '@sphinx-labs/core/dist/config/parse'
 import { FailureAction } from '@sphinx-labs/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import {
-  getDeployContractCosts,
   writeCompilerConfig,
   remove0x,
   ParsedConfig,
@@ -103,9 +102,6 @@ const broadcasting = args[2] === 'true'
     const targetBundleType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'targetBundle'
     ).outputs[0]
-    const deployContractCostsType = SphinxUtilsABI.find(
-      (fragment) => fragment.name === 'deployContractCosts'
-    ).outputs[0]
     const humanReadableActionsType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'humanReadableActions'
     ).outputs[0]
@@ -120,15 +116,9 @@ const broadcasting = args[2] === 'true'
       [bundles.targetBundle]
     )
 
-    const deployContractCosts = getDeployContractCosts(configArtifacts)
     const encodedConfigUriAndWarnings = coder.encode(
-      ['string', deployContractCostsType, humanReadableActionsType, 'string'],
-      [
-        configUri,
-        deployContractCosts,
-        Object.values(humanReadableActions),
-        getPrettyWarnings(),
-      ]
+      ['string', humanReadableActionsType, 'string'],
+      [configUri, Object.values(humanReadableActions), getPrettyWarnings()]
     )
 
     // This is where the encoded action bundle ends and the target bundle begins. We add 32 because

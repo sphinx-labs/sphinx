@@ -38,7 +38,6 @@ import {
     BundleInfo,
     FoundryContractConfig,
     ConfigCache,
-    DeployContractCost,
     HumanReadableAction,
     ContractConfigCache,
     DeploymentRevert,
@@ -151,8 +150,6 @@ contract SphinxUtils is
 
     function minimalConfig() external pure returns (FoundryConfig memory) {}
 
-    function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
-
     function humanReadableActions() external pure returns (HumanReadableAction[] memory) {}
 
     function slice(
@@ -174,8 +171,7 @@ contract SphinxUtils is
     function ffiGetEncodedBundleInfo(
         ConfigCache memory _configCache,
         string memory _parsedConfigStr,
-        string memory _rootFfiPath,
-        address _owner
+        string memory _rootFfiPath
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
         string[] memory cmds = new string[](6);
@@ -235,12 +231,11 @@ contract SphinxUtils is
             bytes memory remainingBundleInfo = this.slice(data, splitIdx2, data.length);
             (
                 string memory configUri,
-                DeployContractCost[] memory costs,
                 HumanReadableAction[] memory readableActions,
                 string memory warnings
             ) = abi.decode(
                     remainingBundleInfo,
-                    (string, DeployContractCost[], HumanReadableAction[], string)
+                    (string, HumanReadableAction[], string)
                 );
 
             if (bytes(warnings).length > 0) {
@@ -249,7 +244,6 @@ contract SphinxUtils is
             return
                 BundleInfo(
                     configUri,
-                    costs,
                     decodedActionBundle,
                     decodedTargetBundle,
                     readableActions
@@ -376,8 +370,7 @@ contract SphinxUtils is
      */
     function executable(
         BundledSphinxAction[] memory selected,
-        uint maxGasLimit,
-        DeployContractCost[] memory costs
+        uint maxGasLimit
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
 
@@ -394,11 +387,10 @@ contract SphinxUtils is
      */
     function findMaxBatchSize(
         BundledSphinxAction[] memory actions,
-        uint maxGasLimit,
-        DeployContractCost[] memory costs
+        uint maxGasLimit
     ) public pure returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(actions, maxGasLimit, costs)) {
+        if (executable(actions, maxGasLimit)) {
             return actions.length;
         }
 
@@ -409,7 +401,7 @@ contract SphinxUtils is
         while (min < max) {
             uint mid = Math.ceilDiv((min + max), 2);
             BundledSphinxAction[] memory left = inefficientSlice(actions, 0, mid);
-            if (executable(left, maxGasLimit, costs)) {
+            if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {
                 max = mid - 1;
