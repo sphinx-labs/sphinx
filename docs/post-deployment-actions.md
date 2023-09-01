@@ -52,13 +52,14 @@ postDeploy: [
 
 The post-deployment actions are executed in the order they're defined in the `postDeploy` array. So, in the example above, the order would be: `increment`, `setMyValue`, then `transferOwnership`.
 
-Like contract deployments, your post-deployment actions are idempotent. This means that they'll only be executed once per chain, even if you re-deploy your config file.
+Like contract deployments, your post-deployment actions are idempotent. This means that they'll only be executed once per chain, even if you re-deploy your config file. However, if you change an aspect of a post-deployment action between deployments, such as a function parameter, then that action will be re-executed.
 
 ## Calling external contracts
 
 You may want to call a function on a contract that you're not deploying in your config file. Here's how to do this in your config file:
 
 ```ts
+// Import Sphinx types.
 import { Contract, UserSphinxConfig } from '@sphinx-labs/core'
 import { ExternalContractABI } from './path/to/abi'
 
@@ -130,22 +131,28 @@ const MyContract = new Contract(...)
 const config: UserSphinxConfig = {
   ...
   postDeploy: [
-    // Default arguments:
-    MyContract.myFunction(123, 'hello', '0x1111...',
-    // Chain-specific overrides:
-    [
-        // Override the default value of `_myUint` for 'optimism-goerli' and 'goerli'.
-        {
-          args: { _myUint: 456 },
-          chains: ['optimism-goerli', 'goerli']
-        },
-        // Override the default value of `_myAddr` and `_myStr` for 'arbitrum-goerli'.
-        {
-          args: { _myAddr: '0x4444...', _myStr: 'hey-arbitrum' },
-          chains: ['arbitrum-goerli'],
-        },
-    ])
-  ]
+    MyContract.myFunction(
+      // Default arguments:
+      123,
+      'hello',
+      '0x1111...',
+      // Options object that contains chain-specific overrides:
+      {
+        overrides: [
+          // Override the default value of `_myUint` for 'optimism-goerli' and 'goerli'.
+          {
+            args: { _myUint: 456 },
+            chains: ['optimism-goerli', 'goerli'],
+          },
+          // Override the default value of `_myAddr` and `_myStr` for 'arbitrum-goerli'.
+          {
+            args: { _myAddr: '0x4444...', _myStr: 'hey-arbitrum' },
+            chains: ['arbitrum-goerli'],
+          },
+        ],
+      }
+    ),
+  ],
 }
 ```
 
@@ -165,16 +172,18 @@ const config: UserSphinxConfig = {
   },
   postDeploy: [
     // Uses the address of 'MyOtherContract' as the argument.
-    MyContractObject.setAddress('{{ MyOtherContract }}')
-    // Uses a default address of '0x1111...' and overrides this for
-    // 'optimism-goerli' with the address of 'MyContract'.
-    MyContractObject.setChainSpecificAddress('0x1111...', [
-      {
-        chains: ['optimism-goerli'],
-        address: '{{ MyContract }}'
-      },
-    ])
-  ]
+    MyContractObject.setAddress('{{ MyOtherContract }}'),
+    // Uses a default argument of '0x1111...' for the variable '_myAddr' and overrides
+    // it for 'optimism-goerli' with the address of 'MyContract'.
+    MyContractObject.setChainSpecificAddress('0x1111...', {
+      overrides: [
+        {
+          args: { _myAddr: '{{ MyContract }}' },
+          chains: ['optimism-goerli'],
+        },
+      ],
+    }),
+  ],
 }
 ```
 

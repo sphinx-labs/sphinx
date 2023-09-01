@@ -72,6 +72,7 @@ import {
   UserConfigVariable,
   UserCallAction,
   ValidManagerVersion,
+  UserFunctionOptions,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1661,6 +1662,15 @@ export const isUserConstructorArgOverride = (
   arg: UserArgOverride
 ): arg is UserConstructorArgOverride => {
   return (arg as UserConstructorArgOverride).constructorArgs !== undefined
+}
+
+export const isUserFunctionOptions = (
+  arg: UserConfigVariable | UserFunctionOptions | undefined
+): arg is UserFunctionOptions => {
+  return (
+    arg !== undefined &&
+    isUserFunctionArgOverrideArray((arg as UserFunctionOptions).overrides)
+  )
 }
 
 export const isUserFunctionArgOverrideArray = (

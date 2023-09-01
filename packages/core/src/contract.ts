@@ -3,11 +3,12 @@ import {
   UserCallAction,
   UserConfigVariable,
   UserFunctionArgOverride,
+  UserFunctionOptions,
 } from './config'
 import 'core-js/features/array/at'
-import { isUserFunctionArgOverrideArray } from './utils'
+import { isUserFunctionOptions } from './utils'
 
-type MethodArgs = [...Array<UserConfigVariable | UserFunctionArgOverride>]
+type MethodArgs = [...Array<UserConfigVariable | UserFunctionOptions>]
 type ContractMethod = (...args: MethodArgs) => UserCallAction
 
 export class Contract {
@@ -43,9 +44,9 @@ export class Contract {
 
       let functionArgs: Array<UserConfigVariable>
       let functionArgOverrides: Array<UserFunctionArgOverride> | undefined
-      if (args.length > 1 && isUserFunctionArgOverrideArray(lastArg)) {
+      if (args.length > 1 && isUserFunctionOptions(lastArg)) {
         functionArgs = firstArgs
-        functionArgOverrides = lastArg
+        functionArgOverrides = lastArg.overrides
       } else {
         // No overrides were provided, so we just use the args as-is.
         functionArgs = args

@@ -170,8 +170,8 @@ describe('Post-Deployment Actions', () => {
       }
     })
 
-    beforeEach(() => {
-      // Reset the validation output before each test.
+    afterEach(() => {
+      // Reset the validation output.
       validationOutput = ''
     })
 
@@ -643,7 +643,7 @@ describe('Post-Deployment Actions', () => {
     })
   })
 
-  const integrations: Array<Integration> = ['foundry', 'hardhat']
+  const integrations: Array<Integration> = ['hardhat', 'foundry']
   for (const integration of integrations) {
     // This section of the test suite is separated into two main components: tests that
     // vary the complexity of the Sphinx contract instance while keeping the function calls simple,
@@ -985,7 +985,9 @@ describe('Post-Deployment Actions', () => {
         it('Single function with chain-specific overrides', async () => {
           const userConfig = structuredClone(userConfigWithoutPostDeployActions)
           userConfig.postDeploy = [
-            ConfigContract1.setInts(1, 2, 3, functionArgOverrides),
+            ConfigContract1.setInts(1, 2, 3, {
+              overrides: functionArgOverrides,
+            }),
           ]
 
           await Promise.all(
@@ -1036,14 +1038,20 @@ describe('Post-Deployment Actions', () => {
                 },
                 a: 1,
               },
-              [
-                {
-                  chains: ['goerli', 'optimism-goerli'],
-                  args: {
-                    _myStruct: { a: 4, b: 5, c: { d: '0x' + '22'.repeat(20) } },
+              {
+                overrides: [
+                  {
+                    chains: ['goerli', 'optimism-goerli'],
+                    args: {
+                      _myStruct: {
+                        a: 4,
+                        b: 5,
+                        c: { d: '0x' + '22'.repeat(20) },
+                      },
+                    },
                   },
-                },
-              ]
+                ],
+              }
             ),
           ]
 
@@ -1084,13 +1092,17 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
             ConfigContract1.incrementUint(),
-            ConfigContract1['set(int,int)'](-3, -4, [
-              { chains: ['optimism-goerli'], args: { _secondInt: -5 } },
-            ]),
+            ConfigContract1['set(int,int)'](-3, -4, {
+              overrides: [
+                { chains: ['optimism-goerli'], args: { _secondInt: -5 } },
+              ],
+            }),
             ConfigContract1.incrementUint(),
           ]
 
@@ -1142,9 +1154,11 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
           ]
 
           await Promise.all(
@@ -1232,9 +1246,11 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
           ]
 
           await Promise.all(
@@ -1310,9 +1326,11 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
           ]
 
           await Promise.all(
@@ -1389,9 +1407,11 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
           ]
 
           // Deploy on the initial testnets
@@ -1480,9 +1500,11 @@ describe('Post-Deployment Actions', () => {
           userConfig.postDeploy = [
             ConfigContract1.incrementUint(),
             ConfigContract1.incrementUint(),
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ]),
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            }),
           ]
 
           // Deploy on the initial testnets
@@ -1689,9 +1711,11 @@ describe('Post-Deployment Actions', () => {
     projectTestInfo.userConfig.postDeploy = [
       ConfigContract1.incrementUint(),
       ConfigContract1.incrementUint(),
-      ExternalContract1.incrementMyContract2(6, [
-        { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-      ]),
+      ExternalContract1.incrementMyContract2(6, {
+        overrides: [
+          { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+        ],
+      }),
     ]
     projectTestInfo.userConfig.options.proposers.push(deployerAddress)
     projectTestInfo.userConfig.options.testnets = initialTestnets

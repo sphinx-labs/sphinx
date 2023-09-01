@@ -207,6 +207,10 @@ export type UserConstructorArgOverride = {
   }
 }
 
+export type UserFunctionOptions = {
+  overrides: Array<UserFunctionArgOverride>
+}
+
 export type UserFunctionArgOverride = {
   chains: Array<SupportedNetworkName>
   args: {
