@@ -31,13 +31,15 @@ const config: UserSphinxConfig = {
   contracts: { MyContract: { ... } },
   // Define your post-deployment actions:
   postDeploy: [
-    // Call the `increment()` function on `MyContract`.
+    // Call the `increment()` function on `MyContract`:
     MyContract.increment()
   ]
 }
 ```
 
-Now, the `increment()` function will be called on `MyContract` for every chain that you deploy to.
+The `increment()` function will be called on `MyContract` for every chain that you deploy to.
+
+It's important to note that the post-deployment actions are executed after **all** of the contracts in the config file have been deployed.
 
 You can put as many function calls as you'd like in the `postDeploy` array. For example:
 ```ts
@@ -48,15 +50,13 @@ postDeploy: [
 ]
 ```
 
-The post-deployment actions are executed in the order they're defined in the `postDeploy` array. So, in the example above, the order would be: `increment()`, `setMyValue`, then `transferOwnership`.
+The post-deployment actions are executed in the order they're defined in the `postDeploy` array. So, in the example above, the order would be: `increment`, `setMyValue`, then `transferOwnership`.
 
-Like contract deployments, your post-deployment actions are idempotent. This means that they'll only be executed once per chain, even if you re-execute your config file.
-
-> Note: The post-deployment actions are executed after **all** of the contracts in the config file have been deployed.
+Like contract deployments, your post-deployment actions are idempotent. This means that they'll only be executed once per chain, even if you re-deploy your config file.
 
 ## Calling external contracts
 
-You may want to call a function on a contract that you're not deploying in your config file. Here's how to do this with Sphinx:
+You may want to call a function on a contract that you're not deploying in your config file. Here's how to do this in your config file:
 
 ```ts
 import { Contract, UserSphinxConfig } from '@sphinx-labs/core'
@@ -78,11 +78,11 @@ const config: UserSphinxConfig = {
 }
 ```
 
-These functions will be called after all of the contracts in your config file have been deployed. They'll be called for every chain that you deploy to.
+It's required to pass in the ABI when creating a `Contract` object for an external contract. Otherwise, Sphinx won't know how to encode the function arguments.
 
 ## Chain-specific addresses
 
-You'll often find that external contracts have different addresses across different chains. Here's how to assign addresses on a per-chain basis in your config file:
+You'll often find that external contracts have different addresses across chains. Here's how to override the default address on a chain-by-chain basis for an external contract:
 
 ```ts
 // Create a new Contract object with '0x1234...' as the default address.
@@ -112,11 +112,17 @@ The default address is used for any chains that aren't specified in the `overrid
 You can also specify chain-specific arguments for functions that you're calling. For example, say you have the following function in your Solidity contract:
 ```sol
 contract MyContract {
-  function myFunction(uint _myUint, string _myStr, address _myAddr) public { ... }
+  function myFunction(
+      uint _myUint,
+      string _myStr,
+      address _myAddr
+  ) public {
+      ...
+  }
 }
 ```
 
-Here's how to do this with Sphinx:
+Here's how to do this in your config file:
 
 ```ts
 const MyContract = new Contract(...)
@@ -128,10 +134,16 @@ const config: UserSphinxConfig = {
     MyContract.myFunction(123, 'hello', '0x1111...',
     // Chain-specific overrides:
     [
-      // Override the default value of `_myUint` for 'optimism-goerli' and 'goerli'.
-      { args: { _myUint: 456 }, chains: ['optimism-goerli', 'goerli'] },
-      // Override the default value of `_myAddr` and `_myStr` for 'arbitrum-goerli'.
-      { args: { _myAddr: '0x4444...', _myStr: 'hey-arbitrum' }, chains: ['arbitrum-goerli'] },
+        // Override the default value of `_myUint` for 'optimism-goerli' and 'goerli'.
+        {
+          args: { _myUint: 456 },
+          chains: ['optimism-goerli', 'goerli']
+        },
+        // Override the default value of `_myAddr` and `_myStr` for 'arbitrum-goerli'.
+        {
+          args: { _myAddr: '0x4444...', _myStr: 'hey-arbitrum' },
+          chains: ['arbitrum-goerli'],
+        },
     ])
   ]
 }
@@ -144,7 +156,7 @@ The default values are used for any chains that aren't specified in the `overrid
 You can put [contract references](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md#contract-references) anywhere in the `postDeploy` array. For example:
 
 ```ts
-const MyContract = new Contract(...)
+const MyContractObject = new Contract(...)
 
 const config: UserSphinxConfig = {
   contracts: {
@@ -153,17 +165,18 @@ const config: UserSphinxConfig = {
   },
   postDeploy: [
     // Uses the address of 'MyOtherContract' as the argument.
-    MyContract.setAddress('{{ MyOtherContract }}')
+    MyContractObject.setAddress('{{ MyOtherContract }}')
     // Uses a default address of '0x1111...' and overrides this for
     // 'optimism-goerli' with the address of 'MyContract'.
-    MyContract.setChainSpecificAddress('0x1111...', [
-      { chains: ['optimism-goerli'], address: '{{ MyContract }}' },
+    MyContractObject.setChainSpecificAddress('0x1111...', [
+      {
+        chains: ['optimism-goerli'],
+        address: '{{ MyContract }}'
+      },
     ])
   ]
 }
 ```
-
-For a reference guide that shows how to define every variable type in the config file, check out the [contract variable reference](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md).
 
 ## Executing permissioned actions
 
@@ -183,7 +196,7 @@ constructor(address _sphinxManager) {
 }
 ```
 
-> Technical note: You may be curious why it's necessary to call `_transferOwnership` in your constructor since `Ownable` automatically transfers ownership to the deployer of your contract, and the `SphinxManager` is your contract's deployer. The answer is that the deployer of your contract is technically a mini `CREATE3` proxy that's deployed by the `SphinxManager`. If you don't call `_transferOwnership` in your constructor, then the `CREATE3` proxy will retain ownership of your contract, which effectively disables any ownership functionality.
+> Technical note: You may be curious why it's necessary to call `_transferOwnership` in your constructor since `Ownable` automatically transfers ownership to the deployer of your contract, and the `SphinxManager` is meant to be your contract's deployer. The answer is that the deployer of your contract is technically *not* the `SphinxManager`. Instead, it's a mini `CREATE3` proxy that's deployed via `delegatecall` from your `SphinxManager`. The upshot is that if you don't call `_transferOwnership` in your constructor, then the `CREATE3` proxy will retain ownership of your contract, which effectively disables any ownership functionality.
 
 Your config file should look something like this:
 
@@ -234,11 +247,10 @@ const MyAccessControlContract = new Contract('{{ MyAccessControlContract }}')
 const userConfig: UserConfig = {
   contracts: {
     MyAccessControlContract: {
-      kind: 'immutable',
-      contract: 'MyAccessControlContract',
       constructorArgs: {
         _sphinxManager: '{{ SphinxManager }}',
       },
+      ...
     },
   },
   postDeploy: [
@@ -250,7 +262,7 @@ const userConfig: UserConfig = {
     // Revoke the `DEFAULT_ADMIN_ROLE` from the SphinxManager:
     MyAccessControlContract.renounceRole(
       ethers.ZeroHash,
-      sphinxManagerAddress
+      '{{ SphinxManager }}'
     ),
   ],
 }
