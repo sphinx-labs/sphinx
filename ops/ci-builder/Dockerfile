@@ -15,7 +15,7 @@ WORKDIR /opt/foundry
 
 RUN source $HOME/.profile && \
     cargo install --git https://github.com/foundry-rs/foundry#577dae3f632b392856d1d62a5016c765fadd872d \
-      --profile local --force foundry-cli anvil chisel && \
+      --profile local forge cast chisel anvil && \
     strip $HOME/.cargo/bin/forge && \
     strip $HOME/.cargo/bin/cast && \
     strip $HOME/.cargo/bin/anvil && \
