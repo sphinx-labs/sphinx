@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import "forge-std/src/console.sol"; // TODO
+
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+
+// TODO: rm console.log in Ownable.sol
+
 contract MyContract1 {
     int public intArg;
     int public secondIntArg;
@@ -70,5 +77,19 @@ contract MyContract2 {
 
     function incrementMyContract2(uint _num) external {
         number += _num;
+    }
+}
+
+
+contract MyOwnableContract is Ownable {
+
+    uint256 public value;
+
+    constructor(address _sphinxManager) {
+        transferOwnership(_sphinxManager);
+    }
+
+    function myOwnableFunction(uint256 _value) external onlyOwner {
+        value = _value;
     }
 }

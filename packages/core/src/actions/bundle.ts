@@ -620,10 +620,6 @@ export const makeActionBundleFromConfig = (
     }
   }
 
-  // TODO(md): if the user is performing permissioned actions on their contracts, make sure that
-  // they transfer ownership to their final owner at the end of the `postDeploy` array! and of
-  // course, they should test their deployment locally. (link to the relevant docs).
-
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {

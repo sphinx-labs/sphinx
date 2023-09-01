@@ -659,11 +659,12 @@ export const deployAbstractTask = async (
 
           if (action.actionType === SphinxActionType.CALL) {
             throw new Error(
-              `Failed to execute ${projectName}, because the following post deployment action reverted: ${action.reason}`
+              `Failed to execute ${projectName} because the following post-deployment action reverted:\n` +
+                `${action.reason}`
             )
           } else {
             throw new Error(
-              `Failed to execute ${projectName}, because the constructor of ${action.reason} reverted`
+              `Failed to execute ${projectName} because the constructor of ${action.reason} reverted.`
             )
           }
         }

@@ -1694,15 +1694,6 @@ const parseAndValidateArg = (
   }
 }
 
-// TODO(md): update constructor-args.md -> chain-specific overrides b/c the user must specify all of
-// their default constructor args now.
-
-// TODO(md): the `constructor-args.md` doc should probably be named something else, since it now
-// applies to function calls too. if you do this, make sure you change the file name, all reference
-// to the file name, and the main readme.
-
-// TODO(md): the supported networks in config-file.md are not up-to-date
-
 const parseDefaultConstructorArgs = (
   fragmentLogName: string,
   cre: SphinxRuntimeEnvironment,
@@ -3490,9 +3481,6 @@ export const parsePostDeploymentActions = (
           cre.stream
         )
       }
-
-      // TODO(md): probably change constructor-args.md everywhere since it's no longer for just
-      // constructor args.
 
       if (incorrectlyFormattedArgs.length > 0) {
         logValidationError(

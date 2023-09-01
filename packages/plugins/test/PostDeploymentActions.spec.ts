@@ -58,6 +58,8 @@ const allTestnets: Array<SupportedNetworkName> = initialTestnets.concat([
 const { abi: ConfigContractABI } = hre.artifacts.readArtifactSync('MyContract1')
 const { abi: ExternalContractABI } =
   hre.artifacts.readArtifactSync('MyContract2')
+const { abi: MyOwnableContractABI } =
+  hre.artifacts.readArtifactSync('MyOwnableContract')
 
 const constructorArgs = {
   _intArg: 0,
@@ -1588,6 +1590,76 @@ describe('Post-Deployment Actions', () => {
       })
     })
   }
+
+  // TODO: .only
+  it.only("Executes permissioned action and transfers ownership using OpenZeppelin's Ownable", async () => {
+    const MyOwnableContract = new Contract('{{ MyOwnableContract }}')
+    const finalOwner = '0x' + '11'.repeat(20)
+    const userConfig: UserConfig = {
+      projectName,
+      contracts: {
+        MyOwnableContract: {
+          kind: 'immutable',
+          contract: 'MyOwnableContract',
+          constructorArgs: {
+            _sphinxManager: sphinxManagerAddress,
+          },
+        },
+      },
+      postDeploy: [
+        MyOwnableContract.myOwnableFunction(123),
+        MyOwnableContract.transferOwnership(finalOwner),
+      ],
+    }
+    const network = 'goerli'
+    const provider = rpcProviders[network]
+
+    await deploy(userConfig, provider, deployerPrivateKey, 'hardhat')
+
+    const MyOwnableContract_Deployed = new ethers.Contract(
+      getTargetAddress(sphinxManagerAddress, 'MyOwnableContract'),
+      MyOwnableContractABI,
+      provider
+    )
+    expect(await MyOwnableContract_Deployed.value()).equals(123n)
+    expect(await MyOwnableContract_Deployed.owner()).equals(finalOwner)
+  })
+
+  // TODO: .only
+  it.only("Executes permissioned action and transfers ownership using OpenZeppelin's AccessControl", async () => {
+    const MyAccessControlContract = new Contract(
+      '{{ MyAccessControlContract }}'
+    )
+    const finalOwner = '0x' + '11'.repeat(20)
+    const userConfig: UserConfig = {
+      projectName,
+      contracts: {
+        MyAccessControlContract: {
+          kind: 'immutable',
+          contract: 'MyAccessControlContract',
+          constructorArgs: {
+            _sphinxManager: sphinxManagerAddress,
+          },
+        },
+      },
+      postDeploy: [
+        MyAccessControlContract.myAccessControlFunction(123),
+        MyAccessControlContract.transferOwnership(finalOwner),
+      ],
+    }
+    const network = 'goerli'
+    const provider = rpcProviders[network]
+
+    await deploy(userConfig, provider, deployerPrivateKey, 'hardhat')
+
+    const MyAccessControlContract_Deployed = new ethers.Contract(
+      getTargetAddress(sphinxManagerAddress, 'MyAccessControlContract'),
+      MyAccessControlContractABI,
+      provider
+    )
+    expect(await MyAccessControlContract_Deployed.value()).equals(123n)
+    expect(await MyAccessControlContract_Deployed.owner()).equals(finalOwner)
+  })
 
   it('Proposal', async () => {
     // We'll just test the multi-sig config here.
