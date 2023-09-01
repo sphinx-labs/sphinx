@@ -88,6 +88,8 @@ import {
   UserCallAction,
   ParsedCallActionsPerChain,
   UserArgOverride,
+  VALID_MANAGER_VERSIONS,
+  VALID_TEST_MANAGER_VERSIONS,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -105,7 +107,11 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
-import { SphinxRuntimeEnvironment, FailureAction } from '../types'
+import {
+  SphinxRuntimeEnvironment,
+  FailureAction,
+  SemverVersion,
+} from '../types'
 import { getStorageLayout } from '../actions/artifacts'
 import {
   OZ_UUPS_UPDATER_ADDRESS,
@@ -3068,6 +3074,14 @@ export const getConfigCache = async (
     provider
   )
 
+  const managerVersion: SemverVersion = isManagerDeployed_
+    ? await SphinxManager.version()
+    : {
+        major: 0,
+        minor: 2,
+        patch: 0,
+      }
+
   // Get a mapping of call hashes to their current nonces. We'll use this later to determine which
   // call actions to skip in the deployment, if any.
   const callNonces: { [callHash: string]: number } = {}
@@ -3084,6 +3098,7 @@ export const getConfigCache = async (
 
   return {
     isManagerDeployed: isManagerDeployed_,
+    managerVersion,
     chainId,
     networkType,
     blockGasLimit,
@@ -3191,8 +3206,31 @@ export const assertValidConfigOptions = (
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): void => {
-  const { mainnets, testnets, orgId, owners, ownerThreshold, proposers } =
-    options
+  const {
+    mainnets,
+    testnets,
+    orgId,
+    owners,
+    ownerThreshold,
+    proposers,
+    managerVersion,
+  } = options
+
+  if (
+    !VALID_MANAGER_VERSIONS.includes(managerVersion) &&
+    !(
+      process.env.SPHINX_INTERNAL__ALLOW_TEST_MANAGER_UPGRADE_VERSION &&
+      VALID_TEST_MANAGER_VERSIONS.includes(managerVersion)
+    )
+  ) {
+    logValidationError(
+      'error',
+      `You must define a 'managerVersion' field in your Sphinx config options. Valid versions are:`,
+      VALID_MANAGER_VERSIONS,
+      cre.silent,
+      cre.stream
+    )
+  }
 
   if (orgId === '') {
     logValidationError(
@@ -3345,7 +3383,7 @@ export const parseConfigOptions = (
   options: UserConfigOptions,
   isTestnet: boolean
 ): ParsedConfigOptions => {
-  const { mainnets, testnets, orgId, ownerThreshold } = options
+  const { mainnets, testnets, orgId, ownerThreshold, managerVersion } = options
 
   const chainIds = isTestnet
     ? testnets.map((network) => SUPPORTED_TESTNETS[network])
@@ -3365,6 +3403,7 @@ export const parseConfigOptions = (
     orgId,
     owners,
     ownerThreshold,
+    managerVersion,
     proposers,
   }
 }

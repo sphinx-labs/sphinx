@@ -4,13 +4,11 @@ import {
   FoundryConfig,
   FoundryContractConfig,
   ParsedConfig,
-  ParsedContractConfigs,
   UserConfig,
   UserConfigWithOptions,
   UserSphinxConfig,
 } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-import { getSphinxManagerAddress } from '../addresses'
 
 /**
  * Returns a minimal version of the Sphinx config. This is used as a substitute for the full

@@ -8,7 +8,6 @@ import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
 import 'hardhat/types/config'
 import 'hardhat/types/runtime'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { ethers } from 'ethers'
 import { UserSalt } from '@sphinx-labs/core'
 

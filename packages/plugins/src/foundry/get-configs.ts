@@ -14,7 +14,6 @@ import {
   resolveContractReferences,
 } from '@sphinx-labs/core/dist/config/parse'
 import { FailureAction } from '@sphinx-labs/core/dist/types'
-import { remove0x } from '@sphinx-labs/core/dist/utils'
 import { SUPPORTED_NETWORKS } from '@sphinx-labs/core/dist/networks'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 

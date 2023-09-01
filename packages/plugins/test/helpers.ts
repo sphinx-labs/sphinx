@@ -33,6 +33,8 @@ import {
   FailureAction,
   Integration,
   execAsync,
+  CURRENT_SPHINX_MANAGER_VERSION,
+  CURRENT_SPHINX_AUTH_VERSION,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -170,6 +172,11 @@ export const proposeThenApproveDeploymentThenExecute = async (
     const containsSetupLeaf = leaves.some(
       (leaf) => leaf.leafType === 'setup' && leaf.chainId === chainId
     )
+    const containsUpgradeLeaf = leaves.some(
+      (leaf) =>
+        leaf.leafType === 'upgradeManagerAndAuthImpl' &&
+        leaf.chainId === chainId
+    )
     const expectedNumLeafs = leaves.filter(
       (leaf) => leaf.chainId === chainId
     ).length
@@ -180,9 +187,12 @@ export const proposeThenApproveDeploymentThenExecute = async (
       proposalLeafIndex,
       chainId
     )
+    const approvalLeafIndex = containsUpgradeLeaf
+      ? proposalLeafIndex + 2
+      : proposalLeafIndex + 1
     const approveDeploymentLeaf = findProposalRequestLeaf(
       leaves,
-      proposalLeafIndex + 1,
+      approvalLeafIndex,
       chainId
     )
 
@@ -198,6 +208,7 @@ export const proposeThenApproveDeploymentThenExecute = async (
       1
     )
     expect(proposerSignatureArray.length).equals(1)
+
     await Auth.propose(
       root,
       fromProposalRequestLeafToRawAuthLeaf(proposalLeaf),
@@ -215,6 +226,37 @@ export const proposeThenApproveDeploymentThenExecute = async (
 
     // Check that there is no active deployment before approving the deployment.
     expect(await Manager.activeDeploymentId()).equals(ethers.ZeroHash)
+
+    // Trigger upgrade if the upgrade leaf is present
+    if (containsUpgradeLeaf) {
+      const upgradeManagerLeaf = findProposalRequestLeaf(
+        leaves,
+        proposalLeafIndex + 1,
+        chainId
+      )
+      await Auth.upgradeManagerAndAuthImpl(
+        root,
+        fromProposalRequestLeafToRawAuthLeaf(upgradeManagerLeaf),
+        ownerSignatures,
+        upgradeManagerLeaf.siblings
+      )
+
+      // Expect the manager and auth implementations to be upgraded
+      const authVersion = await Auth.version()
+      const managerVersion = await Manager.version()
+      expect(authVersion).to.eql([BigInt(9), BigInt(9), BigInt(9)])
+      expect(managerVersion).to.eql([BigInt(9), BigInt(9), BigInt(9)])
+    } else {
+      // Expect the manager and auth implementations to be the current versions
+      const authVersion = await Auth.version()
+      const managerVersion = await Manager.version()
+      expect(authVersion).to.eql(
+        Object.values(CURRENT_SPHINX_AUTH_VERSION).map((num) => BigInt(num))
+      )
+      expect(managerVersion).to.eql(
+        Object.values(CURRENT_SPHINX_MANAGER_VERSION).map((num) => BigInt(num))
+      )
+    }
 
     await Auth.approveDeployment(
       root,
@@ -234,6 +276,7 @@ export const proposeThenApproveDeploymentThenExecute = async (
         defaultCre,
         makeGetConfigArtifacts(hre)
       )
+
     const { configUri, bundles, humanReadableActions } =
       await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
     const deploymentId = getDeploymentId(bundles, configUri)
@@ -250,6 +293,7 @@ export const proposeThenApproveDeploymentThenExecute = async (
     const manager = getSphinxManager(managerAddress, relayer)
 
     await Manager.claimDeployment()
+
     const { success } = await executeDeployment(
       manager,
       bundles,

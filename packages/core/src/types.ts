@@ -2,6 +2,12 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { Integration } from './constants'
 
+export type SemverVersion = {
+  major: number
+  minor: number
+  patch: number
+}
+
 export type SphinxRuntimeEnvironment = {
   integration: Integration
   compilerConfigPath: string

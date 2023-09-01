@@ -31,18 +31,20 @@ import {
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  getSphinxManagerV1Address,
+  getSphinxManagerImplAddress,
   getSphinxRegistryAddress,
   getManagedServiceAddress,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   AUTH_FACTORY_ADDRESS,
-  AUTH_IMPL_V1_ADDRESS,
+  getAuthImplAddress,
 } from '../../addresses'
 import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
 import { SphinxSystemConfig } from './types'
 import {
+  CURRENT_SPHINX_AUTH_VERSION,
+  CURRENT_SPHINX_MANAGER_VERSION,
   FUNDER_ROLE,
   RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
@@ -331,15 +333,18 @@ export const initializeSphinx = async (
     SphinxRegistryABI,
     owner
   )
-  const sphinxManagerV1Address = getSphinxManagerV1Address(Number(chainId))
+  const sphinxManagerAddress = getSphinxManagerImplAddress(
+    Number(chainId),
+    CURRENT_SPHINX_MANAGER_VERSION
+  )
   if (
-    (await SphinxRegistry.managerImplementations(sphinxManagerV1Address)) ===
+    (await SphinxRegistry.managerImplementations(sphinxManagerAddress)) ===
     false
   ) {
     try {
       await (
         await SphinxRegistry.addVersion(
-          sphinxManagerV1Address,
+          sphinxManagerAddress,
           await getGasPriceOverrides(provider)
         )
       ).wait()
@@ -356,11 +361,11 @@ export const initializeSphinx = async (
 
   if (
     (await SphinxRegistry.currentManagerImplementation()) !==
-    sphinxManagerV1Address
+    sphinxManagerAddress
   ) {
     await (
       await SphinxRegistry.setCurrentManagerImplementation(
-        sphinxManagerV1Address,
+        sphinxManagerAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -376,21 +381,20 @@ export const initializeSphinx = async (
     owner
   )
 
-  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
+  const authAddress = getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION)
+  if (!(await AuthFactory.authImplementations(authAddress))) {
     await (
       await AuthFactory.addVersion(
-        AUTH_IMPL_V1_ADDRESS,
+        authAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
   }
 
-  if (
-    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
-  ) {
+  if ((await AuthFactory.currentAuthImplementation()) !== authAddress) {
     await (
       await AuthFactory.setCurrentAuthImplementation(
-        AUTH_IMPL_V1_ADDRESS,
+        authAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()

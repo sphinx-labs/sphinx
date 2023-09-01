@@ -71,6 +71,7 @@ import {
   UserFunctionArgOverride,
   UserConfigVariable,
   UserCallAction,
+  ValidManagerVersion,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -104,11 +105,19 @@ import {
 import { getCreate3Address } from './config/utils'
 import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import {
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-  SupportedNetworkName,
-} from './networks'
+import { SUPPORTED_NETWORKS, SupportedChainId } from './networks'
+
+export const parseSemverVersion = (version: ValidManagerVersion) => {
+  const numbers = version
+    .replace('v', '')
+    .split('.')
+    .map((n) => parseInt(n, 10))
+  return {
+    major: numbers[0],
+    minor: numbers[1],
+    patch: numbers[2],
+  }
+}
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -1296,6 +1305,7 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
+      managerVersion: 'v0.2.0',
     },
     contracts: {},
     chainStates,

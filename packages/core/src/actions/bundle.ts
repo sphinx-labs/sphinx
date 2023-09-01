@@ -25,6 +25,7 @@ import {
   fromHexString,
   getCallHash,
   isSupportedChainId,
+  parseSemverVersion,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -54,6 +55,7 @@ import { getCreate3Address } from '../config/utils'
 import { getProjectBundleInfo } from '../tasks'
 import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
 import { SupportedChainId } from '../networks'
+import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -289,7 +291,12 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     case 'upgradeManagerAndAuthImpl':
       return coder.encode(
         ['address', 'bytes', 'address', 'bytes'],
-        [leaf.managerImpl, leaf.managerData, leaf.authImpl, leaf.authData]
+        [
+          leaf.managerImpl,
+          leaf.managerInitCallData,
+          leaf.authImpl,
+          leaf.authInitCallData,
+        ]
       )
 
     case 'setProposer':
@@ -788,6 +795,26 @@ export const getAuthLeafsForChain = async (
   // first index for the proposal leaf. If the first proposal has not occurred, the index is 2
   // because the first two indexes are reserved for the setup and proposal leafs.
   let index = firstProposalOccurred ? 1 : 2
+
+  const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
+  if (
+    managerVersionString !== parsedConfig.options.managerVersion &&
+    !configCache.isManagerDeployed
+  ) {
+    const version = parseSemverVersion(parsedConfig.options.managerVersion)
+    const upgradeLeaf: AuthLeaf = {
+      chainId,
+      to: manager,
+      index,
+      leafType: 'upgradeManagerAndAuthImpl',
+      managerInitCallData: '0x',
+      managerImpl: getSphinxManagerImplAddress(chainId, version),
+      authInitCallData: '0x',
+      authImpl: getAuthImplAddress(version),
+    }
+    index += 1
+    leafs.push(upgradeLeaf)
+  }
 
   const { configUri, bundles } = await getProjectBundleInfo(
     parsedConfig,

@@ -1,3 +1,4 @@
+import { ValidManagerVersion } from '../config'
 import { SphinxDiff } from '../diff'
 
 /**
@@ -250,9 +251,9 @@ interface UpgradeAuthImplementation extends BaseAuthLeaf {
 interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
   leafType: 'upgradeManagerAndAuthImpl'
   managerImpl: string
-  managerData: string
+  managerInitCallData: string
   authImpl: string
-  authData: string
+  authInitCallData: string
 }
 
 interface SetProposer extends BaseAuthLeaf {
@@ -312,6 +313,7 @@ export type ProposalRequest = {
   threshold: number
   authAddress: string
   managerAddress: string
+  managerVersion: ValidManagerVersion
   deploymentName: string
   chainIds: Array<number>
   canonicalConfig: string

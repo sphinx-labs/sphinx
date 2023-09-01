@@ -1,4 +1,3 @@
-import { Fragment, Interface, InterfaceAbi } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 

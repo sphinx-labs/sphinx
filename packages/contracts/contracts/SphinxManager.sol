@@ -30,7 +30,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 1.0.0
+ * @custom:version 0.2.0
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single
@@ -581,7 +581,7 @@ contract SphinxManager is
                         emit CallExecuted(activeDeploymentId, action.index);
                         registry.announce("CallExecuted");
                     } else {
-                        // Call failed. We mark the deployment as failed and exit the function early.
+                        // Call failed. We mark the deployment as failed and exit the function early
                         _deploymentFailed(deployment, action.index);
                         return;
                     }
@@ -596,8 +596,9 @@ contract SphinxManager is
 
                 // Check if the contract has already been deployed.
                 if (expectedAddress.code.length > 0) {
-                    // Skip deploying the contract if it already exists. Execution would halt if we attempt
-                    // to deploy a contract that has already been deployed at the same address.
+                    // Skip deploying the contract if it already exists. Execution would halt if
+                    // we attempt to deploy a contract that has already been deployed at the same
+                    // address.
                     emit ContractDeploymentSkipped(
                         expectedAddress,
                         activeDeploymentId,
@@ -625,9 +626,9 @@ contract SphinxManager is
                         );
                         registry.announce("ContractDeployed");
                     } else {
-                        // Contract deployment failed. Could happen if insufficient gas is supplied to this
-                        // transaction or if the creation bytecode has logic that causes the call to fail
-                        // (e.g. a constructor that reverts).
+                        // Contract deployment failed. Could happen if insufficient gas is supplied
+                        // to this transaction or if the creation bytecode has logic that causes the
+                        // call to fail (e.g. a constructor that reverts).
                         _deploymentFailed(deployment, action.index);
 
                         // Exit the function early.
@@ -639,8 +640,8 @@ contract SphinxManager is
             }
         }
 
-        // If all of the actions have been executed, mark the deployment as completed. This will always
-        // be the case unless the deployment is upgrading proxies.
+        // If all of the actions have been executed, mark the deployment as completed. This will
+        // always be the case unless the deployment is upgrading proxies.
         if (deployment.actionsExecuted == deployment.numInitialActions) {
             if (deployment.targets == 0) {
                 _completeDeployment(deployment);

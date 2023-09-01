@@ -53,6 +53,7 @@ import {
 CallNonces,
 ParsedCallAction
 } from "./SphinxPluginTypes.sol";
+import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
@@ -530,9 +531,14 @@ contract SphinxUtils is
             }
         }
 
+        // Fetch the version from the manager if it is deployed, otherwise use the default version.
+        Semver semverManager = Semver(address(_manager));
+        Version memory managerVersion = isManagerDeployed_ ? semverManager.version() : Version({ major: SphinxConstants.major, minor: SphinxConstants.minor, patch: SphinxConstants.patch });
+
         return
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
+                managerVersion: managerVersion,
                 blockGasLimit: block.gaslimit,
                 chainId: block.chainid,
                 contractConfigCache: contractConfigCache,

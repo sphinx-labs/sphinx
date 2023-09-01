@@ -4,7 +4,8 @@ pragma solidity >=0.7.4 <0.9.0;
 import {
     SphinxTarget,
     RawSphinxAction,
-    SphinxActionType
+    SphinxActionType,
+    Version
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct SphinxBundles {
@@ -74,6 +75,7 @@ struct FoundryContractConfig {
 
 struct ConfigCache {
     bool isManagerDeployed;
+    Version managerVersion;
     uint256 blockGasLimit;
     uint256 chainId;
     ContractConfigCache[] contractConfigCache;

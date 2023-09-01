@@ -1,4 +1,3 @@
-import { CallAction } from '../actions/types'
 import {
   getNetworkNameForChainId,
   hyperlink,

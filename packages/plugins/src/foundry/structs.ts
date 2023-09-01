@@ -46,6 +46,7 @@ export const decodeCachedConfig = (
     blockGasLimit: configCache.blockGasLimit,
     chainId: parseInt(configCache.chainId, 10),
     isManagerDeployed: configCache.isManagerDeployed,
+    managerVersion: configCache.managerVersion,
     contractConfigCache,
     callNonces,
     undeployedExternalContracts: configCache.undeployedExternalContracts,

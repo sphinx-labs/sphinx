@@ -16,7 +16,6 @@ import {
 } from '@sphinx-labs/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []

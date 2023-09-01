@@ -1,9 +1,7 @@
-import { Contract, UserConfigWithOptions } from '@sphinx-labs/core'
+import { UserConfigWithOptions } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
 const ownerAddress = '0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51'
-
-const MyContract = new Contract('{{ MyContract }}')
 
 // Used for testing the website, please do not delete
 const config: UserConfigWithOptions = {
@@ -15,6 +13,7 @@ const config: UserConfigWithOptions = {
     testnets: ['arbitrum-goerli', 'optimism-goerli', 'goerli'],
     mainnets: ['ethereum', 'optimism'],
     proposers: [ownerAddress],
+    managerVersion: 'v0.2.0',
   },
   contracts: {
     MyContract: {
@@ -25,28 +24,9 @@ const config: UserConfigWithOptions = {
         _uintArg: 0,
         _addressArg: ethers.ZeroAddress,
         _otherAddressArg: ethers.ZeroAddress,
-        _shouldRevert: false,
       },
-      overrides: [
-        {
-          chains: ['arbitrum-goerli'],
-          constructorArgs: {
-            _shouldRevert: true,
-          },
-        },
-      ],
     },
   },
-  postDeploy: [
-    MyContract.doRevert(false, [
-      {
-        chains: ['optimism-goerli'],
-        args: {
-          _shouldRevert: true,
-        },
-      },
-    ]),
-  ],
 }
 
 export default config

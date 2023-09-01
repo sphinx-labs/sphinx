@@ -13,6 +13,7 @@ import { CompilerInput } from 'hardhat/types'
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
+import { SemverVersion } from '../types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -39,6 +40,10 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
+
+export type ValidManagerVersion = 'v0.2.0'
+export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
+export const VALID_MANAGER_VERSIONS = ['v0.2.0']
 
 export type Project = string | 'all'
 
@@ -128,6 +133,7 @@ export interface ConfigOptions {
   owners: Array<string>
   ownerThreshold: number
   proposers: Array<string>
+  managerVersion: ValidManagerVersion
 }
 
 export type ParsedCallAction = {
@@ -276,6 +282,7 @@ export type ConfigArtifacts = {
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
+  managerVersion: SemverVersion
   blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache

@@ -396,6 +396,7 @@ export const proposeAbstractTask = async (
     threshold: newCanonicalConfig.options.ownerThreshold,
     authAddress,
     managerAddress,
+    managerVersion: parsedConfig.options.managerVersion,
     canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
