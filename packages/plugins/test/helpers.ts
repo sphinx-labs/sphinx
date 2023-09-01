@@ -488,7 +488,12 @@ export const deployUsingFoundry = async (
   deployerPrivateKey: string
 ) => {
   const tmpFoundryConfigFileName = 'tmp-foundry-config.json'
-  const tmpFoundryConfigPath = join(__dirname, tmpFoundryConfigFileName)
+  const tmpFoundryConfigPath = join(
+    __dirname,
+    '..',
+    'cache',
+    tmpFoundryConfigFileName
+  )
   // Write the config to a temporary file.
   writeFileSync(tmpFoundryConfigPath, JSON.stringify(config))
 
@@ -502,11 +507,6 @@ export const deployUsingFoundry = async (
   await execAsync(
     `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
   )
-
-  // Remove the config file at the temporary path.
-  if (existsSync(tmpFoundryConfigPath)) {
-    rmSync(tmpFoundryConfigPath)
-  }
 }
 
 export const revertSnapshots = async (
