@@ -45,13 +45,11 @@ struct DeploymentState {
  * @custom:field index The unique index of the action in the deployment. Actions must be executed in
    ascending order according to their index.
  * @custom:field data The ABI-encoded data associated with the action.
- * @custom:field addr The address to which the action applies.
  */
 struct RawSphinxAction {
     SphinxActionType actionType;
     uint256 index;
     bytes data;
-    address payable addr;
 }
 
 /**

@@ -19,7 +19,7 @@ if (typeof configPath !== 'string') {
 
 /**
  * Display a Sphinx bundle. The purpose of this script is to easily generate bundles in a format
- * that can be used alongside the `vm.readJson` cheatcode in order to test the Sphinx contracts
+ * that can be used alongside the `vm.parseJson` cheatcode in order to test the Sphinx contracts
  * with Forge. This script is NOT meant to be called via FFI in the Foundry plugin.
  *
  * This script can be called by running:

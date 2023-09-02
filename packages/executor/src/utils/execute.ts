@@ -243,7 +243,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
   const estimatedCost =
-    ((await estimateExecutionCost(rpcProvider, bundles, 0)) * 15n) / 10n
+    ((await estimateExecutionCost(managerAddress, rpcProvider, bundles, 0)) *
+      15n) /
+    10n
   const balance = await rpcProvider.getBalance(wallet.address)
   if (balance < estimatedCost) {
     logger.info(
