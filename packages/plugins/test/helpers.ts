@@ -504,7 +504,7 @@ export const deployUsingFoundry = async (
   process.env['SPHINX_INTERNAL_BROADCAST'] = 'true'
 
   // Execute the deployment.
-  const { stderr, stdout } = await execAsync(
+  await execAsync(
     `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
   )
   console.log(stderr)
