@@ -1462,16 +1462,14 @@ describe('Post-Deployment Actions', () => {
           // Deploy on all the testnets
           console.log('deploy on all testnets')
           console.log(allTestnets)
-          await Promise.all(
-            allTestnets.map((network) =>
-              deploy(
-                userConfig,
-                rpcProviders[network],
-                deployerPrivateKey,
-                integration
-              )
+          for (const network of allTestnets) {
+            deploy(
+              userConfig,
+              rpcProviders[network],
+              deployerPrivateKey,
+              integration
             )
-          )
+          }
           console.log('done')
 
           for (const network of allTestnets) {
