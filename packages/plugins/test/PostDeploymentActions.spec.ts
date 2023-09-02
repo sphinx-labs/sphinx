@@ -1460,10 +1460,10 @@ describe('Post-Deployment Actions', () => {
           }
 
           // Deploy on all the testnets
-          console.log('deploy on all testnets')
+          console.log('deploy on initial again')
           console.log(allTestnets)
           await Promise.all(
-            allTestnets.map((network) =>
+            initialTestnets.map((network) =>
               deploy(
                 userConfig,
                 rpcProviders[network],
@@ -1471,6 +1471,15 @@ describe('Post-Deployment Actions', () => {
                 integration
               )
             )
+          )
+          console.log('done')
+
+          console.log('deploy on gnosis chiado')
+          await deploy(
+            userConfig,
+            rpcProviders['gnosis-chiado'],
+            deployerPrivateKey,
+            integration
           )
           console.log('done')
 
