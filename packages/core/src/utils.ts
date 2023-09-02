@@ -106,7 +106,11 @@ import {
 import { getCreate3Address } from './config/utils'
 import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS, SupportedChainId } from './networks'
+import {
+  SUPPORTED_LOCAL_NETWORKS,
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+} from './networks'
 
 export const parseSemverVersion = (version: ValidManagerVersion) => {
   const numbers = version
@@ -1502,7 +1506,10 @@ export const getNetworkTag = (
 ): string => {
   if (networkType === NetworkType.LIVE_NETWORK) {
     return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
+  } else if (
+    Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
+    !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(networkName)
+  ) {
     return `${networkName} (local)`
   } else {
     const localNetworkType =
