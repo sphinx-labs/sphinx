@@ -1419,8 +1419,6 @@ describe('Post-Deployment Actions', () => {
           ]
 
           // Deploy on the initial testnets
-          console.log('deploying on initial nets')
-          console.log(initialTestnets)
           await Promise.all(
             initialTestnets.map((network) =>
               deploy(
@@ -1431,7 +1429,6 @@ describe('Post-Deployment Actions', () => {
               )
             )
           )
-          console.log('done')
 
           // Assert that the initial actions were executed
           for (const network of initialTestnets) {
@@ -1460,8 +1457,6 @@ describe('Post-Deployment Actions', () => {
           }
 
           // Deploy on all the testnets
-          console.log('deploy on initial again')
-          console.log(allTestnets)
           await Promise.all(
             initialTestnets.map((network) =>
               deploy(
@@ -1472,19 +1467,15 @@ describe('Post-Deployment Actions', () => {
               )
             )
           )
-          console.log('done')
 
-          console.log('deploy on gnosis chiado')
           await deploy(
             userConfig,
             rpcProviders['gnosis-chiado'],
             deployerPrivateKey,
             integration
           )
-          console.log('done')
 
           for (const network of allTestnets) {
-            console.log(network)
             const provider = rpcProviders[network]
 
             // Check that the new contract was deployed, which indicates that the second config wasn't
@@ -1498,7 +1489,6 @@ describe('Post-Deployment Actions', () => {
             )
 
             // Check that the actions have only been executed once on each chain.
-            console.log('assert executed')
             await assertActionsExecuted(
               network,
               configContract1Address,
@@ -1513,7 +1503,6 @@ describe('Post-Deployment Actions', () => {
                 },
               }
             )
-            console.log('done')
           }
         })
 
