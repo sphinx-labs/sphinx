@@ -47,7 +47,6 @@ struct Configs {
 
 struct BundleInfo {
     string configUri;
-    DeployContractCost[] deployContractCosts;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
@@ -59,11 +58,6 @@ struct FoundryConfig {
     string projectName;
     FoundryContractConfig[] contracts;
     ParsedCallAction[] postDeploy;
-}
-
-struct DeployContractCost {
-    string referenceName;
-    uint256 cost;
 }
 
 struct FoundryContractConfig {

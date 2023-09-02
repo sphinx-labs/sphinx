@@ -12,6 +12,13 @@ pull_request_rules:
         - "#changes-requested-reviews-by=0"
         - "label!=do-not-merge"
         - "label!=mergify-ignore"
+        - "check-success=ci/circleci: plugins-tests"
+        - "check-success=ci/circleci: contracts-tests"
+        - "check-success=ci/circleci: core-tests"
+        - "check-success=ci/circleci: demo-tests"
+        - "check-success=ci/circleci: executor-tests"
+        - "check-success=ci/circleci: yarn-monorepo"
+        - "check-success=license/cla"
     actions:
       queue:
         name: default
@@ -26,6 +33,13 @@ pull_request_rules:
         - "#changes-requested-reviews-by=0"
         - "label!=do-not-merge"
         - "label!=mergify-ignore"
+        - "check-success=ci/circleci: plugins-tests"
+        - "check-success=ci/circleci: contracts-tests"
+        - "check-success=ci/circleci: core-tests"
+        - "check-success=ci/circleci: demo-tests"
+        - "check-success=ci/circleci: executor-tests"
+        - "check-success=ci/circleci: yarn-monorepo"
+        - "check-success=license/cla"
     actions:
       queue:
         name: default

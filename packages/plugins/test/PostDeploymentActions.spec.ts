@@ -1285,9 +1285,11 @@ describe('Post-Deployment Actions', () => {
           // Add new post-deploy actions
           userConfig.postDeploy.push(ConfigContract1.incrementUint())
           userConfig.postDeploy.push(
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ])
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            })
           )
 
           // Deploy again
@@ -1365,9 +1367,11 @@ describe('Post-Deployment Actions', () => {
           // Change the last action to use a different overriding function argument
           userConfig.postDeploy.pop()
           userConfig.postDeploy.push(
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 100 } },
-            ])
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 100 } },
+              ],
+            })
           )
 
           // Deploy again
@@ -1454,7 +1458,7 @@ describe('Post-Deployment Actions', () => {
 
           // Deploy on all the testnets
           await Promise.all(
-            allTestnets.map((network) =>
+            initialTestnets.map((network) =>
               deploy(
                 userConfig,
                 rpcProviders[network],
@@ -1462,6 +1466,13 @@ describe('Post-Deployment Actions', () => {
                 integration
               )
             )
+          )
+
+          await deploy(
+            userConfig,
+            rpcProviders['gnosis-chiado'],
+            deployerPrivateKey,
+            integration
           )
 
           for (const network of allTestnets) {
@@ -1540,9 +1551,11 @@ describe('Post-Deployment Actions', () => {
           // Add new post-deploy actions
           userConfig.postDeploy.push(ConfigContract1.incrementUint())
           userConfig.postDeploy.push(
-            ExternalContract1.incrementMyContract2(6, [
-              { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
-            ])
+            ExternalContract1.incrementMyContract2(6, {
+              overrides: [
+                { chains: ['goerli', 'arbitrum-goerli'], args: { _num: 7 } },
+              ],
+            })
           )
 
           // Deploy on all the testnets

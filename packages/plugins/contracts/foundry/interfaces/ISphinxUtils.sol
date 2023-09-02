@@ -12,7 +12,6 @@ import {
     RawSphinxAction,
     SphinxTargetBundle,
     ConfigCache,
-    DeployContractCost,
     OptionalString,
     BundleInfo,
     FoundryConfig,
@@ -31,8 +30,6 @@ interface ISphinxUtils {
 
     function configCache() external pure returns (ConfigCache memory);
 
-    function deployContractCosts() external pure returns (DeployContractCost[] memory);
-
     function disassembleActions(
         BundledSphinxAction[] memory actions
     ) external pure returns (RawSphinxAction[] memory, bytes32[][] memory);
@@ -41,8 +38,7 @@ interface ISphinxUtils {
 
     function executable(
         BundledSphinxAction[] memory selected,
-        uint256 maxGasLimit,
-        DeployContractCost[] memory costs
+        uint256 maxGasLimit
     ) external pure returns (bool);
 
     function splitActions(
@@ -51,8 +47,7 @@ interface ISphinxUtils {
 
     function findMaxBatchSize(
         BundledSphinxAction[] memory actions,
-        uint256 maxGasLimit,
-        DeployContractCost[] memory costs
+        uint256 maxGasLimit
     ) external pure returns (uint256);
 
     function getSphinxRegistry() external pure returns (ISphinxRegistry);
@@ -124,7 +119,6 @@ interface ISphinxUtils {
     function ffiGetEncodedBundleInfo(
         ConfigCache memory _configCache,
         string memory _parsedConfigStr,
-        string memory _rootFfiPath,
-        address _owner
+        string memory _rootFfiPath
     ) external returns (bytes memory);
 }
