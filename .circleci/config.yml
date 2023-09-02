@@ -52,10 +52,10 @@ jobs:
         default: this-package-does-not-exist
     docker:
       - image: samgoldman/ci-builder:latest
-        resource_class: large
         auth:
           username: samgoldman
           password: $DOCKERHUB_PASSWORD
+    resource_class: large
     steps:
       - restore_cache:
           keys:
