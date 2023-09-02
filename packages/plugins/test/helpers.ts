@@ -507,8 +507,6 @@ export const deployUsingFoundry = async (
   await execAsync(
     `forge script test/foundry/Broadcast.s.sol --broadcast --rpc-url ${rpcUrl}`
   )
-  console.log(stderr)
-  console.log(stdout)
 }
 
 export const revertSnapshots = async (

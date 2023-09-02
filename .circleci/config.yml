@@ -55,7 +55,6 @@ jobs:
         auth:
           username: samgoldman
           password: $DOCKERHUB_PASSWORD
-    resource_class: large
     steps:
       - restore_cache:
           keys:
