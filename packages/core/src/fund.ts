@@ -8,8 +8,10 @@ import {
   isSetStorageAction,
   isCallAction,
 } from './actions'
+import { getCreate3Address } from './config'
 
 export const estimateExecutionGas = async (
+  managerAddress: string,
   provider: SphinxJsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number
@@ -29,13 +31,14 @@ export const estimateExecutionGas = async (
   const deployedContractPromises = actions
     .filter((action) => isDeployContractAction(action))
     .map(async (action: DeployContractAction) => {
-      if (await isContractDeployed(action.addr, provider)) {
+      const addr = getCreate3Address(managerAddress, action.salt)
+      if (await isContractDeployed(addr, provider)) {
         return BigInt(0)
       } else {
         try {
           // We estimate the gas for the contract deployment by calling `estimateGas` on the provider.
           return await provider.estimateGas({
-            data: action.code,
+            data: action.creationCodeWithConstructorArgs,
           })
         } catch (e) {
           // If the estimate fails, we return a default value of 500k gas which is plenty since the actual
@@ -66,11 +69,13 @@ export const estimateExecutionGas = async (
 }
 
 export const estimateExecutionCost = async (
+  managerAddress: string,
   provider: SphinxJsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number
 ): Promise<bigint> => {
   const estExecutionGas = await estimateExecutionGas(
+    managerAddress,
     provider,
     bundles,
     actionsExecuted

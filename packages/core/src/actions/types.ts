@@ -31,7 +31,6 @@ export interface RawSphinxAction {
   actionType: SphinxActionType
   index: number
   data: string
-  addr: string
 }
 
 export interface SphinxTarget {
@@ -44,9 +43,9 @@ export interface SphinxTarget {
  * SetStorage action data.
  */
 export interface SetStorageAction {
-  addr: string
-  contractKindHash: string
   index: number
+  to: string
+  contractKindHash: string
   key: string
   offset: number
   value: string
@@ -56,15 +55,14 @@ export interface SetStorageAction {
  * DeployContract action data.
  */
 export interface DeployContractAction {
-  addr: string
   index: number
   salt: string
-  code: string
+  creationCodeWithConstructorArgs: string
 }
 
 export interface CallAction {
-  addr: string
   index: number
+  to: string
   data: string
   nonce: number
 }

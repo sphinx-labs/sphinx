@@ -556,7 +556,7 @@ contract SphinxManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(abi.encode(action.addr, action.actionType, action.data)),
+                    keccak256(abi.encode(action.actionType, action.data)),
                     action.index,
                     proof,
                     numTotalActions
@@ -568,14 +568,17 @@ contract SphinxManager is
             deployment.actionsExecuted++;
 
             if (action.actionType == SphinxActionType.CALL) {
-                (uint256 nonce, bytes memory data) = abi.decode(action.data, (uint256, bytes));
-                bytes32 callHash = keccak256(abi.encode(action.addr, data));
+                (uint256 nonce, address to, bytes memory data) = abi.decode(
+                    action.data,
+                    (uint256, address, bytes)
+                );
+                bytes32 callHash = keccak256(abi.encode(to, data));
                 uint256 currentNonce = callNonces[callHash];
                 if (nonce != currentNonce) {
                     emit CallSkipped(activeDeploymentId, action.index);
                     registry.announce("CallSkipped");
                 } else {
-                    (bool success, ) = action.addr.call(data);
+                    (bool success, ) = to.call(data);
                     if (success) {
                         callNonces[callHash] = currentNonce + 1;
                         emit CallExecuted(activeDeploymentId, action.index);
@@ -592,7 +595,10 @@ contract SphinxManager is
                     (bytes32, bytes)
                 );
 
-                address expectedAddress = action.addr;
+                address expectedAddress = ICreate3(create3).getAddressFromDeployer(
+                    salt,
+                    address(this)
+                );
 
                 // Check if the contract has already been deployed.
                 if (expectedAddress.code.length > 0) {
@@ -611,16 +617,13 @@ contract SphinxManager is
                     // Create3 contract instead of delegatecalling it, it'd be possible for an
                     // attacker to deploy a malicious contract at the expected address by calling
                     // the `deploy` function on the Create3 contract directly.
-                    (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
+                    (bool deploySuccess, ) = create3.delegatecall(
                         abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
                     );
 
                     if (deploySuccess) {
-                        // Contract was deployed successfully.
-                        address actualAddress = abi.decode(actualAddressBytes, (address));
-
                         emit ContractDeployed(
-                            actualAddress,
+                            expectedAddress,
                             activeDeploymentId,
                             keccak256(creationCodeWithConstructorArgs)
                         );
@@ -771,7 +774,7 @@ contract SphinxManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(abi.encode(action.addr, action.actionType, action.data)),
+                    keccak256(abi.encode(action.actionType, action.data)),
                     action.index,
                     proof,
                     numTotalActions
@@ -782,10 +785,13 @@ contract SphinxManager is
 
             deployment.actionsExecuted++;
 
-            (bytes32 contractKindHash, bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-                action.data,
-                (bytes32, bytes32, uint8, bytes)
-            );
+            (
+                bytes32 contractKindHash,
+                address to,
+                bytes32 key,
+                uint8 offset,
+                bytes memory val
+            ) = abi.decode(action.data, (bytes32, address, bytes32, uint8, bytes));
 
             if (
                 contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
@@ -800,13 +806,13 @@ contract SphinxManager is
             // Delegatecall the adapter to call `setStorage` on the proxy.
             // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.setStorage, (action.addr, key, offset, val))
+                abi.encodeCall(IProxyAdapter.setStorage, (payable(to), key, offset, val))
             );
             if (!success) {
                 revert SetStorageFailed();
             }
 
-            emit SetProxyStorage(activeDeploymentId, action.addr, msg.sender, action.index);
+            emit SetProxyStorage(activeDeploymentId, to, msg.sender, action.index);
             registry.announce("SetProxyStorage");
         }
 

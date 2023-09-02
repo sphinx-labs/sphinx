@@ -1056,7 +1056,7 @@ export const deploymentDoesRevert = async (
       deployContractActions.map(async (action) =>
         provider.estimateGas({
           from: managerAddress,
-          data: action.code,
+          data: action.creationCodeWithConstructorArgs,
         })
       )
     )
