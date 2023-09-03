@@ -812,7 +812,7 @@ export const getAuthLeafsForChain = async (
   const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
   if (
     managerVersionString !== parsedConfig.options.managerVersion &&
-    !configCache.isManagerDeployed
+    configCache.isManagerDeployed
   ) {
     const version = parseSemverVersion(parsedConfig.options.managerVersion)
     const upgradeLeaf: AuthLeaf = {
