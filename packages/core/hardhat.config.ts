@@ -162,7 +162,9 @@ task('deploy-system')
         )
       }
       const provider = new SphinxJsonRpcProvider(hre.network.config.url)
-      await initializeAndVerifySphinx(args.systemConfig, provider)
+      const signer = await hre.ethers.provider.getSigner()
+
+      await initializeAndVerifySphinx(args.systemConfig, provider, signer)
     }
   )
 
