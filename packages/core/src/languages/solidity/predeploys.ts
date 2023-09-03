@@ -74,7 +74,8 @@ const fetchSphinxSystemConfig = (configPath: string) => {
 
 export const initializeAndVerifySphinx = async (
   systemConfigPath: string,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider,
+  signer: ethers.Signer
 ) => {
   const config = fetchSphinxSystemConfig(systemConfigPath)
 
@@ -85,7 +86,7 @@ export const initializeAndVerifySphinx = async (
   // Deploy Contracts
   await initializeSphinx(
     provider,
-    await provider.getSigner(),
+    signer,
     config.executors,
     config.relayers,
     config.funders,
