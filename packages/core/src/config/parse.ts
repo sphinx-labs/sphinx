@@ -91,7 +91,12 @@ import {
   VALID_MANAGER_VERSIONS,
   VALID_TEST_MANAGER_VERSIONS,
 } from './types'
-import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
+import {
+  CONTRACT_SIZE_LIMIT,
+  CURRENT_SPHINX_MANAGER_VERSION,
+  Keyword,
+  keywords,
+} from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -3076,11 +3081,7 @@ export const getConfigCache = async (
 
   const managerVersion: SemverVersion = isManagerDeployed_
     ? await SphinxManager.version()
-    : {
-        major: 0,
-        minor: 2,
-        patch: 0,
-      }
+    : CURRENT_SPHINX_MANAGER_VERSION
 
   // Get a mapping of call hashes to their current nonces. We'll use this later to determine which
   // call actions to skip in the deployment, if any.

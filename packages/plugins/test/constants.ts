@@ -31,6 +31,26 @@ export type MultiChainProjectTestInfo = {
   proposerAddresses: string[]
 }
 
+// The multi-chain test suite is run against two different execution methods:
+// 1. 'standard': This is the execution flow used in production, which means a proposer must first
+//    sign a meta transaction to propose an auth root, then at least `threshold` owners must sign a
+//    meta transaction to approve the auth root.
+// 2. 'bypass verification': This is the execution flow that allows a user to test a Sphinx config
+//    locally before proposing it on live networks. In a local testing environment, the proposer and
+//    owner private keys are not known. To resolve this for the owner threshold, we set it to 0 via
+//    a `setStorageAt` RPC call in the SphinxAuth contract. For the proposer threshold, we can't use
+//    `setStorageAt` because the proposer threshold is hard-coded as a constant value in the
+//    SphinxAuth contract (which means it has no storage slot). So, instead, we set a known private
+//    key as a proposer, then use it to sign a meta transaction, which we submit like normal. It's
+//    worth mentioning that we test this flow in the multi-chain test suite to ensure that users can
+//    test their Sphinx configs locally against any set of auth leafs.
+//
+export type ExecutionMethod = 'standard' | 'bypass verification'
+export const executionMethods: Array<ExecutionMethod> = [
+  'standard',
+  'bypass verification',
+]
+
 // The following values are shared between the Sphinx configs that are tested.
 export const DUMMY_ORG_ID = '1111'
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
@@ -75,6 +95,9 @@ export const ownerPrivateKeys = [
 // Account 5
 export const proposerPrivateKey =
   '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba'
+// Account 6. This account should have no permissions.
+export const randomPrivateKey =
+  '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e'
 // Account 8
 export const deployerPrivateKey =
   '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97'
@@ -107,7 +130,7 @@ const eoaUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [eoaAddress],
-    managerVersion: 'v0.2.0',
+    managerVersion: 'v0.2.1',
   },
   contracts: contractConfig,
 }
@@ -137,7 +160,7 @@ const multisigUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [new ethers.Wallet(proposerPrivateKey).address],
-    managerVersion: 'v0.2.0',
+    managerVersion: 'v0.2.1',
   },
   contracts: contractConfig,
 }
