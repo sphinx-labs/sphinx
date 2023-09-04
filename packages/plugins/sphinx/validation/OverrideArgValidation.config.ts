@@ -19,7 +19,7 @@ const config: UserSphinxConfig = {
     proposers: [ethers.ZeroAddress],
     mainnets: [],
     testnets: ['optimism-goerli', 'arbitrum-goerli'],
-    managerVersion: 'v0.2.0',
+    managerVersion: 'v0.2.1',
   },
   contracts: {
     IncorrectConstructorArgOverrides: {

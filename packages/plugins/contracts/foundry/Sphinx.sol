@@ -521,12 +521,7 @@ abstract contract Sphinx {
         manager.initiateUpgrade{ gas: 1000000 }(targets, proofs);
 
         // Execute all the set storage actions
-        executeBatchActions(
-            setStorageActions,
-            true,
-            manager,
-            bufferedGasLimit
-        );
+        executeBatchActions(setStorageActions, true, manager, bufferedGasLimit);
 
         // Complete the upgrade
         manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);

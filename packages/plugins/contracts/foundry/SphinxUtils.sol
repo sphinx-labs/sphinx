@@ -233,21 +233,12 @@ contract SphinxUtils is
                 string memory configUri,
                 HumanReadableAction[] memory readableActions,
                 string memory warnings
-            ) = abi.decode(
-                    remainingBundleInfo,
-                    (string, HumanReadableAction[], string)
-                );
+            ) = abi.decode(remainingBundleInfo, (string, HumanReadableAction[], string));
 
             if (bytes(warnings).length > 0) {
                 console.log(StdStyle.yellow(warnings));
             }
-            return
-                BundleInfo(
-                    configUri,
-                    decodedActionBundle,
-                    decodedTargetBundle,
-                    readableActions
-                );
+            return BundleInfo(configUri, decodedActionBundle, decodedTargetBundle, readableActions);
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
             if (bytes(warnings).length > 0) {
