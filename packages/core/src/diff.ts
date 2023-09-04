@@ -1,99 +1,173 @@
-import { yellow, green, blue } from 'chalk'
+import { yellow, green, blue, bold } from 'chalk'
 
-import { ConfigCache } from './config/types'
-import { arraysEqual, getNetworkTag, hyperlink } from './utils'
+import {
+  ConfigCache,
+  ParsedConfig,
+  SphinxFunctionSignature,
+} from './config/types'
+import {
+  arraysEqual,
+  getNetworkTag,
+  hyperlink,
+  isSupportedChainId,
+  prettyFunctionCall,
+  skipCallAction,
+} from './utils'
 
-type ContractAction = 'deploying' | 'skipping'
-const contractActionTypes: Array<ContractAction> = ['deploying', 'skipping']
-
-export type SphinxDiff = Record<
-  ContractAction,
-  Array<{
-    referenceNames: Array<string>
-    networkTags: Array<string>
-  }>
->
+export type SphinxDiff = Array<{
+  networkTags: Array<string>
+  executing: Array<SphinxFunctionSignature>
+  skipping: Array<SphinxFunctionSignature>
+}>
 
 /**
  * @notice Returns a string that describes the changes that will be made to a set of contracts.
  */
 export const getDiffString = (diff: SphinxDiff): string => {
-  // Create the diff string for the contracts that will be deployed.
-  let deployingString: string = ''
-  const deploying = diff['deploying']
-  if (deploying.length === 0) {
-    deployingString = green(`No new contracts to deploy.\n\n`)
-  } else {
-    deployingString += green.underline.bold(`Deploying:`)
-    for (const e of deploying) {
-      const referenceNames = e.referenceNames.map((name) => {
-        if (name === 'SphinxManager') {
-          const link = hyperlink(
-            'here',
-            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
-          )
-          return green(`+ ${name}`) + ` (see ${blue(link)} for more info)`
-        }
-        return green(`+ ${name}`)
-      })
-      const referenceNamesString = `\n${referenceNames.join('\n')}\n`
+  let diffString = ''
 
-      const networkTags: Array<string> = []
-      if (e.networkTags.length === 1) {
-        networkTags.push(green.bold(`Network:`))
-        networkTags.push(green(e.networkTags[0]))
-      } else {
-        networkTags.push(green.bold(`Networks:`))
-        const networks = e.networkTags.map((name, i) =>
-          green(`${i + 1}. ${name}`)
-        )
-        networkTags.push(...networks)
-      }
-      const networkTagsString = `${networkTags.join('\n')}\n\n`
+  const sphinxManagerLink = hyperlink(
+    'here',
+    'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
+  )
+  const skippingLink = hyperlink(
+    'here',
+    'https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md#why-is-sphinx-skipping-a-contract-deployment-or-function-call'
+  )
+  const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
+    `Already executed. See`
+  )} ${blue(skippingLink)} ${yellow('for more info.')}`
 
-      deployingString += `${referenceNamesString}${networkTagsString}`
+  for (const { networkTags, executing, skipping } of diff) {
+    // Get the diff string for the networks.
+    const networkTagsArray: Array<string> = []
+    if (networkTags.length === 1) {
+      networkTagsArray.push(`${bold(`Network:`)} ${networkTags[0]}`)
+    } else {
+      networkTagsArray.push(bold.underline(`Networks:`))
+      const networks = networkTags.map((tag, i) => `${i + 1}. ${tag}`)
+      networkTagsArray.push(...networks)
     }
+    diffString += `${networkTagsArray.join('\n')}\n`
+
+    // Get the diff string for the actions that will be executed.
+    const executingArray: Array<string> = []
+    if (executing.length === 0) {
+      executingArray.push(green.underline.bold(`Nothing to execute.`))
+    } else {
+      executingArray.push(green.underline.bold(`Executing:`))
+      for (let i = 0; i < executing.length; i++) {
+        const signature = executing[i]
+        const { referenceNameOrAddress, functionName, variables } = signature
+
+        const functionCallStr = prettyFunctionCall(
+          referenceNameOrAddress,
+          functionName,
+          variables,
+          5,
+          3
+        )
+
+        let executingStr: string
+        if (referenceNameOrAddress === 'SphinxManager') {
+          executingStr =
+            green(`${i + 1}. ${functionCallStr}`) +
+            ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
+              'for more info)'
+            )}`
+        } else {
+          executingStr = green(`${i + 1}. ${functionCallStr}`)
+        }
+
+        executingArray.push(executingStr)
+      }
+    }
+    diffString += `${executingArray.join('\n')}\n`
+
+    // Get the diff string for the actions that will be skipped.
+    if (skipping.length > 0) {
+      const skippingArray: Array<string> = []
+      skippingArray.push(yellow.underline.bold(`Skipping:`))
+      skippingArray.push(skippingReason)
+      for (let i = 0; i < skipping.length; i++) {
+        const signature = skipping[i]
+        const { referenceNameOrAddress, functionName, variables } = signature
+
+        const functionCallStr = prettyFunctionCall(
+          referenceNameOrAddress,
+          functionName,
+          variables,
+          5,
+          3
+        )
+
+        const skippingStr = yellow(`${i + 1}. ${functionCallStr}`)
+        skippingArray.push(skippingStr)
+      }
+      diffString += `${skippingArray.join('\n')}\n`
+    }
+
+    diffString += '\n'
   }
 
-  // Create the diff string for the contracts that will be skipped.
-  const skippingHeader = yellow.bold.underline(`Skipping:\n`)
-  const skippingReason = yellow(
-    `Reason: Contract already deployed at the Create3 address. To deploy instead of skipping, see instructions ${hyperlink(
-      'here',
-      'https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md#how-do-i-deploy-a-contract-when-another-contract-already-exists-at-its-create3-address'
-    )}.`
-  )
-  const skippingString = getSkippingString(
-    diff['skipping'],
-    skippingHeader,
-    skippingReason
-  )
-
-  return `\n${deployingString}${skippingString}` + `Confirm? [y/n]`
+  return diffString + `Confirm? [y/n]`
 }
 
-export const getDiff = (configCaches: Array<ConfigCache>): SphinxDiff => {
-  const contractActions: {
-    [networkTags: string]: {
-      deploying: Array<string>
-      skipping: Array<string>
+export const getDiff = (
+  parsedConfig: ParsedConfig,
+  configCaches: Array<ConfigCache>
+): SphinxDiff => {
+  const networks: {
+    [networkTag: string]: {
+      executing: Array<SphinxFunctionSignature>
+      skipping: Array<SphinxFunctionSignature>
     }
   } = {}
+
   for (const configCache of configCaches) {
-    const deploying: Array<string> = []
-    if (!configCache.isManagerDeployed) {
-      deploying.push('SphinxManager')
+    const executing: Array<SphinxFunctionSignature> = []
+    const skipping: Array<SphinxFunctionSignature> = []
+
+    const chainId = configCache.chainId
+
+    // Narrows the TypeScript type of `chainId` to `SupportedChainId`.
+    if (!isSupportedChainId(chainId)) {
+      // An unsupported chain ID should have been caught in the parsing logic.
+      throw new Error(`Unsupported chain ID: ${chainId}. Should never happen.`)
     }
 
-    const skipping: Array<string> = []
-    for (const [referenceName, contractConfigCache] of Object.entries(
-      configCache.contractConfigCache
+    if (!configCache.isManagerDeployed) {
+      executing.push({
+        referenceNameOrAddress: 'SphinxManager',
+        functionName: 'constructor',
+        variables: {},
+      })
+    }
+
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
     )) {
-      const { isTargetDeployed } = contractConfigCache
-      if (!isTargetDeployed) {
-        deploying.push(referenceName)
+      const constructorArgs = contractConfig.constructorArgs[chainId] ?? {}
+
+      const constructorSignature: SphinxFunctionSignature = {
+        referenceNameOrAddress: referenceName,
+        functionName: 'constructor',
+        variables: constructorArgs,
+      }
+
+      if (configCache.contractConfigCache[referenceName].isTargetDeployed) {
+        skipping.push(constructorSignature)
       } else {
-        skipping.push(referenceName)
+        executing.push(constructorSignature)
+      }
+    }
+
+    const postDeploy = parsedConfig.postDeploy[chainId] ?? []
+    for (const { to, data, nonce, readableSignature } of postDeploy) {
+      if (skipCallAction(to, data, nonce, configCache.callNonces)) {
+        skipping.push(readableSignature)
+      } else {
+        executing.push(readableSignature)
       }
     }
 
@@ -103,116 +177,29 @@ export const getDiff = (configCaches: Array<ConfigCache>): SphinxDiff => {
       configCache.chainId
     )
 
-    contractActions[networkTag] = { deploying, skipping }
+    networks[networkTag] = { executing, skipping }
   }
 
-  // Get an array of objects, where each object is a (referenceName, networkTag, contractAction)
-  // tuple.
-  const diffTuples: Array<{
-    referenceName: string
-    networkTag: string
-    contractAction: string
-  }> = []
-  for (const [networkTag, networkContractActions] of Object.entries(
-    contractActions
+  // Next, we group networks that have the same executing and skipping arrays.
+  const diff: SphinxDiff = []
+  for (const [networkTag, { executing, skipping }] of Object.entries(
+    networks
   )) {
-    for (const [contractAction, referenceNames] of Object.entries(
-      networkContractActions
-    )) {
-      for (const referenceName of referenceNames) {
-        diffTuples.push({ referenceName, networkTag, contractAction })
-      }
-    }
-  }
-
-  // Transform the diff objects into a format that is easier to print.
-  const diff: Record<
-    ContractAction,
-    Array<{
-      referenceNames: Array<string>
-      networkTags: Array<string>
-    }>
-  > = {
-    deploying: [],
-    skipping: [],
-  }
-  for (const contractAction of contractActionTypes) {
-    const actions = diff[contractAction]
-
-    const filteredObjects = diffTuples.filter(
-      (e) => e.contractAction === contractAction
+    const existingNetwork = diff.find(
+      (e) =>
+        arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
     )
 
-    // Get the list of unique reference names for this contract action
-    const uniqueReferenceNames = Array.from(
-      new Set(filteredObjects.map((e) => e.referenceName))
-    )
-
-    // Sort the reference names in alphabetical order
-    uniqueReferenceNames.sort()
-
-    for (const referenceName of uniqueReferenceNames) {
-      // Get the list of networks that this reference name will be deployed to. Sort the networks in
-      // alphabetical order.
-      const networks = filteredObjects
-        .filter((e) => e.referenceName === referenceName)
-        .map((e) => e.networkTag)
-        .sort()
-
-      // Check if an object already exists in the actions array that has the same network tags. If
-      // so, add this reference name to the existing object. Otherwise, create a new object.
-      const existingAction = actions.find((e) =>
-        arraysEqual(e.networkTags, networks)
-      )
-
-      if (existingAction) {
-        existingAction.referenceNames.push(referenceName)
-      } else {
-        actions.push({
-          referenceNames: [referenceName],
-          networkTags: networks,
-        })
-      }
-    }
-  }
-  return diff
-}
-
-const getSkippingString = (
-  skipping: Array<{
-    referenceNames: Array<string>
-    networkTags: Array<string>
-  }>,
-  header: string,
-  reason: string
-): string => {
-  let skippingString: string = ''
-  if (skipping.length > 0) {
-    skippingString += header
-    skippingString += reason
-    skippingString += yellow.bold(`\nContract(s):`)
-
-    for (const e of skipping) {
-      const referenceNames = e.referenceNames.map((name) => {
-        return yellow(`~ ${name}`)
+    if (existingNetwork) {
+      existingNetwork.networkTags.push(networkTag)
+    } else {
+      diff.push({
+        networkTags: [networkTag],
+        executing,
+        skipping,
       })
-      const referenceNamesString = `\n${referenceNames.join('\n')}\n`
-
-      const networkTags: Array<string> = []
-      if (e.networkTags.length === 1) {
-        networkTags.push(yellow.bold(`Network:`))
-        networkTags.push(yellow(e.networkTags[0]))
-      } else {
-        networkTags.push(yellow.bold(`Networks:`))
-        const networks = e.networkTags.map((name, i) =>
-          yellow(`${i + 1}. ${name}`)
-        )
-        networkTags.push(...networks)
-      }
-      const networkTagsString = `${networkTags.join('\n')}\n\n`
-
-      skippingString += `${referenceNamesString}${networkTagsString}`
     }
   }
-  return skippingString
+
+  return diff
 }

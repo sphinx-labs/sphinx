@@ -23,9 +23,10 @@ import {
   getEmptyCanonicalConfig,
   toHexString,
   fromHexString,
-  getCallHash,
   isSupportedChainId,
   parseSemverVersion,
+  prettyFunctionCall,
+  skipCallAction,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -535,6 +536,12 @@ export const makeActionBundleFromConfig = (
     const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
     const { kind, salt, constructorArgs } = contractConfig
 
+    const readableSignature = prettyFunctionCall(
+      referenceName,
+      'constructor',
+      constructorArgs
+    )
+
     const deployContractCost = getEstDeployContractCost(
       buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
     )
@@ -570,7 +577,7 @@ export const makeActionBundleFromConfig = (
 
       humanReadableActions[actionIndex] = {
         actionIndex,
-        reason: referenceName,
+        reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
 
@@ -604,7 +611,7 @@ export const makeActionBundleFromConfig = (
 
       humanReadableActions[actionIndex] = {
         actionIndex,
-        reason: referenceName,
+        reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
 
@@ -618,9 +625,7 @@ export const makeActionBundleFromConfig = (
   const postDeployActions = parsedConfig.postDeploy[chainId]
   if (postDeployActions) {
     for (const { to, data, nonce, readableSignature } of postDeployActions) {
-      const callHash = getCallHash(to, data)
-      const currentNonce = configCache.callNonces[callHash]
-      if (nonce >= currentNonce) {
+      if (!skipCallAction(to, data, nonce, configCache.callNonces)) {
         actions.push({
           to,
           index: actionIndex,
@@ -631,7 +636,11 @@ export const makeActionBundleFromConfig = (
 
         humanReadableActions[actionIndex] = {
           actionIndex,
-          reason: readableSignature,
+          reason: prettyFunctionCall(
+            readableSignature.referenceNameOrAddress,
+            readableSignature.functionName,
+            readableSignature.variables
+          ),
           actionType: SphinxActionType.CALL,
         }
 
@@ -676,6 +685,7 @@ export const makeActionBundleFromConfig = (
 
       humanReadableActions[actionIndex] = {
         actionIndex,
+        // TODO(upgrades): add reason
         reason: '',
         actionType: SphinxActionType.SET_STORAGE,
       }
@@ -812,7 +822,7 @@ export const getAuthLeafsForChain = async (
   const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
   if (
     managerVersionString !== parsedConfig.options.managerVersion &&
-    configCache.isManagerDeployed
+    !configCache.isManagerDeployed
   ) {
     const version = parseSemverVersion(parsedConfig.options.managerVersion)
     const upgradeLeaf: AuthLeaf = {

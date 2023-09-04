@@ -90,10 +90,16 @@ const broadcasting = args[2] === 'true'
 
       // Write the config artifacts to the local file system. It will exist in a JSON file that has the
       // config URI as its name.
-      fs.writeFileSync(
-        path.join(artifactCachePath, `${ipfsHash}.json`),
-        JSON.stringify(configArtifacts, null, 2)
+      const configArtifactsPath = path.join(
+        artifactCachePath,
+        `${ipfsHash}.json`
       )
+      if (!fs.existsSync(configArtifactsPath)) {
+        fs.writeFileSync(
+          configArtifactsPath,
+          JSON.stringify(configArtifacts, null, 2)
+        )
+      }
     }
 
     const bundledActionType = SphinxUtilsABI.find(

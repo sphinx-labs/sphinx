@@ -73,6 +73,7 @@ import {
   UserCallAction,
   ValidManagerVersion,
   UserFunctionOptions,
+  ConfigCache,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1133,6 +1134,10 @@ export const getImplAddress = (
   return getCreate3Address(managerAddress, implSalt)
 }
 
+/**
+ * @notice Stderr and stdout can be retrieved from the `stderr` and `stdout` properties of the
+ * returned object. Error can be caught by wrapping the function in a try/catch block.
+ */
 export const execAsync = promisify(exec)
 
 export const getDuplicateElements = (arr: Array<string>): Array<string> => {
@@ -1391,13 +1396,16 @@ export const findNetwork = (chainId: number): string => {
   return network
 }
 
-export const arraysEqual = (a: Array<any>, b: Array<any>): boolean => {
+export const arraysEqual = (
+  a: Array<string | ParsedConfigVariable>,
+  b: Array<string | ParsedConfigVariable>
+): boolean => {
   if (a.length !== b.length) {
     return false
   }
 
   for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
+    if (!equal(a[i], b[i])) {
       return false
     }
   }
@@ -1713,16 +1721,35 @@ export const getCallActionAddressForNetwork = (
  * @notice Returns a string that represents a function call in a string format that can be
  * displayed in a terminal. Note that this function does not support function calls with BigInt
  * arguments, since JSON.stringify can't parse them.
+ *
+ * @param spaceToIndentVariables Number of spaces to indent the variables in the JSON string.
+ * @param spaceToIndentClosingParenthesis Number of spaces to indent the closing parenthesis.
  */
 export const prettyFunctionCall = (
+  referenceNameOrAddress: string,
   functionName: string,
-  args: Array<UserConfigVariable>
+  variables: ParsedConfigVariables | Array<UserConfigVariable>,
+  spaceToIndentVariables: number = 2,
+  spaceToIndentClosingParenthesis: number = 0
 ): string => {
-  const stringified = JSON.stringify(args, null, 2)
-  // Removes the first and last characters, which are '[' and ']'.
+  const stringified = JSON.stringify(variables, null, spaceToIndentVariables)
+  // Removes the first and last characters, which are either '[' and ']', or '{' and '}'.
   const removedBrackets = stringified.substring(1, stringified.length - 1)
 
-  return `${functionName}(${removedBrackets})`
+  // We only add a newline if the stringified variables contain a newline. Otherwise, a function
+  // call without any parameters would look like this: `myFunction(    )` (note the extra spaces).
+  const numSpacesForClosingParenthesis = removedBrackets.includes(`\n`)
+    ? spaceToIndentClosingParenthesis
+    : 0
+
+  const addedSpaceToClosingParenthesis =
+    removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
+
+  const target = ethers.isAddress(referenceNameOrAddress)
+    ? `(${referenceNameOrAddress})`
+    : referenceNameOrAddress
+
+  return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
 }
 
 /**
@@ -1741,4 +1768,55 @@ export const getRegistryData = (owner: string, projectName: string): string => {
       '0x',
     ]
   )
+}
+
+export const skipCallAction = (
+  to: string,
+  data: string,
+  nonce: number,
+  callNonces: ConfigCache['callNonces']
+): boolean => {
+  const callHash = getCallHash(to, data)
+  const currentNonce = callNonces[callHash]
+  return currentNonce > nonce
+}
+
+/**
+ * @notice Returns true if and only if the two inputs are equal.
+ */
+export const equal = (
+  a: ParsedConfigVariable,
+  b: ParsedConfigVariable
+): boolean => {
+  if (
+    (Array.isArray(a) && !Array.isArray(b)) ||
+    (!Array.isArray(a) && Array.isArray(b)) ||
+    typeof a !== typeof b
+  ) {
+    return false
+  } else if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false
+    } else {
+      for (let i = 0; i < a.length; i++) {
+        if (!equal(a[i], b[i])) {
+          return false
+        }
+      }
+      return true
+    }
+  } else if (typeof a === 'object' && typeof b === 'object') {
+    if (Object.keys(a).length !== Object.keys(b).length) {
+      return false
+    } else {
+      for (const key of Object.keys(a)) {
+        if (!equal(a[key], b[key])) {
+          return false
+        }
+      }
+      return true
+    }
+  } else {
+    return a === b
+  }
 }

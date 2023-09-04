@@ -428,7 +428,7 @@ yargs(hideBin(process.argv))
           process.stderr
         )
 
-        const { configCache } = await getParsedConfig(
+        const { parsedConfig, configCache } = await getParsedConfig(
           userConfig,
           provider,
           cre,
@@ -436,7 +436,7 @@ yargs(hideBin(process.argv))
           owner.address
         )
 
-        const diff = getDiff([configCache])
+        const diff = getDiff(parsedConfig, [configCache])
         const diffString = getDiffString(diff)
 
         spinner.stop()

@@ -77,7 +77,6 @@ export type UserConfigVariable =
 export type ParsedConfigVariable =
   | boolean
   | string
-  | number
   | Array<ParsedConfigVariable>
   | {
       [name: string]: ParsedConfigVariable
@@ -140,7 +139,13 @@ export type ParsedCallAction = {
   to: string
   data: string
   nonce: number
-  readableSignature: string
+  readableSignature: SphinxFunctionSignature
+}
+
+export type SphinxFunctionSignature = {
+  referenceNameOrAddress: string
+  functionName: string
+  variables: ParsedConfigVariables
 }
 
 export interface ParsedConfig {
