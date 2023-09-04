@@ -1620,7 +1620,7 @@ describe('Post-Deployment Actions', () => {
           // The transaction failure is caught in Foundry's simulation, so no transactions are
           // actually broadcasted.
           await expect(deployPromise).to.be.rejectedWith(
-            `Sphinx: failed to execute PostDeploymentActions because the following post deployment action reverted: ConfigContract1.reverter()`
+            `Sphinx: failed to execute PostDeploymentActions because the following post-deployment action reverted: ConfigContract1.reverter()`
           )
         } else {
           throw new Error(`Invalid integration: ${integration}`)

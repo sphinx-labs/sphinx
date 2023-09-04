@@ -67,10 +67,9 @@ export const failedToEncodeFunctionCall = (
   referenceName?: string
 ): string => {
   return (
-    `Failed to encode data for the function call on ${
-      referenceName ?? callAction.address
-    }:\n` +
+    `Failed to encode data for:\n` +
     `${prettyFunctionCall(
+      referenceName ?? callAction.address,
       callAction.functionName,
       callAction.functionArgs
     )}\n` +

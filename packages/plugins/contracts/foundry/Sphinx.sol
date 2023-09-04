@@ -238,15 +238,14 @@ abstract contract Sphinx {
                     ? abi.encodePacked(
                         "Sphinx: failed to execute ",
                         configs.minimalConfig.projectName,
-                        " because the following post deployment action reverted: ",
+                        " because the following post-deployment action reverted: ",
                         readableAction.reason
                     )
                     : abi.encodePacked(
                         "Sphinx: failed to execute ",
                         configs.minimalConfig.projectName,
-                        " because the constructor of ",
-                        readableAction.reason,
-                        " reverted"
+                        " because the following deployment reverted: ",
+                        readableAction.reason
                     );
 
                 revert(string(revertMessage));

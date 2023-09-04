@@ -216,8 +216,6 @@ export const proposeAbstractTask = async (
 
   spinner.succeed(`Got on-chain data.`)
 
-  const diff = getDiff(configCaches)
-
   // This removes a TypeScript error that occurs because TypeScript doesn't know that the
   // `parsedConfig` variable is defined.
   if (!parsedConfig || !configArtifacts) {
@@ -225,6 +223,8 @@ export const proposeAbstractTask = async (
       'Could not find either parsed config or config artifacts. Should never happen.'
     )
   }
+
+  const diff = getDiff(parsedConfig, configCaches)
 
   const { orgId } = parsedConfig.options
 
@@ -553,7 +553,7 @@ export const deployAbstractTask = async (
   } else {
     spinner.stop()
 
-    const diff = getDiff([configCache])
+    const diff = getDiff(parsedConfig, [configCache])
     const diffString = getDiffString(diff)
 
     // Confirm deployment with the user before sending any transactions.
@@ -665,7 +665,8 @@ export const deployAbstractTask = async (
             )
           } else {
             throw new Error(
-              `Failed to execute ${projectName} because the constructor of ${action.reason} reverted.`
+              `Failed to execute ${projectName} because the following deployment reverted:\n` +
+                `${action.reason}`
             )
           }
         }
