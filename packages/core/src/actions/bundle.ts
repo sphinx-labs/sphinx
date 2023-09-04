@@ -50,6 +50,7 @@ import {
   ProjectDeployment,
   CallAction,
   HumanReadableActions,
+  AuthLeafFunctions,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getProjectBundleInfo } from '../tasks'
@@ -278,34 +279,34 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   switch (leaf.leafType) {
     /************************ OWNER ACTIONS *****************************/
-    case 'setup':
+    case AuthLeafFunctions.SETUP:
       return coder.encode(
         ['tuple(address member, bool add)[]', 'uint256'],
         [leaf.proposers, leaf.numLeafs]
       )
 
-    case 'exportProxy':
+    case AuthLeafFunctions.EXPORT_PROXY:
       return coder.encode(
         ['address', 'bytes32', 'address'],
         [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
 
-    case 'setOwner':
+    case AuthLeafFunctions.SET_OWNER:
       return coder.encode(['address', 'bool'], [leaf.owner, leaf.add])
 
-    case 'setThreshold':
+    case AuthLeafFunctions.SET_THRESHOLD:
       return coder.encode(['uint256'], [leaf.newThreshold])
 
-    case 'transferManagerOwnership':
+    case AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP:
       return coder.encode(['address'], [leaf.newOwner])
 
-    case 'upgradeManagerImplementation':
+    case AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION:
       return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
-    case 'upgradeAuthImplementation':
+    case AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION:
       return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
-    case 'upgradeManagerAndAuthImpl':
+    case AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL:
       return coder.encode(
         ['address', 'bytes', 'address', 'bytes'],
         [
@@ -316,10 +317,10 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         ]
       )
 
-    case 'setProposer':
+    case AuthLeafFunctions.SET_PROPOSER:
       return coder.encode(['address', 'bool'], [leaf.proposer, leaf.add])
 
-    case 'approveDeployment':
+    case AuthLeafFunctions.APPROVE_DEPLOYMENT:
       return coder.encode(
         [
           'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numInitialActions, uint256 numSetStorageActions, uint256 numTargets, string configUri)',
@@ -327,12 +328,12 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.approval]
       )
 
-    case 'cancelActiveDeployment':
+    case AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT:
       return coder.encode(['string'], [leaf.projectName])
 
     /****************************** PROPOSER ACTIONS ******************************/
 
-    case 'propose':
+    case AuthLeafFunctions.PROPOSE:
       return coder.encode(['uint256'], [leaf.numLeafs])
 
     default:
@@ -348,7 +349,7 @@ export const getAuthLeafSignerInfo = (
   ownerThreshold: number,
   leafType: string
 ): { leafThreshold: number; roleType: RoleType } => {
-  if (leafType === 'propose') {
+  if (leafType === AuthLeafFunctions.PROPOSE) {
     return { leafThreshold: 1, roleType: RoleType.PROPOSER }
   } else {
     return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
@@ -829,7 +830,7 @@ export const getAuthLeafsForChain = async (
       chainId,
       to: manager,
       index,
-      leafType: 'upgradeManagerAndAuthImpl',
+      leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
       managerInitCallData: '0x',
       managerImpl: getSphinxManagerImplAddress(chainId, version),
       authInitCallData: '0x',
@@ -868,7 +869,7 @@ export const getAuthLeafsForChain = async (
         numTargets: targetBundle.targets.length,
         configUri,
       },
-      leafType: 'approveDeployment',
+      leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT,
     }
     index += 1
     leafs.push(approvalLeaf)
@@ -884,7 +885,7 @@ export const getAuthLeafsForChain = async (
       to: manager,
       index: 0,
       numLeafs: index,
-      leafType: 'propose',
+      leafType: AuthLeafFunctions.PROPOSE,
     }
     leafs.push(proposalLeaf)
   } else if (!firstProposalOccurred) {
@@ -895,7 +896,7 @@ export const getAuthLeafsForChain = async (
       index: 0,
       proposers: proposersToSet,
       numLeafs: index,
-      leafType: 'setup',
+      leafType: AuthLeafFunctions.SETUP,
     }
     leafs.push(setupLeaf)
 
@@ -906,7 +907,7 @@ export const getAuthLeafsForChain = async (
         to: manager,
         index: 1,
         numLeafs: index,
-        leafType: 'propose',
+        leafType: AuthLeafFunctions.PROPOSE,
       }
       leafs.push(proposalLeaf)
     }
@@ -1032,5 +1033,5 @@ export const getGasEstimates = async (
 export const isApproveDeploymentAuthLeaf = (
   leaf: AuthLeaf
 ): leaf is ApproveDeployment => {
-  return leaf.leafType === 'approveDeployment'
+  return leaf.leafType === AuthLeafFunctions.APPROVE_DEPLOYMENT
 }
