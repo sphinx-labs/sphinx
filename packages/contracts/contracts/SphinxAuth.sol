@@ -30,7 +30,7 @@ import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.0
+ * @custom:version 0.2.1
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
@@ -46,6 +46,10 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
     ISphinxManager public manager;
 
+    /**
+     * @notice The number of owners that must sign an auth root in order for it to be executable
+     *         in this contract.
+     */
     uint256 public threshold;
 
     string public projectName;
@@ -681,7 +685,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32 _verifyingRole,
         bytes[] memory _signatures
     ) private view {
-        if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
 
         AuthState memory authState = authStates[_authRoot];

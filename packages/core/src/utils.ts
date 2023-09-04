@@ -1310,7 +1310,7 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
-      managerVersion: 'v0.2.0',
+      managerVersion: 'v0.2.1',
     },
     contracts: {},
     chainStates,
