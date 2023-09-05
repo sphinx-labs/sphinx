@@ -30,19 +30,24 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 1.0.0
+ * @custom:version 0.2.2
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
-   deployments. It contains the functionality for approving and executing deployments and
-   exporting proxies out of the Sphinx system if desired. It exists as a single implementation
-   contract behind SphinxManagerProxy contracts, which are each owned by a single project team.
-
-   After a deployment is approved, it is executed in the following steps, which must occur in order.
-    1. Execute all of the `DEPLOY_CONTRACT` actions using the `executeActions` function. This is
-       first because it's possible for the constructor of a deployed contract to revert. If this
-       happens, we cancel the deployment before the proxies are modified in any way.
-    2. The `initiateProxies` function.
-    3. Execute all of the `SET_STORAGE` actions using the `executeActions` function.
-    4. The `completeUpgrade` function.
+ *         deployments. It contains the functionality for approving and executing deployments and
+ *         exporting proxies out of the Sphinx system if desired. It exists as a single
+ *         implementation contract behind SphinxManagerProxy contracts, which are each owned by a
+ *         single project team.
+ *
+ *         After a deployment is approved, it is executed in the following steps, which must occur
+ *         in order:
+ *         1. The `executeInitialActions` function: `DEPLOY_CONTRACT` and `CALL` actions are
+ *            executed in ascending order according to their index.
+ *         The next steps only occur if the deployment is upgrading proxies.
+ *         2. The `initiateProxies` function: sets the implementation of each proxy to a contract
+ *            that can only be called by the user's SphinxManager. This ensures that the upgrade is
+ *            atomic, which means that all proxies are upgraded in a single transaction.
+ *         3. Execute all of the `SET_STORAGE` actions using the `executeActions` function.
+ *         4. The `completeUpgrade` function, which upgrades all of the proxies to their new
+ *            implementations in a single transaction.
  */
 contract SphinxManager is
     OwnableUpgradeable,
@@ -93,12 +98,21 @@ contract SphinxManager is
     /**
      * @notice Mapping of deployment IDs to deployment state.
      */
-    mapping(bytes32 => DeploymentState) internal _deployments;
+    mapping(bytes32 => DeploymentState) private _deployments;
 
     /**
      * @notice ID of the currently active deployment.
      */
     bytes32 public activeDeploymentId;
+
+    /**
+     * @notice Mapping of call hashes to nonces. A call hash is the hash of the address and calldata
+       of a `CALL` action. The nonce is incremented each time the call is executed. This makes it
+       easy for off-chain code to keep track of which calls to skip if a deployment is re-executed.
+       Although this same functionality could be achieved using events, we opt for a mapping because
+       some chains make it difficult to query events that occurred past a certain block.
+     */
+    mapping(bytes32 => uint256) public callNonces;
 
     /**
      * @notice Reverts if the caller is not a remote executor.
@@ -166,15 +180,9 @@ contract SphinxManager is
     error InvalidActionType();
 
     /**
-     * @notice Reverts if an upgrade is initiated before all of the contracts are deployed via
-       `executeActions`.
+     * @notice Reverts if an action is executed out of order.
      */
-    error InitiatedUpgradeTooEarly();
-
-    /**
-     * @notice Reverts if the deployment is not in the `APPROVED` state.
-     */
-    error DeploymentIsNotApproved();
+    error InvalidActionIndex();
 
     /**
      * @notice Reverts if the provided number of targets does not match the actual number of targets
@@ -203,9 +211,10 @@ contract SphinxManager is
     error FailedToFinalizeUpgrade();
 
     /**
-     * @notice Reverts if the deployment is not in the `PROXIES_INITIATED` state.
+     * @notice Reverts if a function is called in an incorrect order during the deployment
+     *        process.
      */
-    error ProxiesAreNotInitiated();
+    error InvalidDeploymentStatus();
 
     /**
      * @notice Reverts if the call to modify a proxy's storage slot value fails.
@@ -292,8 +301,7 @@ contract SphinxManager is
      * This may be `bytes32(0)` if there are no actions in the deployment.
      * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
      * This may be `bytes32(0)` if there are no targets in the deployment.
-     * @param _numImmutableContracts Number of non-proxy contracts in the deployment.
-     * @param _numActions Number of actions in the deployment.
+     * @param _numInitialActions Number of `DEPLOY_CONTRACT` and `CALL` actions in the deployment.
      * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
      * @param _remoteExecution Whether or not to allow remote execution of the deployment.
@@ -301,9 +309,9 @@ contract SphinxManager is
     function approve(
         bytes32 _actionRoot,
         bytes32 _targetRoot,
-        uint256 _numActions,
+        uint256 _numInitialActions,
+        uint256 _numSetStorageActions,
         uint256 _numTargets,
-        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) public onlyOwner {
@@ -316,9 +324,9 @@ contract SphinxManager is
             abi.encode(
                 _actionRoot,
                 _targetRoot,
-                _numActions,
+                _numInitialActions,
+                _numSetStorageActions,
                 _numTargets,
-                _numImmutableContracts,
                 _configUri
             )
         );
@@ -340,8 +348,8 @@ contract SphinxManager is
         deployment.status = DeploymentStatus.APPROVED;
         deployment.actionRoot = _actionRoot;
         deployment.targetRoot = _targetRoot;
-        deployment.numImmutableContracts = _numImmutableContracts;
-        deployment.actions = new bool[](_numActions);
+        deployment.numInitialActions = _numInitialActions;
+        deployment.numSetStorageActions = _numSetStorageActions;
         deployment.targets = _numTargets;
         deployment.remoteExecution = _remoteExecution;
         deployment.configUri = _configUri;
@@ -350,9 +358,9 @@ contract SphinxManager is
             deploymentId,
             _actionRoot,
             _targetRoot,
-            _numActions,
+            _numInitialActions,
+            _numSetStorageActions,
             _numTargets,
-            _numImmutableContracts,
             _configUri,
             _remoteExecution,
             msg.sender
@@ -363,27 +371,19 @@ contract SphinxManager is
     /**
      * @notice Helper function that executes an entire upgrade in a single transaction. This allows
        the proxies in smaller upgrades to have zero downtime. This must occur after all of the
-       `DEPLOY_CONTRACT` actions have been executed.
-
-     * @param _targets Array of SphinxTarget structs containing the targets for the deployment.
-     * @param _targetProofs Array of Merkle proofs for the targets.
-     * @param _actions Array of RawSphinxAction structs containing the actions for the
-     *                 deployment.
-     * @param _actionIndexes Array of indexes into the actions array for each target.
-     * @param _actionProofs Array of Merkle proofs for the actions.
+       initial `DEPLOY_CONTRACT` and `CALL` actions have been executed.
      */
     function executeEntireUpgrade(
         SphinxTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
-        RawSphinxAction[] memory _actions,
-        uint256[] memory _actionIndexes,
-        bytes32[][] memory _actionProofs
+        RawSphinxAction[] memory _setStorageActions,
+        bytes32[][] memory _setStorageProofs
     ) external {
         initiateUpgrade(_targets, _targetProofs);
 
         // Execute the `SET_STORAGE` actions if there are any.
-        if (_actions.length > 0) {
-            executeActions(_actions, _actionIndexes, _actionProofs);
+        if (_setStorageActions.length > 0) {
+            setStorage(_setStorageActions, _setStorageProofs);
         }
 
         finalizeUpgrade(_targets, _targetProofs);
@@ -497,10 +497,9 @@ contract SphinxManager is
     /**
      * @notice Gets the DeploymentState struct for a given deployment ID. Note that we explicitly
      *         define this function because the getter function auto-generated by Solidity doesn't
-               return
-     *         array members of structs: https://github.com/ethereum/solidity/issues/12792. Without
-     *         this function, we wouldn't be able to retrieve the full `DeploymentState.actions`
-               array.
+     *         return array members of structs: https://github.com/ethereum/solidity/issues/12792.
+     *         If we remove this function and make the `_deployments` mapping public, we will get a
+     *         compilation error for this reason.
      *
      * @param _deploymentId Deployment ID.
      *
@@ -518,25 +517,25 @@ contract SphinxManager is
     }
 
     /**
-     * @notice Deploys non-proxy contracts and sets proxy state variables. If the deployment does
-       not contain any proxies, it will be completed after all of the non-proxy contracts have been
-       deployed in this function.
+     * @notice Deploys contracts and executes arbitrary calls in a deployment. This must be called
+     *         after the deployment is approved. A contract deployment will be skipped if a contract
+     *         already exists at its CREATE3 address. If a contract deployment or call fails, the
+     *         entire deployment will be marked as `FAILED` and no further actions will be executed.
      *
-     * @param _actions Array of RawSphinxAction structs containing the actions for the
-     *                 deployment.
-     * @param _actionIndexes Array of action indexes.
-     * @param _proofs Array of Merkle proofs for the actions.
+     * @param _actions The `DEPLOY_CONTRACT` and `CALL` actions to execute.
+     * @param _proofs The Merkle proofs for the actions.
      */
-    function executeActions(
+    function executeInitialActions(
         RawSphinxAction[] memory _actions,
-        uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
         DeploymentState storage deployment = _deployments[activeDeploymentId];
+        if (deployment.status != DeploymentStatus.APPROVED) revert InvalidDeploymentStatus();
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
         uint256 numActions = _actions.length;
+        uint256 numTotalActions = deployment.numInitialActions + deployment.numSetStorageActions;
 
         // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
         // cause the executor to be paid for doing nothing.
@@ -545,59 +544,112 @@ contract SphinxManager is
         }
 
         RawSphinxAction memory action;
-        uint256 actionIndex;
         bytes32[] memory proof;
         for (uint256 i = 0; i < numActions; i++) {
             action = _actions[i];
-            actionIndex = _actionIndexes[i];
             proof = _proofs[i];
 
-            if (deployment.actions[actionIndex]) {
-                revert ActionAlreadyExecuted();
+            if (deployment.actionsExecuted != action.index) {
+                revert InvalidActionIndex();
             }
 
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(
-                        abi.encode(
-                            action.referenceName,
-                            action.addr,
-                            action.actionType,
-                            action.contractKindHash,
-                            action.data
-                        )
-                    ),
-                    actionIndex,
+                    keccak256(abi.encode(action.actionType, action.data)),
+                    action.index,
                     proof,
-                    deployment.actions.length
+                    numTotalActions
                 )
             ) {
                 revert InvalidMerkleProof();
             }
 
-            // Mark the action as executed and update the total number of executed actions.
             deployment.actionsExecuted++;
-            deployment.actions[actionIndex] = true;
 
-            if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                if (deployment.status != DeploymentStatus.APPROVED) {
-                    revert DeploymentIsNotApproved();
+            if (action.actionType == SphinxActionType.CALL) {
+                (uint256 nonce, address to, bytes memory data) = abi.decode(
+                    action.data,
+                    (uint256, address, bytes)
+                );
+                bytes32 callHash = keccak256(abi.encode(to, data));
+                uint256 currentNonce = callNonces[callHash];
+                if (nonce != currentNonce) {
+                    emit CallSkipped(activeDeploymentId, action.index);
+                    registry.announce("CallSkipped");
+                } else {
+                    (bool success, ) = to.call(data);
+                    if (success) {
+                        callNonces[callHash] = currentNonce + 1;
+                        emit CallExecuted(activeDeploymentId, action.index);
+                        registry.announce("CallExecuted");
+                    } else {
+                        // Call failed. We mark the deployment as failed and exit the function early
+                        _deploymentFailed(deployment, action.index);
+                        return;
+                    }
                 }
+            } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
+                (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
+                    action.data,
+                    (bytes32, bytes)
+                );
 
-                _attemptContractDeployment(deployment, action, actionIndex);
+                address expectedAddress = ICreate3(create3).getAddressFromDeployer(
+                    salt,
+                    address(this)
+                );
 
-                if (
-                    deployment.actionsExecuted == deployment.actions.length &&
-                    deployment.targets == 0 &&
-                    deployment.status != DeploymentStatus.FAILED
-                ) {
-                    _completeDeployment(deployment);
+                // Check if the contract has already been deployed.
+                if (expectedAddress.code.length > 0) {
+                    // Skip deploying the contract if it already exists. Execution would halt if
+                    // we attempt to deploy a contract that has already been deployed at the same
+                    // address.
+                    emit ContractDeploymentSkipped(
+                        expectedAddress,
+                        activeDeploymentId,
+                        action.index
+                    );
+                    registry.announce("ContractDeploymentSkipped");
+                } else {
+                    // We delegatecall the Create3 contract so that the SphinxManager address is
+                    // used in the address calculation of the deployed contract. If we call the
+                    // Create3 contract instead of delegatecalling it, it'd be possible for an
+                    // attacker to deploy a malicious contract at the expected address by calling
+                    // the `deploy` function on the Create3 contract directly.
+                    (bool deploySuccess, ) = create3.delegatecall(
+                        abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
+                    );
+
+                    if (deploySuccess) {
+                        emit ContractDeployed(
+                            expectedAddress,
+                            activeDeploymentId,
+                            keccak256(creationCodeWithConstructorArgs)
+                        );
+                        registry.announce("ContractDeployed");
+                    } else {
+                        // Contract deployment failed. Could happen if insufficient gas is supplied
+                        // to this transaction or if the creation bytecode has logic that causes the
+                        // call to fail (e.g. a constructor that reverts).
+                        _deploymentFailed(deployment, action.index);
+
+                        // Exit the function early.
+                        return;
+                    }
                 }
-            } else if (action.actionType == SphinxActionType.SET_STORAGE) {
-                _setProxyStorage(deployment, action, actionIndex);
             } else {
                 revert InvalidActionType();
+            }
+        }
+
+        // If all of the actions have been executed, mark the deployment as completed. This will
+        // always be the case unless the deployment is upgrading proxies.
+        if (deployment.actionsExecuted == deployment.numInitialActions) {
+            if (deployment.targets == 0) {
+                _completeDeployment(deployment);
+            } else {
+                deployment.status = DeploymentStatus.INITIAL_ACTIONS_EXECUTED;
             }
         }
     }
@@ -621,14 +673,8 @@ contract SphinxManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (deployment.actionsExecuted != deployment.numImmutableContracts) {
-            revert InitiatedUpgradeTooEarly();
-        }
-
-        // Ensures that the deployment status isn't `FAILED`.
-        if (deployment.status != DeploymentStatus.APPROVED) {
-            revert DeploymentIsNotApproved();
-        }
+        if (deployment.status != DeploymentStatus.INITIAL_ACTIONS_EXECUTED)
+            revert InvalidDeploymentStatus();
 
         uint256 numTargets = _targets.length;
         if (numTargets != deployment.targets) {
@@ -689,6 +735,93 @@ contract SphinxManager is
     }
 
     /**
+     * @notice Sets storage values within proxies to upgrade them. Must be called after
+     *         the `initiateProxies` function.
+     *
+     * @param _actions The `SET_STORAGE` actions to execute.
+     * @param _proofs The Merkle proofs for the actions.
+     */
+    function setStorage(
+        RawSphinxAction[] memory _actions,
+        bytes32[][] memory _proofs
+    ) public nonReentrant {
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
+        if (deployment.status != DeploymentStatus.PROXIES_INITIATED)
+            revert InvalidDeploymentStatus();
+
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+
+        uint256 numActions = _actions.length;
+        uint256 numTotalActions = deployment.numInitialActions + deployment.numSetStorageActions;
+
+        // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
+        // cause the executor to be paid for doing nothing.
+        if (numActions == 0) {
+            revert EmptyActionsArray();
+        }
+
+        RawSphinxAction memory action;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numActions; i++) {
+            action = _actions[i];
+            proof = _proofs[i];
+
+            if (deployment.actionsExecuted != action.index) {
+                revert InvalidActionIndex();
+            }
+            if (action.actionType != SphinxActionType.SET_STORAGE) revert InvalidActionType();
+
+            if (
+                !MerkleTree.verify(
+                    deployment.actionRoot,
+                    keccak256(abi.encode(action.actionType, action.data)),
+                    action.index,
+                    proof,
+                    numTotalActions
+                )
+            ) {
+                revert InvalidMerkleProof();
+            }
+
+            deployment.actionsExecuted++;
+
+            (
+                bytes32 contractKindHash,
+                address to,
+                bytes32 key,
+                uint8 offset,
+                bytes memory val
+            ) = abi.decode(action.data, (bytes32, address, bytes32, uint8, bytes));
+
+            if (
+                contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
+                contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
+            ) {
+                revert OnlyProxiesAllowed();
+            }
+
+            // Get the adapter for this reference name.
+            address adapter = registry.adapters(contractKindHash);
+
+            // Delegatecall the adapter to call `setStorage` on the proxy.
+            // slither-disable-next-line controlled-delegatecall
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.setStorage, (payable(to), key, offset, val))
+            );
+            if (!success) {
+                revert SetStorageFailed();
+            }
+
+            emit SetProxyStorage(activeDeploymentId, to, msg.sender, action.index);
+            registry.announce("SetProxyStorage");
+        }
+
+        if (deployment.actionsExecuted == numTotalActions) {
+            deployment.status = DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED;
+        }
+    }
+
+    /**
      * @notice Finalizes the upgrade by upgrading all proxies to their new implementations. This
      *         occurs in a single transaction to ensure that the upgrade is atomic.
      *
@@ -703,13 +836,8 @@ contract SphinxManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (activeDeploymentId == bytes32(0)) {
-            revert NoActiveDeployment();
-        }
-
-        if (deployment.actionsExecuted != deployment.actions.length) {
-            revert FinalizedUpgradeTooEarly();
-        }
+        if (deployment.status != DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED)
+            revert InvalidDeploymentStatus();
 
         uint256 numTargets = _targets.length;
         if (numTargets != deployment.targets) {
@@ -778,136 +906,33 @@ contract SphinxManager is
     }
 
     /**
-     * @notice Modifies a storage slot value within a proxy contract.
-     *
-     * @param _deployment The current deployment state struct.
-     * @param _action The `SET_STORAGE` action to execute.
-     * @param _actionIndex The index of the action.
-     */
-    function _setProxyStorage(
-        DeploymentState memory _deployment,
-        RawSphinxAction memory _action,
-        uint256 _actionIndex
-    ) internal {
-        if (_deployment.status != DeploymentStatus.PROXIES_INITIATED) {
-            revert ProxiesAreNotInitiated();
-        }
-
-        if (
-            _action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
-            _action.contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
-        ) {
-            revert OnlyProxiesAllowed();
-        }
-
-        // Get the adapter for this reference name.
-        address adapter = registry.adapters(_action.contractKindHash);
-
-        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-            _action.data,
-            (bytes32, uint8, bytes)
-        );
-        // Delegatecall the adapter to call `setStorage` on the proxy.
-        // slither-disable-next-line controlled-delegatecall
-        (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setStorage, (_action.addr, key, offset, val))
-        );
-        if (!success) {
-            revert SetStorageFailed();
-        }
-
-        emit SetProxyStorage(activeDeploymentId, _action.addr, msg.sender, _actionIndex);
-        registry.announce("SetProxyStorage");
-    }
-
-    /**
-     * @notice Attempts to deploy a non-proxy contract. The deployment will be skipped if a contract
-     * already exists at the Create3 address. The entire deployment will be cancelled if the
-       contract fails to be deployed, which should only occur if its constructor reverts.
-     *
-     * @param _deployment The current deployment state struct. The data location is "storage"
-       because we
-     * may modify one of the struct's fields.
-     * @param _action The `DEPLOY_CONTRACT` action to execute.
-     * @param _actionIndex The index of the action.
-     */
-    function _attemptContractDeployment(
-        DeploymentState storage _deployment,
-        RawSphinxAction memory _action,
-        uint256 _actionIndex
-    ) internal {
-        (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
-            _action.data,
-            (bytes32, bytes)
-        );
-
-        string memory referenceName = _action.referenceName;
-        address expectedAddress = _action.addr;
-
-        // Check if the contract has already been deployed.
-        if (expectedAddress.code.length > 0) {
-            // Skip deploying the contract if it already exists. Execution would halt if we attempt
-            // to deploy a contract that has already been deployed at the same address.
-            emit ContractDeploymentSkipped(
-                referenceName,
-                expectedAddress,
-                activeDeploymentId,
-                referenceName,
-                _actionIndex
-            );
-            registry.announce("ContractDeploymentSkipped");
-        } else {
-            // We delegatecall the Create3 contract so that the SphinxManager address is used in the
-            // address calculation of the deployed contract. If we call the Create3 contract instead
-            // of delegatecalling it, it'd be possible for an attacker to snipe a user's contract by
-            // calling the `deploy` function on the Create3 contract directly.
-            (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
-                abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
-            );
-
-            require(deploySuccess, string.concat("Failed to deploy: ", referenceName));
-
-            address actualAddress = abi.decode(actualAddressBytes, (address));
-
-            if (expectedAddress == actualAddress) {
-                // Contract was deployed successfully.
-
-                emit ContractDeployed(
-                    referenceName,
-                    actualAddress,
-                    activeDeploymentId,
-                    referenceName,
-                    _action.contractKindHash,
-                    keccak256(creationCodeWithConstructorArgs)
-                );
-                registry.announce("ContractDeployed");
-            } else {
-                // Contract deployment failed. Could happen if insufficient gas is supplied to this
-                // transaction or if the creation bytecode has logic that causes the call to fail
-                // (e.g. a constructor that reverts).
-
-                emit DeploymentFailed(referenceName, activeDeploymentId, referenceName);
-                registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
-
-                activeDeploymentId = bytes32(0);
-                _deployment.status = DeploymentStatus.FAILED;
-            }
-        }
-    }
-
-    /**
      * @notice Mark the deployment as completed and reset the active deployment ID.
 
      * @param _deployment The current deployment state struct. The data location is "s  rage"
        because we modify the struct.
      */
-    function _completeDeployment(DeploymentState storage _deployment) internal {
+    function _completeDeployment(DeploymentState storage _deployment) private {
         _deployment.status = DeploymentStatus.COMPLETED;
 
         emit SphinxDeploymentCompleted(activeDeploymentId, msg.sender);
         registry.announce("SphinxDeploymentCompleted");
 
         activeDeploymentId = bytes32(0);
+    }
+
+    /**
+     * @notice Mark the deployment as failed and reset the active deployment ID.
+     *
+     * @param _deployment The current deployment state struct. The data location is "storage"
+     *                    because we modify the struct.
+     * @param _actionIndex Index of the action that caused the deployment to fail.
+     */
+    function _deploymentFailed(DeploymentState storage _deployment, uint256 _actionIndex) private {
+        emit DeploymentFailed(activeDeploymentId, _actionIndex);
+        registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
+
+        activeDeploymentId = bytes32(0);
+        _deployment.status = DeploymentStatus.FAILED;
     }
 
     /**

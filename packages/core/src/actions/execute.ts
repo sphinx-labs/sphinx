@@ -1,31 +1,30 @@
-import { ethers, Provider } from 'ethers'
+import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
   BundledSphinxAction,
-  SphinxActionType,
   SphinxBundles,
   DeploymentState,
   DeploymentStatus,
+  HumanReadableAction,
+  HumanReadableActions,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
-import {
-  getDeployContractActionBundle,
-  getSetStorageActionBundle,
-} from './bundle'
-import { getEstDeployContractCost } from '../estimate'
-import { ConfigArtifacts } from '../config'
+import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
 
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
+  deploymentId: string,
+  humanReadableActions: HumanReadableActions,
   blockGasLimit: bigint,
-  configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
+  signer: ethers.Signer,
   logger?: Logger | undefined
 ): Promise<{
   success: boolean
   receipts: ethers.TransactionReceipt[]
+  failureAction?: HumanReadableAction
 }> => {
   const { actionBundle, targetBundle } = bundles
 
@@ -39,26 +38,47 @@ export const executeDeployment = async (
   const gasFraction = 2n
   const maxGasLimit = blockGasLimit / gasFraction
 
-  const deployContractActionBundle = getDeployContractActionBundle(actionBundle)
+  const initialActionBundle = getInitialActionBundle(actionBundle)
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
-  logger?.info(`[Sphinx]: executing 'DEPLOY_CONTRACT' actions...`)
+  logger?.info(`[Sphinx]: executing initial actions...`)
   const { status, receipts } = await executeBatchActions(
-    deployContractActionBundle,
+    initialActionBundle,
+    false,
     manager,
     maxGasLimit,
-    configArtifacts,
-    provider,
+    signer,
     logger
   )
-  if (status === BigInt(DeploymentStatus.FAILED)) {
-    logger?.error(`[Sphinx]: failed to execute 'DEPLOY_CONTRACT' actions`)
+  if (status === DeploymentStatus.FAILED) {
+    logger?.error(`[Sphinx]: failed to execute initial actions`)
+
+    // fetch deployment action
+    const eventFilter = manager.filters.DeploymentFailed(deploymentId)
+    const latestBlock = await provider.getBlockNumber()
+    const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
+    const failureEvent = (
+      await manager.queryFilter(eventFilter, startingBlock, latestBlock)
+    ).at(-1)
+
+    if (failureEvent) {
+      const log = manager.interface.parseLog({
+        topics: failureEvent.topics as string[],
+        data: failureEvent.data,
+      })
+
+      if (log?.args[1] !== undefined) {
+        const failureAction = humanReadableActions[log?.args[1]]
+        return { success: false, receipts, failureAction }
+      }
+    }
+
     return { success: false, receipts }
-  } else if (status === BigInt(DeploymentStatus.COMPLETED)) {
+  } else if (status === DeploymentStatus.COMPLETED) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
     return { success: true, receipts }
   } else {
-    logger?.info(`[Sphinx]: executed 'DEPLOY_CONTRACT' actions`)
+    logger?.info(`[Sphinx]: executed initial actions`)
   }
 
   logger?.info(`[Sphinx]: initiating upgrade...`)
@@ -67,19 +87,19 @@ export const executeDeployment = async (
       await manager.initiateUpgrade(
         targetBundle.targets.map((target) => target.target),
         targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
   )
-  logger?.info(`[Sphinx]: initiated upgrde`)
+  logger?.info(`[Sphinx]: initiated upgrade`)
 
   logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
   const { receipts: setStorageReceipts } = await executeBatchActions(
     setStorageActionBundle,
+    true,
     manager,
     maxGasLimit,
-    configArtifacts,
-    provider,
+    signer,
     logger
   )
   receipts.push(...setStorageReceipts)
@@ -91,7 +111,7 @@ export const executeDeployment = async (
       await manager.finalizeUpgrade(
         targetBundle.targets.map((target) => target.target),
         targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
   )
@@ -111,12 +131,11 @@ export const executeDeployment = async (
  */
 const findMaxBatchSize = async (
   actions: BundledSphinxAction[],
-  maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts
+  maxGasLimit: bigint
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(actions, maxGasLimit, configArtifacts)) {
+  if (await executable(actions, maxGasLimit)) {
     return actions.length
   }
 
@@ -126,7 +145,7 @@ const findMaxBatchSize = async (
   let max = actions.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(actions.slice(0, mid), maxGasLimit, configArtifacts)) {
+    if (await executable(actions.slice(0, mid), maxGasLimit)) {
       min = mid
     } else {
       max = mid - 1
@@ -150,10 +169,10 @@ const findMaxBatchSize = async (
  */
 const executeBatchActions = async (
   actions: BundledSphinxAction[],
+  isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts,
-  provider: Provider,
+  signer: ethers.Signer,
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
@@ -165,9 +184,9 @@ const executeBatchActions = async (
   const activeDeploymentId = await manager.activeDeploymentId()
   let state: DeploymentState = await manager.deployments(activeDeploymentId)
 
-  // Filter out any actions that have already been executed.
+  // Remove the actions that have already been executed.
   const filtered = actions.filter((action) => {
-    return !state.actions[action.proof.actionIndex]
+    return action.action.index >= state.actionsExecuted
   })
 
   // We can return early if there are no actions to execute.
@@ -178,11 +197,17 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
+    const mostRecentState: DeploymentState = await manager.deployments(
+      activeDeploymentId
+    )
+    if (mostRecentState.status === DeploymentStatus.FAILED) {
+      return { status: mostRecentState.status, receipts }
+    }
+
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),
-      maxGasLimit,
-      configArtifacts
+      maxGasLimit
     )
 
     // Pull out the next batch of actions.
@@ -195,19 +220,30 @@ const executeBatchActions = async (
       }...`
     )
 
-    // Execute the batch.
-    const tx = await (
-      await manager.executeActions(
-        batch.map((action) => action.action),
-        batch.map((action) => action.proof.actionIndex),
-        batch.map((action) => action.proof.siblings),
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-    receipts.push(tx)
+    // Execute the batch of actions.
+    if (isSetStorageActionArray) {
+      const tx = await (
+        await manager.setStorage(
+          batch.map((action) => action.action),
+          batch.map((action) => action.siblings),
+          await getGasPriceOverrides(signer)
+        )
+      ).wait()
+      receipts.push(tx)
+    } else {
+      const tx = await (
+        await manager.executeInitialActions(
+          batch.map((action) => action.action),
+          batch.map((action) => action.siblings),
+          await getGasPriceOverrides(signer)
+        )
+      ).wait()
+      receipts.push(tx)
+    }
 
+    // Return early if the deployment failed.
     state = await manager.deployments(activeDeploymentId)
-    if (state.status === BigInt(DeploymentStatus.FAILED)) {
+    if (state.status === DeploymentStatus.FAILED) {
       return { status: state.status, receipts }
     }
 
@@ -215,6 +251,7 @@ const executeBatchActions = async (
     executed += batchSize
   }
 
+  // Return the final deployment status.
   return { status: state.status, receipts }
 }
 
@@ -226,30 +263,11 @@ const executeBatchActions = async (
  */
 export const executable = async (
   selected: BundledSphinxAction[],
-  maxGasLimit: bigint,
-  configArtifacts: ConfigArtifacts
+  maxGasLimit: bigint
 ): Promise<boolean> => {
-  let estGasUsed = BigInt(0)
-
-  for (const action of selected) {
-    const { actionType, referenceName } = action.action
-    if (actionType === SphinxActionType.DEPLOY_CONTRACT) {
-      const { buildInfo, artifact } = configArtifacts[referenceName]
-      const { sourceName, contractName } = artifact
-
-      const deployContractCost = getEstDeployContractCost(
-        buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-      )
-
-      // We add 150k as an estimate for the cost of the transaction that executes the DeployContract
-      // action.
-      estGasUsed = estGasUsed + deployContractCost + 150_000n
-    } else if (actionType === SphinxActionType.SET_STORAGE) {
-      estGasUsed = estGasUsed + BigInt(150_000)
-    } else {
-      throw new Error(`Unknown action type. Should never happen.`)
-    }
-  }
+  const estGasUsed = selected
+    .map((action) => action.gas)
+    .reduce((a, b) => a + b)
 
   return maxGasLimit > estGasUsed
 }

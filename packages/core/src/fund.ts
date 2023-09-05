@@ -6,10 +6,12 @@ import {
   fromRawSphinxAction,
   isDeployContractAction,
   isSetStorageAction,
+  isCallAction,
 } from './actions'
-import { contractKindHashes } from './config/types'
+import { getCreate3Address } from './config'
 
 export const estimateExecutionGas = async (
+  managerAddress: string,
   provider: SphinxJsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number
@@ -23,19 +25,26 @@ export const estimateExecutionGas = async (
   ).length
   const estimatedGas = BigInt(150_000) * BigInt(numSetStorageActions)
 
+  const numCallActions = actions.filter((action) => isCallAction(action)).length
+  const estimatedCallActionGas = BigInt(250_000) * BigInt(numCallActions)
+
   const deployedContractPromises = actions
     .filter((action) => isDeployContractAction(action))
     .map(async (action: DeployContractAction) => {
-      if (await isContractDeployed(action.addr, provider)) {
+      const addr = getCreate3Address(managerAddress, action.salt)
+      if (await isContractDeployed(addr, provider)) {
         return BigInt(0)
-      } else if (action.contractKindHash === contractKindHashes['proxy']) {
-        // If the contract is a default proxy, then estimate 550k gas. This is a minor optimization
-        // that we can make because we know the cost of deploying the proxy ahead of time.
-        return BigInt(550_000)
       } else {
-        return provider.estimateGas({
-          data: action.code,
-        })
+        try {
+          // We estimate the gas for the contract deployment by calling `estimateGas` on the provider.
+          return await provider.estimateGas({
+            data: action.creationCodeWithConstructorArgs,
+          })
+        } catch (e) {
+          // If the estimate fails, we return a default value of 500k gas which is plenty since the actual
+          // deployment will not happen on chain.
+          return BigInt(500_000)
+        }
       }
     })
 
@@ -51,15 +60,22 @@ export const estimateExecutionGas = async (
   const initiateAndCompleteCost =
     BigInt(200_000) * BigInt(bundles.targetBundle.targets.length)
 
-  return estimatedGas + estimatedContractDeploymentGas + initiateAndCompleteCost
+  return (
+    estimatedGas +
+    estimatedCallActionGas +
+    estimatedContractDeploymentGas +
+    initiateAndCompleteCost
+  )
 }
 
 export const estimateExecutionCost = async (
+  managerAddress: string,
   provider: SphinxJsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number
 ): Promise<bigint> => {
   const estExecutionGas = await estimateExecutionGas(
+    managerAddress,
     provider,
     bundles,
     actionsExecuted

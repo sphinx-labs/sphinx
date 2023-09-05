@@ -5,12 +5,16 @@ pragma solidity >=0.7.4 <0.9.0;
  * @notice Struct representing the state of a deployment.
  *
  * @custom:field status The status of the deployment.
- * @custom:field actions An array of booleans representing whether or not an action has been
-   executed.
+ * @custom:field actions An array of actions in the deployment. This is a legacy field that should
+   not be used.
+ * @custom:field numInitialActions The number of initial actions in the deployment, which are either
+ *               `CALL` or `DEPLOY_CONTRACT` actions.
+ * @custom:field numSetStorageActions The number of `SET_STORAGE` actions in the deployment.
  * @custom:field targets The number of targets in the deployment.
  * @custom:field actionRoot The root of the Merkle tree of actions.
  * @custom:field targetRoot The root of the Merkle tree of targets.
- * @custom:field numImmutableContracts The number of non-proxy contracts in the deployment.
+ * @custom:field numImmutableContracts The number of immutable contracts in the deployment. This is
+   a legacy field that should not be used.
  * @custom:field actionsExecuted The number of actions that have been executed so far in the
    deployment.
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
@@ -30,23 +34,22 @@ struct DeploymentState {
     address selectedExecutor;
     bool remoteExecution;
     string configUri;
+    uint256 numInitialActions;
+    uint256 numSetStorageActions;
 }
 
 /**
  * @notice Struct representing a Sphinx action.
  *
  * @custom:field actionType The type of action.
+ * @custom:field index The unique index of the action in the deployment. Actions must be executed in
+   ascending order according to their index.
  * @custom:field data The ABI-encoded data associated with the action.
- * @custom:field addr The address of the contract to which the action applies.
- * @custom:field contractKindHash The hash of the contract kind associated with this contract.
- * @custom:field referenceName The reference name associated with the contract.
  */
 struct RawSphinxAction {
     SphinxActionType actionType;
+    uint256 index;
     bytes data;
-    address payable addr;
-    bytes32 contractKindHash;
-    string referenceName;
 }
 
 /**
@@ -68,10 +71,12 @@ struct SphinxTarget {
  *
  * @custom:value SET_STORAGE Set a storage slot value in a proxy contract.
  * @custom:value DEPLOY_CONTRACT Deploy a contract.
+ * @custom:value CALL Execute a low-level call on an address.
  */
 enum SphinxActionType {
     SET_STORAGE,
-    DEPLOY_CONTRACT
+    DEPLOY_CONTRACT,
+    CALL
 }
 
 /**
@@ -80,7 +85,11 @@ enum SphinxActionType {
  *
  * @custom:value EMPTY The deployment does not exist.
  * @custom:value APPROVED The deployment has been approved by the owner.
+ * @custom:value INITIAL_ACTIONS_EXECUTED The initial `DEPLOY_CONTRACT` and `CALL` actions in the
+   deployment have been executed.
  * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
+ * @custom:value SET_STORAGE_ACTIONS_EXECUTED The `SET_STORAGE` actions in the deployment have been
+                 executed.
  * @custom:value COMPLETED The deployment has been completed.
  * @custom:value CANCELLED The deployment has been cancelled.
  * @custom:value FAILED The deployment has failed.
@@ -91,7 +100,9 @@ enum DeploymentStatus {
     PROXIES_INITIATED,
     COMPLETED,
     CANCELLED,
-    FAILED
+    FAILED,
+    INITIAL_ACTIONS_EXECUTED,
+    SET_STORAGE_ACTIONS_EXECUTED
 }
 
 /**
@@ -111,36 +122,6 @@ struct RegistrationInfo {
     Version version;
     address owner;
     bytes managerInitializerData;
-}
-
-struct SphinxBundles {
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
-}
-
-struct SphinxActionBundle {
-    bytes32 root;
-    BundledSphinxAction[] actions;
-}
-
-struct SphinxTargetBundle {
-    bytes32 root;
-    BundledSphinxTarget[] targets;
-}
-
-struct BundledSphinxAction {
-    RawSphinxAction action;
-    ActionProof proof;
-}
-
-struct BundledSphinxTarget {
-    SphinxTarget target;
-    bytes32[] siblings;
-}
-
-struct ActionProof {
-    uint256 actionIndex;
-    bytes32[] siblings;
 }
 
 /**
@@ -190,8 +171,23 @@ struct SetRoleMember {
 struct DeploymentApproval {
     bytes32 actionRoot;
     bytes32 targetRoot;
-    uint256 numActions;
+    uint256 numInitialActions;
+    uint256 numSetStorageActions;
     uint256 numTargets;
-    uint256 numImmutableContracts;
     string configUri;
+}
+
+enum AuthLeafType {
+    SETUP,
+    PROPOSE,
+    EXPORT_PROXY,
+    SET_OWNER,
+    SET_THRESHOLD,
+    TRANSFER_MANAGER_OWNERSHIP,
+    UPGRADE_MANAGER_IMPLEMENTATION,
+    UPGRADE_AUTH_IMPLEMENTATION,
+    UPGRADE_MANAGER_AND_AUTH_IMPL,
+    SET_PROPOSER,
+    APPROVE_DEPLOYMENT,
+    CANCEL_ACTIVE_DEPLOYMENT
 }

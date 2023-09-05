@@ -1,6 +1,6 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { SphinxBundles } from '../actions/types'
+import { HumanReadableActions, SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
   getDeploymentId,
@@ -70,7 +70,11 @@ export const verifyDeployment = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
+  const { bundles } = makeBundlesFromConfig(
+    config,
+    configArtifacts,
+    configCache
+  )
 
   if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(
@@ -93,6 +97,7 @@ export const compileRemoteBundles = async (
   bundles: SphinxBundles
   compilerConfig: CompilerConfig
   configArtifacts: ConfigArtifacts
+  humanReadableActions: HumanReadableActions
 }> => {
   const compilerConfig = await callWithTimeout<CompilerConfig>(
     sphinxFetchSubtask({ configUri }),
@@ -104,13 +109,13 @@ export const compileRemoteBundles = async (
 
   const configCache = await getConfigCache(
     provider,
-    compilerConfig.contracts,
+    compilerConfig,
     configArtifacts,
     getSphinxRegistryAddress(),
     compilerConfig.manager
   )
 
-  const bundles = makeBundlesFromConfig(
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(
     compilerConfig,
     configArtifacts,
     configCache
@@ -119,5 +124,6 @@ export const compileRemoteBundles = async (
     bundles,
     compilerConfig,
     configArtifacts,
+    humanReadableActions,
   }
 }

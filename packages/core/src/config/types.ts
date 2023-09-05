@@ -12,12 +12,8 @@ import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import {
-  SupportedChainId,
-  SupportedLocalChainId,
-  SupportedLocalNetworkName,
-  SupportedNetworkName,
-} from '../networks'
+import { SupportedChainId, SupportedNetworkName } from '../networks'
+import { SemverVersion } from '../types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -44,6 +40,10 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
+
+export type ValidManagerVersion = 'v0.2.2'
+export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
+export const VALID_MANAGER_VERSIONS = ['v0.2.2']
 
 export type Project = string | 'all'
 
@@ -77,7 +77,6 @@ export type UserConfigVariable =
 export type ParsedConfigVariable =
   | boolean
   | string
-  | number
   | Array<ParsedConfigVariable>
   | {
       [name: string]: ParsedConfigVariable
@@ -88,6 +87,7 @@ export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 export type UserConfig = {
   projectName: string
   contracts: UserContractConfigs
+  postDeploy?: Array<UserCallAction>
   options?: never
 }
 
@@ -95,6 +95,16 @@ export type UserConfigWithOptions = {
   projectName: string
   contracts: UserContractConfigs
   options: UserConfigOptions
+  postDeploy?: Array<UserCallAction>
+}
+
+export type UserCallAction = {
+  functionName: string
+  functionArgs: Array<UserConfigVariable>
+  address: string
+  abi?: Array<any>
+  addressOverrides?: Array<UserAddressOverrides>
+  functionArgOverrides?: Array<UserFunctionArgOverride>
 }
 
 /**
@@ -122,12 +132,27 @@ export interface ConfigOptions {
   owners: Array<string>
   ownerThreshold: number
   proposers: Array<string>
+  managerVersion: ValidManagerVersion
+}
+
+export type ParsedCallAction = {
+  to: string
+  data: string
+  nonce: number
+  readableSignature: SphinxFunctionSignature
+}
+
+export type SphinxFunctionSignature = {
+  referenceNameOrAddress: string
+  functionName: string
+  variables: ParsedConfigVariables
 }
 
 export interface ParsedConfig {
   projectName: string
   manager: string
   contracts: ParsedContractConfigs
+  postDeploy: ParsedCallActionsPerChain
 }
 
 export interface ParsedOwnerConfig extends ParsedConfig {
@@ -161,7 +186,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
-  overrides?: Array<UserConstructorArgOverrides>
+  overrides?: Array<UserConstructorArgOverride>
   salt?: UserSalt
   unsafeAllow?: UnsafeAllow
 }
@@ -176,11 +201,31 @@ export type UserConfigVariables = {
   [name: string]: UserConfigVariable
 }
 
-export type UserConstructorArgOverrides = {
-  chains: Array<SupportedNetworkName | SupportedLocalNetworkName>
+export type UserArgOverride =
+  | UserConstructorArgOverride
+  | UserFunctionArgOverride
+
+export type UserConstructorArgOverride = {
+  chains: Array<SupportedNetworkName>
   constructorArgs: {
     [name: string]: UserConfigVariable
   }
+}
+
+export type UserFunctionOptions = {
+  overrides: Array<UserFunctionArgOverride>
+}
+
+export type UserFunctionArgOverride = {
+  chains: Array<SupportedNetworkName>
+  args: {
+    [name: string]: UserConfigVariable
+  }
+}
+
+export type UserAddressOverrides = {
+  chains: Array<string>
+  address: string
 }
 
 /**
@@ -193,7 +238,7 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  constructorArgs: ParsedConstructorArgsPerChain
+  constructorArgs: ParsedFunctionArgsPerChain
   isUserDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
   salt: string
@@ -205,8 +250,12 @@ export type ParsedContractConfigs = {
   [referenceName: string]: ParsedContractConfig
 }
 
-export type ParsedConstructorArgsPerChain = {
-  [key in SupportedChainId | SupportedLocalChainId]?: ParsedConfigVariables
+export type ParsedFunctionArgsPerChain = {
+  [key in SupportedChainId]?: ParsedConfigVariables
+}
+
+export type ParsedCallActionsPerChain = {
+  [key in SupportedChainId]?: Array<ParsedCallAction>
 }
 
 export type ParsedConfigVariables = {
@@ -242,9 +291,12 @@ export type ConfigArtifacts = {
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
+  managerVersion: SemverVersion
   blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
+  callNonces: { [callHash: string]: number }
+  undeployedExternalContracts: Array<string>
 }
 
 /**
@@ -290,6 +342,7 @@ export type FoundryConfig = {
   owner: string
   projectName: string
   contracts: Array<FoundryContractConfig>
+  postDeploy: Array<ParsedCallAction>
 }
 
 export type FoundryContractConfig = {

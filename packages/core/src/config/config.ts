@@ -3,12 +3,12 @@ import { resolve } from 'path'
 import {
   FoundryConfig,
   FoundryContractConfig,
+  ParsedConfig,
   UserConfig,
   UserConfigWithOptions,
   UserSphinxConfig,
 } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-import { getSphinxManagerAddress } from '../addresses'
 
 /**
  * Returns a minimal version of the Sphinx config. This is used as a substitute for the full
@@ -17,45 +17,50 @@ import { getSphinxManagerAddress } from '../addresses'
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
 export const getFoundryConfig = (
-  userConfig: UserSphinxConfig,
+  parsedConfig: ParsedConfig,
+  chainId: string,
   owner: string
 ): FoundryConfig => {
-  const manager = getSphinxManagerAddress(owner, userConfig.projectName)
-
   const minimalContractConfigs: Array<FoundryContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    userConfig.contracts
+    parsedConfig.contracts
   )) {
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ?? getTargetAddress(manager, referenceName, salt)
+      address ?? getTargetAddress(parsedConfig.manager, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
       addr: targetAddress,
-      kind: toContractKindEnum(kind ?? 'proxy'),
+      kind: toContractKindEnum(kind),
       userSaltHash: getUserSaltHash(salt),
     })
   }
+
+  const postDeploy = parsedConfig.postDeploy[chainId] ?? []
+
   return {
-    manager,
+    manager: parsedConfig.manager,
     owner,
-    projectName: userConfig.projectName,
+    projectName: parsedConfig.projectName,
     contracts: minimalContractConfigs,
+    postDeploy,
   }
 }
 
 export const readUserConfig = async (
   configPath: string
 ): Promise<UserConfig> => {
-  const userConfig = await readUserSphinxConfig(configPath)
+  const userConfig = (await readUserSphinxConfig(configPath)) as UserConfig
+
+  // We should refactor the deploy task so it still uses the options
+  // For now, we just delete the options field if it exists and cast this to a UserConfig so that
+  // the deploy task doesn't break.
   if (userConfig.options) {
-    throw new Error(
-      `Detected 'options' field in config. Please use 'readUserConfigWithOptions' instead.`
-    )
+    delete userConfig.options
   }
-  return userConfig
+  return userConfig as UserConfig
 }
 
 export const readUserConfigWithOptions = async (

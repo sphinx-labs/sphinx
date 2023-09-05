@@ -23,14 +23,15 @@ import {
     AuthStatus,
     AuthLeaf,
     DeploymentApproval,
-    SetRoleMember
+    SetRoleMember,
+    AuthLeafType
 } from "./SphinxDataTypes.sol";
 import { SphinxManagerProxy } from "./SphinxManagerProxy.sol";
 import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 1.0.0
+ * @custom:version 0.2.2
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
@@ -46,6 +47,10 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
     ISphinxManager public manager;
 
+    /**
+     * @notice The number of owners that must sign an auth root in order for it to be executable
+     *         in this contract.
+     */
     uint256 public threshold;
 
     string public projectName;
@@ -61,19 +66,8 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
      */
     mapping(bytes32 => AuthState) public authStates;
 
-    event Setup(bytes32 indexed authRoot, uint256 numLeafs);
-    event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
-    event OwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event ThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event ManagerOwnershipTransferred(bytes32 indexed authRoot, uint256 leafIndex);
-    event ManagerUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
-    event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
-    event ManagerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProposerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event DeploymentApproved(bytes32 indexed authRoot, uint256 leafIndex);
-    event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
-    event AuthRootProposed(bytes32 indexed authRoot, uint256 numLeafs);
-    event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
+    event AuthLeafExecuted(bytes32 indexed authRoot, uint256 leafIndex, AuthLeafType leafType);
+    event AuthRootCompleted(bytes32 indexed authRoot);
 
     modifier isValidProposedAuthLeaf(
         bytes32 _authRoot,
@@ -229,7 +223,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
                 leafsExecuted: 1,
                 numLeafs: numLeafs
             });
-            emit AuthRootCompleted(_authRoot, numLeafs);
+            emit AuthRootCompleted(_authRoot);
         } else {
             // Set the status to be `SETUP` if there are more leafs to execute in this tree. Note
             // that it's not possible for there to be zero leafs since we would have reverted
@@ -241,7 +235,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             });
         }
 
-        emit Setup(_authRoot, numLeafs);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
     }
 
     function exportProxy(
@@ -269,7 +263,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         manager.exportProxy(payable(proxy), contractKindHash, newOwner);
 
-        emit ProxyExported(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.EXPORT_PROXY);
     }
 
     function setOwner(
@@ -302,7 +296,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _updateProposedAuthState(_authRoot);
 
-        emit OwnerSet(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SET_OWNER);
     }
 
     function setThreshold(
@@ -331,7 +325,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _updateProposedAuthState(_authRoot);
 
-        emit ThresholdSet(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SET_THRESHOLD);
     }
 
     function transferManagerOwnership(
@@ -360,7 +354,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             : managerOwnable.transferOwnership(newOwner);
         SphinxManagerProxy(payable(address(manager))).changeAdmin(newOwner);
 
-        emit ManagerOwnershipTransferred(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.TRANSFER_MANAGER_OWNERSHIP);
     }
 
     // Reverts if the SphinxManager is currently executing a deployment.
@@ -392,7 +386,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             managerProxy.upgradeTo(impl);
         }
 
-        emit ManagerUpgraded(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.UPGRADE_MANAGER_IMPLEMENTATION);
     }
 
     function upgradeAuthImplementation(
@@ -422,7 +416,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             authProxy.upgradeTo(impl);
         }
 
-        emit AuthContractUpgraded(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION);
     }
 
     // Reverts if the SphinxManager is currently executing a deployment.
@@ -450,28 +444,28 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         {
             (
                 address managerImpl,
-                bytes memory managerData,
+                bytes memory managerInitCallData,
                 address authImpl,
-                bytes memory authData
+                bytes memory authInitCallData
             ) = abi.decode(_leaf.data, (address, bytes, address, bytes));
 
             SphinxManagerProxy managerProxy = SphinxManagerProxy(payable(address(manager)));
             SphinxManagerProxy authProxy = SphinxManagerProxy(payable(address(this)));
 
-            if (managerData.length > 0) {
-                managerProxy.upgradeToAndCall(managerImpl, managerData);
+            if (managerInitCallData.length > 0) {
+                managerProxy.upgradeToAndCall(managerImpl, managerInitCallData);
             } else {
                 managerProxy.upgradeTo(managerImpl);
             }
 
-            if (authData.length > 0) {
-                authProxy.upgradeToAndCall(authImpl, authData);
+            if (authInitCallData.length > 0) {
+                authProxy.upgradeToAndCall(authImpl, authInitCallData);
             } else {
                 authProxy.upgradeTo(authImpl);
             }
         }
 
-        emit ManagerAndAuthContractUpgraded(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL);
     }
 
     function setProposer(
@@ -503,7 +497,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _updateProposedAuthState(_authRoot);
 
-        emit ProposerSet(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SET_PROPOSER);
     }
 
     function approveDeployment(
@@ -531,14 +525,14 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.approve(
             approval.actionRoot,
             approval.targetRoot,
-            approval.numActions,
+            approval.numInitialActions,
+            approval.numSetStorageActions,
             approval.numTargets,
-            approval.numImmutableContracts,
             approval.configUri,
             true
         );
 
-        emit DeploymentApproved(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.APPROVE_DEPLOYMENT);
     }
 
     function cancelActiveDeployment(
@@ -559,7 +553,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     {
         _updateProposedAuthState(_authRoot);
         manager.cancelActiveSphinxDeployment();
-        emit ActiveDeploymentCancelled(_authRoot, _leaf.index);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT);
     }
 
     /****************************** PROPOSER FUNCTIONS ******************************/
@@ -620,7 +614,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             firstProposalOccurred = true;
         }
 
-        emit AuthRootProposed(_authRoot, numLeafs);
+        emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.PROPOSE);
     }
 
     /**************************** OPENZEPPELIN FUNCTIONS ******************************/
@@ -681,7 +675,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32 _verifyingRole,
         bytes[] memory _signatures
     ) private view {
-        if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
 
         AuthState memory authState = authStates[_authRoot];
@@ -726,7 +719,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         authState.leafsExecuted += 1;
         if (authState.leafsExecuted == authState.numLeafs) {
             authState.status = AuthStatus.COMPLETED;
-            emit AuthRootCompleted(_authRoot, authState.numLeafs);
+            emit AuthRootCompleted(_authRoot);
         }
     }
 

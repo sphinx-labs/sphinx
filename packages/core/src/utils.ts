@@ -15,6 +15,7 @@ import {
   AbiCoder,
   Provider,
   JsonRpcSigner,
+  ConstructorFragment,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -57,7 +58,6 @@ import {
   ContractKind,
   ParsedConfigVariables,
   ParsedConfigVariable,
-  GetConfigArtifacts,
   ConfigArtifacts,
   GetCanonicalConfig,
   UserConfigWithOptions,
@@ -65,9 +65,17 @@ import {
   ParsedConfig,
   ParsedConfigWithOptions,
   NetworkType,
+  ParsedContractConfigs,
+  UserConstructorArgOverride,
+  UserArgOverride,
+  UserFunctionArgOverride,
+  UserConfigVariable,
+  UserCallAction,
+  ValidManagerVersion,
+  UserFunctionOptions,
+  ConfigCache,
 } from './config/types'
 import {
-  AuthLeaf,
   SphinxActionBundle,
   SphinxActionType,
   SphinxBundles,
@@ -92,18 +100,30 @@ import {
 import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
-  getAuthLeafsForChain,
+  fromRawSphinxAction,
   getDeployContractActions,
-  getNumDeployContractActions,
+  isSetStorageAction,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
-import {
-  assertValidConfigOptions,
-  getParsedConfigWithOptions,
-  parseConfigOptions,
-} from './config/parse'
+import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS } from './networks'
+import {
+  SUPPORTED_LOCAL_NETWORKS,
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+} from './networks'
+
+export const parseSemverVersion = (version: ValidManagerVersion) => {
+  const numbers = version
+    .replace('v', '')
+    .split('.')
+    .map((n) => parseInt(n, 10))
+  return {
+    major: numbers[0],
+    minor: numbers[1],
+    patch: numbers[2],
+  }
+}
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -111,11 +131,13 @@ export const getDeploymentId = (
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
-  const numActions = bundles.actionBundle.actions.length
   const numTargets = bundles.targetBundle.targets.length
-  const numImmutableContracts = getNumDeployContractActions(
-    bundles.actionBundle
-  )
+
+  const numTotalActions = bundles.actionBundle.actions.length
+  const numSetStorageActions = bundles.actionBundle.actions
+    .map((action) => fromRawSphinxAction(action.action))
+    .filter(isSetStorageAction).length
+  const numInitialActions = numTotalActions - numSetStorageActions
 
   return ethers.keccak256(
     AbiCoder.defaultAbiCoder().encode(
@@ -123,9 +145,9 @@ export const getDeploymentId = (
       [
         actionRoot,
         targetRoot,
-        numActions,
+        numInitialActions,
+        numSetStorageActions,
         numTargets,
-        numImmutableContracts,
         configUri,
       ]
     )
@@ -207,7 +229,6 @@ export const registerOwner = async (
   managerAddress: string,
   ownerAddress: string,
   signer: Signer,
-  provider: Provider,
   spinner: ora.Ora
 ): Promise<void> => {
   spinner.start(`Registering the project...`)
@@ -221,7 +242,7 @@ export const registerOwner = async (
         ownerAddress,
         projectName,
         '0x', // We don't pass any extra initializer data to this version of the SphinxManager.
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
     spinner.succeed(`Project registered.`)
@@ -265,6 +286,16 @@ export const sphinxLog = (
     return
   }
 
+  const log = createSphinxLog(logLevel, title, lines)
+
+  stream.write(log)
+}
+
+export const createSphinxLog = (
+  logLevel: 'warning' | 'error' = 'warning',
+  title: string,
+  lines: string[]
+): string => {
   const prefix = logLevel.charAt(0).toUpperCase() + logLevel.slice(1)
 
   const chalkColor = logLevel === 'warning' ? chalk.yellow : chalk.red
@@ -275,7 +306,7 @@ export const sphinxLog = (
     parts.push(lines.map((l) => l + '\n').join(''))
   }
 
-  stream.write(parts.join('\n') + '\n')
+  return parts.join('\n') + '\n'
 }
 
 export const displayDeploymentTable = (
@@ -399,14 +430,20 @@ export const getEIP1967ProxyAdminAddress = async (
  * @returns The object whose gas price settings will be overridden.
  */
 export const getGasPriceOverrides = async (
-  provider: ethers.Provider,
+  signer: ethers.Signer,
   overridden: ethers.TransactionRequest = {}
 ): Promise<ethers.TransactionRequest> => {
-  const feeData = await provider.getFeeData()
+  if (!signer.provider) {
+    throw new Error(
+      'Signer must be connected to a provider in order to get gas price overrides.'
+    )
+  }
+
+  const feeData = await signer.provider!.getFeeData()
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
 
-  const chainId = Number((await provider.getNetwork()).chainId)
+  const chainId = Number((await signer.provider!.getNetwork()).chainId)
 
   switch (chainId) {
     // Overrides the gasPrice for Fantom Opera
@@ -418,11 +455,21 @@ export const getGasPriceOverrides = async (
     // Do not do anything for polygon zkevm and it's testnet
     case 1101 || 1442:
       return overridden
+    case 127 || 80001:
+      overridden.nonce = await signer.provider.getTransactionCount(
+        await signer.getAddress(),
+        'latest'
+      )
+      return overridden
     // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
     default:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
         overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+        overridden.nonce = await signer.provider.getTransactionCount(
+          await signer.getAddress(),
+          'latest'
+        )
       }
       return overridden
   }
@@ -463,7 +510,7 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  // TODO: `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
+  // TODO(upgrades): `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
   // exists. Also, `isInternalDefaultProxy` may not be necessary anymore -- not sure.
   // if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
   //   return false
@@ -631,25 +678,25 @@ export const isEqualType = (
   return isEqual
 }
 
-export const getConstructorArgs = (
-  constructorArgs: ParsedConfigVariables,
-  abi: Array<Fragment>
+/**
+ * @notice Converts the variables from the object format used by Sphinx into an ordered array
+ * which can be used by ethers.js and Etherscan.
+ */
+export const getFunctionArgValueArray = (
+  args: ParsedConfigVariables,
+  fragment?: Fragment
 ): Array<ParsedConfigVariable> => {
-  const constructorArgValues: Array<ParsedConfigVariable> = []
+  const argValues: Array<ParsedConfigVariable> = []
 
-  const constructorFragment = abi.find(
-    (fragment) => fragment.type === 'constructor'
-  )
-
-  if (constructorFragment === undefined) {
-    return constructorArgValues
+  if (fragment === undefined) {
+    return argValues
   }
 
-  constructorFragment.inputs.forEach((input) => {
-    constructorArgValues.push(constructorArgs[input.name])
+  fragment.inputs.forEach((input) => {
+    argValues.push(args[input.name])
   })
 
-  return constructorArgValues
+  return argValues
 }
 
 export const getCreationCodeWithConstructorArgs = (
@@ -657,9 +704,11 @@ export const getCreationCodeWithConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: ContractArtifact['abi']
 ): string => {
-  const constructorArgValues = getConstructorArgs(constructorArgs, abi)
-
   const iface = new ethers.Interface(abi)
+  const constructorArgValues = getFunctionArgValueArray(
+    constructorArgs,
+    iface.fragments.find(ConstructorFragment.isFragment)
+  )
 
   const creationCodeWithConstructorArgs = bytecode.concat(
     remove0x(iface.encodeDeploy(constructorArgValues))
@@ -949,7 +998,7 @@ export const getDeploymentEvents = async (
   }
 
   const contractDeployedEvents = await SphinxManager.queryFilter(
-    SphinxManager.filters.ContractDeployed(null, null, deploymentId),
+    SphinxManager.filters.ContractDeployed(null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
@@ -1027,7 +1076,7 @@ export const deploymentDoesRevert = async (
       deployContractActions.map(async (action) =>
         provider.estimateGas({
           from: managerAddress,
-          data: action.code,
+          data: action.creationCodeWithConstructorArgs,
         })
       )
     )
@@ -1043,7 +1092,7 @@ export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
   currOwnerAddress: string,
-  provider: Provider,
+  signer: ethers.Signer,
   spinner: ora.Ora
 ) => {
   if (!ethers.isAddress(newOwnerAddress)) {
@@ -1055,13 +1104,13 @@ export const transferProjectOwnership = async (
     if (newOwnerAddress === ethers.ZeroAddress) {
       // We must call a separate function if ownership is being transferred to address(0).
       await (
-        await manager.renounceOwnership(await getGasPriceOverrides(provider))
+        await manager.renounceOwnership(await getGasPriceOverrides(signer))
       ).wait()
     } else {
       await (
         await manager.transferOwnership(
           newOwnerAddress,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(signer)
         )
       ).wait()
     }
@@ -1089,7 +1138,7 @@ export const getImplAddress = (
   managerAddress: string,
   bytecode: string,
   constructorArgs: ParsedConfigVariables,
-  abi: Array<Fragment>
+  abi: ContractArtifact['abi']
 ): string => {
   const implInitCode = getCreationCodeWithConstructorArgs(
     bytecode,
@@ -1100,6 +1149,10 @@ export const getImplAddress = (
   return getCreate3Address(managerAddress, implSalt)
 }
 
+/**
+ * @notice Stderr and stdout can be retrieved from the `stderr` and `stdout` properties of the
+ * returned object. Error can be caught by wrapping the function in a try/catch block.
+ */
 export const execAsync = promisify(exec)
 
 export const getDuplicateElements = (arr: Array<string>): Array<string> => {
@@ -1277,6 +1330,7 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
+      managerVersion: 'v0.2.2',
     },
     contracts: {},
     chainStates,
@@ -1332,45 +1386,6 @@ export const toCanonicalConfig = async (
   }
 }
 
-export const getAuthLeafs = async (
-  userConfig: UserConfigWithOptions,
-  prevConfig: CanonicalConfig,
-  rpcProviders: {
-    [network: string]: SphinxJsonRpcProvider
-  },
-  managerAddress: string,
-  networks: Array<string>,
-  isTestnet: boolean,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts
-): Promise<Array<AuthLeaf>> => {
-  const leafs: Array<AuthLeaf> = []
-  for (const network of networks) {
-    const provider = rpcProviders[network]
-
-    const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfigWithOptions(
-        userConfig,
-        managerAddress,
-        isTestnet,
-        provider,
-        cre,
-        getConfigArtifacts
-      )
-
-    const chainId = SUPPORTED_NETWORKS[network]
-    const leafsForChain = await getAuthLeafsForChain(
-      chainId,
-      parsedConfig,
-      configArtifacts,
-      configCache,
-      prevConfig
-    )
-    leafs.push(...leafsForChain)
-  }
-  return leafs
-}
-
 export const isProjectCreated = async (
   provider: Provider,
   authAddress: string
@@ -1396,13 +1411,16 @@ export const findNetwork = (chainId: number): string => {
   return network
 }
 
-export const arraysEqual = (a: Array<any>, b: Array<any>): boolean => {
+export const arraysEqual = (
+  a: Array<string | ParsedConfigVariable>,
+  b: Array<string | ParsedConfigVariable>
+): boolean => {
   if (a.length !== b.length) {
     return false
   }
 
   for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
+    if (!equal(a[i], b[i])) {
       return false
     }
   }
@@ -1482,12 +1500,10 @@ export const getNetworkDirName = (
 ): string => {
   if (networkType === NetworkType.LIVE_NETWORK) {
     return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
-    return `${networkName}-local`
+  } else if (networkName === 'anvil' || networkName === 'hardhat') {
+    return `${networkName}-${chainId}`
   } else {
-    const localNetworkName =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkName}-${chainId}`
+    return `${networkName}-local`
   }
 }
 
@@ -1513,7 +1529,10 @@ export const getNetworkTag = (
 ): string => {
   if (networkType === NetworkType.LIVE_NETWORK) {
     return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
+  } else if (
+    Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
+    !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(networkName)
+  ) {
     return `${networkName} (local)`
   } else {
     const localNetworkType =
@@ -1637,4 +1656,182 @@ export const isHttpNetworkConfig = (
   config: NetworkConfig
 ): config is HttpNetworkConfig => {
   return 'url' in config
+}
+
+export const getCallHash = (to: string, data: string): string => {
+  return ethers.keccak256(
+    AbiCoder.defaultAbiCoder().encode(['address', 'bytes'], [to, data])
+  )
+}
+
+export const findReferenceNameForAddress = (
+  address: string,
+  contractConfigs: ParsedContractConfigs
+): string | undefined => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    if (
+      ethers.getAddress(contractConfig.address) === ethers.getAddress(address)
+    ) {
+      return referenceName
+    }
+  }
+  return undefined
+}
+
+export const isSupportedChainId = (
+  chainId: number
+): chainId is SupportedChainId => {
+  return Object.values(SUPPORTED_NETWORKS).some(
+    (supportedChainId) => supportedChainId === chainId
+  )
+}
+
+export const isUserConstructorArgOverride = (
+  arg: UserArgOverride
+): arg is UserConstructorArgOverride => {
+  return (arg as UserConstructorArgOverride).constructorArgs !== undefined
+}
+
+export const isUserFunctionOptions = (
+  arg: UserConfigVariable | UserFunctionOptions | undefined
+): arg is UserFunctionOptions => {
+  return (
+    arg !== undefined &&
+    isUserFunctionArgOverrideArray((arg as UserFunctionOptions).overrides)
+  )
+}
+
+export const isUserFunctionArgOverrideArray = (
+  arg: Array<UserArgOverride> | UserConfigVariable | undefined
+): arg is Array<UserFunctionArgOverride> => {
+  return (
+    Array.isArray(arg) &&
+    arg.every((e) => {
+      return (e as UserFunctionArgOverride).args !== undefined
+    })
+  )
+}
+
+export const getCallActionAddressForNetwork = (
+  networkName: string,
+  callAction: UserCallAction
+): string => {
+  const { address: defaultAddress, addressOverrides } = callAction
+  if (addressOverrides === undefined) {
+    return defaultAddress
+  }
+
+  for (const override of addressOverrides) {
+    if (override.chains.includes(networkName)) {
+      return override.address
+    }
+  }
+
+  return defaultAddress
+}
+
+/**
+ * @notice Returns a string that represents a function call in a string format that can be
+ * displayed in a terminal. Note that this function does not support function calls with BigInt
+ * arguments, since JSON.stringify can't parse them.
+ *
+ * @param spaceToIndentVariables Number of spaces to indent the variables in the JSON string.
+ * @param spaceToIndentClosingParenthesis Number of spaces to indent the closing parenthesis.
+ */
+export const prettyFunctionCall = (
+  referenceNameOrAddress: string,
+  functionName: string,
+  variables: ParsedConfigVariables | Array<UserConfigVariable>,
+  spaceToIndentVariables: number = 2,
+  spaceToIndentClosingParenthesis: number = 0
+): string => {
+  const stringified = JSON.stringify(variables, null, spaceToIndentVariables)
+  // Removes the first and last characters, which are either '[' and ']', or '{' and '}'.
+  const removedBrackets = stringified.substring(1, stringified.length - 1)
+
+  // We only add a newline if the stringified variables contain a newline. Otherwise, a function
+  // call without any parameters would look like this: `myFunction(    )` (note the extra spaces).
+  const numSpacesForClosingParenthesis = removedBrackets.includes(`\n`)
+    ? spaceToIndentClosingParenthesis
+    : 0
+
+  const addedSpaceToClosingParenthesis =
+    removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
+
+  const target = ethers.isAddress(referenceNameOrAddress)
+    ? `(${referenceNameOrAddress})`
+    : referenceNameOrAddress
+
+  return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
+}
+
+/**
+ * @notice Encodes the data that initializes a SphinxManager contract via the SphinxRegistry.
+ *
+ * @param owner Address of the SphinxManager's owner, which should be the SphinxAuth contract.
+ */
+export const getRegistryData = (owner: string, projectName: string): string => {
+  return AbiCoder.defaultAbiCoder().encode(
+    ['address', 'string', 'bytes'],
+    [
+      owner,
+      projectName,
+      // Empty bytes. Useful in case future versions of the SphinxManager contract has additional
+      // fields.
+      '0x',
+    ]
+  )
+}
+
+export const skipCallAction = (
+  to: string,
+  data: string,
+  nonce: number,
+  callNonces: ConfigCache['callNonces']
+): boolean => {
+  const callHash = getCallHash(to, data)
+  const currentNonce = callNonces[callHash]
+  return currentNonce > nonce
+}
+
+/**
+ * @notice Returns true if and only if the two inputs are equal.
+ */
+export const equal = (
+  a: ParsedConfigVariable,
+  b: ParsedConfigVariable
+): boolean => {
+  if (
+    (Array.isArray(a) && !Array.isArray(b)) ||
+    (!Array.isArray(a) && Array.isArray(b)) ||
+    typeof a !== typeof b
+  ) {
+    return false
+  } else if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false
+    } else {
+      for (let i = 0; i < a.length; i++) {
+        if (!equal(a[i], b[i])) {
+          return false
+        }
+      }
+      return true
+    }
+  } else if (typeof a === 'object' && typeof b === 'object') {
+    if (Object.keys(a).length !== Object.keys(b).length) {
+      return false
+    } else {
+      for (const key of Object.keys(a)) {
+        if (!equal(a[key], b[key])) {
+          return false
+        }
+      }
+      return true
+    }
+  } else {
+    return a === b
+  }
 }

@@ -88,9 +88,11 @@ export const RELAYER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('RELAYER_ROLE'))
 export const FUNDER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FUNDER_ROLE'))
 
 export const CURRENT_SPHINX_MANAGER_VERSION = {
-  major: 1,
-  minor: 0,
-  patch: 0,
+  major: 0,
+  minor: 2,
+  patch: 2,
 }
+
+export const CURRENT_SPHINX_AUTH_VERSION = CURRENT_SPHINX_MANAGER_VERSION
 
 export const REFERENCE_ORG_ID = 'reference-org-id'

@@ -17,6 +17,7 @@ import {
   estimateExecutionCost,
   getManagedServiceAddress,
   SphinxJsonRpcProvider,
+  HumanReadableActions,
 } from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -226,13 +227,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
   let bundles: SphinxBundles
   let compilerConfig: CompilerConfig
   let configArtifacts: ConfigArtifacts
+  let humanReadableActions: HumanReadableActions
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
-      rpcProvider,
-      deploymentState.configUri
-    ))
+    ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
+      await compileRemoteBundles(rpcProvider, deploymentState.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
@@ -243,7 +243,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
   const estimatedCost =
-    ((await estimateExecutionCost(rpcProvider, bundles, 0)) * 15n) / 10n
+    ((await estimateExecutionCost(managerAddress, rpcProvider, bundles, 0)) *
+      15n) /
+    10n
   const balance = await rpcProvider.getBalance(wallet.address)
   if (balance < estimatedCost) {
     logger.info(
@@ -268,7 +270,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       await (
         await ManagedService.withdrawRelayerFunds(
           withdraw,
-          await getGasPriceOverrides(rpcProvider)
+          await getGasPriceOverrides(wallet)
         )
       ).wait()
       logger.info(
@@ -318,7 +320,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     try {
       deploymentTransactionReceipts.push(
         await (
-          await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
+          await manager.claimDeployment(await getGasPriceOverrides(wallet))
         ).wait()
       )
     } catch (err) {
@@ -368,9 +370,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const { success, receipts } = await executeDeployment(
       manager,
       bundles,
+      activeDeploymentId,
+      humanReadableActions,
       blockGasLimit,
-      configArtifacts,
-      rpcProvider
+      rpcProvider,
+      wallet
     )
     deploymentTransactionReceipts.push(...receipts)
 

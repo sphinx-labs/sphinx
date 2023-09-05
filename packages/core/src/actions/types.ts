@@ -1,3 +1,4 @@
+import { ValidManagerVersion } from '../config'
 import { SphinxDiff } from '../diff'
 
 /**
@@ -6,6 +7,7 @@ import { SphinxDiff } from '../diff'
 export enum SphinxActionType {
   SET_STORAGE,
   DEPLOY_CONTRACT,
+  CALL,
 }
 
 /**
@@ -18,6 +20,8 @@ export const DeploymentStatus = {
   COMPLETED: 3n,
   CANCELLED: 4n,
   FAILED: 5n,
+  INITIAL_ACTIONS_EXECUTED: 6n,
+  SET_STORAGE_ACTIONS_EXECUTED: 7n,
 }
 
 /**
@@ -25,10 +29,8 @@ export const DeploymentStatus = {
  */
 export interface RawSphinxAction {
   actionType: SphinxActionType
-  referenceName: string
+  index: number
   data: string
-  addr: string
-  contractKindHash: string
 }
 
 export interface SphinxTarget {
@@ -41,8 +43,8 @@ export interface SphinxTarget {
  * SetStorage action data.
  */
 export interface SetStorageAction {
-  referenceName: string
-  addr: string
+  index: number
+  to: string
   contractKindHash: string
   key: string
   offset: number
@@ -53,11 +55,16 @@ export interface SetStorageAction {
  * DeployContract action data.
  */
 export interface DeployContractAction {
-  referenceName: string
-  addr: string
-  contractKindHash: string
+  index: number
   salt: string
-  code: string
+  creationCodeWithConstructorArgs: string
+}
+
+export interface CallAction {
+  index: number
+  to: string
+  data: string
+  nonce: number
 }
 
 export interface SphinxBundles {
@@ -68,17 +75,31 @@ export interface SphinxBundles {
 /**
  * Sphinx action.
  */
-export type SphinxAction = SetStorageAction | DeployContractAction
+export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
+
+/**
+ * Human-readable Sphinx action.
+ */
+export type HumanReadableAction = {
+  reason: string
+  actionType: SphinxActionType
+  actionIndex: number
+}
+
+/**
+ * Set of human-readable Sphinx actions.
+ */
+export type HumanReadableActions = {
+  [index: number]: HumanReadableAction
+}
 
 /**
  * Sphinx action that is part of a bundle.
  */
 export type BundledSphinxAction = {
   action: RawSphinxAction
-  proof: {
-    actionIndex: number
-    siblings: string[]
-  }
+  siblings: string[]
+  gas: bigint
 }
 
 /**
@@ -127,11 +148,11 @@ export interface SphinxTargetBundle {
  */
 export type DeploymentState = {
   status: bigint
-  actions: boolean[]
+  numInitialActions: bigint
+  numSetStorageActions: bigint
   actionRoot: string
   targetRoot: string
-  numImmutableContracts: number
-  targets: number
+  targets: bigint
   actionsExecuted: bigint
   timeClaimed: bigint
   selectedExecutor: string
@@ -160,15 +181,48 @@ export type SetRoleMember = {
 export type DeploymentApproval = {
   actionRoot: string
   targetRoot: string
-  numActions: number
+  numInitialActions: number
+  numSetStorageActions: number
   numTargets: number
-  numImmutableContracts: number
   configUri: string
 }
 
 export type ContractInfo = {
   referenceName: string
   addr: string
+}
+
+export enum AuthLeafFunctions {
+  SETUP = 'setup',
+  PROPOSE = 'propose',
+  EXPORT_PROXY = 'exportProxy',
+  SET_OWNER = 'setOwner',
+  SET_THRESHOLD = 'setThreshold',
+  TRANSFER_MANAGER_OWNERSHIP = 'transferManagerOwnership',
+  UPGRADE_MANAGER_IMPLEMENTATION = 'upgradeManagerImplementation',
+  UPGRADE_AUTH_IMPLEMENTATION = 'upgradeAuthImplementation',
+  UPGRADE_MANAGER_AND_AUTH_IMPL = 'upgradeManagerAndAuthImpl',
+  SET_PROPOSER = 'setProposer',
+  APPROVE_DEPLOYMENT = 'approveDeployment',
+  CANCEL_ACTIVE_DEPLOYMENT = 'cancelActiveDeployment',
+}
+
+/**
+ * @notice This is in the exact same order as the `AuthLeafType` enum defined in Solidity.
+ */
+export enum AuthLeafType {
+  SETUP,
+  PROPOSE,
+  EXPORT_PROXY,
+  SET_OWNER,
+  SET_THRESHOLD,
+  TRANSFER_MANAGER_OWNERSHIP,
+  UPGRADE_MANAGER_IMPLEMENTATION,
+  UPGRADE_AUTH_IMPLEMENTATION,
+  UPGRADE_MANAGER_AND_AUTH_IMPL,
+  SET_PROPOSER,
+  APPROVE_DEPLOYMENT,
+  CANCEL_ACTIVE_DEPLOYMENT,
 }
 
 export const AuthStatus = {
@@ -185,77 +239,78 @@ export type AuthState = {
 }
 
 interface Setup extends BaseAuthLeaf {
-  leafType: 'setup'
+  leafType: AuthLeafFunctions.SETUP
   proposers: Array<SetRoleMember>
   numLeafs: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: 'exportProxy'
+  leafType: AuthLeafFunctions.EXPORT_PROXY
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
 interface SetOwner extends BaseAuthLeaf {
-  leafType: 'setOwner'
+  leafType: AuthLeafFunctions.SET_OWNER
   owner: string
   add: boolean
 }
 
 interface SetThreshold extends BaseAuthLeaf {
-  leafType: 'setThreshold'
+  leafType: AuthLeafFunctions.SET_THRESHOLD
   newThreshold: number
 }
 
 interface TransferManagerOwnership extends BaseAuthLeaf {
-  leafType: 'transferManagerOwnership'
+  leafType: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
   newOwner: string
 }
 
 interface UpgradeManagerImplementation extends BaseAuthLeaf {
-  leafType: 'upgradeManagerImplementation'
+  leafType: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: 'upgradeAuthImplementation'
+  leafType: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
   impl: string
   data: string
 }
 
 interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
-  leafType: 'upgradeManagerAndAuthImpl'
+  leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
   managerImpl: string
-  managerData: string
+  managerInitCallData: string
   authImpl: string
-  authData: string
+  authInitCallData: string
 }
 
 interface SetProposer extends BaseAuthLeaf {
-  leafType: 'setProposer'
+  leafType: AuthLeafFunctions.SET_PROPOSER
   proposer: string
   add: boolean
 }
 
 export interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: 'approveDeployment'
+  leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT
   approval: DeploymentApproval
 }
 
 interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: 'cancelActiveDeployment'
+  leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
   projectName: string
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: 'propose'
+  leafType: AuthLeafFunctions.PROPOSE
   numLeafs: number
 }
 
 export type AuthLeaf =
   | Setup
+  | Propose
   | ExportProxy
   | SetOwner
   | SetThreshold
@@ -266,7 +321,6 @@ export type AuthLeaf =
   | SetProposer
   | ApproveDeployment
   | CancelActiveDeployment
-  | Propose
 
 export enum RoleType {
   OWNER,
@@ -290,6 +344,7 @@ export type ProposalRequest = {
   threshold: number
   authAddress: string
   managerAddress: string
+  managerVersion: ValidManagerVersion
   deploymentName: string
   chainIds: Array<number>
   canonicalConfig: string

@@ -50,21 +50,13 @@ export const monitorExecution = async (
   }
 
   spinner.succeed('Executor has claimed the project.')
-  spinner.start('Waiting for execution to be initiated...')
-
-  while (deploymentState.status === BigInt(DeploymentStatus.APPROVED)) {
-    // Wait for one second.
-    await sleep(1000)
-
-    // Get the current deployment state.
-    deploymentState = await SphinxManager.deployments(deploymentId)
-  }
-
-  spinner.succeed('Execution initiated.')
+  spinner.start('Executing actions...')
 
   const totalNumActions = bundles.actionBundle.actions.length
   while (
-    deploymentState.status === BigInt(DeploymentStatus.PROXIES_INITIATED)
+    deploymentState.status !== DeploymentStatus.COMPLETED &&
+    deploymentState.status !== DeploymentStatus.CANCELLED &&
+    deploymentState.status !== DeploymentStatus.FAILED
   ) {
     if (Number(deploymentState.actionsExecuted) === totalNumActions) {
       spinner.start(`All actions have been executed. Completing execution...`)
@@ -83,7 +75,7 @@ export const monitorExecution = async (
     deploymentState = await SphinxManager.deployments(deploymentId)
   }
 
-  if (deploymentState.status === BigInt(DeploymentStatus.COMPLETED)) {
+  if (deploymentState.status === DeploymentStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
@@ -92,12 +84,15 @@ export const monitorExecution = async (
     )
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
-  } else if (deploymentState.status === BigInt(DeploymentStatus.CANCELLED)) {
+  } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
+  } else if (deploymentState.status === DeploymentStatus.FAILED) {
+    spinner.fail(`${projectName} failed.`)
+    throw new Error(`${projectName} failed.`)
   } else {
     spinner.fail(
-      `Project was never active. Current status: ${deploymentState.status}`
+      `Project ${projectName} ended in an unknown state: ${deploymentState.status}`
     )
   }
 }

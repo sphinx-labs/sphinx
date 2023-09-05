@@ -23,6 +23,10 @@ import {
   getEmptyCanonicalConfig,
   toHexString,
   fromHexString,
+  isSupportedChainId,
+  parseSemverVersion,
+  prettyFunctionCall,
+  skipCallAction,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -44,12 +48,15 @@ import {
   SetStorageAction,
   ProposalRequestLeaf,
   ProjectDeployment,
+  CallAction,
+  HumanReadableActions,
+  AuthLeafFunctions,
 } from './types'
 import { getStorageLayout } from './artifacts'
-import { getCreate3Address } from '../config/utils'
 import { getProjectBundleInfo } from '../tasks'
-import { getDeployContractCosts } from '../estimate'
+import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
 import { SupportedChainId } from '../networks'
+import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -61,6 +68,8 @@ export const isSetStorageAction = (
   action: SphinxAction
 ): action is SetStorageAction => {
   return (
+    (action as SetStorageAction).contractKindHash !== undefined &&
+    (action as SetStorageAction).to !== undefined &&
     (action as SetStorageAction).key !== undefined &&
     (action as SetStorageAction).value !== undefined &&
     (action as SetStorageAction).offset !== undefined
@@ -76,7 +85,18 @@ export const isSetStorageAction = (
 export const isDeployContractAction = (
   action: SphinxAction
 ): action is DeployContractAction => {
-  return (action as DeployContractAction).code !== undefined
+  return (
+    (action as DeployContractAction).creationCodeWithConstructorArgs !==
+      undefined && (action as DeployContractAction).salt !== undefined
+  )
+}
+
+export const isCallAction = (action: SphinxAction): action is CallAction => {
+  return (
+    (action as CallAction).to !== undefined &&
+    (action as CallAction).data !== undefined &&
+    (action as CallAction).nonce !== undefined
+  )
 }
 
 export const getDeployContractActions = (
@@ -87,11 +107,13 @@ export const getDeployContractActions = (
     .filter(isDeployContractAction)
 }
 
-export const getDeployContractActionBundle = (
+export const getInitialActionBundle = (
   actionBundle: SphinxActionBundle
 ): Array<BundledSphinxAction> => {
-  return actionBundle.actions.filter((action) =>
-    isDeployContractAction(fromRawSphinxAction(action.action))
+  return actionBundle.actions.filter(
+    (action) =>
+      isDeployContractAction(fromRawSphinxAction(action.action)) ||
+      isCallAction(fromRawSphinxAction(action.action))
   )
 }
 
@@ -101,12 +123,6 @@ export const getSetStorageActionBundle = (
   return actionBundle.actions.filter((action) =>
     isSetStorageAction(fromRawSphinxAction(action.action))
   )
-}
-
-export const getNumDeployContractActions = (
-  actionBundle: SphinxActionBundle
-): number => {
-  return getDeployContractActionBundle(actionBundle).length
 }
 
 /**
@@ -121,21 +137,35 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   if (isSetStorageAction(action)) {
     return {
       actionType: SphinxActionType.SET_STORAGE,
-      addr: action.addr,
-      contractKindHash: action.contractKindHash,
-      referenceName: action.referenceName,
+      index: action.index,
       data: coder.encode(
-        ['bytes32', 'uint8', 'bytes'],
-        [action.key, action.offset, action.value]
+        ['bytes32', 'address', 'bytes32', 'uint8', 'bytes'],
+        [
+          action.contractKindHash,
+          action.to,
+          action.key,
+          action.offset,
+          action.value,
+        ]
       ),
     }
   } else if (isDeployContractAction(action)) {
     return {
       actionType: SphinxActionType.DEPLOY_CONTRACT,
-      addr: action.addr,
-      contractKindHash: action.contractKindHash,
-      referenceName: action.referenceName,
-      data: coder.encode(['bytes32', 'bytes'], [action.salt, action.code]),
+      index: action.index,
+      data: coder.encode(
+        ['bytes32', 'bytes'],
+        [action.salt, action.creationCodeWithConstructorArgs]
+      ),
+    }
+  } else if (isCallAction(action)) {
+    return {
+      actionType: SphinxActionType.CALL,
+      index: action.index,
+      data: coder.encode(
+        ['uint256', 'address', 'bytes'],
+        [action.nonce, action.to, action.data]
+      ),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -153,26 +183,38 @@ export const fromRawSphinxAction = (
 ): SphinxAction => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.SET_STORAGE) {
-    const [key, offset, value] = coder.decode(
-      ['bytes32', 'uint8', 'bytes'],
+    const [contractKindHash, to, key, offset, value] = coder.decode(
+      ['bytes32', 'address', 'bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
     return {
-      referenceName: rawAction.referenceName,
-      addr: rawAction.addr,
-      contractKindHash: rawAction.contractKindHash,
+      to,
+      contractKindHash,
+      index: rawAction.index,
       key,
       offset,
       value,
     }
   } else if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
-    const [salt, code] = coder.decode(['bytes32', 'bytes'], rawAction.data)
+    const [salt, creationCodeWithConstructorArgs] = coder.decode(
+      ['bytes32', 'bytes'],
+      rawAction.data
+    )
     return {
-      referenceName: rawAction.referenceName,
-      addr: rawAction.addr,
-      contractKindHash: rawAction.contractKindHash,
+      index: rawAction.index,
       salt,
-      code,
+      creationCodeWithConstructorArgs,
+    }
+  } else if (rawAction.actionType === SphinxActionType.CALL) {
+    const [nonce, to, data] = coder.decode(
+      ['uint256', 'address', 'bytes'],
+      rawAction.data
+    )
+    return {
+      to,
+      index: rawAction.index,
+      data,
+      nonce,
     }
   } else {
     throw new Error(`unknown action type`)
@@ -188,16 +230,7 @@ export const fromRawSphinxAction = (
 export const getActionHash = (action: RawSphinxAction): string => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   return ethers.keccak256(
-    coder.encode(
-      ['string', 'address', 'uint8', 'bytes32', 'bytes'],
-      [
-        action.referenceName,
-        action.addr,
-        action.actionType,
-        action.contractKindHash,
-        action.data,
-      ]
-    )
+    coder.encode(['uint8', 'bytes'], [action.actionType, action.data])
   )
 }
 
@@ -246,56 +279,61 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
   switch (leaf.leafType) {
     /************************ OWNER ACTIONS *****************************/
-    case 'setup':
+    case AuthLeafFunctions.SETUP:
       return coder.encode(
         ['tuple(address member, bool add)[]', 'uint256'],
         [leaf.proposers, leaf.numLeafs]
       )
 
-    case 'exportProxy':
+    case AuthLeafFunctions.EXPORT_PROXY:
       return coder.encode(
         ['address', 'bytes32', 'address'],
         [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
 
-    case 'setOwner':
+    case AuthLeafFunctions.SET_OWNER:
       return coder.encode(['address', 'bool'], [leaf.owner, leaf.add])
 
-    case 'setThreshold':
+    case AuthLeafFunctions.SET_THRESHOLD:
       return coder.encode(['uint256'], [leaf.newThreshold])
 
-    case 'transferManagerOwnership':
+    case AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP:
       return coder.encode(['address'], [leaf.newOwner])
 
-    case 'upgradeManagerImplementation':
+    case AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION:
       return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
-    case 'upgradeAuthImplementation':
+    case AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION:
       return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
-    case 'upgradeManagerAndAuthImpl':
+    case AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL:
       return coder.encode(
         ['address', 'bytes', 'address', 'bytes'],
-        [leaf.managerImpl, leaf.managerData, leaf.authImpl, leaf.authData]
+        [
+          leaf.managerImpl,
+          leaf.managerInitCallData,
+          leaf.authImpl,
+          leaf.authInitCallData,
+        ]
       )
 
-    case 'setProposer':
+    case AuthLeafFunctions.SET_PROPOSER:
       return coder.encode(['address', 'bool'], [leaf.proposer, leaf.add])
 
-    case 'approveDeployment':
+    case AuthLeafFunctions.APPROVE_DEPLOYMENT:
       return coder.encode(
         [
-          'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numActions, uint256 numTargets, uint256 numImmutableContracts, string configUri)',
+          'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numInitialActions, uint256 numSetStorageActions, uint256 numTargets, string configUri)',
         ],
         [leaf.approval]
       )
 
-    case 'cancelActiveDeployment':
+    case AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT:
       return coder.encode(['string'], [leaf.projectName])
 
     /****************************** PROPOSER ACTIONS ******************************/
 
-    case 'propose':
+    case AuthLeafFunctions.PROPOSE:
       return coder.encode(['uint256'], [leaf.numLeafs])
 
     default:
@@ -311,7 +349,7 @@ export const getAuthLeafSignerInfo = (
   ownerThreshold: number,
   leafType: string
 ): { leafThreshold: number; roleType: RoleType } => {
-  if (leafType === 'propose') {
+  if (leafType === AuthLeafFunctions.PROPOSE) {
     return { leafThreshold: 1, roleType: RoleType.PROPOSER }
   } else {
     return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
@@ -383,7 +421,8 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  * @return Bundled actions.
  */
 export const makeActionBundle = (
-  actions: SphinxAction[]
+  actions: SphinxAction[],
+  costs: bigint[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -404,12 +443,10 @@ export const makeActionBundle = (
     actions: rawActions.map((action, idx) => {
       return {
         action,
-        proof: {
-          actionIndex: idx,
-          siblings: tree.getProof(getActionHash(action), idx).map((element) => {
-            return element.data
-          }),
-        },
+        gas: costs[idx],
+        siblings: tree.getProof(getActionHash(action), idx).map((element) => {
+          return element.data
+        }),
       }
     }),
   }
@@ -443,8 +480,11 @@ export const makeBundlesFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache
-): SphinxBundles => {
-  const actionBundle = makeActionBundleFromConfig(
+): {
+  bundles: SphinxBundles
+  humanReadableActions: HumanReadableActions
+} => {
+  const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
@@ -454,7 +494,7 @@ export const makeBundlesFromConfig = (
     configArtifacts,
     configCache.chainId as SupportedChainId
   )
-  return { actionBundle, targetBundle }
+  return { bundles: { actionBundle, targetBundle }, humanReadableActions }
 }
 
 /**
@@ -468,45 +508,81 @@ export const makeActionBundleFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache
-): SphinxActionBundle => {
+): {
+  actionBundle: SphinxActionBundle
+  humanReadableActions: HumanReadableActions
+} => {
+  const { chainId } = configCache
+
+  if (!isSupportedChainId(chainId)) {
+    throw new Error(`Chain ID ${chainId} is not supported.`)
+  }
+
   const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
+  const costs: bigint[] = []
+
+  // The action index keeps track of the order that actions are executed on-chain. We proceed by
+  // adding the `DEPLOY_CONTRACT` actions first, then the `CALL` actions, and finally the
+  // `SET_STORAGE` actions.
+  let actionIndex = 0
+
+  const humanReadableActions: HumanReadableActions = {}
+
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { buildInfo, artifact } = configArtifacts[referenceName]
-    const { sourceName, contractName, abi, bytecode } = artifact
+    const { artifact, buildInfo } = configArtifacts[referenceName]
+    const { abi, bytecode, sourceName, contractName } = artifact
     const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
-    const { kind, address, salt, constructorArgs } = contractConfig
+    const { kind, salt, constructorArgs } = contractConfig
+
+    const readableSignature = prettyFunctionCall(
+      referenceName,
+      'constructor',
+      constructorArgs[configCache.chainId]
+    )
+
+    const deployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    )
 
     if (!isTargetDeployed) {
       if (kind === 'immutable') {
         // Add a DEPLOY_CONTRACT action for the unproxied contract.
         actions.push({
-          referenceName,
-          addr: address,
-          contractKindHash: contractKindHashes[kind],
+          index: actionIndex,
           salt,
-          code: getCreationCodeWithConstructorArgs(
+          creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
             bytecode,
             constructorArgs[configCache.chainId],
             abi
           ),
         })
+
+        costs.push(deployContractCost)
       } else if (kind === 'proxy') {
         // Add a DEPLOY_CONTRACT action for the default proxy.
         actions.push({
-          referenceName,
-          addr: address,
-          contractKindHash: contractKindHashes[kind],
+          index: actionIndex,
           salt,
-          code: getDefaultProxyInitCode(managerAddress),
+          creationCodeWithConstructorArgs:
+            getDefaultProxyInitCode(managerAddress),
         })
+        costs.push(deployContractCost)
       } else {
         throw new Error(
           `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
         )
       }
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: readableSignature,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
+      }
+
+      actionIndex += 1
     }
 
     if (kind !== 'immutable') {
@@ -526,16 +602,60 @@ export const makeActionBundleFromConfig = (
       // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
       // contracts that have already been deployed.
       const implSalt = ethers.keccak256(implInitCode)
-      const implAddress = getCreate3Address(managerAddress, implSalt)
 
       actions.push({
-        referenceName,
-        addr: implAddress,
-        contractKindHash: contractKindHashes['implementation'],
+        index: actionIndex,
         salt: implSalt,
-        code: implInitCode,
+        creationCodeWithConstructorArgs: implInitCode,
       })
+      costs.push(deployContractCost)
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        reason: readableSignature,
+        actionType: SphinxActionType.DEPLOY_CONTRACT,
+      }
+
+      actionIndex += 1
     }
+  }
+
+  // Next, we add any `CALL` actions. We currently only support `CALL` actions that occur after all
+  // contracts have been deployed, but before an upgrade is initiated. In other words, we put them
+  // after all `DEPLOY_CONTRACT` actions and before any `SET_STORAGE` actions.
+  const postDeployActions = parsedConfig.postDeploy[chainId]
+  if (postDeployActions) {
+    for (const { to, data, nonce, readableSignature } of postDeployActions) {
+      if (!skipCallAction(to, data, nonce, configCache.callNonces)) {
+        actions.push({
+          to,
+          index: actionIndex,
+          data,
+          nonce,
+        })
+        costs.push(250_000n)
+
+        humanReadableActions[actionIndex] = {
+          actionIndex,
+          reason: prettyFunctionCall(
+            readableSignature.referenceNameOrAddress,
+            readableSignature.functionName,
+            readableSignature.variables
+          ),
+          actionType: SphinxActionType.CALL,
+        }
+
+        actionIndex += 1
+      }
+    }
+  }
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { buildInfo, artifact } = configArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
+    const { kind, address } = contractConfig
 
     const storageLayout = getStorageLayout(
       buildInfo.output,
@@ -555,18 +675,31 @@ export const makeActionBundleFromConfig = (
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const segment of segments) {
       actions.push({
-        referenceName,
-        addr: address,
+        to: address,
         contractKindHash: contractKindHashes[kind],
+        index: actionIndex,
         key: segment.key,
         offset: segment.offset,
         value: segment.val,
       })
+      costs.push(150_000n)
+
+      humanReadableActions[actionIndex] = {
+        actionIndex,
+        // TODO(upgrades): add reason
+        reason: '',
+        actionType: SphinxActionType.SET_STORAGE,
+      }
+
+      actionIndex += 1
     }
   }
 
   // Generate a bundle from the list of actions.
-  return makeActionBundle(actions)
+  return {
+    actionBundle: makeActionBundle(actions, costs),
+    humanReadableActions,
+  }
 }
 
 /**
@@ -687,6 +820,26 @@ export const getAuthLeafsForChain = async (
   // because the first two indexes are reserved for the setup and proposal leafs.
   let index = firstProposalOccurred ? 1 : 2
 
+  const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
+  if (
+    managerVersionString !== parsedConfig.options.managerVersion &&
+    !configCache.isManagerDeployed
+  ) {
+    const version = parseSemverVersion(parsedConfig.options.managerVersion)
+    const upgradeLeaf: AuthLeaf = {
+      chainId,
+      to: manager,
+      index,
+      leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
+      managerInitCallData: '0x',
+      managerImpl: getSphinxManagerImplAddress(chainId, version),
+      authInitCallData: '0x',
+      authImpl: getAuthImplAddress(version),
+    }
+    index += 1
+    leafs.push(upgradeLeaf)
+  }
+
   const { configUri, bundles } = await getProjectBundleInfo(
     parsedConfig,
     configArtifacts,
@@ -699,6 +852,11 @@ export const getAuthLeafsForChain = async (
     bundles.actionBundle.actions.length > 0 ||
     bundles.targetBundle.targets.length > 0
   ) {
+    const numTotalActions = actionBundle.actions.length
+    const numSetStorageActions = actionBundle.actions
+      .map((action) => fromRawSphinxAction(action.action))
+      .filter(isSetStorageAction).length
+
     const approvalLeaf: AuthLeaf = {
       chainId,
       to: manager,
@@ -706,12 +864,12 @@ export const getAuthLeafsForChain = async (
       approval: {
         actionRoot: actionBundle.root,
         targetRoot: targetBundle.root,
-        numActions: actionBundle.actions.length,
+        numInitialActions: numTotalActions - numSetStorageActions,
+        numSetStorageActions,
         numTargets: targetBundle.targets.length,
-        numImmutableContracts: getNumDeployContractActions(actionBundle),
         configUri,
       },
-      leafType: 'approveDeployment',
+      leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT,
     }
     index += 1
     leafs.push(approvalLeaf)
@@ -727,7 +885,7 @@ export const getAuthLeafsForChain = async (
       to: manager,
       index: 0,
       numLeafs: index,
-      leafType: 'propose',
+      leafType: AuthLeafFunctions.PROPOSE,
     }
     leafs.push(proposalLeaf)
   } else if (!firstProposalOccurred) {
@@ -738,7 +896,7 @@ export const getAuthLeafsForChain = async (
       index: 0,
       proposers: proposersToSet,
       numLeafs: index,
-      leafType: 'setup',
+      leafType: AuthLeafFunctions.SETUP,
     }
     leafs.push(setupLeaf)
 
@@ -749,7 +907,7 @@ export const getAuthLeafsForChain = async (
         to: manager,
         index: 1,
         numLeafs: index,
-        leafType: 'propose',
+        leafType: AuthLeafFunctions.PROPOSE,
       }
       leafs.push(proposalLeaf)
     }
@@ -875,5 +1033,5 @@ export const getGasEstimates = async (
 export const isApproveDeploymentAuthLeaf = (
   leaf: AuthLeaf
 ): leaf is ApproveDeployment => {
-  return leaf.leafType === 'approveDeployment'
+  return leaf.leafType === AuthLeafFunctions.APPROVE_DEPLOYMENT
 }

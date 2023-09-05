@@ -31,20 +31,40 @@ export type MultiChainProjectTestInfo = {
   proposerAddresses: string[]
 }
 
+// The multi-chain test suite is run against two different execution methods:
+// 1. 'standard': This is the execution flow used in production, which means a proposer must first
+//    sign a meta transaction to propose an auth root, then at least `threshold` owners must sign a
+//    meta transaction to approve the auth root.
+// 2. 'bypass verification': This is the execution flow that allows a user to test a Sphinx config
+//    locally before proposing it on live networks. In a local testing environment, the proposer and
+//    owner private keys are not known. To resolve this for the owner threshold, we set it to 0 via
+//    a `setStorageAt` RPC call in the SphinxAuth contract. For the proposer threshold, we can't use
+//    `setStorageAt` because the proposer threshold is hard-coded as a constant value in the
+//    SphinxAuth contract (which means it has no storage slot). So, instead, we set a known private
+//    key as a proposer, then use it to sign a meta transaction, which we submit like normal. It's
+//    worth mentioning that we test this flow in the multi-chain test suite to ensure that users can
+//    test their Sphinx configs locally against any set of auth leafs.
+//
+export type ExecutionMethod = 'standard' | 'bypass verification'
+export const executionMethods: Array<ExecutionMethod> = [
+  'standard',
+  'bypass verification',
+]
+
 // The following values are shared between the Sphinx configs that are tested.
 export const DUMMY_ORG_ID = '1111'
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
 export const OWNER_ROLE_HASH = ethers.ZeroHash
 
-export const cre = createSphinxRuntime(
+export const defaultCre = createSphinxRuntime(
   'hardhat',
   false,
   hre.config.networks.hardhat.allowUnlimitedContractSize,
   true, // Automatically confirm proposals
   hre.config.paths.compilerConfigs,
   hre,
-  false
+  true
 )
 export const initialTestnets: Array<SupportedNetworkName> = [
   'goerli',
@@ -55,7 +75,7 @@ export const testnetsToAdd: Array<SupportedNetworkName> = [
   'gnosis-chiado',
 ]
 export const allTestnets = initialTestnets.concat(testnetsToAdd)
-export const rpcProviders = {
+export const rpcProviders: { [network: string]: SphinxJsonRpcProvider } = {
   goerli: new SphinxJsonRpcProvider('http://127.0.0.1:42005'),
   'optimism-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42420'),
   'gnosis-chiado': new SphinxJsonRpcProvider('http://127.0.0.1:42200'),
@@ -63,9 +83,6 @@ export const rpcProviders = {
   'base-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42531'),
   anvil: new SphinxJsonRpcProvider('http://127.0.0.1:8545'),
 }
-// Account #9 on Hardhat/Anvil node
-export const relayerPrivateKey =
-  '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6'
 
 // Accounts #0-4 on Hardhat/Anvil node.
 export const ownerPrivateKeys = [
@@ -75,17 +92,28 @@ export const ownerPrivateKeys = [
   '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
   '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
 ]
-// Account 5 on Hardhat/Anvil node.
+// Account 5
 export const proposerPrivateKey =
   '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba'
+// Account 6. This account should have no permissions.
+export const randomPrivateKey =
+  '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e'
+// Account 8
+export const deployerPrivateKey =
+  '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97'
+// Account 9
+export const relayerPrivateKey =
+  '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6'
 
 const contractConfig: UserContractConfigs = {
-  MyContract: {
-    contract: 'Stateless',
+  ConfigContract1: {
+    contract: 'MyContract1',
     kind: 'immutable',
     constructorArgs: {
-      _immutableUint: 1,
-      _immutableAddress: '0x' + '11'.repeat(20),
+      _intArg: 0,
+      _uintArg: 0,
+      _addressArg: ethers.ZeroAddress,
+      _otherAddressArg: ethers.ZeroAddress,
     },
   },
 }
@@ -102,6 +130,7 @@ const eoaUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [eoaAddress],
+    managerVersion: 'v0.2.2',
   },
   contracts: contractConfig,
 }
@@ -131,6 +160,7 @@ const multisigUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [new ethers.Wallet(proposerPrivateKey).address],
+    managerVersion: 'v0.2.2',
   },
   contracts: contractConfig,
 }
