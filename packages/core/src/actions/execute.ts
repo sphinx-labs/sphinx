@@ -54,8 +54,11 @@ export const executeDeployment = async (
     logger?.error(`[Sphinx]: failed to execute initial actions`)
 
     // fetch deployment action
+    const eventFilter = manager.filters.DeploymentFailed(deploymentId)
+    const latestBlock = await provider.getBlockNumber()
+    const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
     const failureEvent = (
-      await manager.queryFilter(manager.filters.DeploymentFailed(deploymentId))
+      await manager.queryFilter(eventFilter, startingBlock, latestBlock)
     ).at(-1)
 
     if (failureEvent) {
