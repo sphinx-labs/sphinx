@@ -229,7 +229,6 @@ export const registerOwner = async (
   managerAddress: string,
   ownerAddress: string,
   signer: Signer,
-  provider: Provider,
   spinner: ora.Ora
 ): Promise<void> => {
   spinner.start(`Registering the project...`)
@@ -243,7 +242,7 @@ export const registerOwner = async (
         ownerAddress,
         projectName,
         '0x', // We don't pass any extra initializer data to this version of the SphinxManager.
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
     spinner.succeed(`Project registered.`)
@@ -431,14 +430,20 @@ export const getEIP1967ProxyAdminAddress = async (
  * @returns The object whose gas price settings will be overridden.
  */
 export const getGasPriceOverrides = async (
-  provider: ethers.Provider,
+  signer: ethers.Signer,
   overridden: ethers.TransactionRequest = {}
 ): Promise<ethers.TransactionRequest> => {
-  const feeData = await provider.getFeeData()
+  if (!signer.provider) {
+    throw new Error(
+      'Signer must be connected to a provider in order to get gas price overrides.'
+    )
+  }
+
+  const feeData = await signer.provider!.getFeeData()
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
 
-  const chainId = Number((await provider.getNetwork()).chainId)
+  const chainId = Number((await signer.provider!.getNetwork()).chainId)
 
   switch (chainId) {
     // Overrides the gasPrice for Fantom Opera
@@ -455,6 +460,10 @@ export const getGasPriceOverrides = async (
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
         overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+        overridden.nonce = await signer.provider.getTransactionCount(
+          await signer.getAddress(),
+          'latest'
+        )
       }
       return overridden
   }
@@ -1077,7 +1086,7 @@ export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
   currOwnerAddress: string,
-  provider: Provider,
+  signer: ethers.Signer,
   spinner: ora.Ora
 ) => {
   if (!ethers.isAddress(newOwnerAddress)) {
@@ -1089,13 +1098,13 @@ export const transferProjectOwnership = async (
     if (newOwnerAddress === ethers.ZeroAddress) {
       // We must call a separate function if ownership is being transferred to address(0).
       await (
-        await manager.renounceOwnership(await getGasPriceOverrides(provider))
+        await manager.renounceOwnership(await getGasPriceOverrides(signer))
       ).wait()
     } else {
       await (
         await manager.transferOwnership(
           newOwnerAddress,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(signer)
         )
       ).wait()
     }

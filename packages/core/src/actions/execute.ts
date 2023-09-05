@@ -1,4 +1,4 @@
-import { ethers, Provider } from 'ethers'
+import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
@@ -19,6 +19,7 @@ export const executeDeployment = async (
   humanReadableActions: HumanReadableActions,
   blockGasLimit: bigint,
   provider: ethers.Provider,
+  signer: ethers.Signer,
   logger?: Logger | undefined
 ): Promise<{
   success: boolean
@@ -46,7 +47,7 @@ export const executeDeployment = async (
     false,
     manager,
     maxGasLimit,
-    provider,
+    signer,
     logger
   )
   if (status === DeploymentStatus.FAILED) {
@@ -83,7 +84,7 @@ export const executeDeployment = async (
       await manager.initiateUpgrade(
         targetBundle.targets.map((target) => target.target),
         targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
   )
@@ -95,7 +96,7 @@ export const executeDeployment = async (
     true,
     manager,
     maxGasLimit,
-    provider,
+    signer,
     logger
   )
   receipts.push(...setStorageReceipts)
@@ -107,7 +108,7 @@ export const executeDeployment = async (
       await manager.finalizeUpgrade(
         targetBundle.targets.map((target) => target.target),
         targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
   )
@@ -168,7 +169,7 @@ const executeBatchActions = async (
   isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
-  provider: Provider,
+  signer: ethers.Signer,
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
@@ -222,7 +223,7 @@ const executeBatchActions = async (
         await manager.setStorage(
           batch.map((action) => action.action),
           batch.map((action) => action.siblings),
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(signer)
         )
       ).wait()
       receipts.push(tx)
@@ -231,7 +232,7 @@ const executeBatchActions = async (
         await manager.executeInitialActions(
           batch.map((action) => action.action),
           batch.map((action) => action.siblings),
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(signer)
         )
       ).wait()
       receipts.push(tx)

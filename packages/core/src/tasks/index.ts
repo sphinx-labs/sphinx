@@ -571,7 +571,6 @@ export const deployAbstractTask = async (
     manager,
     signerAddress,
     signer,
-    provider,
     spinner
   )
 
@@ -618,7 +617,7 @@ export const deployAbstractTask = async (
         bundles.targetBundle.targets.length,
         configUri,
         false,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(signer)
       )
     ).wait()
     currDeploymentStatus = DeploymentStatus.APPROVED
@@ -639,7 +638,8 @@ export const deployAbstractTask = async (
       deploymentId,
       humanReadableActions,
       blockGasLimit,
-      provider
+      provider,
+      signer
     )
 
     if (!success) {
@@ -688,7 +688,7 @@ export const deployAbstractTask = async (
       Manager,
       newOwner,
       signerAddress,
-      provider,
+      signer,
       spinner
     )
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
@@ -795,7 +795,7 @@ export const postDeploymentActions = async (
 
 export const sphinxCancelAbstractTask = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  owner: ethers.Signer,
+  signer: ethers.Signer,
   projectName: string,
   integration: Integration,
   cre: SphinxRuntimeEnvironment
@@ -806,13 +806,13 @@ export const sphinxCancelAbstractTask = async (
     networkType
   )
 
-  const ownerAddress = await owner.getAddress()
+  const ownerAddress = await signer.getAddress()
   const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
-  const registry = getSphinxRegistry(owner)
-  const Manager = getSphinxManager(managerAddress, owner)
+  const registry = getSphinxRegistry(signer)
+  const Manager = getSphinxManager(managerAddress, signer)
 
   if (!(await registry.isManagerDeployed(managerAddress))) {
     throw new Error(`Project has not been registered yet.`)
@@ -821,7 +821,7 @@ export const sphinxCancelAbstractTask = async (
   const currOwner = await Manager.owner()
   if (currOwner !== ownerAddress) {
     throw new Error(`Project is owned by: ${currOwner}.
-You attempted to cancel the project using the address: ${await owner.getAddress()}`)
+You attempted to cancel the project using the address: ${await signer.getAddress()}`)
   }
 
   const activeDeploymentId = await Manager.activeDeploymentId()
@@ -835,7 +835,7 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
 
   await (
     await Manager.cancelActiveSphinxDeployment(
-      await getGasPriceOverrides(provider)
+      await getGasPriceOverrides(signer)
     )
   ).wait()
 
@@ -846,7 +846,7 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
 
 export const sphinxExportProxyAbstractTask = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  owner: ethers.Signer,
+  signer: ethers.Signer,
   projectName: string,
   referenceName: string,
   integration: Integration,
@@ -856,11 +856,11 @@ export const sphinxExportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const ownerAddress = await owner.getAddress()
+  const ownerAddress = await signer.getAddress()
   const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
 
-  const Registry = getSphinxRegistry(owner)
-  const Manager = getSphinxManager(managerAddress, owner)
+  const Registry = getSphinxRegistry(signer)
+  const Manager = getSphinxManager(managerAddress, signer)
 
   // Throw an error if the project has not been registered
   if ((await Registry.isManagerDeployed(managerAddress)) === false) {
@@ -869,7 +869,7 @@ export const sphinxExportProxyAbstractTask = async (
 
   const projectOwner = await Manager.owner()
 
-  const signerAddress = await owner.getAddress()
+  const signerAddress = await signer.getAddress()
   if (projectOwner !== signerAddress) {
     throw new Error(`Caller does not own the project.`)
   }
@@ -891,7 +891,7 @@ export const sphinxExportProxyAbstractTask = async (
       targetContract.address,
       contractKindHashes[targetContract.kind],
       signerAddress,
-      await getGasPriceOverrides(provider)
+      await getGasPriceOverrides(signer)
     )
   ).wait()
 
@@ -974,10 +974,7 @@ export const sphinxImportProxyAbstractTask = async (
   // Transfer ownership of the proxy to the SphinxManager.
   const Proxy = new ethers.Contract(proxy, ProxyABI, signer)
   await (
-    await Proxy.changeAdmin(
-      managerAddress,
-      await getGasPriceOverrides(provider)
-    )
+    await Proxy.changeAdmin(managerAddress, await getGasPriceOverrides(signer))
   ).wait()
 
   await trackImportProxy(await Manager.owner(), networkName, integration)
