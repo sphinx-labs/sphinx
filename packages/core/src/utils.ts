@@ -689,17 +689,26 @@ export const getCreationCodeWithConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: ContractArtifact['abi']
 ): string => {
+  const encodedConstructorArgs = getEncodedConstructorArgs(constructorArgs, abi)
+
+  const creationCodeWithConstructorArgs = bytecode.concat(
+    remove0x(encodedConstructorArgs)
+  )
+
+  return creationCodeWithConstructorArgs
+}
+
+export const getEncodedConstructorArgs = (
+  constructorArgs: ParsedConfigVariables,
+  abi: ContractArtifact['abi']
+): string => {
   const iface = new ethers.Interface(abi)
   const constructorArgValues = getFunctionArgValueArray(
     constructorArgs,
     iface.fragments.find(ConstructorFragment.isFragment)
   )
 
-  const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(iface.encodeDeploy(constructorArgValues))
-  )
-
-  return creationCodeWithConstructorArgs
+  return iface.encodeDeploy(constructorArgValues)
 }
 
 /**
@@ -1770,7 +1779,7 @@ export const getRegistryData = (owner: string, projectName: string): string => {
   )
 }
 
-export const skipCallAction = (
+export const callActionWasExecuted = (
   to: string,
   data: string,
   nonce: number,

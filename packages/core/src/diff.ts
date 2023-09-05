@@ -11,7 +11,7 @@ import {
   hyperlink,
   isSupportedChainId,
   prettyFunctionCall,
-  skipCallAction,
+  callActionWasExecuted,
 } from './utils'
 
 export type SphinxDiff = Array<{
@@ -164,7 +164,7 @@ export const getDiff = (
 
     const postDeploy = parsedConfig.postDeploy[chainId] ?? []
     for (const { to, data, nonce, readableSignature } of postDeploy) {
-      if (skipCallAction(to, data, nonce, configCache.callNonces)) {
+      if (callActionWasExecuted(to, data, nonce, configCache.callNonces)) {
         skipping.push(readableSignature)
       } else {
         executing.push(readableSignature)

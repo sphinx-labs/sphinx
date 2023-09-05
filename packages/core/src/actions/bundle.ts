@@ -26,7 +26,7 @@ import {
   isSupportedChainId,
   parseSemverVersion,
   prettyFunctionCall,
-  skipCallAction,
+  callActionWasExecuted,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -625,7 +625,7 @@ export const makeActionBundleFromConfig = (
   const postDeployActions = parsedConfig.postDeploy[chainId]
   if (postDeployActions) {
     for (const { to, data, nonce, readableSignature } of postDeployActions) {
-      if (!skipCallAction(to, data, nonce, configCache.callNonces)) {
+      if (!callActionWasExecuted(to, data, nonce, configCache.callNonces)) {
         actions.push({
           to,
           index: actionIndex,
