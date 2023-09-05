@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.11.1
+
+### Patch Changes
+
+- 3151b899: Add a `callHash` field to the `CallExecuted` event in the `SphinxManager` contract
+
 ## 0.11.0
 
 ### Minor Changes
