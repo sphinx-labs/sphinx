@@ -1,5 +1,23 @@
 # @sphinx-labs/demo
 
+## 0.9.1
+
+### Patch Changes
+
+- f2bec8ce: Support manager version upgrades
+- Updated dependencies [d8c984f0]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [1c27b462]
+- Updated dependencies [2913976d]
+- Updated dependencies [abd8225f]
+- Updated dependencies [0685a903]
+- Updated dependencies [5de8fa58]
+- Updated dependencies [385bd8b8]
+  - @sphinx-labs/contracts@0.11.0
+  - @sphinx-labs/plugins@0.21.0
+  - @sphinx-labs/core@0.16.0
+
 ## 0.9.0
 
 ### Minor Changes
