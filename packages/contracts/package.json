@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/contracts",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Sphinx contracts",
   "main": "dist/index",
   "types": "dist/index",
