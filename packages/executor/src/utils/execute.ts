@@ -270,7 +270,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       await (
         await ManagedService.withdrawRelayerFunds(
           withdraw,
-          await getGasPriceOverrides(rpcProvider)
+          await getGasPriceOverrides(wallet)
         )
       ).wait()
       logger.info(
@@ -320,7 +320,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     try {
       deploymentTransactionReceipts.push(
         await (
-          await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
+          await manager.claimDeployment(await getGasPriceOverrides(wallet))
         ).wait()
       )
     } catch (err) {
@@ -373,7 +373,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
       activeDeploymentId,
       humanReadableActions,
       blockGasLimit,
-      rpcProvider
+      rpcProvider,
+      wallet
     )
     deploymentTransactionReceipts.push(...receipts)
 

@@ -357,7 +357,8 @@ export const proposeThenApproveDeploymentThenExecute = async (
       deploymentId,
       humanReadableActions,
       blockGasLimit,
-      provider
+      provider,
+      relayer
     )
 
     // Check that the deployment executed correctly.
