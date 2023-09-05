@@ -31,8 +31,11 @@ export const writeDeploymentArtifactsUsingEvents = async (
   const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
   const Manager = getSphinxManagerReadOnly(managerAddress, provider)
 
+  const eventFilter = Manager.filters.SphinxDeploymentCompleted()
+  const latestBlock = await provider.getBlockNumber()
+  const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
   const deploymentCompletedEvent = (
-    await Manager.queryFilter(Manager.filters.SphinxDeploymentCompleted())
+    await Manager.queryFilter(eventFilter, startingBlock, latestBlock)
   ).at(-1)
 
   if (!deploymentCompletedEvent) {
