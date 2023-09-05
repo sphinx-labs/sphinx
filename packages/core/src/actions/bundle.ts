@@ -540,7 +540,7 @@ export const makeActionBundleFromConfig = (
     const readableSignature = prettyFunctionCall(
       referenceName,
       'constructor',
-      constructorArgs
+      constructorArgs[configCache.chainId]
     )
 
     const deployContractCost = getEstDeployContractCost(
