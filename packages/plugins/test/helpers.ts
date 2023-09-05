@@ -36,6 +36,7 @@ import {
   CURRENT_SPHINX_MANAGER_VERSION,
   CURRENT_SPHINX_AUTH_VERSION,
   getStorageLayout,
+  AuthLeafFunctions,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -232,11 +233,12 @@ export const proposeThenApproveDeploymentThenExecute = async (
     }
 
     const containsSetupLeaf = leaves.some(
-      (leaf) => leaf.leafType === 'setup' && leaf.chainId === chainId
+      (leaf) =>
+        leaf.leafType === AuthLeafFunctions.SETUP && leaf.chainId === chainId
     )
     const containsUpgradeLeaf = leaves.some(
       (leaf) =>
-        leaf.leafType === 'upgradeManagerAndAuthImpl' &&
+        leaf.leafType === AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL &&
         leaf.chainId === chainId
     )
     const expectedNumLeafs = leaves.filter(

@@ -192,6 +192,39 @@ export type ContractInfo = {
   addr: string
 }
 
+export enum AuthLeafFunctions {
+  SETUP = 'setup',
+  PROPOSE = 'propose',
+  EXPORT_PROXY = 'exportProxy',
+  SET_OWNER = 'setOwner',
+  SET_THRESHOLD = 'setThreshold',
+  TRANSFER_MANAGER_OWNERSHIP = 'transferManagerOwnership',
+  UPGRADE_MANAGER_IMPLEMENTATION = 'upgradeManagerImplementation',
+  UPGRADE_AUTH_IMPLEMENTATION = 'upgradeAuthImplementation',
+  UPGRADE_MANAGER_AND_AUTH_IMPL = 'upgradeManagerAndAuthImpl',
+  SET_PROPOSER = 'setProposer',
+  APPROVE_DEPLOYMENT = 'approveDeployment',
+  CANCEL_ACTIVE_DEPLOYMENT = 'cancelActiveDeployment',
+}
+
+/**
+ * @notice This is in the exact same order as the `AuthLeafType` enum defined in Solidity.
+ */
+export enum AuthLeafType {
+  SETUP,
+  PROPOSE,
+  EXPORT_PROXY,
+  SET_OWNER,
+  SET_THRESHOLD,
+  TRANSFER_MANAGER_OWNERSHIP,
+  UPGRADE_MANAGER_IMPLEMENTATION,
+  UPGRADE_AUTH_IMPLEMENTATION,
+  UPGRADE_MANAGER_AND_AUTH_IMPL,
+  SET_PROPOSER,
+  APPROVE_DEPLOYMENT,
+  CANCEL_ACTIVE_DEPLOYMENT,
+}
+
 export const AuthStatus = {
   EMPTY: 0n,
   SETUP: 1n,
@@ -206,48 +239,48 @@ export type AuthState = {
 }
 
 interface Setup extends BaseAuthLeaf {
-  leafType: 'setup'
+  leafType: AuthLeafFunctions.SETUP
   proposers: Array<SetRoleMember>
   numLeafs: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: 'exportProxy'
+  leafType: AuthLeafFunctions.EXPORT_PROXY
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
 interface SetOwner extends BaseAuthLeaf {
-  leafType: 'setOwner'
+  leafType: AuthLeafFunctions.SET_OWNER
   owner: string
   add: boolean
 }
 
 interface SetThreshold extends BaseAuthLeaf {
-  leafType: 'setThreshold'
+  leafType: AuthLeafFunctions.SET_THRESHOLD
   newThreshold: number
 }
 
 interface TransferManagerOwnership extends BaseAuthLeaf {
-  leafType: 'transferManagerOwnership'
+  leafType: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
   newOwner: string
 }
 
 interface UpgradeManagerImplementation extends BaseAuthLeaf {
-  leafType: 'upgradeManagerImplementation'
+  leafType: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: 'upgradeAuthImplementation'
+  leafType: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
   impl: string
   data: string
 }
 
 interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
-  leafType: 'upgradeManagerAndAuthImpl'
+  leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
   managerImpl: string
   managerInitCallData: string
   authImpl: string
@@ -255,28 +288,29 @@ interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
 }
 
 interface SetProposer extends BaseAuthLeaf {
-  leafType: 'setProposer'
+  leafType: AuthLeafFunctions.SET_PROPOSER
   proposer: string
   add: boolean
 }
 
 export interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: 'approveDeployment'
+  leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT
   approval: DeploymentApproval
 }
 
 interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: 'cancelActiveDeployment'
+  leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
   projectName: string
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: 'propose'
+  leafType: AuthLeafFunctions.PROPOSE
   numLeafs: number
 }
 
 export type AuthLeaf =
   | Setup
+  | Propose
   | ExportProxy
   | SetOwner
   | SetThreshold
@@ -287,7 +321,6 @@ export type AuthLeaf =
   | SetProposer
   | ApproveDeployment
   | CancelActiveDeployment
-  | Propose
 
 export enum RoleType {
   OWNER,
