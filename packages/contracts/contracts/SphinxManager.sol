@@ -30,7 +30,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 0.2.2
+ * @custom:version 0.2.3
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single
@@ -581,7 +581,7 @@ contract SphinxManager is
                     (bool success, ) = to.call(data);
                     if (success) {
                         callNonces[callHash] = currentNonce + 1;
-                        emit CallExecuted(activeDeploymentId, action.index);
+                        emit CallExecuted(activeDeploymentId, callHash, action.index);
                         registry.announce("CallExecuted");
                     } else {
                         // Call failed. We mark the deployment as failed and exit the function early

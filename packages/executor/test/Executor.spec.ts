@@ -90,7 +90,7 @@ describe('Remote executor', () => {
         testnets: [network],
         mainnets: [],
         proposers: [owner.address],
-        managerVersion: 'v0.2.2',
+        managerVersion: 'v0.2.3',
       },
       contracts: {
         [proxyReferenceName]: {
