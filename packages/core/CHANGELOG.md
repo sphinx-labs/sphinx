@@ -1,5 +1,37 @@
 # @sphinx-labs/core
 
+## 0.16.1
+
+### Patch Changes
+
+- 3151b899: Add a `callHash` field to the `CallExecuted` event in the `SphinxManager` contract
+- Updated dependencies [3151b899]
+  - @sphinx-labs/contracts@0.11.1
+
+## 0.16.0
+
+### Minor Changes
+
+- f2bec8ce: Support post-deployment actions
+- 2913976d: Update diff to include constructor arg variables and post-deployment actions
+
+### Patch Changes
+
+- d8c984f0: Use a consistent event for executing auth leafs
+- f2bec8ce: Support manager version upgrades
+- 1c27b462: Fix bug where deployments are not marked as failed if a constructor reverts during deployment
+- abd8225f: Combine previous canonical config with new config
+- 0685a903: Support deploying UserConfigWithOptions config with the deploy task in hardhat
+- 5de8fa58: Make the SphinxAuth contract friendly to local development
+- 385bd8b8: Remove the address field from the raw Sphinx actions
+- Updated dependencies [d8c984f0]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [1c27b462]
+- Updated dependencies [5de8fa58]
+- Updated dependencies [385bd8b8]
+  - @sphinx-labs/contracts@0.11.0
+
 ## 0.15.1
 
 ### Patch Changes

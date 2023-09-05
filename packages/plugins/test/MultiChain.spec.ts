@@ -109,7 +109,7 @@ describe('Multi chain projects', () => {
       await (
         await SphinxRegistry.addVersion(
           await NewManagerImplementation.getAddress(),
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
 
@@ -121,7 +121,7 @@ describe('Multi chain projects', () => {
       await (
         await AuthFactory.addVersion(
           await NewAuthImplementation.getAddress(),
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
     }

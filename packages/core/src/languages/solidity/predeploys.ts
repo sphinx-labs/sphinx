@@ -292,7 +292,7 @@ export const initializeSphinx = async (
         await ManagedService.grantRole(
           REMOTE_EXECUTOR_ROLE,
           executor,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
     }
@@ -306,7 +306,7 @@ export const initializeSphinx = async (
         await ManagedService.grantRole(
           RELAYER_ROLE,
           relayer,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
     }
@@ -320,7 +320,7 @@ export const initializeSphinx = async (
         await ManagedService.grantRole(
           FUNDER_ROLE,
           funder,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
     }
@@ -346,7 +346,7 @@ export const initializeSphinx = async (
       await (
         await SphinxRegistry.addVersion(
           sphinxManagerAddress,
-          await getGasPriceOverrides(provider)
+          await getGasPriceOverrides(owner)
         )
       ).wait()
     } catch (e) {
@@ -367,7 +367,7 @@ export const initializeSphinx = async (
     await (
       await SphinxRegistry.setCurrentManagerImplementation(
         sphinxManagerAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
   }
@@ -387,7 +387,7 @@ export const initializeSphinx = async (
     await (
       await AuthFactory.addVersion(
         authAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
   }
@@ -396,7 +396,7 @@ export const initializeSphinx = async (
     await (
       await AuthFactory.setCurrentAuthImplementation(
         authAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
   }
@@ -417,7 +417,7 @@ export const initializeSphinx = async (
       await SphinxRegistry.addContractKind(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         transparentAdapterAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
     logger?.info(
@@ -441,7 +441,7 @@ export const initializeSphinx = async (
       await SphinxRegistry.addContractKind(
         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
         uupsOwnableAdapterAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
     logger?.info(
@@ -464,7 +464,7 @@ export const initializeSphinx = async (
       await SphinxRegistry.addContractKind(
         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
         ozUUPSAccessControlAdapterAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
     logger?.info(
@@ -485,7 +485,7 @@ export const initializeSphinx = async (
       await SphinxRegistry.addContractKind(
         EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
         defaultAdapterAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
     logger?.info(
@@ -505,7 +505,7 @@ export const initializeSphinx = async (
       await SphinxRegistry.addContractKind(
         ethers.ZeroHash,
         defaultAdapterAddress,
-        await getGasPriceOverrides(provider)
+        await getGasPriceOverrides(owner)
       )
     ).wait()
     logger?.info(
@@ -603,7 +603,7 @@ export const doDeterministicDeploy = async (
   }
 
   // Create a transaction request with gas price overrides.
-  const txnRequest = await getGasPriceOverrides(provider, {
+  const txnRequest = await getGasPriceOverrides(options.signer, {
     to: deployer,
     data: options.salt + ethers.toBeHex(deploymentTx.data).slice(2),
   })

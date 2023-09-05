@@ -1,5 +1,28 @@
 # @sphinx-labs/executor
 
+## 0.16.0
+
+### Minor Changes
+
+- f2bec8ce: Support post-deployment actions
+
+### Patch Changes
+
+- f2bec8ce: Support manager version upgrades
+- 5de8fa58: Make the SphinxAuth contract friendly to local development
+- 385bd8b8: Remove the address field from the raw Sphinx actions
+- Updated dependencies [d8c984f0]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [f2bec8ce]
+- Updated dependencies [1c27b462]
+- Updated dependencies [2913976d]
+- Updated dependencies [abd8225f]
+- Updated dependencies [0685a903]
+- Updated dependencies [5de8fa58]
+- Updated dependencies [385bd8b8]
+  - @sphinx-labs/plugins@0.21.0
+  - @sphinx-labs/core@0.16.0
+
 ## 0.15.0
 
 ### Minor Changes

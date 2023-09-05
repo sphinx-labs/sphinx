@@ -13,7 +13,7 @@ const config: UserConfigWithOptions = {
     testnets: ['arbitrum-goerli', 'optimism-goerli', 'goerli'],
     mainnets: ['ethereum', 'optimism'],
     proposers: [ownerAddress],
-    managerVersion: 'v0.2.1',
+    managerVersion: 'v0.2.3',
   },
   contracts: {
     MyContract: {
