@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.16.3
+
+### Patch Changes
+
+- 9eb0c2fd: Override gas price on linea goerli
+
 ## 0.16.2
 
 ### Patch Changes
