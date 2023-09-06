@@ -455,7 +455,18 @@ export const getGasPriceOverrides = async (
     // Do not do anything for polygon zkevm and it's testnet
     case 1101 || 1442:
       return overridden
-    case 127 || 80001:
+    case 59144:
+      if (gasPrice !== null) {
+        overridden.gasPrice = gasPrice
+        return overridden
+      }
+    case 137:
+      if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
+        overridden.maxFeePerGas = maxFeePerGas
+        overridden.maxPriorityFeePerGas = maxFeePerGas.toString()
+      }
+      return overridden
+    case 80001:
       overridden.nonce = await signer.provider.getTransactionCount(
         await signer.getAddress(),
         'latest'
@@ -466,10 +477,6 @@ export const getGasPriceOverrides = async (
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
         overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
-        overridden.nonce = await signer.provider.getTransactionCount(
-          await signer.getAddress(),
-          'latest'
-        )
       }
       return overridden
   }
