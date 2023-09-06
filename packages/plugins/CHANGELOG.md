@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.21.1
+
+### Patch Changes
+
+- c13da7ce: Fix gas price overrides on Linea and Polygon POS
+- Updated dependencies [c13da7ce]
+  - @sphinx-labs/core@0.16.2
+
 ## 0.21.0
 
 ### Minor Changes
