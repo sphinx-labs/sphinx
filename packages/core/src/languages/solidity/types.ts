@@ -133,7 +133,7 @@ export interface CompilerOutputSources {
 // TODO(docs):
 // https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall:~:text=for%20more%20details.-,debug_traceTransaction,-OBS%20In%20most
 // https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#call-tracer:~:text=0xc281d19e%2D0%22%3A%201%0A%7D-,callTracer,-The%20callTracer%20tracks
-export interface CallFrame {
+export type CallFrame = {
   type: 'CALL' | 'CREATE'
   from: string
   to: string

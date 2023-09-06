@@ -38,3 +38,10 @@ export enum ProposalRoute {
   REMOTE_EXECUTION,
   LOCAL_EXECUTION,
 }
+
+// TODO(docs): The point at which a call frame occurs.
+export type CallFrameTime = {
+  blockNumber: number
+  transactionIndex: number
+  callFrameIndex: number
+}
