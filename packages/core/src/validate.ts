@@ -341,6 +341,9 @@ export const validate = async (
     }
   }
 
+  // TODO(test): no post-deployment actions in config
+  // TODO(test): no contract deployments in config
+
   let lastCallAction: {
     time: CallFrameTime
     txnHash: string
@@ -498,32 +501,11 @@ export const validate = async (
     lastCallAction.time.blockNumber,
     lastCallAction.time.transactionIndex
   )
+
   const ignoredToAddresses = [
     getSphinxRegistryAddress(),
     DEFAULT_CREATE3_ADDRESS,
   ]
-  const expected = 2 * deploymentActions.length + postDeployActions.length
-  const actual = await getTODO()
-
-  if (actual === expected) {
-    return {
-      actionValidation,
-      transactionCountValidation: TransactionCountValidation.CORRECT,
-    }
-  } else {
-    return {
-      actionValidation,
-      transactionCountValidation: TransactionCountValidation.INCORRECT,
-    }
-  }
-}
-
-export const getTODO = async (
-  provider: SphinxJsonRpcProvider,
-  transactionHashes: Array<string>,
-  from: string,
-  ignoredToAddresses: Array<string>
-): Promise<number> => {
   let numTxnsFromSphinxManager = 0
   for (const transactionHash of transactionHashes) {
     const rootCallFrame: CallFrame = await provider.send(
@@ -533,7 +515,7 @@ export const getTODO = async (
     const flattenedCallFrames = flattenCallFrames(rootCallFrame)
     for (const callFrame of flattenedCallFrames) {
       if (
-        callFrame.from === from &&
+        callFrame.from === sphinxManagerAddress &&
         !ignoredToAddresses.includes(callFrame.to)
       ) {
         numTxnsFromSphinxManager += 1
@@ -541,5 +523,17 @@ export const getTODO = async (
     }
   }
 
-  return numTxnsFromSphinxManager
+  const expected = 2 * deploymentActions.length + postDeployActions.length
+
+  if (numTxnsFromSphinxManager !== expected) {
+    return {
+      actionValidation,
+      transactionCountValidation: TransactionCountValidation.INCORRECT,
+    }
+  }
+
+  return {
+    actionValidation,
+    transactionCountValidation: TransactionCountValidation.CORRECT,
+  }
 }
