@@ -26,9 +26,11 @@ import {
   isEventLog,
   isSupportedChainId,
   remove0x,
+  sortCallFrameTimes,
 } from './utils'
 import { CallFrameTime } from './types'
 import { DEFAULT_CREATE3_ADDRESS, getSphinxRegistryAddress } from './addresses'
+import 'core-js/features/array/at'
 
 // TODO(docs): we prefer `debug_traceTransaction` to `trace_transaction` because it's supported by
 // more execution clients (e.g. geth)
@@ -97,16 +99,22 @@ export const validate = async (
   if (!latestBlock) {
     throw new Error(`Failed to retrieve latest block. Should never happen.`)
   }
-  const randomTransactionHash = latestBlock.transactions[0]
+  const randomTransactionHash = latestBlock.transactions.at(0)
+  if (randomTransactionHash === undefined) {
+    throw new Error(`Block contains zero transactions. Should never happen.`)
+  }
   try {
     await provider.send('trace_transaction', [randomTransactionHash])
   } catch (e) {
     throw new Error(
       `Your RPC url for ${configCache.networkName} does not allow 'debug_traceTransaction' RPC calls, which\n` +
-        `is required for validation. Reason:\n` +
+        `is required to validate your config. Reason:\n` +
         `${e.message}`
     )
   }
+
+  // TODO(test): case: a new live network you add doesn't support `debug_traceTransaction`. you
+  // should probably have a sanity check somewhere 
 
   const deploymentActions = actionBundle.actions
     .map((rawAction) => fromRawSphinxAction(rawAction.action))
@@ -128,19 +136,9 @@ export const validate = async (
   // TODO(docs): this will contain the set of deployment IDs for every contract deployment and
   // post-deployment action executed in the config.
   const deploymentIds = new Set<string>()
-
-  let firstContractDeployment: {
-    time: CallFrameTime
-    txnHash: string
-  } = {
-    time: {
-      blockNumber: Infinity,
-      transactionIndex: Infinity,
-      callFrameIndex: Infinity,
-    },
-    txnHash: '',
-  }
+  const callFrameTimes: Array<CallFrameTime> = []
   const actionValidation: Array<ActionValidationOutput> = []
+
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
@@ -166,7 +164,6 @@ export const validate = async (
         getCreate3Address(sphinxManagerAddress, _action.salt)
     )
 
-    // Narrow the TypeScript type of `action`.
     if (!action) {
       throw new Error(
         `Action not found for ${referenceName}. Should never happen.`
@@ -328,28 +325,17 @@ export const validate = async (
       })
     }
 
-    const currentCallFrameTime: CallFrameTime = {
+    callFrameTimes.push({
       blockNumber,
       transactionIndex,
       callFrameIndex,
-    }
-    if (isEarlierThan(currentCallFrameTime, firstContractDeployment.time)) {
-      firstContractDeployment = {
-        txnHash: transactionHash,
-        time: currentCallFrameTime,
-      }
-    }
+    })
   }
 
-  // TODO(test): no post-deployment actions in config
-  // TODO(test): no contract deployments in config
-
-  let lastCallAction: {
-    time: CallFrameTime
-    txnHash: string
-  } = {
-    time: { blockNumber: 0, transactionIndex: 0, callFrameIndex: 0 },
-    txnHash: '',
+  let previousCallFrameTime: CallFrameTime = {
+    blockNumber: 0,
+    transactionIndex: 0,
+    callFrameIndex: 0,
   }
   const postDeployActions = parsedConfig.postDeploy[chainId] ?? []
   for (const action of postDeployActions) {
@@ -444,21 +430,17 @@ export const validate = async (
       transactionIndex,
       callFrameIndex,
     }
+    callFrameTimes.push(currentCallFrameTime)
     // TODO(docs): explain that this is "later than or equal to"
-    if (!isEarlierThan(currentCallFrameTime, lastCallAction.time)) {
+    if (!isEarlierThan(currentCallFrameTime, previousCallFrameTime)) {
       actionValidation.push({
         match: ActionValidationResultType.INCORRECT_ORDER,
         functionSignature: action.readableSignature,
         address: action.to,
         transactionHash,
       })
-      continue
     }
-
-    lastCallAction = {
-      txnHash: transactionHash,
-      time: { blockNumber, transactionIndex, callFrameIndex },
-    }
+    previousCallFrameTime = currentCallFrameTime
   }
 
   const isValidConfig = actionValidation.every(
@@ -466,6 +448,8 @@ export const validate = async (
       output.match === ActionValidationResultType.EXACT_MATCH ||
       output.match === ActionValidationResultType.SIMILAR_MATCH
   )
+
+  // TODO(ci): we may need an alchemy api key in CI that's on the paid tier.
 
   // TODO(docs): not sure where this is relevant: it's worth mentioning that
   // `latestCallFrameTime` will contain the latest call action even if the actions weren't
@@ -492,14 +476,25 @@ export const validate = async (
   // TODO(optimize): use rpc batch provider
   // TODO(optimize): promise.all
 
-  // TODO(optimize): i think you can remove `txnHash` from the firstContractDeployment and lastCallAction,
-  // then also remove the unnecessary `time` field.
+  const sortedCallFrameTimes = sortCallFrameTimes(callFrameTimes)
+  const earliestCallFrameTime = sortedCallFrameTimes.at(0)
+  const latestCallFrameTime = sortedCallFrameTimes.at(-1)
+
+  if (
+    earliestCallFrameTime === undefined ||
+    latestCallFrameTime === undefined
+  ) {
+    throw new Error(
+      `TODO: catch this earlier. can probably happen if nothing's been executed yet`
+    )
+  }
+
   const transactionHashes = await getTransactionHashesInRange(
     provider,
-    firstContractDeployment.time.blockNumber,
-    firstContractDeployment.time.transactionIndex,
-    lastCallAction.time.blockNumber,
-    lastCallAction.time.transactionIndex
+    earliestCallFrameTime.blockNumber,
+    earliestCallFrameTime.transactionIndex,
+    latestCallFrameTime.blockNumber,
+    latestCallFrameTime.transactionIndex
   )
 
   const ignoredToAddresses = [

@@ -1889,6 +1889,21 @@ export const isLaterThan = (
   return !isEqualTo(later, earlier) && !isEarlierThan(later, earlier)
 }
 
+// TODO: check that you've tested all the call frame functions
+export const sortCallFrameTimes = (
+  unsorted: Array<CallFrameTime>
+): Array<CallFrameTime> => {
+  return unsorted.sort((a, b) => {
+    if (isEarlierThan(a, b)) {
+      return -1
+    } else if (isEqualTo(a, b)) {
+      return 0
+    } else {
+      return 1
+    }
+  })
+}
+
 // TODO(docs): The `CallFrame` object returned by `debug_traceTransaction` is a tree. Specifically,
 // each `CallFrame` has a 'calls' field, which is an array of `CallFrame` objects. This function
 // flattens this recursive structure into a flat array of `CallFrame` objects. It flattens the tree

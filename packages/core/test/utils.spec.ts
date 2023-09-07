@@ -11,6 +11,7 @@ import {
   isEqualTo,
   isLaterThan,
   isUserFunctionOptions,
+  sortCallFrameTimes,
 } from '../src/utils'
 import { CallFrame } from '../src/languages'
 import { SphinxJsonRpcProvider } from '../src/provider'
@@ -549,6 +550,59 @@ describe('Utils', () => {
           }
         )
       )
+    })
+  })
+
+  describe('sortCallFrameTimes', () => {
+    it('sorts unsorted array of call frame times', () => {
+      const unsortedCallFrameTimes = [
+        {
+          blockNumber: 3,
+          transactionIndex: 0,
+          callFrameIndex: 3,
+        },
+        {
+          blockNumber: 1,
+          transactionIndex: 2,
+          callFrameIndex: 3,
+        },
+        {
+          blockNumber: 1,
+          transactionIndex: 2,
+          callFrameIndex: 4,
+        },
+        {
+          blockNumber: 2,
+          transactionIndex: 2,
+          callFrameIndex: 3,
+        },
+      ]
+
+      const expected = [
+        {
+          blockNumber: 1,
+          transactionIndex: 2,
+          callFrameIndex: 3,
+        },
+        {
+          blockNumber: 1,
+          transactionIndex: 2,
+          callFrameIndex: 4,
+        },
+        {
+          blockNumber: 2,
+          transactionIndex: 2,
+          callFrameIndex: 3,
+        },
+        {
+          blockNumber: 3,
+          transactionIndex: 0,
+          callFrameIndex: 3,
+        },
+      ]
+
+      const sorted = sortCallFrameTimes(unsortedCallFrameTimes)
+      expect(sorted).to.deep.equal(expected)
     })
   })
 
