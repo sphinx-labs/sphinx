@@ -69,7 +69,7 @@ You must update your `forge-std` dependency to version `1.6.0` or higher. A few 
 You can update to the latest version of `forge-std` by running the command:
 
 ```
-forge install foundry-rs/forge-std
+forge install foundry-rs/forge-std --no-commit
 ```
 
 ### If you've installed `forge-std` using Yarn or npm:
@@ -95,7 +95,7 @@ npm install https://github.com/foundry-rs/forge-std.git#v1.6.0
 You can install it with the command:
 
 ```
-forge install foundry-rs/forge-std
+forge install foundry-rs/forge-std --no-commit
 ```
 
 ## 6. Update `foundry.toml`
