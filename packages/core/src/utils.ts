@@ -460,17 +460,20 @@ export const getGasPriceOverrides = async (
     // Do not do anything for polygon zkevm and it's testnet
     case 1101 || 1442:
       return overridden
-    case 59144:
+    // On linea and its testnet, just override the gasPrice
+    case 59144 || 59140:
       if (gasPrice !== null) {
         overridden.gasPrice = gasPrice
         return overridden
       }
+    // On Polygon POS, override the maxPriorityFeePerGas using the max fee
     case 137:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
         overridden.maxPriorityFeePerGas = maxFeePerGas.toString()
       }
       return overridden
+    // On mumbai, specify the nonce manually to override pending txs
     case 80001:
       overridden.nonce = await signer.provider.getTransactionCount(
         await signer.getAddress(),
