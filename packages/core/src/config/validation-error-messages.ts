@@ -89,5 +89,12 @@ export const externalContractsMustBeDeployed = (chainId: number): string => {
   )}:`
 }
 
+export const failedToGetBlock = (blockNumber: number): string => {
+  return `Failed to get block for block number: ${blockNumber}.`
+}
+
 export const REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER =
   'Cannot name your contract "SphinxManager" in your config file. Please choose a different name.'
+
+export const INCORRECT_ORDER_OF_BLOCK_NUMBERS_AND_TRANSACTION_INDICES =
+  'Incorrect order of block numbers and transaction indices.'

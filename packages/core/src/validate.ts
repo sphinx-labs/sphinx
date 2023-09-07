@@ -6,6 +6,7 @@ import {
   ConfigArtifacts,
   ConfigCache,
   ParsedConfig,
+  SphinxFunctionSignature,
   getCreate3Address,
 } from './config'
 import { SphinxJsonRpcProvider } from './provider'
@@ -17,8 +18,11 @@ import {
 import { CallFrame } from './languages/solidity/types'
 import {
   callActionWasExecuted,
+  flattenCallFrames,
   getCallHash,
   getEncodedConstructorArgs,
+  getTransactionHashesInRange,
+  isEarlierThan,
   isEventLog,
   isSupportedChainId,
   remove0x,
@@ -29,36 +33,79 @@ import { DEFAULT_CREATE3_ADDRESS, getSphinxRegistryAddress } from './addresses'
 // TODO(docs): we prefer `debug_traceTransaction` to `trace_transaction` because it's supported by
 // more execution clients (e.g. geth)
 
-export const flattenCallFrames = (
-  rootCallFrame: CallFrame
-): Array<CallFrame> => {
-  const callFrames: Array<CallFrame> = []
+// TODO(docs): everywhere
 
-  const flatten = (child: CallFrame): void => {
-    callFrames.push(child)
+// TODO(output):
+// -output for deployments: result (i.e. match / no match+reason), pretty constructor signature,
+// contract address, deployment txn hash, block explorer link to the address
 
-    for (const childCallFrame of child.calls) {
-      flatten(childCallFrame)
-    }
-  }
+// TODO(output):
+// -output for calls: result (i.e. match / no match+reason), pretty function call, txn hash, block
+// explorer link to the txn
+// - there shouldn't be a redundant '- Address' field if `referenceNameOrAddress` is an address.
 
-  flatten(rootCallFrame)
+// TODO(output): remember to log whether or not any extra transactions were found during execution.
 
-  return callFrames
+// TODO(output): make sure you handle each of these cases.
+export enum ActionValidationResultType {
+  EXACT_MATCH,
+  SIMILAR_MATCH,
+  NOT_EXECUTED_YET,
+  NO_MATCH,
+  INCORRECT_ORDER,
 }
 
-// TODO(docs): everywhere
+export enum TransactionCountValidation {
+  CORRECT,
+  INCORRECT,
+  NO_ATTEMPT__INVALID_ACTIONS,
+  NO_ATTEMPT__MULTIPLE_DEPLOYMENT_IDS,
+}
+
+export type ValidationOutput = {
+  actionValidation: Array<ActionValidationOutput>
+  transactionCountValidation: TransactionCountValidation
+}
+
+export type ActionValidationOutput =
+  | {
+      match: Omit<
+        ActionValidationResultType,
+        ActionValidationResultType.NOT_EXECUTED_YET
+      >
+      functionSignature: SphinxFunctionSignature
+      address: string
+      transactionHash: string
+    }
+  // Skipped contract deployment:
+  | {
+      match: ActionValidationResultType.NOT_EXECUTED_YET
+      functionSignature: SphinxFunctionSignature
+    }
+
+// TODO(task): consider wrapping `validate` in a Promise.any instead of Promise.all. e.g. say one rpc url
+// out of 5 doesn't support debug_traceTransaction. the user will probably need to run the command all
+// over again. not sure what promise.any actually does.
 export const validate = async (
   provider: SphinxJsonRpcProvider,
   parsedConfig: ParsedConfig,
   actionBundle: SphinxActionBundle,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache
-): void => {
+): Promise<ValidationOutput> => {
+  const latestBlock = await provider.getBlock('latest')
+  if (!latestBlock) {
+    throw new Error(`Failed to retrieve latest block. Should never happen.`)
+  }
+  const randomTransactionHash = latestBlock.transactions[0]
   try {
-    await provider.send('trace_transaction', [ethers.ZeroHash])
+    await provider.send('trace_transaction', [randomTransactionHash])
   } catch (e) {
-    // TODO: handle error
+    throw new Error(
+      `Your RPC url for ${configCache.networkName} does not allow 'debug_traceTransaction' RPC calls, which\n` +
+        `is required for validation. Reason:\n` +
+        `${e.message}`
+    )
   }
 
   const deploymentActions = actionBundle.actions
@@ -75,7 +122,7 @@ export const validate = async (
   const chainId = configCache.chainId
 
   if (!isSupportedChainId(chainId)) {
-    throw new Error(`TODO: should never happen`)
+    throw new Error(`Unsupported chain ID: ${chainId}. Should never happen.`)
   }
 
   // TODO(docs): this will contain the set of deployment IDs for every contract deployment and
@@ -86,16 +133,29 @@ export const validate = async (
     time: CallFrameTime
     txnHash: string
   } = {
-    time: { blockNumber: 0, transactionIndex: 0, callFrameIndex: 0 },
+    time: {
+      blockNumber: Infinity,
+      transactionIndex: Infinity,
+      callFrameIndex: Infinity,
+    },
     txnHash: '',
   }
+  const actionValidation: Array<ActionValidationOutput> = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
+    const constructorSignature: SphinxFunctionSignature = {
+      referenceNameOrAddress: referenceName,
+      functionName: 'constructor',
+      variables: contractConfig.constructorArgs,
+    }
 
     if (!isTargetDeployed) {
-      // TODO: handle this
+      actionValidation.push({
+        match: ActionValidationResultType.NOT_EXECUTED_YET,
+        functionSignature: constructorSignature,
+      })
       continue
     }
 
@@ -106,23 +166,35 @@ export const validate = async (
         getCreate3Address(sphinxManagerAddress, _action.salt)
     )
 
+    // Narrow the TypeScript type of `action`.
     if (!action) {
-      // TODO: throw error, should never happen.
-      throw new Error(`TODO`)
+      throw new Error(
+        `Action not found for ${referenceName}. Should never happen.`
+      )
     }
 
     const deploymentEvents = await SphinxManager.queryFilter(
       SphinxManager.filters.ContractDeployed(expectedAddress)
     )
     if (deploymentEvents.length === 0) {
-      // TODO: handle this
+      // If the contract wasn't deployed, the config cache should reflect that, so this should
+      // have been caught earlier in this function.
+      throw new Error(
+        `No deployment events found for ${referenceName}. Should never happen.`
+      )
     } else if (deploymentEvents.length > 1) {
-      // TODO: handle this
+      // Only one contract can be deployed at a given address, so this should never happen.
+      throw new Error(
+        `More than one deployment event found for ${referenceName}. Should never happen.`
+      )
     }
     const deploymentEvent = deploymentEvents[0]
+
+    // Narrow the TypeScript type of `deploymentEvent`.
     if (!isEventLog(deploymentEvent)) {
-      // TODO: should never happen
-      continue
+      throw new Error(
+        `Deployment event for ${referenceName} is not an event log. Should never happen.`
+      )
     }
 
     deploymentIds.add(deploymentEvent.args.deploymentId)
@@ -130,11 +202,20 @@ export const validate = async (
     const { blockNumber, transactionHash, transactionIndex } = deploymentEvent
 
     const receipt = await provider.getTransactionReceipt(transactionHash)
+    // Narrow the TypeScript type of `receipt`.
     if (!receipt) {
-      // TODO: handle this. should never happen b/c we got the txn hash from an event
+      // This should never happen because we got the transaction hash from an event that was queried
+      // earlier in this function.
+      throw new Error(
+        `Failed to retrieve transaction receipt for ${transactionHash}. Should never happen.`
+      )
     } else if (receipt.status === 0) {
-      // TODO: handle this. 'status = 0' means the transaction reverted. should never happen b/c the
-      // presence of the 'ContractDeployed' event means the transaction should have succeeded.
+      // A `status` of `0` means the transaction reverted. This should never happen because the
+      // there was a `ContractDeployed` event associated with this transaction (shown above). This
+      // means the transaction should have succeeded.
+      throw new Error(
+        `Transaction ${transactionHash} reverted. Should never happen.`
+      )
     }
 
     const rootCallFrame: CallFrame = await provider.send(
@@ -154,9 +235,16 @@ export const validate = async (
     let deploymentCallFrame: CallFrame | undefined
     let callFrameIndex: number | undefined
     if (callFrameIndexExactMatch !== -1) {
-      // TODO: exact match :)
+      // TODO(docs): exact match
       deploymentCallFrame = flattenedCallFrames[callFrameIndexExactMatch]
       callFrameIndex = callFrameIndexExactMatch
+
+      actionValidation.push({
+        match: ActionValidationResultType.EXACT_MATCH,
+        functionSignature: constructorSignature,
+        address: expectedAddress,
+        transactionHash,
+      })
     } else {
       // TODO(docs): couldn't find an exact match. the most likely reason is that the contract's
       // metadata hash is slightly different on the user's local machine than it was when the
@@ -199,11 +287,18 @@ export const validate = async (
       )
 
       if (callFrameIndexSimilarMatch === -1) {
-        // TODO: handle this. could be b/c of local differences in the contract's source code, or it
+        // TODO(docs): could be b/c of local differences in the contract's source code, or it
         // could be b/c there's an embedded metadata hash that's different (if the contract deploys
         // another contract), or it could be b/c our system has a bug
+        actionValidation.push({
+          match: ActionValidationResultType.NO_MATCH,
+          functionSignature: constructorSignature,
+          address: expectedAddress,
+          transactionHash,
+        })
         continue
       }
+
       deploymentCallFrame = flattenedCallFrames[callFrameIndexSimilarMatch]
       callFrameIndex = callFrameIndexSimilarMatch
 
@@ -220,31 +315,31 @@ export const validate = async (
       const decodedMetadata = decodeAllSync(encodedMetadata)
 
       if (decodedMetadata.length === 0) {
-        // TODO: handle this case. should never happen.
+        throw new Error(
+          `Failed to decode metadata hash for ${referenceName}. Should never happen.`
+        )
       }
 
-      // TODO: handle similar match here
+      actionValidation.push({
+        match: ActionValidationResultType.SIMILAR_MATCH,
+        functionSignature: constructorSignature,
+        address: expectedAddress,
+        transactionHash,
+      })
     }
 
-    if (
-      isEarlierThan(
-        {
-          blockNumber,
-          transactionIndex,
-          callFrameIndex,
-        },
-        firstContractDeployment.time
-      )
-    ) {
+    const currentCallFrameTime: CallFrameTime = {
+      blockNumber,
+      transactionIndex,
+      callFrameIndex,
+    }
+    if (isEarlierThan(currentCallFrameTime, firstContractDeployment.time)) {
       firstContractDeployment = {
         txnHash: transactionHash,
-        time: { blockNumber, transactionIndex, callFrameIndex },
+        time: currentCallFrameTime,
       }
     }
   }
-
-  // TODO(test): no post-deployment actions in config
-  // TODO(test): no contract deployments in config
 
   let lastCallAction: {
     time: CallFrameTime
@@ -253,7 +348,6 @@ export const validate = async (
     time: { blockNumber: 0, transactionIndex: 0, callFrameIndex: 0 },
     txnHash: '',
   }
-  let callsExecutedInAscendingOrder: boolean = true
   const postDeployActions = parsedConfig.postDeploy[chainId] ?? []
   for (const action of postDeployActions) {
     if (
@@ -264,7 +358,11 @@ export const validate = async (
         configCache.callNonces
       )
     ) {
-      // TODO: handle this
+      actionValidation.push({
+        match: ActionValidationResultType.NOT_EXECUTED_YET,
+        functionSignature: action.readableSignature,
+      })
+      continue
     }
 
     const callHash = getCallHash(action.to, action.data)
@@ -272,18 +370,25 @@ export const validate = async (
       SphinxManager.filters.CallExecuted(undefined, callHash)
     )
 
-    const numExecutions = configCache.callNonces[callHash]
     if (callEvents.length === 0) {
-      // TODO: handle this
-    } else if (numExecutions !== callEvents.length) {
-      // TODO: handle this. should never happen.
+      // If the call wasn't executed, the config cache should reflect that, so this should have been
+      // caught earlier in this function.
+      throw new Error(
+        `No call events found on ${configCache.networkName}. Should never happen.`
+      )
+    } else if (configCache.callNonces[callHash] !== callEvents.length) {
+      // The number of events should always match the number of times this call was executed.
+      throw new Error(
+        `The number of call events does not match the number of times the call was\n` +
+          `executed on ${configCache.networkName}. Should never happen.`
+      )
     }
     // TODO(docs): The `queryFilter` function returns an array of elements from least to most recent.
     const callEvent = callEvents[action.nonce]
 
+    // Narrow the TypeScript type of `callEvent`.
     if (!isEventLog(callEvent)) {
-      // TODO: should never happen
-      continue
+      throw new Error(`Call event is not an event log. Should never happen.`)
     }
 
     deploymentIds.add(callEvent.args.deploymentId)
@@ -292,10 +397,18 @@ export const validate = async (
 
     const receipt = await provider.getTransactionReceipt(transactionHash)
     if (!receipt) {
-      // TODO: handle this. should never happen b/c we got the txn hash from an event
+      // This should never happen because we got the transaction hash from an event that was queried
+      // earlier in this function.
+      throw new Error(
+        `Failed to retrieve transaction receipt for ${transactionHash}. Should never happen.`
+      )
     } else if (receipt.status === 0) {
-      // TODO: handle this. 'status = 0' means the transaction reverted. should never happen b/c the
-      // presence of the 'CallExecuted' event means the transaction should have succeeded.
+      // A `status` of `0` means the transaction reverted. This should never happen because the
+      // there was a `CallExecuted` event associated with this transaction (shown above). This means
+      // the transaction should have succeeded.
+      throw new Error(
+        `Transaction ${transactionHash} reverted. Should never happen.`
+      )
     }
 
     const rootCallFrame: CallFrame = await provider.send(
@@ -306,102 +419,111 @@ export const validate = async (
     const flattenedCallFrames = flattenCallFrames(rootCallFrame)
 
     const callFrameIndex = flattenedCallFrames.findIndex(
-      (callFrame: CallFrame): boolean =>
-        callFrame.from === sphinxManagerAddress &&
-        callFrame.to === action.to &&
-        callFrame.input === action.data &&
-        callFrame.type === 'CALL'
+      (frame: CallFrame): boolean =>
+        frame.from === sphinxManagerAddress &&
+        frame.to === action.to &&
+        frame.input === action.data &&
+        frame.type === 'CALL'
     )
 
     if (callFrameIndex === -1) {
-      // TODO: handle
+      actionValidation.push({
+        match: ActionValidationResultType.NO_MATCH,
+        functionSignature: action.readableSignature,
+        address: action.to,
+        transactionHash,
+      })
+      continue
     }
 
-    const callFrameExactMatch = flattenedCallFrames[callFrameIndex]
-
-    // valid if: blockNumber > latest.blockNumber OR
-    // (blockNumber === latest.blockNumber AND (
-    //     transactionIndex > latest.transactionIndex OR
-    //     (transactionIndex === latest.transactionIndex AND callFrameIndex > latest.callFrameIndex)
-    // ))
-    if (
-      isEarlierThan(lastCallAction.time, {
-        blockNumber,
-        transactionIndex,
-        callFrameIndex,
+    const currentCallFrameTime: CallFrameTime = {
+      blockNumber,
+      transactionIndex,
+      callFrameIndex,
+    }
+    // TODO(docs): explain that this is "later than or equal to"
+    if (!isEarlierThan(currentCallFrameTime, lastCallAction.time)) {
+      actionValidation.push({
+        match: ActionValidationResultType.INCORRECT_ORDER,
+        functionSignature: action.readableSignature,
+        address: action.to,
+        transactionHash,
       })
-    ) {
-      // TODO: handle action that was executed in an incorrect order
-      callsExecutedInAscendingOrder = false
-      // TODO: continue, otherwise `latestCallFrameTime` will be overwritten
+      continue
     }
 
     lastCallAction = {
       txnHash: transactionHash,
       time: { blockNumber, transactionIndex, callFrameIndex },
     }
-
-    // TODO(review): check that you `continue`/break in all of the relevant places in this function.
   }
 
-  if (!callsExecutedInAscendingOrder) {
-    // TODO: probably return here to avoid unnecessary rpc calls. it's worth mentioning that
-    // `latestCallFrameTime` will contain the latest call action even if the actions weren't
-    // executed in ascending order.
+  const isValidConfig = actionValidation.every(
+    (output) =>
+      output.match === ActionValidationResultType.EXACT_MATCH ||
+      output.match === ActionValidationResultType.SIMILAR_MATCH
+  )
+
+  // TODO(docs): not sure where this is relevant: it's worth mentioning that
+  // `latestCallFrameTime` will contain the latest call action even if the actions weren't
+  // executed in ascending order.
+
+  if (!isValidConfig) {
+    // TODO(docs): we return here to avoid unnecessary rpc calls.
+
+    return {
+      actionValidation,
+      transactionCountValidation:
+        TransactionCountValidation.NO_ATTEMPT__INVALID_ACTIONS,
+    }
   }
 
   if (deploymentIds.size > 1) {
-    // TODO
+    return {
+      actionValidation,
+      transactionCountValidation:
+        TransactionCountValidation.NO_ATTEMPT__MULTIPLE_DEPLOYMENT_IDS,
+    }
   }
 
   // TODO(optimize): use rpc batch provider
   // TODO(optimize): promise.all
 
-  // TODO: i think you can remove `txnHash` from the firstContractDeployment and lastCallAction,
+  // TODO(optimize): i think you can remove `txnHash` from the firstContractDeployment and lastCallAction,
   // then also remove the unnecessary `time` field.
-
-  const firstBlock = await provider.getBlock(
-    firstContractDeployment.time.blockNumber
+  const transactionHashes = await getTransactionHashesInRange(
+    provider,
+    firstContractDeployment.time.blockNumber,
+    firstContractDeployment.time.transactionIndex,
+    lastCallAction.time.blockNumber,
+    lastCallAction.time.transactionIndex
   )
-  const lastBlock = await provider.getBlock(lastCallAction.time.blockNumber)
-
-  if (!firstBlock || !lastBlock) {
-    throw new Error(`TODO: should never happen`)
-  }
-
-  const transactionHashes: Array<string> = []
-  if (firstBlock.number === lastBlock.number) {
-    const blockTxnHashes = firstBlock.transactions.slice(
-      firstContractDeployment.time.transactionIndex,
-      lastCallAction.time.transactionIndex + 1
-    )
-    transactionHashes.push(...blockTxnHashes)
-  } else {
-    const firstBlockTxnHashes = firstBlock.transactions.slice(
-      firstContractDeployment.time.transactionIndex
-    )
-    transactionHashes.push(...firstBlockTxnHashes)
-
-    for (let i = firstBlock.number + 1; i < lastBlock.number; i++) {
-      const block = await provider.getBlock(i)
-      if (!block) {
-        throw new Error(`TODO: should never happen`)
-      }
-      transactionHashes.push(...block.transactions)
-    }
-
-    // TODO(docs): + 1 means inclusive
-    const lastBlockTxnHashes = lastBlock.transactions.slice(
-      0,
-      lastCallAction.time.transactionIndex + 1
-    )
-    transactionHashes.push(...lastBlockTxnHashes)
-  }
-
   const ignoredToAddresses = [
     getSphinxRegistryAddress(),
     DEFAULT_CREATE3_ADDRESS,
   ]
+  const expected = 2 * deploymentActions.length + postDeployActions.length
+  const actual = await getTODO()
+
+  if (actual === expected) {
+    return {
+      actionValidation,
+      transactionCountValidation: TransactionCountValidation.CORRECT,
+    }
+  } else {
+    return {
+      actionValidation,
+      transactionCountValidation: TransactionCountValidation.INCORRECT,
+    }
+  }
+}
+
+export const getTODO = async (
+  provider: SphinxJsonRpcProvider,
+  transactionHashes: Array<string>,
+  from: string,
+  ignoredToAddresses: Array<string>
+): Promise<number> => {
   let numTxnsFromSphinxManager = 0
   for (const transactionHash of transactionHashes) {
     const rootCallFrame: CallFrame = await provider.send(
@@ -411,7 +533,7 @@ export const validate = async (
     const flattenedCallFrames = flattenCallFrames(rootCallFrame)
     for (const callFrame of flattenedCallFrames) {
       if (
-        callFrame.from === sphinxManagerAddress &&
+        callFrame.from === from &&
         !ignoredToAddresses.includes(callFrame.to)
       ) {
         numTxnsFromSphinxManager += 1
@@ -419,9 +541,5 @@ export const validate = async (
     }
   }
 
-  const expected = 2 * deploymentActions.length + postDeployActions.length
-
-  if (numTxnsFromSphinxManager !== expected) {
-    // TODO: output the expected and actual number of transactions
-  }
+  return numTxnsFromSphinxManager
 }

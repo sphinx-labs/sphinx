@@ -94,6 +94,7 @@ import {
 import 'core-js/features/array/at'
 import {
   BuildInfo,
+  CallFrame,
   CompilerOutput,
   ContractArtifact,
 } from './languages/solidity/types'
@@ -106,12 +107,16 @@ import {
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
 import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
-import { SphinxRuntimeEnvironment, FailureAction } from './types'
+import { SphinxRuntimeEnvironment, FailureAction, CallFrameTime } from './types'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
 } from './networks'
+import {
+  INCORRECT_ORDER_OF_BLOCK_NUMBERS_AND_TRANSACTION_INDICES,
+  failedToGetBlock,
+} from './config/validation-error-messages'
 
 export const parseSemverVersion = (version: ValidManagerVersion) => {
   const numbers = version
@@ -1850,4 +1855,161 @@ export const equal = (
   } else {
     return a === b
   }
+}
+
+// TODO(docs)
+export const isEarlierThan = (
+  earlier: CallFrameTime,
+  later: CallFrameTime
+): boolean => {
+  if (later.blockNumber > earlier.blockNumber) {
+    return true
+  } else if (later.blockNumber === earlier.blockNumber) {
+    if (later.transactionIndex > earlier.transactionIndex) {
+      return true
+    } else if (later.transactionIndex === earlier.transactionIndex) {
+      return later.callFrameIndex > earlier.callFrameIndex
+    }
+  }
+  return false
+}
+
+export const isEqualTo = (a: CallFrameTime, b: CallFrameTime): boolean => {
+  return (
+    a.blockNumber === b.blockNumber &&
+    a.transactionIndex === b.transactionIndex &&
+    a.callFrameIndex === b.callFrameIndex
+  )
+}
+
+export const isLaterThan = (
+  later: CallFrameTime,
+  earlier: CallFrameTime
+): boolean => {
+  return !isEqualTo(later, earlier) && !isEarlierThan(later, earlier)
+}
+
+// TODO(docs): The `CallFrame` object returned by `debug_traceTransaction` is a tree. Specifically,
+// each `CallFrame` has a 'calls' field, which is an array of `CallFrame` objects. This function
+// flattens this recursive structure into a flat array of `CallFrame` objects. It flattens the tree
+// in a depth-wise ordering. For example, say we start with a `CallFrame` object that looks like
+// this:
+// {
+//   input: '0x11',
+//   calls: [
+//     {
+//       input: '0x22',
+//       calls: [
+//         {
+//           input: '0x33',
+//           calls: []
+//         }
+//       ]
+//     },
+//     {
+//       input: '0x44',
+//       calls: []
+//     }
+//   ]
+// }
+// This function will return an array of `CallFrame` objects that looks like this:
+// [
+//   {
+//     input: '0x11',
+//     calls: [...] // The calls array from the original object.
+//   },
+//   {
+//     input: '0x22',
+//     calls: [...]
+//   },
+//   {
+//     input: '0x33',
+//     calls: []
+//   },
+//   {
+//     input: '0x44',
+//     calls: []
+//   }
+export const flattenCallFrames = (
+  rootCallFrame: CallFrame
+): Array<CallFrame> => {
+  const callFrames: Array<CallFrame> = []
+
+  const flatten = (child: CallFrame): void => {
+    callFrames.push(child)
+
+    for (const childCallFrame of child.calls) {
+      flatten(childCallFrame)
+    }
+  }
+
+  flatten(rootCallFrame)
+
+  return callFrames
+}
+
+export const getTransactionHashesInRange = async (
+  provider: SphinxJsonRpcProvider,
+  firstBlockNumber: number,
+  firstTransactionIndex: number,
+  lastBlockNumber: number,
+  lastTransactionIndex: number
+): Promise<Array<string>> => {
+  if (
+    isLaterThan(
+      {
+        blockNumber: firstBlockNumber,
+        transactionIndex: firstTransactionIndex,
+        callFrameIndex: 0, // docs
+      },
+      {
+        blockNumber: lastBlockNumber,
+        transactionIndex: lastTransactionIndex,
+        callFrameIndex: 0, // TODO(docs)
+      }
+    )
+  ) {
+    throw new Error(INCORRECT_ORDER_OF_BLOCK_NUMBERS_AND_TRANSACTION_INDICES)
+  }
+
+  const firstBlock = await provider.getBlock(firstBlockNumber)
+  const lastBlock = await provider.getBlock(lastBlockNumber)
+
+  if (!firstBlock) {
+    throw new Error(failedToGetBlock(firstBlockNumber))
+  }
+
+  if (!lastBlock) {
+    throw new Error(failedToGetBlock(lastBlockNumber))
+  }
+
+  const transactionHashes: Array<string> = []
+  if (firstBlock.number === lastBlock.number) {
+    const blockTxnHashes = firstBlock.transactions.slice(
+      firstTransactionIndex,
+      lastTransactionIndex + 1
+    )
+    transactionHashes.push(...blockTxnHashes)
+  } else {
+    const firstBlockTxnHashes = firstBlock.transactions.slice(
+      firstTransactionIndex
+    )
+    transactionHashes.push(...firstBlockTxnHashes)
+
+    for (let i = firstBlock.number + 1; i < lastBlock.number; i++) {
+      const block = await provider.getBlock(i)
+      if (!block) {
+        throw new Error(`TODO: should never happen`)
+      }
+      transactionHashes.push(...block.transactions)
+    }
+
+    // TODO(docs): + 1 means inclusive
+    const lastBlockTxnHashes = lastBlock.transactions.slice(
+      0,
+      lastTransactionIndex + 1
+    )
+    transactionHashes.push(...lastBlockTxnHashes)
+  }
+  return transactionHashes
 }
