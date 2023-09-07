@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.21.2
+
+### Patch Changes
+
+- 6358e916: Restrict @swc/core dependency version
+
 ## 0.21.1
 
 ### Patch Changes
