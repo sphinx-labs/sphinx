@@ -231,12 +231,30 @@ const executeBatchActions = async (
       ).wait()
       receipts.push(tx)
     } else {
+      // Get the overrides for the `executeInitialActions` function. In addition to the default gas
+      // price overrides, we must also set the gas limit to the maximum gas limit. Keep reading if
+      // you're curious why we do this. First, it's important to know that if a deployment fails for
+      // any reason, the transaction succeeds regardless. In other words, the user's SphinxManager
+      // contract marks the deployment state as `FAILED` instead of reverting. We designed the
+      // system this way because, otherwise, reverting deployments would appear to be executable
+      // indefinitely (i.e. they'd always be in the `APPROVED` state on-chain). The downside to
+      // ensuring that the transaction succeeds is that this makes the default 'estimateGas' RPC
+      // method unusable. This is because 'estimateGas' tries to find the lowest amount of gas
+      // required to make the transaction succeed. This is problematic in the following situation.
+      // Say a deployment contains a single large contract that requires 3 million gas to deploy
+      // successfully. If less gas is provided, the contract deployment will run out of gas, causing
+      // the entire deployment to be marked as `FAILED`. In this case, the *transaction* will still
+      // succeed, which means the 'estimateGas' amount will attempt to use a gas amount less than 3
+      // million. To avoid this, we hard-code the gas limit to a high amount.
+      const overrides = await getGasPriceOverrides(signer, {
+        gasLimit: maxGasLimit,
+      })
+
       const tx = await (
         await manager.executeInitialActions(
           batch.map((action) => action.action),
           batch.map((action) => action.siblings),
-          // TODO(docs)
-          await getGasPriceOverrides(signer, { gasLimit: maxGasLimit })
+          overrides
         )
       ).wait()
       receipts.push(tx)
