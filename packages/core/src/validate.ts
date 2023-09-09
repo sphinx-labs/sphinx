@@ -20,6 +20,7 @@ import {
   callActionWasExecuted,
   flattenCallFrames,
   getCallHash,
+  getCreationCodeWithConstructorArgs,
   getEncodedConstructorArgs,
   getTransactionHashesInRange,
   isEarlierThan,
@@ -114,7 +115,7 @@ export const validate = async (
   }
 
   // TODO(test): case: a new live network you add doesn't support `debug_traceTransaction`. you
-  // should probably have a sanity check somewhere 
+  // should probably have a sanity check somewhere
 
   const deploymentActions = actionBundle.actions
     .map((rawAction) => fromRawSphinxAction(rawAction.action))
@@ -142,11 +143,16 @@ export const validate = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { abi, bytecode: creationCodeWithoutConstructorArgs } =
+      configArtifacts[referenceName].artifact
+
+    const constructorArgs = contractConfig.constructorArgs[chainId] ?? {}
+
     const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
     const constructorSignature: SphinxFunctionSignature = {
       referenceNameOrAddress: referenceName,
       functionName: 'constructor',
-      variables: contractConfig.constructorArgs,
+      variables: constructorArgs,
     }
 
     if (!isTargetDeployed) {
@@ -157,21 +163,14 @@ export const validate = async (
       continue
     }
 
-    const expectedAddress = contractConfig[referenceName].address
-    const action = deploymentActions.find(
-      (_action) =>
-        expectedAddress ===
-        getCreate3Address(sphinxManagerAddress, _action.salt)
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+      creationCodeWithoutConstructorArgs,
+      constructorArgs,
+      abi
     )
 
-    if (!action) {
-      throw new Error(
-        `Action not found for ${referenceName}. Should never happen.`
-      )
-    }
-
     const deploymentEvents = await SphinxManager.queryFilter(
-      SphinxManager.filters.ContractDeployed(expectedAddress)
+      SphinxManager.filters.ContractDeployed(contractConfig.address)
     )
     if (deploymentEvents.length === 0) {
       // If the contract wasn't deployed, the config cache should reflect that, so this should
@@ -224,8 +223,8 @@ export const validate = async (
 
     const callFrameIndexExactMatch = flattenedCallFrames.findIndex(
       (callFrame: CallFrame): boolean =>
-        callFrame.input === action.creationCodeWithConstructorArgs &&
-        callFrame.to === expectedAddress &&
+        callFrame.input === creationCodeWithConstructorArgs &&
+        callFrame.to === contractConfig.address &&
         callFrame.type === 'CREATE'
     )
 
@@ -239,7 +238,7 @@ export const validate = async (
       actionValidation.push({
         match: ActionValidationResultType.EXACT_MATCH,
         functionSignature: constructorSignature,
-        address: expectedAddress,
+        address: contractConfig.address,
         transactionHash,
       })
     } else {
@@ -253,24 +252,18 @@ export const validate = async (
       // TODO(docs): we proceed by checking if there's a contract that matches the contract's
       // creation code and constructor args, excluding the metadata hash.
 
-      const expectedCreationCodeWithoutConstructorArgs =
-        configArtifacts[referenceName].artifact.bytecode
-
       const expectedConstructorArgs = remove0x(
-        getEncodedConstructorArgs(
-          contractConfig[referenceName].constructorArgs,
-          configArtifacts[referenceName].artifact.abi
-        )
+        getEncodedConstructorArgs(constructorArgs, abi)
       )
 
       // TODO(docs): get the last two bytes of the expected creation code without constructor args
       const encodedMetadataLengthHex = ethers.dataSlice(
-        expectedCreationCodeWithoutConstructorArgs,
+        creationCodeWithoutConstructorArgs,
         -2
       )
       const encodedMetadataLength = Number(encodedMetadataLengthHex)
       const expectedCreationCodeWithoutMetadataHash = ethers.dataSlice(
-        expectedCreationCodeWithoutConstructorArgs,
+        creationCodeWithoutConstructorArgs,
         -(encodedMetadataLength + 2),
         -2
       )
@@ -279,7 +272,7 @@ export const validate = async (
         (callFrame: CallFrame): boolean =>
           callFrame.input.startsWith(expectedCreationCodeWithoutMetadataHash) &&
           callFrame.input.endsWith(expectedConstructorArgs) &&
-          callFrame.to === expectedAddress &&
+          callFrame.to === contractConfig.address &&
           callFrame.type === 'CREATE'
       )
 
@@ -290,7 +283,7 @@ export const validate = async (
         actionValidation.push({
           match: ActionValidationResultType.NO_MATCH,
           functionSignature: constructorSignature,
-          address: expectedAddress,
+          address: contractConfig.address,
           transactionHash,
         })
         continue
@@ -307,7 +300,7 @@ export const validate = async (
         .slice(0, -expectedConstructorArgs.length)
         // TODO(docs): remove the contract's creation bytecode from the beginning of the actual
         // creation code
-        .slice(expectedCreationCodeWithoutConstructorArgs.length)
+        .slice(creationCodeWithoutConstructorArgs.length)
 
       const decodedMetadata = decodeAllSync(encodedMetadata)
 
@@ -320,7 +313,7 @@ export const validate = async (
       actionValidation.push({
         match: ActionValidationResultType.SIMILAR_MATCH,
         functionSignature: constructorSignature,
-        address: expectedAddress,
+        address: contractConfig.address,
         transactionHash,
       })
     }

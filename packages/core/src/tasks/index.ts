@@ -598,6 +598,10 @@ export const deployAbstractTask = async (
     throw new Error(
       `${projectName} was previously cancelled on ${networkName}.`
     )
+  } else if (currDeploymentStatus === DeploymentStatus.FAILED) {
+    throw new Error(
+      `${projectName} previously failed to deploy on ${networkName}.`
+    )
   }
 
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {

@@ -26,20 +26,17 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
-      metadata: {
-        bytecodeHash: 'none',
-      },
     },
   },
   networks: {
     hardhat: {
       chainId: 56,
     },
-    // goerli: {
-    //   chainId: 5,
-    //   url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    //   accounts,
-    // },
+    goerli: {
+      chainId: 5,
+      url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts,
+    },
     // ethereum: {
     //   chainId: 1,
     //   url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -146,11 +143,11 @@ const config: HardhatUserConfig = {
     //   accounts,
     // },
 
-    goerli: {
-      chainId: 5,
-      url: 'http://127.0.0.1:42005',
-      accounts,
-    },
+    // goerli: {TODO
+    //   chainId: 5,
+    //   url: 'http://127.0.0.1:42005',
+    //   accounts,
+    // },
     'optimism-goerli': {
       chainId: 420,
       url: 'http://127.0.0.1:42420',

@@ -19,6 +19,10 @@ const config: HardhatUserConfig = {
           '*': ['storageLayout', 'evm.gasEstimates'],
         },
       },
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
     },
   },
   networks: {

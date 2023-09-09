@@ -594,19 +594,27 @@ export const revertSnapshots = async (
   // the `before` hook above is run.
   for (const network of networks) {
     const provider = rpcProviders[network]
-
     const snapshotId = snapshotIds[network]
-    // Attempt to revert to the previous snapshot.
-    try {
-      await provider.send('evm_revert', [snapshotId])
-    } catch (e) {
-      // An error will be thrown when this `beforeEach` hook is run for the first time. This is
-      // because there is no `snapshotId` yet. We can ignore this error.
-    }
+    const newSnapshotId = await revertSnapshot(provider, snapshotId)
 
-    const newSnapshotId = await provider.send('evm_snapshot', [])
     snapshotIds[network] = newSnapshotId
   }
+}
+
+export const revertSnapshot = async (
+  provider: ethers.JsonRpcProvider,
+  snapshotId: string
+): Promise<string> => {
+  // Attempt to revert to the previous snapshot.
+  try {
+    await provider.send('evm_revert', [snapshotId])
+  } catch (e) {
+    // An error will be thrown when this `beforeEach` hook is run for the first time. This is
+    // because there is no `snapshotId` yet. We can ignore this error.
+  }
+
+  const newSnapshotId = await provider.send('evm_snapshot', [])
+  return newSnapshotId
 }
 
 export const getStorageSlotKey = (

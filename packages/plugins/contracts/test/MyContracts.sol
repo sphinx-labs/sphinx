@@ -3,6 +3,10 @@ pragma solidity ^0.8.9;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { SphinxManager } from "@sphinx-labs/contracts/contracts/SphinxManager.sol";
+import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 contract MyContract1 {
     int public intArg;
@@ -71,25 +75,44 @@ contract MyContract2 {
 }
 
 contract MyOwnableContract is Ownable {
-    uint256 public value;
+    uint256 public myOwnableValue;
 
     constructor(address _sphinxManager) {
         _transferOwnership(_sphinxManager);
     }
 
     function myOwnableFunction(uint256 _value) external onlyOwner {
-        value = _value;
+        myOwnableValue = _value;
     }
 }
 
 contract MyAccessControlContract is AccessControl {
-    uint256 public value;
+    uint256 public myAccessControlValue;
 
     constructor(address _sphinxManager) {
         _setupRole(DEFAULT_ADMIN_ROLE, _sphinxManager);
     }
 
     function myAccessControlFunction(uint256 _value) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        value = _value;
+        myAccessControlValue = _value;
+    }
+}
+
+contract MyBigContract is SphinxManager {
+
+    uint public number;
+
+    constructor(
+    ) SphinxManager(
+        ISphinxRegistry(address(0)),
+        address(0),
+        IAccessControl(address(0)),
+        0,
+        Version(0, 0, 0)
+    ){
+    }
+
+    function incrementNumber(uint _num) external {
+        number += _num;
     }
 }

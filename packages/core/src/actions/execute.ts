@@ -235,7 +235,8 @@ const executeBatchActions = async (
         await manager.executeInitialActions(
           batch.map((action) => action.action),
           batch.map((action) => action.siblings),
-          await getGasPriceOverrides(signer)
+          // TODO(docs)
+          await getGasPriceOverrides(signer, { gasLimit: maxGasLimit })
         )
       ).wait()
       receipts.push(tx)

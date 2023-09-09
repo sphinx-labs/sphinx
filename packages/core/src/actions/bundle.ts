@@ -600,7 +600,8 @@ export const makeActionBundleFromConfig = (
       // We use a 'salt' value that's a hash of the implementation contract's init code. This
       // essentially mimics the behavior of Create2 in the sense that the implementation's address
       // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
-      // contracts that have already been deployed.
+      // contracts that have already been deployed. The contract deployment would be skipped inside
+      // the SphinxManager contract.
       const implSalt = ethers.keccak256(implInitCode)
 
       actions.push({

@@ -1,3 +1,5 @@
+Error.stackTraceLimit = Infinity // TODO: rm
+
 /* Imports: External */
 import * as path from 'path'
 
