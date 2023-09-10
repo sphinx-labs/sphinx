@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.16.4
+
+### Patch Changes
+
+- e188a1ec: Fix gas estimation bug when executing deployments
+
 ## 0.16.3
 
 ### Patch Changes
