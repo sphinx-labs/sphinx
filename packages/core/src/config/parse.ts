@@ -3086,12 +3086,12 @@ export const getConfigCache = async (
 
   // Get a mapping of call hashes to their current nonces. We'll use this later to determine which
   // call actions to skip in the deployment, if any.
-  const callNonces: { [callHash: string]: number } = {}
+  const callNonces: { [callHash: string]: bigint } = {}
   for (const callAction of postDeployActions) {
     const { to, data } = callAction
     const callHash = getCallHash(to, data)
     if (!isManagerDeployed_) {
-      callNonces[callHash] = 0
+      callNonces[callHash] = 0n
     } else {
       const currentNonce = await SphinxManager.callNonces(callHash)
       callNonces[callHash] = currentNonce

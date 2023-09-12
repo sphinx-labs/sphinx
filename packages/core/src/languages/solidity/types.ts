@@ -133,19 +133,36 @@ export interface CompilerOutputSources {
 // TODO(docs):
 // https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall:~:text=for%20more%20details.-,debug_traceTransaction,-OBS%20In%20most
 // https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#call-tracer:~:text=0xc281d19e%2D0%22%3A%201%0A%7D-,callTracer,-The%20callTracer%20tracks
-export type CallFrame = {
-  type: 'CALL' | 'CREATE'
-  from: string
-  to: string
-  value: string
-  gas: string
-  gasUsed: string
-  input: string
-  output: string
-  error: string
-  revertReason: string
-  calls: Array<CallFrame>
-}
+// The docs don't align with the actual values returned by node providers like Alchemy, so these
+// types were created by manually inspecting the returned CallFrame objects from
+// 'debug_traceTransaction' rpc calls.
+export type CallFrame =
+  | {
+      type: 'CALL' | 'CREATE' | 'DELEGATECALL' | 'CREATE2'
+      from: string
+      to: string
+      value: string
+      gas: string
+      gasUsed: string
+      input: string
+      output?: string
+      calls?: Array<CallFrame>
+      error?: string
+      revertReason?: string
+    }
+  // TODO(docs): same as the other CallFrame types except there's never a 'value' field
+  | {
+      type: 'STATICCALL'
+      from: string
+      to: string
+      gas: string
+      gasUsed: string
+      input: string
+      output?: string
+      calls?: Array<CallFrame>
+      error?: string
+      revertReason?: string
+    }
 
 export interface CompilerOutputBytecode {
   object: string

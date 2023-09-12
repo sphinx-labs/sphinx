@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs'
+
 import { ethers } from 'ethers'
 import { SphinxManagerABI } from '@sphinx-labs/contracts'
 import { decodeAllSync } from 'cbor'
@@ -18,6 +20,7 @@ import {
 import { CallFrame } from './languages/solidity/types'
 import {
   callActionWasExecuted,
+  equalAddresses,
   flattenCallFrames,
   getCallHash,
   getCreationCodeWithConstructorArgs,
@@ -30,8 +33,13 @@ import {
   sortCallFrameTimes,
 } from './utils'
 import { CallFrameTime } from './types'
-import { DEFAULT_CREATE3_ADDRESS, getSphinxRegistryAddress } from './addresses'
+import {
+  DEFAULT_CREATE3_ADDRESS,
+  getSphinxManagerImplAddress,
+  getSphinxRegistryAddress,
+} from './addresses'
 import 'core-js/features/array/at'
+import { CURRENT_SPHINX_MANAGER_VERSION } from './constants'
 
 // TODO(docs): we prefer `debug_traceTransaction` to `trace_transaction` because it's supported by
 // more execution clients (e.g. geth)
@@ -55,36 +63,49 @@ export enum ActionValidationResultType {
   SIMILAR_MATCH,
   NOT_EXECUTED_YET,
   NO_MATCH,
-  INCORRECT_ORDER,
 }
 
-export enum TransactionCountValidation {
+export enum TransactionValidation {
   CORRECT,
-  INCORRECT,
-  NO_ATTEMPT__INVALID_ACTIONS,
-  NO_ATTEMPT__MULTIPLE_DEPLOYMENT_IDS,
+  INCORRECT_TRANSACTION_COUNT,
+  INCORRECT_ORDER,
+  INVALID_ACTIONS,
+  MULTIPLE_DEPLOYMENT_IDS,
 }
 
 export type ValidationOutput = {
   actionValidation: Array<ActionValidationOutput>
-  transactionCountValidation: TransactionCountValidation
+  transactionValidation: TransactionValidation
 }
 
 export type ActionValidationOutput =
-  | {
-      match: Omit<
-        ActionValidationResultType,
-        ActionValidationResultType.NOT_EXECUTED_YET
-      >
-      functionSignature: SphinxFunctionSignature
-      address: string
-      transactionHash: string
-    }
-  // Skipped contract deployment:
-  | {
-      match: ActionValidationResultType.NOT_EXECUTED_YET
-      functionSignature: SphinxFunctionSignature
-    }
+  | ExecutedActionValidationOutput
+  | UnexecutedActionValidationOutput
+
+export const isExecutedActionValidationOutput = (
+  output: ActionValidationOutput
+): output is ExecutedActionValidationOutput => {
+  return (
+    output.match !== ActionValidationResultType.NOT_EXECUTED_YET &&
+    (output as ExecutedActionValidationOutput).address !== undefined &&
+    (output as ExecutedActionValidationOutput).transactionHash !== undefined
+  )
+}
+
+export type ExecutedActionValidationOutput = {
+  match: Omit<
+    ActionValidationResultType,
+    ActionValidationResultType.NOT_EXECUTED_YET
+  >
+  functionSignature: SphinxFunctionSignature
+  address: string
+  transactionHash: string
+}
+
+export type UnexecutedActionValidationOutput = {
+  match: ActionValidationResultType.NOT_EXECUTED_YET
+  functionSignature: SphinxFunctionSignature
+}
 
 // TODO(task): consider wrapping `validate` in a Promise.any instead of Promise.all. e.g. say one rpc url
 // out of 5 doesn't support debug_traceTransaction. the user will probably need to run the command all
@@ -92,7 +113,7 @@ export type ActionValidationOutput =
 export const validate = async (
   provider: SphinxJsonRpcProvider,
   parsedConfig: ParsedConfig,
-  actionBundle: SphinxActionBundle,
+  actionBundle: SphinxActionBundle, // TODO: rm
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache
 ): Promise<ValidationOutput> => {
@@ -105,7 +126,10 @@ export const validate = async (
     throw new Error(`Block contains zero transactions. Should never happen.`)
   }
   try {
-    await provider.send('trace_transaction', [randomTransactionHash])
+    await provider.send('debug_traceTransaction', [
+      randomTransactionHash,
+      { tracer: 'callTracer' },
+    ])
   } catch (e) {
     throw new Error(
       `Your RPC url for ${configCache.networkName} does not allow 'debug_traceTransaction' RPC calls, which\n` +
@@ -116,10 +140,6 @@ export const validate = async (
 
   // TODO(test): case: a new live network you add doesn't support `debug_traceTransaction`. you
   // should probably have a sanity check somewhere
-
-  const deploymentActions = actionBundle.actions
-    .map((rawAction) => fromRawSphinxAction(rawAction.action))
-    .filter(isDeployContractAction)
 
   const sphinxManagerAddress = parsedConfig.manager
   const SphinxManager = new ethers.Contract(
@@ -219,12 +239,14 @@ export const validate = async (
       [transactionHash, { tracer: 'callTracer' }]
     )
 
+    writeFileSync('root.json', JSON.stringify(rootCallFrame)) // TODO: rm
+
     const flattenedCallFrames = flattenCallFrames(rootCallFrame)
 
     const callFrameIndexExactMatch = flattenedCallFrames.findIndex(
       (callFrame: CallFrame): boolean =>
         callFrame.input === creationCodeWithConstructorArgs &&
-        callFrame.to === contractConfig.address &&
+        equalAddresses(callFrame.to, contractConfig.address) &&
         callFrame.type === 'CREATE'
     )
 
@@ -264,15 +286,15 @@ export const validate = async (
       const encodedMetadataLength = Number(encodedMetadataLengthHex)
       const expectedCreationCodeWithoutMetadataHash = ethers.dataSlice(
         creationCodeWithoutConstructorArgs,
-        -(encodedMetadataLength + 2),
-        -2
+        0,
+        -(encodedMetadataLength + 2)
       )
 
       const callFrameIndexSimilarMatch = flattenedCallFrames.findIndex(
         (callFrame: CallFrame): boolean =>
           callFrame.input.startsWith(expectedCreationCodeWithoutMetadataHash) &&
           callFrame.input.endsWith(expectedConstructorArgs) &&
-          callFrame.to === contractConfig.address &&
+          equalAddresses(callFrame.to, contractConfig.address) &&
           callFrame.type === 'CREATE'
       )
 
@@ -297,10 +319,10 @@ export const validate = async (
       const actualCreationCode = deploymentCallFrame.input
       const encodedMetadata = actualCreationCode
         // TODO(docs): remove the constructor args from the end of the actual creation code
-        .slice(0, -expectedConstructorArgs.length)
+        .slice(0, actualCreationCode.length - expectedConstructorArgs.length)
         // TODO(docs): remove the contract's creation bytecode from the beginning of the actual
         // creation code
-        .slice(creationCodeWithoutConstructorArgs.length)
+        .slice(expectedCreationCodeWithoutMetadataHash.length)
 
       const decodedMetadata = decodeAllSync(encodedMetadata)
 
@@ -331,7 +353,8 @@ export const validate = async (
     callFrameIndex: 0,
   }
   const postDeployActions = parsedConfig.postDeploy[chainId] ?? []
-  for (const action of postDeployActions) {
+  let actionsExecutedOutOfOrder: boolean = false
+  for (const action of postDeployActions) {1
     if (
       !callActionWasExecuted(
         action.to,
@@ -358,7 +381,7 @@ export const validate = async (
       throw new Error(
         `No call events found on ${configCache.networkName}. Should never happen.`
       )
-    } else if (configCache.callNonces[callHash] !== callEvents.length) {
+    } else if (configCache.callNonces[callHash] !== BigInt(callEvents.length)) {
       // The number of events should always match the number of times this call was executed.
       throw new Error(
         `The number of call events does not match the number of times the call was\n` +
@@ -402,13 +425,18 @@ export const validate = async (
 
     const callFrameIndex = flattenedCallFrames.findIndex(
       (frame: CallFrame): boolean =>
-        frame.from === sphinxManagerAddress &&
-        frame.to === action.to &&
+        equalAddresses(frame.from, sphinxManagerAddress) &&
+        equalAddresses(frame.to, action.to) &&
         frame.input === action.data &&
         frame.type === 'CALL'
     )
 
     if (callFrameIndex === -1) {
+      // TODO(docs): this should never happen unless there's a bug in our system, but we check just
+      // to be safe. this shouldn't happen b/c:
+      // - if the exact call hasn't been executed, it should be marked as 'not executed yet'.
+      // - otherwise, we query CallExecuted events using the call hash, which should always
+      //   correspond to the correct call.
       actionValidation.push({
         match: ActionValidationResultType.NO_MATCH,
         functionSignature: action.readableSignature,
@@ -424,15 +452,15 @@ export const validate = async (
       callFrameIndex,
     }
     callFrameTimes.push(currentCallFrameTime)
-    // TODO(docs): explain that this is "later than or equal to"
-    if (!isEarlierThan(currentCallFrameTime, previousCallFrameTime)) {
-      actionValidation.push({
-        match: ActionValidationResultType.INCORRECT_ORDER,
-        functionSignature: action.readableSignature,
-        address: action.to,
-        transactionHash,
-      })
+    if (!isEarlierThan(previousCallFrameTime, currentCallFrameTime)) {
+      actionsExecutedOutOfOrder = true
     }
+    actionValidation.push({
+      match: ActionValidationResultType.EXACT_MATCH,
+      functionSignature: action.readableSignature,
+      address: action.to,
+      transactionHash,
+    })
     previousCallFrameTime = currentCallFrameTime
   }
 
@@ -448,21 +476,21 @@ export const validate = async (
   // `latestCallFrameTime` will contain the latest call action even if the actions weren't
   // executed in ascending order.
 
+  // TODO(docs): we return here to avoid unnecessary rpc calls.
   if (!isValidConfig) {
-    // TODO(docs): we return here to avoid unnecessary rpc calls.
-
     return {
       actionValidation,
-      transactionCountValidation:
-        TransactionCountValidation.NO_ATTEMPT__INVALID_ACTIONS,
+      transactionValidation: TransactionValidation.INVALID_ACTIONS,
     }
-  }
-
-  if (deploymentIds.size > 1) {
+  } else if (actionsExecutedOutOfOrder) {
     return {
       actionValidation,
-      transactionCountValidation:
-        TransactionCountValidation.NO_ATTEMPT__MULTIPLE_DEPLOYMENT_IDS,
+      transactionValidation: TransactionValidation.INCORRECT_ORDER,
+    }
+  } else if (deploymentIds.size > 1) {
+    return {
+      actionValidation,
+      transactionValidation: TransactionValidation.MULTIPLE_DEPLOYMENT_IDS,
     }
   }
 
@@ -493,6 +521,7 @@ export const validate = async (
   const ignoredToAddresses = [
     getSphinxRegistryAddress(),
     DEFAULT_CREATE3_ADDRESS,
+    getSphinxManagerImplAddress(chainId, CURRENT_SPHINX_MANAGER_VERSION),
   ]
   let numTxnsFromSphinxManager = 0
   for (const transactionHash of transactionHashes) {
@@ -503,25 +532,26 @@ export const validate = async (
     const flattenedCallFrames = flattenCallFrames(rootCallFrame)
     for (const callFrame of flattenedCallFrames) {
       if (
-        callFrame.from === sphinxManagerAddress &&
-        !ignoredToAddresses.includes(callFrame.to)
+        equalAddresses(callFrame.from, sphinxManagerAddress) &&
+        !ignoredToAddresses.includes(ethers.getAddress(callFrame.to))
       ) {
         numTxnsFromSphinxManager += 1
       }
     }
   }
 
-  const expected = 2 * deploymentActions.length + postDeployActions.length
+  const numDeployments = Object.keys(parsedConfig.contracts).length
+  const expected = 2 * numDeployments + postDeployActions.length
 
   if (numTxnsFromSphinxManager !== expected) {
     return {
       actionValidation,
-      transactionCountValidation: TransactionCountValidation.INCORRECT,
+      transactionValidation: TransactionValidation.INCORRECT_TRANSACTION_COUNT,
     }
   }
 
   return {
     actionValidation,
-    transactionCountValidation: TransactionCountValidation.CORRECT,
+    transactionValidation: TransactionValidation.CORRECT,
   }
 }

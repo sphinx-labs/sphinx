@@ -1695,13 +1695,15 @@ export const findReferenceNameForAddress = (
   for (const [referenceName, contractConfig] of Object.entries(
     contractConfigs
   )) {
-    if (
-      ethers.getAddress(contractConfig.address) === ethers.getAddress(address)
-    ) {
+    if (equalAddresses(address, contractConfig.address)) {
       return referenceName
     }
   }
   return undefined
+}
+
+export const equalAddresses = (a1: string, a2: string): boolean => {
+  return ethers.getAddress(a1) === ethers.getAddress(a2)
 }
 
 export const isSupportedChainId = (
@@ -1956,8 +1958,10 @@ export const flattenCallFrames = (
   const flatten = (child: CallFrame): void => {
     callFrames.push(child)
 
-    for (const childCallFrame of child.calls) {
-      flatten(childCallFrame)
+    if (child.calls !== undefined) {
+      for (const childCallFrame of child.calls) {
+        flatten(childCallFrame)
+      }
     }
   }
 

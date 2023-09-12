@@ -205,10 +205,11 @@ const executeBatchActions = async (
     }
 
     // Figure out the maximum number of actions that can be executed in a single batch.
-    const batchSize = await findMaxBatchSize(
-      filtered.slice(executed),
-      maxGasLimit
-    )
+    // const batchSize = await findMaxBatchSize(
+    //   filtered.slice(executed),
+    //   maxGasLimit
+    // )TODO
+    const batchSize = 1
 
     // Pull out the next batch of actions.
     const batch = filtered.slice(executed, executed + batchSize)

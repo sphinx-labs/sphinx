@@ -37,7 +37,7 @@ export const decodeCachedConfig = (
     }
   }
 
-  const callNonces: { [callHash: string]: number } = {}
+  const callNonces: { [callHash: string]: bigint } = {}
   for (const callNonce of configCache.callNonces) {
     callNonces[callNonce.callHash] = callNonce.nonce
   }

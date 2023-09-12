@@ -366,22 +366,30 @@ describe('Utils', () => {
   describe('flattenCallFrames', () => {
     // A CallFrame object minus the `calls` and `input` fields, which we'll fill in later.
     const callFrameFillerFields = {
-      type: 'CALL' as CallFrame['type'], // Removes a TypeScript type error.
+      // type: 'CALL' as CallFrame['type'], // Removes a TypeScript type error.
       from: ethers.ZeroAddress,
       to: ethers.ZeroAddress,
       value: '0x',
       gas: '0x',
       gasUsed: '0x',
-      output: '0x',
-      error: '',
-      revertReason: '',
     }
 
-    it('returns an array with a single callframe if no sub-calls exist', () => {
+    it('returns an array with a single callframe for a root callframe with an empty `calls` array', () => {
       const rootCallFrame: CallFrame = {
         ...callFrameFillerFields,
+        type: 'CALL',
         input: '1',
         calls: [],
+      }
+
+      expect(flattenCallFrames(rootCallFrame)).to.deep.equal([rootCallFrame])
+    })
+
+    it('returns an array with a single callframe for a root callframe with no `calls` array', () => {
+      const rootCallFrame: CallFrame = {
+        ...callFrameFillerFields,
+        type: 'CALL',
+        input: '1',
       }
 
       expect(flattenCallFrames(rootCallFrame)).to.deep.equal([rootCallFrame])
@@ -391,19 +399,23 @@ describe('Utils', () => {
       const rootCallFrame: CallFrame = {
         ...callFrameFillerFields,
         input: '1',
+        type: 'DELEGATECALL',
         calls: [
           {
             ...callFrameFillerFields,
             input: '2',
+            type: 'CALL',
             calls: [
               {
                 ...callFrameFillerFields,
                 input: '3',
-                calls: [],
+                type: 'CREATE2',
+                output: '0x',
               },
               {
                 ...callFrameFillerFields,
                 input: '4',
+                type: 'CREATE',
                 calls: [],
               },
             ],
@@ -411,7 +423,10 @@ describe('Utils', () => {
           {
             ...callFrameFillerFields,
             input: '5',
+            type: 'STATICCALL',
             calls: [],
+            error: '',
+            revertReason: '',
           },
         ],
       }
@@ -419,14 +434,14 @@ describe('Utils', () => {
       const flattenedCallFrames = flattenCallFrames(rootCallFrame)
       expect(flattenedCallFrames.length).to.equal(5)
       expect(flattenedCallFrames[0]).to.deep.equal(rootCallFrame)
-      expect(flattenedCallFrames[1]).to.deep.equal(rootCallFrame.calls[0])
+      expect(flattenedCallFrames[1]).to.deep.equal(rootCallFrame.calls![0])
       expect(flattenedCallFrames[2]).to.deep.equal(
-        rootCallFrame.calls[0].calls[0]
+        rootCallFrame.calls![0].calls![0]
       )
       expect(flattenedCallFrames[3]).to.deep.equal(
-        rootCallFrame.calls[0].calls[1]
+        rootCallFrame.calls![0].calls![1]
       )
-      expect(flattenedCallFrames[4]).to.deep.equal(rootCallFrame.calls[1])
+      expect(flattenedCallFrames[4]).to.deep.equal(rootCallFrame.calls![1])
     })
   })
 

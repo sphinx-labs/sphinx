@@ -295,7 +295,7 @@ export interface MinimalConfigCache {
   blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
-  callNonces: { [callHash: string]: number }
+  callNonces: { [callHash: string]: bigint }
   undeployedExternalContracts: Array<string>
 }
 
