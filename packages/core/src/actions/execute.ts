@@ -103,7 +103,6 @@ export const executeDeployment = async (
 
   // We're done!
   logger?.info(`[Sphinx]: successfully deployed project`)
-  console.log(receipts)
   return { success: true, receipts }
 }
 
