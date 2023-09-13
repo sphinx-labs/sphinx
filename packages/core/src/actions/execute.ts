@@ -103,6 +103,7 @@ export const executeDeployment = async (
 
   // We're done!
   logger?.info(`[Sphinx]: successfully deployed project`)
+  console.log(receipts)
   return { success: true, receipts }
 }
 
@@ -231,7 +232,7 @@ const executeBatchActions = async (
           ]),
         })
 
-        const tx = (
+        const tx = await (
           await manager.executeInitialActions(
             batch.map((action) => action.action),
             batch.map((action) => action.siblings),
