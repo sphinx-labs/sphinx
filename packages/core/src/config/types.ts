@@ -291,6 +291,7 @@ export type ConfigArtifacts = {
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
+  isExecuting: boolean
   managerVersion: SemverVersion
   blockGasLimit: bigint
   chainId: number
@@ -369,7 +370,6 @@ export interface CanonicalConfig {
   manager: string
   projectName: string
   options: ConfigOptions
-  contracts: ParsedContractConfigs
   chainStates: {
     [chainId: number]: {
       firstProposalOccurred: boolean

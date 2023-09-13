@@ -37,9 +37,10 @@ import {
 import {
   deploy,
   emptyCanonicalConfigCallback,
+  execute,
   registerProject,
   revertSnapshots,
-  setupThenProposeThenApproveDeploymentThenExecute,
+  setupThenProposeThenApproveDeployment,
 } from './helpers'
 import { createSphinxRuntime } from '../src/cre'
 
@@ -1725,11 +1726,13 @@ describe('Post-Deployment Actions', () => {
     projectTestInfo.userConfig.options.proposers.push(deployerAddress)
     projectTestInfo.userConfig.options.testnets = initialTestnets
     process.env['PROPOSER_PRIVATE_KEY'] = deployerPrivateKey
-    await setupThenProposeThenApproveDeploymentThenExecute(
+    await setupThenProposeThenApproveDeployment(
       projectTestInfo,
       initialTestnets,
-      emptyCanonicalConfigCallback
+      emptyCanonicalConfigCallback,
+      'standard'
     )
+    await execute(projectTestInfo, initialTestnets)
 
     const configContractAddressInProposal = getTargetAddress(
       projectTestInfo.managerAddress,

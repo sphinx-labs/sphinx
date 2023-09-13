@@ -11,7 +11,6 @@ import {
   getProjectBundleInfo,
   getDeploymentId,
   SUPPORTED_NETWORKS,
-  findProposalRequestLeaf,
   getSphinxManager,
   executeDeployment,
   DeploymentState,
@@ -135,7 +134,7 @@ export const emptyCanonicalConfigCallback = async (
   isTestnet: boolean,
   apiKey: string
 ): Promise<CanonicalConfig | undefined> => {
-  // We write these variables here to avoid a TypeScript error.
+  // We write these variables here to avoid a TypeScript warning.
   orgId
   isTestnet
   apiKey
@@ -143,7 +142,7 @@ export const emptyCanonicalConfigCallback = async (
   return undefined
 }
 
-export const proposeThenApproveDeploymentThenExecute = async (
+export const proposeThenApproveDeployment = async (
   projectTestInfo: MultiChainProjectTestInfo,
   proposalRequest: ProposalRequest,
   networksToAdd: Array<SupportedNetworkName>,
@@ -232,33 +231,44 @@ export const proposeThenApproveDeploymentThenExecute = async (
       expect(proposerSignatures.length).equals(1)
     }
 
+    const cancelLeafIndex = leaves.findIndex(
+      (leaf) =>
+        leaf.leafType === AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT &&
+        leaf.chainId === chainId
+    )
+    const containsCancelLeaf = cancelLeafIndex !== -1
     const containsSetupLeaf = leaves.some(
       (leaf) =>
         leaf.leafType === AuthLeafFunctions.SETUP && leaf.chainId === chainId
     )
-    const containsUpgradeLeaf = leaves.some(
+    const upgradeLeafIndex = leaves.findIndex(
       (leaf) =>
         leaf.leafType === AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL &&
         leaf.chainId === chainId
     )
+    const containsUpgradeLeaf = upgradeLeafIndex !== -1
     const expectedNumLeafs = leaves.filter(
       (leaf) => leaf.chainId === chainId
     ).length
 
-    const proposalLeafIndex = containsSetupLeaf ? 1 : 0
-    const proposalLeaf = findProposalRequestLeaf(
-      leaves,
-      proposalLeafIndex,
-      chainId
+    const proposalLeafIndex = leaves.findIndex(
+      (leaf) =>
+        leaf.leafType === AuthLeafFunctions.PROPOSE && leaf.chainId === chainId
     )
-    const approvalLeafIndex = containsUpgradeLeaf
-      ? proposalLeafIndex + 2
-      : proposalLeafIndex + 1
-    const approveDeploymentLeaf = findProposalRequestLeaf(
-      leaves,
-      approvalLeafIndex,
-      chainId
+    if (proposalLeafIndex === -1) {
+      throw new Error('The proposal leaf index is -1. Should never happen.')
+    }
+    const proposalLeaf = leaves[proposalLeafIndex]
+
+    const approvalLeafIndex = leaves.findIndex(
+      (leaf) =>
+        leaf.leafType === AuthLeafFunctions.APPROVE_DEPLOYMENT &&
+        leaf.chainId === chainId
     )
+    if (approvalLeafIndex === -1) {
+      throw new Error('The approval leaf index is -1. Should never happen.')
+    }
+    const approveDeploymentLeaf = leaves[approvalLeafIndex]
 
     let authState: AuthState = await Auth.authStates(root)
     const expectedInitialStatus = containsSetupLeaf
@@ -281,16 +291,25 @@ export const proposeThenApproveDeploymentThenExecute = async (
     expect(authState.leafsExecuted).deep.equals(BigInt(leafsExecuted))
     expect(await Auth.firstProposalOccurred()).equals(true)
 
+    if (containsCancelLeaf) {
+      expect(await Manager.isExecuting()).equals(true)
+
+      const cancelLeaf = leaves[cancelLeafIndex]
+      await Auth.cancelActiveDeployment(
+        root,
+        fromProposalRequestLeafToRawAuthLeaf(cancelLeaf),
+        ownerSignatures,
+        cancelLeaf.siblings
+      )
+      expect(await Manager.isExecuting()).equals(false)
+    }
+
     // Check that there is no active deployment before approving the deployment.
-    expect(await Manager.activeDeploymentId()).equals(ethers.ZeroHash)
+    expect(await Manager.isExecuting()).equals(false)
 
     // Trigger upgrade if the upgrade leaf is present
     if (containsUpgradeLeaf) {
-      const upgradeManagerLeaf = findProposalRequestLeaf(
-        leaves,
-        proposalLeafIndex + 1,
-        chainId
-      )
+      const upgradeManagerLeaf = leaves[upgradeLeafIndex]
       await Auth.upgradeManagerAndAuthImpl(
         root,
         fromProposalRequestLeafToRawAuthLeaf(upgradeManagerLeaf),
@@ -322,6 +341,28 @@ export const proposeThenApproveDeploymentThenExecute = async (
       approveDeploymentLeaf.siblings
     )
 
+    authState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.COMPLETED)
+    expect(await Manager.isExecuting()).equals(true)
+  }
+}
+
+export const execute = async (
+  projectTestInfo: MultiChainProjectTestInfo,
+  networksToAdd: Array<SupportedNetworkName>
+) => {
+  const { managerAddress, userConfig } = projectTestInfo
+
+  for (const network of networksToAdd) {
+    const provider = rpcProviders[network]
+    const relayer = new ethers.Wallet(relayerPrivateKey, provider)
+
+    const Manager = new ethers.Contract(
+      managerAddress,
+      SphinxManagerABI,
+      relayer
+    )
+
     // Check that the approve function executed correctly and that all of the leafs in the tree have
     // been executed.
     const { parsedConfig, configCache, configArtifacts } =
@@ -338,8 +379,6 @@ export const proposeThenApproveDeploymentThenExecute = async (
       await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
     const deploymentId = getDeploymentId(bundles, configUri)
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
-    authState = await Auth.authStates(root)
-    expect(authState.status).equals(AuthStatus.COMPLETED)
 
     // Execute the deployment.
     const block = await provider.getBlock('latest')
@@ -367,7 +406,70 @@ export const proposeThenApproveDeploymentThenExecute = async (
   }
 }
 
-export const setupThenProposeThenApproveDeploymentThenExecute = async (
+/**
+ * @notice Executes a deployment that will revert on-chain
+ */
+export const executeRevertingDeployment = async (
+  projectTestInfo: MultiChainProjectTestInfo,
+  networksToAdd: Array<SupportedNetworkName>
+) => {
+  const { managerAddress, userConfig } = projectTestInfo
+
+  for (const network of networksToAdd) {
+    const provider = rpcProviders[network]
+    const relayer = new ethers.Wallet(relayerPrivateKey, provider)
+
+    const Manager = new ethers.Contract(
+      managerAddress,
+      SphinxManagerABI,
+      relayer
+    )
+
+    // Check that the approve function executed correctly and that all of the leafs in the tree have
+    // been executed.
+    const { parsedConfig, configCache, configArtifacts } =
+      await getParsedConfigWithOptions(
+        userConfig,
+        managerAddress,
+        true,
+        provider,
+        defaultCre,
+        makeGetConfigArtifacts(hre)
+      )
+
+    const { configUri, bundles, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
+    const deploymentId = getDeploymentId(bundles, configUri)
+    expect(await Manager.activeDeploymentId()).equals(deploymentId)
+
+    // Execute the deployment.
+    const block = await provider.getBlock('latest')
+    if (block === null) {
+      throw new Error('The block is null. Should never happen.')
+    }
+    const blockGasLimit = block.gasLimit
+    const manager = getSphinxManager(managerAddress, relayer)
+
+    await Manager.claimDeployment()
+
+    const { success } = await executeDeployment(
+      manager,
+      bundles,
+      humanReadableActions,
+      blockGasLimit,
+      provider,
+      relayer
+    )
+
+    // Check that the deployment executed correctly.
+    expect(success).equals(false)
+    const deployment: DeploymentState = await Manager.deployments(deploymentId)
+    // The deployment remains in the `APPROVED` state until it's manually cancelled.
+    expect(deployment.status).equals(DeploymentStatus.APPROVED)
+  }
+}
+
+export const setupThenProposeThenApproveDeployment = async (
   projectTestInfo: MultiChainProjectTestInfo,
   networksToAdd: Array<SupportedNetworkName>,
   getCanonicalConfig: GetCanonicalConfig,
@@ -384,7 +486,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
     undefined, // Use the default spinner
-    undefined, // Use the default FailureAction
+    FailureAction.THROW,
     getCanonicalConfig
   )
 
@@ -426,7 +528,14 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
 
     const chainId = SUPPORTED_NETWORKS[network]
 
-    const setupLeaf = findProposalRequestLeaf(leaves, 0, chainId)
+    const setupLeaf = leaves.find(
+      (leaf) =>
+        leaf.leafType === AuthLeafFunctions.SETUP && leaf.chainId === chainId
+    )
+
+    if (!setupLeaf) {
+      throw new Error('Could not find setup leaf. Should never happen.')
+    }
 
     // Check that the state of the Auth contract is correct before calling the `setup` function.
     for (const proposerAddress of proposerAddresses) {
@@ -458,7 +567,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     expect(authState.numLeafs).deep.equals(BigInt(expectedNumLeafs))
   }
 
-  await proposeThenApproveDeploymentThenExecute(
+  await proposeThenApproveDeployment(
     projectTestInfo,
     proposalRequest,
     networksToAdd,
