@@ -33,10 +33,12 @@ import {
 import {
   emptyCanonicalConfigCallback,
   makeGetCanonicalConfig,
-  proposeThenApproveDeploymentThenExecute,
+  proposeThenApproveDeployment,
   registerProject,
-  setupThenProposeThenApproveDeploymentThenExecute,
+  setupThenProposeThenApproveDeployment,
   revertSnapshots,
+  execute,
+  executeRevertingDeployment,
 } from './helpers'
 import {
   defaultCre,
@@ -138,33 +140,33 @@ describe('Multi chain projects', () => {
     for (const projectTestInfo of multichainTestInfo) {
       const { projectName } = projectTestInfo.userConfig
       describe(`${projectName} with execution method: ${executionMethod}`, () => {
-        const { managerAddress, authAddress, userConfig } = projectTestInfo
-
         it('Setup -> Propose -> Approve -> Execute', async () => {
-          await setupThenProposeThenApproveDeploymentThenExecute(
+          await setupThenProposeThenApproveDeployment(
             projectTestInfo,
             initialTestnets,
             emptyCanonicalConfigCallback,
             executionMethod
           )
+          await execute(projectTestInfo, initialTestnets)
         })
 
         describe('After contract deployment has been executed', () => {
           let getCanonicalConfig: GetCanonicalConfig
           beforeEach(async () => {
-            await setupThenProposeThenApproveDeploymentThenExecute(
+            await setupThenProposeThenApproveDeployment(
               projectTestInfo,
               initialTestnets,
               emptyCanonicalConfigCallback,
               executionMethod
             )
+            await execute(projectTestInfo, initialTestnets)
 
             // Get the previous parsed config, which we will convert into a CanonicalConfig. We can use
             // a randomly selected provider here because the parsed config doesn't change across networks.
             const { parsedConfig: prevParsedConfig } =
               await getParsedConfigWithOptions(
-                userConfig,
-                managerAddress,
+                projectTestInfo.userConfig,
+                projectTestInfo.managerAddress,
                 true,
                 Object.values(rpcProviders)[0], // Use a random provider
                 defaultCre,
@@ -173,8 +175,8 @@ describe('Multi chain projects', () => {
 
             getCanonicalConfig = makeGetCanonicalConfig(
               prevParsedConfig,
-              managerAddress,
-              authAddress,
+              projectTestInfo.managerAddress,
+              projectTestInfo.authAddress,
               rpcProviders
             )
           })
@@ -208,12 +210,13 @@ describe('Multi chain projects', () => {
               getCanonicalConfig
             )
 
-            await proposeThenApproveDeploymentThenExecute(
+            await proposeThenApproveDeployment(
               newProjectTestInfo,
               proposalRequest!,
               initialTestnets,
               executionMethod
             )
+            await execute(newProjectTestInfo, initialTestnets)
           })
 
           it('Deploy existing project on new chains', async () => {
@@ -225,12 +228,13 @@ describe('Multi chain projects', () => {
               ...testnetsToAdd
             )
 
-            await setupThenProposeThenApproveDeploymentThenExecute(
+            await setupThenProposeThenApproveDeployment(
               newProjectTestInfo,
               testnetsToAdd,
               getCanonicalConfig,
               executionMethod
             )
+            await execute(newProjectTestInfo, testnetsToAdd)
           })
 
           it('Add contract to config -> Upgrade to new manager and auth impl -> Deploy project on new and existing chains', async () => {
@@ -258,12 +262,13 @@ describe('Multi chain projects', () => {
             }
 
             // Setup then deploy the project on the new chains.
-            await setupThenProposeThenApproveDeploymentThenExecute(
+            await setupThenProposeThenApproveDeployment(
               newProjectTestInfo,
               testnetsToAdd,
               getCanonicalConfig,
               executionMethod
             )
+            await execute(newProjectTestInfo, testnetsToAdd)
 
             // Deploy the project on the existing chains.
             const { proposalRequest } = await proposeAbstractTask(
@@ -280,13 +285,87 @@ describe('Multi chain projects', () => {
             if (!proposalRequest) {
               throw new Error('The proposal is empty. Should never happen.')
             }
-            await proposeThenApproveDeploymentThenExecute(
+            await proposeThenApproveDeployment(
               newProjectTestInfo,
               proposalRequest,
               initialTestnets,
               executionMethod
             )
+            await execute(newProjectTestInfo, initialTestnets)
           })
+        })
+
+        it('Cancel existing deployment then execute new deployment', async () => {
+          // Set an environment variable to bypass the validation logic that checks for reverting
+          // constructors. This is necessary because we want to test reverting constructors in this
+          // test suite.
+          process.env['SPHINX_INTERNAL__ALLOW_REVERTING_CONSTRUCTORS'] = 'true'
+
+          const newProjectTestInfo = structuredClone(projectTestInfo)
+
+          // Add a new contract that will revert during execution.
+          newProjectTestInfo.userConfig.contracts['Reverter'] = {
+            contract: 'Reverter',
+            kind: 'immutable',
+          }
+
+          await setupThenProposeThenApproveDeployment(
+            newProjectTestInfo,
+            initialTestnets,
+            emptyCanonicalConfigCallback,
+            executionMethod
+          )
+          await executeRevertingDeployment(newProjectTestInfo, initialTestnets)
+
+          // Get the previous parsed config, which we will convert into a CanonicalConfig. We can use
+          // a randomly selected provider here because the parsed config doesn't change across networks.
+          const { parsedConfig: prevParsedConfig } =
+            await getParsedConfigWithOptions(
+              newProjectTestInfo.userConfig,
+              newProjectTestInfo.managerAddress,
+              true,
+              Object.values(rpcProviders)[0], // Use a random provider
+              defaultCre,
+              makeGetConfigArtifacts(hre)
+            )
+
+          const getCanonicalConfig = makeGetCanonicalConfig(
+            prevParsedConfig,
+            newProjectTestInfo.managerAddress,
+            newProjectTestInfo.authAddress,
+            rpcProviders
+          )
+
+          // Delete the contract that reverts.
+          delete newProjectTestInfo.userConfig.contracts['Reverter']
+
+          // Create a new proposal request with a config that will not revert.
+          const { proposalRequest } = await proposeAbstractTask(
+            newProjectTestInfo.userConfig,
+            true,
+            defaultCre,
+            true, // Skip relaying the meta transaction to the back-end
+            getConfigArtifacts,
+            getProviderFromChainId,
+            undefined, // Use the default spinner
+            undefined, // Use the default FailureAction
+            getCanonicalConfig
+          )
+
+          // Narrows the TypeScript type of the proposal request object.
+          if (!proposalRequest) {
+            throw new Error(
+              `Could not get proposal request. Should never happen.`
+            )
+          }
+
+          await proposeThenApproveDeployment(
+            newProjectTestInfo,
+            proposalRequest,
+            initialTestnets,
+            executionMethod
+          )
+          await execute(newProjectTestInfo, initialTestnets)
         })
       })
     }

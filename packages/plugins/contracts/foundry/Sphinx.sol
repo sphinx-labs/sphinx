@@ -449,11 +449,19 @@ abstract contract Sphinx {
             } else {
                 vm.recordLogs();
                 // manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
-                (bool success, bytes memory result) = address(manager).call{ gas: bufferedGasLimit }(abi.encodeWithSignature("executeInitialActions((uint8,uint256,bytes)[],bytes32[][])", rawActions, _proofs));
+                (bool success, bytes memory result) = address(manager).call{
+                    gas: bufferedGasLimit
+                }(
+                    abi.encodeWithSignature(
+                        "executeInitialActions((uint8,uint256,bytes)[],bytes32[][])",
+                        rawActions,
+                        _proofs
+                    )
+                );
                 if (!success) {
                     uint256 failureIndex;
                     assembly {
-                        failureIndex := mload(add(result,0x24))
+                        failureIndex := mload(add(result, 0x24))
                     }
 
                     return (DeploymentStatus.FAILED, failureIndex);

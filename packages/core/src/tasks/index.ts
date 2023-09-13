@@ -204,7 +204,8 @@ export const proposeAbstractTask = async (
       chainId,
       projectName,
       configUri,
-      bundles
+      bundles,
+      configCache.isExecuting
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
@@ -361,10 +362,6 @@ export const proposeAbstractTask = async (
   const newCanonicalConfig: CanonicalConfig = {
     manager: prevConfig.manager,
     options: parsedConfig.options,
-    contracts: {
-      ...prevConfig.contracts,
-      ...parsedConfig.contracts,
-    },
     projectName: parsedConfig.projectName,
     chainStates: {
       ...prevConfig.chainStates,

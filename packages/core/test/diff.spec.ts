@@ -71,6 +71,7 @@ const originalParsedConfig: ParsedConfig = {
 const callHash = getCallHash(callAction.to, callAction.data)
 const originalConfigCache: ConfigCache = {
   isManagerDeployed: false,
+  isExecuting: false,
   chainId: 10,
   networkName: 'optimism',
   contractConfigCache: {
