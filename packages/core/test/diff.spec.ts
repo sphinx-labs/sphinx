@@ -100,7 +100,7 @@ const originalConfigCache: ConfigCache = {
   managerVersion: {
     major: 0,
     minor: 2,
-    patch: 3,
+    patch: 4,
   },
   blockGasLimit: 0n,
   undeployedExternalContracts: [],

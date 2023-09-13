@@ -596,7 +596,7 @@ export const deployAbstractTask = async (
 
   if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
     throw new Error(
-      `${projectName} was previously cancelled on ${networkName}.`
+      `${projectName} was previously cancelled on ${networkName}. This is likely because part of the deployment failed which caused the entire deployment to be cancelled. You should check the previous deployment logs to see what went wrong and update your config file accordingly. Please contact the developers if you are unable to resolve this issue.`
     )
   }
 
@@ -632,10 +632,9 @@ export const deployAbstractTask = async (
   ) {
     spinner.start(`Executing ${projectName}...`)
 
-    const { success } = await executeDeployment(
+    const { success, failureAction } = await executeDeployment(
       Manager,
       bundles,
-      deploymentId,
       humanReadableActions,
       blockGasLimit,
       provider,
@@ -643,32 +642,26 @@ export const deployAbstractTask = async (
     )
 
     if (!success) {
-      const failureEvent = (
-        await Manager.queryFilter(
-          Manager.filters.DeploymentFailed(deploymentId)
-        )
-      ).at(-1)
+      // If the deployment failed for an indentifiable reason (like a reverting constructor or external call)
+      // Then we automatically cancel the deployment and throw an error
+      if (failureAction) {
+        // cancel the deployment
+        await (
+          await Manager.cancelActiveSphinxDeployment(
+            await getGasPriceOverrides(signer)
+          )
+        ).wait()
 
-      if (failureEvent) {
-        const log = Manager.interface.parseLog({
-          topics: failureEvent.topics as string[],
-          data: failureEvent.data,
-        })
-
-        if (log?.args[1] !== undefined) {
-          const action = humanReadableActions[Number(log?.args[1])]
-
-          if (action.actionType === SphinxActionType.CALL) {
-            throw new Error(
-              `Failed to execute ${projectName} because the following post-deployment action reverted:\n` +
-                `${action.reason}`
-            )
-          } else {
-            throw new Error(
-              `Failed to execute ${projectName} because the following deployment reverted:\n` +
-                `${action.reason}`
-            )
-          }
+        if (failureAction.actionType === SphinxActionType.CALL) {
+          throw new Error(
+            `Failed to execute ${projectName} because the following post-deployment action reverted:\n` +
+              `${failureAction.reason}`
+          )
+        } else {
+          throw new Error(
+            `Failed to execute ${projectName} because the following deployment reverted:\n` +
+              `${failureAction.reason}`
+          )
         }
       }
 

@@ -135,12 +135,4 @@ contract SphinxManagerEvents {
         bytes32 indexed deploymentId,
         uint256 actionIndex
     );
-
-    /**
-     * @notice Emitted when a deployment fails.
-     *
-     * @param deploymentId      ID of the deployment that failed.
-     * @param actionIndex Index of the action that caused the deployment to fail.
-     */
-    event DeploymentFailed(bytes32 indexed deploymentId, uint256 actionIndex);
 }

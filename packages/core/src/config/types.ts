@@ -41,9 +41,9 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-export type ValidManagerVersion = 'v0.2.3'
+export type ValidManagerVersion = 'v0.2.4'
 export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
-export const VALID_MANAGER_VERSIONS = ['v0.2.3']
+export const VALID_MANAGER_VERSIONS = ['v0.2.4']
 
 export type Project = string | 'all'
 

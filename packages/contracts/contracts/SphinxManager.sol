@@ -30,7 +30,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 0.2.3
+ * @custom:version 0.2.4
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single
@@ -241,6 +241,14 @@ contract SphinxManager is
     error InvalidAddress();
 
     /**
+     * @notice Reverts if the deployment fails due to an error in a contract constructor
+     *         or call.
+     * @param deploymentId ID of the deployment that failed.
+     * @param actionIndex  Index of the action that caused the deployment to fail.
+     */
+    error DeploymentFailed(uint256 actionIndex, bytes32 deploymentId);
+
+    /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
@@ -337,8 +345,7 @@ contract SphinxManager is
         if (
             status != DeploymentStatus.EMPTY &&
             status != DeploymentStatus.COMPLETED &&
-            status != DeploymentStatus.CANCELLED &&
-            status != DeploymentStatus.FAILED
+            status != DeploymentStatus.CANCELLED
         ) {
             revert DeploymentStateIsNotApprovable();
         }
@@ -584,9 +591,10 @@ contract SphinxManager is
                         emit CallExecuted(activeDeploymentId, callHash, action.index);
                         registry.announce("CallExecuted");
                     } else {
-                        // Call failed. We mark the deployment as failed and exit the function early
-                        _deploymentFailed(deployment, action.index);
-                        return;
+                        // External call failed. Could happen if insufficient gas is supplied
+                        // to this transaction or if the function has logic that causes the call to
+                        // fail.
+                        revert DeploymentFailed(action.index, activeDeploymentId);
                     }
                 }
             } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
@@ -632,10 +640,7 @@ contract SphinxManager is
                         // Contract deployment failed. Could happen if insufficient gas is supplied
                         // to this transaction or if the creation bytecode has logic that causes the
                         // call to fail (e.g. a constructor that reverts).
-                        _deploymentFailed(deployment, action.index);
-
-                        // Exit the function early.
-                        return;
+                        revert DeploymentFailed(action.index, activeDeploymentId);
                     }
                 }
             } else {
@@ -918,21 +923,6 @@ contract SphinxManager is
         registry.announce("SphinxDeploymentCompleted");
 
         activeDeploymentId = bytes32(0);
-    }
-
-    /**
-     * @notice Mark the deployment as failed and reset the active deployment ID.
-     *
-     * @param _deployment The current deployment state struct. The data location is "storage"
-     *                    because we modify the struct.
-     * @param _actionIndex Index of the action that caused the deployment to fail.
-     */
-    function _deploymentFailed(DeploymentState storage _deployment, uint256 _actionIndex) private {
-        emit DeploymentFailed(activeDeploymentId, _actionIndex);
-        registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
-
-        activeDeploymentId = bytes32(0);
-        _deployment.status = DeploymentStatus.FAILED;
     }
 
     /**

@@ -31,7 +31,7 @@ import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.3
+ * @custom:version 0.2.4
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
