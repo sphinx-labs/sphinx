@@ -231,7 +231,7 @@ const executeBatchActions = async (
           ]),
         })
 
-        const tx = (
+        const tx = await (
           await manager.executeInitialActions(
             batch.map((action) => action.action),
             batch.map((action) => action.siblings),
