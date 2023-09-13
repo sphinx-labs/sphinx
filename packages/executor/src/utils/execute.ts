@@ -370,7 +370,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const { success, receipts } = await executeDeployment(
       manager,
       bundles,
-      activeDeploymentId,
       humanReadableActions,
       blockGasLimit,
       rpcProvider,

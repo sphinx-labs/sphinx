@@ -354,7 +354,6 @@ export const proposeThenApproveDeploymentThenExecute = async (
     const { success } = await executeDeployment(
       manager,
       bundles,
-      deploymentId,
       humanReadableActions,
       blockGasLimit,
       provider,
