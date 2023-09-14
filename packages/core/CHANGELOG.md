@@ -1,5 +1,17 @@
 # @sphinx-labs/core
 
+## 0.17.0
+
+### Minor Changes
+
+- 275ca040: Remove silent failure on external call revert and/or contract deployment failure
+
+### Patch Changes
+
+- 767b7c0f: Cancel active deployments via proposals
+- Updated dependencies [275ca040]
+  - @sphinx-labs/contracts@0.12.0
+
 ## 0.16.4
 
 ### Patch Changes
