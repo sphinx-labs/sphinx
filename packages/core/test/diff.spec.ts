@@ -71,6 +71,7 @@ const originalParsedConfig: ParsedConfig = {
 const callHash = getCallHash(callAction.to, callAction.data)
 const originalConfigCache: ConfigCache = {
   isManagerDeployed: false,
+  isExecuting: false,
   chainId: 10,
   networkName: 'optimism',
   contractConfigCache: {
@@ -100,7 +101,7 @@ const originalConfigCache: ConfigCache = {
   managerVersion: {
     major: 0,
     minor: 2,
-    patch: 3,
+    patch: 4,
   },
   blockGasLimit: 0n,
   undeployedExternalContracts: [],

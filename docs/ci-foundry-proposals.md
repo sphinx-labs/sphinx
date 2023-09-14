@@ -81,6 +81,8 @@ jobs:
 ## 6. Create the propose workflow
 Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command allowing the proposal command to complete automatically.
 
+Copy and paste the following into your `sphinx.deploy.yml` file:
+
 ```
 name: Sphinx Propose
 env:

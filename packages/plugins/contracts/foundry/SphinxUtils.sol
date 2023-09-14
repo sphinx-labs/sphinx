@@ -442,6 +442,7 @@ contract SphinxUtils is
         string memory _mainFfiScriptPath
     ) external returns (ConfigCache memory) {
         bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
+        bool isExecuting = isManagerDeployed_ && _manager.isExecuting();
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             _minimalConfig.contracts.length
@@ -543,6 +544,7 @@ contract SphinxUtils is
         return
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
+                isExecuting: isExecuting,
                 managerVersion: managerVersion,
                 blockGasLimit: block.gaslimit,
                 chainId: block.chainid,

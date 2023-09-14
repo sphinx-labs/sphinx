@@ -37,9 +37,10 @@ import {
 import {
   deploy,
   emptyCanonicalConfigCallback,
+  execute,
   registerProject,
   revertSnapshots,
-  setupThenProposeThenApproveDeploymentThenExecute,
+  setupThenProposeThenApproveDeployment,
 } from './helpers'
 import { createSphinxRuntime } from '../src/cre'
 
@@ -1590,7 +1591,7 @@ describe('Post-Deployment Actions', () => {
         })
       })
 
-      it('Marks the deployment as failed if call action reverts on-chain', async () => {
+      it('Detects deployment failed if call action or contract deployment reverts', async () => {
         const network = 'goerli'
         const provider = rpcProviders[network]
         const ConfigContract1 = new Contract('{{ ConfigContract1 }}')
@@ -1605,17 +1606,9 @@ describe('Post-Deployment Actions', () => {
         )
 
         if (integration === 'hardhat') {
-          await expect(deployPromise).to.be.rejected
-
-          const SphinxManager = new ethers.Contract(
-            sphinxManagerAddress,
-            SphinxManagerABI,
-            provider
+          await expect(deployPromise).to.be.rejectedWith(
+            'Failed to execute PostDeploymentActions because the following post-deployment action reverted:\nConfigContract1.reverter()'
           )
-          const deploymentFailedEvents = await SphinxManager.queryFilter(
-            SphinxManager.filters.DeploymentFailed()
-          )
-          expect(deploymentFailedEvents.length).equals(1)
         } else if (integration === 'foundry') {
           // The transaction failure is caught in Foundry's simulation, so no transactions are
           // actually broadcasted.
@@ -1733,11 +1726,13 @@ describe('Post-Deployment Actions', () => {
     projectTestInfo.userConfig.options.proposers.push(deployerAddress)
     projectTestInfo.userConfig.options.testnets = initialTestnets
     process.env['PROPOSER_PRIVATE_KEY'] = deployerPrivateKey
-    await setupThenProposeThenApproveDeploymentThenExecute(
+    await setupThenProposeThenApproveDeployment(
       projectTestInfo,
       initialTestnets,
-      emptyCanonicalConfigCallback
+      emptyCanonicalConfigCallback,
+      'standard'
     )
+    await execute(projectTestInfo, initialTestnets)
 
     const configContractAddressInProposal = getTargetAddress(
       projectTestInfo.managerAddress,

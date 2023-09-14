@@ -279,7 +279,7 @@ interface UpgradeAuthImplementation extends BaseAuthLeaf {
   data: string
 }
 
-interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
+export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
   leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
   managerImpl: string
   managerInitCallData: string
@@ -298,9 +298,8 @@ export interface ApproveDeployment extends BaseAuthLeaf {
   approval: DeploymentApproval
 }
 
-interface CancelActiveDeployment extends BaseAuthLeaf {
+export interface CancelActiveDeployment extends BaseAuthLeaf {
   leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
-  projectName: string
 }
 
 interface Propose extends BaseAuthLeaf {
@@ -361,10 +360,16 @@ export type ProposalRequest = {
   }
 }
 
+/**
+ * @param name The name of the project.
+ * @param isExecuting Whether there's currently an active deployment in the SphinxManager on this
+ * chain.
+ */
 export type ProjectDeployment = {
   chainId: number
   deploymentId: string
-  name: string // project name
+  name: string
+  isExecuting: boolean
 }
 
 export type ProposalRequestLeaf = {

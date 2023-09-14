@@ -1340,9 +1340,8 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
-      managerVersion: 'v0.2.3',
+      managerVersion: 'v0.2.4',
     },
-    contracts: {},
     chainStates,
   }
 }
@@ -1391,7 +1390,6 @@ export const toCanonicalConfig = async (
     projectName,
     manager: managerAddress,
     options: parsedConfig.options,
-    contracts: parsedConfig.contracts,
     chainStates,
   }
 }

@@ -92,7 +92,8 @@ enum SphinxActionType {
                  executed.
  * @custom:value COMPLETED The deployment has been completed.
  * @custom:value CANCELLED The deployment has been cancelled.
- * @custom:value FAILED The deployment has failed.
+ * @custom:value FAILED The deployment has failed. This is deprecated as we no longer allow
+ *               deployments to silently fail.
  */
 enum DeploymentStatus {
     EMPTY,

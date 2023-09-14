@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import {
   BundledSphinxAction,
@@ -11,14 +12,14 @@ import {
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
+import { SphinxJsonRpcProvider } from '../provider'
 
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
-  deploymentId: string,
   humanReadableActions: HumanReadableActions,
   blockGasLimit: bigint,
-  provider: ethers.Provider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   logger?: Logger | undefined
 ): Promise<{
@@ -42,38 +43,20 @@ export const executeDeployment = async (
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
   logger?.info(`[Sphinx]: executing initial actions...`)
-  const { status, receipts } = await executeBatchActions(
+  const { status, receipts, failureAction } = await executeBatchActions(
     initialActionBundle,
     false,
     manager,
     maxGasLimit,
+    humanReadableActions,
     signer,
+    provider,
     logger
   )
+
   if (status === DeploymentStatus.FAILED) {
     logger?.error(`[Sphinx]: failed to execute initial actions`)
-
-    // fetch deployment action
-    const eventFilter = manager.filters.DeploymentFailed(deploymentId)
-    const latestBlock = await provider.getBlockNumber()
-    const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
-    const failureEvent = (
-      await manager.queryFilter(eventFilter, startingBlock, latestBlock)
-    ).at(-1)
-
-    if (failureEvent) {
-      const log = manager.interface.parseLog({
-        topics: failureEvent.topics as string[],
-        data: failureEvent.data,
-      })
-
-      if (log?.args[1] !== undefined) {
-        const failureAction = humanReadableActions[log?.args[1]]
-        return { success: false, receipts, failureAction }
-      }
-    }
-
-    return { success: false, receipts }
+    return { success: false, receipts, failureAction }
   } else if (status === DeploymentStatus.COMPLETED) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
     return { success: true, receipts }
@@ -99,7 +82,9 @@ export const executeDeployment = async (
     true,
     manager,
     maxGasLimit,
+    humanReadableActions,
     signer,
+    provider,
     logger
   )
   receipts.push(...setStorageReceipts)
@@ -172,11 +157,14 @@ const executeBatchActions = async (
   isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
+  humanReadableActions: HumanReadableActions,
   signer: ethers.Signer,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
   receipts: ethers.TransactionReceipt[]
+  failureAction?: HumanReadableAction
 }> => {
   const receipts: ethers.TransactionReceipt[] = []
 
@@ -231,33 +219,41 @@ const executeBatchActions = async (
       ).wait()
       receipts.push(tx)
     } else {
-      // Get the overrides for the `executeInitialActions` function. In addition to the default gas
-      // price overrides, we must also set the gas limit to the maximum gas limit. Keep reading if
-      // you're curious why we do this. First, it's important to know that if a deployment fails for
-      // any reason, the transaction succeeds regardless. In other words, the user's SphinxManager
-      // contract marks the deployment state as `FAILED` instead of reverting. We designed the
-      // system this way because, otherwise, reverting deployments would appear to be executable
-      // indefinitely (i.e. they'd always be in the `APPROVED` state on-chain). The downside to
-      // ensuring that the transaction succeeds is that this makes the default 'estimateGas' RPC
-      // method unusable. This is because 'estimateGas' tries to find the lowest amount of gas
-      // required to make the transaction succeed. This is problematic in the following situation.
-      // Say a deployment contains a single large contract that requires 3 million gas to deploy
-      // successfully. If less gas is provided, the contract deployment will run out of gas, causing
-      // the entire deployment to be marked as `FAILED`. In this case, the *transaction* will still
-      // succeed, which means the 'estimateGas' amount will attempt to use a gas amount less than 3
-      // million. To avoid this, we hard-code the gas limit to a high amount.
-      const overrides = await getGasPriceOverrides(signer, {
-        gasLimit: maxGasLimit,
-      })
+      try {
+        // Call estimateGas first to check if the transaction will fail.
+        // estimateGas provides more information on the failure, allowing us to decode the custom error.
+        await provider.estimateGas({
+          to: await manager.getAddress(),
+          from: await signer.getAddress(),
+          data: manager.interface.encodeFunctionData('executeInitialActions', [
+            batch.map((action) => action.action),
+            batch.map((action) => action.siblings),
+          ]),
+        })
 
-      const tx = await (
-        await manager.executeInitialActions(
-          batch.map((action) => action.action),
-          batch.map((action) => action.siblings),
-          overrides
-        )
-      ).wait()
-      receipts.push(tx)
+        const tx = await (
+          await manager.executeInitialActions(
+            batch.map((action) => action.action),
+            batch.map((action) => action.siblings),
+            await getGasPriceOverrides(signer)
+          )
+        ).wait()
+        receipts.push(tx)
+      } catch (e) {
+        // If the deployment failed due to a constructor or call reverting, handle gracefully.
+        const revertData = e.data
+        const decodedError = manager.interface.parseError(revertData)
+        if (decodedError?.name === 'DeploymentFailed') {
+          logger?.error(`[Sphinx]: failed to execute initial actions`)
+          if (decodedError?.args[0] !== undefined) {
+            const failureAction = humanReadableActions[decodedError.args[0]]
+            return { status: DeploymentStatus.FAILED, receipts, failureAction }
+          }
+        } else {
+          // Otherwise, rethrow the error
+          throw e
+        }
+      }
     }
 
     // Return early if the deployment failed.

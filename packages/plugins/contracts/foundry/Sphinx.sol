@@ -413,7 +413,7 @@ abstract contract Sphinx {
         bool isSetStorageActionArray,
         ISphinxManager manager,
         uint bufferedGasLimit
-    ) private returns (DeploymentStatus) {
+    ) private returns (DeploymentStatus, uint) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
         DeploymentState memory state = manager.deployments(activeDeploymentId);
@@ -425,7 +425,7 @@ abstract contract Sphinx {
 
         // We can return early if there are no actions to execute.
         if (filteredActions.length == 0) {
-            return state.status;
+            return (state.status, 0);
         }
 
         uint executed = 0;
@@ -448,13 +448,30 @@ abstract contract Sphinx {
                 manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
             } else {
                 vm.recordLogs();
-                manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
+                // manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
+                (bool success, bytes memory result) = address(manager).call{
+                    gas: bufferedGasLimit
+                }(
+                    abi.encodeWithSignature(
+                        "executeInitialActions((uint8,uint256,bytes)[],bytes32[][])",
+                        rawActions,
+                        _proofs
+                    )
+                );
+                if (!success) {
+                    uint256 failureIndex;
+                    assembly {
+                        failureIndex := mload(add(result, 0x24))
+                    }
+
+                    return (DeploymentStatus.FAILED, failureIndex);
+                }
             }
 
             // Return early if the deployment failed.
             state = manager.deployments(activeDeploymentId);
             if (state.status == DeploymentStatus.FAILED) {
-                return state.status;
+                return (state.status, 0);
             }
 
             // Move to next batch if necessary
@@ -462,7 +479,7 @@ abstract contract Sphinx {
         }
 
         // Return the final deployment status
-        return state.status;
+        return (state.status, 0);
     }
 
     function executeDeployment(
@@ -479,28 +496,13 @@ abstract contract Sphinx {
 
         uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
         // Execute all the deploy contract actions and exit early if the deployment failed
-        DeploymentStatus status = executeBatchActions(
+        (DeploymentStatus status, uint failedActionIndex) = executeBatchActions(
             initialActions,
             false,
             manager,
             bufferedGasLimit
         );
         if (status == DeploymentStatus.FAILED) {
-            // Get logs
-            Vm.Log[] memory entries = vm.getRecordedLogs();
-
-            // Find the failure event
-            Vm.Log memory failedEvent;
-            for (uint8 i = 0; i < entries.length; i++) {
-                if (entries[i].topics[0] == keccak256("DeploymentFailed(bytes32,uint256)")) {
-                    failedEvent = entries[i];
-                    break;
-                }
-            }
-
-            // Decode the action index that caused the failure
-            uint failedActionIndex = abi.decode(failedEvent.data, (uint));
-
             // Return with the relevant human readable action
             return (false, bundleInfo.humanReadableActions[failedActionIndex]);
         } else if (status == DeploymentStatus.COMPLETED) {

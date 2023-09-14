@@ -51,6 +51,8 @@ import {
   CallAction,
   HumanReadableActions,
   AuthLeafFunctions,
+  UpgradeAuthAndManagerImpl,
+  CancelActiveDeployment,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getProjectBundleInfo } from '../tasks'
@@ -329,7 +331,8 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
       )
 
     case AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT:
-      return coder.encode(['string'], [leaf.projectName])
+      // There isn't any data for this leaf type, so we don't encode anything.
+      return coder.encode([], [])
 
     /****************************** PROPOSER ACTIONS ******************************/
 
@@ -820,13 +823,26 @@ export const getAuthLeafsForChain = async (
   // because the first two indexes are reserved for the setup and proposal leafs.
   let index = firstProposalOccurred ? 1 : 2
 
+  // If a previous deployment is currently executing, we cancel it. The user may need to cancel the
+  // previous deployment if one of their actions reverted during the execution process.
+  if (configCache.isExecuting) {
+    const cancelDeploymentLeaf: CancelActiveDeployment = {
+      chainId,
+      to: manager,
+      index,
+      leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
+    }
+    index += 1
+    leafs.push(cancelDeploymentLeaf)
+  }
+
   const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
   if (
     managerVersionString !== parsedConfig.options.managerVersion &&
     !configCache.isManagerDeployed
   ) {
     const version = parseSemverVersion(parsedConfig.options.managerVersion)
-    const upgradeLeaf: AuthLeaf = {
+    const upgradeLeaf: UpgradeAuthAndManagerImpl = {
       chainId,
       to: manager,
       index,
@@ -937,33 +953,13 @@ export const findBundledLeaf = (
   return leaf
 }
 
-/**
- * @notice Gets the proposal request leaf for a given chain-specific index and chain ID.
- *
- * @param proposalRequestLeafs List of ProposalRequest leafs.
- * @param index Index of the leaf on the specified chain.
- * @param chainId Chain ID of the leaf.
- */
-export const findProposalRequestLeaf = (
-  proposalRequestLeafs: Array<ProposalRequestLeaf>,
-  index: number,
-  chainId: number
-): ProposalRequestLeaf => {
-  const leaf = proposalRequestLeafs.find(
-    (l) => l.index === index && l.chainId === chainId
-  )
-  if (!leaf) {
-    throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
-  }
-  return leaf
-}
-
 export const getProjectDeploymentForChain = async (
   leafs: Array<AuthLeaf>,
   chainId: number,
   projectName: string,
   configUri: string,
-  bundles: SphinxBundles
+  bundles: SphinxBundles,
+  isExecuting: boolean
 ): Promise<ProjectDeployment | undefined> => {
   const approvalLeafs = leafs
     .filter(isApproveDeploymentAuthLeaf)
@@ -983,6 +979,7 @@ export const getProjectDeploymentForChain = async (
     chainId,
     deploymentId,
     name: projectName,
+    isExecuting,
   }
 }
 

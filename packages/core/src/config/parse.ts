@@ -2941,7 +2941,18 @@ export const getConfigCache = async (
     await provider.getNetwork(),
     networkType
   )
-  const isManagerDeployed_ = await registry.isManagerDeployed(managerAddress)
+  const isManagerDeployed_: boolean = await registry.isManagerDeployed(
+    managerAddress
+  )
+
+  const SphinxManager = new ethers.Contract(
+    managerAddress,
+    SphinxManagerABI,
+    provider
+  )
+
+  const isExecuting =
+    isManagerDeployed_ && (await SphinxManager.isExecuting()) === true
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
@@ -3072,12 +3083,6 @@ export const getConfigCache = async (
     }
   }
 
-  const SphinxManager = new ethers.Contract(
-    managerAddress,
-    SphinxManagerABI,
-    provider
-  )
-
   const managerVersion: SemverVersion = isManagerDeployed_
     ? await SphinxManager.version()
     : CURRENT_SPHINX_MANAGER_VERSION
@@ -3098,6 +3103,7 @@ export const getConfigCache = async (
 
   return {
     isManagerDeployed: isManagerDeployed_,
+    isExecuting,
     managerVersion,
     chainId,
     networkType,

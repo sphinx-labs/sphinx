@@ -69,6 +69,7 @@ struct FoundryContractConfig {
 
 struct ConfigCache {
     bool isManagerDeployed;
+    bool isExecuting;
     Version managerVersion;
     uint256 blockGasLimit;
     uint256 chainId;
