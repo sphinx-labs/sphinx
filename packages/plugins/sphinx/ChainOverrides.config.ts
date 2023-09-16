@@ -2,7 +2,7 @@ import { UserConfig } from '@sphinx-labs/core'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import { ethers } from 'ethers'
 
-import { immutableConstructorArgsTwo, TestEnum } from '../test/constants'
+import { immutableConstructorArgsTwo, TestEnum } from '../test-folder/constants'
 
 export const networks = [
   'anvil',

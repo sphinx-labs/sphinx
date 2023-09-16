@@ -1,14 +1,15 @@
 [profile.default]
-src = 'contracts'
+src = 'contracts/test'
 out = 'out/artifacts'
 build_info_path = 'out/artifacts/build-info'
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
+via_ir = false
 
 ffi = true
 libs = ['node_modules']
-test = 'test/foundry'
+test = 'test-folder/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]

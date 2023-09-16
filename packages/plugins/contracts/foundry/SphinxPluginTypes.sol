@@ -147,19 +147,39 @@ struct OptionalBytes32 {
     bool exists;
 }
 
-
 struct SphinxConfig {
     string projectName;
-	address[] owners;
-	address[] proposers;
-	Network[] mainnets;
-	Network[] testnets;
-	uint256 threshold;
-	Version managerVersion;
+    address[] owners;
+    address[] proposers;
+    Network[] mainnets;
+    Network[] testnets;
+    uint256 threshold;
+    Version managerVersion;
 }
 
 enum Network {
-    goerli,
+    ethereum,
+    ethereum_goerli,
+    optimism,
+    optimism_goerli,
+    arbitrum,
+    arbitrum_goerli,
+    polygon,
+    polygon_mumbai,
+    bsc,
+    bsc_testnet,
+    gnosis,
+    gnosis_chiado,
+    base,
+    base_goerli,
+    linea,
+    linea_goerli,
+    avalanche,
+    avalanche_fuji,
+    fantom,
+    fantom_testnet,
+    polygon_zkevm,
+    polygon_zkevm_goerli,
     anvil
 }
 

@@ -4,6 +4,10 @@ pragma solidity ^0.8.9;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
+struct TopLevelStruct {
+    int a;
+}
+
 contract MyContract1 {
     int public intArg;
     int public secondIntArg;
@@ -55,6 +59,10 @@ contract MyContract1 {
         intArg = _myStruct.a;
         secondIntArg = _myStruct.b;
         addressArg = _myStruct.c.d;
+    }
+
+    function myPure() external pure returns (MyStruct memory) {
+        return MyStruct({ a: 1, b: 2, c: MyNestedStruct({ d: address(1) }) });
     }
 
     function reverter() external pure {

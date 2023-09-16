@@ -11,10 +11,10 @@ contract SimpleStorage {
     Stateless public immutable immutableStatelessReference;
 
     constructor(
-        Storage _immutableContractReference,
+        Storage[] memory _immutableContractReference,
         Stateless _statelessImmutableContractReference
     ) {
-        immutableContractReference = _immutableContractReference;
+        immutableContractReference = _immutableContractReference[0];
         immutableStatelessReference = _statelessImmutableContractReference;
     }
 
