@@ -308,6 +308,7 @@ export const getParsedConfig = async (
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
+  // TODO: start
   if (!userConfig.projectName) {
     logValidationError(
       'error',
@@ -317,6 +318,7 @@ export const getParsedConfig = async (
       cre.stream
     )
   }
+  // TODO: end
 
   if (userConfig.options) {
     logValidationError(
@@ -2763,17 +2765,23 @@ export const postParsingValidation = async (
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
+  // TODO: start
   assertValidBlockGasLimit(blockGasLimit)
+  // TODO: end
 
+  // TODO: start (it'd be nice to sanity check that the provided `Network` matches the chain ID returned by an RPC call)
   assertSupportedChainId(chainId, cre)
+  // TODO: end
 
   assertExternalContractsAreDeployed(configCache, cre)
 
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
+  // TODO: start (i think ryan may have mentioned this)
   if (!cre.allowUnlimitedContractSize) {
     assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
   }
+  // TODO: end
 
   assertValidDeploymentSize(contracts, cre, configCache)
 
@@ -3222,6 +3230,7 @@ export const assertValidConfigOptions = (
     managerVersion,
   } = options
 
+  // TODO(start)
   if (
     !VALID_MANAGER_VERSIONS.includes(managerVersion) &&
     !(
@@ -3237,7 +3246,9 @@ export const assertValidConfigOptions = (
       cre.stream
     )
   }
+  // TODO(end)
 
+  // TODO(start): proposal only
   if (orgId === '') {
     logValidationError(
       'error',
@@ -3247,7 +3258,13 @@ export const assertValidConfigOptions = (
       cre.stream
     )
   }
+  // TODO: end
 
+  // TODO(parse): if the user is using the local deploy function, the owner array must be length 1.
+  // TODO(test): what happens if you use the deploy task on a live network with an incorrect owner?
+  // obviously it'll fail, but how does the error message look?
+
+  // TODO: start
   if (ownerThreshold === 0) {
     logValidationError(
       'error',
@@ -3308,6 +3325,7 @@ export const assertValidConfigOptions = (
       cre.stream
     )
   }
+  // TODO(end)
 
   const invalidOwnerAddresses = owners.filter(
     (address) => !ethers.isAddress(address)
@@ -3315,12 +3333,14 @@ export const assertValidConfigOptions = (
   const invalidProposerAddresses = proposers.filter(
     (address) => !ethers.isAddress(address)
   )
+  // TODO(start)
   const invalidMainnets = mainnets.filter(
     (network) => !SUPPORTED_MAINNETS[network]
   )
   const invalidTestnets = testnets.filter(
     (testnet) => !SUPPORTED_TESTNETS[testnet]
   )
+  // TODO(end)
   if (invalidOwnerAddresses.length > 0) {
     logValidationError(
       'error',
@@ -3362,6 +3382,7 @@ export const assertValidConfigOptions = (
     )
   }
 
+  // TODO(start): proposal only
   if (proposers.length === 0) {
     logValidationError(
       'error',
@@ -3371,7 +3392,9 @@ export const assertValidConfigOptions = (
       cre.stream
     )
   }
+  // TODO(end)
 
+  // TODO(start): propose only
   if (mainnets.length === 0 && testnets.length === 0) {
     logValidationError(
       'error',
@@ -3381,6 +3404,7 @@ export const assertValidConfigOptions = (
       cre.stream
     )
   }
+  // TODO(end)
 
   assertNoValidationErrors(failureAction)
 }
@@ -3389,8 +3413,13 @@ export const parseConfigOptions = (
   options: UserConfigOptions,
   isTestnet: boolean
 ): ParsedConfigOptions => {
+  // TODO: left off here. already did `getParsedConfig`. stopped here b/c it's unclear what the
+  // proposal task needs. i figured it'd be more clear after implementing the live network deploy
+  // task.
+
   const { mainnets, testnets, orgId, ownerThreshold, managerVersion } = options
 
+  // TODO(start): proposal only?
   const chainIds = isTestnet
     ? testnets.map((network) => SUPPORTED_TESTNETS[network])
     : mainnets.map((network) => SUPPORTED_MAINNETS[network])
@@ -3695,6 +3724,7 @@ export const assertValidPostDeploymentActions = (
       )
     }
 
+    // TODO: start
     const duplicatedNetworks = getDuplicateElements(
       allNetworkNamesForAddressOverrides
     )
@@ -3710,6 +3740,7 @@ export const assertValidPostDeploymentActions = (
         cre.stream
       )
     }
+    // TODO: end
 
     // Get a list of invalid overriding addresses. We know that these aren't contract references
     // because we check for invalid contract references earlier in the parsing logic.

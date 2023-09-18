@@ -16,6 +16,7 @@ import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
+  AUTH_PROXY_INIT_CODE_HASH,
   getSphinxConstants,
   AUTH_FACTORY_ADDRESS,
   remove0x,
@@ -43,6 +44,10 @@ const writeConstants = async () => {
     managerProxyInitCodeHash: {
       type: 'bytes32',
       value: getManagerProxyInitCodeHash(),
+    },
+    authProxyInitCodeHash: {
+      type: 'bytes32',
+      value: AUTH_PROXY_INIT_CODE_HASH,
     },
     major: {
       type: 'uint256',
@@ -96,7 +101,7 @@ const writeConstants = async () => {
       type: 'address',
       value: DEFAULT_ADAPTER_ADDRESS,
     },
-    factoryAddress: {
+    authFactoryAddress: {
       type: 'address',
       value: AUTH_FACTORY_ADDRESS,
     },

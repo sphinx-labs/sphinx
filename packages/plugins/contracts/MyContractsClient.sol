@@ -1,44 +1,67 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-contract MyContract1Client {
-    event SphinxFunctionCall(string fullyQualifiedName, address to, bytes4 selector, bytes data);
+import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+import { Proxy } from "@openzeppelin/contracts/proxy/Proxy.sol";
+import { SphinxAction } from "./foundry/SphinxPluginTypes.sol";
+import { Sphinx } from "./foundry/Sphinx.sol";
+import { AbstractSphinxClient } from "./AbstractSphinxClient.sol";
 
-    address public immutable sphinxManager;
-    address public immutable sphinxClient;
-    address public immutable impl;
-    constructor(address _sphinxManager, address _sphinxClient, address _impl) {
+contract MyContract1Client is AbstractSphinxClient {
+    address private immutable sphinxManager;
+    Sphinx private immutable sphinx;
+    address private immutable impl;
+    constructor(address _sphinxManager, address _sphinx, address _impl) {
         sphinxManager = _sphinxManager;
-        sphinxClient = _sphinxClient;
+        sphinx = Sphinx(_sphinx);
         impl = _impl;
     }
 
     function incrementUint() external {
-        require(msg.sender == sphinxManager, "TODO: the user probably did vm.prank/startPrank with another address");
+        if (msg.sender != sphinxManager) {
+            _delegate(impl);
+        }
 
-        bytes memory encodedCall = abi.encodePacked(MyContract1Client.incrementUint.selector), abi.encode();
+        bytes memory functionArgs = abi.encode();
+
+        bytes memory encodedCall = abi.encodePacked(MyContract1Client.incrementUint.selector, functionArgs);
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
-        uint256 currentNonce = sphinxManager.callNonces(callHash);
+        uint256 currentNonce = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
 
-        sphinxClient.incrementCallCount(callHash);
-
-        if (sphinxClient.callCount(callHash) >= currentNonce) {
-            emit SphinxFunctionCall(
-                "contracts/test/MyContracts.sol:MyContract1",
-                address(this),
-                MyContract1Client.incrementUint.selector,
-                abi.encode();
-            );
-
+        if (sphinx.callCount(callHash) >= currentNonce) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
+                // FYI, any function args will need to go here: vv  e.g. (2, 3, 4)
                 abi.encodeCall(MyContract1Client.incrementUint, ())
             );
-            // TODO: replace this with the assembly error message decoder snippet
-            require(sphinxCallSuccess, string(sphinxReturnData));
+            if (!sphinxCallSuccess) {
+                if (sphinxReturnData.length == 0) revert();
+                assembly {
+                    revert(add(32, sphinxReturnData), mload(sphinxReturnData))
+                }
+            }
 
-            // TODO: if this function returns data, we'd need to decode the sphinxReturnData and
-            // return it.
+            bytes memory actionData = abi.encode(address(this), MyContract1Client.incrementUint.selector, functionArgs);
+            sphinx.addSphinxAction(SphinxAction({
+                fullyQualifiedName: "MyContracts.sol:MyContract1",
+                actionType: SphinxActionType.CALL,
+                data: actionData
+            }));
         }
+
+        sphinx.incrementCallCount(callHash);
+    }
+
+    // TODO(ryan): I think we need to implement a fallback function in every client contract, even
+    // if the user's contract doesn't implement one. We need this in case the user calls a view
+    // function on this contract from within a different contract's constructor or function call.
+    // Without this fallback, those calls would error.
+    // This is what the fallback function should look like if the user's contract doesn't implement
+    // its own fallback function. If the user's contract does implement its own fallback function,
+    // I think we should implement this the same way as any other external function call.
+    fallback() external override {
+        require(msg.sender != sphinxManager, "User attempted to call a non-existent function.");
+        _delegate(impl);
     }
 }
 

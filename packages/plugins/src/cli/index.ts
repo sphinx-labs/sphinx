@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
 import { join } from 'path'
-import { spawnSync } from 'child_process'
+import { exec, spawnSync } from 'child_process'
 
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { execAsync } from '@sphinx-labs/core/dist/utils'
+import { execAsync, isContractDeployed } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
-import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
+import {
+  getSphinxManagerAddress,
+  getSphinxRegistryAddress,
+} from '@sphinx-labs/core/dist/addresses'
 import { Wallet } from 'ethers'
 import {
   getDiff,
@@ -361,12 +364,14 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
+      // TODO: require an rpc url if you don't already do that
+
       const broadcast = argv[broadcastOption] ?? false
       const privateKey = argv[privateKeyOption] ?? ''
       const rpcUrl = argv[rpcOption] ?? 'http://127.0.0.1:8545'
 
-      // First, we compile the contracts to make sure we're using the latest versions. This command
-      // displays the compilation process to the user in real time.
+      // First, we compile the contracts to make sure we're using the latest artifacts, which we'll
+      // need for the diff. This command displays the compilation process to the user in real time.
       const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
       // Exit the process if compilation fails.
       if (status !== 0) {
@@ -400,7 +405,10 @@ yargs(hideBin(process.argv))
         const provider = new SphinxJsonRpcProvider(rpcUrl)
         const owner = new Wallet(privateKey, provider)
 
-        await ensureSphinxInitialized(provider, owner)
+        if (!(await isContractDeployed(getSphinxRegistryAddress(), provider))) {
+          spinner.fail('TODO')
+          process.exit(1)
+        }
 
         // Get the user config by invoking a script with TS node. This is necessary to support
         // TypeScript configs because the current context is invoked with Node, not TS Node.
@@ -428,6 +436,38 @@ yargs(hideBin(process.argv))
           process.stderr
         )
 
+        // TODO(docs): FOUNDRY_SENDER takes priority over DAPP_SENDER env var and --sender.
+        // This ensures that the user's script is deployed at a consistent address.
+
+        // A function that gets a random integer between min and max, inclusive.
+        // TODO: mv
+        // const getRandomInt = (min: number, max: number) =>
+        //   Math.floor(Math.random() * (max - min + 1)) + min
+
+        // const getAvailablePort = () => {
+        //   let attempts: number = 0
+        //   while (attempts < 100) {
+        //     const port = getRandomInt(42000, 42999)
+        //     try {
+        //       exec(`anvil --port ${port}`)
+        //       return port
+        //     } catch {
+        //       attempts += 1
+        //     }
+        //   }
+        //   throw new Error('Could not find available port')
+        // }
+
+        // const anvilPort = getAvailablePort()
+
+        // // TODO: FOUNDRY_SENDER=...
+        // const DEFAULT_FORGE_SENDER = '0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38'
+        // // TODO(docs): we need to do this to ensure
+        // try {
+        //   exec(`FOUNDRY_SENDER=${DEFAULT_FORGE_SENDER} DAPP_SENDER=${DEFAULT_FORGE_SENDER} anvil --port ${anvilPort}`)
+        // }
+
+
         const { parsedConfig, configCache } = await getParsedConfig(
           userConfig,
           provider,
@@ -435,6 +475,8 @@ yargs(hideBin(process.argv))
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
           owner.address
         )
+
+        // TODO: close port
 
         const diff = getDiff(parsedConfig, [configCache])
         const diffString = getDiffString(diff)

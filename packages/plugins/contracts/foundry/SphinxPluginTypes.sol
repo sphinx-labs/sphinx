@@ -146,3 +146,31 @@ struct OptionalBytes32 {
     bytes32 value;
     bool exists;
 }
+
+
+struct SphinxConfig {
+    string projectName;
+	address[] owners;
+	address[] proposers;
+	Network[] mainnets;
+	Network[] testnets;
+	uint256 threshold;
+	Version managerVersion;
+}
+
+enum Network {
+    goerli,
+    anvil
+}
+
+struct DeployOptions {
+    bytes32 salt;
+    string referenceName;
+}
+
+// TODO: are any of these fields unnecessary?
+struct SphinxAction {
+    string fullyQualifiedName;
+    SphinxActionType actionType;
+    bytes data;
+}

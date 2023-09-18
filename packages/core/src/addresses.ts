@@ -319,6 +319,17 @@ export const getManagerProxyInitCodeHash = (): string => {
   )
 }
 
+export const AUTH_PROXY_INIT_CODE_HASH = solidityPackedKeccak256(
+  ['bytes', 'bytes'],
+  [
+    AuthProxyArtifact.bytecode,
+    AbiCoder.defaultAbiCoder().encode(
+      ['address', 'address'],
+      [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
+    ),
+  ]
+)
+
 export const getBalanceFactoryAddress = (chainId: number): string => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,

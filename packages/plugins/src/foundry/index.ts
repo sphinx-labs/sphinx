@@ -33,6 +33,7 @@ const command = args[0]
       process.stdout.write(encodedConfigUri)
       break
     }
+    // TODO: rm
     case 'deployOnAnvil': {
       const rpcUrl = args[1]
       const provider = new SphinxJsonRpcProvider(rpcUrl)

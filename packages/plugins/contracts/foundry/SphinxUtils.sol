@@ -86,7 +86,7 @@ contract SphinxUtils is
 
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
-        SphinxAuthFactory factory = SphinxAuthFactory(factoryAddress);
+        SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
         if (address(registry).code.length > 0) {
             return;
         } else {
@@ -434,6 +434,9 @@ contract SphinxUtils is
         return (numInitialActions, numSetStorageActions);
     }
 
+    // TODO: in the new propose function, do a local simulation before proposing. you may need to invoke a forge script to do this.
+
+    // TODO: you can probably remove some stuff from the config cache, like isTargetDeployed
     function getConfigCache(
         FoundryConfig memory _minimalConfig,
         ISphinxRegistry _registry,

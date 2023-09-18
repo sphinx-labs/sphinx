@@ -2,6 +2,7 @@ import {
   ZeroHash,
   concat,
   dataSlice,
+  ethers,
   getAddress,
   getCreate2Address,
   keccak256,
@@ -67,15 +68,20 @@ export const getCreate3Address = (
   return getAddress(last20Bytes)
 }
 
+// TODO: change the UserSalt type from optional to required, and make it a string type. also c/f
+//  solidityPacked to ensure you're using it properly in the codebase. (you weren't here).
+
 export const getTargetSalt = (
   referenceName: string,
   userSalt?: UserSalt
 ): string => {
   const userSaltHash = getUserSaltHash(userSalt)
 
-  return solidityPackedKeccak256(
-    ['string', 'bytes32'],
-    [referenceName, userSaltHash]
+  return ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ['string', 'bytes32'],
+      [referenceName, userSaltHash]
+    )
   )
 }
 

@@ -9,6 +9,7 @@ struct SphinxContractInfo {
 contract SphinxConstants {
   address public constant registryAddress = 0x1132793DCc6AF3827CcB92FE9699Bc1C62Ba3eE2;
   bytes32 public constant managerProxyInitCodeHash = 0xf18043c97496ab19d42236a0185b7fb8b1910f284d850cd527d2b11f615eadcc;
+  bytes32 public constant authProxyInitCodeHash = 0xb23a03034b9652899ee22ab300524310176a1da65f3c491ad49a22576f4bf652;
   uint256 public constant major = 0;
   uint256 public constant minor = 2;
   uint256 public constant patch = 4;
@@ -22,7 +23,7 @@ contract SphinxConstants {
   address public constant ozUUPSOwnableAdapterAddr = 0x80F33f57348e892fcbf7Df0Bc1e6B7Dac3fA2a23;
   address public constant ozUUPSAccessControlAdapterAddr = 0x3E95A9D41413f3CF06DeFC51Eed59f3f488f3251;
   address public constant defaultAdapterAddr = 0xbee0057e5B4c89B80013ECA818E5A8dBF0A131D3;
-  address public constant factoryAddress = 0x7AB6e96AC770025c33033dA05631B1D6EdC2Ee85;
+  address public constant authFactoryAddress = 0x7AB6e96AC770025c33033dA05631B1D6EdC2Ee85;
   address public constant authImplV1Address = 0xdE5A8B447f8e441335d976e5EB7bEBf698ffc083;
 
   function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {
