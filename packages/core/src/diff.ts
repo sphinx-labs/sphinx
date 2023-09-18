@@ -149,6 +149,8 @@ export const getDiff = (
     )) {
       const constructorArgs = contractConfig.constructorArgs[chainId] ?? {}
 
+      // TODO: referenceNameOrAddress -> referenceName b/c externl contracts need a client, which means
+      // they'll have a referenceName
       const constructorSignature: SphinxFunctionSignature = {
         referenceNameOrAddress: referenceName,
         functionName: 'constructor',

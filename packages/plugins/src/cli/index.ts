@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { exec, spawnSync } from 'child_process'
 
 import * as dotenv from 'dotenv'
@@ -14,7 +14,7 @@ import {
   getSphinxManagerAddress,
   getSphinxRegistryAddress,
 } from '@sphinx-labs/core/dist/addresses'
-import { Wallet } from 'ethers'
+import { Contract, Wallet } from 'ethers'
 import {
   getDiff,
   getDiffString,
@@ -24,6 +24,7 @@ import {
   ensureSphinxInitialized,
   proposeAbstractTask,
   UserConfigWithOptions,
+  SphinxFoundryAction,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -405,25 +406,22 @@ yargs(hideBin(process.argv))
         const provider = new SphinxJsonRpcProvider(rpcUrl)
         const owner = new Wallet(privateKey, provider)
 
-        if (!(await isContractDeployed(getSphinxRegistryAddress(), provider))) {
-          spinner.fail('TODO')
-          process.exit(1)
-        }
+        await ensureSphinxInitialized(provider, owner)
 
         // Get the user config by invoking a script with TS node. This is necessary to support
         // TypeScript configs because the current context is invoked with Node, not TS Node.
-        let userConfig: UserConfig
-        try {
-          // Using --swc speeds up the execution of the script.
-          const { stdout } = await execAsync(
-            `npx ts-node --swc ${userConfigScriptPath} ${config}`
-          )
-          userConfig = JSON.parse(stdout)
-        } catch ({ stderr }) {
-          spinner.stop()
-          console.error(stderr)
-          process.exit(1)
-        }
+        const userConfig: any = {}
+        // try {
+        //   // Using --swc speeds up the execution of the script.
+        //   const { stdout } = await execAsync(
+        //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
+        //   )
+        //   userConfig = JSON.parse(stdout)
+        // } catch ({ stderr }) {
+        //   spinner.stop()
+        //   console.error(stderr)
+        //   process.exit(1)
+        // }
 
         const cre = createSphinxRuntime(
           'foundry',
@@ -439,34 +437,71 @@ yargs(hideBin(process.argv))
         // TODO(docs): FOUNDRY_SENDER takes priority over DAPP_SENDER env var and --sender.
         // This ensures that the user's script is deployed at a consistent address.
 
+        // TODO(refactor): you should probably run the simulation against the live network
+        // logic just to be safe and ensure that it operates correctly.
+
         // A function that gets a random integer between min and max, inclusive.
         // TODO: mv
-        // const getRandomInt = (min: number, max: number) =>
-        //   Math.floor(Math.random() * (max - min + 1)) + min
+        const getRandomInt = (min: number, max: number) =>
+          Math.floor(Math.random() * (max - min + 1)) + min
 
-        // const getAvailablePort = () => {
-        //   let attempts: number = 0
-        //   while (attempts < 100) {
-        //     const port = getRandomInt(42000, 42999)
-        //     try {
-        //       exec(`anvil --port ${port}`)
-        //       return port
-        //     } catch {
-        //       attempts += 1
-        //     }
-        //   }
-        //   throw new Error('Could not find available port')
-        // }
+        const getAvailablePort = async () => {
+          let attempts: number = 0
+          while (attempts < 100) {
+            const port = getRandomInt(42000, 42999)
+            try {
+              exec(`anvil --port ${port}`)
+              const { stdout: pid } = await execAsync(`lsof -t -i:${port}`)
+              exec(`kill ${pid}`)
+              return port
+            } catch {
+              attempts += 1
+            }
+          }
+          throw new Error('Could not find available port')
+        }
 
-        // const anvilPort = getAvailablePort()
+        const rootImportPath =
+          process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
+        const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-        // // TODO: FOUNDRY_SENDER=...
-        // const DEFAULT_FORGE_SENDER = '0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38'
-        // // TODO(docs): we need to do this to ensure
-        // try {
-        //   exec(`FOUNDRY_SENDER=${DEFAULT_FORGE_SENDER} DAPP_SENDER=${DEFAULT_FORGE_SENDER} anvil --port ${anvilPort}`)
-        // }
+        const SphinxActionsABI =
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require(resolve(
+            `${utilsArtifactFolder}/SphinxActions.sol/SphinxActions.json`
+          )).abi
 
+        // TODO(docs): address(uint160(uint256(keccak256('sphinx.actions')) - 1))
+        const sphinxActionsAddress =
+          '0x56ab627a05e305e206291ee8d40621af4fc22f15'
+        const SphinxActions = new Contract(
+          sphinxActionsAddress,
+          SphinxActionsABI,
+          provider
+        )
+
+        const anvilPort = await getAvailablePort()
+        // TODO: execAsync froze so i'm using exec, although this may not work when forking live networks,
+        // since there may be startup time.
+        exec(`anvil --port ${anvilPort} --fork-url ${rpcUrl} --silent &`)
+
+        await execAsync(`forge script ${config} --fork-url ${rpcUrl}`)
+
+        // TODO: kill port, even if something fails during the process
+
+        // TODO: you should probably make sure that the user only calls `deploy` once
+        // in their script. e.g. we may execute incorrect actions if the user does
+        // something like `deploy(goerli); deploy(optimism-goerli)`.
+
+        if ((await provider.getCode(sphinxActionsAddress)) === '0x') {
+          throw new Error(
+            `TODO: the user didn't include 'vm.startBroadcast' in their script.`
+          )
+        }
+
+        const actions: Array<SphinxFoundryAction> =
+          await SphinxActions.getAllActions()
+        actions
 
         const { parsedConfig, configCache } = await getParsedConfig(
           userConfig,
@@ -485,6 +520,7 @@ yargs(hideBin(process.argv))
         await userConfirmation(diffString)
       }
 
+      // TODO: which of these can we remove? i think possibly broadcast and private key
       process.env['SPHINX_INTERNAL_CONFIG_PATH'] = config
       process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
       process.env['SPHINX_INTERNAL_BROADCAST'] = broadcast.toString()
@@ -506,21 +542,21 @@ yargs(hideBin(process.argv))
       }
 
       // Run the deployment script.
-      let isEmptyDeployment: boolean = false
+      // let isEmptyDeployment: boolean = false
       try {
         spinner.start(`Deploying project...`)
-        const { stdout } = await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
+        // const { stdout } = await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
 
-        if (
-          stdout.includes(
-            'Nothing to execute in this deployment. Exiting early.'
-          )
-        ) {
-          isEmptyDeployment = true
-        }
+        // if (
+        //   stdout.includes(
+        //     'Nothing to execute in this deployment. Exiting early.'
+        //   )
+        // ) {
+        //   isEmptyDeployment = true
+        // }
 
-        spinner.stop()
-        console.log(stdout)
+        // spinner.stop()
+        // console.log(stdout)
       } catch ({ stderr }) {
         spinner.stop()
         // Strip \n from the end of the error message, if it exists
@@ -532,27 +568,27 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      if (broadcast && !isEmptyDeployment) {
-        spinner.start(`Writing deployment artifacts...`)
-        const provider = new SphinxJsonRpcProvider(rpcUrl)
-        const owner = new Wallet(privateKey, provider)
+      // if (broadcast && !isEmptyDeployment) {
+      //   spinner.start(`Writing deployment artifacts...`)
+      //   const provider = new SphinxJsonRpcProvider(rpcUrl)
+      //   const owner = new Wallet(privateKey, provider)
 
-        // Get the user config. Note that we use --swc because it speeds up the execution of the
-        // script.
-        const { stdout } = await execAsync(
-          `npx ts-node --swc ${userConfigScriptPath} ${config}`
-        )
-        const userConfig: UserConfig = JSON.parse(stdout)
+      //   // Get the user config. Note that we use --swc because it speeds up the execution of the
+      //   // script.
+      //   const { stdout } = await execAsync(
+      //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
+      //   )
+      //   const userConfig: UserConfig = JSON.parse(stdout)
 
-        await writeDeploymentArtifactsUsingEvents(
-          provider,
-          userConfig.projectName,
-          owner.address,
-          cachePath,
-          deploymentFolder,
-          spinner
-        )
-      }
+      //   await writeDeploymentArtifactsUsingEvents(
+      //     provider,
+      //     userConfig.projectName,
+      //     owner.address,
+      //     cachePath,
+      //     deploymentFolder,
+      //     spinner
+      //   )
+      // }
     }
   )
   // Display the help menu when `npx sphinx` is called without any arguments.

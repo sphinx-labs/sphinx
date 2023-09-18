@@ -10,6 +10,12 @@ export enum SphinxActionType {
   CALL,
 }
 
+export type SphinxFoundryAction = {
+  fullyQualifiedName: string
+  actionType: SphinxActionType
+  data: string
+}
+
 /**
  * The status of a given Sphinx action.
  */

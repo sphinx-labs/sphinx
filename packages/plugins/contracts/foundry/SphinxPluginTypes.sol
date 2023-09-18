@@ -52,6 +52,20 @@ struct BundleInfo {
     HumanReadableAction[] humanReadableActions;
 }
 
+// TODO: need:
+// DIFF:
+// - configcache: chainId, isManagerDeployed, networkName, networkType
+// - for each contract to skip and deploy: referenceName, actionType | deploy_contract actions: constructor args, salt | call_actions: function args, function selector
+// - also need: abi (to decode constructor+function args as well as functoin selector for diff)
+// - skipped deploy_contract and call actions
+// DEPLOYMENT ARTIFACTS:
+// - managerAddress
+// BUNDLING:
+// - config artifacts (buildinfo for all; abi just for upgradeable contracts)
+// - CompilerConfig['inputs'] (for config uri)
+// - humanReadableActions (can be created from inputs above)
+// - bundles (can be created from inputs above)
+
 struct FoundryConfig {
     address manager;
     address owner;

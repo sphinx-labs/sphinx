@@ -656,6 +656,7 @@ export const makeActionBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    // TODO: if kind !== 'immutable'
     const { buildInfo, artifact } = configArtifacts[referenceName]
     const { sourceName, contractName } = artifact
     const { kind, address } = contractConfig

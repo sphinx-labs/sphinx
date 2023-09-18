@@ -7,8 +7,18 @@ import { Proxy } from "@openzeppelin/contracts/proxy/Proxy.sol";
 import { SphinxAction } from "./foundry/SphinxPluginTypes.sol";
 import { Sphinx } from "./foundry/Sphinx.sol";
 import { AbstractSphinxClient } from "./AbstractSphinxClient.sol";
+import { Vm } from "forge-std/Vm.sol"; // TODO: rm
+import { SphinxActions } from "./SphinxActions.sol";
+
+import "forge-std/console.sol";
 
 contract MyContract1Client is AbstractSphinxClient {
+
+    // TODO: rm
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    SphinxActions private constant actions = SphinxActions(address(uint160(uint256(keccak256('sphinx.actions')) - 1)));
+
     address private immutable sphinxManager;
     Sphinx private immutable sphinx;
     address private immutable impl;
@@ -42,7 +52,7 @@ contract MyContract1Client is AbstractSphinxClient {
             }
 
             bytes memory actionData = abi.encode(address(this), MyContract1Client.incrementUint.selector, functionArgs);
-            sphinx.addSphinxAction(SphinxAction({
+            actions.addSphinxAction(SphinxAction({
                 fullyQualifiedName: "MyContracts.sol:MyContract1",
                 actionType: SphinxActionType.CALL,
                 data: actionData

@@ -88,6 +88,10 @@ const broadcasting = args[2] === 'true'
         fs.mkdirSync(artifactCachePath)
       }
 
+      // TODO: it seems we write the config artifacts here just for etherscan verification. if
+      // foundry can verify the user's contracts without us, we can delete the logic that
+      // writes it to the FS here.
+
       // Write the config artifacts to the local file system. It will exist in a JSON file that has the
       // config URI as its name.
       const configArtifactsPath = path.join(

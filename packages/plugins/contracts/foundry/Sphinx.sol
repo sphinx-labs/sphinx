@@ -2,9 +2,12 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
+import "forge-std/console.sol";
+
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
+import { SphinxActions } from "../SphinxActions.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { LocalSphinxManager } from "../LocalSphinxManager.sol";
 import { DefaultCreate3 } from "@sphinx-labs/contracts/contracts/DefaultCreate3.sol";
@@ -56,6 +59,18 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // 3. deploy(...) will fail b/c stuff in constructor wasn't executed in the new fork.
     // If you need to execute transactions/deploy contracts, do so in the sphinxDeploy modifier.
 
+    // TODO: you should do this: "If we want, it'd be pretty easy to enforce that live network
+    // deployments happen via npx sphinx deploy and not by running a forge script"
+
+    // TODO: if you decide to use the fast deployment logic for anvil, you should probably
+    // run the pre-diff simulation against the live network logic, since this'd help prevent
+    // against bugs caused by different local and live logic.
+
+    /**
+     * @notice TODO(docs): the last 20 bytes of ...
+     */
+    SphinxActions private constant actions = SphinxActions(address(uint160(uint256(keccak256('sphinx.actions')) - 1)));
+
     /**
      * @notice Maps a CREATE3 salt to a boolean indicating whether the salt has already been used
      *         in this deployment. We use this mapping to ensure that the user attempts to deploy
@@ -72,8 +87,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     mapping(bytes32 => uint256) public callCount;
 
     bytes32[] private callHashArray;
-
-    SphinxAction[] private actions;
 
     // TODO(docs): the difference between this and `actions` is that `actions` will skip
     // contracts that have already been deployed. this array includes skipped contracts.
@@ -597,6 +610,15 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
     }
 
+    // TODO(test): test the time difference between deploying hai on anvil using the fast approach
+    // and the slow approach.
+
+    // TODO: case: say we're forking a live network where the sphinxmanager exists. do you overwrite
+    // it with the localSphinxManager? if so, i think the callNonces mapping will have a different
+    // storage slot. if this isn't the case, you should think about how it'd be possible for the
+    // user to run into a situation like this. e.g. perhaps they start off without a sphinxManager,
+    // then broadcast a deployment, then try to deploy again.
+
     // TODO: case: the user calls `deploy(Network)` twice in a single `run()`. on the second deploy,
     // the "sphinxManager" should have updated values (e.g. callNonces mapping.
 
@@ -607,16 +629,15 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         callHashArray.push(_callHash);
     }
 
-    function addSphinxAction(SphinxAction memory _action) public {
-        actions.push(_action);
-    }
-
     // TODO: the user needs to inherit this
     modifier sphinxDeploy {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(callerMode == VmSafe.CallerMode.None, "Sphinx: You must not have any active pranks or broadcasts when calling 'deploy(network)'.");
 
-        delete actions;
+        vm.etch(sphinxManager, type(LocalSphinxManager).runtimeCode);
+        deployCodeTo("SphinxActions.sol:SphinxActions", hex"", address(actions));
+
+        actions.removeAllActions();
         delete contracts;
 
         for (uint256 i = 0; i < saltArray.length; i++) {
@@ -627,8 +648,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             callCount[callHashArray[i]] = 0;
         }
         delete callHashArray;
-
-        vm.etch(sphinxManager, type(LocalSphinxManager).runtimeCode);
 
         vm.startPrank(sphinxManager);
         _;
@@ -671,10 +690,52 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // - broadcasting onto anvil node
         // - broadcasting onto live network
 
+        string[] memory inputs = new string[](7);
+        inputs[0] = "cast";
+        inputs[1] = "rpc";
+        inputs[2] = "hardhat_setCode";
+        inputs[3] = vm.toString(address(actions));
+        inputs[4] = vm.toString(address(actions).code);
+        inputs[5] = "--rpc-url";
+        inputs[6] = _rpcUrl;
+        vm.ffi(inputs);
+
+        // TODO(docs): removes any actions that may have been added during previous deployments.
+        delete inputs;
+        inputs = new string[](9);
+        inputs[0] = "cast";
+        inputs[1] = "send";
+        inputs[2] = vm.toString(address(actions));
+        inputs[3] = vm.toString(SphinxActions.removeAllActions.selector);
+        inputs[4] = "--rpc-url";
+        inputs[5] = _rpcUrl;
+        inputs[6] = "--unlocked";
+        inputs[7] = "--from";
+        inputs[8] = vm.toString(msgSender);
+        vm.ffi(inputs);
+
+        for (uint256 i = 0; i < actions.numActions(); i++) {
+            SphinxAction memory action = actions.getAction(i);
+            bytes memory data = abi.encodePacked(SphinxActions.addSphinxAction.selector, abi.encode(action));
+            delete inputs;
+            inputs = new string[](9);
+            inputs[0] = "cast";
+            inputs[1] = "send";
+            inputs[2] = vm.toString(address(actions));
+            inputs[3] = vm.toString(data);
+            inputs[4] = "--rpc-url";
+            inputs[5] = _rpcUrl;
+            inputs[6] = "--unlocked";
+            inputs[7] = "--from";
+            inputs[8] = vm.toString(msgSender);
+            vm.ffi(inputs);
+        }
+
         // TODO: although we could do validation in typescript, this won't catch validation
         // errors that occur when on anvil (in-process or broadcasting).
 
-        string[] memory inputs = new string[](5);
+        delete inputs;
+        inputs = new string[](5);
         inputs[0] = "cast";
         inputs[1] = "rpc";
         inputs[2] = "hardhat_getAutomine";
@@ -727,8 +788,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             inputs[6] = _rpcUrl;
             vm.ffi(inputs);
 
-            for (uint256 i = 0; i < actions.length; i++) {
-                SphinxAction memory action = actions[i];
+            for (uint256 i = 0; i < actions.numActions(); i++) {
+                SphinxAction memory action = actions.getAction(i);
                 if (action.actionType == SphinxActionType.CALL) {
                     (address to, bytes4 selector, bytes memory functionParams) = abi.decode(action.data, (address, bytes4, bytes));
                     bytes memory data = abi.encodePacked(selector, functionParams);
@@ -794,6 +855,9 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     //   could result in unexpected behavior. I started to do this in these contracts but I don't
     //   think it's exhaustive.
 
+    // TODO: you should check that the functions in Sphinx.sol don't conflict with functions
+    // that the user defines in their config.
+
     // TODO: move this to SphinxUtils, or at least Sphinx.sol
     function sortAddresses(address[] memory _unsorted) internal pure returns (address[] memory) {
         address[] memory sorted = _unsorted;
@@ -808,6 +872,17 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
         return sorted;
     }
+
+    // TODO: benchmark performance between the live deployment flow and the `cast` flow when
+    // broadcasting on anvil. after, discuss with ryan how we want to implement broadcasting
+    // on anvil.
+
+    // TODO: see if it'd be easy to estimate the gasused by each deployment and function call.
+    // if so, you can remove the heuristics off-chain, and getEstDeploy...
+
+    // TODO: the build info uses the real FQN, so i think you'll need to use them within the
+    // contract too. make sure that FQNs work instead of the truncated FQNs in the solidity code,
+    // then tell ryan.
 
     // TODO: mv
     function computeCreate3Address(address _deployer, bytes32 _salt) internal pure returns(address) {
@@ -849,7 +924,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         bytes memory initCode = vm.getCode(_fullyQualifiedName);
         LocalSphinxManager(sphinxManager).deploy(_create3Salt, abi.encodePacked(initCode, _constructorArgs), 0);
         bytes memory actionData = abi.encode(initCode, _constructorArgs, _userSalt, _referenceName);
-        addSphinxAction(SphinxAction({
+        actions.addSphinxAction(SphinxAction({
             fullyQualifiedName: _fullyQualifiedName,
             actionType: SphinxActionType.DEPLOY_CONTRACT,
             data: actionData
