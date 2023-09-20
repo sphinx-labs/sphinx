@@ -23,8 +23,9 @@ import {
   UserConfigWithOptions,
   ParsedConfig,
   ConfigCache,
-  MinimalConfigCache,
+  ConfigCache,
   NetworkType,
+  SphinxActionTODO,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -48,6 +49,7 @@ import {
   getNetworkDirName,
   hyperlink,
   getNetworkNameForChainId,
+  getEmptyCanonicalConfig,
 } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
@@ -184,12 +186,34 @@ export const proposeAbstractTask = async (
     configArtifacts = parsedConfigValues.configArtifacts
     const configCache = parsedConfigValues.configCache
 
+    // Get the previous config to use in the rest of this function. If the previous config
+    // contains this chain ID, then we use the previous config. Otherwise, we generate an empty
+    // config, which makes it easy to generate leafs for a new chain.
+    const prevConfigForChain = prevConfig.chainStates[chainId]
+      ? prevConfig
+      : getEmptyCanonicalConfig(
+          [chainId],
+          prevConfig.manager,
+          prevConfig.options.orgId,
+          projectName
+        )
+
+    let firstProposalOccurred: boolean
+    let prevProposers: Array<string>
+    const chainStates = prevConfig.chainStates[chainId]
+    if (!chainStates) {
+      firstProposalOccurred = false
+      prevProposers = []
+    } else {
+      firstProposalOccurred = chainStates.firstProposalOccurred
+      prevProposers = prevConfig.options.proposers
+    }
     const leafsForChain = await getAuthLeafsForChain(
-      chainId,
       parsedConfig,
       configArtifacts,
       configCache,
-      prevConfig
+      firstProposalOccurred,
+      prevProposers
     )
     leafs.push(...leafsForChain)
 
@@ -420,35 +444,33 @@ export const proposeAbstractTask = async (
   return { proposalRequest, ipfsData: compilerConfigArray }
 }
 
+// TODO: c/f configArtifacts[ and replace referenceName with FQN
+
 export const sphinxCommitAbstractSubtask = async (
   parsedConfig: ParsedConfig,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
-  ipfsUrl?: string,
-  spinner: ora.Ora = ora({ isSilent: true })
+  ipfsUrl?: string
 ): Promise<{
   configUri: string
   compilerConfig: CompilerConfig
 }> => {
-  const { projectName } = parsedConfig
-  if (spinner) {
-    commitToIpfs
-      ? spinner.start(`Committing ${projectName}...`)
-      : spinner.start('Building the project...')
-  }
-
   const sphinxInputs: Array<SphinxInput> = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { buildInfo } = configArtifacts[referenceName]
+
+  const contractsToDeploy = parsedConfig.actionsTODO
+    .filter((a) => a.actionType === SphinxActionType.DEPLOY_CONTRACT)
+    .filter((a) => !a.skip)
+
+  for (const actionTODO of contractsToDeploy) {
+    const { fullyQualifiedName } = actionTODO
+    const { buildInfo } = configArtifacts[fullyQualifiedName]
 
     const prevSphinxInput = sphinxInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
     )
 
     // Split the contract's fully qualified name
-    const [sourceName, contractName] = contractConfig.contract.split(':')
+    const [sourceName, contractName] = fullyQualifiedName.split(':')
 
     const { language, settings, sources } = getMinimumCompilerInput(
       buildInfo.input,
@@ -519,12 +541,6 @@ IPFS_API_KEY_SECRET: ...
   }
 
   const configUri = `ipfs://${ipfsHash}`
-
-  if (spinner) {
-    commitToIpfs
-      ? spinner.succeed(`${projectName} has been committed to IPFS.`)
-      : spinner.succeed(`Built ${projectName}.`)
-  }
 
   return { configUri, compilerConfig }
 }
@@ -974,8 +990,7 @@ export const sphinxImportProxyAbstractTask = async (
 
 export const getProjectBundleInfo = async (
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  configCache: MinimalConfigCache
+  configArtifacts: ConfigArtifacts
 ): Promise<{
   configUri: string
   compilerConfig: CompilerConfig
@@ -990,8 +1005,7 @@ export const getProjectBundleInfo = async (
 
   const { bundles, humanReadableActions } = makeBundlesFromConfig(
     parsedConfig,
-    configArtifacts,
-    configCache
+    configArtifacts
   )
 
   return { configUri, compilerConfig, bundles, humanReadableActions }

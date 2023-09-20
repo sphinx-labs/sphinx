@@ -15,7 +15,8 @@ import {
     OptionalString,
     BundleInfo,
     FoundryConfig,
-    OptionalBytes32
+    OptionalBytes32,
+    SphinxAction
 } from "../SphinxPluginTypes.sol";
 
 interface ISphinxUtils {
@@ -109,16 +110,13 @@ interface ISphinxUtils {
     ) external;
 
     function getConfigCache(
-        FoundryConfig memory _minimalConfig,
         ISphinxRegistry _registry,
-        ISphinxManager _manager,
-        string memory _rpcUrl,
-        string memory _mainFfiScriptPath
+        ISphinxManager _manager
     ) external returns (ConfigCache memory);
 
     function ffiGetEncodedBundleInfo(
+        SphinxAction[] memory _actions,
         ConfigCache memory _configCache,
-        string memory _parsedConfigStr,
         string memory _rootFfiPath
     ) external returns (bytes memory);
 }

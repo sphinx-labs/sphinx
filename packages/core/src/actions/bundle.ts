@@ -6,9 +6,12 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 import {
   CanonicalConfig,
   ConfigArtifacts,
-  MinimalConfigCache,
+  ConfigCache,
+  DeployContractTODO,
+  FunctionCallTODO,
   ParsedConfig,
   ParsedConfigWithOptions,
+  SphinxActionTODO,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -59,6 +62,7 @@ import { getProjectBundleInfo } from '../tasks'
 import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
 import { SupportedChainId } from '../networks'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
+import { getTargetSalt } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -359,6 +363,45 @@ export const getAuthLeafSignerInfo = (
   }
 }
 
+export const fromRawSphinxActionTODO = (
+  rawAction: SphinxActionTODO
+): DeployContractTODO | FunctionCallTODO => {
+  const { skip, fullyQualifiedName } = rawAction
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
+    const [initCode, constructorArgs, userSalt, referenceName] = coder.decode(
+      ['bytes', 'bytes', 'bytes32', 'string'],
+      rawAction.data
+    )
+    return {
+      skip,
+      fullyQualifiedName,
+      actionType: SphinxActionType.DEPLOY_CONTRACT,
+      initCode,
+      constructorArgs,
+      userSalt,
+      referenceName,
+    }
+  } else if (rawAction.actionType === SphinxActionType.CALL) {
+    const [to, selector, functionParams, nonce, referenceName] = coder.decode(
+      ['address', 'bytes4', 'bytes', 'uint256', 'string'],
+      rawAction.data
+    )
+    return {
+      skip,
+      fullyQualifiedName,
+      actionType: SphinxActionType.CALL,
+      to,
+      selector,
+      functionParams,
+      nonce,
+      referenceName,
+    }
+  } else {
+    throw new Error(`TODO: invalid action type`)
+  }
+}
+
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
   const { chainId, to, index } = leaf
@@ -481,22 +524,27 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 
 export const makeBundlesFromConfig = (
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  configCache: MinimalConfigCache
+  configArtifacts: ConfigArtifacts
 ): {
   bundles: SphinxBundles
   humanReadableActions: HumanReadableActions
 } => {
   const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
     parsedConfig,
-    configArtifacts,
-    configCache
+    configArtifacts
   )
-  const targetBundle = makeTargetBundleFromConfig(
-    parsedConfig,
-    configArtifacts,
-    configCache.chainId as SupportedChainId
-  )
+
+  // TODO(upgrades): TODO(docs)
+  const targetBundle = {
+    root: ethers.ZeroHash,
+    targets: [],
+  }
+  // const targetBundle = makeTargetBundleFromConfig(
+  //   parsedConfig,
+  //   configArtifacts,
+  //   configCache.chainId as SupportedChainId
+  // )
+
   return { bundles: { actionBundle, targetBundle }, humanReadableActions }
 }
 
@@ -509,193 +557,106 @@ export const makeBundlesFromConfig = (
  */
 export const makeActionBundleFromConfig = (
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  configCache: MinimalConfigCache
+  configArtifacts: ConfigArtifacts
 ): {
   actionBundle: SphinxActionBundle
   humanReadableActions: HumanReadableActions
 } => {
-  const { chainId } = configCache
+  const { actionsTODO, chainId } = parsedConfig
 
   if (!isSupportedChainId(chainId)) {
     throw new Error(`Chain ID ${chainId} is not supported.`)
   }
 
-  const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
   const costs: bigint[] = []
 
-  // The action index keeps track of the order that actions are executed on-chain. We proceed by
-  // adding the `DEPLOY_CONTRACT` actions first, then the `CALL` actions, and finally the
-  // `SET_STORAGE` actions.
-  let actionIndex = 0
-
   const humanReadableActions: HumanReadableActions = {}
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { artifact, buildInfo } = configArtifacts[referenceName]
-    const { abi, bytecode, sourceName, contractName } = artifact
-    const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
-    const { kind, salt, constructorArgs } = contractConfig
+  const notSkipping = actionsTODO.filter((action) => !action.skip)
 
-    const readableSignature = prettyFunctionCall(
-      referenceName,
-      'constructor',
-      constructorArgs[configCache.chainId]
-    )
+  // TODO(refactor): another "iterate through contracts to deploy"
+  for (let index = 0; index < notSkipping.length; index++) {
+    const actionTODO = actionsTODO[index]
+    const { fullyQualifiedName, actionType } = actionTODO
+    if (actionType === SphinxActionType.DEPLOY_CONTRACT) {
+      const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+      const { abi, sourceName, contractName } = artifact
+      const { initCode, userSalt, constructorArgs, referenceName } = actionTODO
 
-    const deployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-    )
+      // TODO: getTargetSalt -> getCreate3Salt
+      const create3Salt = getTargetSalt(referenceName, userSalt)
 
-    if (!isTargetDeployed) {
-      if (kind === 'immutable') {
-        // Add a DEPLOY_CONTRACT action for the unproxied contract.
-        actions.push({
-          index: actionIndex,
-          salt,
-          creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
-            bytecode,
-            constructorArgs[configCache.chainId],
-            abi
-          ),
-        })
-
-        costs.push(deployContractCost)
-      } else if (kind === 'proxy') {
-        // Add a DEPLOY_CONTRACT action for the default proxy.
-        actions.push({
-          index: actionIndex,
-          salt,
-          creationCodeWithConstructorArgs:
-            getDefaultProxyInitCode(managerAddress),
-        })
-        costs.push(deployContractCost)
-      } else {
-        throw new Error(
-          `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
-        )
-      }
-
-      humanReadableActions[actionIndex] = {
-        actionIndex,
-        reason: readableSignature,
-        actionType: SphinxActionType.DEPLOY_CONTRACT,
-      }
-
-      actionIndex += 1
-    }
-
-    if (kind !== 'immutable') {
-      // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
-      // for the implementation to be deployed already. We don't check for that here because this
-      // would slow down the Foundry plugin's FFI call to retrieve the FoundryConfig, since we would
-      // need to run the parsing logic in order to get the implementation's constructor args and
-      // bytecode.
-
-      const implInitCode = getCreationCodeWithConstructorArgs(
-        bytecode,
-        constructorArgs[configCache.chainId],
-        abi
+      const iface = new ethers.Interface(abi)
+      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
+      // and the encoded values, then returns the variables object.
+      // TODO(case): contract doesn't have a constructor
+      const decodedConstructorArgs = iface.decodeFunctionData(
+        'constructor',
+        constructorArgs
       )
-      // We use a 'salt' value that's a hash of the implementation contract's init code. This
-      // essentially mimics the behavior of Create2 in the sense that the implementation's address
-      // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
-      // contracts that have already been deployed.
-      const implSalt = ethers.keccak256(implInitCode)
 
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        'constructor',
+        decodedConstructorArgs
+      )
+
+      const deployContractCost = getEstDeployContractCost(
+        buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+      )
+
+      // Add a DEPLOY_CONTRACT action.
       actions.push({
-        index: actionIndex,
-        salt: implSalt,
-        creationCodeWithConstructorArgs: implInitCode,
+        index,
+        salt: create3Salt,
+        creationCodeWithConstructorArgs: ethers.concat([
+          initCode,
+          constructorArgs,
+        ]),
       })
-      costs.push(deployContractCost)
 
-      humanReadableActions[actionIndex] = {
-        actionIndex,
+      costs.push(deployContractCost)
+      humanReadableActions[index] = {
+        actionIndex: index,
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
-
-      actionIndex += 1
-    }
-  }
-
-  // Next, we add any `CALL` actions. We currently only support `CALL` actions that occur after all
-  // contracts have been deployed, but before an upgrade is initiated. In other words, we put them
-  // after all `DEPLOY_CONTRACT` actions and before any `SET_STORAGE` actions.
-  const postDeployActions = parsedConfig.postDeploy[chainId]
-  if (postDeployActions) {
-    for (const { to, data, nonce, readableSignature } of postDeployActions) {
-      if (!skipCallAction(to, data, nonce, configCache.callNonces)) {
-        actions.push({
-          to,
-          index: actionIndex,
-          data,
-          nonce,
-        })
-        costs.push(250_000n)
-
-        humanReadableActions[actionIndex] = {
-          actionIndex,
-          reason: prettyFunctionCall(
-            readableSignature.referenceNameOrAddress,
-            readableSignature.functionName,
-            readableSignature.variables
-          ),
-          actionType: SphinxActionType.CALL,
-        }
-
-        actionIndex += 1
-      }
-    }
-  }
-
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    // TODO: if kind !== 'immutable'
-    const { buildInfo, artifact } = configArtifacts[referenceName]
-    const { sourceName, contractName } = artifact
-    const { kind, address } = contractConfig
-
-    const storageLayout = getStorageLayout(
-      buildInfo.output,
-      sourceName,
-      contractName
-    )
-    const dereferencer = astDereferencer(buildInfo.output)
-    const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
-
-    // Compute our storage segments.
-    const segments = computeStorageSegments(
-      extendedLayout,
-      contractConfig,
-      dereferencer
-    )
-
-    // Add SET_STORAGE actions for each storage slot that we want to modify.
-    for (const segment of segments) {
+    } else if (actionType === SphinxActionType.CALL) {
+      const { to, selector, functionParams, nonce, referenceName } = actionTODO
       actions.push({
-        to: address,
-        contractKindHash: contractKindHashes[kind],
-        index: actionIndex,
-        key: segment.key,
-        offset: segment.offset,
-        value: segment.val,
+        to,
+        index,
+        data: ethers.concat([selector, functionParams]),
+        nonce,
       })
-      costs.push(150_000n)
 
-      humanReadableActions[actionIndex] = {
-        actionIndex,
-        // TODO(upgrades): add reason
-        reason: '',
-        actionType: SphinxActionType.SET_STORAGE,
+      // TODO: you need to add the artifact to the ConfigArtifacts for each call action that isn't
+      // being skipped.
+      const { abi } = configArtifacts[fullyQualifiedName].artifact
+
+      const iface = new ethers.Interface(abi)
+      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
+      // and the encoded values, then returns the variables object.
+      // TODO(case): contract doesn't have a constructor
+      const decodedFunctionParams = iface.decodeFunctionData(
+        selector,
+        functionParams
+      )
+
+      // TODO(case): what does this return for an overloaded function?
+      const functionName = iface.getFunctionName(selector)
+
+      costs.push(250_000n)
+      humanReadableActions[index] = {
+        actionIndex: index,
+        reason: prettyFunctionCall(
+          referenceName,
+          functionName,
+          decodedFunctionParams
+        ),
+        actionType: SphinxActionType.CALL,
       }
-
-      actionIndex += 1
     }
   }
 
@@ -706,6 +667,7 @@ export const makeActionBundleFromConfig = (
   }
 }
 
+// TODO(upgrades)
 /**
  * Generates a Sphinx target bundle from a config file. Note that non-proxied contract types are
  * not included in the target bundle.
@@ -714,37 +676,37 @@ export const makeActionBundleFromConfig = (
  * @param env Environment variables to inject into the config file.
  * @returns Target bundle generated from the parsed config file.
  */
-export const makeTargetBundleFromConfig = (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  chainId: SupportedChainId
-): SphinxTargetBundle => {
-  const { manager } = parsedConfig
+// export const makeTargetBundleFromConfig = (
+//   parsedConfig: ParsedConfig,
+//   configArtifacts: ConfigArtifacts,
+//   chainId: SupportedChainId
+// ): SphinxTargetBundle => {
+//   const { manager } = parsedConfig
 
-  const targets: SphinxTarget[] = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { abi, bytecode } = configArtifacts[referenceName].artifact
+//   const targets: SphinxTarget[] = []
+//   for (const [referenceName, contractConfig] of Object.entries(
+//     parsedConfig.contracts
+//   )) {
+//     const { abi, bytecode } = configArtifacts[referenceName].artifact
 
-    // Only add targets for proxies.
-    if (contractConfig.kind !== 'immutable') {
-      targets.push({
-        contractKindHash: contractKindHashes[contractConfig.kind],
-        addr: contractConfig.address,
-        implementation: getImplAddress(
-          manager,
-          bytecode,
-          contractConfig.constructorArgs[chainId]!,
-          abi
-        ),
-      })
-    }
-  }
+//     // Only add targets for proxies.
+//     if (contractConfig.kind !== 'immutable') {
+//       targets.push({
+//         contractKindHash: contractKindHashes[contractConfig.kind],
+//         addr: contractConfig.address,
+//         implementation: getImplAddress(
+//           manager,
+//           bytecode,
+//           contractConfig.constructorArgs[chainId]!,
+//           abi
+//         ),
+//       })
+//     }
+//   }
 
-  // Generate a bundle from the list of actions.
-  return makeTargetBundle(targets)
-}
+//   // Generate a bundle from the list of actions.
+//   return makeTargetBundle(targets)
+// }
 
 /**
  * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
@@ -759,47 +721,31 @@ export const makeTargetBundleFromConfig = (
  * no project-specific leafs will be generated.
  */
 export const getAuthLeafsForChain = async (
-  chainId: number,
-  parsedConfig: ParsedConfigWithOptions,
-  configArtifacts: ConfigArtifacts,
-  configCache: MinimalConfigCache,
-  prevConfig: CanonicalConfig
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
-  const { options, projectName } = parsedConfig
-  const { proposers, chainIds } = options
-
-  // Get the previous config to use in the rest of this function. If the previous config
-  // contains this chain ID, then we use the previous config. Otherwise, we generate an empty
-  // config, which makes it easy to generate leafs for a new chain.
-  const prevConfigForChain = prevConfig.chainStates[chainId]
-    ? prevConfig
-    : getEmptyCanonicalConfig(
-        [chainId],
-        prevConfig.manager,
-        prevConfig.options.orgId,
-        projectName
-      )
-
   const {
+    chainId,
     manager,
-    chainStates: prevChainStates,
-    options: prevOptions,
-  } = prevConfigForChain
-  const prevProposers = prevOptions.proposers
-  const { firstProposalOccurred } = prevChainStates[chainId]
-
-  if (!chainIds.includes(chainId)) {
-    throw new Error(
-      `Chain ${chainId} is not in the list of chainIds in the config file.`
-    )
-  }
+    prevConfig,
+    newConfig,
+    firstProposalOccurred,
+    isExecuting,
+    isManagerDeployed,
+  } = parsedConfig
+  const { proposers: newProposers, managerVersion: newManagerVersion } =
+    newConfig
+  const { proposers: prevProposers, managerVersion: prevManagerVersion } =
+    prevConfig
 
   // We get a list of proposers to add and remove by comparing the current and previous proposers.
   //  It's possible that we'll need to remove proposers even if the first proposal has not
   //  occurred yet. This is because the user may have already attempted to setup the project with an
   //  incorrect set of proposers.
-  const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
-  const proposersToRemove = prevProposers.filter((p) => !proposers.includes(p))
+  const proposersToAdd = newProposers.filter((p) => !prevProposers.includes(p))
+  const proposersToRemove = prevProposers.filter(
+    (p) => !newProposers.includes(p)
+  )
 
   // Transform the list of proposers to add/remove into a list of tuples that will be used
   // in the Setup leaf, if it's needed.
@@ -826,7 +772,7 @@ export const getAuthLeafsForChain = async (
 
   // If a previous deployment is currently executing, we cancel it. The user may need to cancel the
   // previous deployment if one of their actions reverted during the execution process.
-  if (configCache.isExecuting) {
+  if (isExecuting) {
     const cancelDeploymentLeaf: CancelActiveDeployment = {
       chainId,
       to: manager,
@@ -837,21 +783,20 @@ export const getAuthLeafsForChain = async (
     leafs.push(cancelDeploymentLeaf)
   }
 
-  const managerVersionString = `v${configCache.managerVersion.major}.${configCache.managerVersion.minor}.${configCache.managerVersion.patch}`
-  if (
-    managerVersionString !== parsedConfig.options.managerVersion &&
-    !configCache.isManagerDeployed
-  ) {
-    const version = parseSemverVersion(parsedConfig.options.managerVersion)
+  const equalManagerVersion =
+    prevManagerVersion.major === newManagerVersion.major &&
+    prevManagerVersion.minor === newManagerVersion.minor &&
+    prevManagerVersion.patch === newManagerVersion.patch
+  if (!equalManagerVersion && !isManagerDeployed) {
     const upgradeLeaf: UpgradeAuthAndManagerImpl = {
       chainId,
       to: manager,
       index,
       leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
       managerInitCallData: '0x',
-      managerImpl: getSphinxManagerImplAddress(chainId, version),
+      managerImpl: getSphinxManagerImplAddress(chainId, newManagerVersion),
       authInitCallData: '0x',
-      authImpl: getAuthImplAddress(version),
+      authImpl: getAuthImplAddress(newManagerVersion),
     }
     index += 1
     leafs.push(upgradeLeaf)
@@ -859,8 +804,7 @@ export const getAuthLeafsForChain = async (
 
   const { configUri, bundles } = await getProjectBundleInfo(
     parsedConfig,
-    configArtifacts,
-    configCache
+    configArtifacts
   )
   const { actionBundle, targetBundle } = bundles
 

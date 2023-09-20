@@ -37,21 +37,21 @@ abstract contract SphinxClient is Sphinx {
         string memory clientPath = "MyContractsClient.sol:MyContract1Client";
 
         bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
-        requireAvailableCreate3Salt(sphinxCreate3Salt);
+        requireAvailableReferenceName(_referenceName);
 
         address create3Address = computeCreate3Address(sphinxManager, sphinxCreate3Salt);
 
-        if (create3Address.code.length == 0) {
-            addDeploymentAction(
-                fullyQualifiedName,
-                _constructorArgs,
-                sphinxCreate3Salt,
-                _userSalt,
-                _referenceName
-            );
-        }
+        bool skipDeployment = create3Address.code.length > 0;
+        addDeploymentAction(
+            fullyQualifiedName,
+            _constructorArgs,
+            sphinxCreate3Salt,
+            _userSalt,
+            _referenceName,
+            skipDeployment
+        );
 
-        deployClientAndImpl(create3Address, sphinxCreate3Salt, clientPath);
+        deployClientAndImpl(create3Address, _referenceName, clientPath);
 
         return MyContract1Client(create3Address);
     }

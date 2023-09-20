@@ -54,7 +54,7 @@ struct BundleInfo {
 
 // TODO: need:
 // DIFF:
-// - configcache: chainId, isManagerDeployed, networkName, networkType
+// - configcache: chainId, isManagerDeployed, networkName (can be calculated from the chainid), networkType
 // - for each contract to skip and deploy: referenceName, actionType | deploy_contract actions: constructor args, salt | call_actions: function args, function selector
 // - also need: abi (to decode constructor+function args as well as functoin selector for diff)
 // - skipped deploy_contract and call actions
@@ -81,44 +81,24 @@ struct FoundryContractConfig {
     bytes32 userSaltHash;
 }
 
+/**
+ * @custom:field currentManagerVersion The current version of the SphinxManager.
+ *               If the SphinxManager has not been deployed, then this defaults to
+ *               the latest SphinxManager version.
+ */
 struct ConfigCache {
+    address manager;
     bool isManagerDeployed;
     bool isExecuting;
-    Version managerVersion;
-    uint256 blockGasLimit;
+    Version currentManagerVersion;
     uint256 chainId;
-    ContractConfigCache[] contractConfigCache;
-    CallNonces[] callNonces;
-    address[] undeployedExternalContracts;
-}
-
-struct ContractConfigCache {
-    string referenceName;
-    bool isTargetDeployed;
-    DeploymentRevert deploymentRevert;
-    ImportCache importCache;
-    OptionalString previousConfigUri;
-}
-
-struct CallNonces {
-    bytes32 callHash;
-    uint256 nonce;
-}
-
-struct DeploymentRevert {
-    bool deploymentReverted;
-    OptionalString revertString;
+    bool isLiveNetwork;
 }
 
 struct ParsedCallAction {
     address to;
     bytes data;
     uint256 nonce;
-}
-
-struct ImportCache {
-    bool requiresImport;
-    OptionalAddress currProxyAdmin;
 }
 
 enum ContractKindEnum {
@@ -187,4 +167,5 @@ struct SphinxAction {
     string fullyQualifiedName;
     SphinxActionType actionType;
     bytes data;
+    bool skip;
 }

@@ -64,7 +64,6 @@ import {
   CanonicalConfig,
   ParsedConfig,
   ParsedConfigWithOptions,
-  NetworkType,
   ParsedContractConfigs,
   UserConstructorArgOverride,
   UserArgOverride,
@@ -371,17 +370,23 @@ export const writeCompilerConfig = (
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
-  // Create the canonical config network folder if it doesn't already exist.
+  // Create the compiler config network folder if it doesn't already exist.
   if (!fs.existsSync(compilerConfigDirPath)) {
     fs.mkdirSync(compilerConfigDirPath, { recursive: true })
   }
 
-  // Write the canonical config to the local file system. It will exist in a JSON file that has the
+  // Write the compiler config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
-  fs.writeFileSync(
-    path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-    JSON.stringify(compilerConfig, null, 2)
+  const compilerConfigFilePath = path.join(
+    compilerConfigDirPath,
+    `${ipfsHash}.json`
   )
+  if (!fs.existsSync(compilerConfigFilePath)) {
+    fs.writeFileSync(
+      path.join(compilerConfigDirPath, `${ipfsHash}.json`),
+      JSON.stringify(compilerConfig, null, 2)
+    )
+  }
 }
 
 export const getEIP1967ProxyImplementationAddress = async (
@@ -1029,28 +1034,6 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.isHexString(variable) && variable.length % 2 === 0
 }
 
-export const getNetworkType = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<NetworkType> => {
-  try {
-    // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
-    // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
-    // namespace is an alias for `hardhat_`. Source:
-    // https://book.getfoundry.sh/reference/anvil/#custom-methods
-    await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
-  } catch (err) {
-    return NetworkType.LIVE_NETWORK
-  }
-
-  try {
-    // This RPC method will throw an error on Hardhat but not Anvil. This includes forked networks.
-    await provider.send('anvil_impersonateAccount', [ethers.ZeroAddress])
-    return NetworkType.ANVIL
-  } catch (err) {
-    return NetworkType.HARDHAT
-  }
-}
-
 export const getImpersonatedSigner = async (
   address: string,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
@@ -1458,7 +1441,7 @@ export const resolveNetwork = async (
     chainId: number | bigint
     name: string
   },
-  networkType: NetworkType
+  isLiveNetwork: boolean
 ): Promise<{
   networkName: string
   chainId: number
@@ -1475,10 +1458,8 @@ export const resolveNetwork = async (
     )
     if (supportedNetwork) {
       return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
-    } else if (networkType === NetworkType.ANVIL) {
-      return { chainId: chainIdNumber, networkName: 'anvil' }
-    } else if (networkType === NetworkType.HARDHAT) {
-      return { chainId: chainIdNumber, networkName: 'hardhat' }
+    } else if (!isLiveNetwork) {
+      return { chainId: chainIdNumber, networkName: 'local' }
     } else {
       // The network is an unsupported live network.
       throw new Error(`Unsupported network: ${chainIdNumber}`)
@@ -1503,10 +1484,10 @@ export const resolveNetwork = async (
  */
 export const getNetworkDirName = (
   networkName: string,
-  networkType: NetworkType,
+  isLiveNetwork: boolean,
   chainId: number
 ): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
+  if (isLiveNetwork) {
     return networkName
   } else if (networkName === 'anvil' || networkName === 'hardhat') {
     return `${networkName}-${chainId}`
@@ -1527,15 +1508,15 @@ export const getNetworkDirName = (
  * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
  * `anvil --chain-id 5`.
  *
- * 3. `<hardhat/anvil> (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
- * example, 'hardhat-31337'.
+ * 3. `local (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
+ * example, 'local (chain ID: 31337)'.
  */
 export const getNetworkTag = (
   networkName: string,
-  networkType: NetworkType,
+  isLiveNetwork: boolean,
   chainId: number
 ): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
+  if (isLiveNetwork) {
     return networkName
   } else if (
     Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
@@ -1543,9 +1524,7 @@ export const getNetworkTag = (
   ) {
     return `${networkName} (local)`
   } else {
-    const localNetworkType =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkType} (chain ID: ${chainId})`
+    return `local (chain ID: ${chainId})`
   }
 }
 

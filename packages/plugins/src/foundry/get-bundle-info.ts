@@ -8,12 +8,17 @@ import {
   writeCompilerConfig,
   remove0x,
   ParsedConfig,
+  SphinxActionTODO,
+  SupportedChainId,
+  isSupportedChainId,
+  makeAuthBundle,
+  getAuthLeafsForChain,
 } from '@sphinx-labs/core/dist'
 import { AbiCoder, concat } from 'ethers'
 
 import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
-import { decodeCachedConfig } from './structs'
+import { decodeActions, decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 import {
   getEncodedFailure,
@@ -21,14 +26,18 @@ import {
   validationStderrWrite,
 } from './logs'
 
-const args = process.argv.slice(2)
-const encodedConfigCache = args[0]
-const parsedConfigStr = args[1]
-const parsedConfig: ParsedConfig = JSON.parse(parsedConfigStr)
-const broadcasting = args[2] === 'true'
+// TODO(parse): you should throw an error if the user's on an unsupported chain id since this file
+// assumes that the chain id is supported
 
-// This function must not rely on a provider object being available because a provider doesn't exist
-// outside of Solidity for the in-process Anvil node.
+// TODO: see what happens if the user does `vm.createSelectFork(); deploy(...);` in their script
+// when we're attempting to call their script with an `--rpc-url` flag from `sphinx deploy/propose`.
+// my hunch is that `createSelectFork` will override the `--rpc-url` flag, which means that their
+// transactions probably wouldn't get broadcasted onto our port.
+
+const args = process.argv.slice(2)
+const encodedActions = args[0]
+const encodedConfigCache = args[1]
+
 ;(async () => {
   process.stderr.write = validationStderrWrite
 
@@ -46,7 +55,33 @@ const broadcasting = args[2] === 'true'
         `${utilsArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
       )).abi
 
+    const SphinxActionsABI =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require(resolve(
+        `${utilsArtifactFolder}/SphinxActions.sol/SphinxActions.json`
+      )).abi
+
     const configCache = decodeCachedConfig(encodedConfigCache, SphinxUtilsABI)
+    const actions = decodeActions(
+      encodedActions,
+      SphinxActionsABI,
+      sphinxManager,
+      chainId
+    )
+
+    // TODO(refactor): i think the cleanest solution would be to have a single object that contains
+    // everything on a given chain. then, in the proposal task, you can just do a slight reformat to create
+    // the parsed config.
+
+    const parsedConfig: ParsedConfig = {
+      manager: configCache.manager,
+      chainId: configCache.chainId,
+      actionsTODO: actions,
+      isManagerDeployed: configCache.isManagerDeployed,
+      isExecuting: configCache.isExecuting,
+      isLiveNetwork: configCache.isLiveNetwork,
+      currentManagerVersion: configCache.currentManagerVersion,
+    }
 
     const cre = createSphinxRuntime(
       'foundry',
@@ -65,46 +100,49 @@ const broadcasting = args[2] === 'true'
       cachePath
     )
 
-    const configArtifacts = await getConfigArtifacts(parsedConfig.contracts)
+    const configArtifacts = await getConfigArtifacts(actions)
 
-    await postParsingValidation(
-      parsedConfig,
-      configArtifacts,
-      cre,
-      configCache,
-      FailureAction.THROW
-    )
+    // TODO(parse)
+    // await postParsingValidation(
+    //   parsedConfig,
+    //   configArtifacts,
+    //   cre,
+    //   configCache,
+    //   FailureAction.THROW
+    // )
+
+    const leafs = await getAuthLeafsForChain(parsedConfig, configArtifacts)
+
+    const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
     const { configUri, bundles, compilerConfig, humanReadableActions } =
-      await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
+      await getProjectBundleInfo(parsedConfig, configArtifacts)
 
-    if (broadcasting) {
-      writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
+    writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
 
-      const ipfsHash = configUri.replace('ipfs://', '')
-      const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
-      // Create the canonical config network folder if it doesn't already exist.
-      if (!fs.existsSync(artifactCachePath)) {
-        fs.mkdirSync(artifactCachePath)
-      }
-
-      // TODO: it seems we write the config artifacts here just for etherscan verification. if
-      // foundry can verify the user's contracts without us, we can delete the logic that
-      // writes it to the FS here.
-
-      // Write the config artifacts to the local file system. It will exist in a JSON file that has the
-      // config URI as its name.
-      const configArtifactsPath = path.join(
-        artifactCachePath,
-        `${ipfsHash}.json`
-      )
-      if (!fs.existsSync(configArtifactsPath)) {
-        fs.writeFileSync(
-          configArtifactsPath,
-          JSON.stringify(configArtifacts, null, 2)
-        )
-      }
+    const ipfsHash = configUri.replace('ipfs://', '')
+    const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
+    // Create the canonical config network folder if it doesn't already exist.
+    if (!fs.existsSync(artifactCachePath)) {
+      fs.mkdirSync(artifactCachePath)
     }
+
+    // TODO: it seems we write the config artifacts here just for etherscan verification. if
+    // foundry can verify the user's contracts without us, we can delete the logic that
+    // writes it to the FS here.
+    // TODO: is the `configArtifactsPath` path correct? i'm curious how the ipfsHash is related to the configArtifacts.
+    // Write the config artifacts to the local file system. It will exist in a JSON file that has the
+    // config URI as its name.
+    const configArtifactsPath = path.join(artifactCachePath, `${ipfsHash}.json`)
+    if (!fs.existsSync(configArtifactsPath)) {
+      fs.writeFileSync(
+        configArtifactsPath,
+        JSON.stringify(configArtifacts, null, 2)
+      )
+    }
+
+    // TODO: you return a single object that isn't keyed by a chain id, since this file will only
+    // be called on one chain at a time.
 
     const bundledActionType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'bundledActions'

@@ -45,7 +45,6 @@ import {
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
   getDuplicateElements,
-  getNetworkType,
   resolveNetwork,
   sortHexStrings,
   remove0x,
@@ -80,7 +79,6 @@ import {
   ParsedConfigOptions,
   ParsedOwnerConfig,
   UserConfig,
-  MinimalConfigCache,
   ConfigCache,
   ParsedFunctionArgsPerChain,
   ParsedCallAction,
@@ -2116,155 +2114,138 @@ export const assertValidContractReferences = (
   }
 }
 
-export const assertValidParsedSphinxFile = async (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  contractConfigCache: ContractConfigCache,
-  managerAddress: string,
-  failureAction: FailureAction
-): Promise<void> => {
-  const { projectName } = parsedConfig
-  const { compilerConfigPath } = cre
+// TODO(upgrades): TODO(docs)
+// export const assertValidParsedSphinxFile = async (
+//   parsedConfig: ParsedConfig,
+//   configArtifacts: ConfigArtifacts,
+//   cre: SphinxRuntimeEnvironment,
+//   contractConfigCache: ContractConfigCache,
+//   managerAddress: string,
+//   failureAction: FailureAction
+// ): Promise<void> => {
+//   const { projectName } = parsedConfig
+//   const { compilerConfigPath } = cre
 
-  // Check that all user-defined contract addresses have already been deployed.
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if (
-      contractConfig.isUserDefinedAddress &&
-      !contractConfigCache[referenceName].isTargetDeployed
-    ) {
-      logValidationError(
-        'error',
-        `User entered a contract address that is not deployed: ${contractConfig.address}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-  }
+//   // Exit if any validation errors were detected up to this point. This ensures that all proxies are
+//   // deployed before we run OpenZeppelin's safety checks.
+//   assertNoValidationErrors(failureAction)
 
-  // Exit if any validation errors were detected up to this point. This ensures that all proxies are
-  // deployed before we run OpenZeppelin's safety checks.
-  assertNoValidationErrors(failureAction)
+//   for (const [referenceName, contractConfig] of Object.entries(
+//     parsedConfig.contracts
+//   )) {
+//     const { kind, address, variables, contract, unsafeAllow } = contractConfig
+//     const { input, output } = configArtifacts[referenceName].buildInfo
+//     const { previousConfigUri, importCache, isTargetDeployed } =
+//       contractConfigCache[referenceName]
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { kind, address, variables, contract, unsafeAllow } = contractConfig
-    const { input, output } = configArtifacts[referenceName].buildInfo
-    const { previousConfigUri, importCache, isTargetDeployed } =
-      contractConfigCache[referenceName]
+//     if (importCache.requiresImport) {
+//       if (kind === 'oz-ownable-uups' || kind === 'oz-access-control-uups') {
+//         logValidationError(
+//           'error',
+//           `The UUPS proxy ${referenceName} at ${address} must give your SphinxManager contract\n` +
+//             `permission to call the 'upgradeTo' function. SphinxManager address: ${managerAddress}.\n`,
+//           [],
+//           cre.silent,
+//           cre.stream
+//         )
+//       } else if (
+//         kind === 'external-transparent' ||
+//         kind === 'proxy' ||
+//         kind === 'oz-transparent'
+//       ) {
+//         const currProxyAdmin = importCache.currProxyAdmin
+//         if (!currProxyAdmin) {
+//           throw new Error(
+//             `ConfigCache does not contain current admin. Should never happen.`
+//           )
+//         }
 
-    if (importCache.requiresImport) {
-      if (kind === 'oz-ownable-uups' || kind === 'oz-access-control-uups') {
-        logValidationError(
-          'error',
-          `The UUPS proxy ${referenceName} at ${address} must give your SphinxManager contract\n` +
-            `permission to call the 'upgradeTo' function. SphinxManager address: ${managerAddress}.\n`,
-          [],
-          cre.silent,
-          cre.stream
-        )
-      } else if (
-        kind === 'external-transparent' ||
-        kind === 'proxy' ||
-        kind === 'oz-transparent'
-      ) {
-        const currProxyAdmin = importCache.currProxyAdmin
-        if (!currProxyAdmin) {
-          throw new Error(
-            `ConfigCache does not contain current admin. Should never happen.`
-          )
-        }
+//         logValidationError(
+//           'error',
+//           `The Transparent proxy ${referenceName} at ${address} is not owned by Sphinx.\n` +
+//             `Please import this proxy into Sphinx. Current proxy admin: ${currProxyAdmin}\n`,
+//           [],
+//           cre.silent,
+//           cre.stream
+//         )
+//       }
+//     }
 
-        logValidationError(
-          'error',
-          `The Transparent proxy ${referenceName} at ${address} is not owned by Sphinx.\n` +
-            `Please import this proxy into Sphinx. Current proxy admin: ${currProxyAdmin}\n`,
-          [],
-          cre.silent,
-          cre.stream
-        )
-      }
-    }
+//     if (kind === 'immutable') {
+//       if (variableContainsKeyword(variables, keywords.preserve)) {
+//         logValidationError(
+//           'error',
+//           'Detected the "{preserve}" keyword in a fresh deployment.',
+//           [
+//             'This keyword is reserved for upgrades only. Please remove all instances of it in your Sphinx config file.',
+//           ],
+//           cre.silent,
+//           cre.stream
+//         )
+//       }
+//     } else if (isTargetDeployed) {
+//       const minimumCompilerInput = getMinimumCompilerInput(
+//         input,
+//         output.contracts,
+//         configArtifacts[referenceName].artifact.sourceName,
+//         configArtifacts[referenceName].artifact.contractName
+//       )
 
-    if (kind === 'immutable') {
-      if (variableContainsKeyword(variables, keywords.preserve)) {
-        logValidationError(
-          'error',
-          'Detected the "{preserve}" keyword in a fresh deployment.',
-          [
-            'This keyword is reserved for upgrades only. Please remove all instances of it in your Sphinx config file.',
-          ],
-          cre.silent,
-          cre.stream
-        )
-      }
-    } else if (isTargetDeployed) {
-      const minimumCompilerInput = getMinimumCompilerInput(
-        input,
-        output.contracts,
-        configArtifacts[referenceName].artifact.sourceName,
-        configArtifacts[referenceName].artifact.contractName
-      )
+//       const minimumCompilerOutput = getMinimumCompilerOutput(
+//         output,
+//         output.contracts,
+//         configArtifacts[referenceName].artifact.sourceName,
+//         configArtifacts[referenceName].artifact.contractName
+//       )
 
-      const minimumCompilerOutput = getMinimumCompilerOutput(
-        output,
-        output.contracts,
-        configArtifacts[referenceName].artifact.sourceName,
-        configArtifacts[referenceName].artifact.contractName
-      )
+//       // Run the proxy through OpenZeppelin's safety checks.
+//       const upgradeableContract = getOpenZeppelinUpgradableContract(
+//         contract,
+//         minimumCompilerInput,
+//         minimumCompilerOutput,
+//         contractConfig
+//       )
 
-      // Run the proxy through OpenZeppelin's safety checks.
-      const upgradeableContract = getOpenZeppelinUpgradableContract(
-        contract,
-        minimumCompilerInput,
-        minimumCompilerOutput,
-        contractConfig
-      )
+//       if (upgradeableContract.errors.length > 0) {
+//         logValidationError(
+//           'error',
+//           `Contract ${contract} is not upgrade safe`,
+//           [
+//             new UpgradeableContractErrorReport(
+//               upgradeableContract.errors
+//             ).explain(),
+//           ],
+//           false,
+//           cre.stream
+//         )
+//       }
 
-      if (upgradeableContract.errors.length > 0) {
-        logValidationError(
-          'error',
-          `Contract ${contract} is not upgrade safe`,
-          [
-            new UpgradeableContractErrorReport(
-              upgradeableContract.errors
-            ).explain(),
-          ],
-          false,
-          cre.stream
-        )
-      }
+//       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
+//         projectName,
+//         referenceName,
+//         contractConfig,
+//         compilerConfigPath,
+//         cre,
+//         previousConfigUri
+//       )
 
-      const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-        projectName,
-        referenceName,
-        contractConfig,
-        compilerConfigPath,
-        cre,
-        previousConfigUri
-      )
+//       assertStorageCompatiblePreserveKeywords(
+//         contractConfig,
+//         previousStorageLayout,
+//         upgradeableContract.layout,
+//         cre
+//       )
 
-      assertStorageCompatiblePreserveKeywords(
-        contractConfig,
-        previousStorageLayout,
-        upgradeableContract.layout,
-        cre
-      )
-
-      if (unsafeAllow.skipStorageCheck !== true) {
-        assertStorageUpgradeSafe(
-          previousStorageLayout,
-          upgradeableContract.layout,
-          getOpenZeppelinValidationOpts(contractConfig)
-        )
-      }
-    }
-  }
-}
+//       if (unsafeAllow.skipStorageCheck !== true) {
+//         assertStorageUpgradeSafe(
+//           previousStorageLayout,
+//           upgradeableContract.layout,
+//           getOpenZeppelinValidationOpts(contractConfig)
+//         )
+//       }
+//     }
+//   }
+// }
 
 export const assertValidSourceCode = (
   contractConfigs: ParsedContractConfigs,
@@ -2733,99 +2714,58 @@ export const getUnvalidatedContractConfigs = (
   return parsedContractConfigs
 }
 
-export const assertNoUpgradableContracts = (
-  parsedConfig: ParsedConfig,
-  cre: SphinxRuntimeEnvironment
-) => {
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    if (
-      contractConfig.kind !== 'immutable' &&
-      process.env.SPHINX_ALLOW_UPGRADABLE_CONTRACTS !== 'true'
-    ) {
-      logValidationError(
-        'error',
-        `Detected upgradeable contract '${contractConfig.contract}', but upgradeable contracts are not officially supported yet. If you would like to use upgradable contracts please reach out to us in the Discord.`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-  }
-}
+// TODO(parse)
+// export const postParsingValidation = async (
+//   parsedConfig: ParsedConfig,
+//   configArtifacts: ConfigArtifacts,
+//   cre: SphinxRuntimeEnvironment,
+//   configCache: ConfigCache,
+//   failureAction: FailureAction
+// ) => {
+//   const { chainId } = configCache
+//   const { contracts } = parsedConfig
 
-export const postParsingValidation = async (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  configCache: MinimalConfigCache,
-  failureAction: FailureAction
-) => {
-  const { blockGasLimit, contractConfigCache, chainId } = configCache
-  const { contracts, manager } = parsedConfig
+//   // TODO: start (it'd be nice to sanity check that the provided `Network` matches the chain ID returned by an RPC call)
+//   assertSupportedChainId(chainId, cre)
+//   // TODO: end
 
-  assertNoUpgradableContracts(parsedConfig, cre)
+//   // TODO: start (i think ryan may have mentioned this)
+//   if (!cre.allowUnlimitedContractSize) {
+//     assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
+//   }
+//   // TODO: end
 
-  // TODO: start
-  assertValidBlockGasLimit(blockGasLimit)
-  // TODO: end
+//   assertNoValidationErrors(failureAction)
+// }
 
-  // TODO: start (it'd be nice to sanity check that the provided `Network` matches the chain ID returned by an RPC call)
-  assertSupportedChainId(chainId, cre)
-  // TODO: end
+// TODO(upgrades): TODO(docs)
+// /**
+//  * Asserts that the Sphinx config can be initiated in a single transaction.
+//  */
+// export const assertValidDeploymentSize = (
+//   parsedContractConfigs: ParsedContractConfigs,
+//   cre: SphinxRuntimeEnvironment,
+//   configCache: ConfigCache
+// ): void => {
+//   const { blockGasLimit } = configCache
 
-  assertExternalContractsAreDeployed(configCache, cre)
+//   const numTargets = Object.values(parsedContractConfigs).filter(
+//     (contract) => contract.kind !== 'immutable'
+//   ).length
+//   const initiationGasCost = BigInt(100_000) * BigInt(numTargets)
 
-  assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
+//   const costWithBuffer = (initiationGasCost * 12n) / 10n
 
-  // TODO: start (i think ryan may have mentioned this)
-  if (!cre.allowUnlimitedContractSize) {
-    assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
-  }
-  // TODO: end
-
-  assertValidDeploymentSize(contracts, cre, configCache)
-
-  // Complete misc pre-deploy validation
-  // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
-  await assertValidParsedSphinxFile(
-    parsedConfig,
-    configArtifacts,
-    cre,
-    contractConfigCache,
-    manager,
-    failureAction
-  )
-
-  assertNoValidationErrors(failureAction)
-}
-
-/**
- * Asserts that the Sphinx config can be initiated in a single transaction.
- */
-export const assertValidDeploymentSize = (
-  parsedContractConfigs: ParsedContractConfigs,
-  cre: SphinxRuntimeEnvironment,
-  configCache: MinimalConfigCache
-): void => {
-  const { blockGasLimit } = configCache
-
-  const numTargets = Object.values(parsedContractConfigs).filter(
-    (contract) => contract.kind !== 'immutable'
-  ).length
-  const initiationGasCost = BigInt(100_000) * BigInt(numTargets)
-
-  const costWithBuffer = (initiationGasCost * 12n) / 10n
-
-  if (costWithBuffer > blockGasLimit) {
-    logValidationError(
-      'error',
-      `Too many contracts in your Sphinx config.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-}
+//   if (costWithBuffer > blockGasLimit) {
+//     logValidationError(
+//       'error',
+//       `Too many contracts in your Sphinx config.`,
+//       [],
+//       cre.silent,
+//       cre.stream
+//     )
+//   }
+// }
 
 /**
  * Assert that the block gas limit is reasonably high on a network.
@@ -2884,43 +2824,6 @@ export const assertContractsBelowSizeLimit = (
       'error',
       `The following contracts are too large to be deployed on a live network:`,
       uniqueNames.map((name) => `  - ${name}`),
-      cre.silent,
-      cre.stream
-    )
-  }
-}
-
-export const assertImmutableDeploymentsDoNotRevert = (
-  cre: SphinxRuntimeEnvironment,
-  contractConfigCache: ContractConfigCache
-): void => {
-  const revertStrings: { [referenceName: string]: string } = {}
-
-  for (const [referenceName, contractCache] of Object.entries(
-    contractConfigCache
-  )) {
-    const { deploymentReverted, revertString } = contractCache.deploymentRevert
-
-    if (deploymentReverted) {
-      revertStrings[referenceName] = revertString
-        ? `Reason: ${revertString}`.replace(
-            'VM Exception while processing transaction: reverted with reason string ',
-            ''
-          )
-        : 'No error message found.'
-    }
-  }
-
-  if (
-    Object.keys(revertStrings).length > 0 &&
-    !process.env.SPHINX_INTERNAL__ALLOW_REVERTING_CONSTRUCTORS
-  ) {
-    logValidationError(
-      'error',
-      `The following constructors will revert:`,
-      Object.entries(revertStrings).map(([referenceName, reason]) => {
-        return `  - ${referenceName}. ${reason}`
-      }),
       cre.silent,
       cre.stream
     )
@@ -3768,19 +3671,4 @@ export const assertValidPostDeploymentActions = (
   }
 
   assertNoValidationErrors(failureAction)
-}
-
-const assertExternalContractsAreDeployed = (
-  configCache: MinimalConfigCache,
-  cre: SphinxRuntimeEnvironment
-): void => {
-  if (configCache.undeployedExternalContracts.length > 0) {
-    logValidationError(
-      'error',
-      externalContractsMustBeDeployed(configCache.chainId),
-      configCache.undeployedExternalContracts,
-      cre.silent,
-      cre.stream
-    )
-  }
 }

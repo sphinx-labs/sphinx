@@ -169,8 +169,9 @@ contract SphinxUtils is
        causes an error to be thrown by Forge.
      */
     function ffiGetEncodedBundleInfo(
+        SphinxAction[] memory _actions,
         ConfigCache memory _configCache,
-        string memory _parsedConfigStr,
+        address _sphinxManager,
         string memory _rootFfiPath
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
@@ -178,9 +179,9 @@ contract SphinxUtils is
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
-        cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _parsedConfigStr;
-        cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
+        cmds[3] = vm.toString(abi.encode(_actions));
+        cmds[4] = vm.toString(abi.encode(_configCache));
+        cmds[5] = vm.toString(_sphinxManager);
 
         bytes memory result = vm.ffi(cmds);
         return result;
@@ -436,108 +437,16 @@ contract SphinxUtils is
 
     // TODO: in the new propose function, do a local simulation before proposing. you may need to invoke a forge script to do this.
 
-    // TODO: you can probably remove some stuff from the config cache, like isTargetDeployed
     function getConfigCache(
-        FoundryConfig memory _minimalConfig,
         ISphinxRegistry _registry,
-        ISphinxManager _manager,
-        string memory _rpcUrl,
-        string memory _mainFfiScriptPath
+        ISphinxManager _manager
     ) external returns (ConfigCache memory) {
         bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
         bool isExecuting = isManagerDeployed_ && _manager.isExecuting();
 
-        ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
-            _minimalConfig.contracts.length
-        );
-        for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            FoundryContractConfig memory contractConfig = _minimalConfig.contracts[i];
-
-            bool isTargetDeployed = contractConfig.addr.code.length > 0;
-
-            OptionalString memory previousConfigUri = isTargetDeployed &&
-                contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? ffiGetPreviousConfigUri(contractConfig.addr, _rpcUrl, _mainFfiScriptPath)
-                : OptionalString({ exists: false, value: "" });
-
-            // At this point in the TypeScript version of this function, we attempt to deploy all of
-            // the non-proxy contracts. We skip this step here because it's unnecessary in this
-            // context. Forge does local simulation before broadcasting any transactions, so if a
-            // constructor reverts, it'll be caught before anything happens on the live network.
-            DeploymentRevert memory deploymentRevert = DeploymentRevert({
-                deploymentReverted: false,
-                revertString: OptionalString({ exists: false, value: "" })
-            });
-
-            ImportCache memory importCache;
-            if (isTargetDeployed) {
-                // In the TypeScript version, we check if the SphinxManager has permission to
-                // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
-                // fails in Solidity when called on a state-changing function (which 'upgradeTo'
-                // is). We also can't attempt an external call because it could be broadcasted. So,
-                // we skip this step here, which is fine because Forge automatically does local
-                // simulation before broadcasting any transactions. If the SphinxManager doesn't
-                // have permission to call 'upgradeTo', an error will be thrown when simulating the
-                // execution logic, which will happen before any transactions are broadcasted.
-
-                if (
-                    contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT
-                ) {
-                    // Check that the SphinxManager is the owner of the Transparent proxy.
-                    address currProxyAdmin = getEIP1967ProxyAdminAddress(contractConfig.addr);
-
-                    if (currProxyAdmin != address(_manager)) {
-                        importCache = ImportCache({
-                            requiresImport: true,
-                            currProxyAdmin: OptionalAddress({ exists: true, value: currProxyAdmin })
-                        });
-                    }
-                }
-            }
-
-            contractConfigCache[i] = ContractConfigCache({
-                referenceName: contractConfig.referenceName,
-                isTargetDeployed: isTargetDeployed,
-                deploymentRevert: deploymentRevert,
-                importCache: importCache,
-                previousConfigUri: previousConfigUri
-            });
-        }
-
-        // Get an array of undeployed external contracts. To do this, we first need to get the
-        // addresses of all of the post-deployment actions. Then, we use this to get an array of
-        // unique addresses. Finally, we use this to get an array of undeployed external contracts.
-        address[] memory postDeployAddresses = new address[](_minimalConfig.postDeploy.length);
-        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
-            postDeployAddresses[i] = _minimalConfig.postDeploy[i].to;
-        }
-        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(
-            getUniqueAddresses(postDeployAddresses),
-            _minimalConfig.contracts
-        );
-
-        // Get an array where each element contains a call hash and its current nonce. We'll use
-        // this later to determine which call actions to skip in the deployment, if any.
-        CallNonces[] memory callNonces = new CallNonces[](_minimalConfig.postDeploy.length);
-        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
-            bytes32 callHash = getCallHash(
-                _minimalConfig.postDeploy[i].to,
-                _minimalConfig.postDeploy[i].data
-            );
-            if (!isManagerDeployed_) {
-                callNonces[i] = CallNonces({ callHash: callHash, nonce: 0 });
-            } else {
-                uint256 currentNonce = _manager.callNonces(callHash);
-                callNonces[i] = CallNonces({ callHash: callHash, nonce: currentNonce });
-            }
-        }
-
         // Fetch the version from the manager if it is deployed, otherwise use the default version.
-        Semver semverManager = Semver(address(_manager));
         Version memory managerVersion = isManagerDeployed_
-            ? semverManager.version()
+            ? Semver(address(_manager)).version()
             : Version({
                 major: SphinxConstants.major,
                 minor: SphinxConstants.minor,
@@ -548,12 +457,8 @@ contract SphinxUtils is
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
                 isExecuting: isExecuting,
-                managerVersion: managerVersion,
-                blockGasLimit: block.gaslimit,
+                currentManagerVersion: managerVersion,
                 chainId: block.chainid,
-                contractConfigCache: contractConfigCache,
-                callNonces: callNonces,
-                undeployedExternalContracts: undeployedExternalContracts
             });
     }
 
@@ -735,5 +640,9 @@ contract SphinxUtils is
         }
 
         return trimmedUndeployedExternalAddresses;
+    }
+
+    function getNumContractsToDeploy(SphinxAction[] memory _actions) returns (uint256) {
+
     }
 }

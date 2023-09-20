@@ -15,11 +15,16 @@ import {
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   ConfigArtifacts,
+  DeployContractActionTODO,
+  DeployContractTODO,
+  FunctionCallTODO,
   GetConfigArtifacts,
   GetProviderForChainId,
+  SphinxActionTODO,
   UserContractConfigs,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
+import { SphinxActionType } from '@sphinx-labs/core/dist/actions/types'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -64,6 +69,7 @@ export const messageMultipleArtifactsFound = (
   )
 }
 
+// TODO(refactor): i think you can simplify this because you're just dealing with FQNs now
 export const getContractArtifact = async (
   contractNameOrFullyQualifiedName: string,
   artifactFolder: string,
@@ -163,24 +169,20 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   }
 }
 
+// TODO(refactor): c/f hardhat
+
 /**
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
  * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
  * plugin.
- *
- * @param hre Hardhat runtime environment.
- * @param contractConfigs Contract configurations.
- * @param artifactFolder Path to the artifact folder.
- * @param buildInfoFolder Path to the build info folder.
- * @returns Paths to the build info and contract artifact files.
  */
 export const makeGetConfigArtifacts = (
   artifactFolder: string,
   buildInfoFolder: string,
   cachePath: string
 ): GetConfigArtifacts => {
-  return async (contractConfigs: UserContractConfigs) => {
+  return async (actions: Array<DeployContractTODO | FunctionCallTODO>) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {
       fs.mkdirSync(cachePath)
@@ -292,13 +294,18 @@ export const makeGetConfigArtifacts = (
       (a, b) => b.time - a.time
     )
 
-    // Look through the cache, read all the contract artifacts, and find all of the build info files names required for the passed in contract config
+    // Look through the cache, read all the contract artifacts, and find all of the required build
+    // info files names. We just get the build info files for contracts that will be deployed.
     const toReadFiles: string[] = []
+    // TODO(refactor): you probably need to filter for the DEPLOY_CONTRACT actions that aren't being
+    // skipped in multiple places.
     const resolved = await Promise.all(
-      Object.entries(contractConfigs).map(
-        async ([referenceName, contractConfig]) => {
+      actions
+        .filter((a) => a.actionType === SphinxActionType.DEPLOY_CONTRACT)
+        .filter((a) => !a.skip)
+        .map(async ({ fullyQualifiedName }) => {
           const artifact = await getContractArtifact(
-            contractConfig.contract,
+            fullyQualifiedName,
             artifactFolder,
             buildInfoCache.contracts
           )
@@ -317,7 +324,7 @@ export const makeGetConfigArtifacts = (
               }
 
               return {
-                referenceName,
+                fullyQualifiedName,
                 artifact,
                 buildInfoName: file.name,
                 buildInfo,
@@ -330,8 +337,7 @@ export const makeGetConfigArtifacts = (
           throw new Error(
             `Failed to find build info for ${artifact.sourceName}. Try recompiling with force: forge build --force`
           )
-        }
-      )
+        })
     )
 
     // Read any build info files that we didn't already have in memory
@@ -368,8 +374,12 @@ export const makeGetConfigArtifacts = (
 
     const configArtifacts: ConfigArtifacts = {}
 
-    for (const { referenceName, artifact, buildInfo } of completeArtifacts) {
-      configArtifacts[referenceName] = {
+    for (const {
+      fullyQualifiedName,
+      artifact,
+      buildInfo,
+    } of completeArtifacts) {
+      configArtifacts[fullyQualifiedName] = {
         artifact,
         buildInfo,
       }

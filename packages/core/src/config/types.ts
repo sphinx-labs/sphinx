@@ -12,8 +12,17 @@ import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SupportedChainId, SupportedNetworkName } from '../networks'
+import {
+  SupportedChainId,
+  SupportedMainnetNetworkName,
+  SupportedNetworkName,
+} from '../networks'
 import { SemverVersion } from '../types'
+import {
+  HumanReadableAction,
+  SphinxAction,
+  SphinxActionType,
+} from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -135,24 +144,26 @@ export interface ConfigOptions {
   managerVersion: ValidManagerVersion
 }
 
-export type ParsedCallAction = {
-  to: string
-  data: string
-  nonce: number
-  readableSignature: SphinxFunctionSignature
-}
+// export type FunctionTODOCallTODO = {
+//   to: string
+//   selector: string
+//   encodedFunctionArgs: string
+//   functionArgs: ParsedConfigVariables
+//   referenceName: string
+//   functionName: string
+//   skip: boolean
+// }
 
-export type SphinxFunctionSignature = {
-  referenceNameOrAddress: string
-  functionName: string
-  variables: ParsedConfigVariables
-}
-
-export interface ParsedConfig {
-  projectName: string
+export type ParsedConfig = {
   manager: string
-  contracts: ParsedContractConfigs
-  postDeploy: ParsedCallActionsPerChain
+  chainId: SupportedChainId
+  actionsTODO: Array<DeployContractTODO | FunctionCallTODO>
+  isManagerDeployed: boolean
+  firstProposalOccurred: boolean
+  isExecuting: boolean
+  isLiveNetwork: boolean
+  prevConfig: SphinxConfig
+  newConfig: SphinxConfig
 }
 
 export interface ParsedOwnerConfig extends ParsedConfig {
@@ -228,34 +239,75 @@ export type UserAddressOverrides = {
   address: string
 }
 
-/**
- * Contract definition in a parsed config. Note that the `contract` field is the
- * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
- * qualified name or the contract name.
- */
-export type ParsedContractConfig = {
-  contract: string
-  address: string
-  kind: ContractKind
-  variables: ParsedConfigVariables
-  constructorArgs: ParsedFunctionArgsPerChain
-  isUserDefinedAddress: boolean
-  unsafeAllow: UnsafeAllow
-  salt: string
-  previousBuildInfo?: string
-  previousFullyQualifiedName?: string
+// TODO(docs): 'kind' and 'variables' are kept for backwards compatibility with the old config
+// TODO(docs): initCode does not have the constructor args
+// export type DeployTODOContractTODO = {
+//   initCode: string
+//   encodedConstructorArgs: string
+//   userSalt: string
+//   referenceName: string
+//   fullyQualifiedName: string
+//   skip: boolean
+//   address: string
+//   kind: ContractKind
+//   variables: ParsedConfigVariables
+//   constructorArgs: ParsedConfigVariables
+// }
+
+export interface DeployContractTODO {
+  fullyQualifiedName: string
+  actionType: SphinxActionType.DEPLOY_CONTRACT
+  skip: boolean
+  initCode: string
+  constructorArgs: string
+  userSalt: string
+  referenceName: string
 }
 
-export type ParsedContractConfigs = {
-  [referenceName: string]: ParsedContractConfig
+export type SphinxConfig = {
+  projectName: string
+  owners: Array<string>
+  proposers: Array<string>
+  mainnets: Array<SupportedMainnetNetworkName>
+  testnets: Array<SupportedNetworkName>
+  threshold: number
+  managerVersion: SemverVersion
+}
+
+export interface ExtendedDeployContractTODO extends DeployContractTODO {
+  decodedAction: DecodedAction
+}
+
+export interface ExtendedFunctionCallTODO extends FunctionCallTODO {
+  decodedAction: DecodedAction
+}
+
+export type DecodedAction = {
+  referenceName: string
+  functionName: string
+  variables: ParsedConfigVariables
+}
+
+export interface FunctionCallTODO {
+  fullyQualifiedName: string
+  actionType: SphinxActionType.CALL
+  skip: boolean
+  to: string
+  selector: string
+  functionParams: string
+  nonce: number
+  referenceName: string
+}
+
+export type RawSphinxActionTODO = {
+  fullyQualifiedName: string
+  actionType: SphinxActionType.CALL | SphinxActionType.DEPLOY_CONTRACT
+  skip: boolean
+  data: string
 }
 
 export type ParsedFunctionArgsPerChain = {
   [key in SupportedChainId]?: ParsedConfigVariables
-}
-
-export type ParsedCallActionsPerChain = {
-  [key in SupportedChainId]?: Array<ParsedCallAction>
 }
 
 export type ParsedConfigVariables = {
@@ -278,45 +330,37 @@ export type SphinxInput = {
 }
 
 export type ConfigArtifacts = {
-  [referenceName: string]: {
+  [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
     artifact: ContractArtifact
   }
 }
 
-/**
- * @notice This is the ConfigCache that's used in the Foundry plugin. It's a subset of the
- * ConfigCache that's used in the Hardhat Sphinx plugin. The fields that are missing from this type
- * are either difficult to retrieve in Solidity or not needed in the Foundry plugin.
- */
-export interface MinimalConfigCache {
+export type SphinxActionTODO = {
+  fullyQualifiedName: string
+  actionType: SphinxActionType
+  data: string
+  skip: boolean
+}
+
+// TODO: rm if unnecessary
+// export type DeployContractActionTODO = {
+//   fullyQualifiedName: string
+//   actionType: SphinxActionType.DEPLOY_CONTRACT
+//   skip: boolean
+//   initCode: string
+//   constructorArgs: string
+//   salt: string
+//   referenceName: string
+// }
+
+export type ConfigCache = {
+  manager: string
   isManagerDeployed: boolean
   isExecuting: boolean
-  managerVersion: SemverVersion
-  blockGasLimit: bigint
-  chainId: number
-  contractConfigCache: ContractConfigCache
-  callNonces: { [callHash: string]: number }
-  undeployedExternalContracts: Array<string>
-}
-
-/**
- * @notice This is the ConfigCache that's used in the Hardhat Sphinx plugin.
- */
-export interface ConfigCache extends MinimalConfigCache {
-  networkName: string
-  networkType: NetworkType
-}
-
-/**
- * @param LIVE_NETWORK - The network is a live network (e.g. ethereum).
- * @param ANVIL - The network is an Anvil node, which could be a fork of a live network.
- * @param HARDHAT - The network is a Hardhat node, which could be a fork of a live network.
- */
-export enum NetworkType {
-  LIVE_NETWORK,
-  ANVIL,
-  HARDHAT,
+  currentManagerVersion: SemverVersion
+  chainId: SupportedChainId
+  isLiveNetwork: boolean
 }
 
 export type ContractConfigCache = {
@@ -338,14 +382,6 @@ export type ImportCache = {
   currProxyAdmin?: string
 }
 
-export type FoundryConfig = {
-  manager: string
-  owner: string
-  projectName: string
-  contracts: Array<FoundryContractConfig>
-  postDeploy: Array<ParsedCallAction>
-}
-
 export type FoundryContractConfig = {
   referenceName: string
   addr: string
@@ -354,7 +390,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  contractConfigs: UserContractConfigs
+  actions: Array<SphinxActionTODO>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
@@ -371,9 +407,11 @@ export interface CanonicalConfig {
   projectName: string
   options: ConfigOptions
   chainStates: {
-    [chainId: number]: {
-      firstProposalOccurred: boolean
-      projectCreated: boolean
-    }
+    [chainId: number]:
+      | {
+          firstProposalOccurred: boolean
+          projectCreated: boolean
+        }
+      | undefined
   }
 }

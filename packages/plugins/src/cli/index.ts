@@ -24,7 +24,7 @@ import {
   ensureSphinxInitialized,
   proposeAbstractTask,
   UserConfigWithOptions,
-  SphinxFoundryAction,
+  RawSphinxAction,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -485,6 +485,7 @@ yargs(hideBin(process.argv))
         // since there may be startup time.
         exec(`anvil --port ${anvilPort} --fork-url ${rpcUrl} --silent &`)
 
+        // TODO: i think you should add --broadcast since you're using the live network logic
         await execAsync(`forge script ${config} --fork-url ${rpcUrl}`)
 
         // TODO: kill port, even if something fails during the process
@@ -499,7 +500,7 @@ yargs(hideBin(process.argv))
           )
         }
 
-        const actions: Array<SphinxFoundryAction> =
+        const actions: Array<RawSphinxAction> =
           await SphinxActions.getAllActions()
         actions
 
@@ -547,13 +548,14 @@ yargs(hideBin(process.argv))
         spinner.start(`Deploying project...`)
         // const { stdout } = await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
 
-        // if (
-        //   stdout.includes(
-        //     'Nothing to execute in this deployment. Exiting early.'
-        //   )
-        // ) {
-        //   isEmptyDeployment = true
-        // }
+        // TODO: i think you should still include this, since the deployment may be empty.
+        if (
+          stdout.includes(
+            'Nothing to execute in this deployment. Exiting early.'
+          )
+        ) {
+          isEmptyDeployment = true
+        }
 
         // spinner.stop()
         // console.log(stdout)
