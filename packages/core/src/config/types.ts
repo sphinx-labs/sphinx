@@ -18,11 +18,7 @@ import {
   SupportedNetworkName,
 } from '../networks'
 import { SemverVersion } from '../types'
-import {
-  HumanReadableAction,
-  SphinxAction,
-  SphinxActionType,
-} from '../actions/types'
+import { SphinxActionType } from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -157,23 +153,13 @@ export interface ConfigOptions {
 export type ParsedConfig = {
   manager: string
   chainId: SupportedChainId
-  actionsTODO: Array<DeployContractTODO | FunctionCallTODO>
+  actionsTODO: Array<ExtendedDeployContractTODO | ExtendedFunctionCallTODO>
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
   isExecuting: boolean
   isLiveNetwork: boolean
   prevConfig: SphinxConfig
   newConfig: SphinxConfig
-}
-
-export interface ParsedOwnerConfig extends ParsedConfig {
-  owner: string
-  options?: never
-}
-
-export interface ParsedConfigWithOptions extends ParsedConfig {
-  options: ParsedConfigOptions
-  owner?: never
 }
 
 export type UnsafeAllow = {
@@ -276,6 +262,7 @@ export type SphinxConfig = {
 
 export interface ExtendedDeployContractTODO extends DeployContractTODO {
   decodedAction: DecodedAction
+  create3Address: string
 }
 
 export interface ExtendedFunctionCallTODO extends FunctionCallTODO {

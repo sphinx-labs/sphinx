@@ -3,11 +3,7 @@ import { ASTDereferencer } from 'solidity-ast/utils'
 import { ContractDefinition } from 'solidity-ast'
 import 'core-js/features/array/at'
 
-import {
-  ParsedContractConfig,
-  ParsedConfigVariable,
-  ParsedConfigVariables,
-} from '../../config/types'
+import { ParsedConfigVariable, ParsedConfigVariables } from '../../config/types'
 import {
   ExtendedSolidityStorageObj,
   ExtendedStorageLayout,
@@ -619,16 +615,17 @@ export const encodeVariable = (
  */
 export const computeStorageSegments = (
   extendedLayout: ExtendedStorageLayout,
-  contractConfig: ParsedContractConfig,
+  variables: ParsedConfigVariables,
   dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
-  if (contractConfig.kind === 'immutable') {
-    return []
-  }
+  // TODO(upgrades)
+  // if (contractConfig.kind === 'immutable') {
+  //   return []
+  // }
 
   let segments: StorageSlotSegment[] = []
   for (const storageObj of Object.values(extendedLayout.storage)) {
-    const configVarValue = contractConfig.variables[storageObj.configVarName]
+    const configVarValue = variables[storageObj.configVarName]
     // Encode this variable as a series of storage slot key/value pairs and save it.
     segments = segments.concat(
       encodeVariable(

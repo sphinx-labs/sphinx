@@ -300,7 +300,7 @@ yargs(hideBin(process.argv))
   )
   .command(
     'deploy',
-    `Deploy a Sphinx config file using Foundry. Writes deployment artifacts if broadcasting.`,
+    `Deploy a Sphinx config file using Foundry. Writes deployment artifacts if broadcasting.`, // TODO: update?
     (y) =>
       y
         .usage(

@@ -73,6 +73,10 @@ import {
   ValidManagerVersion,
   UserFunctionOptions,
   ConfigCache,
+  DeployContractTODO,
+  FunctionCallTODO,
+  ExtendedDeployContractTODO,
+  ExtendedFunctionCallTODO,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1034,6 +1038,21 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.isHexString(variable) && variable.length % 2 === 0
 }
 
+export const isLiveNetwork = async (
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<boolean> => {
+  try {
+    // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
+    // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
+    // namespace is an alias for `hardhat_`. Source:
+    // https://book.getfoundry.sh/reference/anvil/#custom-methods
+    await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
+  } catch (err) {
+    return true
+  }
+  return false
+}
+
 export const getImpersonatedSigner = async (
   address: string,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
@@ -1534,7 +1553,7 @@ export const getNetworkNameForChainId = (chainId: number): string => {
   )
 
   if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
+    return 'unknown'
   }
 
   return network
@@ -1821,4 +1840,10 @@ export const equal = (
   } else {
     return a === b
   }
+}
+
+export const isExtendedDeployContractTODO = (
+  actionTODO: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+): actionTODO is ExtendedDeployContractTODO => {
+  return actionTODO.actionType === SphinxActionType.DEPLOY_CONTRACT
 }

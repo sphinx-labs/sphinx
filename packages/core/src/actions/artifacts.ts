@@ -1,9 +1,4 @@
 import { ConstructorFragment, ethers } from 'ethers'
-import {
-  ProxyABI,
-  ProxyArtifact,
-  buildInfo as sphinxBuildInfo,
-} from '@sphinx-labs/contracts'
 
 import { ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
@@ -14,10 +9,10 @@ import {
   writeDeploymentFolderForNetwork,
   getFunctionArgValueArray,
   writeDeploymentArtifact,
-  findReferenceNameForAddress,
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
+import { SphinxActionType } from './types'
 
 /**
  * Gets the storage layout for a contract.
@@ -56,8 +51,6 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkDirName, deploymentFolderPath)
 
-  const managerAddress = parsedConfig.manager
-
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {
       throw new Error(`Deployment event has no arguments. Should never happen.`)
@@ -66,116 +59,114 @@ export const writeDeploymentArtifacts = async (
     const receipt = await deploymentEvent.getTransactionReceipt()
     const { contractAddress } = deploymentEvent.args
 
-    const referenceName = findReferenceNameForAddress(
-      contractAddress,
-      parsedConfig.contracts
+    const action = parsedConfig.actionsTODO.find(
+      (a) =>
+        a.actionType === SphinxActionType.DEPLOY_CONTRACT &&
+        a.create3Address === contractAddress
     )
 
-    if (!referenceName) {
-      // TODO(upgrades): The reference name will be undefined if the contract address is an
-      // implementation contract of a proxy. This means we currently don't write deployment
-      // artifacts for implementation contracts. When we add support for upgradeable contracts, we
-      // should add implementation contract info to the parsed config, and the
-      // `findReferenceNameForAddress` function should be updated to support this case.
-      continue
-    }
-
-    if (parsedConfig.contracts[referenceName].kind === 'proxy') {
-      // The deployment event is for a default proxy.
-      const { metadata, storageLayout } =
-        sphinxBuildInfo.output.contracts[
-          '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
-        ]['Proxy']
-      const { devdoc, userdoc } =
-        typeof metadata === 'string'
-          ? JSON.parse(metadata).output
-          : metadata.output
-
-      // Define the deployment artifact for the proxy.
-      const proxyArtifact = {
-        address: contractAddress,
-        abi: ProxyABI,
-        transactionHash: deploymentEvent.transactionHash,
-        solcInputHash: sphinxBuildInfo.id,
-        receipt: {
-          ...receipt,
-          gasUsed: receipt.gasUsed.toString(),
-          cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-          // Exclude the `gasPrice` if it's undefined
-          ...(receipt.gasPrice && {
-            gasPrice: receipt.gasPrice.toString(),
-          }),
-        },
-        numDeployments: 1,
-        metadata:
-          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-        args: [managerAddress],
-        bytecode: ProxyArtifact.bytecode,
-        deployedBytecode: await provider.getCode(contractAddress),
-        devdoc,
-        userdoc,
-        storageLayout,
-      }
-
-      // Write the deployment artifact for the proxy contract.
-      writeDeploymentArtifact(
-        networkDirName,
-        deploymentFolderPath,
-        proxyArtifact,
-        `${referenceName}Proxy`
-      )
-    } else {
-      // Get the deployed contract's info.
-      const { artifact, buildInfo } = configArtifacts[referenceName]
-      const { sourceName, contractName, bytecode, abi } = artifact
-      const iface = new ethers.Interface(abi)
-      const constructorArgValues = getFunctionArgValueArray(
-        parsedConfig.contracts[referenceName].constructorArgs,
-        iface.fragments.find(ConstructorFragment.isFragment)
-      )
-      const { metadata } = buildInfo.output.contracts[sourceName][contractName]
-      const storageLayout = getStorageLayout(
-        buildInfo.output,
-        sourceName,
-        contractName
-      )
-      const { devdoc, userdoc } =
-        typeof metadata === 'string'
-          ? JSON.parse(metadata).output
-          : metadata.output
-
-      // Define the deployment artifact for the deployed contract.
-      const contractArtifact = {
-        address: contractAddress,
-        abi,
-        transactionHash: deploymentEvent.transactionHash,
-        solcInputHash: buildInfo.id,
-        receipt: {
-          ...receipt,
-          gasUsed: receipt.gasUsed.toString(),
-          cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-          // Exclude the `gasPrice` if it's undefined
-          ...(receipt.gasPrice && {
-            gasPrice: receipt.gasPrice.toString(),
-          }),
-        },
-        numDeployments: 1,
-        metadata:
-          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-        args: constructorArgValues,
-        bytecode,
-        deployedBytecode: await provider.getCode(contractAddress),
-        devdoc,
-        userdoc,
-        storageLayout,
-      }
-      // Write the deployment artifact for the deployed contract.
-      writeDeploymentArtifact(
-        networkDirName,
-        deploymentFolderPath,
-        contractArtifact,
-        referenceName
+    if (!action) {
+      throw new Error(
+        `Could not find action for contract address ${contractAddress}. Should never happen.`
       )
     }
+
+    // TODO(upgrades)
+    // if (parsedConfig.contracts[referenceName].kind === 'proxy') {
+    //   // The deployment event is for a default proxy.
+    //   const { metadata, storageLayout } =
+    //     sphinxBuildInfo.output.contracts[
+    //       '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
+    //     ]['Proxy']
+    //   const { devdoc, userdoc } =
+    //     typeof metadata === 'string'
+    //       ? JSON.parse(metadata).output
+    //       : metadata.output
+
+    //   // Define the deployment artifact for the proxy.
+    //   const proxyArtifact = {
+    //     address: contractAddress,
+    //     abi: ProxyABI,
+    //     transactionHash: deploymentEvent.transactionHash,
+    //     solcInputHash: sphinxBuildInfo.id,
+    //     receipt: {
+    //       ...receipt,
+    //       gasUsed: receipt.gasUsed.toString(),
+    //       cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+    //       // Exclude the `gasPrice` if it's undefined
+    //       ...(receipt.gasPrice && {
+    //         gasPrice: receipt.gasPrice.toString(),
+    //       }),
+    //     },
+    //     numDeployments: 1,
+    //     metadata:
+    //       typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+    //     args: [managerAddress],
+    //     bytecode: ProxyArtifact.bytecode,
+    //     deployedBytecode: await provider.getCode(contractAddress),
+    //     devdoc,
+    //     userdoc,
+    //     storageLayout,
+    //   }
+
+    //   // Write the deployment artifact for the proxy contract.
+    //   writeDeploymentArtifact(
+    //     networkDirName,
+    //     deploymentFolderPath,
+    //     proxyArtifact,
+    //     `${referenceName}Proxy`
+    //   )
+    // } else {
+
+    const { artifact, buildInfo } = configArtifacts[action.fullyQualifiedName]
+    const { sourceName, contractName, bytecode, abi } = artifact
+    const iface = new ethers.Interface(abi)
+    const constructorArgValues = getFunctionArgValueArray(
+      action.decodedAction.variables,
+      iface.fragments.find(ConstructorFragment.isFragment)
+    )
+    const { metadata } = buildInfo.output.contracts[sourceName][contractName]
+    const storageLayout = getStorageLayout(
+      buildInfo.output,
+      sourceName,
+      contractName
+    )
+    const { devdoc, userdoc } =
+      typeof metadata === 'string'
+        ? JSON.parse(metadata).output
+        : metadata.output
+
+    // Define the deployment artifact for the deployed contract.
+    const contractArtifact = {
+      address: contractAddress,
+      abi,
+      transactionHash: deploymentEvent.transactionHash,
+      solcInputHash: buildInfo.id,
+      receipt: {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+        // Exclude the `gasPrice` if it's undefined
+        ...(receipt.gasPrice && {
+          gasPrice: receipt.gasPrice.toString(),
+        }),
+      },
+      numDeployments: 1,
+      metadata:
+        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+      args: constructorArgValues,
+      bytecode,
+      deployedBytecode: await provider.getCode(contractAddress),
+      devdoc,
+      userdoc,
+      storageLayout,
+    }
+    // Write the deployment artifact for the deployed contract.
+    writeDeploymentArtifact(
+      networkDirName,
+      deploymentFolderPath,
+      contractArtifact,
+      action.referenceName
+    )
   }
 }

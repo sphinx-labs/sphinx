@@ -25,8 +25,7 @@ import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  getNetworkType,
-  resolveNetwork,
+  isLiveNetwork,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
@@ -51,7 +50,6 @@ import {
 } from '../../constants'
 import { assertValidBlockGasLimit } from '../../config/parse'
 import { getSphinxConstants } from '../../contract-info'
-import { NetworkType } from '../../config'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -97,10 +95,9 @@ export const initializeAndVerifySphinx = async (
   const { name: networkName } = await provider.getNetwork()
   try {
     // Verify the Sphinx contracts if the current network is supported.
-    const networkType = await getNetworkType(provider)
     if (
       (await isSupportedNetworkOnEtherscan(provider)) &&
-      networkType === NetworkType.LIVE_NETWORK
+      (await isLiveNetwork(provider))
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
@@ -143,7 +140,7 @@ export const ensureSphinxInitialized = async (
 ) => {
   if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
     return
-  } else if ((await getNetworkType(provider)) !== NetworkType.LIVE_NETWORK) {
+  } else if (!(await isLiveNetwork(provider))) {
     await initializeSphinx(
       provider,
       signer,
@@ -153,14 +150,7 @@ export const ensureSphinxInitialized = async (
       logger
     )
   } else {
-    const networkType = await getNetworkType(provider)
-    const { networkName } = await resolveNetwork(
-      await provider.getNetwork(),
-      networkType
-    )
-    throw new Error(
-      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it! If you are seeing this error on a network we support, try using a different provider and then file an issue on Github if the problem persists.`
-    )
+    throw new Error(`Sphinx is not supported on this network.`)
   }
 }
 
@@ -239,11 +229,8 @@ export const initializeSphinx = async (
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  const networkType = await getNetworkType(provider)
-  if (
-    networkType === NetworkType.LIVE_NETWORK &&
-    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
-  ) {
+  const isLiveNetwork_ = await isLiveNetwork(provider)
+  if (isLiveNetwork_ && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
     if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
       throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
     }
@@ -265,7 +252,7 @@ export const initializeSphinx = async (
       )
     }
 
-    if (networkType !== NetworkType.LIVE_NETWORK) {
+    if (!isLiveNetwork_) {
       // Fund the signer
       await (
         await signer.sendTransaction({

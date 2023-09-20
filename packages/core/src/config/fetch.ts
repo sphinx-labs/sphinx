@@ -56,33 +56,6 @@ export const sphinxFetchSubtask = async (args: {
   return config
 }
 
-export const verifyDeployment = async (
-  configUri: string,
-  deploymentId: string,
-  configArtifacts: ConfigArtifacts,
-  projectName: string,
-  configCache: ConfigCache,
-  ipfsUrl?: string
-) => {
-  const config = await callWithTimeout<CompilerConfig>(
-    sphinxFetchSubtask({ configUri, ipfsUrl }),
-    30000,
-    'Failed to fetch config file from IPFS'
-  )
-
-  const { bundles } = makeBundlesFromConfig(
-    config,
-    configArtifacts,
-    configCache
-  )
-
-  if (deploymentId !== getDeploymentId(bundles, configUri)) {
-    throw new Error(
-      'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
-    )
-  }
-}
-
 /**
  * Compiles a remote SphinxBundle from a uri.
  *
@@ -91,7 +64,6 @@ export const verifyDeployment = async (
  * @returns Compiled SphinxBundle.
  */
 export const compileRemoteBundles = async (
-  provider: SphinxJsonRpcProvider,
   configUri: string
 ): Promise<{
   bundles: SphinxBundles
@@ -107,18 +79,9 @@ export const compileRemoteBundles = async (
 
   const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
 
-  const configCache = await getConfigCache(
-    provider,
-    compilerConfig,
-    configArtifacts,
-    getSphinxRegistryAddress(),
-    compilerConfig.manager
-  )
-
   const { bundles, humanReadableActions } = makeBundlesFromConfig(
     compilerConfig,
-    configArtifacts,
-    configCache
+    configArtifacts
   )
   return {
     bundles,

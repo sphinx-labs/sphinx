@@ -5,7 +5,7 @@ import {
   ConfigCache,
   NetworkType,
   ParsedConfig,
-  SphinxFunctionSignature,
+  DecodedAction,
 } from '../src/config/types'
 import { CallAction } from '../src/actions/types'
 import { getCallHash } from '../src/utils'
@@ -17,7 +17,7 @@ const callAction: CallAction = {
   data: '0x12345678',
   nonce: 0,
 }
-const postDeployFunctionSignature: SphinxFunctionSignature = {
+const postDeployFunctionSignature: DecodedAction = {
   referenceNameOrAddress: 'MyContract',
   functionName: 'myFunction',
   variables: {

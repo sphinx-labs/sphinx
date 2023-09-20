@@ -186,18 +186,6 @@ export const proposeAbstractTask = async (
     configArtifacts = parsedConfigValues.configArtifacts
     const configCache = parsedConfigValues.configCache
 
-    // Get the previous config to use in the rest of this function. If the previous config
-    // contains this chain ID, then we use the previous config. Otherwise, we generate an empty
-    // config, which makes it easy to generate leafs for a new chain.
-    const prevConfigForChain = prevConfig.chainStates[chainId]
-      ? prevConfig
-      : getEmptyCanonicalConfig(
-          [chainId],
-          prevConfig.manager,
-          prevConfig.options.orgId,
-          projectName
-        )
-
     let firstProposalOccurred: boolean
     let prevProposers: Array<string>
     const chainStates = prevConfig.chainStates[chainId]
@@ -210,10 +198,7 @@ export const proposeAbstractTask = async (
     }
     const leafsForChain = await getAuthLeafsForChain(
       parsedConfig,
-      configArtifacts,
-      configCache,
-      firstProposalOccurred,
-      prevProposers
+      configArtifacts
     )
     leafs.push(...leafsForChain)
 

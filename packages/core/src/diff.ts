@@ -1,12 +1,9 @@
 import { yellow, green, blue, bold } from 'chalk'
 
-import {
-  ConfigCache,
-  ParsedConfig,
-  SphinxFunctionSignature,
-} from './config/types'
+import { ConfigCache, DecodedAction, ParsedConfig } from './config/types'
 import {
   arraysEqual,
+  getNetworkNameForChainId,
   getNetworkTag,
   hyperlink,
   isSupportedChainId,
@@ -16,8 +13,8 @@ import {
 
 export type SphinxDiff = Array<{
   networkTags: Array<string>
-  executing: Array<SphinxFunctionSignature>
-  skipping: Array<SphinxFunctionSignature>
+  executing: Array<DecodedAction>
+  skipping: Array<DecodedAction>
 }>
 
 /**
@@ -58,10 +55,10 @@ export const getDiffString = (diff: SphinxDiff): string => {
       executingArray.push(green.underline.bold(`Executing:`))
       for (let i = 0; i < executing.length; i++) {
         const signature = executing[i]
-        const { referenceNameOrAddress, functionName, variables } = signature
+        const { referenceName, functionName, variables } = signature
 
         const functionCallStr = prettyFunctionCall(
-          referenceNameOrAddress,
+          referenceName,
           functionName,
           variables,
           5,
@@ -69,7 +66,7 @@ export const getDiffString = (diff: SphinxDiff): string => {
         )
 
         let executingStr: string
-        if (referenceNameOrAddress === 'SphinxManager') {
+        if (referenceName === 'SphinxManager') {
           executingStr =
             green(`${i + 1}. ${functionCallStr}`) +
             ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
@@ -91,10 +88,10 @@ export const getDiffString = (diff: SphinxDiff): string => {
       skippingArray.push(skippingReason)
       for (let i = 0; i < skipping.length; i++) {
         const signature = skipping[i]
-        const { referenceNameOrAddress, functionName, variables } = signature
+        const { referenceName, functionName, variables } = signature
 
         const functionCallStr = prettyFunctionCall(
-          referenceNameOrAddress,
+          referenceName,
           functionName,
           variables,
           5,
@@ -113,71 +110,43 @@ export const getDiffString = (diff: SphinxDiff): string => {
   return diffString + `Confirm? [y/n]`
 }
 
-export const getDiff = (
-  parsedConfig: ParsedConfig,
-  configCaches: Array<ConfigCache>
-): SphinxDiff => {
+// TODO(refactor): c/f if (!isSupportedChainId(chainId)
+
+export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
   const networks: {
     [networkTag: string]: {
-      executing: Array<SphinxFunctionSignature>
-      skipping: Array<SphinxFunctionSignature>
+      executing: Array<DecodedAction>
+      skipping: Array<DecodedAction>
     }
   } = {}
 
-  for (const configCache of configCaches) {
-    const executing: Array<SphinxFunctionSignature> = []
-    const skipping: Array<SphinxFunctionSignature> = []
+  for (const parsedConfig of parsedConfigs) {
+    const executing: Array<DecodedAction> = []
+    const skipping: Array<DecodedAction> = []
 
-    const chainId = configCache.chainId
+    const { chainId, isManagerDeployed, actionsTODO, isLiveNetwork } =
+      parsedConfig
 
-    // Narrows the TypeScript type of `chainId` to `SupportedChainId`.
-    if (!isSupportedChainId(chainId)) {
-      // An unsupported chain ID should have been caught in the parsing logic.
-      throw new Error(`Unsupported chain ID: ${chainId}. Should never happen.`)
-    }
-
-    if (!configCache.isManagerDeployed) {
+    if (!isManagerDeployed) {
       executing.push({
-        referenceNameOrAddress: 'SphinxManager',
+        referenceName: 'SphinxManager',
         functionName: 'constructor',
         variables: {},
       })
     }
 
-    for (const [referenceName, contractConfig] of Object.entries(
-      parsedConfig.contracts
-    )) {
-      const constructorArgs = contractConfig.constructorArgs[chainId] ?? {}
+    for (const action of actionsTODO) {
+      const { decodedAction, skip } = action
 
-      // TODO: referenceNameOrAddress -> referenceName b/c externl contracts need a client, which means
-      // they'll have a referenceName
-      const constructorSignature: SphinxFunctionSignature = {
-        referenceNameOrAddress: referenceName,
-        functionName: 'constructor',
-        variables: constructorArgs,
-      }
-
-      if (configCache.contractConfigCache[referenceName].isTargetDeployed) {
-        skipping.push(constructorSignature)
+      if (skip) {
+        skipping.push(decodedAction)
       } else {
-        executing.push(constructorSignature)
+        executing.push(decodedAction)
       }
     }
 
-    const postDeploy = parsedConfig.postDeploy[chainId] ?? []
-    for (const { to, data, nonce, readableSignature } of postDeploy) {
-      if (skipCallAction(to, data, nonce, configCache.callNonces)) {
-        skipping.push(readableSignature)
-      } else {
-        executing.push(readableSignature)
-      }
-    }
-
-    const networkTag = getNetworkTag(
-      configCache.networkName,
-      configCache.networkType,
-      configCache.chainId
-    )
+    const networkName = getNetworkNameForChainId(chainId)
+    const networkTag = getNetworkTag(networkName, isLiveNetwork, chainId)
 
     networks[networkTag] = { executing, skipping }
   }

@@ -1,35 +1,20 @@
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
-import { astDereferencer } from 'solidity-ast/utils'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
 import {
-  CanonicalConfig,
   ConfigArtifacts,
-  ConfigCache,
   DeployContractTODO,
   FunctionCallTODO,
   ParsedConfig,
-  ParsedConfigWithOptions,
   SphinxActionTODO,
-  contractKindHashes,
 } from '../config/types'
 import {
-  computeStorageSegments,
-  extendStorageLayout,
-} from '../languages/solidity/storage'
-import {
-  getCreationCodeWithConstructorArgs,
-  getImplAddress,
-  getDefaultProxyInitCode,
   getDeploymentId,
-  getEmptyCanonicalConfig,
   toHexString,
   fromHexString,
   isSupportedChainId,
-  parseSemverVersion,
   prettyFunctionCall,
-  skipCallAction,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -57,10 +42,8 @@ import {
   UpgradeAuthAndManagerImpl,
   CancelActiveDeployment,
 } from './types'
-import { getStorageLayout } from './artifacts'
 import { getProjectBundleInfo } from '../tasks'
 import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
-import { SupportedChainId } from '../networks'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 import { getTargetSalt } from '../config/utils'
 
