@@ -22,6 +22,7 @@ import {
   remove0x,
   getAuthImplAddress,
   CURRENT_SPHINX_AUTH_VERSION,
+  VALID_MANAGER_VERSION,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -48,6 +49,18 @@ const writeConstants = async () => {
     authProxyInitCodeHash: {
       type: 'bytes32',
       value: AUTH_PROXY_INIT_CODE_HASH,
+    },
+    validManagerMajorVersion: {
+      type: 'uint256',
+      value: VALID_MANAGER_VERSION.major,
+    },
+    validManagerMinorVersion: {
+      type: 'uint256',
+      value: VALID_MANAGER_VERSION.minor,
+    },
+    validManagerPatchVersion: {
+      type: 'uint256',
+      value: VALID_MANAGER_VERSION.patch,
     },
     major: {
       type: 'uint256',

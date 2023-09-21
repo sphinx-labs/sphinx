@@ -46,9 +46,13 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-export type ValidManagerVersion = 'v0.2.4'
+// export type ValidManagerVersion = 'v0.2.4' // TODO: put something like this in solidity for parsing
 export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
-export const VALID_MANAGER_VERSIONS = ['v0.2.4']
+export const VALID_MANAGER_VERSION: SemverVersion = {
+  major: 0,
+  minor: 2,
+  patch: 4,
+}
 
 export type Project = string | 'all'
 
@@ -82,6 +86,7 @@ export type UserConfigVariable =
 export type ParsedConfigVariable =
   | boolean
   | string
+  | number
   | Array<ParsedConfigVariable>
   | {
       [name: string]: ParsedConfigVariable
@@ -132,12 +137,13 @@ export interface ParsedConfigOptions extends ConfigOptions {
   chainIds: Array<number>
 }
 
+// TODO: merge this with the CanonicalConfig b/c it's very similar to the actual ConfigOptions which is confusing
 export interface ConfigOptions {
   orgId: string
   owners: Array<string>
   ownerThreshold: number
   proposers: Array<string>
-  managerVersion: ValidManagerVersion
+  managerVersion: string
 }
 
 // export type FunctionTODOCallTODO = {
@@ -151,15 +157,24 @@ export interface ConfigOptions {
 // }
 
 export type ParsedConfig = {
-  manager: string
+  authAddress: string
+  managerAddress: string
   chainId: SupportedChainId
   actionsTODO: Array<ExtendedDeployContractTODO | ExtendedFunctionCallTODO>
+  newConfig: SphinxConfig
+  isLiveNetwork: boolean
+  prevConfig: PreviousInfo
+}
+
+export type PreviousInfo = {
+  projectName: string
+  owners: Array<string>
+  proposers: Array<string>
+  threshold: number
+  managerVersion: SemverVersion
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
   isExecuting: boolean
-  isLiveNetwork: boolean
-  prevConfig: SphinxConfig
-  newConfig: SphinxConfig
 }
 
 export type UnsafeAllow = {
@@ -388,6 +403,10 @@ export type GetCanonicalConfig = (
   apiKey: string,
   projectName: string
 ) => Promise<CanonicalConfig | undefined>
+
+// TODO: i think with our new proposal logic, we remove any chainIds in the chainStates object that
+// aren't in the current deployment. this may mean that we overwrite testnets when we're deploying
+// on mainnets and vice versa.
 
 export interface CanonicalConfig {
   manager: string

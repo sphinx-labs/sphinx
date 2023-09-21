@@ -1,16 +1,9 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { HumanReadableActions, SphinxBundles } from '../actions/types'
-import {
-  callWithTimeout,
-  getDeploymentId,
-  getConfigArtifactsRemote,
-} from '../utils'
-import { SphinxJsonRpcProvider } from '../provider'
-import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
+import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
+import { CompilerConfig, ConfigArtifacts } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { getConfigCache } from './parse'
-import { getSphinxRegistryAddress } from '../addresses'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string

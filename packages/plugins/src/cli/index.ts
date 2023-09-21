@@ -3,28 +3,33 @@
 import { join, resolve } from 'path'
 import { exec, spawnSync } from 'child_process'
 
+import { blue } from 'chalk'
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { execAsync, isContractDeployed } from '@sphinx-labs/core/dist/utils'
+import {
+  execAsync,
+  hyperlink,
+  isSupportedNetworkName,
+} from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
-import {
-  getSphinxManagerAddress,
-  getSphinxRegistryAddress,
-} from '@sphinx-labs/core/dist/addresses'
+import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import { Contract, Wallet } from 'ethers'
 import {
   getDiff,
   getDiffString,
-  getParsedConfig,
   userConfirmation,
-  UserConfig,
   ensureSphinxInitialized,
   proposeAbstractTask,
   UserConfigWithOptions,
   RawSphinxAction,
+  DeployContractTODO,
+  FunctionCallTODO,
+  SphinxConfig,
+  SemverVersion,
+  ParsedConfig,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -45,11 +50,43 @@ const configOption = 'config'
 const rpcOption = 'rpc'
 const projectOption = 'project'
 const privateKeyOption = 'private-key'
-const confirmOption = 'confirm'
+const networkOption = 'network'
+const skipPreviewOption = 'confirm'
 const broadcastOption = 'broadcast'
 
-const rootFfiPath =
+// TODO(refactor): "SemverVersion" is redundant
+
+const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
+const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
+const SphinxActionsABI =
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require(resolve(
+    `${sphinxArtifactDir}/SphinxActions.sol/SphinxActions.json`
+  )).abi
+
+// TODO(docs): address(uint160(uint256(keccak256('sphinx.actions')) - 1))
+const SPHINX_ACTIONS_ADDRESS = '0x56ab627a05e305e206291ee8d40621af4fc22f15'
+
+// Gets a random integer between min and max, inclusive.
+// TODO: mv
+const getRandomInt = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min
+const getAvailablePort = async () => {
+  let attempts: number = 0
+  while (attempts < 100) {
+    const port = getRandomInt(42000, 42999)
+    try {
+      exec(`anvil --port ${port}`)
+      const { stdout: pid } = await execAsync(`lsof -t -i:${port}`)
+      exec(`kill ${pid}`)
+      return port
+    } catch {
+      attempts += 1
+    }
+  }
+  throw new Error('Could not find available port')
+}
 
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
@@ -116,6 +153,48 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
+      // TODO(propose): validation:
+      // // TODO(docs): this check is specific to proposals because these arrays aren't used in the standard deploy task,
+      // // which occurs on one network at a time.
+      // if (mainnets.length === 0 && testnets.length === 0) {
+      //   logValidationError(
+      //     'error',
+      //     `There must be at least one network or testnet in your Sphinx config.`,
+      //     [],
+      //     cre.silent,
+      //     cre.stream
+      //   )
+      // }
+      // if (proposers.length === 0) {
+      //   logValidationError(
+      //     'error',
+      //     `There must be at least one proposer or manager.`,
+      //     [],
+      //     cre.silent,
+      //     cre.stream
+      //   )
+      // }
+      // if (orgId === '') {
+      //   logValidationError(
+      //     'error',
+      //     `The 'orgId' cannot be an empty string.`,
+      //     [],
+      //     cre.silent,
+      //     cre.stream
+      //   )
+      // }
+      // if (
+      //   firstProposalOccurred &&
+      //   !prevConfig.options.proposers.includes(signerAddress)
+      // ) {
+      //   throw new Error(
+      //     `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
+      //       `Current proposers: ${prevConfig.options.proposers.map(
+      //         (proposer) => `\n- ${proposer}`
+      //       )}`
+      //   )
+      // }
+
       // First, we compile the contracts to make sure we're using the latest versions. This command
       // displays the compilation process to the user in real time.
       const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
@@ -149,7 +228,7 @@ yargs(hideBin(process.argv))
       // Get the user config by invoking a script with TS node. This is necessary to support
       // TypeScript configs because the current context is invoked with Node, not TS Node.
       const userConfigScriptPath = join(
-        rootFfiPath,
+        pluginRootPath,
         'dist',
         'foundry',
         'display-user-config.js'
@@ -304,78 +383,50 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx deploy --${configOption} <config_path> --${privateKeyOption} <key> [--${rpcOption} <url> --${confirmOption}]`
+          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${broadcastOption} --${skipPreviewOption}]`
         )
-        .option(configOption, {
-          alias: 'c',
-          describe: 'Path to the Sphinx config file.',
+        .positional('scriptPath', {
+          describe: 'Path to the Forge script file.',
           type: 'string',
         })
-        .option(privateKeyOption, {
-          describe: 'Private key of the deployer.',
+        .option(networkOption, {
+          describe: 'Name of the network to deploy on.',
           type: 'string',
         })
-        .option(rpcOption, {
-          describe: 'RPC URL of the network to deploy on.',
-          type: 'string',
-        })
-        .option(confirmOption, {
-          describe: 'Automatically confirm the deployment.',
+        .option(skipPreviewOption, {
+          describe: 'Skip displaying the deployment preview.',
           boolean: true,
         })
         .option(broadcastOption, {
           describe: 'Broadcast the deployment to the network.',
           boolean: true,
         })
+        .demandOption(['scriptPath']) // TODO(test)
         .hide('version'),
     async (argv) => {
-      const { config, confirm } = argv
-      if (!config) {
-        console.error(
-          `Must specify a path to a Sphinx config file via --${configOption}.`
-        )
-        process.exit(1)
-      }
+      // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc.
 
-      // The deploy command allows the user to pass in an RPC url, private key, and a boolean flag
-      // for broadcasting. For these three commands, there are three valid combinations. Any other
-      // combination of these flags is invalid, and an error will be thrown. The valid cases are:
-      // 1. Broadcasting on a network: --rpc --private-key --broadcast
-      // 2. Not broadcasting on a network: --rpc --private-key (no --broadcast)
-      // 3. Not broadcasting on the in-process node, which doesn't use any of these flags.
-
-      // Throw an error if the three flags are used in an invalid way.
-      if (
-        (argv[rpcOption] && !argv[privateKeyOption]) ||
-        (!argv[rpcOption] && argv[privateKeyOption])
-      ) {
-        console.error(
-          `Must specify both --${rpcOption} and --${privateKeyOption} or neither.`
-        )
-        process.exit(1)
-      }
-      if (
-        argv[broadcastOption] &&
-        !argv[rpcOption] &&
-        !argv[privateKeyOption]
-      ) {
-        console.error(
-          `Must specify --${rpcOption} and --${privateKeyOption} when broadcasting.`
-        )
-        process.exit(1)
-      }
-
-      // TODO: require an rpc url if you don't already do that
-
+      const { scriptPath, network } = argv
       const broadcast = argv[broadcastOption] ?? false
-      const privateKey = argv[privateKeyOption] ?? ''
-      const rpcUrl = argv[rpcOption] ?? 'http://127.0.0.1:8545'
+      const skipPreview = argv[skipPreviewOption] ?? false
 
-      // First, we compile the contracts to make sure we're using the latest artifacts, which we'll
-      // need for the diff. This command displays the compilation process to the user in real time.
-      const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
-      // Exit the process if compilation fails.
-      if (status !== 0) {
+      // const network: string = argv.network ?? 'anvil'
+      // if (!isSupportedNetworkName(network)) {
+      //   console.error(
+      //     `The network ${network} is not supported. See ${blue(
+      //       hyperlink(
+      //         'here',
+      //         'https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#options'
+      //       )
+      //     )} for a list of supported networks.`
+      //   )
+      //   process.exit(1)
+      // }
+
+      if (broadcast === true && !network) {
+        console.error(
+          `You must specify '--network <network_name>' when broadcasting.`
+        )
         process.exit(1)
       }
 
@@ -385,158 +436,92 @@ yargs(hideBin(process.argv))
         compilerConfigFolder,
         cachePath,
         deploymentFolder,
+        rpcEndpoints,
       } = await getFoundryConfigOptions()
 
-      const spinner = ora()
-
-      const userConfigScriptPath = join(
-        rootFfiPath,
-        'dist',
-        'foundry',
-        'display-user-config.js'
-      )
-
-      const silent = false
-      // Confirm with the user that they want to deploy the config. We skip this step if the user
-      // has already confirmed or if they're deploying to the in-process Anvil node, which is
-      // necessary because we can't access the in-process Anvil node from outside of Solidity.
-      if (argv[rpcOption] && !confirm) {
-        spinner.start('Getting project info...')
-
-        const provider = new SphinxJsonRpcProvider(rpcUrl)
-        const owner = new Wallet(privateKey, provider)
-
-        await ensureSphinxInitialized(provider, owner)
-
-        // Get the user config by invoking a script with TS node. This is necessary to support
-        // TypeScript configs because the current context is invoked with Node, not TS Node.
-        const userConfig: any = {}
-        // try {
-        //   // Using --swc speeds up the execution of the script.
-        //   const { stdout } = await execAsync(
-        //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
-        //   )
-        //   userConfig = JSON.parse(stdout)
-        // } catch ({ stderr }) {
-        //   spinner.stop()
-        //   console.error(stderr)
-        //   process.exit(1)
-        // }
-
-        const cre = createSphinxRuntime(
-          'foundry',
-          false,
-          false,
-          confirm,
-          compilerConfigFolder,
-          undefined,
-          silent,
-          process.stderr
-        )
-
-        // TODO(docs): FOUNDRY_SENDER takes priority over DAPP_SENDER env var and --sender.
-        // This ensures that the user's script is deployed at a consistent address.
-
-        // TODO(refactor): you should probably run the simulation against the live network
-        // logic just to be safe and ensure that it operates correctly.
-
-        // A function that gets a random integer between min and max, inclusive.
-        // TODO: mv
-        const getRandomInt = (min: number, max: number) =>
-          Math.floor(Math.random() * (max - min + 1)) + min
-
-        const getAvailablePort = async () => {
-          let attempts: number = 0
-          while (attempts < 100) {
-            const port = getRandomInt(42000, 42999)
-            try {
-              exec(`anvil --port ${port}`)
-              const { stdout: pid } = await execAsync(`lsof -t -i:${port}`)
-              exec(`kill ${pid}`)
-              return port
-            } catch {
-              attempts += 1
-            }
-          }
-          throw new Error('Could not find available port')
-        }
-
-        const rootImportPath =
-          process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
-        const utilsArtifactFolder = `${rootImportPath}out/artifacts`
-
-        const SphinxActionsABI =
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          require(resolve(
-            `${utilsArtifactFolder}/SphinxActions.sol/SphinxActions.json`
-          )).abi
-
-        // TODO(docs): address(uint160(uint256(keccak256('sphinx.actions')) - 1))
-        const sphinxActionsAddress =
-          '0x56ab627a05e305e206291ee8d40621af4fc22f15'
-        const SphinxActions = new Contract(
-          sphinxActionsAddress,
-          SphinxActionsABI,
-          provider
-        )
-
-        const anvilPort = await getAvailablePort()
-        // TODO: execAsync froze so i'm using exec, although this may not work when forking live networks,
-        // since there may be startup time.
-        exec(`anvil --port ${anvilPort} --fork-url ${rpcUrl} --silent &`)
-
-        // TODO: i think you should add --broadcast since you're using the live network logic
-        await execAsync(`forge script ${config} --fork-url ${rpcUrl}`)
-
-        // TODO: kill port, even if something fails during the process
-
-        // TODO: you should probably make sure that the user only calls `deploy` once
-        // in their script. e.g. we may execute incorrect actions if the user does
-        // something like `deploy(goerli); deploy(optimism-goerli)`.
-
-        if ((await provider.getCode(sphinxActionsAddress)) === '0x') {
-          throw new Error(
-            `TODO: the user didn't include 'vm.startBroadcast' in their script.`
+      let forkUrl: string | undefined
+      if (network) {
+        forkUrl = rpcEndpoints[network]
+        if (!forkUrl) {
+          console.error(
+            `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
           )
+          process.exit(1)
         }
-
-        const actions: Array<RawSphinxAction> =
-          await SphinxActions.getAllActions()
-        actions
-
-        const { parsedConfig, configCache } = await getParsedConfig(
-          userConfig,
-          provider,
-          cre,
-          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-          owner.address
-        )
-
-        // TODO: close port
-
-        const diff = getDiff(parsedConfig, [configCache])
-        const diffString = getDiffString(diff)
-
-        spinner.stop()
-        await userConfirmation(diffString)
       }
 
-      // TODO: which of these can we remove? i think possibly broadcast and private key
-      process.env['SPHINX_INTERNAL_CONFIG_PATH'] = config
-      process.env['SPHINX_INTERNAL_RPC_URL'] = rpcUrl
-      process.env['SPHINX_INTERNAL_BROADCAST'] = broadcast.toString()
-      process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = privateKey
+      // TODO(refactor): update spinner
+      const spinner = ora()
+      spinner.start('Getting project info...')
 
-      // The `SPHINX_INTERNAL_OVERRIDE_DEPLOY_SCRIPT` environment variable is used for testing
-      // purposes only.
-      const deployContractPath = process.env
-        .SPHINX_INTERNAL_OVERRIDE_DEPLOY_SCRIPT
-        ? join('script', 'Deploy.sol')
-        : join(rootFfiPath, 'contracts', 'foundry', 'Deploy.sol')
+      // TODO: make sure we're running the simulation on live networks even if the user skips the diff
 
-      const forgeScriptArgs = ['script', deployContractPath]
-      if (argv[rpcOption]) {
-        forgeScriptArgs.push('--rpc-url', rpcUrl)
+      // // TODO: rm? i think we already do this in solidity
+      // await ensureSphinxInitialized(provider, owner)
+
+      // const cre = createSphinxRuntime(
+      //   'foundry',
+      //   false,
+      //   false,
+      //   skipPreview,
+      //   compilerConfigFolder,
+      //   undefined,
+      //   silent,
+      //   process.stderr
+      // )
+
+      // TODO(docs): FOUNDRY_SENDER takes priority over DAPP_SENDER env var and --sender.
+      // This ensures that the user's script is deployed at a consistent address.
+
+      // TODO(refactor): you should probably run the simulation against the live network
+      // logic just to be safe and ensure that it operates correctly.
+
+      const anvilPort = await getAvailablePort()
+      // TODO: execAsync froze so i'm using exec, although this may not work when forking live networks,
+      // since there may be startup time.
+      exec(`anvil --port ${anvilPort} --fork-url ${forkUrl} --silent &`)
+
+      const provider = new SphinxJsonRpcProvider(
+        `http://127.0.0.1:${anvilPort}`
+      )
+
+      const SphinxActions = new Contract(
+        SPHINX_ACTIONS_ADDRESS,
+        SphinxActionsABI,
+        provider
+      )
+
+      // TODO(case): there's an error in the script. we should bubble it up.
+      await execAsync(`forge script ${scriptPath} --fork-url ${forkUrl}`)
+      // TODO: kill port, even if something fails during the process
+
+      if ((await provider.getCode(SPHINX_ACTIONS_ADDRESS)) === '0x') {
+        throw new Error(
+          `TODO: the user didn't include 'vm.startBroadcast' in their script.`
+        )
+      }
+
+      // TODO(case): you should probably make sure that the user only calls `deploy` once
+      // in their script. e.g. we may execute incorrect actions if the user does
+      // something like `deploy(goerli); deploy(optimism-goerli)`.
+
+      // TODO(docs): we retrieve these actions from the SphinxActions contract because
+      // it has a consistent address, unlike the user's script, which may change if the
+      // user has set a `FOUNDRY_SENDER` env var.
+
+      // TODO: this doesn't include the decoded actions. the rest of the object is the same as the
+      // TS parsed config i think.
+      const parsedConfig: ParsedConfig = await SphinxActions.getChainInfo()
+
+      const diff = getDiff([parsedConfig])
+      const diffString = getDiffString(diff)
+
+      spinner.stop()
+      await userConfirmation(diffString)
+
+      const forgeScriptArgs: Array<string> = ['forge', 'script', scriptPath]
+      if (forkUrl) {
+        forgeScriptArgs.push('--rpc-url', forkUrl)
       }
       if (broadcast) {
         forgeScriptArgs.push('--broadcast')
@@ -545,28 +530,24 @@ yargs(hideBin(process.argv))
       // Run the deployment script.
       // let isEmptyDeployment: boolean = false
       try {
-        spinner.start(`Deploying project...`)
-        // const { stdout } = await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
+        spinner.start(`Deploying ${parsedConfig.newConfig.projectName}...`)
+        await execAsync(`${forgeScriptArgs.join(' ')}`)
 
-        // TODO: i think you should still include this, since the deployment may be empty.
-        if (
-          stdout.includes(
-            'Nothing to execute in this deployment. Exiting early.'
-          )
-        ) {
-          isEmptyDeployment = true
-        }
+        // TODO: you still should account for this somehow, but i don't like that we're
+        // parsing the stdout.
+        // if (
+        //   stdout.includes(
+        //     'Nothing to execute in this deployment. Exiting early.'
+        //   )
+        // ) {
+        //   isEmptyDeployment = true
+        // }
 
         // spinner.stop()
         // console.log(stdout)
       } catch ({ stderr }) {
         spinner.stop()
-        // Strip \n from the end of the error message, if it exists
-        const prettyError = stderr.endsWith('\n')
-          ? stderr.substring(0, stderr.length - 1)
-          : stderr
-
-        console.error(prettyError)
+        console.error(stderr)
         process.exit(1)
       }
 

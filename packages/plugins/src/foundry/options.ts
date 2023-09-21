@@ -10,7 +10,7 @@ export type FoundryToml = {
   cachePath: string
   storageLayout: boolean
   gasEstimates: boolean
-  rpcEndpoints: { [chainAlias: string]: string }
+  rpcEndpoints: { [networkName: string]: string | undefined }
 }
 
 export const cleanPath = (dirtyPath: string) => {

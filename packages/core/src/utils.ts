@@ -22,17 +22,11 @@ import {
   SphinxRegistryABI,
   SphinxManagerABI,
   ProxyABI,
-  AuthABI,
   AuthFactoryABI,
 } from '@sphinx-labs/contracts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
-import {
-  ProxyDeployment,
-  UpgradeableContract,
-  ValidationOptions,
-  withValidationDefaults,
-} from '@openzeppelin/upgrades-core'
+import { ProxyDeployment } from '@openzeppelin/upgrades-core'
 import {
   ParsedTypeDetailed,
   StorageItem,
@@ -42,39 +36,24 @@ import {
   StorageLayoutComparator,
   stripContractSubstrings,
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
-import {
-  CompilerInput,
-  HttpNetworkConfig,
-  NetworkConfig,
-  SolcBuild,
-} from 'hardhat/types'
+import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CompilerConfig,
   UserContractKind,
   userContractKinds,
-  ParsedContractConfig,
   ContractKind,
   ParsedConfigVariables,
   ParsedConfigVariable,
   ConfigArtifacts,
-  GetCanonicalConfig,
-  UserConfigWithOptions,
   CanonicalConfig,
-  ParsedConfig,
-  ParsedConfigWithOptions,
-  ParsedContractConfigs,
   UserConstructorArgOverride,
   UserArgOverride,
   UserFunctionArgOverride,
   UserConfigVariable,
   UserCallAction,
-  ValidManagerVersion,
   UserFunctionOptions,
-  ConfigCache,
-  DeployContractTODO,
-  FunctionCallTODO,
   ExtendedDeployContractTODO,
   ExtendedFunctionCallTODO,
 } from './config/types'
@@ -88,12 +67,7 @@ import {
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import {
-  AUTH_FACTORY_ADDRESS,
-  getAuthAddress,
-  getSphinxManagerAddress,
-  getSphinxRegistryAddress,
-} from './addresses'
+import { AUTH_FACTORY_ADDRESS, getSphinxRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -108,25 +82,12 @@ import {
   isSetStorageAction,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
-import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
-import { SphinxRuntimeEnvironment, FailureAction } from './types'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
+  SupportedNetworkName,
 } from './networks'
-
-export const parseSemverVersion = (version: ValidManagerVersion) => {
-  const numbers = version
-    .replace('v', '')
-    .split('.')
-    .map((n) => parseInt(n, 10))
-  return {
-    major: numbers[0],
-    minor: numbers[1],
-    patch: numbers[2],
-  }
-}
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
@@ -204,20 +165,6 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
   )
 
   return initCode
-}
-
-export const checkIsUpgrade = async (
-  provider: ethers.Provider,
-  parsedConfig: ParsedConfig
-): Promise<boolean | string> => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if (await isContractDeployed(contractConfig.address, provider)) {
-      return referenceName
-    }
-  }
-  return false
 }
 
 /**
@@ -310,24 +257,6 @@ export const createSphinxLog = (
   }
 
   return parts.join('\n') + '\n'
-}
-
-export const displayDeploymentTable = (
-  parsedConfig: ParsedConfig,
-  silent: boolean
-) => {
-  if (!silent) {
-    const deployments = {}
-    Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) => {
-        deployments[i + 1] = {
-          Contract: referenceName,
-          Address: contractConfig.address,
-        }
-      }
-    )
-    console.table(deployments)
-  }
 }
 
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
@@ -780,72 +709,73 @@ export const toOpenZeppelinContractKind = (
   }
 }
 
-export const getOpenZeppelinValidationOpts = (
-  contractConfig: ParsedContractConfig
-): Required<ValidationOptions> => {
-  type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
+// export const getOpenZeppelinValidationOpts = (
+//   contractConfig: ParsedContractConfig
+// ): Required<ValidationOptions> => {
+//   type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
 
-  const unsafeAllow: UnsafeAllow = [
-    'state-variable-assignment',
-    'constructor',
-    'state-variable-immutable',
-  ]
-  if (contractConfig.unsafeAllow?.delegatecall) {
-    unsafeAllow.push('delegatecall')
-  }
-  if (contractConfig.unsafeAllow?.selfdestruct) {
-    unsafeAllow.push('selfdestruct')
-  }
-  if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
-    unsafeAllow.push('missing-public-upgradeto')
-  }
+//   const unsafeAllow: UnsafeAllow = [
+//     'state-variable-assignment',
+//     'constructor',
+//     'state-variable-immutable',
+//   ]
+//   if (contractConfig.unsafeAllow?.delegatecall) {
+//     unsafeAllow.push('delegatecall')
+//   }
+//   if (contractConfig.unsafeAllow?.selfdestruct) {
+//     unsafeAllow.push('selfdestruct')
+//   }
+//   if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+//     unsafeAllow.push('missing-public-upgradeto')
+//   }
 
-  const { renames, skipStorageCheck } = contractConfig.unsafeAllow
+//   const { renames, skipStorageCheck } = contractConfig.unsafeAllow
 
-  const options = {
-    kind: toOpenZeppelinContractKind(contractConfig.kind),
-    unsafeAllow,
-    unsafeAllowRenames: renames,
-    unsafeSkipStorageCheck: skipStorageCheck,
-  }
+//   const options = {
+//     kind: toOpenZeppelinContractKind(contractConfig.kind),
+//     unsafeAllow,
+//     unsafeAllowRenames: renames,
+//     unsafeSkipStorageCheck: skipStorageCheck,
+//   }
 
-  return withValidationDefaults(options)
-}
+//   return withValidationDefaults(options)
+// }
 
-export const getOpenZeppelinUpgradableContract = (
-  fullyQualifiedName: string,
-  compilerInput: CompilerInput,
-  compilerOutput: CompilerOutput,
-  contractConfig: ParsedContractConfig
-): UpgradeableContract => {
-  const options = getOpenZeppelinValidationOpts(contractConfig)
+// TODO(upgrades)
+// export const getOpenZeppelinUpgradableContract = (
+//   fullyQualifiedName: string,
+//   compilerInput: CompilerInput,
+//   compilerOutput: CompilerOutput,
+//   contractConfig: ParsedContractConfig
+// ): UpgradeableContract => {
+//   const options = getOpenZeppelinValidationOpts(contractConfig)
 
-  // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
-  // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
-  const tmp = console.error
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  console.error = () => {}
+//   // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+//   // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+//   const tmp = console.error
+//   // eslint-disable-next-line @typescript-eslint/no-empty-function
+//   console.error = () => {}
 
-  // fetch the contract and validate
-  // We use a try catch and then rethrow any errors because we temporarily disabled console.error
-  try {
-    const contract = new UpgradeableContract(
-      fullyQualifiedName,
-      compilerInput,
-      // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
-      // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
-      // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
-      // `CompilerOutput`, which is what OpenZeppelin expects.
-      compilerOutput as any,
-      options
-    )
-    // revert to standard console.error
-    console.error = tmp
-    return contract
-  } catch (e) {
-    throw e
-  }
-}
+//   // fetch the contract and validate
+//   // We use a try catch and then rethrow any errors because we temporarily disabled console.error
+//   try {
+//     const contract = new UpgradeableContract(
+//       fullyQualifiedName,
+//       compilerInput,
+//       // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
+//       // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
+//       // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
+//       // `CompilerOutput`, which is what OpenZeppelin expects.
+//       compilerOutput as any,
+//       options
+//     )
+//     // revert to standard console.error
+//     console.error = tmp
+//     return contract
+//   } catch (e) {
+//     throw e
+//   }
+// }
 
 export const getPreviousConfigUri = async (
   provider: Provider,
@@ -959,29 +889,31 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifacts = {}
-  // Generate an artifact for each contract in the Sphinx config.
-  for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
-  )) {
+  const notSkipping = compilerConfig.actionsTODO.filter((e) => !e.skip)
+  for (const actionTODO of notSkipping) {
+    const { fullyQualifiedName } = actionTODO
     // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = contractConfig.contract.split(':')
+    const [sourceName, contractName] = actionTODO.fullyQualifiedName.split(':')
 
-    for (const buildInfo of solcArray) {
-      const contractOutput =
-        buildInfo.output.contracts[sourceName][contractName]
+    const buildInfo = solcArray.find(
+      (e) => e.output.contracts[sourceName][contractName]
+    )
+    if (!buildInfo) {
+      throw new Error(
+        `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+      )
+    }
+    const contractOutput = buildInfo.output.contracts[sourceName][contractName]
 
-      if (contractOutput !== undefined) {
-        artifacts[referenceName] = {
-          buildInfo,
-          artifact: {
-            abi: contractOutput.abi,
-            sourceName,
-            contractName,
-            bytecode: add0x(contractOutput.evm.bytecode.object),
-            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-          },
-        }
-      }
+    artifacts[fullyQualifiedName] = {
+      buildInfo,
+      artifact: {
+        abi: contractOutput.abi,
+        sourceName,
+        contractName,
+        bytecode: add0x(contractOutput.evm.bytecode.object),
+        deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+      },
     }
   }
   return artifacts
@@ -1171,60 +1103,6 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
   return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
 }
 
-/**
- * @notice Gets various fields related to the Sphinx config from the back-end if it exists.
- * If it doesn't exist, it returns a new canonicalConfigFolderPath with default parameters for the config
- * options.
- *
- * @returns {chainIds, prevConfig, isNewConfig} where the `chainIds` array contains the chain IDs
- * in the current config. The `prevConfig` variable is the most recent CanonicalConfig,
- * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevConfig` is a new
- * config, i.e. it has not been used to setup the project on any chain.
- */
-export const getProjectConfigInfo = async (
-  getCanonicalConfig: GetCanonicalConfig,
-  userConfig: UserConfigWithOptions,
-  isTestnet: boolean,
-  apiKey: string,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction
-): Promise<{
-  chainIds: Array<number>
-  prevConfig: CanonicalConfig
-  isNewConfig: boolean
-}> => {
-  assertValidConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
-
-  const { projectName } = userConfig
-
-  const prevConfig = await getCanonicalConfig(
-    parsedConfigOptions.orgId,
-    isTestnet,
-    apiKey,
-    userConfig.projectName
-  )
-
-  if (prevConfig) {
-    return {
-      prevConfig,
-      isNewConfig: false,
-      chainIds: parsedConfigOptions.chainIds,
-    }
-  } else {
-    const { owners, ownerThreshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(owners, ownerThreshold, projectName)
-    const manager = getSphinxManagerAddress(auth, projectName)
-    const emptyConfig = getEmptyCanonicalConfig(
-      chainIds,
-      manager,
-      orgId,
-      projectName
-    )
-    return { prevConfig: emptyConfig, isNewConfig: true, chainIds }
-  }
-}
-
 export const fetchCanonicalConfig = async (
   orgId: string,
   isTestnet: boolean,
@@ -1355,46 +1233,47 @@ export const getEmptyCanonicalConfig = (
  * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
  * for each chain ID in the parsed config.
  */
-export const toCanonicalConfig = async (
-  parsedConfig: ParsedConfigWithOptions,
-  managerAddress: string,
-  authAddress: string,
-  rpcProviders: Record<string, SphinxJsonRpcProvider>
-): Promise<CanonicalConfig> => {
-  const { projectName } = parsedConfig
-  const chainStates = {}
+// TODO: rm?
+// export const toCanonicalConfig = async (
+//   parsedConfig: ParsedConfig,
+//   managerAddress: string,
+//   authAddress: string,
+//   rpcProviders: Record<string, SphinxJsonRpcProvider>
+// ): Promise<CanonicalConfig> => {
+//   const { projectName } = parsedConfig
+//   const chainStates = {}
 
-  for (const chainId of parsedConfig.options.chainIds) {
-    const network = findNetwork(chainId)
+//   for (const chainId of parsedConfig.options.chainIds) {
+//     const network = findNetwork(chainId)
 
-    if (!network) {
-      throw new Error(`Unsupported chain ID: ${chainId}`)
-    }
-    const provider = rpcProviders[network]
-    if (!parsedConfig.options.chainIds.includes(chainId)) {
-      throw new Error(
-        `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
-      )
-    }
+//     if (!network) {
+//       throw new Error(`Unsupported chain ID: ${chainId}`)
+//     }
+//     const provider = rpcProviders[network]
+//     if (!parsedConfig.options.chainIds.includes(chainId)) {
+//       throw new Error(
+//         `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
+//       )
+//     }
 
-    const Auth = new ethers.Contract(authAddress, AuthABI, provider)
-    const firstProposalOccurred = await Auth.firstProposalOccurred()
+//     const Auth = new ethers.Contract(authAddress, AuthABI, provider)
+//     const firstProposalOccurred = await Auth.firstProposalOccurred()
 
-    const projectCreated = await isProjectCreated(provider, authAddress)
+//     const projectCreated = await isProjectCreated(provider, authAddress)
 
-    chainStates[chainId] = {
-      firstProposalOccurred,
-      projectCreated,
-    }
-  }
+//     chainStates[chainId] = {
+//       firstProposalOccurred,
+//       projectCreated,
+//     }
+//   }
 
-  return {
-    projectName,
-    manager: managerAddress,
-    options: parsedConfig.options,
-    chainStates,
-  }
-}
+//   return {
+//     projectName,
+//     manager: managerAddress,
+//     options: parsedConfig.options,
+//     chainStates,
+//   }
+// }
 
 export const isProjectCreated = async (
   provider: Provider,
@@ -1460,7 +1339,7 @@ export const resolveNetwork = async (
     chainId: number | bigint
     name: string
   },
-  isLiveNetwork: boolean
+  isLiveNetwork_: boolean
 ): Promise<{
   networkName: string
   chainId: number
@@ -1477,7 +1356,7 @@ export const resolveNetwork = async (
     )
     if (supportedNetwork) {
       return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
-    } else if (!isLiveNetwork) {
+    } else if (!isLiveNetwork_) {
       return { chainId: chainIdNumber, networkName: 'local' }
     } else {
       // The network is an unsupported live network.
@@ -1503,10 +1382,10 @@ export const resolveNetwork = async (
  */
 export const getNetworkDirName = (
   networkName: string,
-  isLiveNetwork: boolean,
+  isLiveNetwork_: boolean,
   chainId: number
 ): string => {
-  if (isLiveNetwork) {
+  if (isLiveNetwork_) {
     return networkName
   } else if (networkName === 'anvil' || networkName === 'hardhat') {
     return `${networkName}-${chainId}`
@@ -1532,10 +1411,10 @@ export const getNetworkDirName = (
  */
 export const getNetworkTag = (
   networkName: string,
-  isLiveNetwork: boolean,
+  isLiveNetwork_: boolean,
   chainId: number
 ): string => {
-  if (isLiveNetwork) {
+  if (isLiveNetwork_) {
     return networkName
   } else if (
     Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
@@ -1670,28 +1549,19 @@ export const getCallHash = (to: string, data: string): string => {
   )
 }
 
-export const findReferenceNameForAddress = (
-  address: string,
-  contractConfigs: ParsedContractConfigs
-): string | undefined => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    if (
-      ethers.getAddress(contractConfig.address) === ethers.getAddress(address)
-    ) {
-      return referenceName
-    }
-  }
-  return undefined
-}
-
 export const isSupportedChainId = (
   chainId: number
 ): chainId is SupportedChainId => {
   return Object.values(SUPPORTED_NETWORKS).some(
     (supportedChainId) => supportedChainId === chainId
   )
+}
+
+export const isSupportedNetworkName = (
+  networkName: string
+): networkName is SupportedNetworkName => {
+  const chainId = SUPPORTED_NETWORKS[networkName]
+  return chainId !== undefined
 }
 
 export const isUserConstructorArgOverride = (
@@ -1791,17 +1661,6 @@ export const getRegistryData = (owner: string, projectName: string): string => {
   )
 }
 
-export const skipCallAction = (
-  to: string,
-  data: string,
-  nonce: number,
-  callNonces: ConfigCache['callNonces']
-): boolean => {
-  const callHash = getCallHash(to, data)
-  const currentNonce = callNonces[callHash]
-  return currentNonce > nonce
-}
-
 /**
  * @notice Returns true if and only if the two inputs are equal.
  */
@@ -1837,8 +1696,18 @@ export const equal = (
       }
       return true
     }
-  } else {
+  } else if (
+    // We just check for the type of `a` here because we already checked that the type of `a` is
+    // equal to the type of `b` above.
+    typeof a === 'number' ||
+    typeof a === 'boolean' ||
+    typeof a === 'number'
+  ) {
     return a === b
+  } else {
+    // We know that the types of `a` and `b` match due to the check at the beginning of this
+    // function, so we just return the type of `a`.
+    throw new Error(`Unsupported type: ${typeof a}`)
   }
 }
 

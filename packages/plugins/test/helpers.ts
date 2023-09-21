@@ -652,17 +652,120 @@ export const deployUsingHardhat = async (
     failureAction
   )
 
-  await deployAbstractTask(
-    provider,
-    wallet,
-    compilerConfigPath,
-    deploymentFolder,
-    'hardhat',
-    cre,
-    parsedConfig,
-    configCache,
-    configArtifacts
+  // TODO: everything below is pasted from the deployAbstractTask. not sure if it's useful anymore,
+  // but it is the exhaustive code that *could* be useful from the deploy task.
+  const { projectName, manager } = parsedConfig
+  const { networkName, blockGasLimit } = configCache
+
+  const Manager = getSphinxManager(manager, wallet)
+
+  // Register the project with the signer as the owner. Once we've completed the deployment, we'll
+  // transfer ownership to the user-defined new owner, if it exists.
+  await registerOwner(
+    projectName,
+    getSphinxRegistryAddress(),
+    manager,
+    ownerAddress,
+    signer,
+    spinner
   )
+
+  spinner.start(`Checking the status of ${projectName}...`)
+
+  const { configUri, bundles, compilerConfig, humanReadableActions } =
+    await getProjectBundleInfo(parsedConfig, configArtifacts, configCache)
+
+  if (
+    bundles.actionBundle.actions.length === 0 &&
+    bundles.targetBundle.targets.length === 0
+  ) {
+    spinner.succeed(`Nothing to execute in this deployment. Exiting early.`)
+    return
+  }
+
+  const deploymentId = getDeploymentId(bundles, configUri)
+  const deploymentState: DeploymentState = await Manager.deployments(
+    deploymentId
+  )
+  const initialDeploymentStatus = deploymentState.status
+  let currDeploymentStatus = deploymentState.status
+
+  if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
+    throw new Error(
+      `${projectName} was previously cancelled on ${networkName}. This is likely because part of the deployment failed which caused the entire deployment to be cancelled. You should check the previous deployment logs to see what went wrong and update your config file accordingly. Please contact the developers if you are unable to resolve this issue.`
+    )
+  }
+
+  if (currDeploymentStatus === DeploymentStatus.EMPTY) {
+    spinner.succeed(`${projectName} has not been deployed before.`)
+    spinner.start(`Approving ${projectName}...`)
+    const numTotalActions = bundles.actionBundle.actions.length
+    const numSetStorageActions = bundles.actionBundle.actions
+      .map((action) => fromRawSphinxAction(action.action))
+      .filter(isSetStorageAction).length
+    const numInitialActions = numTotalActions - numSetStorageActions
+    await (
+      await Manager.approve(
+        bundles.actionBundle.root,
+        bundles.targetBundle.root,
+        numInitialActions,
+        numSetStorageActions,
+        bundles.targetBundle.targets.length,
+        configUri,
+        false,
+        await getGasPriceOverrides(signer)
+      )
+    ).wait()
+    currDeploymentStatus = DeploymentStatus.APPROVED
+    spinner.succeed(`Approved ${projectName}.`)
+  }
+
+  if (
+    currDeploymentStatus === DeploymentStatus.APPROVED ||
+    currDeploymentStatus === DeploymentStatus.INITIAL_ACTIONS_EXECUTED ||
+    currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED ||
+    currDeploymentStatus === DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
+  ) {
+    spinner.start(`Executing ${projectName}...`)
+
+    const { success, failureAction } = await executeDeployment(
+      Manager,
+      bundles,
+      humanReadableActions,
+      blockGasLimit,
+      provider,
+      signer
+    )
+
+    if (!success) {
+      // If the deployment failed for an indentifiable reason (like a reverting constructor or external call)
+      // Then we automatically cancel the deployment and throw an error
+      if (failureAction) {
+        // cancel the deployment
+        await (
+          await Manager.cancelActiveSphinxDeployment(
+            await getGasPriceOverrides(signer)
+          )
+        ).wait()
+
+        if (failureAction.actionType === SphinxActionType.CALL) {
+          throw new Error(
+            `Failed to execute ${projectName} because the following post-deployment action reverted:\n` +
+              `${failureAction.reason}`
+          )
+        } else {
+          throw new Error(
+            `Failed to execute ${projectName} because the following deployment reverted:\n` +
+              `${failureAction.reason}`
+          )
+        }
+      }
+
+      throw new Error(
+        `Failed to execute ${projectName}, likely because a transaction reverted during the deployment.`
+      )
+    }
+  }
 }
 
 export const deployUsingFoundry = async (

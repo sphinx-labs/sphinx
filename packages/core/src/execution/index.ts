@@ -31,8 +31,8 @@ export const monitorExecution = async (
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const { manager } = parsedConfig
-  const SphinxManager = getSphinxManager(manager, signer)
+  const {  managerAddress } = parsedConfig
+  const SphinxManager = getSphinxManager(managerAddress, signer)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await SphinxManager.deployments(

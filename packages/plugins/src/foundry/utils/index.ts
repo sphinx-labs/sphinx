@@ -297,11 +297,8 @@ export const makeGetConfigArtifacts = (
     // Look through the cache, read all the contract artifacts, and find all of the required build
     // info files names. We just get the build info files for contracts that will be deployed.
     const toReadFiles: string[] = []
-    // TODO(refactor): you probably need to filter for the DEPLOY_CONTRACT actions that aren't being
-    // skipped in multiple places.
     const resolved = await Promise.all(
       actions
-        .filter((a) => a.actionType === SphinxActionType.DEPLOY_CONTRACT)
         .filter((a) => !a.skip)
         .map(async ({ fullyQualifiedName }) => {
           const artifact = await getContractArtifact(

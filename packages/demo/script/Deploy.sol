@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import { Deploy } from "@sphinx-labs/plugins/Deploy.sol";
 
+// TODO(test): we don't deploy contracts this way anymore, so probably remove this.
 // Foundry throws an error when running `forge script` on `Deploy.sol` in the plugins package.
 // Specifically, it throws a "Couldn't strip project root from contract path " error.
 // This is likely because it's confused by the remappings that are implicit

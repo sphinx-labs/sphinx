@@ -1,5 +1,5 @@
-import { ValidManagerVersion } from '../config'
 import { SphinxDiff } from '../diff'
+import { SupportedChainId } from '../networks'
 
 /**
  * Possible action types.
@@ -99,7 +99,7 @@ export type HumanReadableActions = {
 export type BundledSphinxAction = {
   action: RawSphinxAction
   siblings: string[]
-  gas: bigint
+  gas: number
 }
 
 /**
@@ -161,13 +161,13 @@ export type DeploymentState = {
 }
 
 export interface BaseAuthLeaf {
-  chainId: number
+  chainId: SupportedChainId
   to: string
   index: number
 }
 
 export interface RawAuthLeaf {
-  chainId: number
+  chainId: SupportedChainId
   to: string
   index: number
   data: string
@@ -343,7 +343,7 @@ export type ProposalRequest = {
   threshold: number
   authAddress: string
   managerAddress: string
-  managerVersion: ValidManagerVersion
+  managerVersion: string
   deploymentName: string
   chainIds: Array<number>
   canonicalConfig: string
@@ -373,7 +373,7 @@ export type ProjectDeployment = {
 }
 
 export type ProposalRequestLeaf = {
-  chainId: number
+  chainId: SupportedChainId
   to: string
   index: number
   data: string

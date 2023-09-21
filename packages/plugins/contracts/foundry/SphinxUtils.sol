@@ -84,6 +84,8 @@ contract SphinxUtils is
         ensureSphinxInitialized(_systemOwner);
     }
 
+
+    // TODO(parse): throw an error if isLiveNetwork and registry isn't deployed
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
         SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
@@ -160,15 +162,7 @@ contract SphinxUtils is
         return _data[_start:_end];
     }
 
-    /**
-     * @notice Retrieves the bundle info via FFI. This function uses `abi.decode` to retrieve any
-       errors or warnings that occurred during parsing. We do this instead of letting FFI throw an
-       error message because this makes parsing errors much easier to read. This also allows us to
-       display parsing warnings, which can't be written to stdout because stdout must be exclusively
-       for the bundle info. We also can't write the warnings to stderr because a non-empty stderr
-       causes an error to be thrown by Forge.
-     */
-    function ffiGetEncodedBundleInfo(
+    function ffiGetBundleInfo(
         SphinxAction[] memory _actions,
         ConfigCache memory _configCache,
         address _sphinxManager,
@@ -183,70 +177,34 @@ contract SphinxUtils is
         cmds[4] = vm.toString(abi.encode(_configCache));
         cmds[5] = vm.toString(_sphinxManager);
 
-        bytes memory result = vm.ffi(cmds);
-        return result;
+        Vm.FfiResult memory result = vm.tryFfi(cmds);
+        if (result.exit_code == 1) {
+            revert(string(result.stderr));
+        }
     }
 
-    function decodeBundleInfo(bytes memory _data) public view returns (BundleInfo memory) {
-        // The success boolean is the last 32 bytes of the result.
-        bytes memory successBytes = this.slice(_data, _data.length - 32, _data.length);
-        bool success = abi.decode(successBytes, (bool));
+    function decodeBundleInfo(
+        bytes memory _data
+    ) external view returns (BundleInfo memory) {
+        string memory configUri = abi.decode(vm.parseJson(string(result.stdout), ".configUri"), (string));
+        HumanReadableAction[] memory humanReadableActions = abi.decode(vm.parseJson(string(result.stdout), ".humanReadableActions"), (HumanReadableAction[]));
+        bytes32 actionRoot = abi.decode(vm.parseJson(string(result.stdout), ".bundles.actionBundle.root"), (bytes32));
+        BundledSphinxAction[] memory actions = abi.decode(vm.parseJson(string(result.stdout), ".bundles.actionBundle.actions"), (BundledSphinxAction[]));
+        SphinxTargetBundle memory targetBundle = abi.decode(vm.parseJson(string(result.stdout), ".bundles.targetBundle"), (SphinxTargetBundle));
+        SphinxAuthBundle memory authBundle = abi.decode(vm.parseJson(string(result.stdout), ".bundles.authBundle"), (SphinxAuthBundle));
 
-        bytes memory data = this.slice(_data, 0, _data.length - 32);
-
-        if (success) {
-            // Next, we decode the result into the bundle info, which consists of the SphinxBundles,
-            // the config URI, the cost of deploying each contract, and any warnings that occurred
-            // when parsing the config. We can't decode all of this in a single `abi.decode` call
-            // because this fails with a "Stack too deep" error. This is because the SphinxBundles
-            // struct is too large for Solidity to decode all at once. So, we decode the
-            // SphinxActionBundle and SphinxTargetBundle separately. This requires that we know
-            // where to split the raw bytes before decoding anything. To solve this, we use two
-            // `splitIdx` variables. The first marks the point where the action bundle ends and the
-            // target bundle begins. The second marks the point where the target bundle ends and the
-            // rest of the bundle info (config URI, warnings, etc) begins.
-            (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
-                this.slice(data, data.length - 64, data.length),
-                (uint256, uint256)
-            );
-
-            // We can't decode the entire action bundle at once because we'd get a "stack too deep"
-            // error when calling `abi.decode`. This occurs because the action bundle struct is too
-            // large to be decoded at one time. So, we decode the root and the actions separately.
-            bytes32 actionRoot = abi.decode(this.slice(data, 0, 32), (bytes32));
-            BundledSphinxAction[] memory actions = abi.decode(
-                this.slice(data, 32, splitIdx1),
-                (BundledSphinxAction[])
-            );
-
-            SphinxActionBundle memory decodedActionBundle = SphinxActionBundle({
-                root: actionRoot,
-                actions: actions
-            });
-
-            SphinxTargetBundle memory decodedTargetBundle = abi.decode(
-                this.slice(data, splitIdx1, splitIdx2),
-                (SphinxTargetBundle)
-            );
-
-            bytes memory remainingBundleInfo = this.slice(data, splitIdx2, data.length);
-            (
-                string memory configUri,
-                HumanReadableAction[] memory readableActions,
-                string memory warnings
-            ) = abi.decode(remainingBundleInfo, (string, HumanReadableAction[], string));
-
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            return BundleInfo(configUri, decodedActionBundle, decodedTargetBundle, readableActions);
-        } else {
-            (string memory errors, string memory warnings) = abi.decode(data, (string, string));
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            revert(errors);
-        }
+        return BundleInfo({
+            configUri: configUri,
+            humanReadableActions: humanReadableActions,
+            bundles: SphinxBundles({
+                actionBundle: SphinxActionBundle({
+                    root: actionRoot,
+                    actions: actions
+                }),
+                targetBundle: targetBundle,
+                authBundle: authBundle
+            })
+        })
     }
 
     // Provides an easy way to get the EOA that's signing transactions in a Forge script. When a

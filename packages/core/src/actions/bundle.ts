@@ -29,7 +29,6 @@ import {
   SphinxTarget,
   SphinxTargetBundle,
   DeployContractAction,
-  ProposalRequest,
   RawAuthLeaf,
   RawSphinxAction,
   RoleType,
@@ -43,7 +42,7 @@ import {
   CancelActiveDeployment,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
-import { getDeployContractCosts, getEstDeployContractCost } from '../estimate'
+import { getEstDeployContractCost } from '../estimate'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 import { getTargetSalt } from '../config/utils'
 
@@ -451,7 +450,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  */
 export const makeActionBundle = (
   actions: SphinxAction[],
-  costs: bigint[]
+  costs: number[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -467,7 +466,7 @@ export const makeActionBundle = (
 
   const root = toHexString(tree.getRoot())
 
-  const a = {
+  return {
     root: root !== '0x' ? root : ethers.ZeroHash,
     actions: rawActions.map((action, idx) => {
       return {
@@ -479,8 +478,6 @@ export const makeActionBundle = (
       }
     }),
   }
-
-  return a
 }
 
 export const makeMerkleTree = (elements: string[]): MerkleTree => {
@@ -552,7 +549,7 @@ export const makeActionBundleFromConfig = (
   }
 
   const actions: SphinxAction[] = []
-  const costs: bigint[] = []
+  const costs: number[] = []
 
   const humanReadableActions: HumanReadableActions = {}
 
@@ -599,7 +596,7 @@ export const makeActionBundleFromConfig = (
         ]),
       })
 
-      costs.push(deployContractCost)
+      costs.push(Number(deployContractCost))
       humanReadableActions[index] = {
         actionIndex: index,
         reason: readableSignature,
@@ -630,7 +627,7 @@ export const makeActionBundleFromConfig = (
       // TODO(case): what does this return for an overloaded function?
       const functionName = iface.getFunctionName(selector)
 
-      costs.push(250_000n)
+      costs.push(250_000)
       humanReadableActions[index] = {
         actionIndex: index,
         reason: prettyFunctionCall(
@@ -707,15 +704,9 @@ export const getAuthLeafsForChain = async (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
-  const {
-    chainId,
-    manager,
-    prevConfig,
-    newConfig,
-    firstProposalOccurred,
-    isExecuting,
-    isManagerDeployed,
-  } = parsedConfig
+  const { chainId, managerAddress, prevConfig, newConfig } = parsedConfig
+  const { firstProposalOccurred, isExecuting, isManagerDeployed } = prevConfig
+
   const { proposers: newProposers, managerVersion: newManagerVersion } =
     newConfig
   const { proposers: prevProposers, managerVersion: prevManagerVersion } =
@@ -758,7 +749,7 @@ export const getAuthLeafsForChain = async (
   if (isExecuting) {
     const cancelDeploymentLeaf: CancelActiveDeployment = {
       chainId,
-      to: manager,
+      to: managerAddress,
       index,
       leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
     }
@@ -773,7 +764,7 @@ export const getAuthLeafsForChain = async (
   if (!equalManagerVersion && !isManagerDeployed) {
     const upgradeLeaf: UpgradeAuthAndManagerImpl = {
       chainId,
-      to: manager,
+      to: managerAddress,
       index,
       leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
       managerInitCallData: '0x',
@@ -803,7 +794,7 @@ export const getAuthLeafsForChain = async (
 
     const approvalLeaf: AuthLeaf = {
       chainId,
-      to: manager,
+      to: managerAddress,
       index,
       approval: {
         actionRoot: actionBundle.root,
@@ -826,7 +817,7 @@ export const getAuthLeafsForChain = async (
   if (firstProposalOccurred && addProposalLeaf) {
     const proposalLeaf: AuthLeaf = {
       chainId,
-      to: manager,
+      to: managerAddress,
       index: 0,
       numLeafs: index,
       leafType: AuthLeafFunctions.PROPOSE,
@@ -836,7 +827,7 @@ export const getAuthLeafsForChain = async (
     // We always add a Setup leaf if the first proposal hasn't occurred yet.
     const setupLeaf: AuthLeaf = {
       chainId,
-      to: manager,
+      to: managerAddress,
       index: 0,
       proposers: proposersToSet,
       numLeafs: index,
@@ -848,7 +839,7 @@ export const getAuthLeafsForChain = async (
     if (addProposalLeaf) {
       const proposalLeaf: AuthLeaf = {
         chainId,
-        to: manager,
+        to: managerAddress,
         index: 1,
         numLeafs: index,
         leafType: AuthLeafFunctions.PROPOSE,
@@ -881,14 +872,14 @@ export const findBundledLeaf = (
   return leaf
 }
 
-export const getProjectDeploymentForChain = async (
+export const getProjectDeploymentForChain = (
   leafs: Array<AuthLeaf>,
-  chainId: number,
-  projectName: string,
+  parsedConfig: ParsedConfig,
   configUri: string,
-  bundles: SphinxBundles,
-  isExecuting: boolean
-): Promise<ProjectDeployment | undefined> => {
+  bundles: SphinxBundles
+): ProjectDeployment | undefined => {
+  const { newConfig, prevConfig, chainId } = parsedConfig
+
   const approvalLeafs = leafs
     .filter(isApproveDeploymentAuthLeaf)
     .filter((l) => l.chainId === chainId)
@@ -906,53 +897,9 @@ export const getProjectDeploymentForChain = async (
   return {
     chainId,
     deploymentId,
-    name: projectName,
-    isExecuting,
+    name: newConfig.projectName,
+    isExecuting: prevConfig.isExecuting,
   }
-}
-
-/**
- * @notice Gets the estimated amount of gas required to execute an auth tree.
- */
-export const getGasEstimates = async (
-  leafs: Array<AuthLeaf>,
-  configArtifacts: ConfigArtifacts
-): Promise<ProposalRequest['gasEstimates']> => {
-  // Get a list of all the unique chain IDs
-  const chainIds = new Set(leafs.map((l) => l.chainId))
-
-  const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const chainId of chainIds) {
-    // Filter the leafs to only include leafs on this chain
-    const leafsOnChain = leafs.filter((l) => l.chainId === chainId)
-
-    const estGasPerLeafPromises = leafsOnChain.map(async (leaf) => {
-      let estLeafGas = 0
-
-      if (isApproveDeploymentAuthLeaf(leaf)) {
-        // Estimate the gas required to deploy the contracts in the project. This doesn't include
-        // the gas required to execute the "ApproveDeployment" leaf, since the contracts aren't
-        // executed in that transaction.
-        const estDeployContractGas = getDeployContractCosts(configArtifacts)
-          .map(({ cost }) => Number(cost))
-          .reduce((a, b) => a + b, 0)
-        estLeafGas = estLeafGas + estDeployContractGas
-      }
-
-      // Add a constant amount of gas to account for the cost of executing the leaf. For context, it
-      // costs ~350k gas to execute a Setup leaf that adds a single proposer and manager, using a
-      // single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
-      return estLeafGas + 450_000
-    })
-
-    const resolved = await Promise.all(estGasPerLeafPromises)
-
-    const estGasOnChain = resolved.reduce((a, b) => a + b, 0)
-
-    gasEstimates.push({ chainId, estimatedGas: estGasOnChain.toString() })
-  }
-
-  return gasEstimates
 }
 
 export const isApproveDeploymentAuthLeaf = (

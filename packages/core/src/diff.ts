@@ -1,14 +1,12 @@
 import { yellow, green, blue, bold } from 'chalk'
 
-import { ConfigCache, DecodedAction, ParsedConfig } from './config/types'
+import { DecodedAction, ParsedConfig } from './config/types'
 import {
   arraysEqual,
   getNetworkNameForChainId,
   getNetworkTag,
   hyperlink,
-  isSupportedChainId,
   prettyFunctionCall,
-  skipCallAction,
 } from './utils'
 
 export type SphinxDiff = Array<{
@@ -124,10 +122,9 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
     const executing: Array<DecodedAction> = []
     const skipping: Array<DecodedAction> = []
 
-    const { chainId, isManagerDeployed, actionsTODO, isLiveNetwork } =
-      parsedConfig
+    const { chainId, prevConfig, actionsTODO, isLiveNetwork } = parsedConfig
 
-    if (!isManagerDeployed) {
+    if (!prevConfig.isManagerDeployed) {
       executing.push({
         referenceName: 'SphinxManager',
         functionName: 'constructor',

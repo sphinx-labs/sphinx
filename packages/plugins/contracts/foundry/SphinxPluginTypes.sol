@@ -5,12 +5,25 @@ import {
     SphinxTarget,
     RawSphinxAction,
     SphinxActionType,
-    Version
+    Version,
+    AuthLeaf
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct SphinxBundles {
+    SphinxAuthBundle authBundle;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
+}
+
+struct SphinxAuthBundle {
+    bytes32 root;
+    BundledAuthLeaf[] leafs;
+}
+
+struct BundledAuthLeaf {
+  AuthLeaf leaf;
+  string[] proof;
+  AuthLeafType leafType; // TODO: add this to the bundled auth leaf off-chain
 }
 
 struct SphinxActionBundle {
@@ -47,8 +60,7 @@ struct Configs {
 
 struct BundleInfo {
     string configUri;
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
+    SphinxBundles bundles;
     HumanReadableAction[] humanReadableActions;
 }
 
@@ -141,20 +153,66 @@ struct OptionalBytes32 {
     bool exists;
 }
 
+// TODO(refactor): the name should probably reflect the fact that this is for deployments,
+// not proposals, b/c of PreviousInfo. the other fields are the same as proposals.
+struct ChainInfo {
+    address authAddress;
+    address managerAddress;
+    uint256 chainId;
+    SphinxAction[] actionsTODO; // TODO(docs): these actions are collected during the deployment.
+    SphinxConfig newConfig;
+    bool isLiveNetwork;
+    PreviousInfo prevConfig;
+}
+
+// TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
+struct PreviousInfo {
+    string projectName;
+    address[] owners;
+    address[] proposers;
+    uint256 threshold;
+    Version managerVersion;
+    bool isManagerDeployed;
+    bool firstProposalOccurred;
+    bool isExecuting;
+}
 
 struct SphinxConfig {
     string projectName;
+    string orgId; // TODO: can't get
 	address[] owners;
 	address[] proposers;
-	Network[] mainnets;
-	Network[] testnets;
+	Network[] mainnets; // TODO: can't get
+	Network[] testnets; // TODO: can't get
 	uint256 threshold;
 	Version managerVersion;
 }
 
 enum Network {
+    // production networks (i.e. mainnets)
+    ethereum,
+    optimism,
+    arbitrum,
+    polygon,
+    bnb,
+    gnosis,
+    linea,
+    polygon_zkevm,
+    avalanche,
+    fantom,
+    base,
+    // testnets
     goerli,
-    anvil
+    optimism_goerli,
+    arbitrum_goerli,
+    polygon_mumbai,
+    bnb_testnet,
+    gnosis_chiado,
+    linea_goerli,
+    polygon_zkevm_goerli,
+    avalanche_fuji,
+    fantom_testnet,
+    base_goerli,
 }
 
 struct DeployOptions {
@@ -169,3 +227,14 @@ struct SphinxAction {
     bytes data;
     bool skip;
 }
+
+struct objTODO {
+    actionBundles: SphinxBudn
+}
+
+  const objTODO = {
+    actionBundles: bundles,
+    authBundle,
+    configUri,
+    humanReadableActions,
+  }
