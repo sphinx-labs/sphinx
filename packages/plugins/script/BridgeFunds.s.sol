@@ -25,8 +25,8 @@ contract SphinxScript is LzApp, Script {
     // particular chain, set the amount to 0 here.
     uint256 bnbTestnetAmount = 0; // 1 BNBT
     uint256 gnosisChiadoAmount = 0; // 2 XDAI
-    uint256 avaxAmount = 150 * (10**18);
-    uint256 ftmAmount = 1000 * (10**18);
+    uint256 avaxAmount = 150 * (10 ** 18);
+    uint256 ftmAmount = 1000 * (10 ** 18);
     // Address that will receive the funds on the destination chain:
     address tokenReceiver = 0x4856e043a1F2CAA8aCEfd076328b4981Aca91000;
     // Address of the SphinxLZReceiver contract on the destination chain. This is *not* the address
@@ -81,7 +81,9 @@ contract SphinxScript is LzApp, Script {
     constructor() LzApp(localEndpoint) {
         // (2) If you're adding a new chain, add a new FundingInfo struct here.
         fundingInfo.push(FundingInfo(bnbTestnetLzChainId, bnbTestnetAmount, bnbTestnetLzReceiver));
-        fundingInfo.push(FundingInfo(gnosisChiadoLzChainId, gnosisChiadoAmount, gnosisChiadoLzReceiver));
+        fundingInfo.push(
+            FundingInfo(gnosisChiadoLzChainId, gnosisChiadoAmount, gnosisChiadoLzReceiver)
+        );
         fundingInfo.push(FundingInfo(phantomLzChainId, ftmAmount, fantomLzReceiver));
         fundingInfo.push(FundingInfo(avaxLzChainId, avaxAmount, avaxLzReceiver));
 
@@ -102,7 +104,9 @@ contract SphinxScript is LzApp, Script {
 
             uint256 amountSent = 0;
             while (amountSent < dstTotalNativeTokenAmount) {
-                uint256 amountToSend = relayer.dstConfigLookup(dstChainId, outboundProofType).dstNativeAmtCap;
+                uint256 amountToSend = relayer
+                    .dstConfigLookup(dstChainId, outboundProofType)
+                    .dstNativeAmtCap;
                 require(amountToSend > 0, "BridgeFunds: amountToSend must be greater than 0");
 
                 if (amountToSend + amountSent > dstTotalNativeTokenAmount) {
@@ -159,10 +163,10 @@ interface ILayerZeroRelayerV2 {
         uint64 gasPerByte;
     }
 
-    function dstConfigLookup(uint16 dstChainId, uint16 outboundProofType)
-        external
-        view
-        returns (DstConfig memory);
+    function dstConfigLookup(
+        uint16 dstChainId,
+        uint16 outboundProofType
+    ) external view returns (DstConfig memory);
 }
 
 /**
@@ -186,12 +190,7 @@ contract SphinxLZReceiver is NonblockingLzApp {
               this function instead because the inherited version of this function requires a
               trusted remote address pair, which we don't use.
      */
-    function lzReceive(
-        uint16,
-        bytes calldata,
-        uint64,
-        bytes calldata
-    ) public override {
+    function lzReceive(uint16, bytes calldata, uint64, bytes calldata) public override {
         received = true;
     }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { join } from 'path'
-import { exec, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
@@ -21,7 +21,6 @@ import {
   getParsedConfig,
   userConfirmation,
   UserConfig,
-  ensureSphinxInitialized,
   proposeAbstractTask,
   UserConfigWithOptions,
 } from '@sphinx-labs/core'
@@ -36,6 +35,7 @@ import {
 import { getFoundryConfigOptions } from '../foundry/options'
 import { createSphinxRuntime } from '../cre'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
+import { generateClient } from './typegen/client'
 
 // Load environment variables from .env
 dotenv.config()
@@ -241,6 +241,12 @@ yargs(hideBin(process.argv))
       )
       spinner.succeed('Initialized Sphinx project.')
     }
+  )
+  .command(
+    'generate',
+    'Generate Sphinx Client contracts for a project',
+    (y) => y.usage(`Usage: npx sphinx generate`).hide('version'),
+    generateClient
   )
   .command(
     'artifacts',
@@ -466,7 +472,6 @@ yargs(hideBin(process.argv))
         // try {
         //   exec(`FOUNDRY_SENDER=${DEFAULT_FORGE_SENDER} DAPP_SENDER=${DEFAULT_FORGE_SENDER} anvil --port ${anvilPort}`)
         // }
-
 
         const { parsedConfig, configCache } = await getParsedConfig(
           userConfig,

@@ -8608,7 +8608,7 @@ solhint@^3.3.6, solhint@^3.4.1:
   optionalDependencies:
     prettier "^2.8.3"
 
-solidity-ast@^0.4.26, solidity-ast@^0.4.45, solidity-ast@^0.4.46:
+solidity-ast@^0.4.26, solidity-ast@^0.4.45, solidity-ast@^0.4.46, solidity-ast@^0.4.52:
   version "0.4.52"
   resolved "https://registry.yarnpkg.com/solidity-ast/-/solidity-ast-0.4.52.tgz#9f1a9abc7e5ba28bbf91146ecd07aec7e70f3c85"
   integrity sha512-iOya9BSiB9jhM8Vf40n8lGELGzwrUc57rl5BhfNtJ5cvAaMvRcNlHeAMNvqJJyjoUnczqRbHqdivEqK89du3Cw==

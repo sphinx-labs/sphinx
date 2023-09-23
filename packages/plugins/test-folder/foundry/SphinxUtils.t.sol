@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
-import { FoundryContractConfig, OptionalString, ContractKindEnum, ParsedCallAction } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import {
+    FoundryContractConfig,
+    OptionalString,
+    ContractKindEnum,
+    ParsedCallAction
+} from "../../contracts/foundry/SphinxPluginTypes.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
     function setUp() public {}
@@ -56,11 +61,29 @@ contract SphinxUtils_Test is Test, SphinxUtils {
 
     function test_findReferenceNameForAddress_succeeds_containsReferenceName() external {
         FoundryContractConfig[] memory contractConfigs = new FoundryContractConfig[](3);
-        contractConfigs[0] = FoundryContractConfig({ referenceName: "a", addr: address(0x1), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[1] = FoundryContractConfig({ referenceName: "b", addr: address(0x2), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[2] = FoundryContractConfig({ referenceName: "c", addr: address(0x3), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
+        contractConfigs[0] = FoundryContractConfig({
+            referenceName: "a",
+            addr: address(0x1),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[1] = FoundryContractConfig({
+            referenceName: "b",
+            addr: address(0x2),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[2] = FoundryContractConfig({
+            referenceName: "c",
+            addr: address(0x3),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
 
-        OptionalString memory optionalString = findReferenceNameForAddress(address(0x2), contractConfigs);
+        OptionalString memory optionalString = findReferenceNameForAddress(
+            address(0x2),
+            contractConfigs
+        );
 
         assertEq(optionalString.exists, true);
         assertEq(optionalString.value, "b");
@@ -68,11 +91,29 @@ contract SphinxUtils_Test is Test, SphinxUtils {
 
     function test_findReferenceNameForAddress_succeeds_doesNotContainReferenceName() external {
         FoundryContractConfig[] memory contractConfigs = new FoundryContractConfig[](3);
-        contractConfigs[0] = FoundryContractConfig({ referenceName: "a", addr: address(0x1), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[1] = FoundryContractConfig({ referenceName: "b", addr: address(0x2), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[2] = FoundryContractConfig({ referenceName: "c", addr: address(0x3), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
+        contractConfigs[0] = FoundryContractConfig({
+            referenceName: "a",
+            addr: address(0x1),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[1] = FoundryContractConfig({
+            referenceName: "b",
+            addr: address(0x2),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[2] = FoundryContractConfig({
+            referenceName: "c",
+            addr: address(0x3),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
 
-        OptionalString memory optionalString = findReferenceNameForAddress(address(0x4), contractConfigs);
+        OptionalString memory optionalString = findReferenceNameForAddress(
+            address(0x4),
+            contractConfigs
+        );
 
         assertEq(optionalString.exists, false);
         assertEq(optionalString.value, "");
@@ -94,11 +135,29 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         vm.etch(address(0x55), hex"9abc");
 
         FoundryContractConfig[] memory contractConfigs = new FoundryContractConfig[](3);
-        contractConfigs[0] = FoundryContractConfig({ referenceName: "a", addr: address(0x11), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[1] = FoundryContractConfig({ referenceName: "b", addr: address(0x22), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
-        contractConfigs[2] = FoundryContractConfig({ referenceName: "c", addr: address(0x33), kind: ContractKindEnum.IMMUTABLE, userSaltHash: bytes32(0) });
+        contractConfigs[0] = FoundryContractConfig({
+            referenceName: "a",
+            addr: address(0x11),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[1] = FoundryContractConfig({
+            referenceName: "b",
+            addr: address(0x22),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
+        contractConfigs[2] = FoundryContractConfig({
+            referenceName: "c",
+            addr: address(0x33),
+            kind: ContractKindEnum.IMMUTABLE,
+            userSaltHash: bytes32(0)
+        });
 
-        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(uniquePostDeployAddresses, contractConfigs);
+        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(
+            uniquePostDeployAddresses,
+            contractConfigs
+        );
 
         assertEq(undeployedExternalContracts.length, 1);
         assertEq(undeployedExternalContracts[0], address(0x44));
