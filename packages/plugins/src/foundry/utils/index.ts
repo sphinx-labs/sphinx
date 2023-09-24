@@ -15,16 +15,11 @@ import {
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   ConfigArtifacts,
-  DeployContractActionTODO,
-  DeployContractTODO,
-  FunctionCallTODO,
   GetConfigArtifacts,
   GetProviderForChainId,
-  SphinxActionTODO,
-  UserContractConfigs,
+  RawSphinxActionTODO,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
-import { SphinxActionType } from '@sphinx-labs/core/dist/actions/types'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -160,7 +155,7 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
     if (network === undefined) {
       throw new Error(
         `Could not find an RPC endpoint in your foundry.toml for the network: ${getNetworkNameForChainId(
-          chainId
+          BigInt(chainId)
         )}.`
       )
     }
@@ -182,7 +177,7 @@ export const makeGetConfigArtifacts = (
   buildInfoFolder: string,
   cachePath: string
 ): GetConfigArtifacts => {
-  return async (actions: Array<DeployContractTODO | FunctionCallTODO>) => {
+  return async (actions: Array<RawSphinxActionTODO>) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {
       fs.mkdirSync(cachePath)

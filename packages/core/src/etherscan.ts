@@ -59,8 +59,8 @@ export const verifySphinxConfig = async (
   )
 
   const actionsTODOToVerify = actionsTODO
+    // .filter((a) => !a.skip)
     .filter(isExtendedDeployContractTODO)
-    .filter((a) => !a.skip)
 
   for (const action of actionsTODOToVerify) {
     const { fullyQualifiedName, create3Address } = action

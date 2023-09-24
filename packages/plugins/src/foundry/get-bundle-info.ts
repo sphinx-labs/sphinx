@@ -1,30 +1,19 @@
 import path, { resolve } from 'path'
 import fs from 'fs'
 
-import { postParsingValidation } from '@sphinx-labs/core/dist/config/parse'
-import { FailureAction } from '@sphinx-labs/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import {
   writeCompilerConfig,
-  remove0x,
-  ParsedConfig,
-  SphinxActionTODO,
-  SupportedChainId,
-  isSupportedChainId,
   makeAuthBundle,
   getAuthLeafsForChain,
+  ChainInfo,
+  makeParsedConfig,
+  convertBigIntToString,
 } from '@sphinx-labs/core/dist'
-import { AbiCoder, concat } from 'ethers'
 
-import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
-import { decodeActions, decodeCachedConfig } from './structs'
+import { decodeChainInfo } from './structs'
 import { makeGetConfigArtifacts } from './utils'
-import {
-  getEncodedFailure,
-  getPrettyWarnings,
-  validationStderrWrite,
-} from './logs'
 
 // TODO: see what happens if the user does `vm.createSelectFork(); deploy(...);` in their script
 // when we're attempting to call their script with an `--rpc-url` flag from `sphinx deploy/propose`.
@@ -32,8 +21,7 @@ import {
 // transactions probably wouldn't get broadcasted onto our port.
 
 const args = process.argv.slice(2)
-const encodedActions = args[0]
-const encodedConfigCache = args[1]
+const abiEncodedChainInfo = args[0]
 
 ;(async () => {
   const { compilerConfigFolder, cachePath, artifactFolder, buildInfoFolder } =
@@ -43,49 +31,15 @@ const encodedConfigCache = args[1]
     process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
   const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-  const SphinxUtilsABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${utilsArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
-    )).abi
-
   const SphinxActionsABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
       `${utilsArtifactFolder}/SphinxActions.sol/SphinxActions.json`
     )).abi
 
-  const configCache = decodeCachedConfig(encodedConfigCache, SphinxUtilsABI)
-  const actions = decodeActions(
-    encodedActions,
-    SphinxActionsABI,
-    sphinxManager,
-    chainId
-  )
-
-  // TODO(refactor): i think the cleanest solution would be to have a single object that contains
-  // everything on a given chain. then, in the proposal task, you can just do a slight reformat to create
-  // the parsed config.
-
-  const parsedConfig: ParsedConfig = {
-    manager: configCache.manager,
-    chainId: configCache.chainId,
-    actionsTODO: actions,
-    isManagerDeployed: configCache.isManagerDeployed,
-    isExecuting: configCache.isExecuting,
-    isLiveNetwork: configCache.isLiveNetwork,
-    currentManagerVersion: configCache.currentManagerVersion,
-  }
-
-  const cre = createSphinxRuntime(
-    'foundry',
-    false,
-    false,
-    true,
-    compilerConfigFolder,
-    undefined,
-    false,
-    process.stderr
+  const chainInfo: ChainInfo = decodeChainInfo(
+    abiEncodedChainInfo,
+    SphinxActionsABI
   )
 
   const getConfigArtifacts = makeGetConfigArtifacts(
@@ -94,7 +48,9 @@ const encodedConfigCache = args[1]
     cachePath
   )
 
-  const configArtifacts = await getConfigArtifacts(actions)
+  const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
+
+  const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
 
   const leafs = await getAuthLeafsForChain(parsedConfig, configArtifacts)
 
@@ -129,15 +85,35 @@ const encodedConfigCache = args[1]
   // TODO: you return a single object that isn't keyed by a chain id, since this file will only
   // be called on one chain at a time.
 
+  // TODO(docs): include only the necessary fields
+  const authEncodedData = authBundle.leafs.map((l) => l.leaf.data)
+  const TODO = authBundle.leafs.map((l) => {
+    return {
+      leaf: {
+        chainId: l.leaf.chainId,
+        to: l.leaf.to,
+        index: l.leaf.index,
+      },
+      leafType: l.prettyLeaf.leafTypeEnum,
+      proof: l.proof,
+    }
+  })
+
   const bundleInfo = {
     bundles: {
       actionBundle: bundles.actionBundle,
       targetBundle: bundles.targetBundle,
-      authBundle,
+      authBundle: {
+        root: authBundle.root,
+        leafs: TODO,
+        data: authEncodedData,
+      },
     },
     configUri,
-    humanReadableActions,
+    humanReadableActions: Object.values(humanReadableActions), // TODO: this should be an array initially, not an obj
   }
 
-  process.stdout.write(JSON.stringify(bundleInfo))
+  // TODO(docs)
+  const convertedBigInts = convertBigIntToString(bundleInfo)
+  process.stdout.write(JSON.stringify(convertedBigInts))
 })()

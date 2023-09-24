@@ -820,27 +820,6 @@ export const revertSnapshots = async (
   }
 }
 
-export const getStorageSlotKey = (
-  fullyQualifiedName: string,
-  varName: string
-): string => {
-  const [sourceName, contractName] = fullyQualifiedName.split(':')
-  const storageLayout = getStorageLayout(
-    buildInfo.output,
-    sourceName,
-    contractName
-  )
-  const storageObj = storageLayout.storage.find((s) => s.label === varName)
-
-  if (!storageObj) {
-    throw new Error(
-      `Could not find storage slot key for: ${fullyQualifiedName}`
-    )
-  }
-
-  return storageObj.slot
-}
-
 /**
  * @notice Compute the storage slot for an entry in a mapping. Identical to `cast index`.
  *

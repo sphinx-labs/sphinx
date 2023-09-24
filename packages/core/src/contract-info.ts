@@ -45,6 +45,7 @@ import {
   getReferenceEscrowContractAddress,
   ReferenceAuthProxyAddress,
   getAuthImplAddress,
+  getEncodedSphinxManagerConstructorArgs,
 } from './addresses'
 import { USDC_ADDRESSES } from './networks'
 import {
@@ -62,7 +63,7 @@ export const getSphinxConstants = async (
   }>
 > => {
   const network = await provider.getNetwork()
-  const chainId = Number(network.chainId)
+  const chainId = network.chainId
   const contractInfo = [
     {
       artifact: SphinxRegistryArtifact,
@@ -120,8 +121,8 @@ export const getSphinxConstants = async (
       expectedAddress: getManagedServiceAddress(chainId),
       constructorArgs: [
         getOwnerAddress(),
-        chainId === 420 || chainId === 10
-          ? USDC_ADDRESSES[chainId]
+        chainId === 420n || chainId === 10n
+          ? USDC_ADDRESSES[Number(chainId)]
           : ZeroAddress,
       ],
     },
@@ -153,8 +154,8 @@ export const getSphinxConstants = async (
   ]
 
   // Add any network-specific contracts to the array.
-  if (chainId === 10 || chainId === 420) {
-    const usdcAddress = USDC_ADDRESSES[chainId]
+  if (chainId === 10n || chainId === 420n) {
+    const usdcAddress = USDC_ADDRESSES[Number(chainId)]
     // Only add the Optimism-specific contracts if the USDC contract address exists. This contract
     // won't exist if we're on a local Anvil node that has an Optimism chain ID, which occurs
     // during testing.

@@ -11,7 +11,7 @@ import {
     BundledSphinxAction,
     RawSphinxAction,
     SphinxTargetBundle,
-    ConfigCache,
+    ChainInfo,
     OptionalString,
     BundleInfo,
     FoundryConfig,
@@ -28,8 +28,6 @@ interface ISphinxUtils {
     /***************************** PURE FUNCTIONS ******************************/
 
     function bundledActions() external pure returns (BundledSphinxAction[] memory);
-
-    function configCache() external pure returns (ConfigCache memory);
 
     function disassembleActions(
         BundledSphinxAction[] memory actions
@@ -71,8 +69,6 @@ interface ISphinxUtils {
         uint256 end
     ) external pure returns (BundledSphinxAction[] memory sliced);
 
-    function minimalConfig() external pure returns (FoundryConfig memory);
-
     function removeExecutedActions(
         BundledSphinxAction[] memory _actions,
         uint256 _actionsExecuted
@@ -83,8 +79,6 @@ interface ISphinxUtils {
         uint256 _start,
         uint256 _end
     ) external pure returns (bytes memory);
-
-    function targetBundle() external pure returns (SphinxTargetBundle memory);
 
     function toBytes32(address _addr) external pure returns (bytes32);
 
@@ -104,19 +98,12 @@ interface ISphinxUtils {
 
     function initialize(
         string memory _rpcUrl,
-        bool _isRecurrentBroadcast,
         string memory _mainFfiScriptPath,
         address _systemOwner
     ) external;
 
-    function getConfigCache(
-        ISphinxRegistry _registry,
-        ISphinxManager _manager
-    ) external returns (ConfigCache memory);
-
     function ffiGetEncodedBundleInfo(
-        SphinxAction[] memory _actions,
-        ConfigCache memory _configCache,
+        ChainInfo memory _chainInfo,
         string memory _rootFfiPath
     ) external returns (bytes memory);
 }

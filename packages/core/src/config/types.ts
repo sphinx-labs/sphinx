@@ -87,6 +87,7 @@ export type ParsedConfigVariable =
   | boolean
   | string
   | number
+  | bigint
   | Array<ParsedConfigVariable>
   | {
       [name: string]: ParsedConfigVariable
@@ -159,19 +160,28 @@ export interface ConfigOptions {
 export type ParsedConfig = {
   authAddress: string
   managerAddress: string
-  chainId: SupportedChainId
+  chainId: bigint
   actionsTODO: Array<ExtendedDeployContractTODO | ExtendedFunctionCallTODO>
   newConfig: SphinxConfig
   isLiveNetwork: boolean
   prevConfig: PreviousInfo
 }
 
+export type ChainInfo = {
+  authAddress: string
+  managerAddress: string
+  chainId: bigint
+  actionsTODO: Array<RawSphinxActionTODO>
+  newConfig: SphinxConfig
+  isLiveNetwork: boolean
+  prevConfig: PreviousInfo
+}
+
 export type PreviousInfo = {
-  projectName: string
   owners: Array<string>
   proposers: Array<string>
   threshold: number
-  managerVersion: SemverVersion
+  version: SemverVersion
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
   isExecuting: boolean
@@ -257,7 +267,7 @@ export type UserAddressOverrides = {
 
 export interface DeployContractTODO {
   fullyQualifiedName: string
-  actionType: SphinxActionType.DEPLOY_CONTRACT
+  actionType: typeof SphinxActionType.DEPLOY_CONTRACT
   skip: boolean
   initCode: string
   constructorArgs: string
@@ -272,7 +282,7 @@ export type SphinxConfig = {
   mainnets: Array<SupportedMainnetNetworkName>
   testnets: Array<SupportedNetworkName>
   threshold: number
-  managerVersion: SemverVersion
+  version: SemverVersion
 }
 
 export interface ExtendedDeployContractTODO extends DeployContractTODO {
@@ -292,7 +302,7 @@ export type DecodedAction = {
 
 export interface FunctionCallTODO {
   fullyQualifiedName: string
-  actionType: SphinxActionType.CALL
+  actionType: bigint
   skip: boolean
   to: string
   selector: string
@@ -303,7 +313,7 @@ export interface FunctionCallTODO {
 
 export type RawSphinxActionTODO = {
   fullyQualifiedName: string
-  actionType: SphinxActionType.CALL | SphinxActionType.DEPLOY_CONTRACT
+  actionType: bigint
   skip: boolean
   data: string
 }
@@ -340,7 +350,7 @@ export type ConfigArtifacts = {
 
 export type SphinxActionTODO = {
   fullyQualifiedName: string
-  actionType: SphinxActionType
+  actionType: bigint
   data: string
   skip: boolean
 }
@@ -392,7 +402,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  actions: Array<SphinxActionTODO>
+  actions: Array<RawSphinxActionTODO>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

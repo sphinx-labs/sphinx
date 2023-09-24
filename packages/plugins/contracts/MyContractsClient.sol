@@ -55,14 +55,14 @@ contract MyContract1Client is AbstractSphinxClient {
         // TODO(docs): we can't make the reference name a state variable in this contract because we
         // can't have any mutable variables since this is a proxy for the user's function, and we
         // may overwrite the user's variable in the storage layout.
-        string memory referenceName = sphinx.getReferenceName(address(this));
+        string memory referenceName = sphinx.referenceNamesByAddress(address(this));
         bytes memory actionData = abi.encode(address(this), MyContract1Client.incrementUint.selector, functionArgs, currentNonceInDeployment, referenceName);
         bool skip = currentNonceInManager > currentNonceInDeployment;
         actions.addSphinxAction(SphinxAction({
-            fullyQualifiedName: "MyContracts.sol:MyContract1",
+            fullyQualifiedName: "contracts/test/MyContracts.sol:MyContract1",
             actionType: SphinxActionType.CALL,
             data: actionData,
-            skip: skip,
+            skip: skip
         }));
 
         sphinx.incrementCallCount(callHash);

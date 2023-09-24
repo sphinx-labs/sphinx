@@ -4,10 +4,10 @@ import { SupportedChainId } from '../networks'
 /**
  * Possible action types.
  */
-export enum SphinxActionType {
-  SET_STORAGE,
-  DEPLOY_CONTRACT,
-  CALL,
+export const SphinxActionType = {
+  SET_STORAGE: 0n,
+  DEPLOY_CONTRACT: 1n,
+  CALL: 2n,
 }
 
 /**
@@ -28,7 +28,7 @@ export const DeploymentStatus = {
  * Raw action data (encoded for use on-chain).
  */
 export interface RawSphinxAction {
-  actionType: SphinxActionType
+  actionType: bigint
   index: number
   data: string
 }
@@ -82,7 +82,7 @@ export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
  */
 export type HumanReadableAction = {
   reason: string
-  actionType: SphinxActionType
+  actionType: bigint
   actionIndex: number
 }
 
@@ -124,6 +124,7 @@ export interface SphinxActionBundle {
 export type BundledAuthLeaf = {
   leaf: RawAuthLeaf
   prettyLeaf: AuthLeaf
+  leafTypeEnum: AuthLeafType
   proof: string[]
 }
 
@@ -161,13 +162,13 @@ export type DeploymentState = {
 }
 
 export interface BaseAuthLeaf {
-  chainId: SupportedChainId
+  chainId: bigint
   to: string
   index: number
 }
 
 export interface RawAuthLeaf {
-  chainId: SupportedChainId
+  chainId: bigint
   to: string
   index: number
   data: string
@@ -239,48 +240,56 @@ export type AuthState = {
 }
 
 interface Setup extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SETUP
+  functionName: AuthLeafFunctions.SETUP
+  leafTypeEnum: AuthLeafType.SETUP
   proposers: Array<SetRoleMember>
   numLeafs: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.EXPORT_PROXY
+  functionName: AuthLeafFunctions.EXPORT_PROXY
+  leafTypeEnum: AuthLeafType.EXPORT_PROXY
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
 interface SetOwner extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_OWNER
+  functionName: AuthLeafFunctions.SET_OWNER
+  leafTypeEnum: AuthLeafType.SET_OWNER
   owner: string
   add: boolean
 }
 
 interface SetThreshold extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_THRESHOLD
+  functionName: AuthLeafFunctions.SET_THRESHOLD
+  leafTypeEnum: AuthLeafType.SET_THRESHOLD
   newThreshold: number
 }
 
 interface TransferManagerOwnership extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
+  functionName: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
+  leafTypeEnum: AuthLeafType.TRANSFER_MANAGER_OWNERSHIP
   newOwner: string
 }
 
 interface UpgradeManagerImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
+  functionName: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
+  leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_IMPLEMENTATION
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
+  functionName: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
+  leafTypeEnum: AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION
   impl: string
   data: string
 }
 
 export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
+  functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
+  leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL
   managerImpl: string
   managerInitCallData: string
   authImpl: string
@@ -288,22 +297,26 @@ export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
 }
 
 interface SetProposer extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_PROPOSER
+  functionName: AuthLeafFunctions.SET_PROPOSER
+  leafTypeEnum: AuthLeafType.SET_PROPOSER
   proposer: string
   add: boolean
 }
 
 export interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT
+  functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT
+  leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT
   approval: DeploymentApproval
 }
 
 export interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
+  functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
+  leafTypeEnum: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.PROPOSE
+  functionName: AuthLeafFunctions.PROPOSE
+  leafTypeEnum: AuthLeafType.PROPOSE
   numLeafs: number
 }
 
@@ -366,14 +379,14 @@ export type ProposalRequest = {
  * chain.
  */
 export type ProjectDeployment = {
-  chainId: number
+  chainId: bigint
   deploymentId: string
   name: string
   isExecuting: boolean
 }
 
 export type ProposalRequestLeaf = {
-  chainId: SupportedChainId
+  chainId: bigint
   to: string
   index: number
   data: string

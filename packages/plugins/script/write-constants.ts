@@ -6,6 +6,7 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'
 import {
   CURRENT_SPHINX_MANAGER_VERSION,
@@ -22,7 +23,8 @@ import {
   remove0x,
   getAuthImplAddress,
   CURRENT_SPHINX_AUTH_VERSION,
-  VALID_MANAGER_VERSION,
+  getEncodedSphinxManagerConstructorArgs,
+  getStorageSlotKey,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -35,6 +37,12 @@ import { ethers } from 'ethers'
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const writeConstants = async () => {
+  const callNoncesSlotKey = getStorageSlotKey(
+    'contracts/SphinxManager.sol:SphinxManager',
+    sphinxContractsBuildInfo.output,
+    'callNonces'
+  )
+
   const { major, minor, patch } = CURRENT_SPHINX_MANAGER_VERSION
 
   const constants = {
@@ -49,18 +57,6 @@ const writeConstants = async () => {
     authProxyInitCodeHash: {
       type: 'bytes32',
       value: AUTH_PROXY_INIT_CODE_HASH,
-    },
-    validManagerMajorVersion: {
-      type: 'uint256',
-      value: VALID_MANAGER_VERSION.major,
-    },
-    validManagerMinorVersion: {
-      type: 'uint256',
-      value: VALID_MANAGER_VERSION.minor,
-    },
-    validManagerPatchVersion: {
-      type: 'uint256',
-      value: VALID_MANAGER_VERSION.patch,
     },
     major: {
       type: 'uint256',
@@ -96,7 +92,21 @@ const writeConstants = async () => {
     },
     managerImplementationAddress: {
       type: 'address',
-      value: getSphinxManagerImplAddress(31337, CURRENT_SPHINX_MANAGER_VERSION),
+      value: getSphinxManagerImplAddress(
+        31337n,
+        CURRENT_SPHINX_MANAGER_VERSION
+      ),
+    },
+    callNoncesSlotKey: {
+      type: 'bytes32',
+      value: ethers.zeroPadValue(ethers.toBeHex(callNoncesSlotKey), 32),
+    },
+    encodedManagerConstructorArgs: {
+      type: 'bytes',
+      value: getEncodedSphinxManagerConstructorArgs(
+        31337n,
+        CURRENT_SPHINX_MANAGER_VERSION
+      ),
     },
     ozTransparentAdapterAddr: {
       type: 'address',
@@ -149,10 +159,16 @@ const writeConstants = async () => {
     `}\n\n` +
     `contract SphinxConstants {\n` +
     `${Object.entries(constants)
-      .map(
-        ([name, { type, value }]) =>
-          `  ${type} public constant ${name} = ${value};`
-      )
+      .map(([name, { type, value }]) => {
+        if (type === 'bytes') {
+          // TODO(docs)
+          return `  ${type} public constant ${name} = hex"${remove0x(
+            value.toString()
+          )}";`
+        } else {
+          return `  ${type} public constant ${name} = ${value};`
+        }
+      })
       .join('\n')}\n\n` +
     `  function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {\n` +
     `    SphinxContractInfo[] memory contracts = new SphinxContractInfo[](${contractInfo.length});\n` +

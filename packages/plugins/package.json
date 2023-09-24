@@ -67,7 +67,7 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
-    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
+    "@eth-optimism/contracts-bedrock": "0.0.0-20230522161230",
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@openzeppelin/contracts": "^4.8.1",

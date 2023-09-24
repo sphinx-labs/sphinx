@@ -9,6 +9,7 @@ import {
   writeDeploymentFolderForNetwork,
   getFunctionArgValueArray,
   writeDeploymentArtifact,
+  isExtendedDeployContractTODO,
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -61,8 +62,7 @@ export const writeDeploymentArtifacts = async (
 
     const action = parsedConfig.actionsTODO.find(
       (a) =>
-        a.actionType === SphinxActionType.DEPLOY_CONTRACT &&
-        a.create3Address === contractAddress
+        isExtendedDeployContractTODO(a) && a.create3Address === contractAddress
     )
 
     if (!action) {
@@ -169,4 +169,26 @@ export const writeDeploymentArtifacts = async (
       action.referenceName
     )
   }
+}
+
+export const getStorageSlotKey = (
+  fullyQualifiedName: string,
+  compilerOutput: CompilerOutput,
+  varName: string
+): string => {
+  const [sourceName, contractName] = fullyQualifiedName.split(':')
+  const storageLayout = getStorageLayout(
+    compilerOutput,
+    sourceName,
+    contractName
+  )
+  const storageObj = storageLayout.storage.find((s) => s.label === varName)
+
+  if (!storageObj) {
+    throw new Error(
+      `Could not find storage slot key for: ${fullyQualifiedName}`
+    )
+  }
+
+  return storageObj.slot
 }

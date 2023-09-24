@@ -56,6 +56,11 @@ import {
   UserFunctionOptions,
   ExtendedDeployContractTODO,
   ExtendedFunctionCallTODO,
+  ChainInfo,
+  ParsedConfig,
+  FunctionCallTODO,
+  DecodedAction,
+  DeployContractTODO,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -78,10 +83,11 @@ import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,
+  fromRawSphinxActionTODO,
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
-import { getCreate3Address } from './config/utils'
+import { getCreate3Address, getTargetSalt } from './config/utils'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
@@ -266,7 +272,7 @@ export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
 export const getCurrentSphinxActionType = (
   bundle: SphinxActionBundle,
   actionsExecuted: bigint
-): SphinxActionType => {
+): bigint => {
   return bundle.actions[Number(actionsExecuted)].action.actionType
 }
 
@@ -315,9 +321,11 @@ export const writeCompilerConfig = (
     `${ipfsHash}.json`
   )
   if (!fs.existsSync(compilerConfigFilePath)) {
+    // TODO(docs)
+    const convertedBigInts = convertBigIntToString(compilerConfig)
     fs.writeFileSync(
       path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-      JSON.stringify(compilerConfig, null, 2)
+      JSON.stringify(convertedBigInts, null, 2)
     )
   }
 }
@@ -1412,7 +1420,7 @@ export const getNetworkDirName = (
 export const getNetworkTag = (
   networkName: string,
   isLiveNetwork_: boolean,
-  chainId: number
+  chainId: bigint
 ): string => {
   if (isLiveNetwork_) {
     return networkName
@@ -1426,9 +1434,9 @@ export const getNetworkTag = (
   }
 }
 
-export const getNetworkNameForChainId = (chainId: number): string => {
+export const getNetworkNameForChainId = (chainId: bigint): string => {
   const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === chainId
+    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
   )
 
   if (!network) {
@@ -1550,10 +1558,10 @@ export const getCallHash = (to: string, data: string): string => {
 }
 
 export const isSupportedChainId = (
-  chainId: number
+  chainId: number | bigint
 ): chainId is SupportedChainId => {
   return Object.values(SUPPORTED_NETWORKS).some(
-    (supportedChainId) => supportedChainId === chainId
+    (supportedChainId) => supportedChainId === Number(chainId)
   )
 }
 
@@ -1623,7 +1631,10 @@ export const prettyFunctionCall = (
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
-  const stringified = JSON.stringify(variables, null, spaceToIndentVariables)
+  // TODO(docs)
+  const convertedBigInts = convertBigIntToString(variables)
+
+  const stringified = JSON.stringify(convertedBigInts, null, spaceToIndentVariables)
   // Removes the first and last characters, which are either '[' and ']', or '{' and '}'.
   const removedBrackets = stringified.substring(1, stringified.length - 1)
 
@@ -1715,4 +1726,112 @@ export const isExtendedDeployContractTODO = (
   actionTODO: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
 ): actionTODO is ExtendedDeployContractTODO => {
   return actionTODO.actionType === SphinxActionType.DEPLOY_CONTRACT
+}
+
+export const isDeployContractTODO = (
+  actionTODO: DeployContractTODO | FunctionCallTODO
+): actionTODO is DeployContractTODO => {
+  return actionTODO.actionType === SphinxActionType.DEPLOY_CONTRACT
+}
+
+export const makeParsedConfig = (
+  chainInfo: ChainInfo,
+  configArtifacts: ConfigArtifacts
+): ParsedConfig => {
+  const {
+    authAddress,
+    managerAddress,
+    chainId,
+    actionsTODO,
+    newConfig,
+    isLiveNetwork: isLiveNetwork_,
+    prevConfig,
+  } = chainInfo
+
+  const actions = actionsTODO.map(fromRawSphinxActionTODO)
+
+  const extendedActions: Array<
+    ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+  > = []
+  for (const action of actions) {
+    const { referenceName, fullyQualifiedName } = action
+    const { abi } = configArtifacts[fullyQualifiedName].artifact
+    const iface = new ethers.Interface(abi)
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    if (isDeployContractTODO(action)) {
+      // TODO: getTargetSalt -> getCreate3Salt
+      const create3Salt = getTargetSalt(referenceName, action.userSalt)
+      const create3Address = getCreate3Address(managerAddress, create3Salt)
+
+      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
+      // and the encoded values, then returns the variables object.
+      // TODO(case): contract doesn't have a constructor
+      // TODO(case): contract has a constructor with no args
+      const constructorFragment = iface.fragments.find(
+        ConstructorFragment.isFragment
+      )
+      const decodedConstructorArgs = constructorFragment
+        ? coder.decode(constructorFragment.inputs, action.constructorArgs)
+        : {}
+
+      const decodedAction: DecodedAction = {
+        referenceName,
+        functionName: 'constructor',
+        variables: decodedConstructorArgs,
+      }
+      extendedActions.push({ create3Address, decodedAction, ...action })
+    } else {
+      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
+      // and the encoded values, then returns the variables object.
+      const decodedFunctionParams = iface.decodeFunctionData(
+        action.selector,
+        ethers.concat([action.selector, action.functionParams])
+      )
+
+      // TODO(case): what does this return for an overloaded function?
+      const functionName = iface.getFunctionName(action.selector)
+
+      const decodedAction: DecodedAction = {
+        referenceName,
+        functionName,
+        variables: decodedFunctionParams,
+      }
+      extendedActions.push({ decodedAction, ...action })
+    }
+  }
+
+  return {
+    authAddress,
+    managerAddress,
+    chainId,
+    newConfig,
+    isLiveNetwork: isLiveNetwork_,
+    prevConfig,
+    actionsTODO: extendedActions,
+  }
+}
+
+// TODO(refactor): rename "toString" b/c we may convert to number
+// TODO: throw error if typeof obj === 'bigint' && obj > Number.MAX_SAFE_INTEGER
+export const convertBigIntToString = (obj: any): any => {
+  if (
+    typeof obj === 'boolean' ||
+    typeof obj === 'string' ||
+    typeof obj === 'number'
+  ) {
+    return obj
+  } else if (typeof obj === 'bigint') {
+    return obj > Number.MAX_SAFE_INTEGER ? obj.toString() : Number(obj)
+  } else if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToString)
+  } else if (typeof obj === 'object') {
+    const newObj: { [name: string]: any } = {}
+    for (const key of Object.keys(obj)) {
+      newObj[key] = convertBigIntToString(obj[key])
+    }
+    return newObj
+  } else {
+    throw new Error(`Unsupported type: ${typeof obj}`)
+  }
 }

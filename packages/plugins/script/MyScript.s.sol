@@ -30,11 +30,13 @@ contract CounterScript is Script, SphinxClient {
 
     string projectName = 'My Project';
     address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+    Version version = Version({major: 0, minor: 2, patch: 4});
+    // don't need for deploy task:
     address[] proposers;
     Network[] mainnets;
-    Network[] testnets = [Network.anvil];
+    Network[] testnets;
     uint256 threshold = 1;
-    Version managerVersion = Version({major: 0, minor: 2, patch: 3});
+    string orgId;
 
     constructor() SphinxClient(SphinxConfig({
         projectName: projectName,
@@ -43,10 +45,11 @@ contract CounterScript is Script, SphinxClient {
         mainnets: mainnets,
         testnets: testnets,
         threshold: threshold,
-        managerVersion: managerVersion
+        version: version,
+        orgId: ""
     })) {}
 
-    function deploy(Network) public override sphinxDeploy {
+    function deploy(Network _network) public override sphinxDeploy(_network) {
         MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
         myContract1.incrementUint();
         myContract1.incrementUint();
@@ -54,12 +57,9 @@ contract CounterScript is Script, SphinxClient {
     }
 
     function run() public {
-        MyContract1 myContract1 = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
-
+        vm.startBroadcast();
         deploy(Network.anvil);
-        deploy(Network.anvil);
-        deploy(Network.anvil);
-        console.log(myContract1.uintArg());
+        vm.stopBroadcast();
 
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         // deploy(Network.anvil, vm.rpcUrl('anvil'));

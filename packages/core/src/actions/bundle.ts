@@ -15,6 +15,7 @@ import {
   fromHexString,
   isSupportedChainId,
   prettyFunctionCall,
+  isExtendedDeployContractTODO,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -40,6 +41,7 @@ import {
   AuthLeafFunctions,
   UpgradeAuthAndManagerImpl,
   CancelActiveDeployment,
+  AuthLeafType,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
 import { getEstDeployContractCost } from '../estimate'
@@ -265,7 +267,7 @@ export const makeTargetBundle = (
 
 export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
-  switch (leaf.leafType) {
+  switch (leaf.functionName) {
     /************************ OWNER ACTIONS *****************************/
     case AuthLeafFunctions.SETUP:
       return coder.encode(
@@ -336,9 +338,9 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
  */
 export const getAuthLeafSignerInfo = (
   ownerThreshold: number,
-  leafType: string
+  functionName: string
 ): { leafThreshold: number; roleType: RoleType } => {
-  if (leafType === AuthLeafFunctions.PROPOSE) {
+  if (functionName === AuthLeafFunctions.PROPOSE) {
     return { leafThreshold: 1, roleType: RoleType.PROPOSER }
   } else {
     return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
@@ -410,8 +412,14 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     throw new Error(`Cannot make an auth bundle with 0 leafs.`)
   }
 
+  // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
+  // it easier to reproduce the auth bundle later.
+  const sorted = leafs.sort((a, b) => {
+    return a.index - b.index
+  })
+
   // Turn the "nice" leaf structs into raw leafs.
-  const leafPairs = leafs.map((leaf) => {
+  const leafPairs = sorted.map((leaf) => {
     return {
       leaf: toRawAuthLeaf(leaf),
       prettyLeaf: leaf,
@@ -436,6 +444,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
         leaf,
         prettyLeaf,
         proof: tree.getProof(Object.values(leaf)),
+        leafTypeEnum: prettyLeaf.leafTypeEnum,
       }
     }),
   }
@@ -559,27 +568,21 @@ export const makeActionBundleFromConfig = (
   for (let index = 0; index < notSkipping.length; index++) {
     const actionTODO = actionsTODO[index]
     const { fullyQualifiedName, actionType } = actionTODO
-    if (actionType === SphinxActionType.DEPLOY_CONTRACT) {
+    if (isExtendedDeployContractTODO(actionTODO)) {
       const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
-      const { abi, sourceName, contractName } = artifact
-      const { initCode, userSalt, constructorArgs, referenceName } = actionTODO
-
-      // TODO: getTargetSalt -> getCreate3Salt
-      const create3Salt = getTargetSalt(referenceName, userSalt)
-
-      const iface = new ethers.Interface(abi)
-      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
-      // and the encoded values, then returns the variables object.
-      // TODO(case): contract doesn't have a constructor
-      const decodedConstructorArgs = iface.decodeFunctionData(
-        'constructor',
-        constructorArgs
-      )
+      const { sourceName, contractName } = artifact
+      const {
+        initCode,
+        constructorArgs,
+        decodedAction,
+        referenceName,
+        userSalt,
+      } = actionTODO
 
       const readableSignature = prettyFunctionCall(
         referenceName,
-        'constructor',
-        decodedConstructorArgs
+        decodedAction.functionName,
+        decodedAction.variables
       )
 
       const deployContractCost = getEstDeployContractCost(
@@ -587,6 +590,7 @@ export const makeActionBundleFromConfig = (
       )
 
       // Add a DEPLOY_CONTRACT action.
+      const create3Salt = getTargetSalt(referenceName, userSalt)
       actions.push({
         index,
         salt: create3Salt,
@@ -603,7 +607,14 @@ export const makeActionBundleFromConfig = (
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
     } else if (actionType === SphinxActionType.CALL) {
-      const { to, selector, functionParams, nonce, referenceName } = actionTODO
+      const {
+        to,
+        selector,
+        functionParams,
+        nonce,
+        referenceName,
+        decodedAction,
+      } = actionTODO
       actions.push({
         to,
         index,
@@ -611,29 +622,13 @@ export const makeActionBundleFromConfig = (
         nonce,
       })
 
-      // TODO: you need to add the artifact to the ConfigArtifacts for each call action that isn't
-      // being skipped.
-      const { abi } = configArtifacts[fullyQualifiedName].artifact
-
-      const iface = new ethers.Interface(abi)
-      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
-      // and the encoded values, then returns the variables object.
-      // TODO(case): contract doesn't have a constructor
-      const decodedFunctionParams = iface.decodeFunctionData(
-        selector,
-        functionParams
-      )
-
-      // TODO(case): what does this return for an overloaded function?
-      const functionName = iface.getFunctionName(selector)
-
       costs.push(250_000)
       humanReadableActions[index] = {
         actionIndex: index,
         reason: prettyFunctionCall(
           referenceName,
-          functionName,
-          decodedFunctionParams
+          decodedAction.functionName,
+          decodedAction.variables
         ),
         actionType: SphinxActionType.CALL,
       }
@@ -705,12 +700,14 @@ export const getAuthLeafsForChain = async (
   configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
   const { chainId, managerAddress, prevConfig, newConfig } = parsedConfig
-  const { firstProposalOccurred, isExecuting, isManagerDeployed } = prevConfig
-
-  const { proposers: newProposers, managerVersion: newManagerVersion } =
-    newConfig
-  const { proposers: prevProposers, managerVersion: prevManagerVersion } =
-    prevConfig
+  const {
+    firstProposalOccurred,
+    isExecuting,
+    isManagerDeployed,
+    proposers: prevProposers,
+    version: prevManagerVersion,
+  } = prevConfig
+  const { proposers: newProposers, version: newManagerVersion } = newConfig
 
   // We get a list of proposers to add and remove by comparing the current and previous proposers.
   //  It's possible that we'll need to remove proposers even if the first proposal has not
@@ -751,7 +748,8 @@ export const getAuthLeafsForChain = async (
       chainId,
       to: managerAddress,
       index,
-      leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
+      functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
+      leafTypeEnum: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT,
     }
     index += 1
     leafs.push(cancelDeploymentLeaf)
@@ -766,7 +764,8 @@ export const getAuthLeafsForChain = async (
       chainId,
       to: managerAddress,
       index,
-      leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
+      functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
+      leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL,
       managerInitCallData: '0x',
       managerImpl: getSphinxManagerImplAddress(chainId, newManagerVersion),
       authInitCallData: '0x',
@@ -804,7 +803,8 @@ export const getAuthLeafsForChain = async (
         numTargets: targetBundle.targets.length,
         configUri,
       },
-      leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT,
+      functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT,
+      leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT,
     }
     index += 1
     leafs.push(approvalLeaf)
@@ -820,7 +820,8 @@ export const getAuthLeafsForChain = async (
       to: managerAddress,
       index: 0,
       numLeafs: index,
-      leafType: AuthLeafFunctions.PROPOSE,
+      functionName: AuthLeafFunctions.PROPOSE,
+      leafTypeEnum: AuthLeafType.PROPOSE,
     }
     leafs.push(proposalLeaf)
   } else if (!firstProposalOccurred) {
@@ -831,7 +832,8 @@ export const getAuthLeafsForChain = async (
       index: 0,
       proposers: proposersToSet,
       numLeafs: index,
-      leafType: AuthLeafFunctions.SETUP,
+      functionName: AuthLeafFunctions.SETUP,
+      leafTypeEnum: AuthLeafType.SETUP,
     }
     leafs.push(setupLeaf)
 
@@ -842,7 +844,8 @@ export const getAuthLeafsForChain = async (
         to: managerAddress,
         index: 1,
         numLeafs: index,
-        leafType: AuthLeafFunctions.PROPOSE,
+        functionName: AuthLeafFunctions.PROPOSE,
+        leafTypeEnum: AuthLeafType.PROPOSE,
       }
       leafs.push(proposalLeaf)
     }
@@ -861,7 +864,7 @@ export const getAuthLeafsForChain = async (
 export const findBundledLeaf = (
   bundledLeafs: Array<BundledAuthLeaf>,
   index: number,
-  chainId: number
+  chainId: bigint
 ): BundledAuthLeaf => {
   const leaf = bundledLeafs.find(
     ({ leaf: l }) => l.index === index && l.chainId === chainId
@@ -905,5 +908,5 @@ export const getProjectDeploymentForChain = (
 export const isApproveDeploymentAuthLeaf = (
   leaf: AuthLeaf
 ): leaf is ApproveDeployment => {
-  return leaf.leafType === AuthLeafFunctions.APPROVE_DEPLOYMENT
+  return leaf.functionName === AuthLeafFunctions.APPROVE_DEPLOYMENT
 }

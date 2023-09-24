@@ -12,6 +12,7 @@ import {
   execAsync,
   hyperlink,
   isSupportedNetworkName,
+  makeParsedConfig,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
@@ -22,7 +23,6 @@ import {
   getDiffString,
   userConfirmation,
   ensureSphinxInitialized,
-  proposeAbstractTask,
   UserConfigWithOptions,
   RawSphinxAction,
   DeployContractTODO,
@@ -30,6 +30,8 @@ import {
   SphinxConfig,
   SemverVersion,
   ParsedConfig,
+  SphinxActionType,
+  ChainInfo,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -41,7 +43,7 @@ import {
 } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import { createSphinxRuntime } from '../cre'
-import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
+// import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 
 // Load environment variables from .env
 dotenv.config()
@@ -79,7 +81,7 @@ const getAvailablePort = async () => {
     try {
       exec(`anvil --port ${port}`)
       const { stdout: pid } = await execAsync(`lsof -t -i:${port}`)
-      exec(`kill ${pid}`)
+      exec(`kill $(lsof -t -i:${pid})`)
       return port
     } catch {
       attempts += 1
@@ -246,15 +248,16 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await proposeAbstractTask(
-        userConfig,
-        isTestnet,
-        cre,
-        dryRun,
-        makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-        await makeGetProviderFromChainId(rpcEndpoints),
-        spinner
-      )
+      // TODO(propose)
+      // await proposeAbstractTask(
+      //   userConfig,
+      //   isTestnet,
+      //   cre,
+      //   dryRun,
+      //   makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+      //   await makeGetProviderFromChainId(rpcEndpoints),
+      //   spinner
+      // )
     }
   )
   .command(
@@ -367,14 +370,15 @@ yargs(hideBin(process.argv))
 
       const managerAddress = getSphinxManagerAddress(owner, project)
 
-      await writeDeploymentArtifactsUsingEvents(
-        provider,
-        project,
-        managerAddress,
-        cachePath,
-        deploymentFolder,
-        spinner
-      )
+      // TODO(artifacts)
+      // await writeDeploymentArtifactsUsingEvents(
+      //   provider,
+      //   project,
+      //   managerAddress,
+      //   cachePath,
+      //   deploymentFolder,
+      //   spinner
+      // )
     }
   )
   .command(
@@ -401,14 +405,24 @@ yargs(hideBin(process.argv))
           describe: 'Broadcast the deployment to the network.',
           boolean: true,
         })
-        .demandOption(['scriptPath']) // TODO(test)
         .hide('version'),
     async (argv) => {
       // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc.
 
-      const { scriptPath, network } = argv
+      const { network } = argv
       const broadcast = argv[broadcastOption] ?? false
       const skipPreview = argv[skipPreviewOption] ?? false
+
+      if (argv._.length < 2) {
+        console.error('Must specify a path to a Forge script.')
+        process.exit(1)
+      }
+      const scriptPath = argv._[1]
+      if (typeof scriptPath !== 'string') {
+        throw new Error(
+          'Expected scriptPath to be a string. Should not happen.'
+        )
+      }
 
       // const network: string = argv.network ?? 'anvil'
       // if (!isSupportedNetworkName(network)) {
@@ -435,7 +449,6 @@ yargs(hideBin(process.argv))
         buildInfoFolder,
         compilerConfigFolder,
         cachePath,
-        deploymentFolder,
         rpcEndpoints,
       } = await getFoundryConfigOptions()
 
@@ -452,7 +465,7 @@ yargs(hideBin(process.argv))
 
       // TODO(refactor): update spinner
       const spinner = ora()
-      spinner.start('Getting project info...')
+      // spinner.start('Getting project info...')
 
       // TODO: make sure we're running the simulation on live networks even if the user skips the diff
 
@@ -477,13 +490,23 @@ yargs(hideBin(process.argv))
       // logic just to be safe and ensure that it operates correctly.
 
       const anvilPort = await getAvailablePort()
+
+      const anvilArgs: Array<string> = [
+        'anvil',
+        '--port',
+        anvilPort.toString(),
+        '--silent',
+      ]
+      if (forkUrl) {
+        anvilArgs.push('--fork-url', forkUrl)
+      }
+
       // TODO: execAsync froze so i'm using exec, although this may not work when forking live networks,
       // since there may be startup time.
-      exec(`anvil --port ${anvilPort} --fork-url ${forkUrl} --silent &`)
+      exec(`${anvilArgs.join(` `)} &`)
 
-      const provider = new SphinxJsonRpcProvider(
-        `http://127.0.0.1:${anvilPort}`
-      )
+      const anvilRpcUrl = `http://127.0.0.1:${anvilPort}`
+      const provider = new SphinxJsonRpcProvider(anvilRpcUrl)
 
       const SphinxActions = new Contract(
         SPHINX_ACTIONS_ADDRESS,
@@ -492,12 +515,37 @@ yargs(hideBin(process.argv))
       )
 
       // TODO(case): there's an error in the script. we should bubble it up.
-      await execAsync(`forge script ${scriptPath} --fork-url ${forkUrl}`)
-      // TODO: kill port, even if something fails during the process
+      // TODO: this is the simulation. you should do this in every case.
+      const { status } = spawnSync(
+        `forge`,
+        ['script', scriptPath, '--fork-url', anvilRpcUrl, '--broadcast'],
+        { stdio: 'inherit' }
+      )
+      // Exit the process if the script fails.
+      if (status !== 0) {
+        exec(`kill $(lsof -t -i:${anvilPort})`)
+        process.exit(1)
+      }
+
+      // try {
+      //   await execAsync(`forge script ${scriptPath} --fork-url ${anvilRpcUrl}`)
+      // } catch (e) {
+      //   exec(`kill $(lsof -t -i:${anvilPort})`)
+      //   spinner.stop()
+      //   // The `stdout` contains the trace of the error.
+      //   console.log(e.stdout)
+      //   // The `stderr` contains the error message.
+      //   console.error(e.stderr)
+      //   process.exit(1)
+      // }
+
+      // TODO(case): say the user is deploying on the anvil node with --skip-preview. i think we
+      // should keep this function minimal. e.g. i don't think we should require them to wrap their
+      // `deploy(...)` function with `vm.startBroadcast()`.
 
       if ((await provider.getCode(SPHINX_ACTIONS_ADDRESS)) === '0x') {
         throw new Error(
-          `TODO: the user didn't include 'vm.startBroadcast' in their script.`
+          `TODO(docs): the user didn't include 'vm.startBroadcast' in their script.`
         )
       }
 
@@ -511,13 +559,24 @@ yargs(hideBin(process.argv))
 
       // TODO: this doesn't include the decoded actions. the rest of the object is the same as the
       // TS parsed config i think.
-      const parsedConfig: ParsedConfig = await SphinxActions.getChainInfo()
+      const chainInfo: ChainInfo = await SphinxActions.getChainInfo()
+      exec(`kill $(lsof -t -i:${anvilPort})`)
 
-      const diff = getDiff([parsedConfig])
-      const diffString = getDiffString(diff)
+      const getConfigArtifacts = makeGetConfigArtifacts(
+        artifactFolder,
+        buildInfoFolder,
+        cachePath
+      )
+      const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
+      const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
 
-      spinner.stop()
-      await userConfirmation(diffString)
+      if (!skipPreview) {
+        const diff = getDiff([parsedConfig])
+        const diffString = getDiffString(diff)
+
+        spinner.stop()
+        await userConfirmation(diffString)
+      }
 
       const forgeScriptArgs: Array<string> = ['forge', 'script', scriptPath]
       if (forkUrl) {
@@ -531,47 +590,41 @@ yargs(hideBin(process.argv))
       // let isEmptyDeployment: boolean = false
       try {
         spinner.start(`Deploying ${parsedConfig.newConfig.projectName}...`)
-        await execAsync(`${forgeScriptArgs.join(' ')}`)
-
-        // TODO: you still should account for this somehow, but i don't like that we're
-        // parsing the stdout.
-        // if (
-        //   stdout.includes(
-        //     'Nothing to execute in this deployment. Exiting early.'
-        //   )
-        // ) {
-        //   isEmptyDeployment = true
-        // }
-
-        // spinner.stop()
-        // console.log(stdout)
-      } catch ({ stderr }) {
+        const { stdout } = await execAsync(`${forgeScriptArgs.join(' ')}`)
         spinner.stop()
-        console.error(stderr)
+        console.log(stdout)
+      } catch (e) {
+        spinner.stop()
+        // The `stdout` contains the trace of the error.
+        console.log(e.stdout)
+        // The `stderr` contains the error message.
+        console.log(e.stdout)
         process.exit(1)
       }
 
-      // if (broadcast && !isEmptyDeployment) {
-      //   spinner.start(`Writing deployment artifacts...`)
-      //   const provider = new SphinxJsonRpcProvider(rpcUrl)
-      //   const owner = new Wallet(privateKey, provider)
+      const containsContractDeployment = parsedConfig.actionsTODO.some(
+        (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
+      )
 
-      //   // Get the user config. Note that we use --swc because it speeds up the execution of the
-      //   // script.
-      //   const { stdout } = await execAsync(
-      //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
-      //   )
-      //   const userConfig: UserConfig = JSON.parse(stdout)
-
-      //   await writeDeploymentArtifactsUsingEvents(
-      //     provider,
-      //     userConfig.projectName,
-      //     owner.address,
-      //     cachePath,
-      //     deploymentFolder,
-      //     spinner
-      //   )
-      // }
+      if (broadcast && containsContractDeployment) {
+        //   spinner.start(`Writing deployment artifacts...`)
+        //   const provider = new SphinxJsonRpcProvider(rpcUrl)
+        //   const owner = new Wallet(privateKey, provider)
+        //   // Get the user config. Note that we use --swc because it speeds up the execution of the
+        //   // script.
+        //   const { stdout } = await execAsync(
+        //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
+        //   )
+        //   const userConfig: UserConfig = JSON.parse(stdout)
+        //   await writeDeploymentArtifactsUsingEvents(
+        //     provider,
+        //     userConfig.projectName,
+        //     owner.address,
+        //     cachePath,
+        //     deploymentFolder,
+        //     spinner
+        //   )
+      }
     }
   )
   // Display the help menu when `npx sphinx` is called without any arguments.

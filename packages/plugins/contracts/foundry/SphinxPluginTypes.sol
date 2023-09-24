@@ -6,7 +6,8 @@ import {
     RawSphinxAction,
     SphinxActionType,
     Version,
-    AuthLeaf
+    AuthLeaf,
+    AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct SphinxBundles {
@@ -22,8 +23,21 @@ struct SphinxAuthBundle {
 
 struct BundledAuthLeaf {
   AuthLeaf leaf;
-  string[] proof;
-  AuthLeafType leafType; // TODO: add this to the bundled auth leaf off-chain
+  AuthLeafType leafType;
+  bytes32[] proof;
+}
+
+// TODO(docs)
+struct AuthLeafWithoutData {
+    uint256 chainId;
+    uint256 index;
+    address to;
+}
+// TODO(refactor): the data structure outputted by `get-bundle-info` is pretty messy.
+struct BundledAuthLeafJson {
+  AuthLeafWithoutData leaf;
+  uint256 leafType;
+  bytes32[] proof;
 }
 
 struct SphinxActionBundle {
@@ -38,8 +52,19 @@ struct SphinxTargetBundle {
 
 struct BundledSphinxAction {
     RawSphinxAction action;
-    bytes32[] siblings;
     uint256 gas;
+    bytes32[] siblings;
+}
+
+struct BundledSphinxActionJson {
+    RawSphinxActionJson action;
+    uint256 gas;
+    bytes32[] siblings;
+}
+struct RawSphinxActionJson {
+    uint256 actionType;
+    bytes data;
+    uint256 index;
 }
 
 struct BundledSphinxTarget {
@@ -47,15 +72,12 @@ struct BundledSphinxTarget {
     bytes32[] siblings;
 }
 
+// TODO(docs): this struct must conform to the rules here: https://book.getfoundry.sh/cheatcodes/parse-json
+// This is why the actionType is a uint.
 struct HumanReadableAction {
-    string reason;
     uint actionIndex;
-    SphinxActionType actionType;
-}
-
-struct Configs {
-    FoundryConfig minimalConfig;
-    string parsedConfigStr;
+    uint actionType;
+    string reason;
 }
 
 struct BundleInfo {
@@ -94,7 +116,7 @@ struct FoundryContractConfig {
 }
 
 /**
- * @custom:field currentManagerVersion The current version of the SphinxManager.
+ * @custom:field currentversion The current version of the SphinxManager.
  *               If the SphinxManager has not been deployed, then this defaults to
  *               the latest SphinxManager version.
  */
@@ -102,7 +124,7 @@ struct ConfigCache {
     address manager;
     bool isManagerDeployed;
     bool isExecuting;
-    Version currentManagerVersion;
+    Version currentversion;
     uint256 chainId;
     bool isLiveNetwork;
 }
@@ -167,11 +189,10 @@ struct ChainInfo {
 
 // TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
 struct PreviousInfo {
-    string projectName;
     address[] owners;
     address[] proposers;
     uint256 threshold;
-    Version managerVersion;
+    Version version;
     bool isManagerDeployed;
     bool firstProposalOccurred;
     bool isExecuting;
@@ -179,16 +200,17 @@ struct PreviousInfo {
 
 struct SphinxConfig {
     string projectName;
-    string orgId; // TODO: can't get
+    string orgId;
 	address[] owners;
 	address[] proposers;
-	Network[] mainnets; // TODO: can't get
-	Network[] testnets; // TODO: can't get
+	Network[] mainnets;
+	Network[] testnets;
 	uint256 threshold;
-	Version managerVersion;
+	Version version;
 }
 
 enum Network {
+    anvil,
     // production networks (i.e. mainnets)
     ethereum,
     optimism,
@@ -212,7 +234,7 @@ enum Network {
     polygon_zkevm_goerli,
     avalanche_fuji,
     fantom_testnet,
-    base_goerli,
+    base_goerli
 }
 
 struct DeployOptions {
@@ -227,14 +249,3 @@ struct SphinxAction {
     bytes data;
     bool skip;
 }
-
-struct objTODO {
-    actionBundles: SphinxBudn
-}
-
-  const objTODO = {
-    actionBundles: bundles,
-    authBundle,
-    configUri,
-    humanReadableActions,
-  }

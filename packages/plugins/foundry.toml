@@ -5,6 +5,10 @@ build_info_path = 'out/artifacts/build-info'
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
+# We enable the optimizer to rigorously check for "Stack too deep" errors caused by excessive local variables.
+# Disabling the optimizer potentially masks these errors. Enabling it ensures that users inheriting
+# our contracts don't encounter these errors if their optimizer is off.
+optimizer = false # TODO: set to 'true'
 
 ffi = true
 libs = ['node_modules']

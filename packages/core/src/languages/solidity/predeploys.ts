@@ -265,7 +265,7 @@ export const initializeSphinx = async (
 
   const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(Number(chainId)),
+    getManagedServiceAddress(chainId),
     ManagedServiceArtifact.abi,
     owner
   )
@@ -322,7 +322,7 @@ export const initializeSphinx = async (
     owner
   )
   const sphinxManagerAddress = getSphinxManagerImplAddress(
-    Number(chainId),
+    chainId,
     CURRENT_SPHINX_MANAGER_VERSION
   )
   if (
