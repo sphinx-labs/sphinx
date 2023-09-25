@@ -360,6 +360,10 @@ export const generateClientsForExternalContracts = async (
     'SphinxExternal.json'
   )
 
+  if (!fs.existsSync(externalImpostsArtifactPath)) {
+    return { deployFunctionImports: {}, deployFunctions: [] }
+  }
+
   const artifact = JSON.parse(
     fs.readFileSync(externalImpostsArtifactPath, 'utf-8')
   )
@@ -451,6 +455,12 @@ export const generateClient = async () => {
       1,
       remappings
     )
+
+  if (!fs.existsSync(srcDirectory)) {
+    throw new Error(
+      `The src directory: '${srcDirectory}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
+    )
+  }
 
   await generateClientsInFolder(
     srcDirectory,

@@ -22,6 +22,7 @@
       "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts",
       "@sphinx-labs/{plugins,demo}/@sphinx-labs/contracts",
+      "@sphinx-labs/{demo}/@sphinx-labs/plugins",
       "@sphinx-labs/{plugins,demo}/forge-std",
       "@sphinx-labs/{plugins,demo}/ds-test",
       "@sphinx-labs/plugins/solidity-stringutils",

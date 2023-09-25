@@ -1,53 +1,3 @@
-export const sampleSphinxFileTypeScript = `import { UserSphinxConfig } from '@sphinx-labs/core'
-
-const config: UserSphinxConfig = {
-  projectName: 'MyProject',
-  contracts: {
-    MyFirstContract: {
-      contract: 'HelloSphinx',
-      kind: 'immutable',
-      constructorArgs: {
-        _myNumber: 1,
-        _myAddress: '{{ MyFirstContract }}',
-      },
-    },
-    MySecondContract: {
-      contract: 'HelloSphinx',
-      kind: 'immutable',
-      constructorArgs: {
-        _myNumber: 2,
-        _myAddress: '{{ MySecondContract }}',
-      },
-    },
-  },
-}
-
-export default config
-`
-
-export const sampleSphinxFileJavaScript = `module.exports = {
-  projectName: 'MyProject',
-  contracts: {
-    MyFirstContract: {
-      contract: 'HelloSphinx',
-      kind: 'immutable',
-      constructorArgs: {
-        _myNumber: 1,
-        _myAddress: '{{ MyFirstContract }}',
-      },
-    },
-    MySecondContract: {
-      contract: 'HelloSphinx',
-      kind: 'immutable',
-      constructorArgs: {
-        _myNumber: 2,
-        _myAddress: '{{ MySecondContract }}',
-      },
-    },
-  },
-}
-`
-
 export const forgeConfig = `[profile.default]
 ffi = true
 build_info = true
@@ -56,7 +6,7 @@ fs_permissions = [{ access = "read", path = "./"}]
 remappings=[
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
-  '@sphinx/=node_modules/@sphinx-labs/plugins/contracts/foundry/'
+  '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/'
 ]
 
 [rpc_endpoints]

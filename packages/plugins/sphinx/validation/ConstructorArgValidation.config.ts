@@ -3,7 +3,7 @@ import { UserSphinxConfig } from '@sphinx-labs/core'
 import {
   invalidConstructorArgsPartOne,
   invalidConstructorArgsPartTwo,
-} from '../../test-folder/constants'
+} from '../../test/constants'
 
 const projectName = 'ConstructorArgValidation'
 

@@ -512,33 +512,15 @@ yargs(hideBin(process.argv))
     'Initialize a sample project',
     (y) =>
       y
-        .usage('Usage: npx sphinx init --js|--ts [--quickstart]')
+        .usage('Usage: npx sphinx init [--quickstart]')
         .option('quickstart', {
           describe:
             'Initialize the project in a new repository. This writes a new foundry.toml and .env file.',
           boolean: true,
         })
-        .option('js', {
-          describe: 'Create a JavaScript Sphinx config file',
-          boolean: true,
-        })
-        .option('ts', {
-          describe: 'Create a TypeScript Sphinx config file',
-          boolean: true,
-        })
         .hide('version'),
     async (argv) => {
       const quickstart = argv.quickstart ?? false
-      const { ts, js } = argv
-      if (ts && js) {
-        console.error('Cannot specify both --ts and --js. Please choose one.')
-        process.exit(1)
-      } else if (!ts && !js) {
-        console.error(
-          'Must specify either --ts (TypeScript) or --js (JavaScript).'
-        )
-        process.exit(1)
-      }
 
       const { stdout } = await execAsync('node -v')
       if (!satisfies(stdout, '>=18.16.0')) {
@@ -550,21 +532,18 @@ yargs(hideBin(process.argv))
         )
       }
 
-      const isTypeScriptProject = ts ? true : false
-
       const spinner = ora()
 
       const forgeConfigOutput = await execAsync('forge config --json')
       const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
-      const { src, test, solc } = forgeConfig
+      const { src, test, script, solc } = forgeConfig
 
       const solcVersion = solc ?? (await inferSolcVersion())
 
       writeSampleProjectFiles(
-        'sphinx',
         src,
         test,
-        isTypeScriptProject,
+        script,
         quickstart,
         solcVersion,
         'foundry'
