@@ -130,6 +130,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     bool private previewEnabled = vm.envOr("SPHINX_INTERNAL_PREVIEW_ENABLED", false);
 
+    bool public execute;
+
     // Get owner address
     uint private key = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
     address private systemOwnerAddress =
@@ -312,7 +314,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 // manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
                 // TODO(refactor): can we remove this low-level call in favor of the command above?
                 // if not, we should document why.
-                console.log('num raw actions', rawActions.length);
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
                 }(
@@ -456,6 +457,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // within a broadcast. We disable pranking because we need to prank the owner of the Sphinx
         // contracts when initializing the Sphinx contracts.
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+            execute = false;
 
             if (isLiveNetwork_) {
                 liveNetworkValidation(msgSender);
@@ -464,6 +466,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             initializeSphinx(rpcUrl);
 
         } else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
+        else if (callerMode == VmSafe.CallerMode.None) { execute = true; }
 
         // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
         // an error b/c the sphinxmanager already exists.
@@ -516,7 +519,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         vm.startPrank(address(manager));
         _;
         vm.stopPrank();
-        console.log('1', ct.uintArg());
 
         // For each contract deployed in this script, set its final runtime bytecode to its
         // actual bytecode instead of its client's bytecode. This ensures that the user will
@@ -788,14 +790,21 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     }
 
     function deployClientAndImpl(address _create3Address, bytes memory _constructorArgs, string memory _artifactPath, string memory _referenceName, string memory _clientPath) internal {
-        // TODO(docs): this must be called by the SphinxManager to ensure that the `msg.sender` in the
-        // body of the user's constructor is the SphinxManager. This mirrors what happens on a live network.
-        deployCodeTo(_artifactPath, _constructorArgs, _create3Address);
-
-        // The implementation's address is the CREATE3 address minus one.
+        // TODO(docs): The implementation's address is the CREATE3 address minus one.
         address impl = address(uint160(address(_create3Address)) - 1);
 
-        vm.etch(impl, _create3Address.code);
+        if (execute) {
+            // TODO(docs): Deploy the user's contract to the CREATE3 address. this must be called by the
+            // SphinxManager to ensure that the `msg.sender` in the body of the user's constructor is
+            // the SphinxManager. This mirrors what happens on a live network.
+            deployCodeTo(_artifactPath, _constructorArgs, _create3Address);
+
+
+            // TODO(docs): Set the user's contract's code to the implementation address.
+            vm.etch(impl, _create3Address.code);
+        }
+
+        // TODO(docs): Deploy the client to the CREATE3 address.
         deployCodeTo(_clientPath, abi.encode(manager, address(this), impl), _create3Address);
 
         referenceNames[_referenceName] = true;
@@ -1111,7 +1120,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 proposers[i] = auth.getRoleMember(keccak256("ProposerRole"), i);
             }
 
-            console.log('4 TODO');
             return PreviousInfo({
                 owners: owners,
                 proposers: proposers,

@@ -51,7 +51,6 @@ contract CounterScript is Script, SphinxClient {
 
     function deploy(Network _network) public override sphinxDeploy(_network) {
         MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
-        console.log('address', address(myContract1));
         myContract1.incrementUint();
         myContract1.incrementUint();
         myContract1.incrementUint();

@@ -67,12 +67,6 @@ const broadcastOption = 'broadcast'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
-const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-const SphinxActionsABI =
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require(resolve(
-    `${sphinxArtifactDir}/SphinxActions.sol/SphinxActions.json`
-  )).abi
 
 // TODO(docs): address(uint160(uint256(keccak256('sphinx.actions')) - 1))
 const SPHINX_ACTIONS_ADDRESS = '0x56ab627a05e305e206291ee8d40621af4fc22f15'
@@ -86,9 +80,9 @@ const getAvailablePort = async () => {
   while (attempts < 100) {
     const port = getRandomInt(42000, 42999)
     try {
-      exec(`anvil --port ${port}`)
+      await execAsync(`anvil --port ${port}`)
       const { stdout: pid } = await execAsync(`lsof -t -i:${port}`)
-      exec(`kill $(lsof -t -i:${pid})`)
+      await execAsync(`kill $(lsof -t -i:${pid})`)
       return port
     } catch {
       attempts += 1
@@ -508,9 +502,7 @@ yargs(hideBin(process.argv))
         anvilArgs.push('--fork-url', forkUrl)
       }
 
-      // TODO: execAsync froze so i'm using exec, although this may not work when forking live networks,
-      // since there may be startup time.
-      exec(`${anvilArgs.join(` `)} &`)
+      await execAsync(`${anvilArgs.join(` `)} &`)
 
       const anvilRpcUrl = `http://127.0.0.1:${anvilPort}`
       const provider = new SphinxJsonRpcProvider(anvilRpcUrl)
@@ -522,12 +514,6 @@ yargs(hideBin(process.argv))
         senderAddress,
         toBeHex(parseEther('10000')),
       ])
-
-      const SphinxActions = new Contract(
-        SPHINX_ACTIONS_ADDRESS,
-        SphinxActionsABI,
-        provider
-      )
 
       // TODO(case): there's an error in the script. we should bubble it up.
       // TODO: this is the simulation. you should do this in every case.
@@ -554,6 +540,21 @@ yargs(hideBin(process.argv))
         )
       }
 
+      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
+      // this task, in which case the SphinxActions ABI won't exist yet.
+      const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
+      const SphinxActionsABI =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require(resolve(
+          `${sphinxArtifactDir}/SphinxActions.sol/SphinxActions.json`
+        )).abi
+
+      const SphinxActions = new Contract(
+        SPHINX_ACTIONS_ADDRESS,
+        SphinxActionsABI,
+        provider
+      )
+
       // TODO(case): you should probably make sure that the user only calls `deploy` once
       // in their script. e.g. we may execute incorrect actions if the user does
       // something like `deploy(goerli); deploy(optimism-goerli)`.
@@ -565,7 +566,7 @@ yargs(hideBin(process.argv))
       // TODO: this doesn't include the decoded actions. the rest of the object is the same as the
       // TS parsed config i think.
       const chainInfo: ChainInfo = await SphinxActions.getChainInfo()
-      exec(`kill $(lsof -t -i:${anvilPort})`)
+      await execAsync(`kill $(lsof -t -i:${anvilPort})`)
 
       const getConfigArtifacts = makeGetConfigArtifacts(
         artifactFolder,

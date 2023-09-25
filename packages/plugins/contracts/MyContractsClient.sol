@@ -41,14 +41,16 @@ contract MyContract1Client is AbstractSphinxClient {
         uint256 currentNonceInManager = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
         uint256 currentNonceInDeployment = sphinx.callCount(callHash);
 
-        (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
-            // FYI, any function args will need to go here: vv  e.g. (2, 3, 4)
-            abi.encodeCall(MyContract1Client.incrementUint, ())
-        );
-        if (!sphinxCallSuccess) {
-            if (sphinxReturnData.length == 0) revert();
-            assembly {
-                revert(add(32, sphinxReturnData), mload(sphinxReturnData))
+        if (sphinx.execute()) {
+            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
+                // FYI, any function args will need to go here: vv  e.g. (2, 3, 4)
+                abi.encodeCall(MyContract1Client.incrementUint, ())
+            );
+            if (!sphinxCallSuccess) {
+                if (sphinxReturnData.length == 0) revert();
+                assembly {
+                    revert(add(32, sphinxReturnData), mload(sphinxReturnData))
+                }
             }
         }
 

@@ -89,7 +89,7 @@ export const getContractArtifact = async (
       )
     }
     return parseFoundryArtifact(
-      JSON.parse(await readFileAsync(artifactPath, 'utf8'))
+      JSON.parse(fs.readFileSync(artifactPath, 'utf8')) // TODO: undo
     )
   }
 
@@ -331,6 +331,9 @@ export const makeGetConfigArtifacts = (
           )
         })
     )
+
+    // TODO: run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil --broadcast`. when i tried
+    // to do this, it froze for a couple mins, then i exited out.
 
     // Read any build info files that we didn't already have in memory
     await Promise.all(
