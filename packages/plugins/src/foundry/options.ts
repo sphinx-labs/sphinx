@@ -11,6 +11,8 @@ export type FoundryToml = {
   storageLayout: boolean
   gasEstimates: boolean
   rpcEndpoints: { [networkName: string]: string | undefined }
+  srcDirectory: string
+  remappings: Record<string, string>
 }
 
 export const cleanPath = (dirtyPath: string) => {
@@ -53,10 +55,18 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
   const cachePath = forgeConfig.cache_path
   const rpcEndpoints = parseRpcEndpoints(forgeConfig.rpc_endpoints)
 
+  const srcDirectory = forgeConfig.src
+
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
   // artifacts will contain the necessary info as long as the config includes the expected options
   const storageLayout = forgeConfig.extra_output.includes('storageLayout')
   const gasEstimates = forgeConfig.extra_output.includes('evm.gasEstimates')
+
+  const remappings: Record<string, string> = {}
+  for (const remapping of forgeConfig.remappings) {
+    const [from, to] = remapping.split('=')
+    remappings[from] = to
+  }
 
   return {
     ...resolvePaths(forgeConfig.out, buildInfoPath),
@@ -64,6 +74,8 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     gasEstimates,
     cachePath,
     rpcEndpoints,
+    srcDirectory,
+    remappings,
   }
 }
 

@@ -7,7 +7,6 @@ import "forge-std/console.sol";
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
-import { MyContract1 } from "../test/MyContracts.sol";
 import {
     ECDSA
 } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -51,15 +50,15 @@ import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 
-        // TODO: we may want to document the fact that broadcasting on anvil doesn't work exactly
-        // broadcasting on live networks. in particular, on live networks, broadcasting only occurs
-        // if the user specifies --broadcast, --rpc-url, and vm.startBroadcast (i think). on anvil,
-        // it works if the user just does vm.startBroadcast without --broadcast. it also works on
-        // the first run if the user doesn't include --rpc-url too, but it fails on subsequent runs
-        // because the in-process state isn't updated with the deployment, whereas the node is.
+// TODO: we may want to document the fact that broadcasting on anvil doesn't work exactly
+// broadcasting on live networks. in particular, on live networks, broadcasting only occurs
+// if the user specifies --broadcast, --rpc-url, and vm.startBroadcast (i think). on anvil,
+// it works if the user just does vm.startBroadcast without --broadcast. it also works on
+// the first run if the user doesn't include --rpc-url too, but it fails on subsequent runs
+// because the in-process state isn't updated with the deployment, whereas the node is.
 
 abstract contract Sphinx is StdUtils, SphinxConstants {
-   // TODO: open a ticket in foundry that the getMappingLength is broken
+    // TODO: open a ticket in foundry that the getMappingLength is broken
 
     // TODO(docs): above constructor: you shouldn't execute any state-changing transactions or deploy any contracts
     // inside this constructor b/c this will happen:
@@ -113,12 +112,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     // TODO: update forge-std to 1.6.1 in all packages
     // TODO(md): forge-std needs to be 1.6.1
-
-
-
-
-
-
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -404,9 +397,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         callHashArray.push(_callHash);
     }
 
-    // TODO: rm
-    MyContract1 private ct = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
-
     // TODO: the user needs to inherit this
     modifier sphinxDeploy(Network _network) {
         // TODO: rm
@@ -471,10 +461,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
         // an error b/c the sphinxmanager already exists.
         if (callerMode == VmSafe.CallerMode.None) {
-            deployCodeTo("SphinxManager.sol:SphinxManager", encodedManagerConstructorArgs, address(manager));
+            sphinxDeployCodeTo("SphinxManager.sol:SphinxManager", encodedManagerConstructorArgs, address(manager));
         }
 
-        deployCodeTo("SphinxActions.sol:SphinxActions", abi.encode(address(auth), address(manager), sphinxConfig), address(actions));
+        sphinxDeployCodeTo("SphinxActions.sol:SphinxActions", abi.encode(address(auth), address(manager), sphinxConfig), address(actions));
         if (previewEnabled) {
             string[] memory inputs = new string[](7);
             inputs[0] = "cast";
@@ -695,7 +685,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // - broadcasting onto live network
 
     function deploy(Network _network, string memory _rpcUrl) internal {
-
     }
 
     // TODO: you should turn optimizer off in foundry.toml to ensure you don't get "stack too deep" error
@@ -704,7 +693,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // look like this:
     // Error:
     // SphinxClient: CREATE3 salt already used in this deployment. Please use a different 'salt' or 'referenceName'.
-
 
     // TODO: you should loosen the version of this file in case the user is using 0.7.x
 
@@ -745,7 +733,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // then tell ryan.
 
     // TODO: mv
-    function computeCreate3Address(address _deployer, bytes32 _salt) internal pure returns(address) {
+    function computeCreate3Address(
+        address _deployer,
+        bytes32 _salt
+    ) internal pure returns (address) {
         // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
         // library for details.
         bytes memory proxyBytecode = hex"67_36_3d_3d_37_36_3d_34_f0_3d_52_60_08_60_18_f3";
@@ -768,11 +759,14 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     }
 
     // TODO(docs): copied from stdcheats; faster than loading in that entire contract.
-    function deployCodeTo(string memory what, bytes memory args, address where) internal virtual {
+    function sphinxDeployCodeTo(string memory what, bytes memory args, address where) internal {
         bytes memory creationCode = vm.getCode(what);
         vm.etch(where, abi.encodePacked(creationCode, args));
         (bool success, bytes memory runtimeBytecode) = where.call("");
-        require(success, "StdCheats deployCodeTo(string,bytes,uint256,address): Failed to create runtime bytecode.");
+        require(
+            success,
+            "Sphinx: Failed to create runtime bytecode."
+        );
         vm.etch(where, runtimeBytecode);
     }
 
@@ -785,9 +779,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // turn the optimizer off, and see if you get a stack too deep error.
 
     // TODO(docs): we can't use the FQN for `vm.getCode` because...
-    function addDeploymentAction(string memory _fullyQualifiedName, string memory _artifactPath, bytes memory _constructorArgs, bytes32 _create3Salt, bytes32 _userSalt, string memory _referenceName, bool _skip) internal {
-
-    }
 
     function deployClientAndImpl(address _create3Address, bytes memory _constructorArgs, string memory _artifactPath, string memory _referenceName, string memory _clientPath) internal {
         // TODO(docs): The implementation's address is the CREATE3 address minus one.
@@ -797,7 +788,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             // TODO(docs): Deploy the user's contract to the CREATE3 address. this must be called by the
             // SphinxManager to ensure that the `msg.sender` in the body of the user's constructor is
             // the SphinxManager. This mirrors what happens on a live network.
-            deployCodeTo(_artifactPath, _constructorArgs, _create3Address);
+            sphinxDeployCodeTo(_artifactPath, _constructorArgs, _create3Address);
 
 
             // TODO(docs): Set the user's contract's code to the implementation address.
@@ -805,7 +796,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
 
         // TODO(docs): Deploy the client to the CREATE3 address.
-        deployCodeTo(_clientPath, abi.encode(manager, address(this), impl), _create3Address);
+        sphinxDeployCodeTo(_clientPath, abi.encode(manager, address(this), impl), _create3Address);
 
         referenceNames[_referenceName] = true;
         referenceNameArray.push(_referenceName);
@@ -1215,5 +1206,56 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     function getMappingValueSlotKey(bytes32 _mappingSlotKey, bytes32 _key) private pure returns (bytes32) {
         bytes memory encodedMappingKey = abi.encode(_key);
         return keccak256(abi.encodePacked(encodedMappingKey, _mappingSlotKey));
+    }
+
+    // TODO: Docs
+    // Defines that a contract is deployed already at a particular address. Sets the code
+    // at the address to the contracts client code, and moves the current code to the implementation
+    // address used by the client.
+    function _defineContract(
+        address _contractAddress,
+        string memory _clientPath
+    ) internal returns (address) {
+        // The implementation's address is the current address minus one.
+        address impl = address(uint160(address(_contractAddress)) - 1);
+        vm.etch(impl, _contractAddress.code);
+        sphinxDeployCodeTo(
+            _clientPath,
+            abi.encode(manager, address(this), impl),
+            _contractAddress
+        );
+        return _contractAddress;
+    }
+
+    // TODO: Docs
+    // Deploys a contract at the expected sphinx address. Used by the Sphinx client to deploy
+    // contracts during the simulation phase.
+    function _deployContract(
+        string memory _referenceName,
+        bytes32 _userSalt,
+        bytes memory _constructorArgs,
+        string memory fullyQualifiedName,
+        string memory clientPath
+    ) internal returns (address) {
+        // bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
+        // requireAvailableReferenceName(_referenceName);
+
+        // address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
+
+        // bool skipDeployment = create3Address.code.length > 0;
+
+        // bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
+        // actions.addSphinxAction(SphinxAction({
+        //     fullyQualifiedName: fullyQualifiedName,
+        //     actionType: SphinxActionType.DEPLOY_CONTRACT,
+        //     data: actionData,
+        //     skip: skipDeployment
+        // }));
+
+        // // TODO: it appears we still run this even if we're skipping the deployment. that doesn't seem correct,
+        // // although I'd need to step through it to be sure.
+        // deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
+
+        // return create3Address;
     }
 }

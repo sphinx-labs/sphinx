@@ -8,5 +8,5 @@ solidity-stringutils=node_modules/solidity-stringutils/src/
 @eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 solmate/src/=node_modules/solmate/src/
-@sphinx-labs/plugins=./foundry-contracts/
+@sphinx-labs/plugins=contracts/foundry/
 @layerzerolabs/solidity-examples/contracts/=node_modules/@layerzerolabs/solidity-examples/contracts/

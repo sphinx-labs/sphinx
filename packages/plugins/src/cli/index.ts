@@ -30,6 +30,7 @@ import {
   getDiffString,
   userConfirmation,
   ensureSphinxInitialized,
+  UserConfig,
   UserConfigWithOptions,
   RawSphinxAction,
   DeployContractTODO,
@@ -51,6 +52,7 @@ import {
 import { getFoundryConfigOptions } from '../foundry/options'
 import { createSphinxRuntime } from '../cre'
 // import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
+import { generateClient } from './typegen/client'
 
 // Load environment variables from .env
 dotenv.config()
@@ -325,6 +327,12 @@ yargs(hideBin(process.argv))
       )
       spinner.succeed('Initialized Sphinx project.')
     }
+  )
+  .command(
+    'generate',
+    'Generate Sphinx Client contracts for a project',
+    (y) => y.usage(`Usage: npx sphinx generate`).hide('version'),
+    generateClient
   )
   .command(
     'artifacts',
