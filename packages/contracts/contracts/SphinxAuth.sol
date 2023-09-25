@@ -524,15 +524,15 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _updateProposedAuthState(_authRoot);
 
-        manager.approve(
-            approval.actionRoot,
-            approval.targetRoot,
-            approval.numInitialActions,
-            approval.numSetStorageActions,
-            approval.numTargets,
-            approval.configUri,
-            approval.remoteExecution
-        );
+        // manager.approve(
+        //     approval.actionRoot,
+        //     approval.targetRoot,
+        //     approval.numInitialActions,
+        //     approval.numSetStorageActions,
+        //     approval.numTargets,
+        //     approval.configUri,
+        //     approval.remoteExecution
+        // );
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.APPROVE_DEPLOYMENT);
     }

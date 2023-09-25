@@ -155,11 +155,11 @@ abstract contract Sphinx is SphinxConstants {
 	// uint256 internal threshold;
 
     constructor(SphinxConfig memory _sphinxConfig) {
-        sphinxConfig = _sphinxConfig;
+        // sphinxConfig = _sphinxConfig;
 
-        if (sphinxConfig.owners.length == 1 && sphinxConfig.proposers.length == 0) {
-            sphinxConfig.proposers.push(sphinxConfig.owners[0]);
-        }
+        // if (sphinxConfig.owners.length == 1 && sphinxConfig.proposers.length == 0) {
+        //     sphinxConfig.proposers.push(sphinxConfig.owners[0]);
+        // }
 
         // // Sort the owners in ascending order. This is required to calculate the address of the
         // // SphinxAuth contract, which determines the CREATE3 addresses of the user's contracts.
@@ -1230,13 +1230,13 @@ abstract contract Sphinx is SphinxConstants {
     // TODO: Docs
     // Deploys a contract at the expected sphinx address. Used by the Sphinx client to deploy
     // contracts during the simulation phase.
-    function _deployContract(
-        string memory _referenceName,
-        bytes32 _userSalt,
-        bytes memory _constructorArgs,
-        string memory fullyQualifiedName,
-        string memory clientPath
-    ) internal returns (address) {
+    // function _deployContract(
+    //     string memory _referenceName,
+    //     bytes32 _userSalt,
+    //     bytes memory _constructorArgs,
+    //     string memory fullyQualifiedName,
+    //     string memory clientPath
+    // ) internal returns (address) {
         // bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
         // requireAvailableReferenceName(_referenceName);
 
@@ -1257,5 +1257,5 @@ abstract contract Sphinx is SphinxConstants {
         // deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
 
         // return create3Address;
-    }
+    // }
 }

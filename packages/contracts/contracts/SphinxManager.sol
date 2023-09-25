@@ -537,127 +537,127 @@ contract SphinxManager is
         RawSphinxAction[] memory _actions,
         bytes32[][] memory _proofs
     ) public nonReentrant {
-        DeploymentState storage deployment = _deployments[activeDeploymentId];
-        if (deployment.status != DeploymentStatus.APPROVED) revert InvalidDeploymentStatus();
+        // DeploymentState storage deployment = _deployments[activeDeploymentId];
+        // if (deployment.status != DeploymentStatus.APPROVED) revert InvalidDeploymentStatus();
 
-        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+        // _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        uint256 numActions = _actions.length;
-        uint256 numTotalActions = deployment.numInitialActions + deployment.numSetStorageActions;
+        // uint256 numActions = _actions.length;
+        // uint256 numTotalActions = deployment.numInitialActions + deployment.numSetStorageActions;
 
-        // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
-        // cause the executor to be paid for doing nothing.
-        if (numActions == 0) {
-            revert EmptyActionsArray();
-        }
+        // // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
+        // // cause the executor to be paid for doing nothing.
+        // if (numActions == 0) {
+        //     revert EmptyActionsArray();
+        // }
 
-        RawSphinxAction memory action;
-        bytes32[] memory proof;
-        for (uint256 i = 0; i < numActions; i++) {
-            action = _actions[i];
-            proof = _proofs[i];
+        // RawSphinxAction memory action;
+        // bytes32[] memory proof;
+        // for (uint256 i = 0; i < numActions; i++) {
+        //     action = _actions[i];
+        //     proof = _proofs[i];
 
-            if (deployment.actionsExecuted != action.index) {
-                revert InvalidActionIndex();
-            }
+        //     if (deployment.actionsExecuted != action.index) {
+        //         revert InvalidActionIndex();
+        //     }
 
-            if (
-                !MerkleTree.verify(
-                    deployment.actionRoot,
-                    keccak256(abi.encode(action.actionType, action.data)),
-                    action.index,
-                    proof,
-                    numTotalActions
-                )
-            ) {
-                revert InvalidMerkleProof();
-            }
+        //     if (
+        //         !MerkleTree.verify(
+        //             deployment.actionRoot,
+        //             keccak256(abi.encode(action.actionType, action.data)),
+        //             action.index,
+        //             proof,
+        //             numTotalActions
+        //         )
+        //     ) {
+        //         revert InvalidMerkleProof();
+        //     }
 
-            deployment.actionsExecuted++;
+        //     deployment.actionsExecuted++;
 
-            if (action.actionType == SphinxActionType.CALL) {
-                (uint256 nonce, address to, bytes memory data) = abi.decode(
-                    action.data,
-                    (uint256, address, bytes)
-                );
-                bytes32 callHash = keccak256(abi.encode(to, data));
-                uint256 currentNonce = callNonces[callHash];
-                if (nonce != currentNonce) {
-                    emit CallSkipped(activeDeploymentId, action.index);
-                    registry.announce("CallSkipped");
-                } else {
-                    (bool success, ) = to.call(data);
-                    if (success) {
-                        callNonces[callHash] = currentNonce + 1;
-                        emit CallExecuted(activeDeploymentId, callHash, action.index);
-                        registry.announce("CallExecuted");
-                    } else {
-                        // External call failed. Could happen if insufficient gas is supplied
-                        // to this transaction or if the function has logic that causes the call to
-                        // fail.
-                        revert DeploymentFailed(action.index, activeDeploymentId);
-                    }
-                }
-            } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
-                    action.data,
-                    (bytes32, bytes)
-                );
+        //     if (action.actionType == SphinxActionType.CALL) {
+        //         (uint256 nonce, address to, bytes memory data) = abi.decode(
+        //             action.data,
+        //             (uint256, address, bytes)
+        //         );
+        //         bytes32 callHash = keccak256(abi.encode(to, data));
+        //         uint256 currentNonce = callNonces[callHash];
+        //         if (nonce != currentNonce) {
+        //             emit CallSkipped(activeDeploymentId, action.index);
+        //             registry.announce("CallSkipped");
+        //         } else {
+        //             (bool success, ) = to.call(data);
+        //             if (success) {
+        //                 callNonces[callHash] = currentNonce + 1;
+        //                 emit CallExecuted(activeDeploymentId, callHash, action.index);
+        //                 registry.announce("CallExecuted");
+        //             } else {
+        //                 // External call failed. Could happen if insufficient gas is supplied
+        //                 // to this transaction or if the function has logic that causes the call to
+        //                 // fail.
+        //                 revert DeploymentFailed(action.index, activeDeploymentId);
+        //             }
+        //         }
+        //     } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
+        //         (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
+        //             action.data,
+        //             (bytes32, bytes)
+        //         );
 
-                address expectedAddress = ICreate3(create3).getAddressFromDeployer(
-                    salt,
-                    address(this)
-                );
+        //         address expectedAddress = ICreate3(create3).getAddressFromDeployer(
+        //             salt,
+        //             address(this)
+        //         );
 
-                // Check if the contract has already been deployed.
-                if (expectedAddress.code.length > 0) {
-                    // Skip deploying the contract if it already exists. Execution would halt if
-                    // we attempt to deploy a contract that has already been deployed at the same
-                    // address.
-                    emit ContractDeploymentSkipped(
-                        expectedAddress,
-                        activeDeploymentId,
-                        action.index
-                    );
-                    registry.announce("ContractDeploymentSkipped");
-                } else {
-                    // We delegatecall the Create3 contract so that the SphinxManager address is
-                    // used in the address calculation of the deployed contract. If we call the
-                    // Create3 contract instead of delegatecalling it, it'd be possible for an
-                    // attacker to deploy a malicious contract at the expected address by calling
-                    // the `deploy` function on the Create3 contract directly.
-                    (bool deploySuccess, ) = create3.delegatecall(
-                        abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
-                    );
+        //         // Check if the contract has already been deployed.
+        //         if (expectedAddress.code.length > 0) {
+        //             // Skip deploying the contract if it already exists. Execution would halt if
+        //             // we attempt to deploy a contract that has already been deployed at the same
+        //             // address.
+        //             emit ContractDeploymentSkipped(
+        //                 expectedAddress,
+        //                 activeDeploymentId,
+        //                 action.index
+        //             );
+        //             registry.announce("ContractDeploymentSkipped");
+        //         } else {
+        //             // We delegatecall the Create3 contract so that the SphinxManager address is
+        //             // used in the address calculation of the deployed contract. If we call the
+        //             // Create3 contract instead of delegatecalling it, it'd be possible for an
+        //             // attacker to deploy a malicious contract at the expected address by calling
+        //             // the `deploy` function on the Create3 contract directly.
+        //             (bool deploySuccess, ) = create3.delegatecall(
+        //                 abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
+        //             );
 
-                    if (deploySuccess) {
-                        emit ContractDeployed(
-                            expectedAddress,
-                            activeDeploymentId,
-                            keccak256(creationCodeWithConstructorArgs)
-                        );
-                        registry.announce("ContractDeployed");
-                    } else {
-                        // Contract deployment failed. Could happen if insufficient gas is supplied
-                        // to this transaction or if the creation bytecode has logic that causes the
-                        // call to fail (e.g. a constructor that reverts).
-                        revert DeploymentFailed(action.index, activeDeploymentId);
-                    }
-                }
-            } else {
-                revert InvalidActionType();
-            }
-        }
+        //             if (deploySuccess) {
+        //                 emit ContractDeployed(
+        //                     expectedAddress,
+        //                     activeDeploymentId,
+        //                     keccak256(creationCodeWithConstructorArgs)
+        //                 );
+        //                 registry.announce("ContractDeployed");
+        //             } else {
+        //                 // Contract deployment failed. Could happen if insufficient gas is supplied
+        //                 // to this transaction or if the creation bytecode has logic that causes the
+        //                 // call to fail (e.g. a constructor that reverts).
+        //                 revert DeploymentFailed(action.index, activeDeploymentId);
+        //             }
+        //         }
+        //     } else {
+        //         revert InvalidActionType();
+        //     }
+        // }
 
-        // If all of the actions have been executed, mark the deployment as completed. This will
-        // always be the case unless the deployment is upgrading proxies.
-        if (deployment.actionsExecuted == deployment.numInitialActions) {
-            if (deployment.targets == 0) {
-                _completeDeployment(deployment);
-            } else {
-                deployment.status = DeploymentStatus.INITIAL_ACTIONS_EXECUTED;
-            }
-        }
+        // // If all of the actions have been executed, mark the deployment as completed. This will
+        // // always be the case unless the deployment is upgrading proxies.
+        // if (deployment.actionsExecuted == deployment.numInitialActions) {
+        //     if (deployment.targets == 0) {
+        //         _completeDeployment(deployment);
+        //     } else {
+        //         deployment.status = DeploymentStatus.INITIAL_ACTIONS_EXECUTED;
+        //     }
+        // }
     }
 
     /**
@@ -935,12 +935,12 @@ contract SphinxManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
-            revert CallerIsNotSelectedExecutor();
-        } else if (_remoteExecution == false) {
-            // TODO(docs):
-            IAccessControlEnumerable auth = IAccessControlEnumerable(owner());
-            if (!auth.hasRole(bytes32(0), msg.sender) || auth.getRoleMemberCount(bytes32(0)) != 1) revert CallerIsNotOwner();
-        }
+        // if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
+        //     revert CallerIsNotSelectedExecutor();
+        // } else if (_remoteExecution == false) {
+        //     // TODO(docs):
+        //     IAccessControlEnumerable auth = IAccessControlEnumerable(owner());
+        //     if (!auth.hasRole(bytes32(0), msg.sender) || auth.getRoleMemberCount(bytes32(0)) != 1) revert CallerIsNotOwner();
+        // }
     }
 }
