@@ -238,6 +238,8 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
     }
 
+    // TODO: bump manager/auth version in repo
+
     function exportProxy(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -529,7 +531,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             approval.numSetStorageActions,
             approval.numTargets,
             approval.configUri,
-            true
+            approval.remoteExecution
         );
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.APPROVE_DEPLOYMENT);

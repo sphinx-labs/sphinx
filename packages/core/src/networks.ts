@@ -4,30 +4,31 @@
 
 export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
 
+// TODO(md): update these
 export type SupportedMainnetNetworkName =
   | 'ethereum'
   | 'optimism'
   | 'arbitrum'
-  | 'matic' // Polygon
+  | 'polygon'
   | 'bnb'
-  | 'xdai' // Gnosis
+  | 'gnosis'
   | 'linea'
-  | 'polygon-zkevm'
+  | 'polygon_zkevm'
   | 'avalanche'
   | 'fantom'
   | 'base'
 export type SupportedTestnetNetworkName =
   | 'goerli'
-  | 'optimism-goerli'
-  | 'arbitrum-goerli'
-  | 'maticmum' // Polygon Mumbai
-  | 'bnbt' // BNB Smart Chain testnet
-  | 'gnosis-chiado'
-  | 'linea-goerli'
-  | 'polygon-zkevm-goerli'
-  | 'avalanche-fuji'
-  | 'fantom-testnet'
-  | 'base-goerli'
+  | 'optimism_goerli'
+  | 'arbitrum_goerli'
+  | 'polygon_mumbai'
+  | 'bnb_testnet'
+  | 'gnosis_chiado'
+  | 'linea_goerli'
+  | 'polygon_zkevm_goerli'
+  | 'avalanche_fuji'
+  | 'fantom_testnet'
+  | 'base_goerli'
 
 export type SupportedNetworkName =
   | SupportedMainnetNetworkName
@@ -42,15 +43,17 @@ export const SUPPORTED_MAINNETS: Record<
   ethereum: 1,
   optimism: 10,
   arbitrum: 42161,
-  matic: 137,
+  polygon: 137,
   bnb: 56,
-  xdai: 100,
+  gnosis: 100,
   linea: 59144,
-  'polygon-zkevm': 1101,
+  polygon_zkevm: 1101,
   avalanche: 43114,
   fantom: 250,
   base: 8453,
 }
+
+// TODO(post-foundry): are you supporting hardhat? if not, c/f hardhat.
 
 export const SUPPORTED_LOCAL_NETWORKS: Record<
   SupportedLocalNetworkName,
@@ -65,16 +68,16 @@ export const SUPPORTED_TESTNETS: Record<
   SupportedTestnetChainId
 > = {
   goerli: 5,
-  'optimism-goerli': 420,
-  'arbitrum-goerli': 421613,
-  maticmum: 80001,
-  bnbt: 97,
-  'gnosis-chiado': 10200,
-  'linea-goerli': 59140,
-  'polygon-zkevm-goerli': 1442,
-  'avalanche-fuji': 43113,
-  'fantom-testnet': 4002,
-  'base-goerli': 84531,
+  optimism_goerli: 420,
+  arbitrum_goerli: 421613,
+  polygon_mumbai: 80001,
+  bnb_testnet: 97,
+  gnosis_chiado: 10200,
+  linea_goerli: 59140,
+  polygon_zkevm_goerli: 1442,
+  avalanche_fuji: 43113,
+  fantom_testnet: 4002,
+  base_goerli: 84531,
 }
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,

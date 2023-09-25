@@ -199,7 +199,6 @@ describe('Remote executor', () => {
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
 
     await monitorExecution(
-      provider,
       owner,
       parsedConfig,
       bundles,

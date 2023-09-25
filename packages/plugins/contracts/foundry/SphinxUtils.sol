@@ -22,7 +22,8 @@ import {
     DeploymentStatus,
     SphinxActionType,
     SphinxTarget,
-    Version
+    Version,
+    AuthLeaf
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
 import {
@@ -33,15 +34,9 @@ import {
     BundledSphinxAction,
     SphinxTargetBundle,
     BundledSphinxTarget,
-    FoundryConfig,
-    Configs,
     BundleInfo,
-    FoundryContractConfig,
-    ConfigCache,
+    ChainInfo,
     HumanReadableAction,
-    ContractConfigCache,
-    DeploymentRevert,
-    ImportCache,
     ContractKindEnum,
     ProposalRoute,
     ConfigContractInfo,
@@ -49,8 +44,13 @@ import {
     OptionalBool,
     OptionalString,
     OptionalBytes32,
-    CallNonces,
-    ParsedCallAction
+    ParsedCallAction,
+    SphinxAction,
+    SphinxAuthBundle,
+    BundledAuthLeaf,
+    BundledAuthLeafJson,
+    BundledSphinxActionJson,
+    AuthLeafType
 } from "./SphinxPluginTypes.sol";
 import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
@@ -74,22 +74,21 @@ contract SphinxUtils is
 
     function initialize(
         string memory _rpcUrl,
-        bool _isRecurrentBroadcast,
         string memory _mainFfiScriptPath,
         address _systemOwner
     ) external {
-        if (_isRecurrentBroadcast) {
+        ISphinxRegistry registry = getSphinxRegistry();
+        if (address(registry).code.length == 0) {
             ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
+            ensureSphinxInitialized(_systemOwner);
         }
-        ensureSphinxInitialized(_systemOwner);
     }
 
+
+    // TODO(parse): throw an error if isLiveNetwork and registry isn't deployed
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
         SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
-        if (address(registry).code.length > 0) {
-            return;
-        } else {
             vm.etch(
                 DETERMINISTIC_DEPLOYMENT_PROXY,
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
@@ -137,20 +136,11 @@ contract SphinxUtils is
             registry.addContractKind(bytes32(0), defaultAdapterAddr);
 
             vm.stopPrank();
-        }
     }
 
     // These provide an easy way to get complex data types off-chain (via the ABI) without needing
     // to hard-code them.
     function bundledActions() external pure returns (BundledSphinxAction[] memory) {}
-
-    function targetBundle() external pure returns (SphinxTargetBundle memory) {}
-
-    function configCache() external pure returns (ConfigCache memory) {}
-
-    function minimalConfig() external pure returns (FoundryConfig memory) {}
-
-    function humanReadableActions() external pure returns (HumanReadableAction[] memory) {}
 
     function slice(
         bytes calldata _data,
@@ -160,92 +150,81 @@ contract SphinxUtils is
         return _data[_start:_end];
     }
 
-    /**
-     * @notice Retrieves the bundle info via FFI. This function uses `abi.decode` to retrieve any
-       errors or warnings that occurred during parsing. We do this instead of letting FFI throw an
-       error message because this makes parsing errors much easier to read. This also allows us to
-       display parsing warnings, which can't be written to stdout because stdout must be exclusively
-       for the bundle info. We also can't write the warnings to stderr because a non-empty stderr
-       causes an error to be thrown by Forge.
-     */
     function ffiGetEncodedBundleInfo(
-        ConfigCache memory _configCache,
-        string memory _parsedConfigStr,
+        ChainInfo memory _chainInfo,
         string memory _rootFfiPath
     ) external returns (bytes memory) {
-        (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](6);
+        string[] memory cmds = new string[](4);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
-        cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _parsedConfigStr;
-        cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
+        cmds[3] = vm.toString(abi.encode(_chainInfo));
 
-        bytes memory result = vm.ffi(cmds);
-        return result;
+        Vm.FfiResult memory result = vm.tryFfi(cmds);
+        if (result.exit_code == 1) {
+            revert(string(result.stderr));
+        }
+        return result.stdout;
     }
 
-    function decodeBundleInfo(bytes memory _data) public view returns (BundleInfo memory) {
-        // The success boolean is the last 32 bytes of the result.
-        bytes memory successBytes = this.slice(_data, _data.length - 32, _data.length);
-        bool success = abi.decode(successBytes, (bool));
-
-        bytes memory data = this.slice(_data, 0, _data.length - 32);
-
-        if (success) {
-            // Next, we decode the result into the bundle info, which consists of the SphinxBundles,
-            // the config URI, the cost of deploying each contract, and any warnings that occurred
-            // when parsing the config. We can't decode all of this in a single `abi.decode` call
-            // because this fails with a "Stack too deep" error. This is because the SphinxBundles
-            // struct is too large for Solidity to decode all at once. So, we decode the
-            // SphinxActionBundle and SphinxTargetBundle separately. This requires that we know
-            // where to split the raw bytes before decoding anything. To solve this, we use two
-            // `splitIdx` variables. The first marks the point where the action bundle ends and the
-            // target bundle begins. The second marks the point where the target bundle ends and the
-            // rest of the bundle info (config URI, warnings, etc) begins.
-            (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(
-                this.slice(data, data.length - 64, data.length),
-                (uint256, uint256)
-            );
-
-            // We can't decode the entire action bundle at once because we'd get a "stack too deep"
-            // error when calling `abi.decode`. This occurs because the action bundle struct is too
-            // large to be decoded at one time. So, we decode the root and the actions separately.
-            bytes32 actionRoot = abi.decode(this.slice(data, 0, 32), (bytes32));
-            BundledSphinxAction[] memory actions = abi.decode(
-                this.slice(data, 32, splitIdx1),
-                (BundledSphinxAction[])
-            );
-
-            SphinxActionBundle memory decodedActionBundle = SphinxActionBundle({
-                root: actionRoot,
-                actions: actions
+    // TODO(docs): can't decode all at once b/c of "stack too deep" error.
+    function decodeBundleInfo(
+        bytes memory _data
+    ) external pure returns (BundleInfo memory) {
+        string memory configUri = abi.decode(vm.parseJson(string(_data), ".configUri"), (string));
+        HumanReadableAction[] memory humanReadableActions = abi.decode(vm.parseJson(string(_data), ".humanReadableActions"), (HumanReadableAction[]));
+        bytes32 actionRoot = abi.decode(vm.parseJson(string(_data), ".bundles.actionBundle.root"), (bytes32));
+        BundledSphinxActionJson[] memory actionsJson = abi.decode(vm.parseJson(string(_data), ".bundles.actionBundle.actions"), (BundledSphinxActionJson[]));
+        BundledSphinxAction[] memory actions = new BundledSphinxAction[](actionsJson.length);
+        for (uint i = 0; i < actionsJson.length; i++) {
+            BundledSphinxActionJson memory actionJson = actionsJson[i];
+            actions[i] = BundledSphinxAction({
+                action: RawSphinxAction({
+                    actionType: SphinxActionType(actionJson.action.actionType),
+                    index: actionJson.action.index,
+                    data: actionJson.action.data
+                }),
+                gas: actionJson.gas,
+                siblings: actionJson.siblings
             });
-
-            SphinxTargetBundle memory decodedTargetBundle = abi.decode(
-                this.slice(data, splitIdx1, splitIdx2),
-                (SphinxTargetBundle)
-            );
-
-            bytes memory remainingBundleInfo = this.slice(data, splitIdx2, data.length);
-            (
-                string memory configUri,
-                HumanReadableAction[] memory readableActions,
-                string memory warnings
-            ) = abi.decode(remainingBundleInfo, (string, HumanReadableAction[], string));
-
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            return BundleInfo(configUri, decodedActionBundle, decodedTargetBundle, readableActions);
-        } else {
-            (string memory errors, string memory warnings) = abi.decode(data, (string, string));
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            revert(errors);
         }
+
+        // TODO: you need to separate the 'data' field of the action bundle like you did with the auth bundle.
+
+        SphinxTargetBundle memory targetBundle = abi.decode(vm.parseJson(string(_data), ".bundles.targetBundle"), (SphinxTargetBundle));
+        bytes32 authRoot = abi.decode(vm.parseJson(string(_data), ".bundles.authBundle.root"), (bytes32));
+        BundledAuthLeafJson[] memory authLeafsJson = abi.decode(vm.parseJson(string(_data), ".bundles.authBundle.leafs"), (BundledAuthLeafJson[]));
+        bytes[] memory authData = vm.parseJsonBytesArray(string(_data), ".bundles.authBundle.data");
+        BundledAuthLeaf[] memory authLeafs = new BundledAuthLeaf[](authLeafsJson.length);
+        for (uint i = 0; i < authLeafsJson.length; i++) {
+            BundledAuthLeafJson memory authLeafJson = authLeafsJson[i];
+            authLeafs[i] = BundledAuthLeaf({
+                leaf: AuthLeaf({
+                    chainId: authLeafJson.leaf.chainId,
+                    index: authLeafJson.leaf.index,
+                    to: authLeafJson.leaf.to,
+                    data: authData[i]
+                }),
+                leafType: AuthLeafType(authLeafJson.leafType),
+                proof: authLeafJson.proof
+            });
+        }
+
+        return BundleInfo({
+            configUri: configUri,
+            humanReadableActions: humanReadableActions,
+            bundles: SphinxBundles({
+                actionBundle: SphinxActionBundle({
+                    root: actionRoot,
+                    actions: actions
+                }),
+                targetBundle: targetBundle,
+                authBundle: SphinxAuthBundle({
+                    root: authRoot,
+                    leafs: authLeafs
+                })
+            })
+        });
     }
 
     // Provides an easy way to get the EOA that's signing transactions in a Forge script. When a
@@ -436,127 +415,6 @@ contract SphinxUtils is
 
     // TODO: in the new propose function, do a local simulation before proposing. you may need to invoke a forge script to do this.
 
-    // TODO: you can probably remove some stuff from the config cache, like isTargetDeployed
-    function getConfigCache(
-        FoundryConfig memory _minimalConfig,
-        ISphinxRegistry _registry,
-        ISphinxManager _manager,
-        string memory _rpcUrl,
-        string memory _mainFfiScriptPath
-    ) external returns (ConfigCache memory) {
-        bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
-        bool isExecuting = isManagerDeployed_ && _manager.isExecuting();
-
-        ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
-            _minimalConfig.contracts.length
-        );
-        for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            FoundryContractConfig memory contractConfig = _minimalConfig.contracts[i];
-
-            bool isTargetDeployed = contractConfig.addr.code.length > 0;
-
-            OptionalString memory previousConfigUri = isTargetDeployed &&
-                contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? ffiGetPreviousConfigUri(contractConfig.addr, _rpcUrl, _mainFfiScriptPath)
-                : OptionalString({ exists: false, value: "" });
-
-            // At this point in the TypeScript version of this function, we attempt to deploy all of
-            // the non-proxy contracts. We skip this step here because it's unnecessary in this
-            // context. Forge does local simulation before broadcasting any transactions, so if a
-            // constructor reverts, it'll be caught before anything happens on the live network.
-            DeploymentRevert memory deploymentRevert = DeploymentRevert({
-                deploymentReverted: false,
-                revertString: OptionalString({ exists: false, value: "" })
-            });
-
-            ImportCache memory importCache;
-            if (isTargetDeployed) {
-                // In the TypeScript version, we check if the SphinxManager has permission to
-                // upgrade UUPS proxies via staticcall. We skip it here because staticcall always
-                // fails in Solidity when called on a state-changing function (which 'upgradeTo'
-                // is). We also can't attempt an external call because it could be broadcasted. So,
-                // we skip this step here, which is fine because Forge automatically does local
-                // simulation before broadcasting any transactions. If the SphinxManager doesn't
-                // have permission to call 'upgradeTo', an error will be thrown when simulating the
-                // execution logic, which will happen before any transactions are broadcasted.
-
-                if (
-                    contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT ||
-                    contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT
-                ) {
-                    // Check that the SphinxManager is the owner of the Transparent proxy.
-                    address currProxyAdmin = getEIP1967ProxyAdminAddress(contractConfig.addr);
-
-                    if (currProxyAdmin != address(_manager)) {
-                        importCache = ImportCache({
-                            requiresImport: true,
-                            currProxyAdmin: OptionalAddress({ exists: true, value: currProxyAdmin })
-                        });
-                    }
-                }
-            }
-
-            contractConfigCache[i] = ContractConfigCache({
-                referenceName: contractConfig.referenceName,
-                isTargetDeployed: isTargetDeployed,
-                deploymentRevert: deploymentRevert,
-                importCache: importCache,
-                previousConfigUri: previousConfigUri
-            });
-        }
-
-        // Get an array of undeployed external contracts. To do this, we first need to get the
-        // addresses of all of the post-deployment actions. Then, we use this to get an array of
-        // unique addresses. Finally, we use this to get an array of undeployed external contracts.
-        address[] memory postDeployAddresses = new address[](_minimalConfig.postDeploy.length);
-        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
-            postDeployAddresses[i] = _minimalConfig.postDeploy[i].to;
-        }
-        address[] memory undeployedExternalContracts = getUndeployedExternalContracts(
-            getUniqueAddresses(postDeployAddresses),
-            _minimalConfig.contracts
-        );
-
-        // Get an array where each element contains a call hash and its current nonce. We'll use
-        // this later to determine which call actions to skip in the deployment, if any.
-        CallNonces[] memory callNonces = new CallNonces[](_minimalConfig.postDeploy.length);
-        for (uint i = 0; i < _minimalConfig.postDeploy.length; i++) {
-            bytes32 callHash = getCallHash(
-                _minimalConfig.postDeploy[i].to,
-                _minimalConfig.postDeploy[i].data
-            );
-            if (!isManagerDeployed_) {
-                callNonces[i] = CallNonces({ callHash: callHash, nonce: 0 });
-            } else {
-                uint256 currentNonce = _manager.callNonces(callHash);
-                callNonces[i] = CallNonces({ callHash: callHash, nonce: currentNonce });
-            }
-        }
-
-        // Fetch the version from the manager if it is deployed, otherwise use the default version.
-        Semver semverManager = Semver(address(_manager));
-        Version memory managerVersion = isManagerDeployed_
-            ? semverManager.version()
-            : Version({
-                major: SphinxConstants.major,
-                minor: SphinxConstants.minor,
-                patch: SphinxConstants.patch
-            });
-
-        return
-            ConfigCache({
-                isManagerDeployed: isManagerDeployed_,
-                isExecuting: isExecuting,
-                managerVersion: managerVersion,
-                blockGasLimit: block.gaslimit,
-                chainId: block.chainid,
-                contractConfigCache: contractConfigCache,
-                callNonces: callNonces,
-                undeployedExternalContracts: undeployedExternalContracts
-            });
-    }
-
     function ffiGetPreviousConfigUri(
         address _proxyAddress,
         string memory _rpcUrl,
@@ -649,19 +507,6 @@ contract SphinxUtils is
         return keccak256(abi.encode(_to, _data));
     }
 
-    function findReferenceNameForAddress(
-        address _addr,
-        FoundryContractConfig[] memory _contractConfigs
-    ) internal pure returns (OptionalString memory) {
-        for (uint i = 0; i < _contractConfigs.length; i++) {
-            FoundryContractConfig memory contractConfig = _contractConfigs[i];
-            if (contractConfig.addr == _addr) {
-                return OptionalString({ exists: true, value: contractConfig.referenceName });
-            }
-        }
-        return OptionalString({ exists: false, value: "" });
-    }
-
     /**
      * @notice Returns an array of unique addresses from a given array of addresses, which may
      *         contain duplicates.
@@ -700,40 +545,5 @@ contract SphinxUtils is
         }
 
         return trimmedUniqueAddresses;
-    }
-
-    function getUndeployedExternalContracts(
-        address[] memory _uniquePostDeployAddresses,
-        FoundryContractConfig[] memory _contractConfigs
-    ) internal view returns (address[] memory) {
-        address[] memory undeployedExternalAddresses = new address[](
-            _uniquePostDeployAddresses.length
-        );
-        uint256 undeployedExternalContractCount = 0;
-        for (uint i = 0; i < _uniquePostDeployAddresses.length; i++) {
-            bool isExternalAddress = findReferenceNameForAddress(
-                _uniquePostDeployAddresses[i],
-                _contractConfigs
-            ).exists == false;
-
-            if (isExternalAddress && _uniquePostDeployAddresses[i].code.length == 0) {
-                undeployedExternalAddresses[
-                    undeployedExternalContractCount
-                ] = _uniquePostDeployAddresses[i];
-                undeployedExternalContractCount += 1;
-            }
-        }
-
-        // Next, we create a new array with the correct length and copy the undeployed external
-        // addresses into it. This is necessary because the `undeployedExternalAddresses` array may
-        // contain empty addresses at the end.
-        address[] memory trimmedUndeployedExternalAddresses = new address[](
-            undeployedExternalContractCount
-        );
-        for (uint256 i = 0; i < undeployedExternalContractCount; i++) {
-            trimmedUndeployedExternalAddresses[i] = undeployedExternalAddresses[i];
-        }
-
-        return trimmedUndeployedExternalAddresses;
     }
 }

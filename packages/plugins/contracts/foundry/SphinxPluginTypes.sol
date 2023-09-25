@@ -5,12 +5,39 @@ import {
     SphinxTarget,
     RawSphinxAction,
     SphinxActionType,
-    Version
+    Version,
+    AuthLeaf,
+    AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct SphinxBundles {
+    SphinxAuthBundle authBundle;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
+}
+
+struct SphinxAuthBundle {
+    bytes32 root;
+    BundledAuthLeaf[] leafs;
+}
+
+struct BundledAuthLeaf {
+  AuthLeaf leaf;
+  AuthLeafType leafType;
+  bytes32[] proof;
+}
+
+// TODO(docs)
+struct AuthLeafWithoutData {
+    uint256 chainId;
+    uint256 index;
+    address to;
+}
+// TODO(refactor): the data structure outputted by `get-bundle-info` is pretty messy.
+struct BundledAuthLeafJson {
+  AuthLeafWithoutData leaf;
+  uint256 leafType;
+  bytes32[] proof;
 }
 
 struct SphinxActionBundle {
@@ -25,8 +52,19 @@ struct SphinxTargetBundle {
 
 struct BundledSphinxAction {
     RawSphinxAction action;
-    bytes32[] siblings;
     uint256 gas;
+    bytes32[] siblings;
+}
+
+struct BundledSphinxActionJson {
+    RawSphinxActionJson action;
+    uint256 gas;
+    bytes32[] siblings;
+}
+struct RawSphinxActionJson {
+    uint256 actionType;
+    bytes data;
+    uint256 index;
 }
 
 struct BundledSphinxTarget {
@@ -34,23 +72,33 @@ struct BundledSphinxTarget {
     bytes32[] siblings;
 }
 
+// TODO(docs): this struct must conform to the rules here: https://book.getfoundry.sh/cheatcodes/parse-json
+// This is why the actionType is a uint.
 struct HumanReadableAction {
-    string reason;
     uint actionIndex;
-    SphinxActionType actionType;
-}
-
-struct Configs {
-    FoundryConfig minimalConfig;
-    string parsedConfigStr;
+    uint actionType;
+    string reason;
 }
 
 struct BundleInfo {
     string configUri;
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
+    SphinxBundles bundles;
     HumanReadableAction[] humanReadableActions;
 }
+
+// TODO: need:
+// DIFF:
+// - configcache: chainId, isManagerDeployed, networkName (can be calculated from the chainid), networkType
+// - for each contract to skip and deploy: referenceName, actionType | deploy_contract actions: constructor args, salt | call_actions: function args, function selector
+// - also need: abi (to decode constructor+function args as well as functoin selector for diff)
+// - skipped deploy_contract and call actions
+// DEPLOYMENT ARTIFACTS:
+// - managerAddress
+// BUNDLING:
+// - config artifacts (buildinfo for all; abi just for upgradeable contracts)
+// - CompilerConfig['inputs'] (for config uri)
+// - humanReadableActions (can be created from inputs above)
+// - bundles (can be created from inputs above)
 
 struct FoundryConfig {
     address manager;
@@ -67,44 +115,24 @@ struct FoundryContractConfig {
     bytes32 userSaltHash;
 }
 
+/**
+ * @custom:field currentversion The current version of the SphinxManager.
+ *               If the SphinxManager has not been deployed, then this defaults to
+ *               the latest SphinxManager version.
+ */
 struct ConfigCache {
+    address manager;
     bool isManagerDeployed;
     bool isExecuting;
-    Version managerVersion;
-    uint256 blockGasLimit;
+    Version currentversion;
     uint256 chainId;
-    ContractConfigCache[] contractConfigCache;
-    CallNonces[] callNonces;
-    address[] undeployedExternalContracts;
-}
-
-struct ContractConfigCache {
-    string referenceName;
-    bool isTargetDeployed;
-    DeploymentRevert deploymentRevert;
-    ImportCache importCache;
-    OptionalString previousConfigUri;
-}
-
-struct CallNonces {
-    bytes32 callHash;
-    uint256 nonce;
-}
-
-struct DeploymentRevert {
-    bool deploymentReverted;
-    OptionalString revertString;
+    bool isLiveNetwork;
 }
 
 struct ParsedCallAction {
     address to;
     bytes data;
     uint256 nonce;
-}
-
-struct ImportCache {
-    bool requiresImport;
-    OptionalAddress currProxyAdmin;
 }
 
 enum ContractKindEnum {
@@ -147,40 +175,66 @@ struct OptionalBytes32 {
     bool exists;
 }
 
-struct SphinxConfig {
-    string projectName;
+// TODO(refactor): the name should probably reflect the fact that this is for deployments,
+// not proposals, b/c of PreviousInfo. the other fields are the same as proposals.
+struct ChainInfo {
+    address authAddress;
+    address managerAddress;
+    uint256 chainId;
+    SphinxAction[] actionsTODO; // TODO(docs): these actions are collected during the deployment.
+    SphinxConfig newConfig;
+    bool isLiveNetwork;
+    PreviousInfo prevConfig;
+}
+
+// TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
+struct PreviousInfo {
     address[] owners;
     address[] proposers;
-    Network[] mainnets;
-    Network[] testnets;
     uint256 threshold;
-    Version managerVersion;
+    Version version;
+    bool isManagerDeployed;
+    bool firstProposalOccurred;
+    bool isExecuting;
+}
+
+struct SphinxConfig {
+    string projectName;
+    string orgId;
+	address[] owners;
+	address[] proposers;
+	Network[] mainnets;
+	Network[] testnets;
+	uint256 threshold;
+	Version version;
 }
 
 enum Network {
+    anvil,
+    // production networks (i.e. mainnets)
     ethereum,
-    ethereum_goerli,
     optimism,
-    optimism_goerli,
     arbitrum,
-    arbitrum_goerli,
     polygon,
-    polygon_mumbai,
-    bsc,
-    bsc_testnet,
+    bnb,
     gnosis,
-    gnosis_chiado,
-    base,
-    base_goerli,
     linea,
-    linea_goerli,
-    avalanche,
-    avalanche_fuji,
-    fantom,
-    fantom_testnet,
     polygon_zkevm,
+    avalanche,
+    fantom,
+    base,
+    // testnets
+    goerli,
+    optimism_goerli,
+    arbitrum_goerli,
+    polygon_mumbai,
+    bnb_testnet,
+    gnosis_chiado,
+    linea_goerli,
     polygon_zkevm_goerli,
-    anvil
+    avalanche_fuji,
+    fantom_testnet,
+    base_goerli
 }
 
 struct DeployOptions {
@@ -193,4 +247,5 @@ struct SphinxAction {
     string fullyQualifiedName;
     SphinxActionType actionType;
     bytes data;
+    bool skip;
 }

@@ -232,7 +232,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Handle if the config cannot be fetched
   try {
     ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
-      await compileRemoteBundles(rpcProvider, deploymentState.configUri))
+      await compileRemoteBundles(deploymentState.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)

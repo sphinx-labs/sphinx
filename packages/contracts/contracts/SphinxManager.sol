@@ -21,6 +21,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IAccessControlEnumerable } from "@openzeppelin/contracts/access/IAccessControlEnumerable.sol";
 import { ICreate3 } from "./interfaces/ICreate3.sol";
 import { Semver, Version } from "./Semver.sol";
 import {
@@ -936,8 +937,10 @@ contract SphinxManager is
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
         if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
             revert CallerIsNotSelectedExecutor();
-        } else if (_remoteExecution == false && owner() != msg.sender) {
-            revert CallerIsNotOwner();
+        } else if (_remoteExecution == false) {
+            // TODO(docs):
+            IAccessControlEnumerable auth = IAccessControlEnumerable(owner());
+            if (!auth.hasRole(bytes32(0), msg.sender) || auth.getRoleMemberCount(bytes32(0)) != 1) revert CallerIsNotOwner();
         }
     }
 }

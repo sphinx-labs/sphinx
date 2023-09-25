@@ -83,11 +83,5 @@ export const functionTypeArgumentsAreNotAllowed = (
   return `The ${functionLogName} contains function type arguments, which are not allowed. Please remove the following fields:`
 }
 
-export const externalContractsMustBeDeployed = (chainId: number): string => {
-  return `The following contracts in your config are not deployed on ${getNetworkNameForChainId(
-    chainId
-  )}:`
-}
-
 export const REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER =
   'Cannot name your contract "SphinxManager" in your config file. Please choose a different name.'

@@ -139,9 +139,9 @@ struct RegistrationInfo {
  */
 struct AuthLeaf {
     uint256 chainId;
-    address to;
-    uint256 index;
     bytes data;
+    uint256 index;
+    address to;
 }
 
 /**
@@ -176,6 +176,7 @@ struct DeploymentApproval {
     uint256 numSetStorageActions;
     uint256 numTargets;
     string configUri;
+    bool remoteExecution;
 }
 
 enum AuthLeafType {

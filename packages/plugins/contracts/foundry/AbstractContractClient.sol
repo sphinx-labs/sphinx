@@ -3,10 +3,14 @@ pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import { SphinxAction } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxActions } from "../SphinxActions.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 abstract contract AbstractContractClient {
+
+    SphinxActions private constant actions = SphinxActions(address(uint160(uint256(keccak256('sphinx.actions')) - 1)));
+
     address internal immutable sphinxManager;
     Sphinx internal immutable sphinx;
     address internal immutable impl;
@@ -29,14 +33,24 @@ abstract contract AbstractContractClient {
 
     // Calls a function on the users contract from the client contract.
     function _callFunction(bytes4 selector, bytes memory functionArgs) internal {
-        bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
-        bytes memory actionData = abi.encode(address(this), selector, functionArgs);
-        bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
-        uint256 currentNonce = sphinxManager.code.length > 0
-            ? ISphinxManager(sphinxManager).callNonces(callHash)
-            : 0;
+        if (msg.sender != sphinxManager) {
+            _delegate(impl);
+        }
 
-        if (sphinx.callCount(callHash) >= currentNonce) {
+        bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
+        bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
+
+        uint256 currentNonceInManager = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
+        uint256 currentNonceInDeployment = sphinx.callCount(callHash);
+
+        // TODO(docs): we can't make the reference name a state variable in this contract because we
+        // can't have any mutable variables since this is a proxy for the user's function, and we
+        // may overwrite the user's variable in the storage layout.
+        string memory referenceName = sphinx.referenceNamesByAddress(address(this));
+
+        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
+        bool skip = currentNonceInManager > currentNonceInDeployment;
+        if (!skip && sphinx.execute()) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
                 encodedCall
             );
@@ -46,15 +60,14 @@ abstract contract AbstractContractClient {
                     revert(add(32, sphinxReturnData), mload(sphinxReturnData))
                 }
             }
-
-            sphinx.addSphinxAction(
-                SphinxAction({
-                    fullyQualifiedName: "MyContracts.sol:MyContract1",
-                    actionType: SphinxActionType.CALL,
-                    data: actionData
-                })
-            );
         }
+
+        actions.addSphinxAction(SphinxAction({
+            fullyQualifiedName: "contracts/test/MyContracts.sol:MyContract1",
+            actionType: SphinxActionType.CALL,
+            data: actionData,
+            skip: skip
+        }));
 
         sphinx.incrementCallCount(callHash);
     }

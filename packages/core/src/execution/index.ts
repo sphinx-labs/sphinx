@@ -9,8 +9,7 @@ import {
   DeploymentStatus,
 } from '../actions'
 import { getSphinxManager, getDeploymentEvents, sleep } from '../utils'
-import { SphinxJsonRpcProvider } from '../provider'
-import { ParsedConfigWithOptions } from '../config'
+import { ParsedConfig } from '../config'
 
 export const getNumDeployedContracts = (
   bundle: SphinxActionBundle,
@@ -24,17 +23,16 @@ export const getNumDeployedContracts = (
 }
 
 export const monitorExecution = async (
-  provider: SphinxJsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedConfigWithOptions,
+  parsedConfig: ParsedConfig,
   bundles: SphinxBundles,
   deploymentId: string,
   silent: boolean
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const { projectName, manager } = parsedConfig
-  const SphinxManager = getSphinxManager(manager, signer)
+  const {  managerAddress } = parsedConfig
+  const SphinxManager = getSphinxManager(managerAddress, signer)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await SphinxManager.deployments(
@@ -76,7 +74,7 @@ export const monitorExecution = async (
   }
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${projectName}.`)
+    spinner.succeed(`Finished executing deployment.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
       SphinxManager,
@@ -85,14 +83,14 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
   } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
-    spinner.fail(`${projectName} was cancelled.`)
-    throw new Error(`${projectName} was cancelled.`)
+    spinner.fail(`Deployment was cancelled.`)
+    throw new Error(`Deployment was cancelled.`)
   } else if (deploymentState.status === DeploymentStatus.FAILED) {
-    spinner.fail(`${projectName} failed.`)
-    throw new Error(`${projectName} failed.`)
+    spinner.fail(`Deployment failed.`)
+    throw new Error(`Deployment failed.`)
   } else {
     spinner.fail(
-      `Project ${projectName} ended in an unknown state: ${deploymentState.status}`
+      `Project Deployment ended in an unknown state: ${deploymentState.status}`
     )
   }
 }

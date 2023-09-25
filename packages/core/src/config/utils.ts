@@ -38,7 +38,7 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
 export const getTargetAddress = (
   managerAddress: string,
   referenceName: string,
-  userSalt?: UserSalt
+  userSalt: string
 ): string => {
   const targetSalt = getTargetSalt(referenceName, userSalt)
 
@@ -73,14 +73,12 @@ export const getCreate3Address = (
 
 export const getTargetSalt = (
   referenceName: string,
-  userSalt?: UserSalt
+  userSalt: string
 ): string => {
-  const userSaltHash = getUserSaltHash(userSalt)
-
   return ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['string', 'bytes32'],
-      [referenceName, userSaltHash]
+      [referenceName, userSalt]
     )
   )
 }

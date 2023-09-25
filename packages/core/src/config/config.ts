@@ -1,53 +1,6 @@
 import { resolve } from 'path'
 
-import {
-  FoundryConfig,
-  FoundryContractConfig,
-  ParsedConfig,
-  UserConfig,
-  UserConfigWithOptions,
-  UserSphinxConfig,
-} from './types'
-import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-
-/**
- * Returns a minimal version of the Sphinx config. This is used as a substitute for the full
- * config in Solidity for the Sphinx Foundry plugin. We use it because of Solidity's limited
- * support for types. We limit the number of fields in the minimal config to minimize the amount of
- * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
- */
-export const getFoundryConfig = (
-  parsedConfig: ParsedConfig,
-  chainId: string,
-  owner: string
-): FoundryConfig => {
-  const minimalContractConfigs: Array<FoundryContractConfig> = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { address, kind, salt } = contractConfig
-
-    const targetAddress =
-      address ?? getTargetAddress(parsedConfig.manager, referenceName, salt)
-
-    minimalContractConfigs.push({
-      referenceName,
-      addr: targetAddress,
-      kind: toContractKindEnum(kind),
-      userSaltHash: getUserSaltHash(salt),
-    })
-  }
-
-  const postDeploy = parsedConfig.postDeploy[chainId] ?? []
-
-  return {
-    manager: parsedConfig.manager,
-    owner,
-    projectName: parsedConfig.projectName,
-    contracts: minimalContractConfigs,
-    postDeploy,
-  }
-}
+import { UserConfig, UserConfigWithOptions, UserSphinxConfig } from './types'
 
 export const readUserConfig = async (
   configPath: string

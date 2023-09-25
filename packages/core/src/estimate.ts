@@ -1,5 +1,4 @@
 import { CompilerOutputContract } from './languages/solidity/types'
-import { ConfigArtifacts } from './config'
 
 export type DeployContractCost = {
   referenceName: string
@@ -20,25 +19,4 @@ export const getEstDeployContractCost = (
   } else {
     return BigInt(totalCost)
   }
-}
-
-export const getDeployContractCosts = (
-  configArtifacts: ConfigArtifacts
-): DeployContractCost[] => {
-  const deployContractCosts: DeployContractCost[] = []
-  for (const [referenceName, { artifact, buildInfo }] of Object.entries(
-    configArtifacts
-  )) {
-    const { sourceName, contractName } = artifact
-
-    const deployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-    )
-
-    deployContractCosts.push({
-      referenceName,
-      cost: deployContractCost,
-    })
-  }
-  return deployContractCosts
 }

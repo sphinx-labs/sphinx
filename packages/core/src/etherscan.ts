@@ -28,7 +28,7 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, getImplAddress } from './utils'
+import { getFunctionArgValueArray, isExtendedDeployContractTODO } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -46,15 +46,9 @@ export const verifySphinxConfig = async (
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
-  apiKey: string,
-  deployedContractReferenceNames: string[] = []
+  apiKey: string
 ) => {
-  // Default to verifying all contracts if the caller does not specify a subset
-  if (deployedContractReferenceNames.length === 0) {
-    deployedContractReferenceNames = Object.keys(compilerConfig.contracts)
-  }
-
-  const managerAddress = compilerConfig.manager
+  const { actionsTODO } = compilerConfig
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
@@ -64,41 +58,29 @@ export const verifySphinxConfig = async (
     customChains
   )
 
-  const chainId = (await provider.getNetwork()).chainId
+  const actionsTODOToVerify = actionsTODO
+    // .filter((a) => !a.skip)
+    .filter(isExtendedDeployContractTODO)
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
-  )) {
-    // Skip contracts that are not listed as deployed
-    if (!deployedContractReferenceNames.includes(referenceName)) {
-      continue
-    }
+  for (const action of actionsTODOToVerify) {
+    const { fullyQualifiedName, create3Address } = action
 
-    const { artifact, buildInfo } = configArtifacts[referenceName]
-    const { abi, contractName, sourceName, bytecode } = artifact
+    const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+    const { abi, contractName, sourceName } = artifact
     const iface = new ethers.Interface(abi)
     const constructorArgValues = getFunctionArgValueArray(
-      compilerConfig.contracts[referenceName].constructorArgs[Number(chainId)],
+      action.decodedAction.variables,
       iface.fragments.find(ConstructorFragment.isFragment)
     )
-
-    const implementationAddress =
-      contractConfig.kind !== 'immutable'
-        ? getImplAddress(
-            managerAddress,
-            bytecode,
-            contractConfig.constructorArgs[Number(chainId)],
-            abi
-          )
-        : contractConfig.address
 
     const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
       Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
     if (!sphinxInput) {
-      // Should not happen. We'll continue to the next contract.
-      continue
+      throw new Error(
+        `Could not find compiler input for ${sourceName}. Should never happen.`
+      )
     }
     const { input, solcVersion } = sphinxInput
 
@@ -109,12 +91,11 @@ export const verifySphinxConfig = async (
       contractName
     )
 
-    // Verify the implementation
     await attemptVerification(
       provider,
       networkName,
       etherscanApiEndpoints.urls,
-      implementationAddress,
+      create3Address,
       sourceName,
       contractName,
       abi,
@@ -124,16 +105,17 @@ export const verifySphinxConfig = async (
       constructorArgValues
     )
 
-    if (contractConfig.kind !== 'immutable') {
-      // Link the proxy with its implementation
-      await linkProxyWithImplementation(
-        etherscanApiEndpoints.urls,
-        apiKey,
-        contractConfig.address,
-        implementationAddress,
-        contractName
-      )
-    }
+    // TODO(upgrades):
+    // if (contractConfig.kind !== 'immutable') {
+    //   // Link the proxy with its implementation
+    //   await linkProxyWithImplementation(
+    //     etherscanApiEndpoints.urls,
+    //     apiKey,
+    //     contractConfig.address,
+    //     implementationAddress,
+    //     contractName
+    //   )
+    // }
   }
 }
 

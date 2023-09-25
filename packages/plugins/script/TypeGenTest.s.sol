@@ -110,7 +110,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     Network[] mainnets;
     Network[] testnets = [Network.anvil];
     uint256 threshold = 1;
-    Version managerVersion = Version({ major: 0, minor: 2, patch: 3 });
+    Version version = Version({ major: 0, minor: 2, patch: 3 });
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -155,12 +155,13 @@ contract TypeGenTestConfig is Test, SphinxClient {
                 mainnets: mainnets,
                 testnets: testnets,
                 threshold: threshold,
-                managerVersion: managerVersion
+                version: version,
+                orgId: ""
             })
         )
     {}
 
-    function deploy(Network) public override sphinxDeploy {
+    function deploy(Network _network) public override sphinxDeploy(_network) {
         setupVariables();
 
         // Deploy two contracts with conflicting names

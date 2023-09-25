@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.0;
 
 import { TypeGenTestConfig } from "../../script/TypeGenTest.s.sol";
 import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
