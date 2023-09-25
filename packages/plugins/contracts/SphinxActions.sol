@@ -32,11 +32,10 @@ contract SphinxActions {
     address public immutable sphinx;
     address private immutable auth;
     address private immutable manager;
-    constructor(address _auth, address _manager, SphinxConfig memory _newConfig) {
+    constructor(address _auth, address _manager) {
         sphinx = msg.sender;
         auth = _auth;
         manager = _manager;
-        newConfig = _newConfig;
     }
 
     function addSphinxAction(SphinxAction memory _action) public {
@@ -66,13 +65,14 @@ contract SphinxActions {
 
     function setChainInfo(
         bool _isLiveNetwork,
-        PreviousInfo memory _prevConfig
+        PreviousInfo memory _prevConfig,
+        SphinxConfig memory _newConfig
     ) external {
         chainInfo.authAddress = auth;
         chainInfo.managerAddress = manager;
         chainInfo.chainId = block.chainid;
         chainInfo.actionsTODO = actions;
-        chainInfo.newConfig = newConfig;
+        chainInfo.newConfig = _newConfig;
         chainInfo.isLiveNetwork = _isLiveNetwork;
         chainInfo.prevConfig = _prevConfig;
     }

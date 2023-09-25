@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
+import { MyContract1 } from "../test/MyContracts.sol";
 import {
     ECDSA
 } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -74,6 +75,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // run the pre-diff simulation against the live network logic, since this'd help prevent
     // against bugs caused by different local and live logic.
 
+    // TODO(refactor): does this need to be "minus one" since it's a constant variable?
     /**
      * @notice TODO(docs): the last 20 bytes of ...
      */
@@ -120,13 +122,13 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    VmSafe.Log[] private executionLogs;
-
     // Maps a Sphinx config path to a deployed contract's reference name to the deployed
     // contract's address.
     mapping(string => mapping(string => address)) private deployed;
 
     ISphinxUtils internal sphinxUtils;
+
+    bool private previewEnabled = vm.envOr("SPHINX_INTERNAL_PREVIEW_ENABLED", false);
 
     // Get owner address
     uint private key = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
@@ -159,6 +161,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     constructor(SphinxConfig memory _sphinxConfig) {
         sphinxConfig = _sphinxConfig;
+
+        if (sphinxConfig.owners.length == 1 && sphinxConfig.proposers.length == 0) {
+            sphinxConfig.proposers.push(sphinxConfig.owners[0]);
+        }
 
         // Sort the owners in ascending order. This is required to calculate the address of the
         // SphinxAuth contract, which determines the CREATE3 addresses of the user's contracts.
@@ -303,8 +309,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             if (isSetStorageActionArray) {
                 manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
             } else {
-                vm.recordLogs();
                 // manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
+                // TODO(refactor): can we remove this low-level call in favor of the command above?
+                // if not, we should document why.
+                console.log('num raw actions', rawActions.length);
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
                 }(
@@ -342,8 +350,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         BundleInfo memory bundleInfo,
         uint256 blockGasLimit
     ) private returns (bool, HumanReadableAction memory) {
-        vm.recordLogs();
-
         (
             BundledSphinxAction[] memory initialActions,
             BundledSphinxAction[] memory setStorageActions
@@ -381,16 +387,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // Complete the upgrade
         manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);
 
-        pushRecordedLogs();
-
         return (true, HumanReadableAction(0, uint256(uint8(SphinxActionType.CALL)), ""));
-    }
-
-    function pushRecordedLogs() private {
-        VmSafe.Log[] memory logs = vm.getRecordedLogs();
-        for (uint i = 0; i < logs.length; i++) {
-            executionLogs.push(logs[i]);
-        }
     }
 
     // TODO(test): test the time difference between deploying hai on anvil using the fast approach
@@ -405,6 +402,9 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         callCount[_callHash] += 1;
         callHashArray.push(_callHash);
     }
+
+    // TODO: rm
+    MyContract1 private ct = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
 
     // TODO: the user needs to inherit this
     modifier sphinxDeploy(Network _network) {
@@ -447,22 +447,21 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
         validateTODO(_network);
 
+        string memory rpcUrl = vm.envOr('SPHINX_INTERNAL_RPC_URL', vm.rpcUrl(getNetworkInfo(_network).name));
+        bool isLiveNetwork_ = isLiveNetwork(rpcUrl);
+
         // TODO(docs): this is from the old plugin: Next, we deploy and initialize the Sphinx
         // contracts. If we're in a recurrent broadcast or prank, we temporarily stop it before we
         // initialize the contracts. We disable broadcasting because we can't call vm.etch from
         // within a broadcast. We disable pranking because we need to prank the owner of the Sphinx
         // contracts when initializing the Sphinx contracts.
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            string memory rpcUrl = vm.rpcUrl(getNetworkInfo(_network).name);
 
-            if (isLiveNetwork(rpcUrl)) {
-                liveNetworkValidation();
+            if (isLiveNetwork_) {
+                liveNetworkValidation(msgSender);
             }
 
             initializeSphinx(rpcUrl);
-
-            // TODO(parse): you should check that the key corresponding to PRIVATE_KEY matches
-            // CallerMode.msgSender. i don't think we currently do this.
 
         } else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
@@ -471,9 +470,36 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         if (callerMode == VmSafe.CallerMode.None) {
             deployCodeTo("SphinxManager.sol:SphinxManager", encodedManagerConstructorArgs, address(manager));
         }
+
         deployCodeTo("SphinxActions.sol:SphinxActions", abi.encode(address(auth), address(manager), sphinxConfig), address(actions));
+        if (previewEnabled) {
+            string[] memory inputs = new string[](7);
+            inputs[0] = "cast";
+            inputs[1] = "rpc";
+            inputs[2] = "hardhat_setCode";
+            inputs[3] = "--rpc-url";
+            inputs[4] = rpcUrl;
+            inputs[5] = vm.toString(address(actions));
+            inputs[6] = vm.toString(address(actions).code);
+            Vm.FfiResult memory result = vm.tryFfi(inputs);
+            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
+        }
 
         actions.removeAllActions();
+        if (previewEnabled) {
+            string[] memory inputs = new string[](8);
+            inputs[0] = "cast";
+            inputs[1] = "send";
+            inputs[2] = vm.toString(address(actions));
+            inputs[3] = vm.toString(SphinxActions.removeAllActions.selector);
+            inputs[4] = "--rpc-url";
+            inputs[5] = rpcUrl;
+            inputs[6] = "--private-key";
+            inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
+            Vm.FfiResult memory result = vm.tryFfi(inputs);
+            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
+        }
+
         for (uint256 i = 0; i < contracts.length; i++) {
             referenceNamesByAddress[contracts[i]] = "";
         }
@@ -490,6 +516,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         vm.startPrank(address(manager));
         _;
         vm.stopPrank();
+        console.log('1', ct.uintArg());
 
         // For each contract deployed in this script, set its final runtime bytecode to its
         // actual bytecode instead of its client's bytecode. This ensures that the user will
@@ -509,10 +536,41 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             vm.store(address(manager), mappingValueSlotKey, bytes32(callCount[callHash]));
         }
 
+        actions.setChainInfo(
+            isLiveNetwork_, prevInfo, sphinxConfig
+        );
+        if (previewEnabled) {
+            string[] memory inputs = new string[](8);
+            SphinxAction[] memory allActions = actions.getAllActions();
+            for (uint i = 0; i < allActions.length; i++) {
+                inputs[0] = "cast";
+                inputs[1] = "send";
+                inputs[2] = vm.toString(address(actions));
+                inputs[3] = vm.toString(abi.encodePacked(SphinxActions.addSphinxAction.selector, abi.encode(allActions[i])));
+                inputs[4] = "--rpc-url";
+                inputs[5] = rpcUrl;
+                inputs[6] = "--private-key";
+                inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
+                Vm.FfiResult memory result = vm.tryFfi(inputs);
+                if (result.exit_code == 1) return;
+            }
+            bytes memory data = abi.encodePacked(SphinxActions.setChainInfo.selector, abi.encode(isLiveNetwork_, prevInfo, sphinxConfig));
+            delete inputs;
+            inputs = new string[](9);
+            inputs[0] = "cast";
+            inputs[1] = "send";
+            inputs[2] = vm.toString(address(actions));
+            inputs[3] = vm.toString(data);
+            inputs[4] = "--rpc-url";
+            inputs[5] = rpcUrl;
+            inputs[6] = "--private-key";
+            inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
+            Vm.FfiResult memory result = vm.tryFfi(inputs);
+            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
+
+        }
+
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            actions.setChainInfo(
-                isLiveNetwork(vm.rpcUrl(getNetworkInfo(_network).name)), prevInfo
-            );
 
             ISphinxRegistry registry = sphinxUtils.getSphinxRegistry();
             BundleInfo memory bundleInfo = getBundleInfo(actions.getChainInfo());
@@ -751,27 +809,11 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
+    bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
 
-    function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _authRoot) private pure returns (bytes memory) {
-        // bytes32 structHash =
-        //     keccak256(
-        //         abi.encode(
-        //             DOMAIN_TYPEHASH,
-        //             _authRoot
-        //         )
-        //     );
-
-        // bytes32 digest = keccak256(
-        //     abi.encodePacked(
-        //         "\x19\x01",
-        //         DOMAIN_SEPARATOR,
-        //         structHash
-        //     )
-        // );
-
-        bytes32 structHash = keccak256(abi.encode(DOMAIN_TYPE_HASH, _authRoot));
+    function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _authRoot) private view returns (bytes memory) {
+        bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
         bytes32 typedDataHash = ECDSA.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
-
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, typedDataHash);
         return abi.encodePacked(r, s, v);
     }
@@ -830,9 +872,19 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         require(block.chainid == getNetworkInfo(_network).chainId, string(abi.encodePacked("Sphinx: The 'block.chainid' does not match the chain ID of the network: ", getNetworkInfo(_network).name)));
     }
 
-    function liveNetworkValidation() private view {
+    function liveNetworkValidation(address _msgSender) private view {
             require(sphinxConfig.owners.length == 1, "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array.");
+            // TODO(parse): you should check that the key corresponding to PRIVATE_KEY matches
+            // CallerMode.msgSender. i don't think we currently do this.
+
             address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+            require(_msgSender == deployer, string(abi.encodePacked("Sphinx: You must call 'vm.startBroadcast' with the address corresponding to the 'PRIVATE_KEY' in your '.env' file.",
+                "Broadcast address: ",
+                vm.toString(_msgSender),
+                "\n",
+                "Address corresponding to private key: ",
+                vm.toString(deployer)
+            )));
             require(
                 deployer == sphinxConfig.owners[0],
                 string(

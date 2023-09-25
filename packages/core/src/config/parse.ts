@@ -52,110 +52,6 @@ export class ValidationError extends Error {
   }
 }
 
-let validationErrors = false
-
-const logValidationError = (
-  logLevel: 'warning' | 'error',
-  title: string,
-  lines: string[],
-  silent: boolean,
-  stream: NodeJS.WritableStream
-) => {
-  if (logLevel === 'error') {
-    validationErrors = true
-  }
-  sphinxLog(logLevel, title, lines, silent, stream)
-}
-
-export const isEmptySphinxConfig = (configFileName: string): boolean => {
-  delete require.cache[require.resolve(path.resolve(configFileName))]
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const config = require(path.resolve(configFileName))
-  return Object.keys(config).length === 0
-}
-
-/**
- * Throws an error if the given variable contains any invalid contract references. Specifically,
- * it'll throw an error if any of the following conditions occur:
- *
- * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
- * template string converts into a valid address when it's parsed. If there are any leading or
- * trailing spaces in an address, `ethers.isAddress` will return false.
- *
- * 2. The contract reference is not included in the array of valid contract references.
- *
- * @param variable Config variable defined by the user.
- * @param validReferenceNames Valid reference names for this Sphinx config file.
- */
-export const assertValidContractReferences = (
-  variable: UserConfigVariable,
-  validReferenceNames: string[],
-  cre: SphinxRuntimeEnvironment
-) => {
-  if (
-    typeof variable === 'string' &&
-    variable.includes('{{') &&
-    variable.includes('}}')
-  ) {
-    if (!variable.startsWith('{{')) {
-      logValidationError(
-        'error',
-        `Contract reference cannot contain leading spaces before '{{' : ${variable}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-    if (!variable.endsWith('}}')) {
-      logValidationError(
-        'error',
-        `Contract reference cannot contain trailing spaces: ${variable}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-
-    const contractReference = variable.substring(2, variable.length - 2).trim()
-
-    if (
-      !validReferenceNames.includes(contractReference) &&
-      contractReference !== 'SphinxManager'
-    ) {
-      logValidationError(
-        'error',
-        `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-  } else if (Array.isArray(variable)) {
-    for (const element of variable) {
-      assertValidContractReferences(element, validReferenceNames, cre)
-    }
-  } else if (typeof variable === 'object') {
-    for (const [varName, varValue] of Object.entries(variable)) {
-      assertValidContractReferences(varName, validReferenceNames, cre)
-      assertValidContractReferences(varValue, validReferenceNames, cre)
-    }
-  } else if (
-    typeof variable === 'boolean' ||
-    typeof variable === 'number' ||
-    typeof variable === 'string'
-  ) {
-    return
-  } else {
-    logValidationError(
-      'error',
-      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-}
-
 // TODO(upgrades): TODO(docs)
 // export const assertValidParsedSphinxFile = async (
 //   parsedConfig: ParsedConfig,
@@ -289,55 +185,6 @@ export const assertValidContractReferences = (
 //   }
 // }
 
-export const resolveContractReferences = (
-  userConfig: UserSphinxConfig,
-  managerAddress: string
-): {
-  resolvedUserConfig: UserSphinxConfig
-  contractAddresses: { [referenceName: string]: string }
-} => {
-  const contractAddresses: { [referenceName: string]: string } = {}
-
-  // Determine the addresses for all contracts.
-  for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
-  )) {
-    const { address, salt } = userContractConfig
-
-    // Set the address to the user-defined value if it exists, otherwise set it to the
-    // Create3 address given to contracts deployed within the Sphinx system.
-    contractAddresses[referenceName] =
-      address ?? getTargetAddress(managerAddress, referenceName, salt)
-  }
-
-  // Resolve all contract references.
-  const resolvedUserConfig: UserSphinxConfig = JSON.parse(
-    Handlebars.compile(JSON.stringify(userConfig))({
-      SphinxManager: managerAddress,
-      ...contractAddresses,
-    })
-  )
-
-  return { resolvedUserConfig, contractAddresses }
-}
-
-export const setDefaultContractFields = (
-  userConfig: UserSphinxConfig
-): UserSphinxConfig => {
-  for (const contractConfig of Object.values(userConfig.contracts)) {
-    if (contractConfig.unsafeAllow) {
-      contractConfig.unsafeAllow.flexibleConstructor =
-        contractConfig.unsafeAllow.flexibleConstructor ?? true
-    } else {
-      contractConfig.unsafeAllow = {
-        flexibleConstructor: true,
-      }
-    }
-  }
-
-  return userConfig
-}
-
 //   assertNoValidationErrors(failureAction)
 // }
 
@@ -369,37 +216,6 @@ export const setDefaultContractFields = (
 //     )
 //   }
 // }
-
-/**
- * Assert that the block gas limit is reasonably high on a network.
- */
-export const assertValidBlockGasLimit = (blockGasLimit: bigint): void => {
-  // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
-  //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
-  //  SphinxManager V1, which is at the contract size limit.
-  if (blockGasLimit < 15_000_000n) {
-    throw new Error(
-      `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
-        blockGasLimit.toString
-      }`
-    )
-  }
-}
-
-export const assertSupportedChainId = (
-  chainId: number,
-  cre: SphinxRuntimeEnvironment
-): void => {
-  if (!isSupportedChainId(chainId)) {
-    logValidationError(
-      'error',
-      `Unsupported chain id: ${chainId}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-}
 
 // TODO(upgrades)
 /**
@@ -483,32 +299,3 @@ export const assertSupportedChainId = (
 //     )
 //   }
 // }
-
-export const parseConfigOptions = (
-  options: UserConfigOptions,
-  isTestnet: boolean
-): ParsedConfigOptions => {
-  const { mainnets, testnets, orgId, ownerThreshold, managerVersion } = options
-
-  const chainIds = isTestnet
-    ? testnets.map((network) => SUPPORTED_TESTNETS[network])
-    : mainnets.map((network) => SUPPORTED_MAINNETS[network])
-
-  // Converts addresses to checksummed addresses and sorts them in ascending order.
-  const owners = options.owners.map((address) => ethers.getAddress(address))
-  sortHexStrings(owners)
-
-  const proposers = options.proposers.map((address) =>
-    ethers.getAddress(address)
-  )
-  sortHexStrings(proposers)
-
-  return {
-    chainIds,
-    orgId,
-    owners,
-    ownerThreshold,
-    managerVersion,
-    proposers,
-  }
-}

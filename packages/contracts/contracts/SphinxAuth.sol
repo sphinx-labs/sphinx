@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol"; // TODO: rm
-
 import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
@@ -239,6 +237,8 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
     }
+
+    // TODO: bump manager/auth version in repo
 
     function exportProxy(
         bytes32 _authRoot,
@@ -531,7 +531,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             approval.numSetStorageActions,
             approval.numTargets,
             approval.configUri,
-            true
+            approval.remoteExecution
         );
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.APPROVE_DEPLOYMENT);

@@ -17,7 +17,14 @@ import {
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
-import { Contract, Wallet } from 'ethers'
+import {
+  Contract,
+  Wallet,
+  keccak256,
+  parseEther,
+  toBeHex,
+  toUtf8Bytes,
+} from 'ethers'
 import {
   getDiff,
   getDiffString,
@@ -53,7 +60,7 @@ const rpcOption = 'rpc'
 const projectOption = 'project'
 const privateKeyOption = 'private-key'
 const networkOption = 'network'
-const skipPreviewOption = 'confirm'
+const skipPreviewOption = 'skip-preview'
 const broadcastOption = 'broadcast'
 
 // TODO(refactor): "SemverVersion" is redundant
@@ -508,6 +515,14 @@ yargs(hideBin(process.argv))
       const anvilRpcUrl = `http://127.0.0.1:${anvilPort}`
       const provider = new SphinxJsonRpcProvider(anvilRpcUrl)
 
+      // TODO(docs): private key: keccak256('sphinx.sender')
+      const senderPrivateKey = keccak256(toUtf8Bytes('sphinx.sender'))
+      const senderAddress = new Wallet(senderPrivateKey).address
+      await provider.send('anvil_setBalance', [
+        senderAddress,
+        toBeHex(parseEther('10000')),
+      ])
+
       const SphinxActions = new Contract(
         SPHINX_ACTIONS_ADDRESS,
         SphinxActionsABI,
@@ -516,28 +531,18 @@ yargs(hideBin(process.argv))
 
       // TODO(case): there's an error in the script. we should bubble it up.
       // TODO: this is the simulation. you should do this in every case.
+      process.env['SPHINX_INTERNAL_RPC_URL'] = anvilRpcUrl
+      process.env['SPHINX_INTERNAL_PREVIEW_ENABLED'] = 'true'
       const { status } = spawnSync(
         `forge`,
-        ['script', scriptPath, '--fork-url', anvilRpcUrl, '--broadcast'],
+        ['script', scriptPath, '--fork-url', anvilRpcUrl],
         { stdio: 'inherit' }
       )
-      // Exit the process if the script fails.
       if (status !== 0) {
-        exec(`kill $(lsof -t -i:${anvilPort})`)
         process.exit(1)
       }
-
-      // try {
-      //   await execAsync(`forge script ${scriptPath} --fork-url ${anvilRpcUrl}`)
-      // } catch (e) {
-      //   exec(`kill $(lsof -t -i:${anvilPort})`)
-      //   spinner.stop()
-      //   // The `stdout` contains the trace of the error.
-      //   console.log(e.stdout)
-      //   // The `stderr` contains the error message.
-      //   console.error(e.stderr)
-      //   process.exit(1)
-      // }
+      delete process.env['SPHINX_INTERNAL_RPC_URL']
+      delete process.env['SPHINX_INTERNAL_PREVIEW_ENABLED']
 
       // TODO(case): say the user is deploying on the anvil node with --skip-preview. i think we
       // should keep this function minimal. e.g. i don't think we should require them to wrap their
@@ -590,15 +595,19 @@ yargs(hideBin(process.argv))
       // let isEmptyDeployment: boolean = false
       try {
         spinner.start(`Deploying ${parsedConfig.newConfig.projectName}...`)
-        const { stdout } = await execAsync(`${forgeScriptArgs.join(' ')}`)
+        const { stdout, stderr } = await execAsync(
+          `${forgeScriptArgs.join(' ')}`
+        )
         spinner.stop()
+        // TODO(docs): we put the stderr first b/c it says "## Setting up (1) EVMs"
+        console.log(stderr)
         console.log(stdout)
       } catch (e) {
         spinner.stop()
         // The `stdout` contains the trace of the error.
         console.log(e.stdout)
         // The `stderr` contains the error message.
-        console.log(e.stdout)
+        console.log(e.stderr)
         process.exit(1)
       }
 
@@ -607,10 +616,7 @@ yargs(hideBin(process.argv))
       )
 
       if (broadcast && containsContractDeployment) {
-        //   spinner.start(`Writing deployment artifacts...`)
-        //   const provider = new SphinxJsonRpcProvider(rpcUrl)
-        //   const owner = new Wallet(privateKey, provider)
-        //   // Get the user config. Note that we use --swc because it speeds up the execution of the
+        //   spinner.start(`Writing dwNote that we use --swc because it speeds up the execution of the
         //   // script.
         //   const { stdout } = await execAsync(
         //     `npx ts-node --swc ${userConfigScriptPath} ${config}`

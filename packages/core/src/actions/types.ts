@@ -1,5 +1,4 @@
 import { SphinxDiff } from '../diff'
-import { SupportedChainId } from '../networks'
 
 /**
  * Possible action types.
@@ -186,6 +185,7 @@ export type DeploymentApproval = {
   numSetStorageActions: number
   numTargets: number
   configUri: string
+  remoteExecution: boolean
 }
 
 export type ContractInfo = {

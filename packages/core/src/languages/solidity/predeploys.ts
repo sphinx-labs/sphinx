@@ -48,7 +48,6 @@ import {
   RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
-import { assertValidBlockGasLimit } from '../../config/parse'
 import { getSphinxConstants } from '../../contract-info'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
@@ -166,7 +165,6 @@ export const initializeSphinx = async (
   if (!block) {
     throw new Error('Failed to get latest block.')
   }
-  assertValidBlockGasLimit(block.gasLimit)
 
   // Check that the previous storage layout of these contracts is compatible with the current
   // one.

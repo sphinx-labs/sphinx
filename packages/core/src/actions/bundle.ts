@@ -313,7 +313,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     case AuthLeafFunctions.APPROVE_DEPLOYMENT:
       return coder.encode(
         [
-          'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numInitialActions, uint256 numSetStorageActions, uint256 numTargets, string configUri)',
+          'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numInitialActions, uint256 numSetStorageActions, uint256 numTargets, string configUri, bool remoteExecution)',
         ],
         [leaf.approval]
       )
@@ -478,12 +478,16 @@ export const makeActionBundle = (
   return {
     root: root !== '0x' ? root : ethers.ZeroHash,
     actions: rawActions.map((action, idx) => {
+      // TODO: do the same for the target bundle
+      const siblings = tree
+        .getProof(getActionHash(action), idx)
+        .map((element) => {
+          return ethers.hexlify(element.data)
+        })
       return {
         action,
         gas: costs[idx],
-        siblings: tree.getProof(getActionHash(action), idx).map((element) => {
-          return element.data
-        }),
+        siblings,
       }
     }),
   }
@@ -791,7 +795,7 @@ export const getAuthLeafsForChain = async (
       .map((action) => fromRawSphinxAction(action.action))
       .filter(isSetStorageAction).length
 
-    const approvalLeaf: AuthLeaf = {
+    const approvalLeaf: ApproveDeployment = {
       chainId,
       to: managerAddress,
       index,
@@ -802,6 +806,7 @@ export const getAuthLeafsForChain = async (
         numSetStorageActions,
         numTargets: targetBundle.targets.length,
         configUri,
+        remoteExecution: false, // TODO(propose): this must be 'true' for proposals
       },
       functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT,
       leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT,
