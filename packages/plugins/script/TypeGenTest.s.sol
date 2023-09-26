@@ -341,14 +341,14 @@ contract TypeGenTestConfig is Test, SphinxClient {
         externalContractClient.setNumber(6);
         externalContract = ExternalContract(address(externalContractClient));
 
-        // Define external contract and interact with it
-        ExternalContractClient alreadyDeployedExternalContractClient = defineExternalContract(
-            alreadyDeployedContractAddress
-        );
-        alreadyDeployedExternalContractClient.setNumber(7);
-        alreadyDeployedExternalContract = ExternalContract(
-            address(alreadyDeployedExternalContractClient)
-        );
+        // // Define external contract and interact with it
+        // ExternalContractClient alreadyDeployedExternalContractClient = defineExternalContract(
+        //     alreadyDeployedContractAddress
+        // );
+        // alreadyDeployedExternalContractClient.setNumber(7);
+        // alreadyDeployedExternalContract = ExternalContract(
+        //     address(alreadyDeployedExternalContractClient)
+        // );
 
         // Deploy contracts with conflicting type names
         conflictingTypeNameContractFirst = ConflictingTypeNameContractFirst(

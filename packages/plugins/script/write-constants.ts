@@ -101,13 +101,6 @@ const writeConstants = async () => {
       type: 'bytes32',
       value: ethers.zeroPadValue(ethers.toBeHex(callNoncesSlotKey), 32),
     },
-    encodedManagerConstructorArgs: {
-      type: 'bytes',
-      value: getEncodedSphinxManagerConstructorArgs(
-        31337n,
-        CURRENT_SPHINX_MANAGER_VERSION
-      ),
-    },
     ozTransparentAdapterAddr: {
       type: 'address',
       value: OZ_TRANSPARENT_ADAPTER_ADDRESS,

@@ -7,12 +7,11 @@ import "forge-std/console.sol";
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
-import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
-import { SphinxAuth } from "@sphinx-labs/contracts/contracts/SphinxAuth.sol";
-import { DefaultCreate3 } from "@sphinx-labs/contracts/contracts/DefaultCreate3.sol";
-import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
+import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { SphinxManager } from "@sphinx-labs/contracts/contracts/SphinxManager.sol";
+import { ISphinxAuthLibrary } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+import { ISphinxAuthFactory } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.sol";
 import {
     DeploymentState,
@@ -43,7 +42,7 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
-import { SphinxConstants } from "./SphinxConstants.sol";
+import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
 // TODO: we may want to document the fact that broadcasting on anvil doesn't work exactly
 // broadcasting on live networks. in particular, on live networks, broadcasting only occurs
@@ -108,8 +107,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     string private rootFfiPath = string(abi.encodePacked(rootPath, "dist/foundry/"));
     string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
-    SphinxManager internal immutable manager;
-    SphinxAuth private immutable auth;
+    ISphinxManager internal immutable manager;
+    ISphinxAuthLibrary private immutable auth;
     PreviousInfo private prevInfo;
 
     // TODO: rm
@@ -144,9 +143,9 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 authProxyInitCodeHash,
                 authFactoryAddress
             );
-        auth = SphinxAuth(authAddress);
+        auth = ISphinxAuthLibrary(authAddress);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, sphinxConfig.projectName, hex""));
-        manager = SphinxManager(computeCreate2Address(
+        manager = ISphinxManager(computeCreate2Address(
                 sphinxManagerSalt,
                 managerProxyInitCodeHash,
                 registryAddress
@@ -189,7 +188,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         bytes memory _authData,
         string memory _projectName
     ) private {
-        SphinxAuthFactory authFactory = SphinxAuthFactory(authFactoryAddress);
+        ISphinxAuthFactory authFactory = ISphinxAuthFactory(authFactoryAddress);
         bytes32 authSalt = keccak256(abi.encode(_authData, _projectName));
         bool isRegistered = address(authFactory.auths(authSalt)) != address(0);
         if (!isRegistered) {
@@ -198,7 +197,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     }
 
     function transferProjectOwnership(
-        SphinxManager _manager,
+        ISphinxManager _manager,
         address _newOwner,
         address _currOwner
     ) private {
@@ -421,7 +420,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
         // an error b/c the sphinxmanager already exists.
         if (callerMode == VmSafe.CallerMode.None) {
-            sphinxDeployCodeTo("SphinxManager.sol:SphinxManager", encodedManagerConstructorArgs, address(manager));
+            sphinxDeployManagerTo(address(manager));
         }
 
         delete actions;
@@ -648,6 +647,21 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
         address proxy = computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
         return computeCreateAddress(proxy, 1);
+    }
+
+    // Deploys specifically the sphinx manager contract to a target address.
+    // We use a dedicated function for this b/c we need to do it using the raw bytes imported
+    // from SphinxConstants.sol to avoid importing the manager itself and its entire dependency tree
+    function sphinxDeployManagerTo(address where) internal {
+        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
+        bytes memory managerCreationCodeWithArgs = contracts[1].creationCode;
+        vm.etch(where, managerCreationCodeWithArgs);
+        (bool success, bytes memory runtimeBytecode) = where.call("");
+        require(
+            success,
+            "Sphinx: Failed to create runtime bytecode."
+        );
+        vm.etch(where, runtimeBytecode);
     }
 
     // TODO(docs): copied from stdcheats; faster than loading in that entire contract.
@@ -992,7 +1006,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 owners: owners,
                 proposers: proposers,
                 threshold: auth.threshold(),
-                version: Semver(address(manager)).version(),
+                version: ISemver(address(manager)).version(),
                 isManagerDeployed: true,
                 firstProposalOccurred: auth.firstProposalOccurred(),
                 isExecuting: manager.isExecuting()
