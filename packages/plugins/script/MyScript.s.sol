@@ -57,10 +57,10 @@ contract MyScript is Script, SphinxClient {
 
     function run() public {
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
-        // deploy(Network.anvil);
+        deploy(Network.anvil);
         // vm.stopBroadcast();
-        // MyContract1 ct = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
-        // console.log(ct.uintArg());
+        MyContract1 ct = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
+        console.log(ct.uintArg());
 
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         // deploy(Network.anvil, vm.rpcUrl('anvil'));

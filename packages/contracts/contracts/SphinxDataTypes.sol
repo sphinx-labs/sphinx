@@ -72,11 +72,13 @@ struct SphinxTarget {
  * @custom:value SET_STORAGE Set a storage slot value in a proxy contract.
  * @custom:value DEPLOY_CONTRACT Deploy a contract.
  * @custom:value CALL Execute a low-level call on an address.
+ * @custom:value DEFINE_CONTRACT TODO(docs)
  */
 enum SphinxActionType {
     SET_STORAGE,
     DEPLOY_CONTRACT,
-    CALL
+    CALL,
+    DEFINE_CONTRACT
 }
 
 /**
