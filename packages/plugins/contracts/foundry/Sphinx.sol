@@ -1237,25 +1237,25 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         string memory fullyQualifiedName,
         string memory clientPath
     ) internal returns (address) {
-        // bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
-        // requireAvailableReferenceName(_referenceName);
+        bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
+        requireAvailableReferenceName(_referenceName);
 
-        // address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
+        address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
 
-        // bool skipDeployment = create3Address.code.length > 0;
+        bool skipDeployment = create3Address.code.length > 0;
 
-        // bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
-        // actions.addSphinxAction(SphinxAction({
-        //     fullyQualifiedName: fullyQualifiedName,
-        //     actionType: SphinxActionType.DEPLOY_CONTRACT,
-        //     data: actionData,
-        //     skip: skipDeployment
-        // }));
+        bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
+        actions.addSphinxAction(SphinxAction({
+            fullyQualifiedName: fullyQualifiedName,
+            actionType: SphinxActionType.DEPLOY_CONTRACT,
+            data: actionData,
+            skip: skipDeployment
+        }));
 
-        // // TODO: it appears we still run this even if we're skipping the deployment. that doesn't seem correct,
-        // // although I'd need to step through it to be sure.
-        // deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
+        // TODO: it appears we still run this even if wew're skipping the deployment. that doesn't seem correct,
+        // although I'd need to step through it to be sure.
+        deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
 
-        // return create3Address;
+        return create3Address;
     }
 }

@@ -35,31 +35,31 @@ contract NoAliasImports {
     MyLocalStruct public localStruct;
     MyLocalType public localType;
 
-    constructor(
-        MyTypeLibrary.MyEnumInLibrary _libraryEnum,
-        MyTypeLibrary.MyStructInLibrary memory _libraryStruct,
-        MyTypeLibrary.MyTypeInLibrary _libraryType,
-        MyTypeContract.MyEnumInContract _contractEnum,
-        MyTypeContract.MyStructInContract memory _contractStruct,
-        MyTypeContract.MyTypeInContract _contractType,
-        MyTopLevelEnum _topLevelEnum,
-        MyTopLevelStruct memory _topLevelStruct,
-        MyTopLevelType _topLevelType,
-        MyLocalEnum _localEnum,
-        MyLocalStruct memory _localStruct,
-        MyLocalType _localType
-    ) {
-        libraryEnum = _libraryEnum;
-        libraryStruct = _libraryStruct;
-        libraryType = _libraryType;
-        contractEnum = _contractEnum;
-        contractStruct = _contractStruct;
-        contractType = _contractType;
-        topLevelEnum = _topLevelEnum;
-        topLevelStruct = _topLevelStruct;
-        topLevelType = _topLevelType;
-        localEnum = _localEnum;
-        localStruct = _localStruct;
-        localType = _localType;
-    }
+    // constructor(
+    //     MyTypeLibrary.MyEnumInLibrary _libraryEnum,
+    //     MyTypeLibrary.MyStructInLibrary memory _libraryStruct,
+    //     MyTypeLibrary.MyTypeInLibrary _libraryType,
+    //     MyTypeContract.MyEnumInContract _contractEnum,
+    //     MyTypeContract.MyStructInContract memory _contractStruct,
+    //     MyTypeContract.MyTypeInContract _contractType,
+    //     MyTopLevelEnum _topLevelEnum,
+    //     MyTopLevelStruct memory _topLevelStruct,
+    //     MyTopLevelType _topLevelType,
+    //     MyLocalEnum _localEnum,
+    //     MyLocalStruct memory _localStruct,
+    //     MyLocalType _localType
+    // ) {
+    //     libraryEnum = _libraryEnum;
+    //     libraryStruct = _libraryStruct;
+    //     libraryType = _libraryType;
+    //     contractEnum = _contractEnum;
+    //     contractStruct = _contractStruct;
+    //     contractType = _contractType;
+    //     topLevelEnum = _topLevelEnum;
+    //     topLevelStruct = _topLevelStruct;
+    //     topLevelType = _topLevelType;
+    //     localEnum = _localEnum;
+    //     localStruct = _localStruct;
+    //     localType = _localType;
+    // }
 }

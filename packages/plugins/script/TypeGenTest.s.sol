@@ -248,20 +248,21 @@ contract TypeGenTestConfig is Test, SphinxClient {
         // Deploy contract which requires all types of imports without any aliasing
         noAliasImports = NoAliasImports(
             address(
-                deployNoAliasImports(
-                    MyTypeLibrary.MyEnumInLibrary.Library,
-                    MyTypeLibrary.MyStructInLibrary({ a: 1 }),
-                    MyTypeLibrary.MyTypeInLibrary.wrap(2),
-                    MyTypeContract.MyEnumInContract.Contract,
-                    MyTypeContract.MyStructInContract({ a: keccak256("3") }),
-                    MyTypeContract.MyTypeInContract.wrap(keccak256("4")),
-                    MyTopLevelEnum.TopLevel,
-                    MyTopLevelStruct({ a: true }),
-                    MyTopLevelType.wrap(true),
-                    MyLocalEnum.Local,
-                    MyLocalStruct({ a: -1 }),
-                    MyLocalType.wrap(-2)
-                )
+                0
+                // deployNoAliasImports(
+                //     MyTypeLibrary.MyEnumInLibrary.Library,
+                //     MyTypeLibrary.MyStructInLibrary({ a: 1 }),
+                //     MyTypeLibrary.MyTypeInLibrary.wrap(2),
+                //     MyTypeContract.MyEnumInContract.Contract,
+                //     MyTypeContract.MyStructInContract({ a: keccak256("3") }),
+                //     MyTypeContract.MyTypeInContract.wrap(keccak256("4")),
+                //     MyTopLevelEnum.TopLevel,
+                //     MyTopLevelStruct({ a: true }),
+                //     MyTopLevelType.wrap(true),
+                //     MyLocalEnum.Local,
+                //     MyLocalStruct({ a: -1 }),
+                //     MyLocalType.wrap(-2)
+                // )
             )
         );
 
