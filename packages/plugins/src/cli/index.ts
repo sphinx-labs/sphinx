@@ -505,26 +505,24 @@ yargs(hideBin(process.argv))
       // `deploy(...)` function with `vm.startBroadcast()`.
 
       // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
-      // this task, in which case the SphinxActions ABI won't exist yet.
+      // this task, in which case the Sphinx ABI won't exist yet.
       const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-      const SphinxActionsABI =
+      const SphinxABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(resolve(
-          `${sphinxArtifactDir}/SphinxActions.sol/SphinxActions.json`
-        )).abi
+        require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
 
       // TODO(case): you should probably make sure that the user only calls `deploy` once
       // in their script. e.g. we may execute incorrect actions if the user does
       // something like `deploy(goerli); deploy(optimism-goerli)`.
 
-      // TODO(docs): we retrieve these actions from the SphinxActions contract because
+      // TODO(docs): we retrieve these actions from the Sphinx contract because
       // it has a consistent address, unlike the user's script, which may change if the
       // user has set a `FOUNDRY_SENDER` env var.
 
       const abiEncodedChainInfo: string = readFileSync(chainInfoPath, 'utf8')
       const chainInfo: ChainInfo = decodeChainInfo(
         abiEncodedChainInfo,
-        SphinxActionsABI
+        SphinxABI
       )
 
       const getConfigArtifacts = makeGetConfigArtifacts(
@@ -551,6 +549,9 @@ yargs(hideBin(process.argv))
       if (status !== 0) {
         process.exit(1)
       }
+
+      // TODO: currently, we don't check if the user has `vm.startBroadcast` in their script. if they don't,
+      // and we also don't have an existing 'sphinx-chain-info.txt' file, then i believe this will fail.
 
       const containsContractDeployment = parsedConfig.actionsTODO.some(
         (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT

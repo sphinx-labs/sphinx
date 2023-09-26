@@ -31,16 +31,11 @@ const abiEncodedChainInfo = args[0]
     process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
   const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-  const SphinxActionsABI =
+  const SphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${utilsArtifactFolder}/SphinxActions.sol/SphinxActions.json`
-    )).abi
+    require(resolve(`${utilsArtifactFolder}/Sphinx.sol/Sphinx.json`)).abi
 
-  const chainInfo: ChainInfo = decodeChainInfo(
-    abiEncodedChainInfo,
-    SphinxActionsABI
-  )
+  const chainInfo: ChainInfo = decodeChainInfo(abiEncodedChainInfo, SphinxABI)
 
   const getConfigArtifacts = makeGetConfigArtifacts(
     artifactFolder,

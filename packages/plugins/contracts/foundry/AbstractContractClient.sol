@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.4 <0.9.0;
 
+import "forge-std/console.sol"; // TODO: rm
+
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import { SphinxAction } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxActions } from "../SphinxActions.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 abstract contract AbstractContractClient {
-
-    SphinxActions private constant actions = SphinxActions(address(uint160(uint256(keccak256('sphinx.actions')) - 1)));
 
     address internal immutable sphinxManager;
     Sphinx internal immutable sphinx;
@@ -41,16 +40,16 @@ abstract contract AbstractContractClient {
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
 
         uint256 currentNonceInManager = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
-        uint256 currentNonceInDeployment = sphinx.callCount(callHash);
+        uint256 currentNonceInDeployment = sphinx.getCallCountInDeployment(callHash);
 
         // TODO(docs): we can't make the reference name a state variable in this contract because we
         // can't have any mutable variables since this is a proxy for the user's function, and we
-        // may overwrite the user's variable in the storage layout.
-        string memory referenceName = sphinx.referenceNamesByAddress(address(this));
+        // may overwrite the user's variable in the storage layout. perhaps we should put that
+        // above the contract definition for this contract.
+        string memory referenceName = sphinx.getReferenceNameForAddress(address(this));
 
-        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        if (!skip && sphinx.execute()) {
+        if (!skip && !sphinx.isBroadcast()) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
                 encodedCall
             );
@@ -62,14 +61,13 @@ abstract contract AbstractContractClient {
             }
         }
 
-        actions.addSphinxAction(SphinxAction({
-            fullyQualifiedName: "contracts/test/MyContracts.sol:MyContract1",
+        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
+        sphinx.addSphinxAction(SphinxAction({
+            fullyQualifiedName: "contracts/test/MyContracts.sol:MyContract1", // TODO: replace
             actionType: SphinxActionType.CALL,
             data: actionData,
             skip: skip
         }));
-
-        sphinx.incrementCallCount(callHash);
     }
 
     // TODO(docs): copied and pasted from OpenZeppelin. not using their Proxy.sol b/c it adds
