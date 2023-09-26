@@ -42,6 +42,7 @@
     "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^4.8.1",
     "@eth-optimism/contracts": "^0.5.40",
     "@ethersproject/bignumber": "^5.7.0",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
@@ -71,7 +72,6 @@
     "@eth-optimism/contracts-bedrock": "0.0.0-20230522161230",
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@nomicfoundation/hardhat-ethers": "^3.0.4",
-    "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@types/chai-as-promised": "^7.1.5",

@@ -7,36 +7,21 @@ import * as path from 'path'
 
 import { Integration } from '@sphinx-labs/core'
 
-import {
-  forgeConfig,
-  sampleDotEnvFile,
-  sampleSphinxFileJavaScript,
-  sampleSphinxFileTypeScript,
-} from './sample-config-files'
+import { forgeConfig, sampleDotEnvFile } from './sample-config-files'
 import {
   getSampleContractFile,
   getSampleFoundryTestFile,
+  getSampleFoundryConfigFile,
 } from './sample-contract'
-import {
-  sampleTestFileJavaScript,
-  sampleTestFileTypeScript,
-} from './sample-tests'
 
 export const sampleContractFileName = 'HelloSphinx.sol'
-export const sampleConfigFileNameTypeScript = 'HelloSphinx.config.ts'
-export const sampleConfigNameJavaScript = 'HelloSphinx.config.js'
-
-export const foundryTestFileName = 'HelloSphinx.t.sol'
-
-// Hardhat test file names
-export const hhTestFileNameTypeScript = 'HelloSphinx.spec.ts'
-export const hhTestFileNameJavaScript = 'HelloSphinx.test.js'
+export const sampleConfigFileName = 'HelloSphinx.s.sol'
+export const sampleTestFileName = 'HelloSphinx.t.sol'
 
 export const writeSampleProjectFiles = (
-  configDirPath: string,
   contractDirPath: string,
   testDirPath: string,
-  isTypeScriptProject: boolean,
+  scriptDirPath: string,
   quickstart: boolean,
   solcVersion: string,
   integration: Integration
@@ -46,8 +31,8 @@ export const writeSampleProjectFiles = (
   }
 
   // Create the Sphinx config folder if it doesn't exist
-  if (!fs.existsSync(configDirPath)) {
-    fs.mkdirSync(configDirPath)
+  if (!fs.existsSync(scriptDirPath)) {
+    fs.mkdirSync(scriptDirPath)
   }
 
   // Create a folder for smart contract source files if it doesn't exist
@@ -61,18 +46,17 @@ export const writeSampleProjectFiles = (
   }
 
   // Check if the sample Sphinx config file already exists.
-  const configFileName = isTypeScriptProject
-    ? sampleConfigFileNameTypeScript
-    : sampleConfigNameJavaScript
-
-  const configPath = path.join(configDirPath, configFileName)
+  const configPath = path.join(scriptDirPath, sampleConfigFileName)
   if (!fs.existsSync(configPath)) {
     // Create the sample Sphinx config file.
     fs.writeFileSync(
       configPath,
-      isTypeScriptProject
-        ? sampleSphinxFileTypeScript
-        : sampleSphinxFileJavaScript
+      getSampleFoundryConfigFile(
+        solcVersion,
+        scriptDirPath,
+        contractDirPath,
+        quickstart
+      )
     )
   }
 
@@ -88,20 +72,7 @@ export const writeSampleProjectFiles = (
   // Lastly, we'll create the sample test file.
 
   if (integration === 'hardhat') {
-    // Check if the sample test file exists.
-    const testFileName = isTypeScriptProject
-      ? hhTestFileNameTypeScript
-      : hhTestFileNameJavaScript
-    const testFilePath = path.join(testDirPath, testFileName)
-    if (!fs.existsSync(testFilePath)) {
-      // Create the sample test file.
-      fs.writeFileSync(
-        testFilePath,
-        isTypeScriptProject
-          ? sampleTestFileTypeScript
-          : sampleTestFileJavaScript
-      )
-    }
+    throw Error('hardhat not supported')
   } else if (integration === 'foundry') {
     if (quickstart) {
       fs.writeFileSync('foundry.toml', forgeConfig)
@@ -109,16 +80,15 @@ export const writeSampleProjectFiles = (
     }
 
     // Check if the sample test file exists.
-    const testFilePath = path.join(testDirPath, foundryTestFileName)
+    const testFilePath = path.join(testDirPath, sampleTestFileName)
     if (!fs.existsSync(testFilePath)) {
       // Create the sample test file.
       fs.writeFileSync(
         testFilePath,
         getSampleFoundryTestFile(
           solcVersion,
-          configPath,
-          contractDirPath,
           testDirPath,
+          scriptDirPath,
           quickstart
         )
       )
