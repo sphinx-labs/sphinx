@@ -15,7 +15,7 @@ import { BasicInputTypesClient } from "../SphinxClient/typegen/BasicInputTypes.S
 import { ImmutableInputTypes } from "../contracts/test/typegen/ImmutableInputTypes.sol";
 import { ArrayInputTypes } from "../contracts/test/typegen/ArrayInputTypes.sol";
 import { ArrayInputTypesClient } from "../SphinxClient/typegen/ArrayInputTypes.SphinxClient.sol";
-import { NoAliasImports } from "../contracts/test/typegen/imports/NoAlias.sol";
+import { NoAliasImportsOne, NoAliasImportsTwo } from "../contracts/test/typegen/imports/NoAlias.sol";
 import { AliasImports } from "../contracts/test/typegen/imports/Alias.sol";
 import { MyTypeLibrary } from "../contracts/test/typegen/imports/Types.sol";
 import { MyTypeContract } from "../contracts/test/typegen/imports/Types.sol";
@@ -90,7 +90,8 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ImmutableInputTypes immutableInputTypes;
     ArrayInputTypes arrayInputTypes;
     ArrayInputTypes arrayInputTypesTwo;
-    NoAliasImports noAliasImports;
+    NoAliasImportsOne noAliasImportsOne;
+    NoAliasImportsTwo noAliasImportsTwo;
     AliasImports aliasImports;
     LocalParentTypes localParentTypes;
     FunctionContract functionContract;
@@ -107,10 +108,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
     string projectName = "TypeGenTest";
     address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     address[] proposers;
-    Network[] mainnets;
-    Network[] testnets = [Network.anvil];
+    Network[] mainnets = [Network.ethereum];
+    Network[] testnets = [Network.goerli];
     uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 3 });
+    Version version = Version({ major: 0, minor: 2, patch: 4 });
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -245,24 +246,30 @@ contract TypeGenTestConfig is Test, SphinxClient {
         );
         arrayInputTypesTwo = ArrayInputTypes(address(arrayInputTypesTwoClient));
 
-        // Deploy contract which requires all types of imports without any aliasing
-        noAliasImports = NoAliasImports(
+        // Deploy contracts which requires all types of imports without any aliasing
+        noAliasImportsOne = NoAliasImportsOne(
             address(
-                0
-                // deployNoAliasImports(
-                //     MyTypeLibrary.MyEnumInLibrary.Library,
-                //     MyTypeLibrary.MyStructInLibrary({ a: 1 }),
-                //     MyTypeLibrary.MyTypeInLibrary.wrap(2),
-                //     MyTypeContract.MyEnumInContract.Contract,
-                //     MyTypeContract.MyStructInContract({ a: keccak256("3") }),
-                //     MyTypeContract.MyTypeInContract.wrap(keccak256("4")),
-                //     MyTopLevelEnum.TopLevel,
-                //     MyTopLevelStruct({ a: true }),
-                //     MyTopLevelType.wrap(true),
-                //     MyLocalEnum.Local,
-                //     MyLocalStruct({ a: -1 }),
-                //     MyLocalType.wrap(-2)
-                // )
+                deployNoAliasImportsOne(
+                    MyTypeLibrary.MyEnumInLibrary.Library,
+                    MyTypeLibrary.MyStructInLibrary({ a: 1 }),
+                    MyTypeLibrary.MyTypeInLibrary.wrap(2),
+                    MyTypeContract.MyEnumInContract.Contract,
+                    MyTypeContract.MyStructInContract({ a: keccak256("3") }),
+                    MyTypeContract.MyTypeInContract.wrap(keccak256("4"))
+                )
+            )
+        );
+
+        noAliasImportsTwo = NoAliasImportsTwo(
+            address(
+                deployNoAliasImportsTwo(
+                    MyTopLevelEnum.TopLevel,
+                    MyTopLevelStruct({ a: true }),
+                    MyTopLevelType.wrap(true),
+                    MyLocalEnum.Local,
+                    MyLocalStruct({ a: -1 }),
+                    MyLocalType.wrap(-2)
+                )
             )
         );
 

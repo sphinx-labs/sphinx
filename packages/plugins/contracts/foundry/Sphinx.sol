@@ -1235,7 +1235,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         bytes32 _userSalt,
         bytes memory _constructorArgs,
         string memory fullyQualifiedName,
-        string memory clientPath
+        string memory clientArtifactPath,
+        string memory artifactPath
     ) internal returns (address) {
         bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
         requireAvailableReferenceName(_referenceName);
@@ -1252,9 +1253,9 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             skip: skipDeployment
         }));
 
-        // TODO: it appears we still run this even if wew're skipping the deployment. that doesn't seem correct,
+        // TODO: it appears we still run this even if we're skipping the deployment. that doesn't seem correct,
         // although I'd need to step through it to be sure.
-        deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
+        deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientArtifactPath);
 
         return create3Address;
     }

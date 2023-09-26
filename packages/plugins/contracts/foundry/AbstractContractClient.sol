@@ -33,7 +33,6 @@ abstract contract AbstractContractClient {
 
     // Calls a function on the users contract from the client contract.
     function _callFunction(bytes4 selector, bytes memory functionArgs) internal {
-        // TODO(ryan):
         if (msg.sender != sphinxManager) {
             _delegate(impl);
         }
