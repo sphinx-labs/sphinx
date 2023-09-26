@@ -7,6 +7,7 @@ import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import { SphinxAction } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 
 abstract contract AbstractContractClient {
 
@@ -49,7 +50,8 @@ abstract contract AbstractContractClient {
         string memory referenceName = sphinx.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        if (!skip && !sphinx.isBroadcast()) {
+        bool isBroadcast = sphinx.initialCallerMode() == VmSafe.CallerMode.RecurrentBroadcast;
+        if (!skip && !isBroadcast) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
                 encodedCall
             );

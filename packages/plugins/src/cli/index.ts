@@ -10,10 +10,14 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
 import {
+  equal,
   execAsync,
+  fetchCanonicalConfig,
   hyperlink,
   isSupportedNetworkName,
   makeParsedConfig,
+  relayIPFSCommit,
+  relayProposal,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
@@ -41,6 +45,21 @@ import {
   ParsedConfig,
   SphinxActionType,
   ChainInfo,
+  ConfigArtifacts,
+  WEBSITE_URL,
+  ProposalRequest,
+  CanonicalConfig,
+  getAuthLeafSignerInfo,
+  RoleType,
+  ProposalRequestLeaf,
+  signAuthRootMetaTxn,
+  makeAuthBundle,
+  getProjectDeploymentForChain,
+  getAuthLeafsForChain,
+  getProjectBundleInfo,
+  ProjectDeployment,
+  AuthLeaf,
+  ParsedConfigVariable,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -64,7 +83,8 @@ const rpcOption = 'rpc'
 const projectOption = 'project'
 const privateKeyOption = 'private-key'
 const networkOption = 'network'
-const skipPreviewOption = 'skip-preview'
+const confirmOption = 'confirm'
+const dryRunOption = 'dry-run'
 
 // TODO(refactor): "SemverVersion" is redundant
 
@@ -94,19 +114,20 @@ const getAvailablePort = async () => {
   throw new Error('Could not find available port')
 }
 
+// TODO(refactor): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
+
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
     'propose',
-    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`,
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`, // TODO(docs): update description
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose --${configOption} <path> [--testnets|--mainnets] [--confirm] [--dry-run]`
+          `Usage: npx sphinx propose <script_path> [--testnets|--mainnets] [--${confirmOption}] [--dry-run]`
         )
-        .option(configOption, {
-          alias: 'c',
-          describe: 'Path to the Sphinx config file.',
+        .positional('scriptPath', {
+          describe: 'Path to the Forge script file.',
           type: 'string',
         })
         .option('testnets', {
@@ -117,20 +138,31 @@ yargs(hideBin(process.argv))
           describe: `Propose on the mainnets specified in the Sphinx config`,
           boolean: true,
         })
-        .option('confirm', {
+        .option(confirmOption, {
           describe:
-            'Automatically confirm the proposal. Only use this in a CI process.',
+            'Confirm the proposal without previewing it. Meant to be used in a CI process.',
           boolean: true,
         })
-        .option('dryRun', {
+        .option(dryRunOption, {
           describe: `Simulate the proposal without sending it to Sphinx's back-end.`,
           boolean: true,
         })
         .hide('version'),
     async (argv) => {
-      const { config, testnets, mainnets } = argv
-      const confirm = !!argv.confirm
+      const { testnets, mainnets } = argv
+      const confirm = !!argv[confirmOption]
       const dryRun = !!argv.dryRun
+
+      if (argv._.length < 2) {
+        console.error('Must specify a path to a Forge script.')
+        process.exit(1)
+      }
+      const scriptPath = argv._[1]
+      if (typeof scriptPath !== 'string') {
+        throw new Error(
+          'Expected scriptPath to be a string. Should not happen.'
+        )
+      }
 
       let isTestnet: boolean
       if (testnets && mainnets) {
@@ -147,48 +179,25 @@ yargs(hideBin(process.argv))
 
       if (dryRun && confirm) {
         console.error(
-          `Cannot specify both --dry-run and --confirm. Please choose one.`
+          `Cannot specify both --${dryRunOption} and --${confirmOption}. Please choose one.`
         )
         process.exit(1)
       }
 
-      if (!config) {
-        console.error(
-          `Must specify a path to a Sphinx config file via --${configOption}.`
+      const apiKey = process.env.SPHINX_API_KEY
+      if (!apiKey) {
+        throw new Error(
+          "You must specify a 'SPHINX_API_KEY' environment variable."
         )
-        process.exit(1)
+      }
+      const proposerPrivateKey = process.env.PROPOSER_PRIVATE_KEY
+      if (!proposerPrivateKey) {
+        throw new Error(
+          "You must specify a 'PROPOSER_PRIVATE_KEY' environment variable."
+        )
       }
 
-      // TODO(propose): validation:
-      // // TODO(docs): this check is specific to proposals because these arrays aren't used in the standard deploy task,
-      // // which occurs on one network at a time.
-      // if (mainnets.length === 0 && testnets.length === 0) {
-      //   logValidationError(
-      //     'error',
-      //     `There must be at least one network or testnet in your Sphinx config.`,
-      //     [],
-      //     cre.silent,
-      //     cre.stream
-      //   )
-      // }
-      // if (proposers.length === 0) {
-      //   logValidationError(
-      //     'error',
-      //     `There must be at least one proposer or manager.`,
-      //     [],
-      //     cre.silent,
-      //     cre.stream
-      //   )
-      // }
-      // if (orgId === '') {
-      //   logValidationError(
-      //     'error',
-      //     `The 'orgId' cannot be an empty string.`,
-      //     [],
-      //     cre.silent,
-      //     cre.stream
-      //   )
-      // }
+      // TODO(propose): validation
       // if (
       //   firstProposalOccurred &&
       //   !prevConfig.options.proposers.includes(signerAddress)
@@ -201,7 +210,18 @@ yargs(hideBin(process.argv))
       //   )
       // }
 
-      // First, we compile the contracts to make sure we're using the latest versions. This command
+      // TODO(propose): check that you can't change the owners and/or threshold of an existing project
+
+      //     if (
+      //       !parsedConfig.firstProposalOccurred &&
+      //       !newConfig.proposers.includes(signerAddress)
+      //     ) {
+      //       throw new Error(
+      //         `Signer must be a proposer in the config file. Signer's address: ${signerAddress}`
+      //       )
+      //     }
+
+      // We compile the contracts to make sure we're using the latest versions. This command
       // displays the compilation process to the user in real time.
       const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
       // Exit the process if compilation fails.
@@ -209,8 +229,9 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
+      // TODO(refactor): redo spinner
       const spinner = ora()
-      spinner.start(`Getting project info...`)
+      // spinner.start(`Getting project info...`)
 
       const {
         artifactFolder,
@@ -219,6 +240,99 @@ yargs(hideBin(process.argv))
         compilerConfigFolder,
         rpcEndpoints,
       } = await getFoundryConfigOptions()
+
+      const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+
+      // TODO(case): there's an error in the script. we should bubble it up.
+      // TODO: this is the simulation. you should do this in every case.
+      try {
+        // TODO(refactor): probably change this spinner message b/c we run it even if the user skips
+        // the preview. potentially the same w/ deploy task.
+        spinner.start(`Generating preview...`)
+        await execAsync(
+          `forge script ${scriptPath} --sig 'propose(bool,string)' ${isTestnet} ${chainInfoPath}`
+        )
+      } catch (e) {
+        spinner.stop()
+        // The `stdout` contains the trace of the error.
+        console.log(e.stdout)
+        // The `stderr` contains the error message.
+        console.log(e.stderr)
+        process.exit(1)
+      }
+
+      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
+      // this task, in which case the Sphinx ABI won't exist yet.
+      const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
+      const SphinxABI =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
+
+      const abiEncodedChainInfoArray: string = readFileSync(
+        chainInfoPath,
+        'utf8'
+      )
+      const chainInfoArray: Array<ChainInfo> = decodeChainInfoArray(
+        abiEncodedChainInfoArray,
+        SphinxABI
+      )
+
+      const getConfigArtifacts = makeGetConfigArtifacts(
+        artifactFolder,
+        buildInfoFolder,
+        cachePath
+      )
+
+      const TODOarray: Array<{
+        parsedConfig: ParsedConfig
+        configArtifacts: ConfigArtifacts
+      }> = []
+      for (const chainInfo of chainInfoArray) {
+        const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
+        const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
+
+        TODOarray.push({ parsedConfig, configArtifacts })
+      }
+
+      const shouldBeEqualTODO = TODOarray.map(({ parsedConfig }) => {
+        return {
+          newConfig: parsedConfig.newConfig,
+          authAddress: parsedConfig.authAddress,
+          managerAddress: parsedConfig.managerAddress,
+        }
+      })
+      // TODO: mv
+      const elementsEqual = (ary: Array<ParsedConfigVariable>): boolean => {
+        return ary.every((e) => equal(e, ary[0]))
+      }
+      if (!elementsEqual(shouldBeEqualTODO)) {
+        throw new Error(`TODO(docs). This is currently unsupported.`)
+      }
+      // Since we know that the following fields are the same for each `parsedConfig`, we get their
+      // values here.
+      const { newConfig, authAddress, managerAddress } =
+        TODOarray[0].parsedConfig
+
+      // TODO(docs)
+      const prevCanonicalConfig = await fetchCanonicalConfig(
+        newConfig.orgId,
+        isTestnet,
+        apiKey,
+        newConfig.projectName
+      )
+
+      // TODO(docs):
+      for (const { parsedConfig } of TODOarray) {
+        if (prevCanonicalConfig.)
+      }
+
+      if (!confirm) {
+        const diff = getDiff(TODOarray.map((e) => e.parsedConfig))
+        const diffString = getDiffString(diff)
+
+        spinner.stop()
+        await userConfirmation(diffString)
+      }
 
       const cre = createSphinxRuntime(
         'hardhat',
@@ -231,37 +345,218 @@ yargs(hideBin(process.argv))
         process.stderr
       )
 
-      // Get the user config by invoking a script with TS node. This is necessary to support
-      // TypeScript configs because the current context is invoked with Node, not TS Node.
-      const userConfigScriptPath = join(
-        pluginRootPath,
-        'dist',
-        'foundry',
-        'display-user-config.js'
-      )
-      let userConfig: UserConfigWithOptions
-      try {
-        // Using --swc speeds up the execution of the script.
-        const { stdout } = await execAsync(
-          `npx ts-node --swc ${userConfigScriptPath} ${config}`
+      // TODO: rm
+      // PREVIOUSLY PROPOSEABSTRACTTASK:
+
+      const wallet = new Wallet(proposerPrivateKey)
+      const signerAddress = await wallet.getAddress()
+
+      // TODO: use fetchCanonicalConfig within the proposal task. probably need to use an env variable. actually probably not. just disregard or don't retrieve actions.initialState().
+
+      // TODO: i think we need to merge the canonical configs like we do in the develop branch
+
+      const leafs: Array<AuthLeaf> = []
+      const projectDeployments: Array<ProjectDeployment> = []
+      const compilerConfigs: {
+        [ipfsHash: string]: string
+      } = {}
+      const gasEstimates: ProposalRequest['gasEstimates'] = []
+      for (const { parsedConfig, configArtifacts } of TODOarray) {
+        const leafsForChain = await getAuthLeafsForChain(
+          parsedConfig,
+          configArtifacts
         )
-        userConfig = JSON.parse(stdout)
-      } catch ({ stderr }) {
-        spinner.stop()
-        console.error(stderr)
-        process.exit(1)
+        leafs.push(...leafsForChain)
+
+        const { compilerConfig, configUri, bundles } =
+          await getProjectBundleInfo(parsedConfig, configArtifacts)
+
+        let estimatedGas = 0
+        estimatedGas += bundles.actionBundle.actions
+          .map((a) => a.gas)
+          .reduce((a, b) => a + b, 0)
+        estimatedGas += bundles.targetBundle.targets.length * 200_000
+        // Add a constant amount of gas to account for the cost of executing each auth leaf. For
+        // context, it costs ~350k gas to execute a Setup leaf that adds a single proposer and manager,
+        // using a single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
+        estimatedGas += leafsForChain.length * 450_000
+
+        gasEstimates.push({
+          estimatedGas: estimatedGas.toString(),
+          chainId: parsedConfig.chainId,
+        })
+
+        const projectDeployment = getProjectDeploymentForChain(
+          leafs,
+          parsedConfig,
+          configUri,
+          bundles
+        )
+        if (projectDeployment) {
+          projectDeployments.push(projectDeployment)
+        }
+
+        compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
       }
 
-      // TODO(propose)
-      // await proposeAbstractTask(
-      //   userConfig,
-      //   isTestnet,
-      //   cre,
-      //   dryRun,
-      //   makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-      //   await makeGetProviderFromChainId(rpcEndpoints),
-      //   spinner
-      // )
+      const diff = getDiff(TODOarray.map((e) => e.parsedConfig))
+
+      if (leafs.length === 0) {
+        spinner.succeed(
+          `Skipping proposal because your Sphinx config file has not changed.`
+        )
+        return { proposalRequest: undefined, ipfsData: undefined }
+      }
+
+      if (!cre.confirm && !dryRun) {
+        spinner.stop()
+        // Confirm deployment with the user before proceeding.
+        await userConfirmation(getDiffString(diff))
+        spinner.start(`Proposal in progress...`)
+      }
+
+      const chainIdToNumLeafs: { [chainId: number]: number } = {}
+      for (const leaf of leafs) {
+        const { chainId } = leaf
+        if (!chainIdToNumLeafs[chainId]) {
+          chainIdToNumLeafs[chainId] = 0
+        }
+        chainIdToNumLeafs[chainId] += 1
+      }
+
+      const chainStatus = Object.entries(chainIdToNumLeafs).map(
+        ([chainId, numLeaves]) => ({
+          chainId: parseInt(chainId, 10),
+          numLeaves,
+        })
+      )
+
+      const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+
+      // Sign the meta-txn for the auth root, or leave it undefined if we're not relaying the proposal
+      // to the back-end.
+      const metaTxnSignature =
+        !dryRun && !signMetaTxn
+          ? undefined
+          : await signAuthRootMetaTxn(wallet, root)
+
+      const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
+      for (const { parsedConfig } of TODOarray) {
+        const bundledLeafsForChain = bundledLeafs.filter(
+          (l) => l.leaf.chainId === parsedConfig.chainId
+        )
+        for (const { leaf, prettyLeaf, proof } of bundledLeafsForChain) {
+          const { chainId, index, to, leafType } = prettyLeaf
+          const { data } = leaf
+
+          let owners: string[]
+          let proposers: string[]
+          let threshold: number
+          if (parsedConfig.firstProposalOccurred) {
+            ;({ owners, proposers, threshold } = parsedConfig.prevConfig)
+          } else {
+            ;({ owners, proposers, threshold } = newConfig)
+          }
+
+          const { leafThreshold, roleType } = getAuthLeafSignerInfo(
+            threshold,
+            leafType
+          )
+
+          let signerAddresses: string[]
+          if (roleType === RoleType.OWNER) {
+            signerAddresses = owners
+          } else if (roleType === RoleType.PROPOSER) {
+            signerAddresses = proposers
+          } else {
+            throw new Error(
+              `Invalid role type: ${roleType}. Should never happen.`
+            )
+          }
+
+          const signers = signerAddresses.map((addr) => {
+            const signature =
+              addr === signerAddress ? metaTxnSignature : undefined
+            return { address: addr, signature }
+          })
+
+          proposalRequestLeafs.push({
+            chainId,
+            index,
+            to,
+            leafType,
+            data,
+            siblings: proof,
+            threshold: leafThreshold,
+            signers,
+          })
+        }
+      }
+
+      const newChainStates: CanonicalConfig['chainStates'] = {}
+      for (const { parsedConfig } of TODOarray) {
+        newChainStates[parsedConfig.chainId] = {
+          firstProposalOccurred: true,
+          projectCreated: true,
+        }
+      }
+
+      const managerVersionString = `v${newConfig.managerVersion.major}.${newConfig.managerVersion.minor}.${newConfig.managerVersion.patch}`
+      const newCanonicalConfig: CanonicalConfig = {
+        manager: managerAddress,
+        options: {
+          orgId: newConfig.orgId,
+          owners: newConfig.owners,
+          ownerThreshold: newConfig.threshold,
+          proposers: newConfig.proposers,
+          managerVersion: managerVersionString,
+        },
+        projectName: newConfig.projectName,
+        chainStates: newChainStates,
+      }
+
+      // TODO: mv
+      // We calculate the auth address based on the current owners since this is used to store the
+      // address of the auth contract on any new chains in the DB.
+      // Note that calculating this here and passing in a single value works as long as the address
+      // is the same on all networks, but we may need to change this in the future to support chains
+      // which calculate addresses in different ways. I.e ZKSync Era
+
+      const proposalRequest: ProposalRequest = {
+        apiKey,
+        orgId: newConfig.orgId,
+        isTestnet,
+        chainIds: TODOarray.map(({ parsedConfig }) => parsedConfig.chainId),
+        deploymentName: newCanonicalConfig.projectName,
+        owners: newCanonicalConfig.options.owners,
+        threshold: newCanonicalConfig.options.ownerThreshold,
+        authAddress,
+        managerAddress,
+        managerVersion: managerVersionString,
+        canonicalConfig: JSON.stringify(newCanonicalConfig),
+        projectDeployments,
+        gasEstimates,
+        diff,
+        tree: {
+          root,
+          chainStatus,
+          leaves: proposalRequestLeafs,
+        },
+      }
+
+      const compilerConfigArray = Object.values(compilerConfigs)
+      if (!dryRun) {
+        const websiteLink = blue(hyperlink('website', WEBSITE_URL))
+        await relayProposal(proposalRequest)
+        await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
+        spinner.succeed(
+          `Proposal succeeded! Go to ${websiteLink} to approve the deployment.`
+        )
+      } else {
+        spinner.succeed(`Proposal dry run succeeded!`)
+      }
+
+      return { proposalRequest, ipfsData: compilerConfigArray }
     }
   )
   .command(
@@ -397,7 +692,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${skipPreviewOption}]`
+          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${confirmOption}]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
@@ -407,16 +702,17 @@ yargs(hideBin(process.argv))
           describe: 'Name of the network to deploy on.',
           type: 'string',
         })
-        .option(skipPreviewOption, {
-          describe: 'Skip displaying the deployment preview.',
+        .option(confirmOption, {
+          describe: 'Confirm the deployment without displaying a preview.',
           boolean: true,
         })
         .hide('version'),
     async (argv) => {
-      // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc.
+      // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc. you also
+      // need to do this for proposals.
 
       const { network } = argv
-      const skipPreview = argv[skipPreviewOption] ?? false
+      const confirm = !!argv[confirmOption]
 
       if (argv._.length < 2) {
         console.error('Must specify a path to a Forge script.')
@@ -435,19 +731,6 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      // const network: string = argv.network ?? 'anvil'
-      // if (!isSupportedNetworkName(network)) {
-      //   console.error(
-      //     `The network ${network} is not supported. See ${blue(
-      //       hyperlink(
-      //         'here',
-      //         'https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#options'
-      //       )
-      //     )} for a list of supported networks.`
-      //   )
-      //   process.exit(1)
-      // }
-
       // First, we compile the contracts to make sure we're using the latest versions. This command
       // displays the compilation process to the user in real time.
       const { status: compilationStatus } = spawnSync(`forge`, ['build'], {
@@ -458,13 +741,8 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      const {
-        artifactFolder,
-        buildInfoFolder,
-        compilerConfigFolder,
-        cachePath,
-        rpcEndpoints,
-      } = await getFoundryConfigOptions()
+      const { artifactFolder, buildInfoFolder, cachePath, rpcEndpoints } =
+        await getFoundryConfigOptions()
 
       const forkUrl = rpcEndpoints[network]
       if (!forkUrl) {
@@ -478,9 +756,10 @@ yargs(hideBin(process.argv))
       const spinner = ora()
       // spinner.start('Getting project info...')
 
-      // TODO: make sure we're running the simulation on live networks even if the user skips the diff
-
       const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+
+      // TODO(docs): we run this even if the user is skipping the preview b/c we need the ParsedConfig
+      // for the deployment artifacts.
 
       // TODO(case): there's an error in the script. we should bubble it up.
       // TODO: this is the simulation. you should do this in every case.
@@ -515,10 +794,6 @@ yargs(hideBin(process.argv))
       // in their script. e.g. we may execute incorrect actions if the user does
       // something like `deploy(goerli); deploy(optimism-goerli)`.
 
-      // TODO(docs): we retrieve these actions from the Sphinx contract because
-      // it has a consistent address, unlike the user's script, which may change if the
-      // user has set a `FOUNDRY_SENDER` env var.
-
       const abiEncodedChainInfo: string = readFileSync(chainInfoPath, 'utf8')
       const chainInfo: ChainInfo = decodeChainInfo(
         abiEncodedChainInfo,
@@ -533,7 +808,7 @@ yargs(hideBin(process.argv))
       const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
       const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
 
-      if (!skipPreview) {
+      if (!confirm) {
         const diff = getDiff([parsedConfig])
         const diffString = getDiffString(diff)
 
@@ -553,26 +828,29 @@ yargs(hideBin(process.argv))
       // TODO: currently, we don't check if the user has `vm.startBroadcast` in their script. if they don't,
       // and we also don't have an existing 'sphinx-chain-info.txt' file, then i believe this will fail.
 
-      const containsContractDeployment = parsedConfig.actionsTODO.some(
-        (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
-      )
+      // const containsContractDeployment = parsedConfig.actionsTODO.some(
+      //   (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
+      // )
 
-      if (containsContractDeployment) {
-        //   spinner.start(`Writing dwNote that we use --swc because it speeds up the execution of the
-        //   // script.
-        //   const { stdout } = await execAsync(
-        //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
-        //   )
-        //   const userConfig: UserConfig = JSON.parse(stdout)
-        //   await writeDeploymentArtifactsUsingEvents(
-        //     provider,
-        //     userConfig.projectName,
-        //     owner.address,
-        //     cachePath,
-        //     deploymentFolder,
-        //     spinner
-        //   )
-      }
+      // TODO: display addresses to the user
+
+      // TODO: write deployment artifacts
+      // if (containsContractDeployment) {
+      //   spinner.start(`Writing dwNote that we use --swc because it speeds up the execution of the
+      //   // script.
+      //   const { stdout } = await execAsync(
+      //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
+      //   )
+      //   const userConfig: UserConfig = JSON.parse(stdout)
+      //   await writeDeploymentArtifactsUsingEvents(
+      //     provider,
+      //     userConfig.projectName,
+      //     owner.address,
+      //     cachePath,
+      //     deploymentFolder,
+      //     spinner
+      //   )
+      // }
     }
   )
   // Display the help menu when `npx sphinx` is called without any arguments.

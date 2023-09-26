@@ -93,7 +93,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // TODO(docs): we use a state variable here instead of vm.readCallers b/c we prank the
     // SphinxManager during the deployment process, which means vm.readCallers will always
     // return "RecurrentPrank".
-    bool public isBroadcast;
+    VmSafe.CallerMode public initialCallerMode;
 
     string private rpcUrl;
     bool private isLiveNetwork_;
@@ -163,6 +163,45 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             )
         );
         require(success, string(sphinxUtils.removeSelector(retdata)));
+    }
+
+    // TODO:
+    //     when you do the next contract upgrade:
+    // -add an equivalent of manager.isExecuting() and/or activeBundleId in the SphinxAuth contract, then remove the `fetchCanonicalConfig` logic.
+    // -in sphinxAuth.approveDeployment, you hard-code 'remoteExecution' to 'true', which means that you must currently set the remote executor to the deployer when broadcasting on anvil. it'd be cleaner if remoteExecution was a field in the approval leaf.
+
+
+    // TODO(propose): make sure that we simulate the live network deployment at some point
+    function propose(bool _testnets, string memory _chainInfoPath) external {
+        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
+
+        // TODO(docs): these checks are specific to proposals because these arrays aren't used in the
+        // standard deploy task, which occurs on one network at a time.
+        require(networks.length > 0, string(abi.encodePacked("Sphinx: There must be at least one network in your ", _testnets ? "'testnets'" : "'mainnets", " array.")));
+        require(sphinxConfig.proposers.length > 0, "Sphinx: There must be at least one proposer in your 'proposers' array.");
+        require(bytes(sphinxConfig.orgId).length > 0, "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI.");
+
+        ChainInfo[] memory chainInfoArray = new ChainInfo[](networks.length);
+        for (uint256 i = 0; i < networks.length; i++) {
+            Network network = networks[i];
+            NetworkInfo memory networkInfo = getNetworkInfo(network);
+
+            // TODO(docs): `vm.createSelectFork` sets the` `block.chainid` to the target chain (e.g.
+            // 1 for ethereum mainnet).
+            vm.createSelectFork(vm.rpcUrl(networkInfo.name));
+
+            // TODO(docs): we enable broadcasting to simulate the live network deployment flow
+            // within the `deploy` function. this doesn't actually broadcast the transactions onto
+            // the live network unless the forge script is invoked with the `--broadcast` flag on
+            // the CLI, which doesn't occur within Sphinx's proposal task.
+            vm.startBroadcast(); // TODO: broadcast from the `PROPOSER_PRIVATE_KEY`? otherwise, mv the `vm.envOr('PROPOSER_PK)` check above into TS.
+            deploy(network);
+            vm.stopBroadcast();
+
+            chainInfoArray[i] = chainInfo;
+        }
+
+        vm.writeFile(_chainInfoPath, vm.toString(abi.encode(chainInfoArray)));
     }
 
     // TODO: case: say a user wants to broadcast their deployment onto anvil, but there are
@@ -357,11 +396,12 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return count;
     }
 
-    // TODO: the user needs to inherit this
+
+    // TODO: the user needs to inherit this modifier.
     modifier sphinxDeploy(Network _network) {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        // TODO: ik there's a use case for 2 of the other 3 caller modes: no broadcast and
-        // startBroadcast. is there a use case for startPrank? update this contract accordingly.
+        initialCallerMode = callerMode;
+
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
             "Cannot call Sphinx using vm.broadcast. Please use vm.startBroadcast instead."
@@ -371,10 +411,12 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             "Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
         );
 
-        // TODO: account for startPrank, i.e. recurrentPrank.
-        isBroadcast = callerMode == VmSafe.CallerMode.RecurrentBroadcast;
-
-        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+        // TODO(docs): we allow startPrank so that users don't need to toggle it when calling
+        // `deploy`. however, we turn it off at the beginning of this modifier because we
+        // prank the SphinxManager, which deploys the contracts. we toggle it back on at the
+        // end of this modifier.
+        if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
+        else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
             vm.stopBroadcast();
 
             // Get the creation bytecode of the SphinxUtils contract. We only load this when the
@@ -395,7 +437,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             // TODO(refactor): maybe these should be in an "initial state" struct or something?
             // would probably be clearer. Also, this is only needed for the broadcast flow, but it's
             // defined globally, which isn't ideal. same with sphinxUtils, rpcUrl, isLiveNetwork_,
-            // chainInfo, actions, and probably other variables too.
+            // chainInfo (not actions), and probably other variables too.
             prevInfo = getPrevConfig();
 
             rpcUrl = vm.rpcUrl(getNetworkInfo(_network).name);
@@ -416,7 +458,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
             initializeSphinx(rpcUrl);
 
-        } else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
+        }
 
         // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
         // an error b/c the sphinxmanager already exists.
@@ -460,14 +502,17 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             }
         }
 
-        setChainInfo(
-            isLiveNetwork_, prevInfo, sphinxConfig
-        );
-        if (vm.envOr("SPHINX_INTERNAL__PREVIEW_ENABLED", false)) {
-            vm.writeFile(vm.envString("SPHINX_INTERNAL__CHAIN_INFO_PATH"), vm.toString(abi.encode(chainInfo)));
-        }
-
-        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+        if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
+        else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+            setChainInfo(
+                isLiveNetwork_, prevInfo, sphinxConfig
+            );
+            // TODO(refactor): it may be cleaner to invoke this in its own function exactly like we
+            // do with proposals. if you need to keep this here, then consider renaming this env var
+            // to something that mentions it's specifically for the deploy function.
+            if (vm.envOr("SPHINX_INTERNAL__PREVIEW_ENABLED", false)) {
+                vm.writeFile(vm.envString("SPHINX_INTERNAL__CHAIN_INFO_PATH"), vm.toString(abi.encode(chainInfo)));
+            }
 
             ISphinxRegistry registry = sphinxUtils.getSphinxRegistry();
             BundleInfo memory bundleInfo = getBundleInfo(chainInfo);
@@ -571,8 +616,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 }
             }
         }
-        // TODO: rm?
-        else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
     }
 
     // TODO: is it weird that the user defines a deploy(network) function, but never a
@@ -588,9 +631,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     //   * via vm.createSelectFork
     // - broadcasting onto anvil node
     // - broadcasting onto live network
-
-    function deploy(Network _network, string memory _rpcUrl) internal {
-    }
 
     // TODO: you should turn optimizer off in foundry.toml to ensure you don't get "stack too deep" error
 
@@ -1143,7 +1183,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // TODO(docs): The implementation's address is the CREATE3 address minus one.
         address impl = address(uint160(address(create3Address)) - 1);
 
-        if (!isBroadcast) {
+        if (initialCallerMode != VmSafe.CallerMode.RecurrentBroadcast) {
             // TODO(docs): Deploy the user's contract to the CREATE3 address. this must be called by the
             // SphinxManager to ensure that the `msg.sender` in the body of the user's constructor is
             // the SphinxManager. This mirrors what happens on a live network.
