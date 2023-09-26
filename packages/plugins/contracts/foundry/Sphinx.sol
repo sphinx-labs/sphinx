@@ -811,7 +811,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
     bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
 
-    function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _authRoot) private view returns (bytes memory) {
+    function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _authRoot) private pure returns (bytes memory) {
         bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
         bytes32 typedDataHash = ECDSA.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, typedDataHash);
