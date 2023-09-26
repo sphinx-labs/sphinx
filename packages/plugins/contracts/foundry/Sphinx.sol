@@ -1235,75 +1235,27 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         bytes32 _userSalt,
         bytes memory _constructorArgs,
         string memory fullyQualifiedName,
-        string memory clientPath
-    ) internal returns (address) {
-        // bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
-        // requireAvailableReferenceName(_referenceName);
-
-        // address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
-
-        // bool skipDeployment = create3Address.code.length > 0;
-
-        // bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
-        // actions.addSphinxAction(SphinxAction({
-        //     fullyQualifiedName: fullyQualifiedName,
-        //     actionType: SphinxActionType.DEPLOY_CONTRACT,
-        //     data: actionData,
-        //     skip: skipDeployment
-        // }));
-
-        // // TODO: it appears we still run this even if we're skipping the deployment. that doesn't seem correct,
-        // // although I'd need to step through it to be sure.
-        // deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientPath);
-
-        // return create3Address;
-    }
-
-    // TODO: Docs
-    // Defines that a contract is deployed already at a particular address. Sets the code
-    // at the address to the contracts client code, and moves the current code to the implementation
-    // address used by the client.
-    function _defineContract(
-        address _contractAddress,
-        string memory _clientPath
-    ) internal returns (address) {
-        // The implementation's address is the current address minus one.
-        address impl = address(uint160(address(_contractAddress)) - 1);
-        vm.etch(impl, _contractAddress.code);
-        sphinxDeployCodeTo(
-            _clientPath,
-            abi.encode(sphinxManager, address(this), impl),
-            _contractAddress
-        );
-        return _contractAddress;
-    }
-
-    // TODO: Docs
-    // Deploys a contract at the expected sphinx address. Used by the Sphinx client to deploy
-    // contracts during the simulation phase.
-    function _deployContract(
-        string memory _referenceName,
-        bytes32 _userSalt,
-        bytes memory _constructorArgs,
-        string memory fullyQualifiedName,
-        string memory clientPath
+        string memory clientArtifactPath,
+        string memory artifactPath
     ) internal returns (address) {
         bytes32 sphinxCreate3Salt = keccak256(abi.encode(_referenceName, _userSalt));
-        requireAvailableCreate3Salt(sphinxCreate3Salt);
+        requireAvailableReferenceName(_referenceName);
 
-        address create3Address = computeCreate3Address(sphinxManager, sphinxCreate3Salt);
+        address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
 
-        if (create3Address.code.length == 0) {
-            addDeploymentAction(
-                fullyQualifiedName,
-                _constructorArgs,
-                sphinxCreate3Salt,
-                _userSalt,
-                _referenceName
-            );
-        }
+        bool skipDeployment = create3Address.code.length > 0;
 
-        deployClientAndImpl(create3Address, sphinxCreate3Salt, clientPath);
+        bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
+        actions.addSphinxAction(SphinxAction({
+            fullyQualifiedName: fullyQualifiedName,
+            actionType: SphinxActionType.DEPLOY_CONTRACT,
+            data: actionData,
+            skip: skipDeployment
+        }));
+
+        // TODO: it appears we still run this even if we're skipping the deployment. that doesn't seem correct,
+        // although I'd need to step through it to be sure.
+        deployClientAndImpl(create3Address, _constructorArgs, artifactPath, _referenceName, clientArtifactPath);
 
         return create3Address;
     }

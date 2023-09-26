@@ -98,8 +98,9 @@ const formatParameters = (
 export const generateDeploymentFunctionFromASTDefinition = (
   definition: FunctionDefinition,
   uniqueClientName: string,
+  artifactPath: string,
+  clientArtifactPath: string,
   fullyQualifiedName: string,
-  fullyQualifiedClientName: string,
   sourceUnit: SourceUnit,
   sourceFilePath: string,
   remappings: Record<string, string>,
@@ -136,7 +137,7 @@ export const generateDeploymentFunctionFromASTDefinition = (
     return ${uniqueClientName}(
       _defineContract(
         addr,
-        "${fullyQualifiedClientName}"
+        "${clientArtifactPath}"
       )
     );
   }
@@ -164,7 +165,8 @@ export const generateDeploymentFunctionFromASTDefinition = (
         _sphinxOptions.salt,
         constructorArgs,
         "${fullyQualifiedName}",
-        "${fullyQualifiedClientName}"
+        "${clientArtifactPath}",
+        "${artifactPath}"
       )
     );
   }`
