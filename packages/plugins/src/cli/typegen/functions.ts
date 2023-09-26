@@ -134,9 +134,20 @@ export const generateDeploymentFunctionFromASTDefinition = (
   function define${contractName}(
     address addr
   ) internal returns (${uniqueClientName}) {
+    return define${contractName}(
+      addr, DefineOptions({ referenceName: "${contractName}" })
+    );
+  }
+
+  function define${contractName}(
+    address addr,
+    DefineOptions memory _defineOptions
+  ) internal returns (${uniqueClientName}) {
     return ${uniqueClientName}(
       _defineContract(
+        _defineOptions.referenceName,
         addr,
+        "${fullyQualifiedName}",
         "${clientArtifactPath}"
       )
     );
@@ -154,15 +165,15 @@ export const generateDeploymentFunctionFromASTDefinition = (
 
   function deploy${contractName}(${
     inputs !== '' ? `\n    ${inputs},\n    ` : ''
-  }DeployOptions memory _sphinxOptions
+  }DeployOptions memory _deployOptions
   ) internal returns (${uniqueClientName}) {
     bytes memory constructorArgs = abi.encode(
       ${inputNames}
     );
     return ${uniqueClientName}(
       _deployContract(
-        _sphinxOptions.referenceName,
-        _sphinxOptions.salt,
+        _deployOptions.referenceName,
+        _deployOptions.salt,
         constructorArgs,
         "${fullyQualifiedName}",
         "${clientArtifactPath}",
