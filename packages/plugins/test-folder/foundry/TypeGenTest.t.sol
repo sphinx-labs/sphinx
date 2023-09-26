@@ -240,41 +240,41 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(uint(c), uint(ConflictingEnum.First));
     }
 
-    // Covers importing a user defined type from a remote file
-    function testDidImportUserDefinedType() public {
-        assertEq(uint(noAliasImports.topLevelEnum()), uint(MyTopLevelEnum.TopLevel));
-        bool a3 = noAliasImports.topLevelStruct();
-        assertEq(a3, true);
-        assertEq(MyTopLevelType.unwrap(noAliasImports.topLevelType()), true);
-    }
-
     // Covers importing a user defined type with a parent object
     function testDidImportUserDefinedTypeWithParent() public {
         // Library
-        assertEq(uint(noAliasImports.libraryEnum()), uint(MyTypeLibrary.MyEnumInLibrary.Library));
-        uint8 a1 = noAliasImports.libraryStruct();
+        assertEq(uint(noAliasImportsOne.libraryEnum()), uint(MyTypeLibrary.MyEnumInLibrary.Library));
+        uint8 a1 = noAliasImportsOne.libraryStruct();
         assertEq(a1, 1);
-        assertEq(MyTypeLibrary.MyTypeInLibrary.unwrap(noAliasImports.libraryType()), 2);
+        assertEq(MyTypeLibrary.MyTypeInLibrary.unwrap(noAliasImportsOne.libraryType()), 2);
 
         // Contract
         assertEq(
-            uint(noAliasImports.contractEnum()),
+            uint(noAliasImportsOne.contractEnum()),
             uint(MyTypeContract.MyEnumInContract.Contract)
         );
-        bytes32 a2 = noAliasImports.contractStruct();
+        bytes32 a2 = noAliasImportsOne.contractStruct();
         assertEq(a2, keccak256("3"));
         assertEq(
-            MyTypeContract.MyTypeInContract.unwrap(noAliasImports.contractType()),
+            MyTypeContract.MyTypeInContract.unwrap(noAliasImportsOne.contractType()),
             keccak256("4")
         );
     }
 
+    // Covers importing a user defined type from a remote file
+    function testDidImportUserDefinedType() public {
+        assertEq(uint(noAliasImportsTwo.topLevelEnum()), uint(MyTopLevelEnum.TopLevel));
+        bool a3 = noAliasImportsTwo.topLevelStruct();
+        assertEq(a3, true);
+        assertEq(MyTopLevelType.unwrap(noAliasImportsTwo.topLevelType()), true);
+    }
+
     // Covers importing a user defined type that is defined locally
     function testDidImportUserDefinedTypeDefinedLocally() public {
-        assertEq(uint(noAliasImports.localEnum()), uint(MyLocalEnum.Local));
-        int8 a4 = noAliasImports.localStruct();
+        assertEq(uint(noAliasImportsTwo.localEnum()), uint(MyLocalEnum.Local));
+        int8 a4 = noAliasImportsTwo.localStruct();
         assertEq(a4, -1);
-        assertEq(MyLocalType.unwrap(noAliasImports.localType()), -2);
+        assertEq(MyLocalType.unwrap(noAliasImportsTwo.localType()), -2);
     }
 
     // Covers importing a user defined type from a remote type with an alias
@@ -289,22 +289,22 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function testDidImportUserDefinedTypeWithAliasedParent() public {
         // Library
         assertEq(
-            uint(noAliasImports.libraryEnum()),
+            uint(aliasImports.libraryEnum()),
             uint(MyTypeLibraryAlias.MyEnumInLibrary.Library)
         );
-        uint8 a1 = noAliasImports.libraryStruct();
+        uint8 a1 = aliasImports.libraryStruct();
         assertEq(a1, 1);
-        assertEq(MyTypeLibraryAlias.MyTypeInLibrary.unwrap(noAliasImports.libraryType()), 2);
+        assertEq(MyTypeLibraryAlias.MyTypeInLibrary.unwrap(aliasImports.libraryType()), 2);
 
         // Contract
         assertEq(
-            uint(noAliasImports.contractEnum()),
+            uint(aliasImports.contractEnum()),
             uint(MyTypeContractAlias.MyEnumInContract.Contract)
         );
-        bytes32 a2 = noAliasImports.contractStruct();
+        bytes32 a2 = aliasImports.contractStruct();
         assertEq(a2, keccak256("3"));
         assertEq(
-            MyTypeContractAlias.MyTypeInContract.unwrap(noAliasImports.contractType()),
+            MyTypeContractAlias.MyTypeInContract.unwrap(aliasImports.contractType()),
             keccak256("4")
         );
     }

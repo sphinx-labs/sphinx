@@ -18,7 +18,7 @@ enum MyLocalEnum {
     Local
 }
 
-contract NoAliasImports {
+contract NoAliasImportsOne {
     MyTypeLibrary.MyEnumInLibrary public libraryEnum;
     MyTypeLibrary.MyStructInLibrary public libraryStruct;
     MyTypeLibrary.MyTypeInLibrary public libraryType;
@@ -27,6 +27,24 @@ contract NoAliasImports {
     MyTypeContract.MyStructInContract public contractStruct;
     MyTypeContract.MyTypeInContract public contractType;
 
+    constructor(
+        MyTypeLibrary.MyEnumInLibrary _libraryEnum,
+        MyTypeLibrary.MyStructInLibrary memory _libraryStruct,
+        MyTypeLibrary.MyTypeInLibrary _libraryType,
+        MyTypeContract.MyEnumInContract _contractEnum,
+        MyTypeContract.MyStructInContract memory _contractStruct,
+        MyTypeContract.MyTypeInContract _contractType
+    ) {
+        libraryEnum = _libraryEnum;
+        libraryStruct = _libraryStruct;
+        libraryType = _libraryType;
+        contractEnum = _contractEnum;
+        contractStruct = _contractStruct;
+        contractType = _contractType;
+    }
+}
+
+contract NoAliasImportsTwo {
     MyTopLevelEnum public topLevelEnum;
     MyTopLevelStruct public topLevelStruct;
     MyTopLevelType public topLevelType;
@@ -36,12 +54,6 @@ contract NoAliasImports {
     MyLocalType public localType;
 
     constructor(
-        MyTypeLibrary.MyEnumInLibrary _libraryEnum,
-        MyTypeLibrary.MyStructInLibrary memory _libraryStruct,
-        MyTypeLibrary.MyTypeInLibrary _libraryType,
-        MyTypeContract.MyEnumInContract _contractEnum,
-        MyTypeContract.MyStructInContract memory _contractStruct,
-        MyTypeContract.MyTypeInContract _contractType,
         MyTopLevelEnum _topLevelEnum,
         MyTopLevelStruct memory _topLevelStruct,
         MyTopLevelType _topLevelType,
@@ -49,12 +61,6 @@ contract NoAliasImports {
         MyLocalStruct memory _localStruct,
         MyLocalType _localType
     ) {
-        libraryEnum = _libraryEnum;
-        libraryStruct = _libraryStruct;
-        libraryType = _libraryType;
-        contractEnum = _contractEnum;
-        contractStruct = _contractStruct;
-        contractType = _contractType;
         topLevelEnum = _topLevelEnum;
         topLevelStruct = _topLevelStruct;
         topLevelType = _topLevelType;
@@ -63,3 +69,4 @@ contract NoAliasImports {
         localType = _localType;
     }
 }
+
