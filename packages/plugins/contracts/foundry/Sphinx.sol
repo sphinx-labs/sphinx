@@ -7,13 +7,9 @@ import "forge-std/console.sol";
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
-import {
-    ECDSA
-} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
 import { SphinxAuth } from "@sphinx-labs/contracts/contracts/SphinxAuth.sol";
 import { SphinxActions } from "../SphinxActions.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { DefaultCreate3 } from "@sphinx-labs/contracts/contracts/DefaultCreate3.sol";
 import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
@@ -121,8 +117,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     ISphinxUtils internal sphinxUtils;
 
-    bool private previewEnabled = vm.envOr("SPHINX_INTERNAL_PREVIEW_ENABLED", false);
-
     bool public execute;
 
     // Get owner address
@@ -168,14 +162,14 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         authData = abi.encode(sortedOwners, sphinxConfig.threshold);
         bytes32 authSalt = keccak256(abi.encode(authData, sphinxConfig.projectName));
 
-        address authAddress = Create2.computeAddress(
+        address authAddress = computeCreate2Address(
                 authSalt,
                 authProxyInitCodeHash,
                 authFactoryAddress
             );
         auth = SphinxAuth(authAddress);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, sphinxConfig.projectName, hex""));
-        manager = SphinxManager(Create2.computeAddress(
+        manager = SphinxManager(computeCreate2Address(
                 sphinxManagerSalt,
                 managerProxyInitCodeHash,
                 registryAddress
@@ -438,7 +432,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
         validateTODO(_network);
 
-        string memory rpcUrl = vm.envOr('SPHINX_INTERNAL_RPC_URL', vm.rpcUrl(getNetworkInfo(_network).name));
+        string memory rpcUrl = vm.rpcUrl(getNetworkInfo(_network).name);
         bool isLiveNetwork_ = isLiveNetwork(rpcUrl);
 
         // TODO(docs): this is from the old plugin: Next, we deploy and initialize the Sphinx
@@ -465,33 +459,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
 
         sphinxDeployCodeTo("SphinxActions.sol:SphinxActions", abi.encode(address(auth), address(manager), sphinxConfig), address(actions));
-        if (previewEnabled) {
-            string[] memory inputs = new string[](7);
-            inputs[0] = "cast";
-            inputs[1] = "rpc";
-            inputs[2] = "hardhat_setCode";
-            inputs[3] = "--rpc-url";
-            inputs[4] = rpcUrl;
-            inputs[5] = vm.toString(address(actions));
-            inputs[6] = vm.toString(address(actions).code);
-            Vm.FfiResult memory result = vm.tryFfi(inputs);
-            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
-        }
-
         actions.removeAllActions();
-        if (previewEnabled) {
-            string[] memory inputs = new string[](8);
-            inputs[0] = "cast";
-            inputs[1] = "send";
-            inputs[2] = vm.toString(address(actions));
-            inputs[3] = vm.toString(SphinxActions.removeAllActions.selector);
-            inputs[4] = "--rpc-url";
-            inputs[5] = rpcUrl;
-            inputs[6] = "--private-key";
-            inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
-            Vm.FfiResult memory result = vm.tryFfi(inputs);
-            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
-        }
 
         for (uint256 i = 0; i < contracts.length; i++) {
             referenceNamesByAddress[contracts[i]] = "";
@@ -531,35 +499,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         actions.setChainInfo(
             isLiveNetwork_, prevInfo, sphinxConfig
         );
-        if (previewEnabled) {
-            string[] memory inputs = new string[](8);
-            SphinxAction[] memory allActions = actions.getAllActions();
-            for (uint i = 0; i < allActions.length; i++) {
-                inputs[0] = "cast";
-                inputs[1] = "send";
-                inputs[2] = vm.toString(address(actions));
-                inputs[3] = vm.toString(abi.encodePacked(SphinxActions.addSphinxAction.selector, abi.encode(allActions[i])));
-                inputs[4] = "--rpc-url";
-                inputs[5] = rpcUrl;
-                inputs[6] = "--private-key";
-                inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
-                Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) return;
-            }
-            bytes memory data = abi.encodePacked(SphinxActions.setChainInfo.selector, abi.encode(isLiveNetwork_, prevInfo, sphinxConfig));
-            delete inputs;
-            inputs = new string[](9);
-            inputs[0] = "cast";
-            inputs[1] = "send";
-            inputs[2] = vm.toString(address(actions));
-            inputs[3] = vm.toString(data);
-            inputs[4] = "--rpc-url";
-            inputs[5] = rpcUrl;
-            inputs[6] = "--private-key";
-            inputs[7] = vm.toString(keccak256('sphinx.sender')); // TODO(docs)
-            Vm.FfiResult memory result = vm.tryFfi(inputs);
-            require(result.exit_code == 0, "Sphinx: FFI call failed. Should never happen.");
-
+        if (vm.envOr("SPHINX_INTERNAL__PREVIEW_ENABLED", false)) {
+            vm.writeFile(vm.envString("SPHINX_INTERNAL__CHAIN_INFO_PATH"), vm.toString(abi.encode(actions.getChainInfo())));
         }
 
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
@@ -813,7 +754,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _authRoot) private pure returns (bytes memory) {
         bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
-        bytes32 typedDataHash = ECDSA.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
+        bytes32 typedDataHash = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, typedDataHash);
         return abi.encodePacked(r, s, v);
     }

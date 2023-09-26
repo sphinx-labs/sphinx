@@ -2,6 +2,7 @@
 
 import { join, resolve } from 'path'
 import { exec, spawnSync } from 'child_process'
+import { readFileSync } from 'fs'
 
 import { blue } from 'chalk'
 import * as dotenv from 'dotenv'
@@ -53,6 +54,7 @@ import { getFoundryConfigOptions } from '../foundry/options'
 import { createSphinxRuntime } from '../cre'
 // import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
+import { decodeChainInfo } from '../foundry/structs'
 
 // Load environment variables from .env
 dotenv.config()
@@ -63,7 +65,6 @@ const projectOption = 'project'
 const privateKeyOption = 'private-key'
 const networkOption = 'network'
 const skipPreviewOption = 'skip-preview'
-const broadcastOption = 'broadcast'
 
 // TODO(refactor): "SemverVersion" is redundant
 
@@ -396,7 +397,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${broadcastOption} --${skipPreviewOption}]`
+          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${skipPreviewOption}]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
@@ -410,16 +411,11 @@ yargs(hideBin(process.argv))
           describe: 'Skip displaying the deployment preview.',
           boolean: true,
         })
-        .option(broadcastOption, {
-          describe: 'Broadcast the deployment to the network.',
-          boolean: true,
-        })
         .hide('version'),
     async (argv) => {
       // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc.
 
       const { network } = argv
-      const broadcast = argv[broadcastOption] ?? false
       const skipPreview = argv[skipPreviewOption] ?? false
 
       if (argv._.length < 2) {
@@ -431,6 +427,12 @@ yargs(hideBin(process.argv))
         throw new Error(
           'Expected scriptPath to be a string. Should not happen.'
         )
+      }
+      if (!network) {
+        console.error(
+          `You must specify a network via '--network <network_name>'.`
+        )
+        process.exit(1)
       }
 
       // const network: string = argv.network ?? 'anvil'
@@ -446,10 +448,13 @@ yargs(hideBin(process.argv))
       //   process.exit(1)
       // }
 
-      if (broadcast === true && !network) {
-        console.error(
-          `You must specify '--network <network_name>' when broadcasting.`
-        )
+      // First, we compile the contracts to make sure we're using the latest versions. This command
+      // displays the compilation process to the user in real time.
+      const { status: compilationStatus } = spawnSync(`forge`, ['build'], {
+        stdio: 'inherit',
+      })
+      // Exit the process if compilation fails.
+      if (compilationStatus !== 0) {
         process.exit(1)
       }
 
@@ -461,15 +466,12 @@ yargs(hideBin(process.argv))
         rpcEndpoints,
       } = await getFoundryConfigOptions()
 
-      let forkUrl: string | undefined
-      if (network) {
-        forkUrl = rpcEndpoints[network]
-        if (!forkUrl) {
-          console.error(
-            `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
-          )
-          process.exit(1)
-        }
+      const forkUrl = rpcEndpoints[network]
+      if (!forkUrl) {
+        console.error(
+          `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+        )
+        process.exit(1)
       }
 
       // TODO(refactor): update spinner
@@ -478,75 +480,29 @@ yargs(hideBin(process.argv))
 
       // TODO: make sure we're running the simulation on live networks even if the user skips the diff
 
-      // // TODO: rm? i think we already do this in solidity
-      // await ensureSphinxInitialized(provider, owner)
-
-      // const cre = createSphinxRuntime(
-      //   'foundry',
-      //   false,
-      //   false,
-      //   skipPreview,
-      //   compilerConfigFolder,
-      //   undefined,
-      //   silent,
-      //   process.stderr
-      // )
-
-      // TODO(docs): FOUNDRY_SENDER takes priority over DAPP_SENDER env var and --sender.
-      // This ensures that the user's script is deployed at a consistent address.
-
-      // TODO(refactor): you should probably run the simulation against the live network
-      // logic just to be safe and ensure that it operates correctly.
-
-      const anvilPort = await getAvailablePort()
-
-      const anvilArgs: Array<string> = [
-        'anvil',
-        '--port',
-        anvilPort.toString(),
-        '--silent',
-      ]
-      if (forkUrl) {
-        anvilArgs.push('--fork-url', forkUrl)
-      }
-
-      await execAsync(`${anvilArgs.join(` `)} &`)
-
-      const anvilRpcUrl = `http://127.0.0.1:${anvilPort}`
-      const provider = new SphinxJsonRpcProvider(anvilRpcUrl)
-
-      // TODO(docs): private key: keccak256('sphinx.sender')
-      const senderPrivateKey = keccak256(toUtf8Bytes('sphinx.sender'))
-      const senderAddress = new Wallet(senderPrivateKey).address
-      await provider.send('anvil_setBalance', [
-        senderAddress,
-        toBeHex(parseEther('10000')),
-      ])
+      const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
       // TODO(case): there's an error in the script. we should bubble it up.
       // TODO: this is the simulation. you should do this in every case.
-      process.env['SPHINX_INTERNAL_RPC_URL'] = anvilRpcUrl
-      process.env['SPHINX_INTERNAL_PREVIEW_ENABLED'] = 'true'
-      const { status } = spawnSync(
-        `forge`,
-        ['script', scriptPath, '--fork-url', anvilRpcUrl],
-        { stdio: 'inherit' }
-      )
-      if (status !== 0) {
+      process.env['SPHINX_INTERNAL__PREVIEW_ENABLED'] = 'true'
+      process.env['SPHINX_INTERNAL__CHAIN_INFO_PATH'] = chainInfoPath
+      try {
+        spinner.start(`Generating preview...`)
+        await execAsync(`forge script ${scriptPath} --rpc-url ${forkUrl}`)
+      } catch (e) {
+        spinner.stop()
+        // The `stdout` contains the trace of the error.
+        console.log(e.stdout)
+        // The `stderr` contains the error message.
+        console.log(e.stderr)
         process.exit(1)
       }
-      delete process.env['SPHINX_INTERNAL_RPC_URL']
-      delete process.env['SPHINX_INTERNAL_PREVIEW_ENABLED']
+      delete process.env['SPHINX_INTERNAL__PREVIEW_ENABLED']
+      delete process.env['SPHINX_INTERNAL__CHAIN_INFO_PATH']
 
       // TODO(case): say the user is deploying on the anvil node with --skip-preview. i think we
       // should keep this function minimal. e.g. i don't think we should require them to wrap their
       // `deploy(...)` function with `vm.startBroadcast()`.
-
-      if ((await provider.getCode(SPHINX_ACTIONS_ADDRESS)) === '0x') {
-        throw new Error(
-          `TODO(docs): the user didn't include 'vm.startBroadcast' in their script.`
-        )
-      }
 
       // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
       // this task, in which case the SphinxActions ABI won't exist yet.
@@ -557,12 +513,6 @@ yargs(hideBin(process.argv))
           `${sphinxArtifactDir}/SphinxActions.sol/SphinxActions.json`
         )).abi
 
-      const SphinxActions = new Contract(
-        SPHINX_ACTIONS_ADDRESS,
-        SphinxActionsABI,
-        provider
-      )
-
       // TODO(case): you should probably make sure that the user only calls `deploy` once
       // in their script. e.g. we may execute incorrect actions if the user does
       // something like `deploy(goerli); deploy(optimism-goerli)`.
@@ -571,10 +521,11 @@ yargs(hideBin(process.argv))
       // it has a consistent address, unlike the user's script, which may change if the
       // user has set a `FOUNDRY_SENDER` env var.
 
-      // TODO: this doesn't include the decoded actions. the rest of the object is the same as the
-      // TS parsed config i think.
-      const chainInfo: ChainInfo = await SphinxActions.getChainInfo()
-      await execAsync(`kill $(lsof -t -i:${anvilPort})`)
+      const abiEncodedChainInfo: string = readFileSync(chainInfoPath, 'utf8')
+      const chainInfo: ChainInfo = decodeChainInfo(
+        abiEncodedChainInfo,
+        SphinxActionsABI
+      )
 
       const getConfigArtifacts = makeGetConfigArtifacts(
         artifactFolder,
@@ -592,31 +543,12 @@ yargs(hideBin(process.argv))
         await userConfirmation(diffString)
       }
 
-      const forgeScriptArgs: Array<string> = ['forge', 'script', scriptPath]
-      if (forkUrl) {
-        forgeScriptArgs.push('--rpc-url', forkUrl)
-      }
-      if (broadcast) {
-        forgeScriptArgs.push('--broadcast')
-      }
-
-      // Run the deployment script.
-      // let isEmptyDeployment: boolean = false
-      try {
-        spinner.start(`Deploying ${parsedConfig.newConfig.projectName}...`)
-        const { stdout, stderr } = await execAsync(
-          `${forgeScriptArgs.join(' ')}`
-        )
-        spinner.stop()
-        // TODO(docs): we put the stderr first b/c it says "## Setting up (1) EVMs"
-        console.log(stderr)
-        console.log(stdout)
-      } catch (e) {
-        spinner.stop()
-        // The `stdout` contains the trace of the error.
-        console.log(e.stdout)
-        // The `stderr` contains the error message.
-        console.log(e.stderr)
+      const { status } = spawnSync(
+        `forge`,
+        ['script', scriptPath, '--fork-url', forkUrl, '--broadcast'],
+        { stdio: 'inherit' }
+      )
+      if (status !== 0) {
         process.exit(1)
       }
 
@@ -624,7 +556,7 @@ yargs(hideBin(process.argv))
         (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
       )
 
-      if (broadcast && containsContractDeployment) {
+      if (containsContractDeployment) {
         //   spinner.start(`Writing dwNote that we use --swc because it speeds up the execution of the
         //   // script.
         //   const { stdout } = await execAsync(
