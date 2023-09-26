@@ -31,7 +31,7 @@ abstract contract AbstractContractClient {
     }
 
     // Calls a function on the users contract from the client contract.
-    function _callFunction(bytes4 selector, bytes memory functionArgs) internal {
+    function _callFunction(bytes4 selector, bytes memory functionArgs, string memory fullyQualifiedName) internal {
         if (msg.sender != sphinxManager) {
             _delegate(impl);
         }
@@ -63,7 +63,7 @@ abstract contract AbstractContractClient {
 
         bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
         sphinx.addSphinxAction(SphinxAction({
-            fullyQualifiedName: "contracts/test/MyContracts.sol:MyContract1", // TODO: replace
+            fullyQualifiedName: fullyQualifiedName,
             actionType: SphinxActionType.CALL,
             data: actionData,
             skip: skip
