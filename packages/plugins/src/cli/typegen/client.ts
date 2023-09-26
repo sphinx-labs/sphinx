@@ -90,6 +90,8 @@ const generateClientContractFromArtifact = async (
         ).length === 0
     )
 
+  const fullyQualifiedContractName = `${filePath}:${contractName}`
+
   const importsAndDefinitions = functionDefinitions.map(
     (definition: FunctionDefinition) =>
       generateFunctionFromASTDefinition(
@@ -98,7 +100,8 @@ const generateClientContractFromArtifact = async (
         filePath,
         fileDepth,
         remappings,
-        src
+        src,
+        fullyQualifiedContractName
       )
   )
 
@@ -135,8 +138,6 @@ const generateClientContractFromArtifact = async (
     '.sol',
     '.SphinxClient.sol'
   )}:${uniqueClientName}`
-
-  const fullyQualifiedContractName = `${filePath}:${contractName}`
 
   const {
     imports: deployFunctionImports,
