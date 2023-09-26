@@ -180,7 +180,8 @@ export const generateFunctionFromASTDefinition = (
   sourceFilePath: string,
   fileDepth: number,
   remappings: Record<string, string>,
-  src: string
+  src: string,
+  fullyQualifiedName: string
 ) => {
   // Construct the function header
   const isPure = definition.stateMutability === 'pure'
@@ -242,7 +243,7 @@ export const generateFunctionFromASTDefinition = (
   ${functionHeader} {
     bytes4 selector = 0x${definition.functionSelector};
     bytes memory functionArgs = abi.encode(${inputNames});
-    _callFunction(selector, functionArgs);
+    _callFunction(selector, functionArgs, "${fullyQualifiedName}");
   }
 `
 
