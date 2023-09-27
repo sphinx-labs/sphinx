@@ -166,7 +166,11 @@ contract SphinxUtils is
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
         if (result.exit_code == 1) {
-            revert(string(result.stderr));
+            bytes memory revertMessage = abi.encodePacked(
+                "Sphinx: ",
+                result.stderr
+            );
+            revert(string(revertMessage));
         }
         return result.stdout;
     }
@@ -327,7 +331,7 @@ contract SphinxUtils is
 
         // No possible size works, this is a problem and should never happen
         if (min == 0) {
-            revert("Unable to find a batch size that does not exceed the block gas limit");
+            revert("Sphinx: Unable to find a batch size that does not exceed the block gas limit");
         }
 
         return min;

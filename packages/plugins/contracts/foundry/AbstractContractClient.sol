@@ -7,54 +7,63 @@ import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISph
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
+/**
+ * @title AbstractContractClient
+ *
+ * @notice Abstract contract that all client contracts should inherit from.
+ *         This contract is responsible for delegating calls to the user's contract.
+ *         It also handles the logic for adding Sphinx actions to the Sphinx contract.
+ *
+ * @dev Since the Sphinx Clients are used in a proxy pattern, this contract and any contract
+ *      that inherits from it *cannot* have any mutable state variables because they will interfere
+ *      with the proxy pattern. This means that any state variables needed by the client must either
+ *      be immutable variables, or the need to be stored in the Sphinx library contract.
+ */
 abstract contract AbstractContractClient {
-    address internal immutable sphinxManager;
-    Sphinx internal immutable sphinx;
-    address internal immutable impl;
+
+    address internal immutable sphinxInternalManager;
+    Sphinx internal immutable sphinxInternalSphinxLib;
+    address internal immutable sphinxInternalImpl;
 
     constructor(address _sphinxManager, address _sphinx, address _impl) {
-        sphinxManager = _sphinxManager;
-        sphinx = Sphinx(_sphinx);
-        impl = _impl;
+        sphinxInternalManager = _sphinxManager;
+        sphinxInternalSphinxLib = Sphinx(_sphinx);
+        sphinxInternalImpl = _impl;
     }
 
     fallback() external virtual;
 
+    /**
+     * @notice Modifier that delegates to the user's contract if the caller is not the manager.
+     *         This can happen if the user interacts with the client outside of the standard Sphinx deploy function.
+     *         We use this modifier on all functions on the generated client contracts.
+     */
     modifier delegateIfNotManager() {
-        if (msg.sender != sphinxManager) {
-            _delegate(impl);
+        if (msg.sender != sphinxInternalManager) {
+            _delegate(sphinxInternalImpl);
         }
 
         _;
     }
 
-    // Calls a function on the users contract from the client contract.
-    function _callFunction(
-        bytes4 selector,
-        bytes memory functionArgs,
-        string memory fullyQualifiedName
-    ) internal {
-        if (msg.sender != sphinxManager) {
-            _delegate(impl);
-        }
-
+    /**
+     * @notice Calls a function on the user contract from the client contract.
+     *
+     * @param selector The selector for the target function.
+     * @param functionArgs The abi encoded arguments for the function call.
+     */
+    function _callFunction(bytes4 selector, bytes memory functionArgs, string memory fullyQualifiedName) internal {
         bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
 
-        uint256 currentNonceInManager = sphinxManager.code.length > 0
-            ? ISphinxManager(sphinxManager).callNonces(callHash)
-            : 0;
-        uint256 currentNonceInDeployment = sphinx.getCallCountInDeployment(callHash);
+        uint256 currentNonceInManager = sphinxInternalManager.code.length > 0 ? ISphinxManager(sphinxInternalManager).callNonces(callHash) : 0;
+        uint256 currentNonceInDeployment = sphinxInternalSphinxLib.getCallCountInDeployment(callHash);
 
-        // TODO(docs): we can't make the reference name a state variable in this contract because we
-        // can't have any mutable variables since this is a proxy for the user's function, and we
-        // may overwrite the user's variable in the storage layout. perhaps we should put that
-        // above the contract definition for this contract.
-        string memory referenceName = sphinx.getReferenceNameForAddress(address(this));
+        string memory referenceName = sphinxInternalSphinxLib.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
         if (!skip && sphinx.mode() == SphinxMode.DeployLocal) {
-            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
+            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl.delegatecall(
                 encodedCall
             );
             if (!sphinxCallSuccess) {
@@ -65,25 +74,17 @@ abstract contract AbstractContractClient {
             }
         }
 
-        bytes memory actionData = abi.encode(
-            address(this),
-            selector,
-            functionArgs,
-            currentNonceInDeployment,
-            referenceName
-        );
-        sphinx.addSphinxAction(
-            SphinxAction({
-                fullyQualifiedName: fullyQualifiedName,
-                actionType: SphinxActionType.CALL,
-                data: actionData,
-                skip: skip
-            })
-        );
+        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
+        sphinxInternalSphinxLib.addSphinxAction(SphinxAction({
+            fullyQualifiedName: fullyQualifiedName,
+            actionType: SphinxActionType.CALL,
+            data: actionData,
+            skip: skip
+        }));
     }
 
-    // TODO(docs): copied and pasted from OpenZeppelin. not using their Proxy.sol b/c it adds
-    // unnecessary complexity to the client contracts. (e.g. we'd be forced to override a receive function).
+    // Pulled from the OpenZeppelin Proxy contract.
+    // Source: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/Proxy.sol
     function _delegate(address implementation) internal virtual {
         assembly {
             // Copy msg.data. We take full control of memory in this inline assembly

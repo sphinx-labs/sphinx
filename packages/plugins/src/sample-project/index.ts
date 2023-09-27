@@ -1,18 +1,16 @@
-export * from './sample-contract'
-export * from './sample-tests'
-export * from './sample-config-files'
+export * from './sample-contracts'
 
 import * as fs from 'fs'
 import * as path from 'path'
 
 import { Integration } from '@sphinx-labs/core'
 
-import { forgeConfig, sampleDotEnvFile } from './sample-config-files'
+import { forgeConfig, sampleDotEnvFile } from './sample-foundry-config'
 import {
   getSampleContractFile,
   getSampleFoundryTestFile,
   getSampleFoundryConfigFile,
-} from './sample-contract'
+} from './sample-contracts'
 
 export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleConfigFileName = 'HelloSphinx.s.sol'

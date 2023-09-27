@@ -120,8 +120,8 @@ const generateClientContractFromArtifact = async (
   constructor(address _sphinxManager, address _sphinx, address _impl) AbstractContractClient(_sphinxManager, _sphinx, _impl) {}
 
   fallback() external override {
-    require(msg.sender != sphinxManager, "User attempted to call a non-existent function on ${uniqueClientName}");
-    _delegate(impl);
+    require(msg.sender != sphinxInternalManager, "User attempted to call a non-existent function on ${uniqueClientName}");
+    _delegate(sphinxInternalImpl);
   }
 
   ${allFunctionDefinitions.join('')}
