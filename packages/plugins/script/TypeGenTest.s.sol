@@ -61,6 +61,8 @@ import { ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnu
 import { ConflictingTypeNameContractFirst } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { ConflictingTypeNameContractSecond } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingTypeNameContractFirstClient } from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
+import { MsgSender } from "../contracts/test/typegen/MsgSender.sol";
+import { MsgSenderClient } from "../SphinxClient/typegen/MsgSender.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 
@@ -104,6 +106,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingTypeNameContractSecond conflictingTypeNameContractSecond;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
+    MsgSender msgSender;
 
     string projectName = "TypeGenTest";
     address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
@@ -387,5 +390,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
         conflictingTypeNameContractFirstTwo = ConflictingTypeNameContractFirst(
             address(conflictingTypeNameContractClient)
         );
+
+        // Deploy contract that uses msg.sender
+        MsgSenderClient msgSenderClient = deployMsgSender();
+        msgSenderClient.setSender();
+        msgSender = MsgSender(address(msgSenderClient));
     }
 }

@@ -388,4 +388,14 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function testDidDefineAndInteractWithExternalContract() public {
         assertEq(alreadyDeployedExternalContract.number(), 7);
     }
+
+    // Covers calling a function that relies on the msg.sender
+    function testMsgSenderInFunction() public {
+        assertEq(msgSender.msgSenderInFunction(), address(manager));
+    }
+
+    // Covers deploying a contract with constructor logic that depends on the msg.sender
+    function testMsgSenderInConstructor() public {
+        assertEq(msgSender.msgSenderInConstructor(), address(manager));
+    }
 }

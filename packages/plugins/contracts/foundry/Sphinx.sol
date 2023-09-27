@@ -598,7 +598,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                             leaf.proof
                         );
                     } else {
-                        revert('Unsupported auth leaf type. Should never happen.');
+                        revert('Sphinx: Unsupported auth leaf type. Should never happen. Please report this to the developers.');
                     }
                 }
                 deploymentState.status = DeploymentStatus.APPROVED;
@@ -646,6 +646,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // look like this:
     // Error:
     // SphinxClient: CREATE3 salt already used in this deployment. Please use a different 'salt' or 'referenceName'.
+    // Ryan - addressed
 
     // TODO: you should loosen the version of this file in case the user is using 0.7.x
 
@@ -660,6 +661,11 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     // TODO: you should check that the functions in Sphinx.sol don't conflict with functions
     // that the user defines in their config.
+
+    // TODO: the user currently inherits a bunch of functions/variables that shouldn't be exposed to
+    // them. consider putting making the sphinx library contract a private var in the sphinx client,
+    // just call into it. you should first check that this wouldn't mess up the fact that we need
+    // to prank/use the sphinx manager for deployments and function calls.
 
     // TODO: move this to SphinxUtils, or at least Sphinx.sol
     function sortAddresses(address[] memory _unsorted) internal pure returns (address[] memory) {
@@ -720,7 +726,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
      *         This function is also provided by foundry via stdcheats, but we reimplement it ourselves to
      *         avoid loading the entire contract.
      *
-     * @param what The contract to deploy, must be a qualified name, i.e MyFile.sol:MyContract.
+     * @param what The contract to deploy. Must be the qualified name or the path to the contracts artifact.
+     *             Details: https://book.getfoundry.sh/cheatcodes/get-code?highlight=getCode#getcode
      * @param args The constructor arguments for the contract.
      * @param where The address to deploy the contract too.
      */
@@ -734,11 +741,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         );
         vm.etch(where, runtimeBytecode);
     }
-
-    // TODO: the user currently inherits a bunch of functions/variables that shouldn't be exposed to
-    // them. consider putting making the sphinx library contract a private var in the sphinx client,
-    // just call into it. you should first check that this wouldn't mess up the fact that we need
-    // to prank/use the sphinx manager for deployments and function calls.
 
     // TODO(test): define a constructor and function with the maximum number of allowed variables,
     // turn the optimizer off, and see if you get a stack too deep error.
@@ -1202,9 +1204,37 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return _contractAddress;
     }
 
-    // TODO: Docs
-    // Deploys a contract at the expected sphinx address. Used by the Sphinx client to deploy
-    // contracts during the simulation phase.
+    /**
+     * @notice Deploys a contract at the expected Sphinx address. Called from the auto generated Sphinx Client.
+     *         To deploy contracts during the simulation phase.
+     *
+     *         We use a proxy pattern to allow the user to interact with their Client contracts while still accurately simulating
+     *         the real functionality of their underlying contracts including their constructor logic and storage layout.
+     *
+     *         This function performs a three step process to setup this proxy pattern.
+     *         1. Generate the CREATE3 address for the contract and deploy the contract to that address.
+     *            This ensures the storage of the proxy is setup correctly by running any code defined in the contract constructor.
+     *         2. Etch the contract code to a separate implementation address which is the CREATE3 address minus one.
+     *         3. Deploy the client code to the CREATE3 address with the implementation address as a constructor argument.
+     *
+     *         After this process is complete, the user can interact with their contract by calling functions on the client, and the
+     *         client will delegate those calls to the implementation.
+     *
+     * @dev    It's important that when this function is called, we must use a prank to set the `msg.sender` to the address of the
+     *         users SphinxManager to mirror the exact process on a live network. This is because the user may have logic in their
+     *         constructor which relies on the `msg.sender` being accurate. For example, they may grant some role to the SphinxManager
+     *         which allows it to do some privileged configuration after the contract has been deployed.
+     *
+     * @dev    For more detail on the process of actually calling a function on the client, see `_callFunction` in AbstractContractClient.sol.
+     *
+     * @param _referenceName     The reference name of the contract to deploy. Used to generate the contracts address.
+     * @param _userSalt          The user's salt. Used to generate the contracts address.
+     * @param _constructorArgs   The constructor arguments for the contract.
+     * @param fullyQualifiedName The fully qualified name of the contract to deploy.
+     * @param clientArtifactPath The path to the artifact for the client contract which corresponds to the contract to deploy.
+     *                           See sphinxDeployCodeTo for more detail on why the artifact is used instead of the FQN.
+     * @param artifactPath       The path to the artifact for the actual contract to deploy.
+     */
     function _deployContract(
         string memory _referenceName,
         bytes32 _userSalt,
@@ -1235,20 +1265,19 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             skip: skipDeployment
         }));
 
-        // TODO(docs): The implementation's address is the CREATE3 address minus one.
+        // Calculate implementation address
         address impl = address(uint160(address(create3Address)) - 1);
 
+
         if (!skipDeployment && initialCallerMode != VmSafe.CallerMode.RecurrentBroadcast) {
-            // TODO(docs): Deploy the user's contract to the CREATE3 address. this must be called by the
-            // SphinxManager to ensure that the `msg.sender` in the body of the user's constructor is
-            // the SphinxManager. This mirrors what happens on a live network.
+            // Deploy the user's contract to the CREATE3 address.
             sphinxDeployCodeTo(artifactPath, _constructorArgs, create3Address);
         }
 
-        // TODO(docs): Set the user's contract's code to the implementation address.
+        // Set the user's contract's code to the implementation address.
         vm.etch(impl, create3Address.code);
 
-        // TODO(docs): Deploy the client to the CREATE3 address.
+        // Deploy the client to the CREATE3 address.
         sphinxDeployCodeTo(clientArtifactPath, abi.encode(manager, address(this), impl), create3Address);
 
         return create3Address;
