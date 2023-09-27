@@ -2,7 +2,7 @@
 
 import { join, resolve } from 'path'
 import { exec, spawnSync } from 'child_process'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import { blue } from 'chalk'
 import * as dotenv from 'dotenv'
@@ -685,6 +685,12 @@ yargs(hideBin(process.argv))
       // spinner.start('Getting project info...')
 
       const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+
+      // Delete the chain info if one already exists
+      // We do this b/c the file wont be output if there is not broadcast in the users script and we need a clean way to detect that
+      if (existsSync(chainInfoPath)) {
+        unlinkSync(chainInfoPath)
+      }
 
       // TODO(docs): we run this even if the user is skipping the preview b/c we need the ParsedConfig
       // for the deployment artifacts.
