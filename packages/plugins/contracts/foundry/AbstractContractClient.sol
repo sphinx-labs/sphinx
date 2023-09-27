@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.4 <0.9.0;
 
-import "forge-std/console.sol"; // TODO: rm
-
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxAction } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxAction, SphinxMode } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
 abstract contract AbstractContractClient {
-
     address internal immutable sphinxManager;
     Sphinx internal immutable sphinx;
     address internal immutable impl;
@@ -32,7 +29,11 @@ abstract contract AbstractContractClient {
     }
 
     // Calls a function on the users contract from the client contract.
-    function _callFunction(bytes4 selector, bytes memory functionArgs, string memory fullyQualifiedName) internal {
+    function _callFunction(
+        bytes4 selector,
+        bytes memory functionArgs,
+        string memory fullyQualifiedName
+    ) internal {
         if (msg.sender != sphinxManager) {
             _delegate(impl);
         }
@@ -40,7 +41,9 @@ abstract contract AbstractContractClient {
         bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
 
-        uint256 currentNonceInManager = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
+        uint256 currentNonceInManager = sphinxManager.code.length > 0
+            ? ISphinxManager(sphinxManager).callNonces(callHash)
+            : 0;
         uint256 currentNonceInDeployment = sphinx.getCallCountInDeployment(callHash);
 
         // TODO(docs): we can't make the reference name a state variable in this contract because we
@@ -50,8 +53,7 @@ abstract contract AbstractContractClient {
         string memory referenceName = sphinx.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        bool isBroadcast = sphinx.initialCallerMode() == VmSafe.CallerMode.RecurrentBroadcast;
-        if (!skip && !isBroadcast) {
+        if (!skip && sphinx.mode() == SphinxMode.DeployLocal) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
                 encodedCall
             );
@@ -63,13 +65,21 @@ abstract contract AbstractContractClient {
             }
         }
 
-        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
-        sphinx.addSphinxAction(SphinxAction({
-            fullyQualifiedName: fullyQualifiedName,
-            actionType: SphinxActionType.CALL,
-            data: actionData,
-            skip: skip
-        }));
+        bytes memory actionData = abi.encode(
+            address(this),
+            selector,
+            functionArgs,
+            currentNonceInDeployment,
+            referenceName
+        );
+        sphinx.addSphinxAction(
+            SphinxAction({
+                fullyQualifiedName: fullyQualifiedName,
+                actionType: SphinxActionType.CALL,
+                data: actionData,
+                skip: skip
+            })
+        );
     }
 
     // TODO(docs): copied and pasted from OpenZeppelin. not using their Proxy.sol b/c it adds

@@ -3,9 +3,9 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { Integration } from './constants'
 
 export type SemverVersion = {
-  major: number
-  minor: number
-  patch: number
+  major: bigint
+  minor: bigint
+  patch: bigint
 }
 
 export type SphinxRuntimeEnvironment = {

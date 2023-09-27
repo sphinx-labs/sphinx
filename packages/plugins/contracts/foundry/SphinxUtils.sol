@@ -27,7 +27,6 @@ import {
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
 import {
-    SphinxBundles,
     BundledSphinxAction,
     BundledSphinxTarget,
     SphinxActionBundle,
@@ -84,63 +83,68 @@ contract SphinxUtils is
         }
     }
 
-
     // TODO(parse): throw an error if isLiveNetwork and registry isn't deployed
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
         SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
-            vm.etch(
-                DETERMINISTIC_DEPLOYMENT_PROXY,
-                hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        vm.etch(
+            DETERMINISTIC_DEPLOYMENT_PROXY,
+            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        );
+
+        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
+        for (uint i = 0; i < contracts.length; i++) {
+            SphinxContractInfo memory ct = contracts[i];
+            address addr = create2Deploy(ct.creationCode);
+            require(
+                addr == ct.expectedAddress,
+                string.concat(
+                    "address mismatch. expected address: ",
+                    vm.toString(ct.expectedAddress)
+                )
             );
+        }
 
-            SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-            for (uint i = 0; i < contracts.length; i++) {
-                SphinxContractInfo memory ct = contracts[i];
-                address addr = create2Deploy(ct.creationCode);
-                require(
-                    addr == ct.expectedAddress,
-                    string.concat(
-                        "address mismatch. expected address: ",
-                        vm.toString(ct.expectedAddress)
-                    )
-                );
-            }
+        // Impersonate system owner
+        vm.startPrank(_systemOwner);
 
-            // Impersonate system owner
-            vm.startPrank(_systemOwner);
+        // Add initial manager version
+        registry.addVersion(managerImplementationAddress);
 
-            // Add initial manager version
-            registry.addVersion(managerImplementationAddress);
+        // Set the default manager version
+        registry.setCurrentManagerImplementation(managerImplementationAddress);
 
-            // Set the default manager version
-            registry.setCurrentManagerImplementation(managerImplementationAddress);
+        factory.addVersion(authImplV1Address);
 
-            factory.addVersion(authImplV1Address);
+        factory.setCurrentAuthImplementation(authImplV1Address);
 
-            factory.setCurrentAuthImplementation(authImplV1Address);
+        // Add transparent proxy type
+        registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
 
-            // Add transparent proxy type
-            registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
+        // Add uups ownable proxy type
+        registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
 
-            // Add uups ownable proxy type
-            registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
+        // Add uups access control proxy type
+        registry.addContractKind(
+            keccak256("oz-access-control-uups"),
+            ozUUPSAccessControlAdapterAddr
+        );
 
-            // Add uups access control proxy type
-            registry.addContractKind(
-                keccak256("oz-access-control-uups"),
-                ozUUPSAccessControlAdapterAddr
-            );
+        // Add default proxy type
+        registry.addContractKind(bytes32(0), defaultAdapterAddr);
 
-            // Add default proxy type
-            registry.addContractKind(bytes32(0), defaultAdapterAddr);
-
-            vm.stopPrank();
+        vm.stopPrank();
     }
 
     // These provide an easy way to get complex data types off-chain (via the ABI) without needing
     // to hard-code them.
-    function bundledActions() external pure returns (BundledSphinxAction[] memory) {}
+    function bundledActionsType() external pure returns (BundledSphinxAction[] memory) {}
+
+    function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory) {}
+
+    function targetBundleType() external pure returns (SphinxTargetBundle memory) {}
+
+    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory) {}
 
     function slice(
         bytes calldata _data,
@@ -151,80 +155,20 @@ contract SphinxUtils is
     }
 
     function ffiGetEncodedBundleInfo(
-        ChainInfo memory _chainInfo,
+        ChainInfo[] memory _chainInfoArray,
         string memory _rootFfiPath
     ) external returns (bytes memory) {
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
-        cmds[3] = vm.toString(abi.encode(_chainInfo));
+        cmds[3] = vm.toString(abi.encode(_chainInfoArray));
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
         if (result.exit_code == 1) {
             revert(string(result.stderr));
         }
         return result.stdout;
-    }
-
-    // TODO(docs): can't decode all at once b/c of "stack too deep" error.
-    function decodeBundleInfo(
-        bytes memory _data
-    ) external pure returns (BundleInfo memory) {
-        string memory configUri = abi.decode(vm.parseJson(string(_data), ".configUri"), (string));
-        HumanReadableAction[] memory humanReadableActions = abi.decode(vm.parseJson(string(_data), ".humanReadableActions"), (HumanReadableAction[]));
-        bytes32 actionRoot = abi.decode(vm.parseJson(string(_data), ".bundles.actionBundle.root"), (bytes32));
-        BundledSphinxActionJson[] memory actionsJson = abi.decode(vm.parseJson(string(_data), ".bundles.actionBundle.actions"), (BundledSphinxActionJson[]));
-        BundledSphinxAction[] memory actions = new BundledSphinxAction[](actionsJson.length);
-        for (uint i = 0; i < actionsJson.length; i++) {
-            BundledSphinxActionJson memory actionJson = actionsJson[i];
-            actions[i] = BundledSphinxAction({
-                action: RawSphinxAction({
-                    actionType: SphinxActionType(actionJson.action.actionType),
-                    index: actionJson.action.index,
-                    data: actionJson.action.data
-                }),
-                gas: actionJson.gas,
-                siblings: actionJson.siblings
-            });
-        }
-
-        // TODO: you need to separate the 'data' field of the action bundle like you did with the auth bundle.
-
-        SphinxTargetBundle memory targetBundle = abi.decode(vm.parseJson(string(_data), ".bundles.targetBundle"), (SphinxTargetBundle));
-        bytes32 authRoot = abi.decode(vm.parseJson(string(_data), ".bundles.authBundle.root"), (bytes32));
-        BundledAuthLeafJson[] memory authLeafsJson = abi.decode(vm.parseJson(string(_data), ".bundles.authBundle.leafs"), (BundledAuthLeafJson[]));
-        bytes[] memory authData = vm.parseJsonBytesArray(string(_data), ".bundles.authBundle.data");
-        BundledAuthLeaf[] memory authLeafs = new BundledAuthLeaf[](authLeafsJson.length);
-        for (uint i = 0; i < authLeafsJson.length; i++) {
-            BundledAuthLeafJson memory authLeafJson = authLeafsJson[i];
-            authLeafs[i] = BundledAuthLeaf({
-                leaf: AuthLeaf({
-                    chainId: authLeafJson.leaf.chainId,
-                    index: authLeafJson.leaf.index,
-                    to: authLeafJson.leaf.to,
-                    data: authData[i]
-                }),
-                leafType: AuthLeafType(authLeafJson.leafType),
-                proof: authLeafJson.proof
-            });
-        }
-
-        return BundleInfo({
-            configUri: configUri,
-            humanReadableActions: humanReadableActions,
-            bundles: SphinxBundles({
-                actionBundle: SphinxActionBundle({
-                    root: actionRoot,
-                    actions: actions
-                }),
-                targetBundle: targetBundle,
-                authBundle: SphinxAuthBundle({
-                    root: authRoot,
-                    leafs: authLeafs
-                })
-            })
-        });
     }
 
     // Provides an easy way to get the EOA that's signing transactions in a Forge script. When a
@@ -243,7 +187,10 @@ contract SphinxUtils is
         cmds[3] = "deployOnAnvil";
         cmds[4] = _rpcUrl;
 
-        vm.ffi(cmds);
+        Vm.FfiResult memory result = vm.tryFfi(cmds);
+        if (result.exit_code == 1) {
+            revert(string(result.stderr));
+        }
     }
 
     function getSphinxRegistry() public pure returns (ISphinxRegistry) {

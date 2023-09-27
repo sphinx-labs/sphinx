@@ -337,11 +337,11 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
  * that is required to approve the leaf.
  */
 export const getAuthLeafSignerInfo = (
-  ownerThreshold: number,
+  ownerThreshold: bigint,
   functionName: string
-): { leafThreshold: number; roleType: RoleType } => {
+): { leafThreshold: bigint; roleType: RoleType } => {
   if (functionName === AuthLeafFunctions.PROPOSE) {
-    return { leafThreshold: 1, roleType: RoleType.PROPOSER }
+    return { leafThreshold: 1n, roleType: RoleType.PROPOSER }
   } else {
     return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
   }
@@ -396,8 +396,12 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
   leaf: ProposalRequestLeaf
 ): RawAuthLeaf => {
   const { chainId, to, index, data } = leaf
-  return { chainId, to, index, data }
+  return { chainId: BigInt(chainId), to, index, data }
 }
+
+// TODO(case): deploy the same config twice using the deploy task. on the second run, we'll get an
+// error that says: "Cannot make an auth bundle with 0 leafs". We should have a better error since
+// this is user-facing.
 
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
@@ -623,7 +627,7 @@ export const makeActionBundleFromConfig = (
         to,
         index,
         data: ethers.concat([selector, functionParams]),
-        nonce,
+        nonce: Number(nonce),
       })
 
       costs.push(250_000)
@@ -703,7 +707,8 @@ export const getAuthLeafsForChain = async (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
-  const { chainId, managerAddress, prevConfig, newConfig } = parsedConfig
+  const { chainId, managerAddress, prevConfig, newConfig, remoteExecution } =
+    parsedConfig
   const {
     firstProposalOccurred,
     isExecuting,
@@ -806,7 +811,7 @@ export const getAuthLeafsForChain = async (
         numSetStorageActions,
         numTargets: targetBundle.targets.length,
         configUri,
-        remoteExecution: false, // TODO(propose): this must be 'true' for proposals
+        remoteExecution,
       },
       functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT,
       leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT,
@@ -903,7 +908,7 @@ export const getProjectDeploymentForChain = (
   const deploymentId = getDeploymentId(bundles, configUri)
 
   return {
-    chainId,
+    chainId: Number(chainId),
     deploymentId,
     name: newConfig.projectName,
     isExecuting: prevConfig.isExecuting,

@@ -69,4 +69,3 @@ contract NoAliasImportsTwo {
         localType = _localType;
     }
 }
-

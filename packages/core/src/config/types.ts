@@ -49,9 +49,9 @@ export const contractKindHashes: { [contractKind: string]: string } = {
 // export type ValidManagerVersion = 'v0.2.4' // TODO: put something like this in solidity for parsing
 export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
 export const VALID_MANAGER_VERSION: SemverVersion = {
-  major: 0,
-  minor: 2,
-  patch: 4,
+  major: 0n,
+  minor: 2n,
+  patch: 4n,
 }
 
 export type Project = string | 'all'
@@ -165,6 +165,7 @@ export type ParsedConfig = {
   newConfig: SphinxConfig
   isLiveNetwork: boolean
   prevConfig: PreviousInfo
+  remoteExecution: boolean
 }
 
 export type ChainInfo = {
@@ -175,12 +176,13 @@ export type ChainInfo = {
   newConfig: SphinxConfig
   isLiveNetwork: boolean
   prevConfig: PreviousInfo
+  remoteExecution: boolean
 }
 
 export type PreviousInfo = {
   owners: Array<string>
   proposers: Array<string>
-  threshold: number
+  threshold: bigint
   version: SemverVersion
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
@@ -277,11 +279,12 @@ export interface DeployContractTODO {
 
 export type SphinxConfig = {
   projectName: string
+  orgId: string
   owners: Array<string>
   proposers: Array<string>
   mainnets: Array<SupportedMainnetNetworkName>
   testnets: Array<SupportedNetworkName>
-  threshold: number
+  threshold: bigint
   version: SemverVersion
 }
 
@@ -307,7 +310,7 @@ export interface FunctionCallTODO {
   to: string
   selector: string
   functionParams: string
-  nonce: number
+  nonce: bigint
   referenceName: string
 }
 

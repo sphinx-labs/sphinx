@@ -45,7 +45,6 @@ import {
   getReferenceEscrowContractAddress,
   ReferenceAuthProxyAddress,
   getAuthImplAddress,
-  getEncodedSphinxManagerConstructorArgs,
 } from './addresses'
 import { USDC_ADDRESSES } from './networks'
 import {

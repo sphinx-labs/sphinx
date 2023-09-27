@@ -33,9 +33,9 @@ contract MyScript is Script, SphinxClient {
     // don't need for deploy task:
     address[] proposers;
     Network[] mainnets;
-    Network[] testnets;
+    Network[] testnets = [Network.anvil];
     uint256 threshold = 1;
-    string orgId;
+    string orgId = "asdf";
 
     constructor() SphinxClient(SphinxConfig({
         projectName: projectName,
@@ -45,7 +45,7 @@ contract MyScript is Script, SphinxClient {
         testnets: testnets,
         threshold: threshold,
         version: version,
-        orgId: ""
+        orgId: orgId
     })) {}
 
     function deploy(Network _network) public override sphinxDeploy(_network) {

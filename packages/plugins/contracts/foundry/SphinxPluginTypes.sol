@@ -10,21 +10,15 @@ import {
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
-struct SphinxBundles {
-    SphinxAuthBundle authBundle;
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
-}
-
 struct SphinxAuthBundle {
     bytes32 root;
     BundledAuthLeaf[] leafs;
 }
 
 struct BundledAuthLeaf {
-  AuthLeaf leaf;
-  AuthLeafType leafType;
-  bytes32[] proof;
+    AuthLeaf leaf;
+    AuthLeafType leafType;
+    bytes32[] proof;
 }
 
 // TODO(docs)
@@ -35,9 +29,9 @@ struct AuthLeafWithoutData {
 }
 // TODO(refactor): the data structure outputted by `get-bundle-info` is pretty messy.
 struct BundledAuthLeafJson {
-  AuthLeafWithoutData leaf;
-  uint256 leafType;
-  bytes32[] proof;
+    AuthLeafWithoutData leaf;
+    uint256 leafType;
+    bytes32[] proof;
 }
 
 struct SphinxActionBundle {
@@ -72,17 +66,24 @@ struct BundledSphinxTarget {
     bytes32[] siblings;
 }
 
-// TODO(docs): this struct must conform to the rules here: https://book.getfoundry.sh/cheatcodes/parse-json
-// This is why the actionType is a uint.
 struct HumanReadableAction {
-    uint actionIndex;
-    uint actionType;
     string reason;
+    uint actionIndex;
+    SphinxActionType actionType;
+}
+
+enum SphinxMode {
+    DeployLocal,
+    Broadcast,
+    Proposal
 }
 
 struct BundleInfo {
+    string networkName;
     string configUri;
-    SphinxBundles bundles;
+    BundledAuthLeaf[] authLeafs;
+    SphinxActionBundle actionBundle;
+    SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
 }
 
@@ -185,6 +186,7 @@ struct ChainInfo {
     SphinxConfig newConfig;
     bool isLiveNetwork;
     PreviousInfo prevConfig;
+    bool remoteExecution;
 }
 
 // TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
@@ -201,12 +203,12 @@ struct PreviousInfo {
 struct SphinxConfig {
     string projectName;
     string orgId;
-	address[] owners;
-	address[] proposers;
-	Network[] mainnets;
-	Network[] testnets;
-	uint256 threshold;
-	Version version;
+    address[] owners;
+    address[] proposers;
+    Network[] mainnets;
+    Network[] testnets;
+    uint256 threshold;
+    Version version;
 }
 
 enum Network {

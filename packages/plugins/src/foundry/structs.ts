@@ -27,8 +27,9 @@ export const decodeChainInfoArray = (
   abiEncodedChainInfoArray: string,
   abi: Array<any>
 ): Array<ChainInfo> => {
-  const chainInfoType = abi.find((fragment) => fragment.name === 'getChainInfo')
-    .outputs[0]
+  const chainInfoType = abi.find(
+    (fragment) => fragment.name === 'getChainInfoArray'
+  ).outputs[0]
 
   const coder = AbiCoder.defaultAbiCoder()
   const chainInfo = coder.decode([chainInfoType], abiEncodedChainInfoArray)[0]

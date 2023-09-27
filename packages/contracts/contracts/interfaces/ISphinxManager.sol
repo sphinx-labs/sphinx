@@ -30,6 +30,8 @@ interface ISphinxManager {
      */
     function isExecuting() external view returns (bool);
 
+    function claimDeployment() external;
+
     /**
      * @notice The SphinxRegistry.
      *
@@ -54,6 +56,8 @@ interface ISphinxManager {
         string memory _configUri,
         bool _remoteExecution
     ) external;
+
+    function managedService() external view returns (address);
 
     function activeDeploymentId() external view returns (bytes32);
 

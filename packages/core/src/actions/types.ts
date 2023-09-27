@@ -379,14 +379,14 @@ export type ProposalRequest = {
  * chain.
  */
 export type ProjectDeployment = {
-  chainId: bigint
+  chainId: number
   deploymentId: string
   name: string
   isExecuting: boolean
 }
 
 export type ProposalRequestLeaf = {
-  chainId: bigint
+  chainId: number
   to: string
   index: number
   data: string

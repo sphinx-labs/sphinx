@@ -23,7 +23,6 @@ import {
   remove0x,
   getAuthImplAddress,
   CURRENT_SPHINX_AUTH_VERSION,
-  getEncodedSphinxManagerConstructorArgs,
   getStorageSlotKey,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
@@ -41,6 +40,17 @@ const writeConstants = async () => {
     'contracts/SphinxManager.sol:SphinxManager',
     sphinxContractsBuildInfo.output,
     'callNonces'
+  )
+  const ownerThresholdSlotKey = getStorageSlotKey(
+    'contracts/SphinxAuth.sol:SphinxAuth',
+    sphinxContractsBuildInfo.output,
+    'threshold'
+  )
+  // TODO(docs): this a mapping located in the AccessControl contract inherited by SphinxAuth.
+  const authAccessControlRoleSlotKey = getStorageSlotKey(
+    'contracts/SphinxAuth.sol:SphinxAuth',
+    sphinxContractsBuildInfo.output,
+    '_roles'
   )
 
   const { major, minor, patch } = CURRENT_SPHINX_MANAGER_VERSION
@@ -100,6 +110,17 @@ const writeConstants = async () => {
     callNoncesSlotKey: {
       type: 'bytes32',
       value: ethers.zeroPadValue(ethers.toBeHex(callNoncesSlotKey), 32),
+    },
+    ownerThresholdSlotKey: {
+      type: 'bytes32',
+      value: ethers.zeroPadValue(ethers.toBeHex(ownerThresholdSlotKey), 32),
+    },
+    authAccessControlRoleSlotKey: {
+      type: 'bytes32',
+      value: ethers.zeroPadValue(
+        ethers.toBeHex(authAccessControlRoleSlotKey),
+        32
+      ),
     },
     ozTransparentAdapterAddr: {
       type: 'address',
