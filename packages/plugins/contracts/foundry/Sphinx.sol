@@ -747,9 +747,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         vm.etch(where, runtimeBytecode);
     }
 
-    // TODO(test): define a constructor and function with the maximum number of allowed variables,
-    // turn the optimizer off, and see if you get a stack too deep error.
-
     // TODO(mv): pasted from SphinxAuth contract
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
