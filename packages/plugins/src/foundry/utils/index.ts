@@ -290,46 +290,45 @@ export const makeGetConfigArtifacts = (
     )
 
     // Look through the cache, read all the contract artifacts, and find all of the required build
-    // info files names. We just get the build info files for contracts that will be deployed.
+    // info files names. We get the artifacts every action, even if it'll be skipped, because the
+    // artifact is necessary when we're creating the preview, which includes skipped actions.
     const toReadFiles: string[] = []
     const resolved = await Promise.all(
-      actions
-        .filter((a) => !a.skip)
-        .map(async ({ fullyQualifiedName }) => {
-          const artifact = await getContractArtifact(
-            fullyQualifiedName,
-            artifactFolder,
-            buildInfoCache.contracts
-          )
+      actions.map(async ({ fullyQualifiedName }) => {
+        const artifact = await getContractArtifact(
+          fullyQualifiedName,
+          artifactFolder,
+          buildInfoCache.contracts
+        )
 
-          // Look through the cahce for the first build info file that contains the contract
-          for (const file of sortedCachedFiles) {
-            if (file.contracts.includes(artifact.sourceName)) {
-              const buildInfo =
-                file.name in localBuildInfoCache
-                  ? (localBuildInfoCache[file.name] as BuildInfo)
-                  : undefined
+        // Look through the cahce for the first build info file that contains the contract
+        for (const file of sortedCachedFiles) {
+          if (file.contracts.includes(artifact.sourceName)) {
+            const buildInfo =
+              file.name in localBuildInfoCache
+                ? (localBuildInfoCache[file.name] as BuildInfo)
+                : undefined
 
-              // Keep track of if we need to read the file or not
-              if (!buildInfo && !toReadFiles.includes(file.name)) {
-                toReadFiles.push(file.name)
-              }
+            // Keep track of if we need to read the file or not
+            if (!buildInfo && !toReadFiles.includes(file.name)) {
+              toReadFiles.push(file.name)
+            }
 
-              return {
-                fullyQualifiedName,
-                artifact,
-                buildInfoName: file.name,
-                buildInfo,
-              }
+            return {
+              fullyQualifiedName,
+              artifact,
+              buildInfoName: file.name,
+              buildInfo,
             }
           }
+        }
 
-          // Throw an error if no build info file is found in the cache for this contract
-          // This should only happen if the user manually deletes a build info file
-          throw new Error(
-            `Failed to find build info for ${artifact.sourceName}. Try recompiling with force: forge build --force`
-          )
-        })
+        // Throw an error if no build info file is found in the cache for this contract
+        // This should only happen if the user manually deletes a build info file
+        throw new Error(
+          `Failed to find build info for ${artifact.sourceName}. Try recompiling with force: forge build --force`
+        )
+      })
     )
 
     // TODO: run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil --broadcast`. when i tried

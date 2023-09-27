@@ -27,7 +27,7 @@ interface ISphinxUtils {
 
     /***************************** PURE FUNCTIONS ******************************/
 
-    function bundledActions() external pure returns (BundledSphinxAction[] memory);
+    function bundledActionsType() external pure returns (BundledSphinxAction[] memory);
 
     function disassembleActions(
         BundledSphinxAction[] memory actions
@@ -88,8 +88,6 @@ interface ISphinxUtils {
 
     function removeSelector(bytes memory _data) external view returns (bytes memory);
 
-    function decodeBundleInfo(bytes memory _data) external view returns (BundleInfo memory);
-
     function getEIP1967ProxyAdminAddress(address _proxyAddress) external view returns (address);
 
     function getCodeSize(address _addr) external view returns (uint256);
@@ -103,7 +101,7 @@ interface ISphinxUtils {
     ) external;
 
     function ffiGetEncodedBundleInfo(
-        ChainInfo memory _chainInfo,
+        ChainInfo[] memory _chainInfoArray,
         string memory _rootFfiPath
     ) external returns (bytes memory);
 }

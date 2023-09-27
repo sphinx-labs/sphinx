@@ -78,17 +78,17 @@ contract SphinxManager is
      */
     ISphinxRegistry public immutable registry;
 
+    /**
+     * @notice Address of the ManagedService contract.
+     */
+    address public immutable managedService;
+
     string public projectName;
 
     /**
      * @notice Address of the Create3 contract.
      */
     address internal immutable create3;
-
-    /**
-     * @notice Address of the ManagedService contract.
-     */
-    IAccessControl internal immutable managedService;
 
     /**
      * @notice Amount of time for a remote executor to finish executing a deployment once they have
@@ -253,7 +253,7 @@ contract SphinxManager is
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
-        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
+        if (!IAccessControl(managedService).hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
             revert CallerIsNotRemoteExecutor();
         }
         _;
@@ -270,7 +270,7 @@ contract SphinxManager is
     constructor(
         ISphinxRegistry _registry,
         address _create3,
-        IAccessControl _managedService,
+        address _managedService,
         uint256 _executionLockTime,
         Version memory _version
     ) Semver(_version.major, _version.minor, _version.patch) {

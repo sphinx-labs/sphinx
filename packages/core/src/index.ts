@@ -1,3 +1,9 @@
+// TODO(docs): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
+// https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-1006088574
+BigInt.prototype['toJSON'] = function () {
+  return this.toString()
+}
+
 export * from './actions'
 export * from './config'
 export * from './languages'

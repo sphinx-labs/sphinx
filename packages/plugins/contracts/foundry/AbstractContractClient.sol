@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.4 <0.9.0;
 
-import "forge-std/console.sol"; // TODO: rm
-
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxAction } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxAction, SphinxMode } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { VmSafe } from "forge-std/Vm.sol";
@@ -64,8 +62,7 @@ abstract contract AbstractContractClient {
         string memory referenceName = sphinxInternalSphinxLib.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        bool isBroadcast = sphinxInternalSphinxLib.initialCallerMode() == VmSafe.CallerMode.RecurrentBroadcast;
-        if (!skip && !isBroadcast) {
+        if (!skip && sphinxInternalSphinxLib.mode() == SphinxMode.DeployLocal) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl.delegatecall(
                 encodedCall
             );

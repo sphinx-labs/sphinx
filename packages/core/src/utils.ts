@@ -322,10 +322,9 @@ export const writeCompilerConfig = (
   )
   if (!fs.existsSync(compilerConfigFilePath)) {
     // TODO(docs)
-    const convertedBigInts = convertBigIntToString(compilerConfig)
     fs.writeFileSync(
       path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-      JSON.stringify(convertedBigInts, null, 2)
+      JSON.stringify(compilerConfig, null, 2)
     )
   }
 }
@@ -1632,9 +1631,7 @@ export const prettyFunctionCall = (
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
   // TODO(docs)
-  const convertedBigInts = convertBigIntToString(variables)
-
-  const stringified = JSON.stringify(convertedBigInts, null, spaceToIndentVariables)
+  const stringified = JSON.stringify(variables, null, spaceToIndentVariables)
   // Removes the first and last characters, which are either '[' and ']', or '{' and '}'.
   const removedBrackets = stringified.substring(1, stringified.length - 1)
 
@@ -1712,7 +1709,9 @@ export const equal = (
     // equal to the type of `b` above.
     typeof a === 'number' ||
     typeof a === 'boolean' ||
-    typeof a === 'number'
+    typeof a === 'number' ||
+    typeof a === 'string' ||
+    typeof a === 'bigint'
   ) {
     return a === b
   } else {
@@ -1746,6 +1745,7 @@ export const makeParsedConfig = (
     newConfig,
     isLiveNetwork: isLiveNetwork_,
     prevConfig,
+    remoteExecution,
   } = chainInfo
 
   const actions = actionsTODO.map(fromRawSphinxActionTODO)
@@ -1809,29 +1809,10 @@ export const makeParsedConfig = (
     isLiveNetwork: isLiveNetwork_,
     prevConfig,
     actionsTODO: extendedActions,
+    remoteExecution,
   }
 }
 
-// TODO(refactor): rename "toString" b/c we may convert to number
-// TODO: throw error if typeof obj === 'bigint' && obj > Number.MAX_SAFE_INTEGER
-export const convertBigIntToString = (obj: any): any => {
-  if (
-    typeof obj === 'boolean' ||
-    typeof obj === 'string' ||
-    typeof obj === 'number'
-  ) {
-    return obj
-  } else if (typeof obj === 'bigint') {
-    return obj > Number.MAX_SAFE_INTEGER ? obj.toString() : Number(obj)
-  } else if (Array.isArray(obj)) {
-    return obj.map(convertBigIntToString)
-  } else if (typeof obj === 'object') {
-    const newObj: { [name: string]: any } = {}
-    for (const key of Object.keys(obj)) {
-      newObj[key] = convertBigIntToString(obj[key])
-    }
-    return newObj
-  } else {
-    throw new Error(`Unsupported type: ${typeof obj}`)
-  }
+export const elementsEqual = (ary: Array<ParsedConfigVariable>): boolean => {
+  return ary.every((e) => equal(e, ary[0]))
 }
