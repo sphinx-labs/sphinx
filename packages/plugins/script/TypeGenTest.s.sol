@@ -61,8 +61,8 @@ import { ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnu
 import { ConflictingTypeNameContractFirst } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { ConflictingTypeNameContractSecond } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingTypeNameContractFirstClient } from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
-import { MsgSender } from "../contracts/test/typegen/MsgSender.sol";
-import { MsgSenderClient } from "../SphinxClient/typegen/MsgSender.SphinxClient.sol";
+import { MsgSender } from "../contracts/test/MsgSender.sol";
+import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 
