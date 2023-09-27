@@ -398,6 +398,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return count;
     }
 
+    // TODO: What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
 
     // TODO: the user needs to inherit this modifier.
     modifier sphinxDeploy(Network _network) {
@@ -745,9 +746,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         );
         vm.etch(where, runtimeBytecode);
     }
-
-    // TODO(test): define a constructor and function with the maximum number of allowed variables,
-    // turn the optimizer off, and see if you get a stack too deep error.
 
     // TODO(mv): pasted from SphinxAuth contract
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
