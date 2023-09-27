@@ -649,12 +649,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     // TODO: you should turn optimizer off in foundry.toml to ensure you don't get "stack too deep" error
 
-    // TODO(refactor): prefix all error messages with "Sphinx", since errors in foundry
-    // look like this:
-    // Error:
-    // SphinxClient: CREATE3 salt already used in this deployment. Please use a different 'salt' or 'referenceName'.
-    // Ryan - addressed
-
     // TODO: you should loosen the version of this file in case the user is using 0.7.x
 
     // TODO(notes):
