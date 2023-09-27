@@ -290,7 +290,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             ChainInfo memory chainInfo = _chainInfoArray[i];
             string memory networkName = findNetworkInfoByChainId(chainInfo.chainId).name;
 
-            string memory rootJsonField = string(abi.encodePacked(".chains.", networkName, ".humanReadableActionsAbiEncoded"));
             string memory configUri = vm.parseJsonString(json, string(abi.encodePacked(".chains.", networkName, ".configUri")));
             HumanReadableAction[] memory humanReadableActions = abi.decode(
                 vm.parseJsonBytes(json, string(abi.encodePacked(".chains.", networkName, ".humanReadableActionsAbiEncoded"))),
@@ -631,8 +630,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     }
 
     function deployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo, address _msgSender) private {
-        ISphinxRegistry registry = sphinxUtils.getSphinxRegistry();
-
         // TODO(refactor): all messages in this function should include the network name.
 
         if (_bundleInfo.authLeafs.length == 0) {
@@ -1611,7 +1608,7 @@ NetworkInfo({
         }
     }
 
-    function findNetworkInfoByName(string memory _networkName) private returns (NetworkInfo memory) {
+    function findNetworkInfoByName(string memory _networkName) private pure returns (NetworkInfo memory) {
         NetworkInfo[] memory all = getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
             if (keccak256(abi.encode(all[i].name)) == keccak256(abi.encode(_networkName))) {
