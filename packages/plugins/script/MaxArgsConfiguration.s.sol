@@ -13,9 +13,10 @@ import { MaxArgsClient } from "../SphinxClient/MaxArgs.SphinxClient.sol";
 
  * @dev The maximum number of input arguments for a constructor or external function to not cause
  *      a stack too deep error is 11 (regardless of the use of our system). For internal functions,
- *      the max number is at least 12. Since we define all functions on the generated SphinxClient
- *      as internal, we run into no issue with the number of input arguments even when using our
- *      additional DeployOptions argument.
+ *      that number is higher because they are called inline and therefore do not use the stack.
+ *      As a result, the maximum number of input args for an internal function is at least 12.
+ *      Since we define all functions on the generated SphinxClient as internal, we run into no
+ *      issue with the number of input arguments even when using our additional DeployOptions argument.
  *
  * Tests:
  *      - Deploying a contract with 11 input arguments
