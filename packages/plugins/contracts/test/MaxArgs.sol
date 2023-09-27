@@ -52,7 +52,7 @@ contract MaxArgs {
         uint _value8,
         uint _value9,
         uint _value10,
-        uint _value11,
+        uint _value11
     ) external {
         value += _value;
         value2 += _value2;
