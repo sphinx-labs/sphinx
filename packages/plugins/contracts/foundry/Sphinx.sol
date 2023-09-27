@@ -406,11 +406,11 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Cannot call Sphinx using vm.broadcast. Please use vm.startBroadcast instead."
+            "Sphinx: Cannot call Sphinx using vm.broadcast. Please use vm.startBroadcast instead."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,
-            "Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
+            "Sphinx: Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
         );
 
         // TODO(docs): we allow startPrank so that users don't need to toggle it when calling
@@ -519,6 +519,12 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             // do with proposals. if you need to keep this here, then consider renaming this env var
             // to something that mentions it's specifically for the deploy function.
             if (vm.envOr("SPHINX_INTERNAL__PREVIEW_ENABLED", false)) {
+
+                // TODO(fix): This will not get output if the users script does not call the deploy function with a
+                // broadcast which can cause errors or cause the preview to be incorrect in the deploy task.
+                // We should probably think about if we can rework the deploy task such that there is no requirement to
+                // provide an implemented run function. Or we should make it super easy to implement the run function.
+                // I.e provide some utility function that you can just call from your run function.
                 vm.writeFile(vm.envString("SPHINX_INTERNAL__CHAIN_INFO_PATH"), vm.toString(abi.encode(chainInfo)));
             }
 
@@ -541,10 +547,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             );
             DeploymentState memory deploymentState = manager.deployments(deploymentId);
 
-            require(deploymentState.status != DeploymentStatus.CANCELLED, "Deployment was previously cancelled. Exiting early.");
-            require(deploymentState.status != DeploymentStatus.FAILED, "Deployment previously failed. Exiting early.");
+            require(deploymentState.status != DeploymentStatus.CANCELLED, "Sphinx: Deployment was previously cancelled. Exiting early.");
+            require(deploymentState.status != DeploymentStatus.FAILED, "Sphinx: Deployment previously failed. Exiting early.");
             if (deploymentState.status == DeploymentStatus.COMPLETED) {
-                console.log('Deployment was already completed. Exiting early.');
+                console.log('Sphinx: Deployment was already completed. Exiting early.');
             }
 
             if (deploymentState.status == DeploymentStatus.EMPTY) {
@@ -682,10 +688,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return sorted;
     }
 
-    // TODO: benchmark performance between the live deployment flow and the `cast` flow when
-    // broadcasting on anvil. after, discuss with ryan how we want to implement broadcasting
-    // on anvil.
-
     // TODO: see if it'd be easy to estimate the gasused by each deployment and function call.
     // if so, you can remove the heuristics off-chain, and getEstDeploy...
 
@@ -706,9 +708,11 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return computeCreateAddress(proxy, 1);
     }
 
-    // Deploys specifically the sphinx manager contract to a target address.
-    // We use a dedicated function for this b/c we need to do it using the raw bytes imported
-    // from SphinxConstants.sol to avoid importing the manager itself and its entire dependency tree
+    /**
+     * @notice Deploys the SphinxManager contract to the target address.
+     *         We use a dedicated function for this b/c we need to do it using the raw bytes imported from
+     *         SphinxConstants.sol to avoid importing the manager itself and its entire dependency tree.
+     */
     function sphinxDeployManagerTo(address where) internal {
         SphinxContractInfo[] memory contracts = getSphinxContractInfo();
         bytes memory managerCreationCodeWithArgs = contracts[1].creationCode;
@@ -745,8 +749,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // TODO(test): define a constructor and function with the maximum number of allowed variables,
     // turn the optimizer off, and see if you get a stack too deep error.
 
-    // TODO(docs): we can't use the FQN for `vm.getCode` because...
-
     // TODO(mv): pasted from SphinxAuth contract
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
@@ -761,7 +763,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return abi.encodePacked(r, s, v);
     }
 
-// TODO(refactor): check that all error messages are prefixed with "Sphinx: "
     function validateTODO(Network _network) private view {
         // TODO(docs): these should be validated whether the deployment is occurring locally, broadcasting on live network, etc.
         require(bytes(sphinxConfig.projectName).length > 0, "Sphinx: Your 'projectName' field cannot be empty.");
@@ -779,10 +780,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         require(sphinxConfig.threshold > 0, "Sphinx: Your 'threshold' field must be greater than 0.");
         require(sphinxConfig.owners.length >= sphinxConfig.threshold, "Sphinx: Your 'threshold' field must be less than or equal to the number of owners in your 'owners' array.");
 
-        address[] memory duplicateOwners = getDuplicateElements(sphinxConfig.owners);
-        address[] memory duplicateProposers = getDuplicateElements(sphinxConfig.proposers);
-        Network[] memory duplicateMainnets = getDuplicateElements(sphinxConfig.mainnets);
-        Network[] memory duplicateTestnets = getDuplicateElements(sphinxConfig.testnets);
+        address[] memory duplicateOwners = deduplicateElements(sphinxConfig.owners);
+        address[] memory duplicateProposers = deduplicateElements(sphinxConfig.proposers);
+        Network[] memory duplicateMainnets = deduplicateElements(sphinxConfig.mainnets);
+        Network[] memory duplicateTestnets = deduplicateElements(sphinxConfig.testnets);
         require(duplicateOwners.length == 0, string(abi.encodePacked(
             "Sphinx: Your 'owners' array contains duplicate addresses: ",
             toString(duplicateOwners)
@@ -831,7 +832,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 deployer == sphinxConfig.owners[0],
                 string(
                     abi.encodePacked(
-                        "The deployer must match the owner in the 'owners' array.\n",
+                        "Sphinx: The deployer must match the owner in the 'owners' array.\n",
                         "Deployer: ",
                         vm.toString(deployer),
                         "\n",
@@ -1075,6 +1076,11 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
     }
 
+    /**
+     * @notice Checks if the rpcUrl is a live network by attempting to call the `hardhat_getAutomine` rpc method on it.
+     *         If the rpcUrl is anvil or hardat, the exit code will be 0. If the rpcUrl is a live network, the exit code
+     *         will be 1.
+     */
     function isLiveNetwork(string memory _rpcUrl) private returns (bool) {
         // TODO(docs): `exit_code` will be 1 if the network is a live network (i.e. not an Anvil or Hardhat node).
         string[] memory inputs = new string[](5);
@@ -1087,13 +1093,17 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return result.exit_code == 1;
     }
 
-    function getDuplicateElements(Network[] memory _network) private pure returns (Network[] memory) {
-        // TODO(docs): we return early here because the for-loop will throw an underflow error
-        // if the array is empty.
-        if (_network.length == 0) return new Network[](0);
+    /**
+     * @notice Filters out the duplicate networks and returns an array of unique networks.
+     * @param _networks The networks to filter.
+     * @return trimmed The unique networks.
+     */
+    function deduplicateElements(Network[] memory _networks) private pure returns (Network[] memory) {
+        // We return early here because the for-loop below will throw an underflow error if the array is empty.
+        if (_networks.length == 0) return new Network[](0);
 
-        Network[] memory sorted = sortNetworks(_network);
-        Network[] memory duplicates = new Network[](_network.length);
+        Network[] memory sorted = sortNetworks(_networks);
+        Network[] memory duplicates = new Network[](_networks.length);
         uint numDuplicates = 0;
         for (uint i = 0; i < sorted.length - 1; i++) {
             if (sorted[i] == sorted[i + 1]) {
@@ -1108,24 +1118,13 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return trimmed;
     }
 
-    // TODO(docs): sorts the networks in ascending order according to the Network enum's value.
-    function sortNetworks(Network[] memory _unsorted) private pure returns (Network[] memory) {
-        Network[] memory sorted = _unsorted;
-        for (uint i = 0; i < sorted.length; i++) {
-            for (uint j = i + 1; j < sorted.length; j++) {
-                if (sorted[i] > sorted[j]) {
-                    Network temp = sorted[i];
-                    sorted[i] = sorted[j];
-                    sorted[j] = temp;
-                }
-            }
-        }
-        return sorted;
-    }
-
-    function getDuplicateElements(address[] memory _ary) private pure returns (address[] memory) {
-        // TODO(docs): we return early here because the for-loop will throw an underflow error
-        // if the array is empty.
+    /**
+     * @notice Filters out the duplicate addresses and returns an array of unique addresses.
+     * @param _ary The addresses to filter.
+     * @return trimmed The unique addresses.
+     */
+    function deduplicateElements(address[] memory _ary) private pure returns (address[] memory) {
+        // We return early here because the for-loop below will throw an underflow error if the array is empty.
         if (_ary.length == 0) return new address[](0);
 
         address[] memory sorted = sortAddresses(_ary);
@@ -1144,6 +1143,25 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return trimmed;
     }
 
+    /**
+     * @notice Sorts the networks in ascending order according to the Network enum's value.
+     * @param _unsorted The networks to sort.
+     * @return sorted The sorted networks.
+     */
+    function sortNetworks(Network[] memory _unsorted) private pure returns (Network[] memory) {
+        Network[] memory sorted = _unsorted;
+        for (uint i = 0; i < sorted.length; i++) {
+            for (uint j = i + 1; j < sorted.length; j++) {
+                if (sorted[i] > sorted[j]) {
+                    Network temp = sorted[i];
+                    sorted[i] = sorted[j];
+                    sorted[j] = temp;
+                }
+            }
+        }
+        return sorted;
+    }
+
     // function makeSphinxConfig() private {
     //     sphinxConfig.projectName = projectName;
     //     sphinxConfig.orgId = orgId;
@@ -1158,50 +1176,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     function getMappingValueSlotKey(bytes32 _mappingSlotKey, bytes32 _key) private pure returns (bytes32) {
         bytes memory encodedMappingKey = abi.encode(_key);
         return keccak256(abi.encodePacked(encodedMappingKey, _mappingSlotKey));
-    }
-
-    // TODO: Docs
-    // Defines that a contract is deployed already at a particular address. Sets the code
-    // at the address to the contracts client code, and moves the current code to the implementation
-    // address used by the client.
-    function _defineContract(
-        string memory _referenceName,
-        address _contractAddress,
-        string memory _fullyQualifiedName,
-        string memory _clientPath
-    ) internal returns (address) {
-        require(
-            !isReferenceNameUsed(_referenceName),
-            string(
-                abi.encodePacked("Sphinx: The reference name ",
-                _referenceName,
-                " was used more than once in this deployment. Reference names must be unique.")
-            )
-        );
-        require(_contractAddress.code.length > 0, string(abi.encodePacked("Sphinx: The contract ", _referenceName, " at ", vm.toString(_contractAddress), " is not deployed on this network. Please make sure that the address and network are correct.")));
-
-        bytes memory actionData = abi.encode(_contractAddress, _referenceName);
-        actions.push(SphinxAction({
-            fullyQualifiedName: _fullyQualifiedName,
-            actionType: SphinxActionType.DEFINE_CONTRACT,
-            data: actionData,
-            // TODO(docs): we always skip b/c it's already deployed.
-            skip: true
-        }));
-
-        // The implementation's address is the current address minus one.
-        address impl = address(uint160(address(_contractAddress)) - 1);
-
-        // TODO(docs): Set the user's contract's code to the implementation address.
-        vm.etch(impl, _contractAddress.code);
-
-        // TODO(docs): Deploy the client to the CREATE3 address.
-        sphinxDeployCodeTo(
-            _clientPath,
-            abi.encode(manager, address(this), impl),
-            _contractAddress
-        );
-        return _contractAddress;
     }
 
     /**
@@ -1281,6 +1255,65 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         sphinxDeployCodeTo(clientArtifactPath, abi.encode(manager, address(this), impl), create3Address);
 
         return create3Address;
+    }
+
+    /**
+     * @notice Defines that a contract is deployed already at a particular address and allows the user to
+     *         interact with it via a client. This function differs from the `_deployContract` function in
+     *         that it assumes that the contract is already deployed at the target address.
+     *
+     *         This function works very similarly to the `_deployContract` function, but instead of deploying
+     *         the contract, we assume that it's already deployed and just move the implementation code to the
+     *         implementation (target address minus one), and then deploy the client to the target address.
+     *
+     *         Like the `_deployContract` function, this function is called from the auto generated Sphinx Client
+     *         and uses a proxy pattern to simulate interactions with contracts that are defined using this function.
+     *
+     * @notice It is up to the user to make sure that the correct contract is deployed at the target address.
+     *         We check that there is code at the address, but we do not check that it's correct.
+     */
+    function _defineContract(
+        string memory _referenceName,
+        address _targetAddress,
+        string memory _fullyQualifiedName,
+        string memory _clientPath
+    ) internal returns (address) {
+        require(
+            !isReferenceNameUsed(_referenceName),
+            string(
+                abi.encodePacked("Sphinx: The reference name ",
+                _referenceName,
+                " was used more than once in this deployment. Reference names must be unique.")
+            )
+        );
+        require(_targetAddress.code.length > 0, string(abi.encodePacked("Sphinx: The contract ", _referenceName, " at ", vm.toString(_targetAddress), " is not deployed on this network. Please make sure that the address and network are correct.")));
+
+        /* Even though this contract does not need to be deployed, we still push an action to the actions array
+         * so that we can keep track of the reference name for use later. We use a different action type `DEFINE_CONTRACT`
+         * so we can easily filter out these actions, and the `skip` field is always set to true because we don't need to
+         * deploy the contract.
+         */
+        bytes memory actionData = abi.encode(_targetAddress, _referenceName);
+        actions.push(SphinxAction({
+            fullyQualifiedName: _fullyQualifiedName,
+            actionType: SphinxActionType.DEFINE_CONTRACT,
+            data: actionData,
+            skip: true
+        }));
+
+        // The implementation's address is the current address minus one.
+        address impl = address(uint160(address(_targetAddress)) - 1);
+
+        // Set the user's contract's code to the implementation address.
+        vm.etch(impl, _targetAddress.code);
+
+        // Deploy the client to the CREATE3 address.
+        sphinxDeployCodeTo(
+            _clientPath,
+            abi.encode(manager, address(this), impl),
+            _targetAddress
+        );
+        return _targetAddress;
     }
 
     function addSphinxAction(SphinxAction memory _action) external {
