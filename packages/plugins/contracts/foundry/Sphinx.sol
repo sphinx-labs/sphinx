@@ -1253,11 +1253,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         PreviousInfo memory _prevConfig,
         SphinxConfig memory _newConfig
     ) private {
-        // TODO(docs): we remove 'DEFINE_CONTRACT' actions because...
         SphinxAction[] memory trimmed = removeActionType(actions, SphinxActionType.DEFINE_CONTRACT);
 
         for (uint i = 0; i < trimmed.length; i++) {
-            chainInfo.actionsTODO[i] = trimmed[i];
+            chainInfo.actionsTODO.push(trimmed[i]);
         }
 
         chainInfo.authAddress = address(auth);
@@ -1294,7 +1293,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         revert("Sphinx: No reference name found for the given address. Should never happen.");
     }
 
-    function removeActionType(SphinxAction[] memory _actions, SphinxActionType _actionType) private returns (SphinxAction[] memory) {
+    function removeActionType(SphinxAction[] memory _actions, SphinxActionType _actionType) private pure returns (SphinxAction[] memory) {
         SphinxAction[] memory filtered = new SphinxAction[](_actions.length);
         uint numFiltered = 0;
         for (uint i = 0; i < _actions.length; i++) {
