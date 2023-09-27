@@ -655,6 +655,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     //   and the logic in the corresponding client contract has a variable named "salt", then this
     //   could result in unexpected behavior. I started to do this in these contracts but I don't
     //   think it's exhaustive.
+    // Ryan - Addressed in client generation by prepending `sphinxInternal` to all possibly conflicting
+    //        variable names.
 
     // TODO: you should check that the functions in Sphinx.sol don't conflict with functions
     // that the user defines in their config.
@@ -713,7 +715,15 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         vm.etch(where, runtimeBytecode);
     }
 
-    // TODO(docs): copied from stdcheats; faster than loading in that entire contract.
+    /**
+     * @notice Deploys a contract with the specified qualified name and arguments to the target address.
+     *         This function is also provided by foundry via stdcheats, but we reimplement it ourselves to
+     *         avoid loading the entire contract.
+     *
+     * @param what The contract to deploy, must be a qualified name, i.e MyFile.sol:MyContract.
+     * @param args The constructor arguments for the contract.
+     * @param where The address to deploy the contract too.
+     */
     function sphinxDeployCodeTo(string memory what, bytes memory args, address where) internal {
         bytes memory creationCode = vm.getCode(what);
         vm.etch(where, abi.encodePacked(creationCode, args));

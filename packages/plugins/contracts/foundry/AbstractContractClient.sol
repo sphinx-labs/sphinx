@@ -11,21 +11,21 @@ import { VmSafe } from "forge-std/Vm.sol";
 
 abstract contract AbstractContractClient {
 
-    address internal immutable sphinxManager;
-    Sphinx internal immutable sphinx;
-    address internal immutable impl;
+    address internal immutable sphinxInternalManager;
+    Sphinx internal immutable sphinxInternalSphinxLib;
+    address internal immutable sphinxInternalImpl;
 
     constructor(address _sphinxManager, address _sphinx, address _impl) {
-        sphinxManager = _sphinxManager;
-        sphinx = Sphinx(_sphinx);
-        impl = _impl;
+        sphinxInternalManager = _sphinxManager;
+        sphinxInternalSphinxLib = Sphinx(_sphinx);
+        sphinxInternalImpl = _impl;
     }
 
     fallback() external virtual;
 
     modifier delegateIfNotManager() {
-        if (msg.sender != sphinxManager) {
-            _delegate(impl);
+        if (msg.sender != sphinxInternalManager) {
+            _delegate(sphinxInternalImpl);
         }
 
         _;
@@ -33,26 +33,26 @@ abstract contract AbstractContractClient {
 
     // Calls a function on the users contract from the client contract.
     function _callFunction(bytes4 selector, bytes memory functionArgs, string memory fullyQualifiedName) internal {
-        if (msg.sender != sphinxManager) {
-            _delegate(impl);
+        if (msg.sender != sphinxInternalManager) {
+            _delegate(sphinxInternalImpl);
         }
 
         bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
 
-        uint256 currentNonceInManager = sphinxManager.code.length > 0 ? ISphinxManager(sphinxManager).callNonces(callHash) : 0;
-        uint256 currentNonceInDeployment = sphinx.getCallCountInDeployment(callHash);
+        uint256 currentNonceInManager = sphinxInternalManager.code.length > 0 ? ISphinxManager(sphinxInternalManager).callNonces(callHash) : 0;
+        uint256 currentNonceInDeployment = sphinxInternalSphinxLib.getCallCountInDeployment(callHash);
 
         // TODO(docs): we can't make the reference name a state variable in this contract because we
         // can't have any mutable variables since this is a proxy for the user's function, and we
         // may overwrite the user's variable in the storage layout. perhaps we should put that
         // above the contract definition for this contract.
-        string memory referenceName = sphinx.getReferenceNameForAddress(address(this));
+        string memory referenceName = sphinxInternalSphinxLib.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        bool isBroadcast = sphinx.initialCallerMode() == VmSafe.CallerMode.RecurrentBroadcast;
+        bool isBroadcast = sphinxInternalSphinxLib.initialCallerMode() == VmSafe.CallerMode.RecurrentBroadcast;
         if (!skip && !isBroadcast) {
-            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = impl.delegatecall(
+            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl.delegatecall(
                 encodedCall
             );
             if (!sphinxCallSuccess) {
@@ -64,7 +64,7 @@ abstract contract AbstractContractClient {
         }
 
         bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
-        sphinx.addSphinxAction(SphinxAction({
+        sphinxInternalSphinxLib.addSphinxAction(SphinxAction({
             fullyQualifiedName: fullyQualifiedName,
             actionType: SphinxActionType.CALL,
             data: actionData,

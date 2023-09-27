@@ -165,16 +165,16 @@ export const generateDeploymentFunctionFromASTDefinition = (
 
   function deploy${contractName}(${
     inputs !== '' ? `\n    ${inputs},\n    ` : ''
-  }DeployOptions memory _deployOptions
+  }DeployOptions memory _sphinxInternalDeployOptions
   ) internal returns (${uniqueClientName}) {
-    bytes memory constructorArgs = abi.encode(
+    bytes memory sphinxInternalConstructorArgs = abi.encode(
       ${inputNames}
     );
     return ${uniqueClientName}(
       _deployContract(
-        _deployOptions.referenceName,
-        _deployOptions.salt,
-        constructorArgs,
+        _sphinxInternalDeployOptions.referenceName,
+        _sphinxInternalDeployOptions.salt,
+        sphinxInternalConstructorArgs,
         "${fullyQualifiedName}",
         "${clientArtifactPath}",
         "${artifactPath}"
@@ -234,7 +234,7 @@ export const generateFunctionFromASTDefinition = (
     // Generate pure functions
     const functionDefinition = `
   ${functionHeader} {
-    _delegate(impl);
+    _delegate(sphinxInternalImpl);
   }
 `
     return { imports, functionDefinition }
@@ -252,9 +252,9 @@ export const generateFunctionFromASTDefinition = (
 
     const functionDefinition = `
   ${functionHeader} {
-    bytes4 selector = 0x${definition.functionSelector};
-    bytes memory functionArgs = abi.encode(${inputNames});
-    _callFunction(selector, functionArgs, "${fullyQualifiedName}");
+    bytes4 sphinxInternalSelector = 0x${definition.functionSelector};
+    bytes memory sphinxInternalFunctionArgs = abi.encode(${inputNames});
+    _callFunction(sphinxInternalSelector, sphinxInternalFunctionArgs, "${fullyQualifiedName}");
   }
 `
 
