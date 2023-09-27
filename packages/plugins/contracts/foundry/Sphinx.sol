@@ -82,7 +82,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     // TODO: is there anything we can remove from the SphinxAction struct?
 
-    // TODO: update forge-std to 1.6.1 in all packages
     // TODO(md): forge-std needs to be 1.6.1
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
