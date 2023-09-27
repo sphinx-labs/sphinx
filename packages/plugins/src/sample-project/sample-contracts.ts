@@ -51,45 +51,47 @@ import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.SphinxClient.sol";
 
 contract HelloSphinxConfig is Script, SphinxClient {
-  HelloSphinx helloSphinx;
+    HelloSphinx helloSphinx;
 
-  string projectName = "TypeGenTest";
-  string orgId = "";
-  address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-  address[] proposers;
-  Network[] mainnets;
-  Network[] testnets;
-  uint256 threshold = 1;
-  Version version = Version({ major: 0, minor: 2, patch: 4 });
+    string projectName = "TypeGenTest";
+    string orgId = "";
+    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+    address[] proposers;
+    Network[] mainnets;
+    Network[] testnets;
+    uint256 threshold = 1;
+    Version version = Version({ major: 0, minor: 2, patch: 4 });
 
-  constructor()
-      SphinxClient(
-          SphinxConfig({
-              projectName: projectName,
-              orgId: orgId,
-              owners: owners,
-              proposers: proposers,
-              mainnets: mainnets,
-              testnets: testnets,
-              threshold: threshold,
-              version: version
-          })
-      )
-  {}
+    constructor()
+        SphinxClient(
+            SphinxConfig({
+                projectName: projectName,
+                orgId: orgId,
+                owners: owners,
+                proposers: proposers,
+                mainnets: mainnets,
+                testnets: testnets,
+                threshold: threshold,
+                version: version
+            })
+        )
+    {}
 
-  function deploy(Network _network) public override sphinxDeploy(_network) {
-      HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hello", "Bob", 0);
-      helloSphinxClient.add(5);
+    function deploy(Network _network) public override sphinxDeploy(_network) {
+        HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hello", "Bob", 0);
+        helloSphinxClient.add(5);
 
-      helloSphinx = HelloSphinx(address(helloSphinxClient));
-  }
+        helloSphinx = HelloSphinx(address(helloSphinxClient));
+    }
 
-  function run() public {
-      deploy(Network.anvil);
-      string memory greeting = helloSphinx.greeting();
-      string memory name = helloSphinx.name();
-      console.log("%s, %s!", greeting, name);
-  }
+    function run() public {
+        vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+        deploy(Network.anvil);
+        vm.stopBroadcast();
+        string memory greeting = helloSphinx.greeting();
+        string memory name = helloSphinx.name();
+        console.log("%s, %s!", greeting, name);
+    }
 }`
 }
 
