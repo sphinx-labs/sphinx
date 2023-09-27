@@ -360,6 +360,10 @@ export const generateClientsForExternalContracts = async (
     'SphinxExternal.json'
   )
 
+  if (!fs.existsSync(externalImpostsArtifactPath)) {
+    return { deployFunctionImports: {}, deployFunctions: [] }
+  }
+
   const artifact = JSON.parse(
     fs.readFileSync(externalImpostsArtifactPath, 'utf-8')
   )
@@ -405,7 +409,7 @@ const generateSphinxClient = async (
 pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxConfig, DeployOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxConfig, DeployOptions, DefineOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 ${Object.values(imports).join('\n')}
 
 abstract contract SphinxClient is Sphinx {
@@ -451,6 +455,12 @@ export const generateClient = async () => {
       1,
       remappings
     )
+
+  if (!fs.existsSync(srcDirectory)) {
+    throw new Error(
+      `The src directory: '${srcDirectory}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
+    )
+  }
 
   await generateClientsInFolder(
     srcDirectory,

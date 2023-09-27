@@ -1,10 +1,13 @@
 [profile.default]
 src = 'contracts'
+script = 'script'
+test = 'test'
 ffi = true
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "/"}]
 allow_paths = ["../.."]
+optimizer = false # TODO: set to 'true'
 
 remappings=[
   '@sphinx-labs/plugins=../../node_modules/@sphinx-labs/plugins/contracts/foundry',

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { SphinxConfig, Network, DeployOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxConfig, Network, DeployOptions, DefineOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
 import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
@@ -341,14 +341,15 @@ contract TypeGenTestConfig is Test, SphinxClient {
         externalContractClient.setNumber(6);
         externalContract = ExternalContract(address(externalContractClient));
 
-        // // Define external contract and interact with it
-        // ExternalContractClient alreadyDeployedExternalContractClient = defineExternalContract(
-        //     alreadyDeployedContractAddress
-        // );
-        // alreadyDeployedExternalContractClient.setNumber(7);
-        // alreadyDeployedExternalContract = ExternalContract(
-        //     address(alreadyDeployedExternalContractClient)
-        // );
+        // Define external contract and interact with it
+        ExternalContractClient alreadyDeployedExternalContractClient = defineExternalContract(
+            alreadyDeployedContractAddress,
+            DefineOptions({ referenceName: "MyExternalContract" })
+        );
+        alreadyDeployedExternalContractClient.setNumber(7);
+        alreadyDeployedExternalContract = ExternalContract(
+            address(alreadyDeployedExternalContractClient)
+        );
 
         // Deploy contracts with conflicting type names
         conflictingTypeNameContractFirst = ConflictingTypeNameContractFirst(

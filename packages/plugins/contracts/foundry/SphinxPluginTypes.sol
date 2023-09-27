@@ -242,6 +242,10 @@ struct DeployOptions {
     string referenceName;
 }
 
+struct DefineOptions {
+    string referenceName;
+}
+
 // TODO: are any of these fields unnecessary?
 struct SphinxAction {
     string fullyQualifiedName;

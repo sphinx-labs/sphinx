@@ -12,7 +12,7 @@ optimizer = false # TODO: set to 'true'
 
 ffi = true
 libs = ['node_modules']
-test = 'test-folder/foundry'
+test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]

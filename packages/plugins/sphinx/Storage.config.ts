@@ -5,7 +5,7 @@ import {
   complexConstructorArgs,
   immutableConstructorArgsOne,
   immutableConstructorArgsTwo,
-} from '../test-folder/constants'
+} from '../test/constants'
 
 export const projectName = 'Storage'
 

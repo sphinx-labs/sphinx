@@ -1256,10 +1256,13 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // TODO(docs): we remove 'DEFINE_CONTRACT' actions because...
         SphinxAction[] memory trimmed = removeActionType(actions, SphinxActionType.DEFINE_CONTRACT);
 
+        for (uint i = 0; i < trimmed.length; i++) {
+            chainInfo.actionsTODO[i] = trimmed[i];
+        }
+
         chainInfo.authAddress = address(auth);
         chainInfo.managerAddress = address(manager);
         chainInfo.chainId = block.chainid;
-        chainInfo.actionsTODO = trimmed;
         chainInfo.newConfig = _newConfig;
         chainInfo.isLiveNetwork = _isLiveNetwork;
         chainInfo.prevConfig = _prevConfig;
