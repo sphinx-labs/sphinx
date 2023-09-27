@@ -398,6 +398,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return count;
     }
 
+    // TODO: What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
 
     // TODO: the user needs to inherit this modifier.
     modifier sphinxDeploy(Network _network) {
