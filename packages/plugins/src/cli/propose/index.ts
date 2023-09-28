@@ -1,12 +1,12 @@
-import { resolve } from 'path'
+import { join, resolve } from 'path'
 import { readFileSync } from 'fs'
+import { spawnSync } from 'child_process'
 
 import {
   AuthLeaf,
   CanonicalConfig,
   ChainInfo,
   ConfigArtifacts,
-  GetConfigArtifacts,
   ParsedConfig,
   ProjectDeployment,
   ProposalRequest,
@@ -14,6 +14,7 @@ import {
   RoleType,
   WEBSITE_URL,
   elementsEqual,
+  execAsync,
   getAuthLeafSignerInfo,
   getAuthLeafsForChain,
   getDiff,
@@ -33,6 +34,8 @@ import ora from 'ora'
 import { blue } from 'chalk'
 
 import { decodeChainInfoArray } from '../../foundry/structs'
+import { getFoundryConfigOptions } from '../../foundry/options'
+import { makeGetConfigArtifacts } from '../../foundry/utils'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
@@ -43,17 +46,55 @@ const pluginRootPath =
  * different canonical config. This is useful for testing.
  * @param dryRun If true, the proposal will not be relayed to the back-end.
  */
-export const proposeAbstractTask = async (
-  chainInfoPath: string,
-  getConfigArtifacts: GetConfigArtifacts,
+export const propose = async (
   confirm: boolean,
   isTestnet: boolean,
   dryRun: boolean,
-  spinner: ora.Ora = ora({ isSilent: true })
+  scriptPath: string
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
   ipfsData: string[] | undefined
 }> => {
+  // We compile the contracts to make sure we're using the latest versions. This command
+  // displays the compilation process to the user in real time.
+  const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+  // Exit the process if compilation fails.
+  if (status !== 0) {
+    process.exit(1)
+  }
+
+  // TODO(refactor): redo spinner
+  const spinner = ora()
+  // spinner.start(`Getting project info...`)
+
+  const { artifactFolder, buildInfoFolder, cachePath } =
+    await getFoundryConfigOptions()
+
+  const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+  // TODO(case): there's an error in the script. we should bubble it up.
+  // TODO: this is the simulation. you should do this in every case.
+  try {
+    // TODO(refactor): probably change this spinner message b/c we run it even if the user skips
+    // the preview. potentially the same w/ deploy task.
+    spinner.start(`Generating preview...`)
+    await execAsync(
+      `forge script ${scriptPath} --sig 'propose(bool,string)' ${isTestnet} ${chainInfoPath}`
+    )
+  } catch (e) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(e.stdout)
+    // The `stderr` contains the error message.
+    console.log(e.stderr)
+    process.exit(1)
+  }
+
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    artifactFolder,
+    buildInfoFolder,
+    cachePath
+  )
+
   // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
   // this task, in which case the Sphinx ABI won't exist yet.
   const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
