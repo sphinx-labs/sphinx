@@ -510,6 +510,24 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
+
+            for (uint i = 0; i < chainInfo.actionsTODO.length; i++) {
+                SphinxAction memory action = chainInfo.actionsTODO[i];
+                // TODO(docs): Remove the clients. This is necessary to do before we execute the
+                // deployment because it'll fail if there's already code at the contract's address.
+                if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
+                    (, , bytes32 userSalt, string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
+                    bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
+                    address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
+                    vm.etch(create3Address, hex"");
+                } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
+                    // Replace the client's bytecode with the actual contract at its proper address.
+                    (address to, ) = abi.decode(action.data, (address, string));
+                    // The contract's bytecode is stored at its proper address minus one.
+                    address impl = address(uint160(address(to)) - 1);
+                    vm.etch(address(to), impl.code);
+                }
+            }
         } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
             mode = SphinxMode.Broadcast;
             vm.stopBroadcast();

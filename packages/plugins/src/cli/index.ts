@@ -134,9 +134,10 @@ yargs(hideBin(process.argv))
         // TODO(refactor): probably change this spinner message b/c we run it even if the user skips
         // the preview. potentially the same w/ deploy task.
         spinner.start(`Generating preview...`)
-        await execAsync(
+        const {stdout: TODO} = await execAsync(
           `forge script ${scriptPath} --sig 'propose(bool,string)' ${isTestnet} ${chainInfoPath}`
         )
+        console.log(TODO)
       } catch (e) {
         spinner.stop()
         // The `stdout` contains the trace of the error.
