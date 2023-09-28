@@ -26,7 +26,7 @@ import { getFoundryConfigOptions } from '../foundry/options'
 // import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
 import { decodeChainInfo } from '../foundry/structs'
-import { proposeAbstractTask } from './propose'
+import { propose } from './propose'
 
 // Load environment variables from .env
 dotenv.config()
@@ -117,54 +117,7 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      // We compile the contracts to make sure we're using the latest versions. This command
-      // displays the compilation process to the user in real time.
-      const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
-      // Exit the process if compilation fails.
-      if (status !== 0) {
-        process.exit(1)
-      }
-
-      // TODO(refactor): redo spinner
-      const spinner = ora()
-      // spinner.start(`Getting project info...`)
-
-      const { artifactFolder, buildInfoFolder, cachePath } =
-        await getFoundryConfigOptions()
-
-      const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
-      // TODO(case): there's an error in the script. we should bubble it up.
-      // TODO: this is the simulation. you should do this in every case.
-      try {
-        // TODO(refactor): probably change this spinner message b/c we run it even if the user skips
-        // the preview. potentially the same w/ deploy task.
-        spinner.start(`Generating preview...`)
-        await execAsync(
-          `forge script ${scriptPath} --sig 'propose(bool,string)' ${isTestnet} ${chainInfoPath}`
-        )
-      } catch (e) {
-        spinner.stop()
-        // The `stdout` contains the trace of the error.
-        console.log(e.stdout)
-        // The `stderr` contains the error message.
-        console.log(e.stderr)
-        process.exit(1)
-      }
-
-      const getConfigArtifacts = makeGetConfigArtifacts(
-        artifactFolder,
-        buildInfoFolder,
-        cachePath
-      )
-
-      await proposeAbstractTask(
-        chainInfoPath,
-        getConfigArtifacts,
-        confirm,
-        isTestnet,
-        dryRun,
-        spinner
-      )
+      await propose(confirm, isTestnet, dryRun, scriptPath)
     }
   )
   .command(
