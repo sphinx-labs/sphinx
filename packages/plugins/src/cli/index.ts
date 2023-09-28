@@ -17,7 +17,6 @@ import {
   getDiffString,
   userConfirmation,
   ChainInfo,
-  proposeAbstractTask,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -26,7 +25,8 @@ import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 // import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
-import { decodeChainInfo, decodeChainInfoArray } from '../foundry/structs'
+import { decodeChainInfo } from '../foundry/structs'
+import { proposeAbstractTask } from './propose'
 
 // Load environment variables from .env
 dotenv.config()
@@ -151,22 +151,6 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
-      // this task, in which case the Sphinx ABI won't exist yet.
-      const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-      const SphinxABI =
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
-
-      const abiEncodedChainInfoArray: string = readFileSync(
-        chainInfoPath,
-        'utf8'
-      )
-      const chainInfoArray: Array<ChainInfo> = decodeChainInfoArray(
-        abiEncodedChainInfoArray,
-        SphinxABI
-      )
-
       const getConfigArtifacts = makeGetConfigArtifacts(
         artifactFolder,
         buildInfoFolder,
@@ -174,7 +158,7 @@ yargs(hideBin(process.argv))
       )
 
       await proposeAbstractTask(
-        chainInfoArray,
+        chainInfoPath,
         getConfigArtifacts,
         confirm,
         isTestnet,
