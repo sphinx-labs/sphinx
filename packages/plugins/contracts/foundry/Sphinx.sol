@@ -231,9 +231,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             // within the `deploy` function. this doesn't actually broadcast the transactions onto
             // the live network unless the forge script is invoked with the `--broadcast` flag on
             // the CLI, which doesn't occur within Sphinx's proposal task.
-            vm.startPrank(proposer); // TODO(docs): prank sets callerMode.msgSender to the proposer's address.
             deploy(network);
-            vm.stopPrank();
 
             console.log('registry', registryAddress);
             vm.makePersistent(registryAddress);
@@ -640,7 +638,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         }
 
         if (mode == SphinxMode.Broadcast) vm.startBroadcast(_msgSender);
-        else if (mode == SphinxMode.Proposal) vm.startPrank(_msgSender);
 
         register(authData, sphinxConfig.projectName);
 
