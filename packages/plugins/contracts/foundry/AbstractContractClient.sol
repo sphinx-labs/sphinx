@@ -62,7 +62,7 @@ abstract contract AbstractContractClient {
         string memory referenceName = sphinxInternalSphinxLib.getReferenceNameForAddress(address(this));
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        if (!skip && sphinxInternalSphinxLib.mode() == SphinxMode.DeployLocal) {
+        if (!skip && sphinxInternalSphinxLib.mode() == SphinxMode.Default) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl.delegatecall(
                 encodedCall
             );

@@ -73,7 +73,7 @@ struct HumanReadableAction {
 }
 
 enum SphinxMode {
-    DeployLocal,
+    Default,
     Broadcast,
     Proposal
 }
@@ -127,7 +127,6 @@ struct ConfigCache {
     bool isExecuting;
     Version currentversion;
     uint256 chainId;
-    bool isLiveNetwork;
 }
 
 struct ParsedCallAction {

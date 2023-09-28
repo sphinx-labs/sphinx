@@ -7,11 +7,6 @@ import { MyContract1Client } from "../SphinxClient/MyContracts.SphinxClient.sol"
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 
-// TODO: we should probably prevent users from doing `vm.broadcast` and `vm.prank` immediately
-// before calling `deploy`. potentially vm.startPrank too. instead, they should do
-// `vm.startBroadcast` because we may always perform more than one transaction in the `deploy`
-// function.
-
 // TODO(test): you should use `vm.createSelectFork` in one of your tests for the solidity
 // config.
 
@@ -20,17 +15,15 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
     // TODO(md): consider changing the readme so that it focuses on the local deployment experience
     // first, then talks about the devops platform next.
 
-    // TODO: you should probably require that the user define the owners, proposers etc via
-    // inheritance. actually, read the next todo before you do that.
-
-  // TODO: i don't think the mainnets and testnets arrays serve any purpose for the deploy task.
 
 contract MyScript is Script, SphinxClient {
 
     string projectName = 'My Project';
     address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     Version version = Version({major: 0, minor: 2, patch: 4});
-    // don't need for deploy task:
+    // TODO: we may not need the following fields for the deploy task. in the spirit of keeping the
+    // local deployment experience as simple as possible, we may want to consider allowing
+    // users to omit them.
     address[] proposers;
     Network[] mainnets;
     Network[] testnets = [Network.anvil];

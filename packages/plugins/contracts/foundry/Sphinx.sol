@@ -48,33 +48,19 @@ import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
-// TODO: we may want to document the fact that broadcasting on anvil doesn't work exactly
-// broadcasting on live networks. in particular, on live networks, broadcasting only occurs
-// if the user specifies --broadcast, --rpc-url, and vm.startBroadcast (i think). on anvil,
-// it works if the user just does vm.startBroadcast without --broadcast. it also works on
-// the first run if the user doesn't include --rpc-url too, but it fails on subsequent runs
-// because the in-process state isn't updated with the deployment, whereas the node is.
-
 abstract contract Sphinx is StdUtils, SphinxConstants {
     // TODO: open a ticket in foundry that the getMappingLength is broken
 
     // TODO(docs): above constructor: you shouldn't execute any state-changing transactions or deploy any contracts
-    // inside this constructor b/c this will happen:
+    // inside this constructor b/c this can happen:
     // 1. do stuff in constructor
     // 2. user does `function run() { vm.createSelectFork(...); deploy(...); }`
     // 3. deploy(...) will fail b/c stuff in constructor wasn't executed in the new fork.
     // If you need to execute transactions/deploy contracts, do so in the sphinxDeploy modifier.
 
-    // TODO: you should do this: "If we want, it'd be pretty easy to enforce that live network
-    // deployments happen via npx sphinx deploy and not by running a forge script"
-
-    // TODO: if you decide to use the fast deployment logic for anvil, you should probably
-    // run the pre-diff simulation against the live network logic, since this'd help prevent
-    // against bugs caused by different local and live logic.
-
     // TODO(docs): answer the question, " why does the SphinxAction have so many things encoded in
     // the data field instead of stored as their own fields?"
-    SphinxAction[] private actions;
+
 
     // TODO: i think we need to remove the initial state at the same time that we do
     // removeAllActions.
@@ -90,28 +76,20 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // TODO(docs): this is *not* deployed for the in-process deployment flow, which boosts
-    // performance.
-    ISphinxUtils internal sphinxUtils;
-
     SphinxMode public mode;
 
-    string private rpcUrl;
-    bool private isLiveNetwork_;
-
     // Get owner address
-    uint private key = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
+    uint private systemOwnerPrivateKey = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
     address private systemOwnerAddress =
-        key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+        systemOwnerPrivateKey != 0 ? vm.rememberKey(systemOwnerPrivateKey) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
-    string private rootPath =
+    string private rootPluginPath =
         vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
-    string private rootFfiPath = string(abi.encodePacked(rootPath, "dist/foundry/"));
+    string private rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
     string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
     ISphinxManager internal immutable manager;
     ISphinxAuthLibrary private immutable auth;
-    PreviousInfo private prevInfo;
 
     // TODO: rm?
     // // TODO(docs): these values can be overridden by the user in their constructor.
@@ -159,8 +137,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // contract directly. or, maybe the easiest solution is to just put the necessary functions
     // in the Sphinx.sol contract. we'd want to time it to be sure that it doesn't cause a noticeable regression.
 
-    function initializeSphinx(string memory _rpcUrl) internal {
-        (bool success, bytes memory retdata) = address(sphinxUtils).delegatecall(
+    function initializeSphinx(ISphinxUtils _utils, string memory _rpcUrl) internal {
+        (bool success, bytes memory retdata) = address(_utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.initialize.selector,
                 _rpcUrl,
@@ -168,7 +146,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 systemOwnerAddress
             )
         );
-        require(success, string(sphinxUtils.removeSelector(retdata)));
+        require(success, string(_utils.removeSelector(retdata)));
     }
 
     // TODO: when you do the next contract upgrade:
@@ -189,10 +167,10 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     }
 
     function deploy(string memory _networkName) external {
-        require(sphinxConfig.owners.length == 1, "Sphinx: There must be a single address in the 'owners' array.");
-        address owner = sphinxConfig.owners[0];
+        uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+        require(privateKey != 0, "Sphinx: You must set the 'PRIVATE_KEY' environment variable to execute the deployment.");
         Network network = findNetworkInfoByName(_networkName).network;
-        vm.startBroadcast(owner);
+        vm.startBroadcast(privateKey);
         deploy(network);
         vm.stopBroadcast();
     }
@@ -209,12 +187,26 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         require(proposerPrivateKey != 0, "Sphinx: You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment.");
         address proposer = vm.addr(proposerPrivateKey);
 
+        ISphinxUtils sphinxUtils = deploySphinxUtils();
+
         mode = SphinxMode.Proposal;
 
         ChainInfo[] memory chainInfoArray = new ChainInfo[](networks.length);
         for (uint256 i = 0; i < networks.length; i++) {
             Network network = networks[i];
             NetworkInfo memory networkInfo = getNetworkInfo(network);
+            string memory rpcUrl = vm.rpcUrl(networkInfo.name);
+
+            // TODO(docs): `vm.createSelectFork` sets the` `block.chainid` to the target chain (e.g.
+            // 1 for ethereum mainnet).
+            vm.createSelectFork(rpcUrl);
+
+            initializeSphinx(sphinxUtils, rpcUrl);
+
+            // TODO(refactor): maybe these should be in an "initial state" struct or something?
+            // would probably be clearer.
+            PreviousInfo memory prevInfo = getPrevConfig();
+            rpcUrl = vm.rpcUrl(getNetworkInfo(network).name);
 
             bool firstProposalOccurred = address(auth).code.length > 0 ? auth.firstProposalOccurred() : false;
             if (firstProposalOccurred) {
@@ -223,25 +215,15 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 require(arrayContainsAddress(sphinxConfig.proposers, proposer), string(abi.encodePacked("Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it. Address: ", vm.toString(proposer))));
             }
 
-            // TODO(docs): `vm.createSelectFork` sets the` `block.chainid` to the target chain (e.g.
-            // 1 for ethereum mainnet).
-            vm.createSelectFork(vm.rpcUrl(networkInfo.name));
-
-            // TODO(docs): we enable broadcasting to simulate the live network deployment flow
-            // within the `deploy` function. this doesn't actually broadcast the transactions onto
-            // the live network unless the forge script is invoked with the `--broadcast` flag on
-            // the CLI, which doesn't occur within Sphinx's proposal task.
-            vm.startPrank(proposer); // TODO(docs): prank sets callerMode.msgSender to the proposer's address.
             deploy(network);
-            vm.stopPrank();
 
-            console.log('registry', registryAddress);
-            vm.makePersistent(registryAddress);
-
+            updateChainInfo(
+                rpcUrl, prevInfo, sphinxConfig, mode
+            );
             chainInfoArray[i] = chainInfo;
         }
 
-        (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = getBundleInfo(chainInfoArray);
+        (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = getBundleInfo(chainInfoArray, sphinxUtils);
 
         for (uint256 i = 0; i < bundleInfoArray.length; i++) {
             BundleInfo memory bundleInfo = bundleInfoArray[i];
@@ -249,12 +231,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
             vm.createSelectFork(vm.rpcUrl(networkInfo.name));
 
-            // TODO(docs): we enable broadcasting to simulate the live network deployment flow
-            // within the `deploy` function. this doesn't actually broadcast the transactions onto
-            // the live network unless the forge script is invoked with the `--broadcast` flag on
-            // the CLI, which doesn't occur within Sphinx's proposal task.
-            vm.startPrank(proposer); // TODO(docs): prank sets callerMode.msgSender to the proposer's address.
-            deployOnNetwork(authRoot, bundleInfo, proposer);
+            vm.startPrank(proposer);
+            deployOnNetwork(authRoot, bundleInfo, sphinxUtils);
             vm.stopPrank();
         }
 
@@ -267,16 +245,17 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // TODO: if config.owners.length == 1 and proposers.length == 0, then make the owner a proposer.
 
     function getBundleInfo(
-        ChainInfo[] memory _chainInfoArray
+        ChainInfo[] memory _chainInfoArray,
+        ISphinxUtils _utils
     ) private returns (bytes32, BundleInfo[] memory) {
-        (bool success, bytes memory retdata) = address(sphinxUtils).delegatecall(
+        (bool success, bytes memory retdata) = address(_utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.ffiGetEncodedBundleInfo.selector,
                 _chainInfoArray,
                 rootFfiPath
             )
         );
-        require(success, string(sphinxUtils.removeSelector(retdata)));
+        require(success, string(_utils.removeSelector(retdata)));
         bytes memory encodedData = abi.decode(retdata, (bytes));
         return decodeBundleInfo(_chainInfoArray, encodedData);
     }
@@ -287,8 +266,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
         BundleInfo[] memory bundleInfoArray = new BundleInfo[](_chainInfoArray.length);
         for (uint256 i = 0; i < _chainInfoArray.length; i++) {
-            ChainInfo memory chainInfo = _chainInfoArray[i];
-            string memory networkName = findNetworkInfoByChainId(chainInfo.chainId).name;
+            string memory networkName = findNetworkInfoByChainId(_chainInfoArray[i].chainId).name;
 
             string memory configUri = vm.parseJsonString(json, string(abi.encodePacked(".chains.", networkName, ".configUri")));
             HumanReadableAction[] memory humanReadableActions = abi.decode(
@@ -334,6 +312,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         bytes32 authSalt = keccak256(abi.encode(_authData, _projectName));
         bool isRegistered = address(authFactory.auths(authSalt)) != address(0);
         if (!isRegistered) {
+            // TODO(refactor): can we remove the hard-coded gas values in this contract?
             authFactory.deploy{ gas: 2000000 }(_authData, hex"", _projectName);
         }
     }
@@ -358,7 +337,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     function executeBatchActions(
         BundledSphinxAction[] memory bundledActions,
         bool isSetStorageActionArray,
-        uint bufferedGasLimit
+        uint bufferedGasLimit,
+        ISphinxUtils sphinxUtils
     ) private returns (DeploymentStatus, uint) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
@@ -431,7 +411,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     function executeDeployment(
         BundleInfo memory bundleInfo,
-        uint256 blockGasLimit
+        uint256 blockGasLimit,
+        ISphinxUtils sphinxUtils
     ) private returns (bool, HumanReadableAction memory) {
         // TODO(docs)
         HumanReadableAction memory emptyAction;
@@ -447,7 +428,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         (DeploymentStatus status, uint failedActionIndex) = executeBatchActions(
             initialActions,
             false,
-            bufferedGasLimit
+            bufferedGasLimit,
+            sphinxUtils
         );
         if (status == DeploymentStatus.FAILED) {
             // Return with the relevant human readable action
@@ -469,7 +451,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         manager.initiateUpgrade{ gas: 1000000 }(targets, proofs);
 
         // Execute all the set storage actions
-        executeBatchActions(setStorageActions, true, bufferedGasLimit);
+        executeBatchActions(setStorageActions, true, bufferedGasLimit, sphinxUtils);
 
         // Complete the upgrade
         manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);
@@ -488,8 +470,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
      */
     function getCallCountInDeployment(bytes32 _callHash) public view returns (uint256) {
         uint256 count = 0;
-        for (uint256 i = 0; i < actions.length; i++) {
-            SphinxAction memory action = actions[i];
+        for (uint256 i = 0; i < chainInfo.actionsTODO.length; i++) {
+            SphinxAction memory action = chainInfo.actionsTODO[i];
             if (action.actionType == SphinxActionType.CALL) {
                 (address to, bytes4 selector, bytes memory functionArgs, , ) = abi.decode(action.data, (address, bytes4, bytes, uint256, string));
                 bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
@@ -502,7 +484,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return count;
     }
 
-    // TODO: the user needs to inherit this modifier.
+    // TODO: the user needs to inherit this modifier. we can probably enforce that they do this
+    // with a boolean variable, kinda like re-entrancy modifiers.
     modifier sphinxDeploy(Network _network) {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
@@ -519,117 +502,110 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // prank the SphinxManager, which deploys the contracts. we toggle it back on at the
         // end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
-        else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            mode = SphinxMode.Broadcast;
-            vm.stopBroadcast();
-        }
-
-        if (mode != SphinxMode.DeployLocal) {
-            // Get the creation bytecode of the SphinxUtils contract. We only load this when the
-            // user is broadcasting because it's not necessary for deployments on the in-process
-            // node, which speeds up that deployment process. We load the creation code directly
-            // from a JSON file instead of importing it into this contract because this speeds up
-            // the compilation process of contracts that inherit from this contract.
-            bytes memory utilsCreationCode = vm.getCode(
-                string(abi.encodePacked(rootPath, "out/artifacts/SphinxUtils.sol/SphinxUtils.json"))
-            );
-            address utilsAddr;
-            assembly {
-                utilsAddr := create2(0, add(utilsCreationCode, 0x20), mload(utilsCreationCode), 0)
-            }
-            require(utilsAddr != address(0), "Sphinx: failed to deploy SphinxUtils contract");
-            sphinxUtils = ISphinxUtils(utilsAddr);
-            // TODO(docs): required in a multi-fork setup, i.e. proposals
-            vm.makePersistent(utilsAddr);
-
-            // TODO(refactor): maybe these should be in an "initial state" struct or something?
-            // would probably be clearer. Also, this is only needed for the broadcast flow, but it's
-            // defined globally, which isn't ideal. same with sphinxUtils, rpcUrl, isLiveNetwork_,
-            // chainInfo (not actions), and probably other variables too.
-            prevInfo = getPrevConfig();
-
-            rpcUrl = vm.rpcUrl(getNetworkInfo(_network).name);
-            isLiveNetwork_ = isLiveNetwork(rpcUrl);
-        }
 
         validateTODO(_network);
 
-        // TODO(docs): this is from the old plugin: Next, we deploy and initialize the Sphinx
-        // contracts. If we're in a recurrent broadcast or prank, we temporarily stop it before we
-        // initialize the contracts. We disable broadcasting because we can't call vm.etch from
-        // within a broadcast. We disable pranking because we need to prank the owner of the Sphinx
-        // contracts when initializing the Sphinx contracts.
-        if (mode == SphinxMode.Broadcast) liveNetworkValidation(msgSender);
-
-        if (mode == SphinxMode.Broadcast || mode == SphinxMode.Proposal) initializeSphinx(rpcUrl);
-
-        // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
-        // an error b/c the sphinxmanager already exists.
-        if (mode == SphinxMode.DeployLocal) sphinxDeployManagerTo(address(manager));
-
-        delete actions;
-
-        // TODO: should you delete any of the other fields in ChainInfo?
-
-        vm.startPrank(address(manager));
-        _;
-        vm.stopPrank();
-
-        // TODO(refactor): i don't like that there's an isBroadcast variable but we don't use it in this modifier.
-        // you set isBroadcast at the very beginning of the modifier and use it throughout.
-
-        for (uint i = 0; i < actions.length; i++) {
-            // TODO: do you need to do the DEPLOY_CONTRACT stuff for both deployment flows?
-            SphinxAction memory action = actions[i];
-            // Set the contract's final runtime bytecode to its actual bytecode instead of its
-            // client's bytecode. This ensures that the user will be interacting with their exact
-            // contract after the deployment completes.
-            // TODO(docs): we do this even if the contract deployment was skipped because a client
-            // is used regardless.
-            if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                (, , bytes32 userSalt, string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
-                bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
-                address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
-                // The implementation's address is the CREATE3 address minus one.
-                address impl = address(uint160(create3Address) - 1);
-                vm.etch(create3Address, impl.code);
-            } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
-                (address to, ) = abi.decode(action.data, (address, string));
-                // The implementation's address is the current address minus one.
-                address impl = address(uint160(address(to)) - 1);
-                vm.etch(address(to), impl.code);
-            } else if (action.actionType == SphinxActionType.CALL && mode == SphinxMode.DeployLocal) {
-                // TODO(docs): we update the sphinxManager at the end of the deployment because this
-                // mimics what happens on a live network.
-                (address to, bytes4 selector, bytes memory functionArgs, , ) = abi.decode(action.data, (address, bytes4, bytes, uint256, string));
-                bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
-                bytes32 callHash = keccak256(abi.encode(to, encodedCall));
-                bytes32 mappingValueSlotKey = getMappingValueSlotKey(callNoncesSlotKey, callHash);
-                vm.store(address(manager), mappingValueSlotKey, bytes32(getCallCountInDeployment(callHash)));
-            }
-        }
         if (mode == SphinxMode.Proposal) {
-            setChainInfo(
-                isLiveNetwork_, prevInfo, sphinxConfig, mode
-            );
-        } else if (mode == SphinxMode.Broadcast) {
-            setChainInfo(
-                isLiveNetwork_, prevInfo, sphinxConfig, mode
+            delete chainInfo;
+            vm.startPrank(address(manager));
+            _;
+            vm.stopPrank();
+        } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+            mode = SphinxMode.Broadcast;
+            vm.stopBroadcast();
+
+            ISphinxUtils sphinxUtils = deploySphinxUtils();
+            string memory rpcUrl = vm.rpcUrl(getNetworkInfo(_network).name);
+            initializeSphinx(sphinxUtils, rpcUrl);
+
+            // TODO(refactor): maybe these should be in an "initial state" struct or something?
+            // would probably be clearer.
+            PreviousInfo memory prevInfo = getPrevConfig();
+            liveNetworkValidation(prevInfo, msgSender);
+
+            delete chainInfo;
+            vm.startPrank(address(manager));
+            _;
+            vm.stopPrank();
+
+            updateChainInfo(
+                rpcUrl, prevInfo, sphinxConfig, mode
             );
 
             ChainInfo[] memory chainInfoArray = new ChainInfo[](1);
             chainInfoArray[0] = chainInfo;
-            (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = getBundleInfo(chainInfoArray);
+            (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = getBundleInfo(chainInfoArray, sphinxUtils);
             require(bundleInfoArray.length == 1, "Sphinx: TODO(docs). Should never happen.");
             BundleInfo memory bundleInfo = bundleInfoArray[0];
 
-            deployOnNetwork(authRoot, bundleInfo, msgSender);
+            for (uint i = 0; i < chainInfo.actionsTODO.length; i++) {
+                SphinxAction memory action = chainInfo.actionsTODO[i];
+                // TODO(docs): Remove the clients. This is necessary to do before we execute the
+                // deployment because it'll fail if there's already code at the contract's address.
+                if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
+                    (, , bytes32 userSalt, string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
+                    bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
+                    address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
+                    vm.etch(create3Address, hex"");
+                } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
+                    // Replace the client's bytecode with the actual contract at its proper address.
+                    (address to, ) = abi.decode(action.data, (address, string));
+                    // The contract's bytecode is stored at its proper address minus one.
+                    address impl = address(uint160(address(to)) - 1);
+                    vm.etch(address(to), impl.code);
+                }
+            }
+
+            vm.startBroadcast(msgSender);
+            deployOnNetwork(authRoot, bundleInfo, sphinxUtils);
+        } else if (mode == SphinxMode.Default) {
+            // TODO(docs): if we call this when broadcasting, the `authFactory.register` call will throw
+            // an error b/c the sphinxmanager already exists.
+            sphinxDeployManagerTo(address(manager));
+
+            delete chainInfo;
+            vm.startPrank(address(manager));
+            _;
+            vm.stopPrank();
+
+            for (uint i = 0; i < chainInfo.actionsTODO.length; i++) {
+                SphinxAction memory action = chainInfo.actionsTODO[i];
+                // Set the contract's final runtime bytecode to its actual bytecode instead of its
+                // client's bytecode. This ensures that the user will be interacting with their exact
+                // contract after the deployment completes.
+                // TODO(docs): we do this even if the contract deployment was skipped because a client
+                // is used regardless.
+                if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
+                    (, , bytes32 userSalt, string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
+                    bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
+                    address create3Address = computeCreate3Address(address(manager), sphinxCreate3Salt);
+                    // The implementation's address is the CREATE3 address minus one.
+                    address impl = address(uint160(create3Address) - 1);
+                    vm.etch(create3Address, impl.code);
+                } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
+                    (address to, ) = abi.decode(action.data, (address, string));
+                    // The implementation's address is the current address minus one.
+                    address impl = address(uint160(address(to)) - 1);
+                    vm.etch(address(to), impl.code);
+                } else if (action.actionType == SphinxActionType.CALL) {
+                    // TODO: do you need to filter out skipped call actions?
+                    // TODO(docs): we update the sphinxManager at the end of the deployment because this
+                    // mimics what happens on a live network.
+                    (address to, bytes4 selector, bytes memory functionArgs, , ) = abi.decode(action.data, (address, bytes4, bytes, uint256, string));
+                    bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
+                    bytes32 callHash = keccak256(abi.encode(to, encodedCall));
+                    bytes32 mappingValueSlotKey = getMappingValueSlotKey(callNoncesSlotKey, callHash);
+                    vm.store(address(manager), mappingValueSlotKey, bytes32(getCallCountInDeployment(callHash)));
+                }
+            }
         }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
     }
 
-    function deployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo, address _msgSender) private {
+    function deployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo, ISphinxUtils _utils) private {
+        (, address msgSender, ) = vm.readCallers();
+
         // TODO(refactor): all messages in this function should include the network name.
 
         if (_bundleInfo.authLeafs.length == 0) {
@@ -637,12 +613,9 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
             return;
         }
 
-        if (mode == SphinxMode.Broadcast) vm.startBroadcast(_msgSender);
-        else if (mode == SphinxMode.Proposal) vm.startPrank(_msgSender);
-
         register(authData, sphinxConfig.projectName);
 
-        bytes32 deploymentId = sphinxUtils.getDeploymentId(
+        bytes32 deploymentId = _utils.getDeploymentId(
             _bundleInfo.actionBundle,
             _bundleInfo.targetBundle,
             _bundleInfo.configUri
@@ -687,7 +660,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                     // TODO: wrap this in: if (proposer isn't already a proposer).
                     if (mode == SphinxMode.Proposal) {
                         bytes32 proposerRoleSlotKey = getMappingValueSlotKey(authAccessControlRoleSlotKey, keccak256("ProposerRole"));
-                        bytes32 proposerMemberSlotKey = getMappingValueSlotKey(proposerRoleSlotKey, bytes32(uint256(uint160(_msgSender))));
+                        bytes32 proposerMemberSlotKey = getMappingValueSlotKey(proposerRoleSlotKey, bytes32(uint256(uint160(msgSender))));
                         vm.store(address(auth), proposerMemberSlotKey, bytes32(uint256(1)));
                     }
 
@@ -728,8 +701,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         // TODO(docs)
         if (mode == SphinxMode.Proposal) {
             vm.stopPrank();
-            addRemoteExecutor(_msgSender);
-            vm.startPrank(_msgSender);
+            addRemoteExecutor(msgSender);
+            vm.startPrank(msgSender);
             manager.claimDeployment();
         }
 
@@ -741,7 +714,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         ) {
             (bool executionSuccess, HumanReadableAction memory readableAction) = executeDeployment(
                 _bundleInfo,
-                block.gaslimit
+                block.gaslimit,
+                _utils
             );
 
             if (!executionSuccess) {
@@ -941,7 +915,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     // TODO(docs): this is *only* for broadcasting deployments (not proposals). this can't be used
     // for proposals because the proposer isn't an owner of the SphinxAuth contract, which means
     // these checks would always fail for proposals.
-    function liveNetworkValidation(address _msgSender) private view {
+    function liveNetworkValidation(PreviousInfo memory _prevInfo, address _msgSender) private view {
             require(sphinxConfig.owners.length == 1, "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array.");
             // TODO(parse): you should check that the key corresponding to PRIVATE_KEY matches
             // CallerMode.msgSender. i don't think we currently do this.
@@ -978,7 +952,7 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
                 // by OpenZeppelin's AccessControl contract.
                 require(auth.hasRole(0x00, deployer), "Sphinx: The deployer must be an owner of the SphinxAuth contract.");
                 require(auth.getRoleMemberCount(0x00) == 1, "Sphinx: The deployer must be the only owner of the SphinxAuth contract.");
-                require(!prevInfo.firstProposalOccurred || auth.hasRole(keccak256("ProposerRole"), deployer), "Sphinx: The deployer must be a proposer in the SphinxAuth contract.");
+                require(!_prevInfo.firstProposalOccurred || auth.hasRole(keccak256("ProposerRole"), deployer), "Sphinx: The deployer must be a proposer in the SphinxAuth contract.");
             }
     }
 
@@ -1256,23 +1230,27 @@ NetworkInfo({
         }
     }
 
-    // TODO(refactor): i'm not crazy about using cast b/c it's not a dependency of our package, and
-    // i'm not sure how foundry handles major versions, so the user may have a new version that isn't compatible with this logic. we may not even need
-    // this function at all.
     /**
      * @notice Checks if the rpcUrl is a live network by attempting to call the `hardhat_getAutomine` rpc method on it.
      *         If the rpcUrl is anvil or hardat, the exit code will be 0. If the rpcUrl is a live network, the exit code
      *         will be 1.
+    // TODO(docs): we FFI b/c i'm not crazy about using `cast` since it's not a dependency of our package, and
+    // i'm not sure how foundry handles major versions, so the user may have a new version that isn't compatible with this logic. we may not even need
+    // this function at all.
      */
-    function isLiveNetwork(string memory _rpcUrl) private returns (bool) {
+    function isLiveNetworkFFI(string memory _rpcUrl) private returns (bool) {
         string[] memory inputs = new string[](5);
-        inputs[0] = "cast";
-        inputs[1] = "rpc";
-        inputs[2] = "hardhat_getAutomine";
-        inputs[3] = "--rpc-url";
+        inputs[0] = "npx";
+        inputs[1] = "node";
+        inputs[2] = mainFfiScriptPath;
+        inputs[3] = "isLiveNetwork";
         inputs[4] = _rpcUrl;
+
         Vm.FfiResult memory result = vm.tryFfi(inputs);
-        return result.exit_code == 1;
+        if (result.exit_code == 1) {
+            revert(string(result.stderr));
+        }
+        return abi.decode(result.stdout, (bool));
     }
 
     /**
@@ -1414,7 +1392,7 @@ NetworkInfo({
         bool skipDeployment = create3Address.code.length > 0;
 
         bytes memory actionData = abi.encode(vm.getCode(artifactPath), _constructorArgs, _userSalt, _referenceName);
-        actions.push(SphinxAction({
+        chainInfo.actionsTODO.push(SphinxAction({
             fullyQualifiedName: fullyQualifiedName,
             actionType: SphinxActionType.DEPLOY_CONTRACT,
             data: actionData,
@@ -1424,7 +1402,7 @@ NetworkInfo({
         // Calculate implementation address
         address impl = address(uint160(address(create3Address)) - 1);
 
-        if (!skipDeployment && mode == SphinxMode.DeployLocal) {
+        if (!skipDeployment && mode == SphinxMode.Default) {
             // Deploy the user's contract to the CREATE3 address. This must be called by pranking
             // the SphinxManager to ensure that the `msg.sender` in the body of the user's
             // constructor is the SphinxManager. This mirrors what happens on a live network.
@@ -1477,7 +1455,7 @@ NetworkInfo({
          * deploy the contract.
          */
         bytes memory actionData = abi.encode(_targetAddress, _referenceName);
-        actions.push(SphinxAction({
+        chainInfo.actionsTODO.push(SphinxAction({
             fullyQualifiedName: _fullyQualifiedName,
             actionType: SphinxActionType.DEFINE_CONTRACT,
             data: actionData,
@@ -1500,33 +1478,27 @@ NetworkInfo({
     }
 
     function addSphinxAction(SphinxAction memory _action) external {
-        actions.push(_action);
+        chainInfo.actionsTODO.push(_action);
     }
 
-    function setChainInfo(
-        bool _isLiveNetwork,
+    // TODO: filter out the "Define Contract" actions somewhere
+    function updateChainInfo(
+        string memory _rpcUrl,
         PreviousInfo memory _prevConfig,
         SphinxConfig memory _newConfig,
         SphinxMode _mode
     ) private {
-        SphinxAction[] memory trimmed = removeActionType(actions, SphinxActionType.DEFINE_CONTRACT);
-
-        for (uint i = 0; i < trimmed.length; i++) {
-            chainInfo.actionsTODO.push(trimmed[i]);
-        }
-
         chainInfo.authAddress = address(auth);
         chainInfo.managerAddress = address(manager);
         chainInfo.chainId = block.chainid;
         chainInfo.newConfig = _newConfig;
-        chainInfo.isLiveNetwork = _isLiveNetwork;
+        chainInfo.isLiveNetwork = isLiveNetworkFFI(_rpcUrl);
         chainInfo.prevConfig = _prevConfig;
         chainInfo.remoteExecution = _mode == SphinxMode.Proposal;
     }
 
-    // TODO(refactor): it appears this isn't used anymore.
     // TODO(docs): we need to define this explicitly for the same reason we need to define
-    // SphinxManager.deployments(...) explicitly.
+    // SphinxManager.deployments(...) explicitly. We use this off-chain for ABI generation.
     function getChainInfo() external view returns (ChainInfo memory) {
         return chainInfo;
     }
@@ -1535,8 +1507,8 @@ NetworkInfo({
     function getChainInfoArray() external view returns (ChainInfo[] memory) {}
 
     function getReferenceNameForAddress(address _create3Address) external view returns (string memory) {
-        for (uint256 i = 0; i < actions.length; i++) {
-            SphinxAction memory action = actions[i];
+        for (uint256 i = 0; i < chainInfo.actionsTODO.length; i++) {
+            SphinxAction memory action = chainInfo.actionsTODO[i];
             if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (, , bytes32 userSalt, string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
                 bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
@@ -1554,25 +1526,9 @@ NetworkInfo({
         revert("Sphinx: No reference name found for the given address. Should never happen.");
     }
 
-    function removeActionType(SphinxAction[] memory _actions, SphinxActionType _actionType) private pure returns (SphinxAction[] memory) {
-        SphinxAction[] memory filtered = new SphinxAction[](_actions.length);
-        uint numFiltered = 0;
-        for (uint i = 0; i < _actions.length; i++) {
-            if (_actions[i].actionType != _actionType) {
-                filtered[numFiltered] = _actions[i];
-                numFiltered++;
-            }
-        }
-        SphinxAction[] memory trimmed = new SphinxAction[](numFiltered);
-        for (uint i = 0; i < numFiltered; i++) {
-            trimmed[i] = filtered[i];
-        }
-        return trimmed;
-    }
-
     function isReferenceNameUsed(string memory _referenceName) private view returns (bool) {
-        for (uint256 i = 0; i < actions.length; i++) {
-            SphinxAction memory action = actions[i];
+        for (uint256 i = 0; i < chainInfo.actionsTODO.length; i++) {
+            SphinxAction memory action = chainInfo.actionsTODO[i];
             if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (, , , string memory referenceName) = abi.decode(action.data, (bytes, bytes, bytes32, string));
                 if (keccak256(abi.encode(referenceName)) == keccak256(abi.encode(_referenceName))) {
@@ -1627,5 +1583,26 @@ NetworkInfo({
         }
         revert(string(abi.encodePacked("Sphinx: No network found with the chain ID: ", vm.toString(_chainId))));
 
+    }
+
+    function deploySphinxUtils() private returns (ISphinxUtils) {
+        // Get the creation bytecode of the SphinxUtils contract. We only load this when the
+        // user is broadcasting because it's not necessary for deployments on the in-process
+        // node, which speeds up that deployment process. We load the creation code directly
+        // from a JSON file instead of importing it into this contract because this speeds up
+        // the compilation process of contracts that inherit from this contract.
+        bytes memory utilsCreationCode = vm.getCode(
+            string(abi.encodePacked(rootPluginPath, "out/artifacts/SphinxUtils.sol/SphinxUtils.json"))
+        );
+        address utilsAddr;
+        assembly {
+            utilsAddr := create2(0, add(utilsCreationCode, 0x20), mload(utilsCreationCode), 0)
+        }
+        require(utilsAddr != address(0), "Sphinx: failed to deploy SphinxUtils contract");
+
+        // TODO(docs): required in a multi-fork setup, i.e. proposals
+        vm.makePersistent(utilsAddr);
+
+        return ISphinxUtils(utilsAddr);
     }
 }

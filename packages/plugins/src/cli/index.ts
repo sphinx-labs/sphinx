@@ -44,11 +44,6 @@ const pluginRootPath =
 
 // TODO(refactor): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
 
-// TODO: case: user calls `deploy` twice in their run function, which  is currently invoked in the
-// deploy task. an alternative approach is to call the deploy(network) function within the deploy
-// task instead of the run function. you defined this deploy function beneath preview. another case
-// is that the user doesn't call the deploy fn at all in their 'run' function.
-
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
@@ -425,7 +420,16 @@ yargs(hideBin(process.argv))
 
       const { status } = spawnSync(
         `forge`,
-        ['script', scriptPath, '--fork-url', forkUrl, '--broadcast'],
+        [
+          'script',
+          scriptPath,
+          '--sig',
+          'deploy(string)',
+          network,
+          '--fork-url',
+          forkUrl,
+          '--broadcast',
+        ],
         { stdio: 'inherit' }
       )
       if (status !== 0) {
@@ -460,10 +464,18 @@ yargs(hideBin(process.argv))
       // }
     }
   )
-  // Display the help menu when `npx sphinx` is called without any arguments.
-  .showHelpOnFail(process.argv.length === 2 ? true : false)
-  .demandCommand(
-    1,
-    'To get help for a specific task run: npx sphinx [task] --help'
-  )
+  // The following command displays the help menu when `npx sphinx` is called with an incorrect
+  // argument, e.g. `npx sphinx asdf`.
+  .command('*', '', ({ argv }) => {
+    if (argv['_'].length > 0) {
+      console.error(
+        `Unknown task: ${argv['_'][0]}. Run 'npx sphinx --help' to see available tasks.`
+      )
+    } else {
+      console.error(`Call 'npx sphinx --help' to see the list of commands.`)
+    }
+  })
+  // If we don't disable this, then the help menu will be displayed upon *any* error that occurs
+  // within a task, such as a failing API call, which would be confusing to the user.
+  .showHelpOnFail(false)
   .parse()

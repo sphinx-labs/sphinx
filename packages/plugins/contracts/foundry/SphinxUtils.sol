@@ -83,7 +83,6 @@ contract SphinxUtils is
         }
     }
 
-    // TODO(parse): throw an error if isLiveNetwork and registry isn't deployed
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
         SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
@@ -103,6 +102,8 @@ contract SphinxUtils is
                     vm.toString(ct.expectedAddress)
                 )
             );
+            // TODO(docs):
+            vm.makePersistent(addr);
         }
 
         // Impersonate system owner

@@ -3,6 +3,7 @@ import {
   getPreviousConfigUri,
   ensureSphinxInitialized,
   SphinxJsonRpcProvider,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -44,6 +45,18 @@ const command = args[0]
 
       await ensureSphinxInitialized(provider, wallet, [], [], [])
 
+      break
+    }
+    case 'isLiveNetwork': {
+      const rpcUrl = args[1]
+      const provider = new SphinxJsonRpcProvider(rpcUrl)
+
+      const abiEncodedResult = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['bool'],
+        [await isLiveNetwork(provider)]
+      )
+
+      process.stdout.write(abiEncodedResult)
       break
     }
   }
