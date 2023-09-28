@@ -484,6 +484,8 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return count;
     }
 
+    // TODO: What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
+
     // TODO: the user needs to inherit this modifier. we can probably enforce that they do this
     // with a boolean variable, kinda like re-entrancy modifiers.
     modifier sphinxDeploy(Network _network) {
@@ -762,12 +764,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
 
     // TODO: you should turn optimizer off in foundry.toml to ensure you don't get "stack too deep" error
 
-    // TODO(refactor): prefix all error messages with "Sphinx", since errors in foundry
-    // look like this:
-    // Error:
-    // SphinxClient: CREATE3 salt already used in this deployment. Please use a different 'salt' or 'referenceName'.
-    // Ryan - addressed
-
     // TODO: you should loosen the version of this file in case the user is using 0.7.x
 
     // TODO(notes):
@@ -859,9 +855,6 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         );
         vm.etch(where, runtimeBytecode);
     }
-
-    // TODO(test): define a constructor and function with the maximum number of allowed variables,
-    // turn the optimizer off, and see if you get a stack too deep error.
 
     // TODO(mv): pasted from SphinxAuth contract
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");

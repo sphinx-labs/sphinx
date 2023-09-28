@@ -1,25 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { SphinxConfig, Network, DeployOptions, DefineOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxConfig, Network, DeployOptions, DefineOptions, Version } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum } from "../contracts/test/ChainSpecific.sol";
 import { AllNetworksClient, OnlyArbitrumClient } from "../SphinxClient/ChainSpecific.SphinxClient.sol";
-import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-
-import "forge-std/Test.sol";
 
 /**
- * @title AllNetworksClient
+ * @title ChainSpecificConfiguration
  * @dev Configuration script testing a more complex multi-network configurations.
  *      See ChainSpecificConfiguration.t.sol for corresponding tests.
- * Covers:
+ * Tests:
  *      - Deploying a contract to all networks with a different address on each network
  *      - Calling a function with a different value on each network
  *      - Deploying a contract on a specific network
  *      - Calling a function on a specific network
  */
-contract ChainSpecificConfiguration is Test, SphinxClient {
+contract ChainSpecificConfiguration is SphinxClient {
     AllNetworks allNetworks;
     OnlyArbitrum onlyArbitrum;
 
