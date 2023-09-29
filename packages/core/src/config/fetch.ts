@@ -38,13 +38,6 @@ const parseCompilerConfigBigInts = (config: CompilerConfig) => {
   config.chainId = BigInt(config.chainId)
   config.actionsTODO = config.actionsTODO.map(parseCompilerAction)
   config.newConfig.threshold = BigInt(config.newConfig.threshold)
-  console.log(config)
-  console.log('new config')
-  console.log(config.newConfig)
-  console.log(config.newConfig.version)
-  console.log('prev config')
-  console.log(config.prevConfig)
-  console.log(config.prevConfig.version)
   config.newConfig.version = parseCompilerVersion(config.newConfig.version)
   config.prevConfig.version = parseCompilerVersion(config.prevConfig.version)
   return config

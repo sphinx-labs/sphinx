@@ -18,17 +18,17 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
 
 contract MyScript is Script, SphinxClient {
 
-    string projectName = '9/29';
-    address[] owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
+    string projectName = 'My Project';
+    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     Version version = Version({major: 0, minor: 2, patch: 5});
     // TODO: we may not need the following fields for the deploy task. in the spirit of keeping the
     // local deployment experience as simple as possible, we may want to consider allowing
     // users to omit them.
-    address[] proposers = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
+    address[] proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     Network[] mainnets;
-    Network[] testnets = [Network.goerli, Network.arbitrum_goerli];
+    Network[] testnets = [Network.goerli];
     uint256 threshold = 1;
-    string orgId = "clm3tz4xi00009xcb0yky8aix";
+    string orgId = "asdf";
 
     constructor() SphinxClient(SphinxConfig({
         projectName: projectName,

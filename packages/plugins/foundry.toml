@@ -15,7 +15,7 @@ libs = ['node_modules']
 test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
-allow_paths = ["../contracts", "../.."]
+allow_paths = ["../contracts"]
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
