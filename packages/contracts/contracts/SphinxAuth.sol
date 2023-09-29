@@ -30,6 +30,8 @@ import { SphinxManagerProxy } from "./SphinxManagerProxy.sol";
 import { Semver, Version } from "./Semver.sol";
 import { ISphinxAuth } from "./interfaces/ISphinxAuth.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title SphinxAuth
  * @custom:version 0.2.5
@@ -72,7 +74,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
      *         off-chain to ensure that a single proposal is executed at one time, which TODO.
      *         We don't keep track of auth roots in the `SETUP` state to allow for the possibility
      *        of a user calling `setup` more than once, which would result in multiple auth roots
-     * 
+     *
      */
     uint256 public numActiveProposals;
 
@@ -176,23 +178,29 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
         bytes[] memory _signatures,
         bytes32[] memory _proof
     ) public {
+        console.log("a");
         if (firstProposalOccurred) revert FirstProposalOccurred();
 
+        console.log("b");
         _verifySignatures(_authRoot, _leaf, _proof, threshold, DEFAULT_ADMIN_ROLE, _signatures);
+        console.log("c");
 
         AuthStatus status = authStates[_authRoot].status;
 
         if (status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
+        console.log("d");
 
         (SetRoleMember[] memory proposers, uint256 numLeafs) = abi.decode(
             _leaf.data,
             (SetRoleMember[], uint256)
         );
+        console.log("e");
 
         if (numLeafs == 0) revert InvalidNumLeafs();
         // There must be at least one proposer or else this function will be unusable, since every
         // other public function requires that a proposal has occurred.
         if (proposers.length == 0) revert EmptyArray();
+        console.log("f");
 
         uint256 numProposers = proposers.length;
         bool add;
@@ -209,6 +217,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
                 _revokeRole(PROPOSER_ROLE, proposer);
             }
         }
+        console.log("g");
 
         if (numLeafs == 1) {
             // Mark the auth root as completed if there is only one leaf.
@@ -217,8 +226,10 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
                 leafsExecuted: 1,
                 numLeafs: numLeafs
             });
+            console.log("h");
             emit AuthRootCompleted(_authRoot);
         } else {
+            console.log("i");
             // Set the status to be `SETUP` if there are more leafs to execute in this tree. Note
             // that it's not possible for there to be zero leafs since we would have reverted
             // earlier in this function.
@@ -232,6 +243,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
         }
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
+        console.log("k");
     }
 
     // TODO: bump manager/auth version in repo

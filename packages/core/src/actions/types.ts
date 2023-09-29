@@ -394,6 +394,7 @@ export type ProposalRequestLeaf = {
   signers: Array<{
     address: string
     signature: string | undefined
+    isProposer: boolean
   }>
   threshold: number
   leafType: string
