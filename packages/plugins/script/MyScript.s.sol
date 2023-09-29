@@ -20,13 +20,13 @@ contract MyScript is Script, SphinxClient {
 
     string projectName = 'My Project';
     address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    Version version = Version({major: 0, minor: 2, patch: 4});
+    Version version = Version({major: 0, minor: 2, patch: 5});
     // TODO: we may not need the following fields for the deploy task. in the spirit of keeping the
     // local deployment experience as simple as possible, we may want to consider allowing
     // users to omit them.
-    address[] proposers;
+    address[] proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     Network[] mainnets;
-    Network[] testnets = [Network.anvil];
+    Network[] testnets = [Network.goerli];
     uint256 threshold = 1;
     string orgId = "asdf";
 

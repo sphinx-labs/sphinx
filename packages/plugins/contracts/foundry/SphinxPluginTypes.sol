@@ -72,7 +72,7 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-enum SphinxMode {
+enum ownerSignatureArray {
     Default,
     Broadcast,
     Proposal
@@ -114,6 +114,12 @@ struct FoundryContractConfig {
     address addr;
     ContractKindEnum kind;
     bytes32 userSaltHash;
+}
+
+enum SphinxMode {
+    Default,
+    Broadcast,
+    Proposal
 }
 
 /**
@@ -190,9 +196,7 @@ struct ChainInfo {
 
 // TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
 struct PreviousInfo {
-    address[] owners;
     address[] proposers;
-    uint256 threshold;
     Version version;
     bool isManagerDeployed;
     bool firstProposalOccurred;
@@ -247,7 +251,6 @@ struct DefineOptions {
     string referenceName;
 }
 
-// TODO: are any of these fields unnecessary?
 struct SphinxAction {
     string fullyQualifiedName;
     SphinxActionType actionType;

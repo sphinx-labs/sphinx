@@ -14,8 +14,6 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.sol";
-import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
-import { SphinxRegistryEvents } from "@sphinx-labs/contracts/contracts/SphinxRegistryEvents.sol";
 import {
     RawSphinxAction,
     DeploymentState,
@@ -25,7 +23,7 @@ import {
     Version,
     AuthLeaf
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
+import { ISphinxAuthFactory } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 import {
     BundledSphinxAction,
     BundledSphinxTarget,
@@ -63,8 +61,6 @@ import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 contract SphinxUtils is
     Test,
     SphinxConstants,
-    SphinxManagerEvents,
-    SphinxRegistryEvents,
     ISphinxUtils
 {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
@@ -76,16 +72,13 @@ contract SphinxUtils is
         string memory _mainFfiScriptPath,
         address _systemOwner
     ) external {
-        ISphinxRegistry registry = getSphinxRegistry();
-        if (address(registry).code.length == 0) {
-            ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
-            ensureSphinxInitialized(_systemOwner);
-        }
+        ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
+        ensureSphinxInitialized(_systemOwner);
     }
 
     function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
-        SphinxAuthFactory factory = SphinxAuthFactory(authFactoryAddress);
+        ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
             DETERMINISTIC_DEPLOYMENT_PROXY,
             hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
@@ -110,29 +103,45 @@ contract SphinxUtils is
         vm.startPrank(_systemOwner);
 
         // Add initial manager version
-        registry.addVersion(managerImplementationAddress);
+        if (!registry.managerImplementations(managerImplementationAddress)) {
+            registry.addVersion(managerImplementationAddress);
+        }
 
         // Set the default manager version
-        registry.setCurrentManagerImplementation(managerImplementationAddress);
+        if (registry.currentManagerImplementation() != managerImplementationAddress) {
+            registry.setCurrentManagerImplementation(managerImplementationAddress);
+        }
 
-        factory.addVersion(authImplV1Address);
+        if (!factory.authImplementations(authImplAddress)) {
+            factory.addVersion(authImplAddress);
+        }
 
-        factory.setCurrentAuthImplementation(authImplV1Address);
+        if (factory.currentAuthImplementation() != authImplAddress) {
+            factory.setCurrentAuthImplementation(authImplAddress);
+        }
 
         // Add transparent proxy type
-        registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
+        if (registry.adapters(keccak256("oz-transparent")) == address(0)) {
+            registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
+        }
 
         // Add uups ownable proxy type
-        registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
+        if (registry.adapters(keccak256("oz-ownable-uups")) == address(0)) {
+            registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
+        }
 
         // Add uups access control proxy type
-        registry.addContractKind(
-            keccak256("oz-access-control-uups"),
-            ozUUPSAccessControlAdapterAddr
-        );
+        if (registry.adapters(keccak256("oz-access-control-uups")) == address(0)) {
+            registry.addContractKind(
+                keccak256("oz-access-control-uups"),
+                ozUUPSAccessControlAdapterAddr
+            );
+        }
 
         // Add default proxy type
-        registry.addContractKind(bytes32(0), defaultAdapterAddr);
+        if (registry.adapters(bytes32(0)) == address(0)) {
+            registry.addContractKind(bytes32(0), defaultAdapterAddr);
+        }
 
         vm.stopPrank();
     }

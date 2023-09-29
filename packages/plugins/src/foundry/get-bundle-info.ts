@@ -11,7 +11,7 @@ import {
   getNetworkNameForChainId,
   AuthLeaf,
 } from '@sphinx-labs/core/dist'
-import { AbiCoder } from 'ethers'
+import { AbiCoder, ethers } from 'ethers'
 
 import { getFoundryConfigOptions } from './options'
 import { decodeChainInfoArray } from './structs'

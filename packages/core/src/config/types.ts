@@ -46,12 +46,12 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-// export type ValidManagerVersion = 'v0.2.4' // TODO: put something like this in solidity for parsing
+// export type ValidManagerVersion = 'v0.2.5' // TODO: put something like this in solidity for parsing
 export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
 export const VALID_MANAGER_VERSION: SemverVersion = {
   major: 0n,
   minor: 2n,
-  patch: 4n,
+  patch: 5n,
 }
 
 export type Project = string | 'all'
@@ -180,9 +180,7 @@ export type ChainInfo = {
 }
 
 export type PreviousInfo = {
-  owners: Array<string>
   proposers: Array<string>
-  threshold: bigint
   version: SemverVersion
   isManagerDeployed: boolean
   firstProposalOccurred: boolean

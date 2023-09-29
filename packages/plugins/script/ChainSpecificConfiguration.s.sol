@@ -26,7 +26,7 @@ contract ChainSpecificConfiguration is SphinxClient {
     Network[] mainnets = [Network.ethereum, Network.optimism, Network.arbitrum];
     Network[] testnets = [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli];
     uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 4 });
+    Version version = Version({ major: 0, minor: 2, patch: 5 });
 
     mapping (Network => address) public chainSpecificAddresses;
     mapping (Network => uint) public chainSpecificFee;

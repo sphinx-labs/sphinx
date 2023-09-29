@@ -31,7 +31,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 0.2.4
+ * @custom:version 0.2.5
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single

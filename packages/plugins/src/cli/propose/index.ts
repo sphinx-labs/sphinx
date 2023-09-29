@@ -236,15 +236,12 @@ export const propose = async (
     for (const { leaf, prettyLeaf, proof } of bundledLeafsForChain) {
       const { chainId, index, to, functionName } = prettyLeaf
       const { data } = leaf
+      const { owners, threshold } = newConfig
 
-      let owners: string[]
-      let proposers: string[]
-      let threshold: bigint
-      if (parsedConfig.prevConfig.firstProposalOccurred) {
-        ;({ owners, proposers, threshold } = parsedConfig.prevConfig)
-      } else {
-        ;({ owners, proposers, threshold } = newConfig)
-      }
+      // TODO(docs)
+      const proposers = parsedConfig.prevConfig.firstProposalOccurred
+        ? parsedConfig.prevConfig.proposers
+        : newConfig.proposers
 
       const { leafThreshold, roleType } = getAuthLeafSignerInfo(
         threshold,

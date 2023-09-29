@@ -130,7 +130,7 @@ const eoaUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [eoaAddress],
-    managerVersion: 'v0.2.4',
+    managerVersion: 'v0.2.5',
   },
   contracts: contractConfig,
 }
@@ -160,7 +160,7 @@ const multisigUserConfig: UserConfigWithOptions = {
     testnets: initialTestnets,
     mainnets: [],
     proposers: [new ethers.Wallet(proposerPrivateKey).address],
-    managerVersion: 'v0.2.4',
+    managerVersion: 'v0.2.5',
   },
   contracts: contractConfig,
 }

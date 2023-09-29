@@ -171,23 +171,6 @@ export const initializeSphinx = async (
   assertStorageLayoutCompatible('contracts/SphinxManager.sol:SphinxManager')
   assertStorageLayoutCompatible('contracts/SphinxAuth.sol:SphinxAuth')
 
-  // Do the same thing for the SphinxAuth contract.
-  const previousSphinxAuth = new UpgradeableContract(
-    'contracts/SphinxAuth.sol:SphinxAuth',
-    prevBuildInfo.input,
-    prevBuildInfo.output
-  )
-  const upgradedSphinxAuth = new UpgradeableContract(
-    'contracts/SphinxAuth.sol:SphinxAuth',
-    buildInfo.input,
-    buildInfo.output
-  )
-  const authUpgradeReport =
-    previousSphinxAuth.getStorageUpgradeReport(upgradedSphinxAuth)
-  if (!authUpgradeReport.ok) {
-    throw new Error(authUpgradeReport.explain())
-  }
-
   for (const {
     artifact,
     constructorArgs,
@@ -327,18 +310,12 @@ export const initializeSphinx = async (
     (await SphinxRegistry.managerImplementations(sphinxManagerAddress)) ===
     false
   ) {
-    try {
-      await (
-        await SphinxRegistry.addVersion(
-          sphinxManagerAddress,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    } catch (e) {
-      if (!e.message.includes('version already set')) {
-        throw e
-      }
-    }
+    await (
+      await SphinxRegistry.addVersion(
+        sphinxManagerAddress,
+        await getGasPriceOverrides(owner)
+      )
+    ).wait()
   }
 
   logger?.info('[Sphinx]: added the initial SphinxManager version')

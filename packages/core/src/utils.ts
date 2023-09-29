@@ -1110,25 +1110,6 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
   return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
 }
 
-export const fetchCanonicalConfig = async (
-  orgId: string,
-  isTestnet: boolean,
-  apiKey: string,
-  projectName: string
-): Promise<CanonicalConfig | undefined> => {
-  const response = await axios.post(
-    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
-    {
-      apiKey,
-      isTestnet,
-      orgId,
-      projectName,
-    }
-  )
-  const config: CanonicalConfig | undefined = response.data
-  return config
-}
-
 export const fetchSphinxManagedBaseUrl = () => {
   return process.env.SPHINX_MANAGED_BASE_URL
     ? process.env.SPHINX_MANAGED_BASE_URL
@@ -1227,7 +1208,7 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
-      managerVersion: 'v0.2.4',
+      managerVersion: 'v0.2.5',
     },
     chainStates,
   }

@@ -10,4 +10,12 @@ interface ISphinxAuthFactory {
      * @param _authData Encoded data used to initialize the SphinxAuth contract.
      */
     function deploy(bytes memory _authData, bytes memory _registryData, string memory _projectName) external;
+
+    function authImplementations(address) external view returns (bool);
+
+    function addVersion(address) external;
+
+    function currentAuthImplementation() external returns (address);
+
+    function setCurrentAuthImplementation(address) external;
 }

@@ -417,7 +417,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
   }
 
   // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
-  // it easier to reproduce the auth bundle later.
+  // it easier to execute the auth leafs in order.
   const sorted = leafs.sort((a, b) => {
     return a.index - b.index
   })

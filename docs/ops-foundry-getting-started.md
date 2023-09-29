@@ -64,7 +64,7 @@ const config: UserSphinxConfig = {
     testnets: ['goerli', 'optimism-goerli', 'arbitrum-goerli', 'maticmum', 'bnbt', 'gnosis-chiado'],
     mainnets: [],
     ownerThreshold: 1,
-    managerVersion: "v0.2.4",
+    managerVersion: "v0.2.5",
   },
 
   // The rest of the config file goes here:

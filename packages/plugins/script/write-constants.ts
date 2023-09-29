@@ -142,7 +142,7 @@ const writeConstants = async () => {
       type: 'address',
       value: AUTH_FACTORY_ADDRESS,
     },
-    authImplV1Address: {
+    authImplAddress: {
       type: 'address',
       value: getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION),
     },

@@ -31,7 +31,7 @@ contract MaxArgsConfiguration is SphinxClient {
     Network[] mainnets = [Network.ethereum];
     Network[] testnets = [Network.goerli];
     uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 4 });
+    Version version = Version({ major: 0, minor: 2, patch: 5 });
 
     constructor()
         SphinxClient(
