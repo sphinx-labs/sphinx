@@ -47,13 +47,6 @@ import { StdUtils } from "forge-std/StdUtils.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
 abstract contract Sphinx is StdUtils, SphinxConstants {
-    // TODO(docs): above constructor: you shouldn't execute any state-changing transactions or deploy any contracts
-    // inside this constructor b/c this can happen:
-    // 1. do stuff in constructor
-    // 2. user does `function run() { vm.createSelectFork(...); deploy(...); }`
-    // 3. deploy(...) will fail b/c stuff in constructor wasn't executed in the new fork.
-    // If you need to execute transactions/deploy contracts, do so in the sphinxDeploy modifier.
-
     // TODO(docs): answer the question, " why does the SphinxAction have so many things encoded in
     // the data field instead of stored as their own fields?"
 
@@ -87,19 +80,32 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
     ISphinxManager internal immutable manager;
     ISphinxAuthLibrary private immutable auth; // TODO(refactor): AuthLibrary -> Auth
 
-    // TODO: rm?
-    // // TODO(docs): these values can be overridden by the user in their constructor.
-    // // TODO(docs): these fields must be defined for every deployment.
-    // string internal projectName;
-	// address[] internal owners;
-	// Version internal version;
-    // // These fields must be defined if the user is using the DevOps platform.
-    // string internal orgId;
-	// address[] internal proposers;
-	// Network[] internal mainnets;
-	// Network[] internal testnets;
-	// uint256 internal threshold;
-
+    /**
+     * @notice We expect that the user will inherit from this contract in their Sphinx script. When they do so, they'll
+     *         also be required to call this constructor with their configuration options.
+     *
+     *         Required for every deployment:
+     *          - string projectName:  The name of the project, e.g. "My Project", impacts contract addresses.
+     *          - address[] owners:    The addresses of the owners of the project, e.g. [0x123..., 0x456...], impacts contract addresses.
+     *          - Version version:     The version of the project, e.g. Version({ major: 0, minor: 2, patch: 4 }).
+     *
+     *         Required when using the DevOps platform:
+     *          - string orgId:        The ID of the organization, e.g. "12345", required to interact with the DevOps platform.
+     *          - address[] proposers: The addresses of the proposers of the project, e.g. [0x123..., 0x456...], required to propose deployments.
+     *                                 If there is no proposer defined and only one owner, then we use the owner as the proposer.
+     *          - Network[] mainnets:  The mainnet networks to deploy to, e.g. [Network.ethereum, Network.optimism, Network.arbitrum].
+     *          - Network[] testnets:  The testnet networks to deploy to, e.g. [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli].
+     *          - uint256 threshold:   The number of owners required to approve a deployment, e.g. 1.
+     *
+     * @dev We cannot perform any state-changing transactions or deploy any contracts inside this constructor
+     *         because the user may create a fork in their script which will cause the state to be discarded.
+     *         If we need to execute transactions/deploy contracts, we must do so in the sphinxDeploy modifier.
+     *
+     *         So the correct process is:
+     *         1. User does `function run() { vm.createSelectFork(...); deploy(...); }`
+     *         2. We execute the transactions/deploy the contracts in the sphinxDeploy modifier after the fork is selected.
+     *         3. The deploy(...) will succeed b/c the transactions/contracts were executed in the new fork.
+     */
     constructor(SphinxConfig memory _sphinxConfig) {
         sphinxConfig = _sphinxConfig;
 
@@ -259,7 +265,12 @@ abstract contract Sphinx is StdUtils, SphinxConstants {
         return decodeBundleInfo(_chainInfoArray, encodedData);
     }
 
-    // TODO(docs): can't decode all at once b/c of "stack too deep" error.
+    /**
+     * @notice Decodes the bundle info data which is returned from the `get-bundle-info.ts` script that we call via FFI.
+     *         The BundleInfo[] data structure is too large to decode all at once and causes a "stack too deep" error. So
+     *         we have to loop through the chainInfo array and decode each bundle info struct individually. We also must
+     *         decode each field of the bundle info struct individually.
+     */
     function decodeBundleInfo(ChainInfo[] memory _chainInfoArray, bytes memory _encodedData) private pure returns (bytes32, BundleInfo[] memory) {
         string memory json = string(_encodedData);
 
