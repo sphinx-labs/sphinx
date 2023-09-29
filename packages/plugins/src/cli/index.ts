@@ -306,11 +306,9 @@ yargs(hideBin(process.argv))
       // TODO: this is the simulation. you should do this in every case.
       try {
         spinner.start(`Generating preview...`)
-        const { stdout: TODO, stderr: TODO2 } = await execAsync(
+        await execAsync(
           `forge script ${scriptPath} --sig 'preview(string,string)' ${network} ${chainInfoPath} --rpc-url ${forkUrl}`
         )
-        console.log(TODO)
-        console.log(TODO2)
       } catch (e) {
         spinner.stop()
         // The `stdout` contains the trace of the error.
