@@ -72,7 +72,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
      *         off-chain to ensure that a single proposal is executed at one time, which TODO.
      *         We don't keep track of auth roots in the `SETUP` state to allow for the possibility
      *        of a user calling `setup` more than once, which would result in multiple auth roots
-     * 
+     *
      */
     uint256 public numActiveProposals;
 

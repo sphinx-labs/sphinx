@@ -1,9 +1,47 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { HumanReadableActions, SphinxBundles } from '../actions/types'
-import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
-import { CompilerConfig, ConfigArtifacts } from './types'
+import {
+  callWithTimeout,
+  getConfigArtifactsRemote,
+  isExtendedFunctionCallTODO,
+} from '../utils'
+import {
+  CompilerConfig,
+  ConfigArtifacts,
+  ExtendedDeployContractTODO,
+  ExtendedFunctionCallTODO,
+} from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
+import { SemverVersion } from '../types'
+
+const parseCompilerAction = (
+  action: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+) => {
+  action.actionType = BigInt(action.actionType)
+  if (isExtendedFunctionCallTODO(action)) {
+    action.nonce = BigInt(action.nonce)
+  }
+
+  return action
+}
+
+const parseCompilerVersion = (version: SemverVersion) => {
+  version.major = BigInt(version.major)
+  version.minor = BigInt(version.minor)
+  version.patch = BigInt(version.patch)
+  return version
+}
+
+// Todo ensure all of the bigints are properly parsed in the compiler config
+const parseCompilerConfigBigInts = (config: CompilerConfig) => {
+  config.chainId = BigInt(config.chainId)
+  config.actionsTODO = config.actionsTODO.map(parseCompilerAction)
+  config.newConfig.threshold = BigInt(config.newConfig.threshold)
+  config.newConfig.version = parseCompilerVersion(config.newConfig.version)
+  config.prevConfig.version = parseCompilerVersion(config.prevConfig.version)
+  return config
+}
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -46,7 +84,7 @@ export const sphinxFetchSubtask = async (args: {
     throw new Error('unsupported URI type')
   }
 
-  return config
+  return parseCompilerConfigBigInts(config)
 }
 
 /**

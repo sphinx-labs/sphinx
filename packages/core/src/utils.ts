@@ -1702,6 +1702,12 @@ export const equal = (
   }
 }
 
+export const isExtendedFunctionCallTODO = (
+  actionTODO: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+): actionTODO is ExtendedFunctionCallTODO => {
+  return actionTODO.actionType === SphinxActionType.CALL
+}
+
 export const isExtendedDeployContractTODO = (
   actionTODO: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
 ): actionTODO is ExtendedDeployContractTODO => {
