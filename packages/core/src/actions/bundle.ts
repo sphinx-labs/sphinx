@@ -16,6 +16,7 @@ import {
   isSupportedChainId,
   prettyFunctionCall,
   isExtendedDeployContractTODO,
+  isExtendedFunctionCallTODO,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -614,7 +615,7 @@ export const makeActionBundleFromConfig = (
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
-    } else if (actionType === SphinxActionType.CALL) {
+    } else if (isExtendedFunctionCallTODO(actionTODO)) {
       const {
         to,
         selector,
@@ -640,6 +641,11 @@ export const makeActionBundleFromConfig = (
         ),
         actionType: SphinxActionType.CALL,
       }
+    } else if (
+      actionType !== SphinxActionType.SET_STORAGE &&
+      Number(actionType) !== Number(SphinxActionType.SET_STORAGE)
+    ) {
+      throw new Error(`unknown action type: ${actionType}`)
     }
   }
 

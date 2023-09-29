@@ -5,7 +5,6 @@ import { spawnSync } from 'child_process'
 import {
   AuthLeaf,
   CanonicalConfig,
-  ChainInfo,
   ConfigArtifacts,
   ParsedConfig,
   ProjectDeployment,
@@ -103,7 +102,10 @@ export const propose = async (
     require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
 
   const abiEncodedChainInfoArray: string = readFileSync(chainInfoPath, 'utf8')
-  const chainInfoArray: Array<ChainInfo> = decodeChainInfoArray(
+
+  // This is actually a Result object which is a strict superset of the ChainInfo[] type.
+  // We cast it to Result so that it can be passed to `recursivelyConvertResult`.
+  const chainInfoArray = decodeChainInfoArray(
     abiEncodedChainInfoArray,
     SphinxABI
   )
