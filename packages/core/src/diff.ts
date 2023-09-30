@@ -122,9 +122,9 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
     const executing: Array<DecodedAction> = []
     const skipping: Array<DecodedAction> = []
 
-    const { chainId, prevConfig, actionsTODO, isLiveNetwork } = parsedConfig
+    const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
 
-    if (!prevConfig.isManagerDeployed) {
+    if (!initialState.isManagerDeployed) {
       executing.push({
         referenceName: 'SphinxManager',
         functionName: 'constructor',
@@ -132,7 +132,7 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
       })
     }
 
-    for (const action of actionsTODO) {
+    for (const action of actionInputs) {
       const { decodedAction, skip } = action
 
       if (skip) {

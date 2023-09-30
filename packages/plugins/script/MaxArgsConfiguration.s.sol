@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { SphinxConfig, Network, DeployOptions, DefineOptions, Version } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import {
+    SphinxConfig,
+    Network,
+    DeployOptions,
+    DefineOptions,
+    Version
+} from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
 import { MaxArgs } from "../contracts/test/MaxArgs.sol";
 import { MaxArgsClient } from "../SphinxClient/MaxArgs.SphinxClient.sol";
@@ -25,31 +31,29 @@ import { MaxArgsClient } from "../SphinxClient/MaxArgs.SphinxClient.sol";
 contract MaxArgsConfiguration is SphinxClient {
     MaxArgs maxArgs;
 
-    string projectName = "MaxArgs";
-    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    address[] proposers;
-    Network[] mainnets = [Network.ethereum];
-    Network[] testnets = [Network.goerli];
-    uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 5 });
+    constructor() {
+        sphinxConfig.projectName = "MaxArgs";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.mainnets = [Network.ethereum];
+        sphinxConfig.testnets = [Network.goerli];
+        sphinxConfig.threshold = 1;
+    }
 
-    constructor()
-        SphinxClient(
-            SphinxConfig({
-                projectName: projectName,
-                owners: owners,
-                proposers: proposers,
-                mainnets: mainnets,
-                testnets: testnets,
-                threshold: threshold,
-                version: version,
-                orgId: ""
-            })
-        )
-    {}
-
-    function deploy(Network _network) public override sphinxDeploy(_network) {
-        MaxArgsClient maxArgsClient = deployMaxArgs(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, DeployOptions({ salt: bytes32(0), referenceName: "MyMaxArgs" }));
+    function deploy(Network _network) public override sphinx(_network) {
+        MaxArgsClient maxArgsClient = deployMaxArgs(
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            DeployOptions({ salt: bytes32(0), referenceName: "MyMaxArgs" })
+        );
         maxArgsClient.addValues(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
         maxArgs = MaxArgs(address(maxArgsClient));
     }

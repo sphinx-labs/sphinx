@@ -77,7 +77,7 @@ contract HelloSphinxConfig is Script, SphinxClient {
         )
     {}
 
-    function deploy(Network _network) public override sphinxDeploy(_network) {
+    function deploy(Network _network) public override sphinx(_network) {
         HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hello", "Bob", 0);
         helloSphinxClient.add(5);
 

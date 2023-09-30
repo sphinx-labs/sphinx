@@ -15,7 +15,7 @@ contract MaxArgs {
     uint public value11;
     uint public value12;
 
-    constructor (
+    constructor(
         uint _value,
         uint _value2,
         uint _value3,

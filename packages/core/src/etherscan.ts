@@ -28,7 +28,7 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, isExtendedDeployContractTODO } from './utils'
+import { getFunctionArgValueArray, isExtendedDeployContractActionInput } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -48,7 +48,7 @@ export const verifySphinxConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const { actionsTODO } = compilerConfig
+  const { actionInputs } = compilerConfig
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
@@ -58,11 +58,11 @@ export const verifySphinxConfig = async (
     customChains
   )
 
-  const actionsTODOToVerify = actionsTODO
+  const actionInputsToVerify = actionInputs
     // .filter((a) => !a.skip)
-    .filter(isExtendedDeployContractTODO)
+    .filter(isExtendedDeployContractActionInput)
 
-  for (const action of actionsTODOToVerify) {
+  for (const action of actionInputsToVerify) {
     const { fullyQualifiedName, create3Address } = action
 
     const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]

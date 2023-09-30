@@ -1,38 +1,45 @@
-import { fromRawSphinxActionTODO } from '@sphinx-labs/core'
+import { fromRawSphinxActionInput } from '@sphinx-labs/core'
 import {
-  ChainInfo,
+  DeploymentInfo,
   ConfigCache,
-  DeployContractTODO,
+  DeployContractActionInput,
   FunctionCallTODO,
-  RawSphinxActionTODO,
+  RawSphinxActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { AbiCoder } from 'ethers'
 
 // TODO: rename to 'decode' or something
 
-export const decodeChainInfo = (
-  abiEncodedChainInfo: string,
+export const decodeDeploymentInfo = (
+  abiEncodedDeploymentInfo: string,
   abi: Array<any>
-): ChainInfo => {
-  const chainInfoType = abi.find((fragment) => fragment.name === 'getChainInfo')
-    .outputs[0]
-
-  const coder = AbiCoder.defaultAbiCoder()
-  const chainInfo = coder.decode([chainInfoType], abiEncodedChainInfo)[0]
-
-  return chainInfo
-}
-
-export const decodeChainInfoArray = (
-  abiEncodedChainInfoArray: string,
-  abi: Array<any>
-): Array<ChainInfo> => {
-  const chainInfoType = abi.find(
-    (fragment) => fragment.name === 'getChainInfoArray'
+): DeploymentInfo => {
+  const deploymentInfoType = abi.find(
+    (fragment) => fragment.name === 'getDeploymentInfo'
   ).outputs[0]
 
   const coder = AbiCoder.defaultAbiCoder()
-  const chainInfo = coder.decode([chainInfoType], abiEncodedChainInfoArray)[0]
+  const deploymentInfo = coder.decode(
+    [deploymentInfoType],
+    abiEncodedDeploymentInfo
+  )[0]
 
-  return chainInfo
+  return deploymentInfo
+}
+
+export const decodeDeploymentInfoArray = (
+  abiEncodedDeploymentInfoArray: string,
+  abi: Array<any>
+): Array<DeploymentInfo> => {
+  const deploymentInfoType = abi.find(
+    (fragment) => fragment.name === 'getDeploymentInfoArray'
+  ).outputs[0]
+
+  const coder = AbiCoder.defaultAbiCoder()
+  const deploymentInfo = coder.decode(
+    [deploymentInfoType],
+    abiEncodedDeploymentInfoArray
+  )[0]
+
+  return deploymentInfo
 }

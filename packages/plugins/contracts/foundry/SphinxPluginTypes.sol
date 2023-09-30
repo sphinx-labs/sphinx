@@ -181,27 +181,29 @@ struct OptionalBytes32 {
     bool exists;
 }
 
-// TODO(refactor): the name should probably reflect the fact that this is for deployments,
-// not proposals, b/c of PreviousInfo. the other fields are the same as proposals.
-struct ChainInfo {
+struct DeploymentInfo {
     address authAddress;
     address managerAddress;
     uint256 chainId;
-    SphinxAction[] actionsTODO; // TODO(docs): these actions are collected during the deployment.
+    SphinxActionInput[] actionInputs; // TODO(docs): these actions are collected during the deployment.
     SphinxConfig newConfig;
     bool isLiveNetwork;
-    PreviousInfo prevConfig;
+    InitialChainState initialState;
     bool remoteExecution;
 }
 
 // TODO(docs): this fields are all retrieved on-chain *before* a deployment/simulation occurs.
-struct PreviousInfo {
+struct InitialChainState {
     address[] proposers;
     Version version;
     bool isManagerDeployed;
     bool firstProposalOccurred;
     bool isExecuting;
 }
+
+// TODO(md): the 'mainnets' and 'testnets' arrays aren't used outside of the DevOps platform, since
+// deployments on the CLI occur on one network at a time.
+// TODO(md): the default value for 'threshold' is the number of addresses in the 'owners' array.
 
 struct SphinxConfig {
     string projectName;
@@ -251,9 +253,35 @@ struct DefineOptions {
     string referenceName;
 }
 
-struct SphinxAction {
+struct SphinxActionInput {
     string fullyQualifiedName;
     SphinxActionType actionType;
     bytes data;
     bool skip;
+}
+
+enum NetworkType {
+    Mainnet,
+    Testnet,
+    Local
+}
+
+struct NetworkInfo {
+    Network network;
+    string name;
+    uint chainId;
+    NetworkType networkType;
+}
+
+// TODO(docs): This provides an easy way to get complex data types off-chain (via the ABI)
+// without needing to hard-code them.
+contract SphinxPluginTypes {
+    function bundledActionsType() external pure returns (BundledSphinxAction[] memory) {}
+    function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory) {}
+    function targetBundleType() external pure returns (SphinxTargetBundle memory) {}
+    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory) {}
+    // TODO(docs): we need to define this explicitly for the same reason we need to define
+    // SphinxManager.deployments(...) explicitly.
+    function getDeploymentInfo() external view returns (DeploymentInfo memory) {}
+    function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory) {}
 }

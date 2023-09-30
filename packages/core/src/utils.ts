@@ -54,13 +54,13 @@ import {
   UserConfigVariable,
   UserCallAction,
   UserFunctionOptions,
-  ExtendedDeployContractTODO,
-  ExtendedFunctionCallTODO,
-  ChainInfo,
+  ExtendedDeployContractActionInput,
+  ExtendedFunctionCallActionInput,
+  DeploymentInfo,
   ParsedConfig,
   FunctionCallTODO,
   DecodedAction,
-  DeployContractTODO,
+  DeployContractActionInput,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -83,7 +83,7 @@ import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,
-  fromRawSphinxActionTODO,
+  fromRawSphinxActionInput,
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
@@ -896,11 +896,11 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifacts = {}
-  const notSkipping = compilerConfig.actionsTODO.filter((e) => !e.skip)
-  for (const actionTODO of notSkipping) {
-    const { fullyQualifiedName } = actionTODO
+  const notSkipping = compilerConfig.actionInputs.filter((e) => !e.skip)
+  for (const actionInput of notSkipping) {
+    const { fullyQualifiedName } = actionInput
     // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = actionTODO.fullyQualifiedName.split(':')
+    const [sourceName, contractName] = actionInput.fullyQualifiedName.split(':')
 
     const buildInfo = solcArray.find(
       (e) => e.output.contracts[sourceName][contractName]
@@ -1702,37 +1702,39 @@ export const equal = (
   }
 }
 
-export const isExtendedDeployContractTODO = (
-  actionTODO: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
-): actionTODO is ExtendedDeployContractTODO => {
-  return actionTODO.actionType === SphinxActionType.DEPLOY_CONTRACT
+export const isExtendedDeployContractActionInput = (
+  actionInput:
+    | ExtendedDeployContractActionInput
+    | ExtendedFunctionCallActionInput
+): actionInput is ExtendedDeployContractActionInput => {
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
 }
 
-export const isDeployContractTODO = (
-  actionTODO: DeployContractTODO | FunctionCallTODO
-): actionTODO is DeployContractTODO => {
-  return actionTODO.actionType === SphinxActionType.DEPLOY_CONTRACT
+export const isDeployContractActionInput = (
+  actionInput: DeployContractActionInput | FunctionCallTODO
+): actionInput is DeployContractActionInput => {
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
 }
 
 export const makeParsedConfig = (
-  chainInfo: ChainInfo,
+  deploymentInfo: DeploymentInfo,
   configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
   const {
     authAddress,
     managerAddress,
     chainId,
-    actionsTODO,
+    actionInputs,
     newConfig,
     isLiveNetwork: isLiveNetwork_,
-    prevConfig,
+    initialState,
     remoteExecution,
-  } = chainInfo
+  } = deploymentInfo
 
-  const actions = actionsTODO.map(fromRawSphinxActionTODO)
+  const actions = actionInputs.map(fromRawSphinxActionInput)
 
   const extendedActions: Array<
-    ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
   > = []
   for (const action of actions) {
     const { referenceName, fullyQualifiedName } = action
@@ -1740,7 +1742,7 @@ export const makeParsedConfig = (
     const iface = new ethers.Interface(abi)
     const coder = ethers.AbiCoder.defaultAbiCoder()
 
-    if (isDeployContractTODO(action)) {
+    if (isDeployContractActionInput(action)) {
       // TODO: getTargetSalt -> getCreate3Salt
       const create3Salt = getTargetSalt(referenceName, action.userSalt)
       const create3Address = getCreate3Address(managerAddress, create3Salt)
@@ -1788,8 +1790,8 @@ export const makeParsedConfig = (
     chainId,
     newConfig,
     isLiveNetwork: isLiveNetwork_,
-    prevConfig,
-    actionsTODO: extendedActions,
+    initialState,
+    actionInputs: extendedActions,
     remoteExecution,
   }
 }

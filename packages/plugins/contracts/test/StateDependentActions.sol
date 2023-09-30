@@ -6,7 +6,7 @@ contract StateDependentActions {
     Box externallyDeployedBox;
     uint multiple;
 
-    constructor (address _myOtherContract, uint _multiple) {
+    constructor(address _myOtherContract, uint _multiple) {
         externallyDeployedBox = Box(_myOtherContract);
         externallyDeployedBox.addValue(3);
         multiple = _multiple;
@@ -30,7 +30,7 @@ contract StateDependentActions {
 contract Box {
     uint public value;
 
-    constructor (uint _value) {
+    constructor(uint _value) {
         value = _value;
     }
 

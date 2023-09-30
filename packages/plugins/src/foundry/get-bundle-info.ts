@@ -6,7 +6,7 @@ import {
   writeCompilerConfig,
   makeAuthBundle,
   getAuthLeafsForChain,
-  ChainInfo,
+  DeploymentInfo,
   makeParsedConfig,
   getNetworkNameForChainId,
   AuthLeaf,
@@ -14,7 +14,7 @@ import {
 import { AbiCoder, ethers } from 'ethers'
 
 import { getFoundryConfigOptions } from './options'
-import { decodeChainInfoArray } from './structs'
+import { decodeDeploymentInfoArray } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 
 // TODO: see what happens if the user does `vm.createSelectFork(); deploy(...);` in their script
@@ -23,41 +23,34 @@ import { makeGetConfigArtifacts } from './utils'
 // transactions probably wouldn't get broadcasted onto our port.
 
 const args = process.argv.slice(2)
-const abiEncodedChainInfoArray = args[0]
+const abiEncodedDeploymentInfoArray = args[0]
 
 ;(async () => {
   const { compilerConfigFolder, cachePath, artifactFolder, buildInfoFolder } =
     await getFoundryConfigOptions()
 
-  const rootImportPath =
-    process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
-  const sphinxArtifactFolder = `${rootImportPath}out/artifacts`
-
-  const SphinxUtilsABI =
+  const SphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
-      `${sphinxArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
+      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
-  const SphinxABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(`${artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
 
-  const bundledActionType = SphinxUtilsABI.find(
+  const bundledActionType = SphinxPluginTypesABI.find(
     (fragment) => fragment.name === 'bundledActionsType'
   ).outputs[0]
-  const targetBundleType = SphinxUtilsABI.find(
+  const targetBundleType = SphinxPluginTypesABI.find(
     (fragment) => fragment.name === 'targetBundleType'
   ).outputs[0]
-  const humanReadableActionsType = SphinxUtilsABI.find(
+  const humanReadableActionsType = SphinxPluginTypesABI.find(
     (fragment) => fragment.name === 'humanReadableActionsType'
   ).outputs[0]
-  const bundledAuthLeafType = SphinxUtilsABI.find(
+  const bundledAuthLeafType = SphinxPluginTypesABI.find(
     (fragment) => fragment.name === 'bundledAuthLeafsType'
   ).outputs[0]
 
-  const chainInfoArray: Array<ChainInfo> = decodeChainInfoArray(
-    abiEncodedChainInfoArray,
-    SphinxABI
+  const deploymentInfoArray: Array<DeploymentInfo> = decodeDeploymentInfoArray(
+    abiEncodedDeploymentInfoArray,
+    SphinxPluginTypesABI
   )
 
   const coder = AbiCoder.defaultAbiCoder()
@@ -70,12 +63,14 @@ const abiEncodedChainInfoArray = args[0]
 
   const bundleInfoPerChain = {}
   const authLeafs: Array<AuthLeaf> = []
-  for (const chainInfo of chainInfoArray) {
-    const networkName = getNetworkNameForChainId(chainInfo.chainId)
+  for (const deploymentInfo of deploymentInfoArray) {
+    const networkName = getNetworkNameForChainId(deploymentInfo.chainId)
 
-    const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
+    const configArtifacts = await getConfigArtifacts(
+      deploymentInfo.actionInputs
+    )
 
-    const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
+    const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
     const authLeafsForChain = await getAuthLeafsForChain(
       parsedConfig,
@@ -135,12 +130,12 @@ const abiEncodedChainInfoArray = args[0]
 
   const authBundle = makeAuthBundle(authLeafs)
 
-  for (const chainInfo of chainInfoArray) {
-    const networkName = getNetworkNameForChainId(chainInfo.chainId)
+  for (const deploymentInfo of deploymentInfoArray) {
+    const networkName = getNetworkNameForChainId(deploymentInfo.chainId)
 
     // TODO(docs): include only the leafs on the current chain
     const authLeafsForChain = authBundle.leafs
-      .filter((l) => l.leaf.chainId === chainInfo.chainId)
+      .filter((l) => l.leaf.chainId === deploymentInfo.chainId)
       // TODO(docs): only include the necessary fields
       .map((l) => {
         return {

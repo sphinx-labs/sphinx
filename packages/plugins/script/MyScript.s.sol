@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Script, console} from "forge-std/Script.sol";
-import {SphinxClient, SphinxConfig, Version } from "../SphinxClient/SphinxClient.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { SphinxClient, SphinxConfig, Version } from "../SphinxClient/SphinxClient.sol";
 import { MyContract1Client } from "../SphinxClient/MyContracts.SphinxClient.sol";
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
@@ -12,36 +12,20 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
 
 // TODO(test): what happens if you startBroadcast with a public key, not private key, on anvil?
 
-    // TODO(md): consider changing the readme so that it focuses on the local deployment experience
-    // first, then talks about the devops platform next.
-
+// TODO(md): consider changing the readme so that it focuses on the local deployment experience
+// first, then talks about the devops platform next.
 
 contract MyScript is Script, SphinxClient {
+    constructor() {
+        sphinxConfig.projectName = "My Project";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+        sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+        sphinxConfig.orgId = "asdf";
+    }
 
-    string projectName = 'My Project';
-    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    Version version = Version({major: 0, minor: 2, patch: 5});
-    // TODO: we may not need the following fields for the deploy task. in the spirit of keeping the
-    // local deployment experience as simple as possible, we may want to consider allowing
-    // users to omit them.
-    address[] proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    Network[] mainnets;
-    Network[] testnets = [Network.goerli];
-    uint256 threshold = 1;
-    string orgId = "asdf";
-
-    constructor() SphinxClient(SphinxConfig({
-        projectName: projectName,
-        owners: owners,
-        proposers: proposers,
-        mainnets: mainnets,
-        testnets: testnets,
-        threshold: threshold,
-        version: version,
-        orgId: orgId
-    })) {}
-
-    function deploy(Network _network) public override sphinxDeploy(_network) {
+    function deploy(Network _network) public override sphinx(_network) {
         MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
         myContract1.incrementUint();
         myContract1.incrementUint();

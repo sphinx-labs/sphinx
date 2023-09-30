@@ -274,10 +274,10 @@ export class ValidationError extends Error {
 //       parsedContractConfig
 //     ).layout
 //   } else if (prevCompilerConfig !== undefined) {
-//     const prevConfigArtifacts = await getConfigArtifactsRemote(
+//     const initialStateArtifacts = await getConfigArtifactsRemote(
 //       prevCompilerConfig
 //     )
-//     const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
+//     const { buildInfo, artifact } = initialStateArtifacts[referenceName]
 //     const { sourceName, contractName } = artifact
 //     return getOpenZeppelinUpgradableContract(
 //       `${sourceName}:${contractName}`,

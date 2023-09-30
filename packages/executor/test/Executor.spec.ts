@@ -130,7 +130,7 @@ describe('Remote executor', () => {
       )
 
     const chainId = SUPPORTED_NETWORKS[network]
-    const prevConfig = getEmptyCanonicalConfig(
+    const initialState = getEmptyCanonicalConfig(
       [chainId],
       managerAddress,
       DUMMY_ORG_ID,
@@ -141,7 +141,7 @@ describe('Remote executor', () => {
       parsedConfig,
       configArtifacts,
       configCache,
-      prevConfig
+      initialState
     )
 
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)

@@ -9,7 +9,7 @@ import {
   writeDeploymentFolderForNetwork,
   getFunctionArgValueArray,
   writeDeploymentArtifact,
-  isExtendedDeployContractTODO,
+  isExtendedDeployContractActionInput,
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -60,9 +60,9 @@ export const writeDeploymentArtifacts = async (
     const receipt = await deploymentEvent.getTransactionReceipt()
     const { contractAddress } = deploymentEvent.args
 
-    const action = parsedConfig.actionsTODO.find(
+    const action = parsedConfig.actionInputs.find(
       (a) =>
-        isExtendedDeployContractTODO(a) && a.create3Address === contractAddress
+        isExtendedDeployContractActionInput(a) && a.create3Address === contractAddress
     )
 
     if (!action) {

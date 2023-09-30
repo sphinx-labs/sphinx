@@ -413,7 +413,6 @@ import { SphinxConfig, DeployOptions, DefineOptions } from "@sphinx-labs/plugins
 ${Object.values(imports).join('\n')}
 
 abstract contract SphinxClient is Sphinx {
-  constructor(SphinxConfig memory _sphinxConfig) Sphinx(_sphinxConfig) {}
   ${deployFunctions.join('\n')}
 }
 `

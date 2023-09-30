@@ -147,39 +147,31 @@ export interface ConfigOptions {
   managerVersion: string
 }
 
-// export type FunctionTODOCallTODO = {
-//   to: string
-//   selector: string
-//   encodedFunctionArgs: string
-//   functionArgs: ParsedConfigVariables
-//   referenceName: string
-//   functionName: string
-//   skip: boolean
-// }
-
 export type ParsedConfig = {
   authAddress: string
   managerAddress: string
   chainId: bigint
-  actionsTODO: Array<ExtendedDeployContractTODO | ExtendedFunctionCallTODO>
+  actionInputs: Array<
+    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
+  >
   newConfig: SphinxConfig
   isLiveNetwork: boolean
-  prevConfig: PreviousInfo
+  initialState: InitialChainState
   remoteExecution: boolean
 }
 
-export type ChainInfo = {
+export type DeploymentInfo = {
   authAddress: string
   managerAddress: string
   chainId: bigint
-  actionsTODO: Array<RawSphinxActionTODO>
+  actionInputs: Array<RawSphinxActionInput>
   newConfig: SphinxConfig
   isLiveNetwork: boolean
-  prevConfig: PreviousInfo
+  initialState: InitialChainState
   remoteExecution: boolean
 }
 
-export type PreviousInfo = {
+export type InitialChainState = {
   proposers: Array<string>
   version: SemverVersion
   isManagerDeployed: boolean
@@ -265,7 +257,7 @@ export type UserAddressOverrides = {
 //   constructorArgs: ParsedConfigVariables
 // }
 
-export interface DeployContractTODO {
+export interface DeployContractActionInput {
   fullyQualifiedName: string
   actionType: typeof SphinxActionType.DEPLOY_CONTRACT
   skip: boolean
@@ -286,12 +278,13 @@ export type SphinxConfig = {
   version: SemverVersion
 }
 
-export interface ExtendedDeployContractTODO extends DeployContractTODO {
+export interface ExtendedDeployContractActionInput
+  extends DeployContractActionInput {
   decodedAction: DecodedAction
   create3Address: string
 }
 
-export interface ExtendedFunctionCallTODO extends FunctionCallTODO {
+export interface ExtendedFunctionCallActionInput extends FunctionCallTODO {
   decodedAction: DecodedAction
 }
 
@@ -312,7 +305,7 @@ export interface FunctionCallTODO {
   referenceName: string
 }
 
-export type RawSphinxActionTODO = {
+export type RawSphinxActionInput = {
   fullyQualifiedName: string
   actionType: bigint
   skip: boolean
@@ -332,15 +325,13 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CompilerConfig extends ParsedConfig {
-  inputs: Array<SphinxInput>
+  inputs: Array<BuildInfoInputs>
 }
 
-export type SphinxInput = {
-  solcVersion: string
-  solcLongVersion: string
-  input: CompilerInput
-  id: string
-}
+/**
+ * @notice The `BuildInfo` object, but without the compiler ouputs.
+ */
+export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
@@ -348,24 +339,6 @@ export type ConfigArtifacts = {
     artifact: ContractArtifact
   }
 }
-
-export type SphinxActionTODO = {
-  fullyQualifiedName: string
-  actionType: bigint
-  data: string
-  skip: boolean
-}
-
-// TODO: rm if unnecessary
-// export type DeployContractActionTODO = {
-//   fullyQualifiedName: string
-//   actionType: SphinxActionType.DEPLOY_CONTRACT
-//   skip: boolean
-//   initCode: string
-//   constructorArgs: string
-//   salt: string
-//   referenceName: string
-// }
 
 export type ConfigCache = {
   manager: string
@@ -403,7 +376,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  actions: Array<RawSphinxActionTODO>
+  actions: Array<RawSphinxActionInput>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

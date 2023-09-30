@@ -2,9 +2,10 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxAction, SphinxMode } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxActionInput, SphinxMode, DeploymentInfo } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { SphinxUtils } from "./SphinxUtils.sol";
 import { VmSafe } from "forge-std/Vm.sol";
 
 /**
@@ -20,7 +21,6 @@ import { VmSafe } from "forge-std/Vm.sol";
  *      be immutable variables, or the need to be stored in the Sphinx library contract.
  */
 abstract contract AbstractContractClient {
-
     address internal immutable sphinxInternalManager;
     Sphinx internal immutable sphinxInternalSphinxLib;
     address internal immutable sphinxInternalImpl;
@@ -52,20 +52,34 @@ abstract contract AbstractContractClient {
      * @param selector The selector for the target function.
      * @param functionArgs The abi encoded arguments for the function call.
      */
-    function _callFunction(bytes4 selector, bytes memory functionArgs, string memory fullyQualifiedName) internal {
+    function _callFunction(
+        bytes4 selector,
+        bytes memory functionArgs,
+        string memory fullyQualifiedName
+    ) internal {
+        require(
+            Sphinx(sphinxInternalSphinxLib).sphinxModifierEnabled(),
+            "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
+        );
+
         bytes memory encodedCall = abi.encodePacked(selector, functionArgs);
         bytes32 callHash = keccak256(abi.encode(address(this), encodedCall));
 
-        uint256 currentNonceInManager = sphinxInternalManager.code.length > 0 ? ISphinxManager(sphinxInternalManager).callNonces(callHash) : 0;
-        uint256 currentNonceInDeployment = sphinxInternalSphinxLib.getCallCountInDeployment(callHash);
+        uint256 currentNonceInManager = sphinxInternalManager.code.length > 0
+            ? ISphinxManager(sphinxInternalManager).callNonces(callHash)
+            : 0;
+        uint256 currentNonceInDeployment = sphinxInternalSphinxLib.sphinxGetCallCountInDeployment(
+            callHash
+        );
 
-        string memory referenceName = sphinxInternalSphinxLib.getReferenceNameForAddress(address(this));
+        string memory referenceName = sphinxInternalSphinxLib.sphinxGetReferenceNameForAddress(
+            address(this)
+        );
 
         bool skip = currentNonceInManager > currentNonceInDeployment;
-        if (!skip && sphinxInternalSphinxLib.mode() == SphinxMode.Default) {
-            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl.delegatecall(
-                encodedCall
-            );
+        if (!skip && sphinxInternalSphinxLib.sphinxMode() == SphinxMode.Default) {
+            (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl
+                .delegatecall(encodedCall);
             if (!sphinxCallSuccess) {
                 if (sphinxReturnData.length == 0) revert();
                 assembly {
@@ -74,13 +88,21 @@ abstract contract AbstractContractClient {
             }
         }
 
-        bytes memory actionData = abi.encode(address(this), selector, functionArgs, currentNonceInDeployment, referenceName);
-        sphinxInternalSphinxLib.addSphinxAction(SphinxAction({
-            fullyQualifiedName: fullyQualifiedName,
-            actionType: SphinxActionType.CALL,
-            data: actionData,
-            skip: skip
-        }));
+        bytes memory actionData = abi.encode(
+            address(this),
+            selector,
+            functionArgs,
+            currentNonceInDeployment,
+            referenceName
+        );
+        sphinxInternalSphinxLib.sphinxAddActionInput(
+            SphinxActionInput({
+                fullyQualifiedName: fullyQualifiedName,
+                actionType: SphinxActionType.CALL,
+                data: actionData,
+                skip: skip
+            })
+        );
     }
 
     // Pulled from the OpenZeppelin Proxy contract.

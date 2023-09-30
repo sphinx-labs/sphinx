@@ -144,7 +144,7 @@ export const generateDeploymentFunctionFromASTDefinition = (
     DefineOptions memory _defineOptions
   ) internal returns (${uniqueClientName}) {
     return ${uniqueClientName}(
-      _defineContract(
+      _sphinxDefineContract(
         _defineOptions.referenceName,
         addr,
         "${fullyQualifiedName}",
@@ -171,7 +171,7 @@ export const generateDeploymentFunctionFromASTDefinition = (
       ${inputNames}
     );
     return ${uniqueClientName}(
-      _deployContract(
+      _sphinxDeployContract(
         _sphinxInternalDeployOptions.referenceName,
         _sphinxInternalDeployOptions.salt,
         sphinxInternalConstructorArgs,

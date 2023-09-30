@@ -45,6 +45,7 @@ import { ConflictingEnum } from "../../contracts/test/typegen/conflictingTypeNam
 import { ConflictingType as TypegenConflictingNameContractsSecond_ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnum } from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingStruct } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
+import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 
 import "forge-std/Test.sol";
 
@@ -55,7 +56,16 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         return 2 * value;
     }
 
+    SphinxUtils utils = new SphinxUtils();
+
+    address manager;
     function setUp() public {
+        manager = utils.getSphinxManagerAddress(
+            sphinxConfig.owners,
+            sphinxConfig.threshold,
+            sphinxConfig.projectName
+        );
+
         // Deploy an external contract ahead of time so we can later define an interact with it
         myPredeployedExternalContract = new ExternalContract(5);
         alreadyDeployedContractAddress = address(myPredeployedExternalContract);
@@ -391,11 +401,11 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers calling a function that relies on the msg.sender
     function testMsgSenderInFunction() public {
-        assertEq(msgSender.msgSenderInFunction(), address(manager));
+        assertEq(msgSender.msgSenderInFunction(), manager);
     }
 
     // Covers deploying a contract with constructor logic that depends on the msg.sender
     function testMsgSenderInConstructor() public {
-        assertEq(msgSender.msgSenderInConstructor(), address(manager));
+        assertEq(msgSender.msgSenderInConstructor(), manager);
     }
 }

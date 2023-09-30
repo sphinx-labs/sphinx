@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { SphinxConfig, Network, DeployOptions, DefineOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import {
+    SphinxConfig,
+    Network,
+    DeployOptions,
+    DefineOptions
+} from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
 import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
@@ -15,7 +20,10 @@ import { BasicInputTypesClient } from "../SphinxClient/typegen/BasicInputTypes.S
 import { ImmutableInputTypes } from "../contracts/test/typegen/ImmutableInputTypes.sol";
 import { ArrayInputTypes } from "../contracts/test/typegen/ArrayInputTypes.sol";
 import { ArrayInputTypesClient } from "../SphinxClient/typegen/ArrayInputTypes.SphinxClient.sol";
-import { NoAliasImportsOne, NoAliasImportsTwo } from "../contracts/test/typegen/imports/NoAlias.sol";
+import {
+    NoAliasImportsOne,
+    NoAliasImportsTwo
+} from "../contracts/test/typegen/imports/NoAlias.sol";
 import { AliasImports } from "../contracts/test/typegen/imports/Alias.sol";
 import { MyTypeLibrary } from "../contracts/test/typegen/imports/Types.sol";
 import { MyTypeContract } from "../contracts/test/typegen/imports/Types.sol";
@@ -50,17 +58,33 @@ import {
 import { FunctionInputContract } from "../contracts/test/typegen/FunctionInputType.sol";
 import { ExternalContract } from "../testExternalContracts/ExternalContract.sol";
 import { ExternalContractClient } from "../SphinxClient/ExternalContract.SphinxClient.sol";
-import { ConflictingTypeNameContractFirst } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
-import { ConflictingTypeNameContractSecond } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingTypeNameContractFirst
+} from "../contracts/test/typegen/conflictingTypeNames/First.sol";
+import {
+    ConflictingTypeNameContractSecond
+} from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingType } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { ConflictingStruct } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { ConflictingEnum } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
-import { ConflictingType as TypegenConflictingNameContractsSecond_ConflictingType } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import { ConflictingStruct as TypegenConflictingNameContractsSecond_ConflictingStruct } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import { ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnum } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import { ConflictingTypeNameContractFirst } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
-import { ConflictingTypeNameContractSecond } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import { ConflictingTypeNameContractFirstClient } from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
+import {
+    ConflictingType as TypegenConflictingNameContractsSecond_ConflictingType
+} from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingStruct as TypegenConflictingNameContractsSecond_ConflictingStruct
+} from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnum
+} from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingTypeNameContractFirst
+} from "../contracts/test/typegen/conflictingTypeNames/First.sol";
+import {
+    ConflictingTypeNameContractSecond
+} from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingTypeNameContractFirstClient
+} from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
 import { MsgSender } from "../contracts/test/MsgSender.sol";
 import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
 
@@ -108,14 +132,6 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
 
-    string projectName = "TypeGenTest";
-    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    address[] proposers;
-    Network[] mainnets = [Network.ethereum];
-    Network[] testnets = [Network.goerli];
-    uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 5 });
-
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
     address[3] public initialUintStaticArray;
@@ -150,22 +166,15 @@ contract TypeGenTestConfig is Test, SphinxClient {
         updatedUintStaticArray = [address(16), address(17), address(18)];
     }
 
-    constructor()
-        SphinxClient(
-            SphinxConfig({
-                projectName: projectName,
-                owners: owners,
-                proposers: proposers,
-                mainnets: mainnets,
-                testnets: testnets,
-                threshold: threshold,
-                version: version,
-                orgId: ""
-            })
-        )
-    {}
+    constructor() {
+        sphinxConfig.projectName = "TypeGenTest";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.mainnets = [Network.ethereum];
+        sphinxConfig.testnets = [Network.goerli];
+        sphinxConfig.threshold = 1;
+    }
 
-    function deploy(Network _network) public override sphinxDeploy(_network) {
+    function deploy(Network _network) public override sphinx(_network) {
         setupVariables();
 
         // Deploy two contracts with conflicting names

@@ -5,7 +5,7 @@ import { spawnSync } from 'child_process'
 import {
   AuthLeaf,
   CanonicalConfig,
-  ChainInfo,
+  DeploymentInfo,
   ConfigArtifacts,
   ParsedConfig,
   ProjectDeployment,
@@ -33,7 +33,7 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 import { blue } from 'chalk'
 
-import { decodeChainInfoArray } from '../../foundry/structs'
+import { decodeDeploymentInfoArray } from '../../foundry/structs'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { makeGetConfigArtifacts } from '../../foundry/utils'
 
@@ -70,7 +70,7 @@ export const propose = async (
   const { artifactFolder, buildInfoFolder, cachePath } =
     await getFoundryConfigOptions()
 
-  const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+  const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
   // TODO(case): there's an error in the script. we should bubble it up.
   // TODO: this is the simulation. you should do this in every case.
   try {
@@ -78,7 +78,7 @@ export const propose = async (
     // the preview. potentially the same w/ deploy task.
     spinner.start(`Generating preview...`)
     await execAsync(
-      `forge script ${scriptPath} --sig 'propose(bool,string)' ${isTestnet} ${chainInfoPath}`
+      `forge script ${scriptPath} --sig 'sphinxProposeTask(bool,string)' ${isTestnet} ${deploymentInfoPath}`
     )
   } catch (e) {
     spinner.stop()
@@ -98,14 +98,19 @@ export const propose = async (
   // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
   // this task, in which case the Sphinx ABI won't exist yet.
   const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-  const SphinxABI =
+  const SphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
+    require(resolve(
+      `${sphinxArtifactDir}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
 
-  const abiEncodedChainInfoArray: string = readFileSync(chainInfoPath, 'utf8')
-  const chainInfoArray: Array<ChainInfo> = decodeChainInfoArray(
-    abiEncodedChainInfoArray,
-    SphinxABI
+  const abiEncodedDeploymentInfoArray: string = readFileSync(
+    deploymentInfoPath,
+    'utf8'
+  )
+  const deploymentInfoArray: Array<DeploymentInfo> = decodeDeploymentInfoArray(
+    abiEncodedDeploymentInfoArray,
+    SphinxPluginTypesABI
   )
 
   const apiKey = process.env.SPHINX_API_KEY
@@ -124,9 +129,11 @@ export const propose = async (
     parsedConfig: ParsedConfig
     configArtifacts: ConfigArtifacts
   }> = []
-  for (const chainInfo of chainInfoArray) {
-    const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
-    const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
+  for (const deploymentInfo of deploymentInfoArray) {
+    const configArtifacts = await getConfigArtifacts(
+      deploymentInfo.actionInputs
+    )
+    const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
     TODOarray.push({ parsedConfig, configArtifacts })
   }
 
@@ -239,8 +246,8 @@ export const propose = async (
       const { owners, threshold } = newConfig
 
       // TODO(docs)
-      const proposers = parsedConfig.prevConfig.firstProposalOccurred
-        ? parsedConfig.prevConfig.proposers
+      const proposers = parsedConfig.initialState.firstProposalOccurred
+        ? parsedConfig.initialState.proposers
         : newConfig.proposers
 
       const { leafThreshold, roleType } = getAuthLeafSignerInfo(

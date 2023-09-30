@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { SphinxConfig, Network, DeployOptions, DefineOptions, Version } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import {
+    SphinxConfig,
+    Network,
+    DeployOptions,
+    DefineOptions,
+    Version
+} from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum } from "../contracts/test/ChainSpecific.sol";
-import { AllNetworksClient, OnlyArbitrumClient } from "../SphinxClient/ChainSpecific.SphinxClient.sol";
+import {
+    AllNetworksClient,
+    OnlyArbitrumClient
+} from "../SphinxClient/ChainSpecific.SphinxClient.sol";
 
 /**
  * @title ChainSpecificConfiguration
@@ -20,31 +29,16 @@ contract ChainSpecificConfiguration is SphinxClient {
     AllNetworks allNetworks;
     OnlyArbitrum onlyArbitrum;
 
-    string projectName = "ChainSpecific";
-    address[] owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-    address[] proposers;
-    Network[] mainnets = [Network.ethereum, Network.optimism, Network.arbitrum];
-    Network[] testnets = [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli];
-    uint256 threshold = 1;
-    Version version = Version({ major: 0, minor: 2, patch: 5 });
+    mapping(Network => address) public chainSpecificAddresses;
+    mapping(Network => uint) public chainSpecificFee;
 
-    mapping (Network => address) public chainSpecificAddresses;
-    mapping (Network => uint) public chainSpecificFee;
-
-    constructor()
-        SphinxClient(
-            SphinxConfig({
-                projectName: projectName,
-                owners: owners,
-                proposers: proposers,
-                mainnets: mainnets,
-                testnets: testnets,
-                threshold: threshold,
-                version: version,
-                orgId: ""
-            })
-        )
-    {}
+    constructor() {
+        sphinxConfig.projectName = "ChainSpecific";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.mainnets = [Network.ethereum, Network.optimism, Network.arbitrum];
+        sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli];
+        sphinxConfig.threshold = 1;
+    }
 
     function setupVariables() internal {
         chainSpecificAddresses[Network.ethereum] = address(1);
@@ -62,12 +56,10 @@ contract ChainSpecificConfiguration is SphinxClient {
         chainSpecificFee[Network.arbitrum_goerli] = 6;
     }
 
-    function deploy(Network _network) public override sphinxDeploy(_network) {
+    function deploy(Network _network) public override sphinx(_network) {
         setupVariables();
 
-        AllNetworksClient allNetworksClient = deployAllNetworks(
-            chainSpecificAddresses[_network]
-        );
+        AllNetworksClient allNetworksClient = deployAllNetworks(chainSpecificAddresses[_network]);
         allNetworksClient.setFee(chainSpecificFee[_network]);
         allNetworks = AllNetworks(address(allNetworksClient));
 

@@ -5,7 +5,7 @@ import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 
 import {
-  SphinxInput,
+  BuildInfoInputs,
   ConfigArtifacts,
   CompilerConfig,
   ParsedConfig,
@@ -31,12 +31,12 @@ export const sphinxCommitAbstractSubtask = async (
   configUri: string
   compilerConfig: CompilerConfig
 }> => {
-  const sphinxInputs: Array<SphinxInput> = []
+  const sphinxInputs: Array<BuildInfoInputs> = []
 
-  const notSkipped = parsedConfig.actionsTODO.filter((a) => !a.skip)
+  const notSkipped = parsedConfig.actionInputs.filter((a) => !a.skip)
 
-  for (const actionTODO of notSkipped) {
-    const { fullyQualifiedName } = actionTODO
+  for (const actionInput of notSkipped) {
+    const { fullyQualifiedName } = actionInput
     const { buildInfo } = configArtifacts[fullyQualifiedName]
 
     const prevSphinxInput = sphinxInputs.find(
@@ -54,7 +54,7 @@ export const sphinxCommitAbstractSubtask = async (
     )
 
     if (prevSphinxInput === undefined) {
-      const sphinxInput: SphinxInput = {
+      const sphinxInput: BuildInfoInputs = {
         solcVersion: buildInfo.solcVersion,
         solcLongVersion: buildInfo.solcLongVersion,
         id: buildInfo.id,

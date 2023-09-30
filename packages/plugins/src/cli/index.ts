@@ -16,7 +16,7 @@ import {
   getDiff,
   getDiffString,
   userConfirmation,
-  ChainInfo,
+  DeploymentInfo,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -25,7 +25,7 @@ import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 // import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
-import { decodeChainInfo } from '../foundry/structs'
+import { decodeDeploymentInfo } from '../foundry/structs'
 import { propose } from './propose'
 
 // Load environment variables from .env
@@ -291,12 +291,20 @@ yargs(hideBin(process.argv))
       const spinner = ora()
       // spinner.start('Getting project info...')
 
-      const chainInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+      const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
-      // Delete the chain info if one already exists
-      // We do this b/c the file wont be output if there is not broadcast in the users script and we need a clean way to detect that
-      if (existsSync(chainInfoPath)) {
-        unlinkSync(chainInfoPath)
+      // TODO(ryan): can we remove this now that we call the `preview` function directly intead of
+      // the user's 'run' function? ryan's answer: It’s just a nice sanity check imo to always
+      // require the file to be regenerated. On the off chance that some other bug results in the
+      // file not being output for some reason, the script would just fail b/c the file is missing
+      // vs potentially doing some outdated deployment. TODO: we should add this to the proposal
+      // preview too.
+
+      // Delete the deployment info if one already
+      // exists We do this b/c the file wont be output if there is not broadcast in the users script
+      // and we need a clean way to detect that
+      if (existsSync(deploymentInfoPath)) {
+        unlinkSync(deploymentInfoPath)
       }
 
       // TODO(docs): we run this even if the user is skipping the preview b/c we need the ParsedConfig
@@ -307,7 +315,7 @@ yargs(hideBin(process.argv))
       try {
         spinner.start(`Generating preview...`)
         await execAsync(
-          `forge script ${scriptPath} --sig 'preview(string,string)' ${network} ${chainInfoPath} --rpc-url ${forkUrl}`
+          `forge script ${scriptPath} --sig 'sphinxPreviewTask(string,string)' ${network} ${deploymentInfoPath} --rpc-url ${forkUrl}`
         )
       } catch (e) {
         spinner.stop()
@@ -324,19 +332,23 @@ yargs(hideBin(process.argv))
 
       // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
       // this task, in which case the Sphinx ABI won't exist yet.
-      const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-      const SphinxABI =
+      const SphinxPluginTypesABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(resolve(`${sphinxArtifactDir}/Sphinx.sol/Sphinx.json`)).abi
+        require(resolve(
+          `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+        )).abi
 
       // TODO(case): you should probably make sure that the user only calls `deploy` once
       // in their script. e.g. we may execute incorrect actions if the user does
       // something like `deploy(goerli); deploy(optimism-goerli)`.
 
-      const abiEncodedChainInfo: string = readFileSync(chainInfoPath, 'utf8')
-      const chainInfo: ChainInfo = decodeChainInfo(
-        abiEncodedChainInfo,
-        SphinxABI
+      const abiEncodedDeploymentInfo: string = readFileSync(
+        deploymentInfoPath,
+        'utf8'
+      )
+      const deploymentInfo: DeploymentInfo = decodeDeploymentInfo(
+        abiEncodedDeploymentInfo,
+        SphinxPluginTypesABI
       )
 
       const getConfigArtifacts = makeGetConfigArtifacts(
@@ -344,8 +356,10 @@ yargs(hideBin(process.argv))
         buildInfoFolder,
         cachePath
       )
-      const configArtifacts = await getConfigArtifacts(chainInfo.actionsTODO)
-      const parsedConfig = makeParsedConfig(chainInfo, configArtifacts)
+      const configArtifacts = await getConfigArtifacts(
+        deploymentInfo.actionInputs
+      )
+      const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
       if (!confirm) {
         const diff = getDiff([parsedConfig])
@@ -361,7 +375,7 @@ yargs(hideBin(process.argv))
           'script',
           scriptPath,
           '--sig',
-          'deploy(string)',
+          'sphinxDeployTask(string)',
           network,
           '--fork-url',
           forkUrl,
@@ -376,7 +390,7 @@ yargs(hideBin(process.argv))
       // TODO: currently, we don't check if the user has `vm.startBroadcast` in their script. if they don't,
       // and we also don't have an existing 'sphinx-chain-info.txt' file, then i believe this will fail.
 
-      // const containsContractDeployment = parsedConfig.actionsTODO.some(
+      // const containsContractDeployment = parsedConfig.actionInputs.some(
       //   (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
       // )
 

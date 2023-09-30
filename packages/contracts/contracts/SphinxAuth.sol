@@ -32,7 +32,7 @@ import { ISphinxAuth } from "./interfaces/ISphinxAuth.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.5
+ * @custom:version 0.2.4
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
@@ -66,15 +66,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
      * @notice Mapping of an auth Merkle root to the corresponding AuthState.
      */
     mapping(bytes32 => AuthState) public authStates;
-
-    /**
-     * @notice Number of auth roots that are currently in the `PROPOSED` state. This is used
-     *         off-chain to ensure that a single proposal is executed at one time, which TODO.
-     *         We don't keep track of auth roots in the `SETUP` state to allow for the possibility
-     *        of a user calling `setup` more than once, which would result in multiple auth roots
-     * 
-     */
-    uint256 public numActiveProposals;
 
     event AuthLeafExecuted(bytes32 indexed authRoot, uint256 leafIndex, AuthLeafType leafType);
     event AuthRootCompleted(bytes32 indexed authRoot);
@@ -227,8 +218,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
                 leafsExecuted: 1,
                 numLeafs: numLeafs
             });
-
-            numActiveProposals += 1;
         }
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
@@ -606,8 +595,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
             firstProposalOccurred = true;
         }
 
-        numActiveProposals += 1;
-
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.PROPOSE);
     }
 
@@ -713,7 +700,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
         authState.leafsExecuted += 1;
         if (authState.leafsExecuted == authState.numLeafs) {
             authState.status = AuthStatus.COMPLETED;
-            numActiveProposals -= 1;
             emit AuthRootCompleted(_authRoot);
         }
     }
