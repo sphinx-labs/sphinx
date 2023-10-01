@@ -5,7 +5,7 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 import {
   ConfigArtifacts,
   DeployContractActionInput,
-  FunctionCallTODO,
+  FunctionCallActionInput,
   ParsedConfig,
   RawSphinxActionInput,
 } from '../config/types'
@@ -46,7 +46,7 @@ import {
 import { getProjectBundleInfo } from '../tasks'
 import { getEstDeployContractCost } from '../estimate'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
-import { getTargetSalt } from '../config/utils'
+import { getCreate3Salt } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -255,11 +255,14 @@ export const makeTargetBundle = (
   return {
     root: root !== '0x' ? root : ethers.ZeroHash,
     targets: targets.map((target, idx) => {
+      const siblings = tree
+        .getProof(getTargetHash(target), idx)
+        .map((element) => {
+          return ethers.hexlify(element.data)
+        })
       return {
         target,
-        siblings: tree.getProof(getTargetHash(target), idx).map((element) => {
-          return element.data
-        }),
+        siblings,
       }
     }),
   }
@@ -349,7 +352,7 @@ export const getAuthLeafSignerInfo = (
 
 export const fromRawSphinxActionInput = (
   rawAction: RawSphinxActionInput
-): DeployContractActionInput | FunctionCallTODO => {
+): DeployContractActionInput | FunctionCallActionInput => {
   const { skip, fullyQualifiedName } = rawAction
   const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
@@ -382,7 +385,7 @@ export const fromRawSphinxActionInput = (
       referenceName,
     }
   } else {
-    throw new Error(`TODO: invalid action type`)
+    throw new Error(`TODO(docs): invalid action type`)
   }
 }
 
@@ -399,10 +402,6 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
   return { chainId: BigInt(chainId), to, index, data }
 }
 
-// TODO(case): deploy the same config twice using the deploy task. on the second run, we'll get an
-// error that says: "Cannot make an auth bundle with 0 leafs". We should have a better error since
-// this is user-facing.
-
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
  * SphinxAuth contract. Reverts if the list of leafs is empty, since the call to
@@ -413,7 +412,10 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
  */
 export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
   if (leafs.length === 0) {
-    throw new Error(`Cannot make an auth bundle with 0 leafs.`)
+    return {
+      root: ethers.ZeroHash,
+      leafs: [],
+    }
   }
 
   // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
@@ -482,7 +484,6 @@ export const makeActionBundle = (
   return {
     root: root !== '0x' ? root : ethers.ZeroHash,
     actions: rawActions.map((action, idx) => {
-      // TODO: do the same for the target bundle
       const siblings = tree
         .getProof(getActionHash(action), idx)
         .map((element) => {
@@ -559,11 +560,7 @@ export const makeActionBundleFromConfig = (
   actionBundle: SphinxActionBundle
   humanReadableActions: HumanReadableActions
 } => {
-  const { actionInputs, chainId } = parsedConfig
-
-  if (!isSupportedChainId(chainId)) {
-    throw new Error(`Chain ID ${chainId} is not supported.`)
-  }
+  const { actionInputs } = parsedConfig
 
   const actions: SphinxAction[] = []
   const costs: number[] = []
@@ -572,7 +569,6 @@ export const makeActionBundleFromConfig = (
 
   const notSkipping = actionInputs.filter((action) => !action.skip)
 
-  // TODO(refactor): another "iterate through contracts to deploy"
   for (let index = 0; index < notSkipping.length; index++) {
     const actionInput = actionInputs[index]
     const { fullyQualifiedName, actionType } = actionInput
@@ -598,7 +594,7 @@ export const makeActionBundleFromConfig = (
       )
 
       // Add a DEPLOY_CONTRACT action.
-      const create3Salt = getTargetSalt(referenceName, userSalt)
+      const create3Salt = getCreate3Salt(referenceName, userSalt)
       actions.push({
         index,
         salt: create3Salt,
@@ -650,7 +646,7 @@ export const makeActionBundleFromConfig = (
   }
 }
 
-// TODO(upgrades)
+// TODO(upgrades): Make sure to use the fully qualified name as the key for the configArtifacts.
 /**
  * Generates a Sphinx target bundle from a config file. Note that non-proxied contract types are
  * not included in the target bundle.
@@ -670,7 +666,7 @@ export const makeActionBundleFromConfig = (
 //   for (const [referenceName, contractConfig] of Object.entries(
 //     parsedConfig.contracts
 //   )) {
-//     const { abi, bytecode } = configArtifacts[referenceName].artifact
+//     const { abi, bytecode } = configArtifacts[fullyQualifiedName].artifact
 
 //     // Only add targets for proxies.
 //     if (contractConfig.kind !== 'immutable') {
@@ -695,11 +691,10 @@ export const makeActionBundleFromConfig = (
 /**
  * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
  * previous chain state. If the current parsed config is completely new, then the previous config
- * must be an empty config, which can be generated by calling `getEmptyCanonicalConfig`. If a
- * chain ID exists in the parsed config but does not exist in the previous config, then this
- * function will generate the leafs required to approve the project's deployment on the new chain.
- * Note that this function will throw an error if the provided `chainId` is not in the parsed
- * config.
+ * must be an empty config. If a chain ID exists in the parsed config but does not exist in the
+ * previous config, then this function will generate the leafs required to approve the project's
+ * deployment on the new chain. Note that this function will throw an error if the provided
+ * `chainId` is not in the parsed config.
  *
  * @param projectName Name of the project to generate leafs for. If the project hasn't changed, then
  * no project-specific leafs will be generated.

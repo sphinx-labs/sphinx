@@ -64,63 +64,24 @@ export const messageMultipleArtifactsFound = (
   )
 }
 
-// TODO(refactor): i think you can simplify this because you're just dealing with FQNs now
 export const getContractArtifact = async (
-  contractNameOrFullyQualifiedName: string,
-  artifactFolder: string,
-  cachedContractNames: { [contractName: string]: string[] | undefined }
+  fullyQualifiedName: string,
+  artifactFolder: string
 ): Promise<ContractArtifact> => {
-  // If a fully qualified name is passed in, the basename will be e.g. `SomeFile.sol:MyContract`.
-  // If a contract name is passed in, the basename will be e.g. `MyContract`.
-  const basename = path.basename(contractNameOrFullyQualifiedName)
+  // The basename will be in the format `SomeFile.sol:MyContract`.
+  const basename = path.basename(fullyQualifiedName)
 
-  const isFullyQualifiedName = basename.includes(':')
-  if (isFullyQualifiedName) {
-    const [sourceName, contractName] = basename.split(':')
-    const artifactPath = join(
-      artifactFolder,
-      sourceName,
-      `${contractName}.json`
-    )
-    if (!fs.existsSync(artifactPath)) {
-      throw new Error(
-        `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please reload your artifacts by running:\n` +
-          `forge clean`
-      )
-    }
-    return parseFoundryArtifact(
-      JSON.parse(fs.readFileSync(artifactPath, 'utf8')) // TODO: undo
-    )
-  }
-
-  // If we make it to this point, the user entered a contract name instead of a fully qualified name.
-
-  const sourceNames = cachedContractNames[contractNameOrFullyQualifiedName]
-  if (sourceNames === undefined || sourceNames.length === 0) {
-    throw new Error(messageArtifactNotFound(contractNameOrFullyQualifiedName))
-  } else if (sourceNames.length > 1) {
+  const [sourceName, contractName] = basename.split(':')
+  const artifactPath = join(artifactFolder, sourceName, `${contractName}.json`)
+  if (!fs.existsSync(artifactPath)) {
     throw new Error(
-      messageMultipleArtifactsFound(contractNameOrFullyQualifiedName)
-    )
-  } else {
-    // There is only one source file that contains the contract name.
-    const sourcePath = sourceNames[0]
-    const sourceName = path.basename(sourcePath)
-    const artifactPath = join(
-      artifactFolder,
-      sourceName,
-      `${contractNameOrFullyQualifiedName}.json`
-    )
-    if (!fs.existsSync(artifactPath)) {
-      throw new Error(
-        `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please reload your artifacts by running:\n` +
-          `forge clean`
-      )
-    }
-    return parseFoundryArtifact(
-      JSON.parse(await readFileAsync(artifactPath, 'utf8'))
+      `Could not find artifact for: ${fullyQualifiedName}. Please reload your artifacts by running:\n` +
+        `forge clean`
     )
   }
+  return parseFoundryArtifact(
+    JSON.parse(await readFileAsync(artifactPath, 'utf8'))
+  )
 }
 
 /**
@@ -164,8 +125,6 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   }
 }
 
-// TODO(refactor): c/f hardhat
-
 /**
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
@@ -184,26 +143,18 @@ export const makeGetConfigArtifacts = (
     }
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
-    let buildInfoCache: {
-      // We track all contract names and the associated source files that contain them
-      // This allows us to detect ambiguous contract names and prompt the user to use fully qualified names
-      contracts: Record<string, string[]>
-      // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
-      // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-      files: Record<
-        string,
-        {
-          name: string
-          time: number
-          contracts: string[]
-        }
-      >
-    } = fs.existsSync(buildInfoCacheFilePath)
+    // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
+    // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
+    let buildInfoCache: Record<
+      string,
+      {
+        name: string
+        time: number
+        contracts: string[]
+      }
+    > = fs.existsSync(buildInfoCacheFilePath)
       ? JSON.parse(fs.readFileSync(buildInfoCacheFilePath, 'utf8'))
-      : {
-          contracts: {},
-          files: {},
-        }
+      : {}
 
     const buildInfoPath = join(buildInfoFolder)
 
@@ -214,7 +165,7 @@ export const makeGetConfigArtifacts = (
         return fileName.endsWith('.json')
       })
 
-    const cachedNames = Object.keys(buildInfoCache.files)
+    const cachedNames = Object.keys(buildInfoCache)
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
     if (
@@ -223,10 +174,7 @@ export const makeGetConfigArtifacts = (
         // handles an edge case where the user made a change and then reverted it and force recompiled
         buildInfoFileNames.length > 1)
     ) {
-      buildInfoCache = {
-        contracts: {},
-        files: {},
-      }
+      buildInfoCache = {}
     }
 
     const buildInfoFileNamesWithTime = buildInfoFileNames
@@ -241,14 +189,14 @@ export const makeGetConfigArtifacts = (
     const localBuildInfoCache = {}
     await Promise.all(
       buildInfoFileNamesWithTime
-        .filter((file) => buildInfoCache.files[file.name]?.time !== file.time)
+        .filter((file) => buildInfoCache[file.name]?.time !== file.time)
         .map(async (file) => {
           // If the file exists in the cache and the time has changed, then we just update the time
           if (
-            buildInfoCache.files[file.name]?.time &&
-            buildInfoCache.files[file.name]?.time !== file.time
+            buildInfoCache[file.name]?.time &&
+            buildInfoCache[file.name]?.time !== file.time
           ) {
-            buildInfoCache.files[file.name].time = file.time
+            buildInfoCache[file.name].time = file.time
             return
           }
 
@@ -256,26 +204,8 @@ export const makeGetConfigArtifacts = (
             fs.readFileSync(join(buildInfoFolder, file.name), 'utf8')
           )
 
-          // Update the contract name to source file dictionary in the cache
-          Object.keys(buildInfo.output.contracts).map((contractSourceName) => {
-            const contractOutput =
-              buildInfo.output.contracts[contractSourceName]
-            const contractNames = Object.keys(contractOutput)
-            contractNames.map((contractName) => {
-              if (!buildInfoCache.contracts[contractName]) {
-                buildInfoCache.contracts[contractName] = [contractSourceName]
-              } else if (
-                !buildInfoCache.contracts[contractName].includes(
-                  contractSourceName
-                )
-              ) {
-                buildInfoCache.contracts[contractName].push(contractSourceName)
-              }
-            })
-          })
-
           // Update the build info file dictionary in the cache
-          buildInfoCache.files[file.name] = {
+          buildInfoCache[file.name] = {
             name: file.name,
             time: file.time,
             contracts: Object.keys(buildInfo.output.contracts),
@@ -285,7 +215,7 @@ export const makeGetConfigArtifacts = (
         })
     )
     // Just make sure the files are sorted by time
-    const sortedCachedFiles = Object.values(buildInfoCache.files).sort(
+    const sortedCachedFiles = Object.values(buildInfoCache).sort(
       (a, b) => b.time - a.time
     )
 
@@ -297,8 +227,7 @@ export const makeGetConfigArtifacts = (
       actions.map(async ({ fullyQualifiedName }) => {
         const artifact = await getContractArtifact(
           fullyQualifiedName,
-          artifactFolder,
-          buildInfoCache.contracts
+          artifactFolder
         )
 
         // Look through the cahce for the first build info file that contains the contract
@@ -331,8 +260,9 @@ export const makeGetConfigArtifacts = (
       })
     )
 
-    // TODO: run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil --broadcast`. when i tried
-    // to do this, it froze for a couple mins, then i exited out.
+    // TODO(test): do this after deciding whether you can remove writing the config artifacts. run
+    // `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil --broadcast`.
+    // when i tried to do this, it froze for a couple mins, then i exited out.
 
     // Read any build info files that we didn't already have in memory
     await Promise.all(

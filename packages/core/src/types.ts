@@ -2,7 +2,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { Integration } from './constants'
 
-export type SemverVersion = {
+export type SemVer = {
   major: bigint
   minor: bigint
   patch: bigint

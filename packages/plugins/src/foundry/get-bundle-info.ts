@@ -14,13 +14,8 @@ import {
 import { AbiCoder, ethers } from 'ethers'
 
 import { getFoundryConfigOptions } from './options'
-import { decodeDeploymentInfoArray } from './structs'
+import { decodeDeploymentInfoArray } from './decode'
 import { makeGetConfigArtifacts } from './utils'
-
-// TODO: see what happens if the user does `vm.createSelectFork(); deploy(...);` in their script
-// when we're attempting to call their script with an `--rpc-url` flag from `sphinx deploy/propose`.
-// my hunch is that `createSelectFork` will override the `--rpc-url` flag, which means that their
-// transactions probably wouldn't get broadcasted onto our port.
 
 const args = process.argv.slice(2)
 const abiEncodedDeploymentInfoArray = args[0]
@@ -90,10 +85,10 @@ const abiEncodedDeploymentInfoArray = args[0]
       fs.mkdirSync(artifactCachePath)
     }
 
-    // TODO: it seems we write the config artifacts here just for etherscan verification. if
-    // foundry can verify the user's contracts without us, we can delete the logic that
+    // TODO(test): it seems we write the config artifacts here just for etherscan verification. if
+    // foundry can verify the user's contracts without us, i think we can delete the logic that
     // writes it to the FS here.
-    // TODO: is the `configArtifactsPath` path correct? i'm curious how the ipfsHash is related to the configArtifacts.
+    // TODO(test): is the `configArtifactsPath` path correct? i'm curious how the ipfsHash is related to the configArtifacts.
     // Write the config artifacts to the local file system. It will exist in a JSON file that has the
     // config URI as its name.
     const configArtifactsPath = path.join(artifactCachePath, `${ipfsHash}.json`)

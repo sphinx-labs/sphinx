@@ -343,8 +343,7 @@ type IPFSHash = string
 export type IPFSCommitResponse = IPFSHash[]
 
 /**
- * @param canonicalConfig The stringified CanonicalConfig that would be generated if this proposal
- * is completely executed.
+ * @param canonicalConfig Deprecated field.
  * @param gasEstimates The estimated amount of gas required to the entire auth tree on each chain,
  * including a buffer.
  */

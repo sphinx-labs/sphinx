@@ -90,11 +90,6 @@ import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 
-// TODO: we should probably prevent users from doing `vm.broadcast` and `vm.prank` immediately
-// before calling `deploy`. potentially vm.startPrank too. instead, they should do
-// `vm.startBroadcast` because we may always perform more than one transaction in the `deploy`
-// function.
-
 // TODO(test): you should use `vm.createSelectFork` in one of your tests for the solidity
 // config.
 
@@ -102,11 +97,6 @@ import "forge-std/Test.sol";
 
 // TODO(md): consider changing the readme so that it focuses on the local deployment experience
 // first, then talks about the devops platform next.
-
-// TODO: you should probably require that the user define the owners, proposers etc via
-// inheritance. actually, read the next todo before you do that.
-
-// TODO: i don't think the mainnets and testnets arrays serve any purpose for the deploy task.
 
 contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingNameContractFirst firstConflictingNameContract;

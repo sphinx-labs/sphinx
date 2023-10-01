@@ -47,18 +47,16 @@ import {
   ParsedConfigVariables,
   ParsedConfigVariable,
   ConfigArtifacts,
-  CanonicalConfig,
   UserConstructorArgOverride,
   UserArgOverride,
   UserFunctionArgOverride,
   UserConfigVariable,
-  UserCallAction,
   UserFunctionOptions,
   ExtendedDeployContractActionInput,
   ExtendedFunctionCallActionInput,
   DeploymentInfo,
   ParsedConfig,
-  FunctionCallTODO,
+  FunctionCallActionInput,
   DecodedAction,
   DeployContractActionInput,
 } from './config/types'
@@ -87,7 +85,7 @@ import {
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
-import { getCreate3Address, getTargetSalt } from './config/utils'
+import { getCreate3Address, getCreate3Salt } from './config/utils'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
@@ -1117,7 +1115,8 @@ export const fetchSphinxManagedBaseUrl = () => {
 }
 
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
-  // TODO: return undefined if the request returns an empty object.
+  // TODO(ryan): this TODO has been around for a while: "return undefined
+  // if the request returns an empty object." is this necessary anymore?
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,
@@ -1175,93 +1174,6 @@ export const relayIPFSCommit = async (
     )
   }
 }
-
-/**
- * @notice Returns a new CanonicalConfig with default parameters for the config options.
- * This is useful when the user is attempting to propose a completely new config, since
- * there is no previous config to use as a starting point yet.
- */
-export const getEmptyCanonicalConfig = (
-  chainIds: Array<number>,
-  manager: string,
-  orgId: string,
-  projectName: string
-): CanonicalConfig => {
-  if (chainIds.length === 0) {
-    throw new Error(`Must provide at least one chain ID.`)
-  }
-
-  const chainStates = {}
-
-  chainIds.forEach((chainId) => {
-    chainStates[chainId] = {
-      firstProposalOccurred: false,
-      projectCreated: false,
-    }
-  })
-
-  return {
-    projectName,
-    manager,
-    options: {
-      orgId,
-      owners: [],
-      ownerThreshold: 0,
-      proposers: [],
-      managerVersion: 'v0.2.5',
-    },
-    chainStates,
-  }
-}
-
-/**
- * Converts a parsed config into a canonical config. Assumes that the `SphinxAuth`
- * contract has been created on each chain.
- *
- * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
- * for each chain ID in the parsed config.
- */
-// TODO: rm?
-// export const toCanonicalConfig = async (
-//   parsedConfig: ParsedConfig,
-//   managerAddress: string,
-//   authAddress: string,
-//   rpcProviders: Record<string, SphinxJsonRpcProvider>
-// ): Promise<CanonicalConfig> => {
-//   const { projectName } = parsedConfig
-//   const chainStates = {}
-
-//   for (const chainId of parsedConfig.options.chainIds) {
-//     const network = findNetwork(chainId)
-
-//     if (!network) {
-//       throw new Error(`Unsupported chain ID: ${chainId}`)
-//     }
-//     const provider = rpcProviders[network]
-//     if (!parsedConfig.options.chainIds.includes(chainId)) {
-//       throw new Error(
-//         `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
-//       )
-//     }
-
-//     const Auth = new ethers.Contract(authAddress, AuthABI, provider)
-//     const firstProposalOccurred = await Auth.firstProposalOccurred()
-
-//     const projectCreated = await isProjectCreated(provider, authAddress)
-
-//     chainStates[chainId] = {
-//       firstProposalOccurred,
-//       projectCreated,
-//     }
-//   }
-
-//   return {
-//     projectName,
-//     manager: managerAddress,
-//     options: parsedConfig.options,
-//     chainStates,
-//   }
-// }
 
 export const isProjectCreated = async (
   provider: Provider,
@@ -1578,24 +1490,6 @@ export const isUserFunctionArgOverrideArray = (
   )
 }
 
-export const getCallActionAddressForNetwork = (
-  networkName: string,
-  callAction: UserCallAction
-): string => {
-  const { address: defaultAddress, addressOverrides } = callAction
-  if (addressOverrides === undefined) {
-    return defaultAddress
-  }
-
-  for (const override of addressOverrides) {
-    if (override.chains.includes(networkName)) {
-      return override.address
-    }
-  }
-
-  return defaultAddress
-}
-
 /**
  * @notice Returns a string that represents a function call in a string format that can be
  * displayed in a terminal. Note that this function does not support function calls with BigInt
@@ -1711,7 +1605,7 @@ export const isExtendedDeployContractActionInput = (
 }
 
 export const isDeployContractActionInput = (
-  actionInput: DeployContractActionInput | FunctionCallTODO
+  actionInput: DeployContractActionInput | FunctionCallActionInput
 ): actionInput is DeployContractActionInput => {
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
 }
@@ -1731,7 +1625,16 @@ export const makeParsedConfig = (
     remoteExecution,
   } = deploymentInfo
 
-  const actions = actionInputs.map(fromRawSphinxActionInput)
+  // Filter out any actions that are not `CALL` or `DEPLOY_CONTRACT`. This is necessary to
+  // remove `DEFINE_CONTRACT` actions, which are not used anywhere off-chain.
+  const actions = actionInputs
+    .filter(
+      (a) =>
+        a.actionType === SphinxActionType.CALL ||
+        a.actionType === SphinxActionType.DEPLOY_CONTRACT
+    )
+    // Decode the raw actions.
+    .map(fromRawSphinxActionInput)
 
   const extendedActions: Array<
     ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
@@ -1743,14 +1646,15 @@ export const makeParsedConfig = (
     const coder = ethers.AbiCoder.defaultAbiCoder()
 
     if (isDeployContractActionInput(action)) {
-      // TODO: getTargetSalt -> getCreate3Salt
-      const create3Salt = getTargetSalt(referenceName, action.userSalt)
+      const create3Salt = getCreate3Salt(referenceName, action.userSalt)
       const create3Address = getCreate3Address(managerAddress, create3Salt)
 
-      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
-      // and the encoded values, then returns the variables object.
-      // TODO(case): contract doesn't have a constructor
-      // TODO(case): contract has a constructor with no args
+      // TODO(optional): currently, structs in the diff will look like this: [val1, val2], instead
+      // of { k1: val1, key2: val2}. you'd need to write a helper function that takes an ethers
+      // Interface and the encoded values, then returns the ParsedConfigVariable(s) object.
+
+      // TODO(test): if the contract doesn't have a constructor, variables should be {}.
+      // TODO(test): if the contract has a constructor with no args, variables should be {}.
       const constructorFragment = iface.fragments.find(
         ConstructorFragment.isFragment
       )
@@ -1765,14 +1669,13 @@ export const makeParsedConfig = (
       }
       extendedActions.push({ create3Address, decodedAction, ...action })
     } else {
-      // TODO: this doesn't have keys. you'll need to write a helper function that takes an ethers Interface
-      // and the encoded values, then returns the variables object.
+      // TODO(optional): convert decodedFunctionParams into a ParsedConfigVariables object (see TODO
+      // above).
       const decodedFunctionParams = iface.decodeFunctionData(
         action.selector,
         ethers.concat([action.selector, action.functionParams])
       )
 
-      // TODO(case): what does this return for an overloaded function?
       const functionName = iface.getFunctionName(action.selector)
 
       const decodedAction: DecodedAction = {
@@ -1798,4 +1701,20 @@ export const makeParsedConfig = (
 
 export const elementsEqual = (ary: Array<ParsedConfigVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
+}
+
+export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
+  const deployments = {}
+  parsedConfig.actionInputs
+    .filter(isExtendedDeployContractActionInput)
+    .filter((a) => !a.skip)
+    .forEach((a, i) => {
+      deployments[i + 1] = {
+        Contract: a.referenceName,
+        Address: a.create3Address,
+      }
+    })
+  if (Object.keys(deployments).length > 0) {
+    console.table(deployments)
+  }
 }

@@ -32,7 +32,7 @@ import { ISphinxAuth } from "./interfaces/ISphinxAuth.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.4
+ * @custom:version 0.2.5
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
@@ -222,8 +222,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.SETUP);
     }
-
-    // TODO: bump manager/auth version in repo
 
     function exportProxy(
         bytes32 _authRoot,

@@ -57,6 +57,7 @@
 //   return buildInfo
 // }
 
+// TODO(hardhat): Make sure to use the fully qualified name as the key to the configArtifacts.
 // /**
 //  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
 //  * config to its artifact and build info. We use a callback to create a standard interface for the

@@ -34,7 +34,6 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 56,
-      allowUnlimitedContractSize: true, // TODO: rm
     },
     // goerli: {
     //   chainId: 5,

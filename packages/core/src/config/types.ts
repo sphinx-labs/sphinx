@@ -8,7 +8,6 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@sphinx-labs/contracts'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
-import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -17,7 +16,7 @@ import {
   SupportedMainnetNetworkName,
   SupportedNetworkName,
 } from '../networks'
-import { SemverVersion } from '../types'
+import { SemVer } from '../types'
 import { SphinxActionType } from '../actions/types'
 
 export const userContractKinds = [
@@ -46,9 +45,8 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-// export type ValidManagerVersion = 'v0.2.5' // TODO: put something like this in solidity for parsing
 export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
-export const VALID_MANAGER_VERSION: SemverVersion = {
+export const VALID_MANAGER_VERSION: SemVer = {
   major: 0n,
   minor: 2n,
   patch: 5n,
@@ -93,60 +91,6 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export type UserSphinxConfig = UserConfig | UserConfigWithOptions
-
-export type UserConfig = {
-  projectName: string
-  contracts: UserContractConfigs
-  postDeploy?: Array<UserCallAction>
-  options?: never
-}
-
-export type UserConfigWithOptions = {
-  projectName: string
-  contracts: UserContractConfigs
-  options: UserConfigOptions
-  postDeploy?: Array<UserCallAction>
-}
-
-export type UserCallAction = {
-  functionName: string
-  functionArgs: Array<UserConfigVariable>
-  address: string
-  abi?: Array<any>
-  addressOverrides?: Array<UserAddressOverrides>
-  functionArgOverrides?: Array<UserFunctionArgOverride>
-}
-
-/**
- * @notice The `mainnets` field is an array of network names, e.g. ['ethereum', 'optimism'].
- * The `testnets` field is an array of network names, e.g. ['goerli', 'optimism-goerli'].
- */
-export interface UserConfigOptions extends ConfigOptions {
-  mainnets: Array<string>
-  testnets: Array<string>
-}
-
-/**
- * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
- * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
- * determined by the value of the boolean variable `isTestnet`, which is passed into the
- * `getParsedConfigWithOptions` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
- * `mainnets`.
- */
-export interface ParsedConfigOptions extends ConfigOptions {
-  chainIds: Array<number>
-}
-
-// TODO: merge this with the CanonicalConfig b/c it's very similar to the actual ConfigOptions which is confusing
-export interface ConfigOptions {
-  orgId: string
-  owners: Array<string>
-  ownerThreshold: number
-  proposers: Array<string>
-  managerVersion: string
-}
-
 export type ParsedConfig = {
   authAddress: string
   managerAddress: string
@@ -173,7 +117,7 @@ export type DeploymentInfo = {
 
 export type InitialChainState = {
   proposers: Array<string>
-  version: SemverVersion
+  version: SemVer
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
   isExecuting: boolean
@@ -242,21 +186,6 @@ export type UserAddressOverrides = {
   address: string
 }
 
-// TODO(docs): 'kind' and 'variables' are kept for backwards compatibility with the old config
-// TODO(docs): initCode does not have the constructor args
-// export type DeployTODOContractTODO = {
-//   initCode: string
-//   encodedConstructorArgs: string
-//   userSalt: string
-//   referenceName: string
-//   fullyQualifiedName: string
-//   skip: boolean
-//   address: string
-//   kind: ContractKind
-//   variables: ParsedConfigVariables
-//   constructorArgs: ParsedConfigVariables
-// }
-
 export interface DeployContractActionInput {
   fullyQualifiedName: string
   actionType: typeof SphinxActionType.DEPLOY_CONTRACT
@@ -275,7 +204,7 @@ export type SphinxConfig = {
   mainnets: Array<SupportedMainnetNetworkName>
   testnets: Array<SupportedNetworkName>
   threshold: bigint
-  version: SemverVersion
+  version: SemVer
 }
 
 export interface ExtendedDeployContractActionInput
@@ -284,7 +213,7 @@ export interface ExtendedDeployContractActionInput
   create3Address: string
 }
 
-export interface ExtendedFunctionCallActionInput extends FunctionCallTODO {
+export interface ExtendedFunctionCallActionInput extends FunctionCallActionInput {
   decodedAction: DecodedAction
 }
 
@@ -294,7 +223,7 @@ export type DecodedAction = {
   variables: ParsedConfigVariables
 }
 
-export interface FunctionCallTODO {
+export interface FunctionCallActionInput {
   fullyQualifiedName: string
   actionType: bigint
   skip: boolean
@@ -344,7 +273,7 @@ export type ConfigCache = {
   manager: string
   isManagerDeployed: boolean
   isExecuting: boolean
-  currentManagerVersion: SemverVersion
+  currentManagerVersion: SemVer
   chainId: SupportedChainId
   isLiveNetwork: boolean
 }
@@ -380,28 +309,3 @@ export type GetConfigArtifacts = (
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
-
-export type GetCanonicalConfig = (
-  orgId: string,
-  isTestnet: boolean,
-  apiKey: string,
-  projectName: string
-) => Promise<CanonicalConfig | undefined>
-
-// TODO: i think with our new proposal logic, we remove any chainIds in the chainStates object that
-// aren't in the current deployment. this may mean that we overwrite testnets when we're deploying
-// on mainnets and vice versa.
-
-export interface CanonicalConfig {
-  manager: string
-  projectName: string
-  options: ConfigOptions
-  chainStates: {
-    [chainId: number]:
-      | {
-          firstProposalOccurred: boolean
-          projectCreated: boolean
-        }
-      | undefined
-  }
-}

@@ -108,8 +108,6 @@ export const getDiffString = (diff: SphinxDiff): string => {
   return diffString + `Confirm? [y/n]`
 }
 
-// TODO(refactor): c/f if (!isSupportedChainId(chainId)
-
 export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
   const networks: {
     [networkTag: string]: {

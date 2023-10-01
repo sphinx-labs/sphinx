@@ -6,7 +6,6 @@ import {
   getAddress,
   getCreate2Address,
   keccak256,
-  solidityPackedKeccak256,
 } from 'ethers'
 
 import { ContractKind, ContractKindEnum, UserSalt } from './types'
@@ -40,7 +39,7 @@ export const getTargetAddress = (
   referenceName: string,
   userSalt: string
 ): string => {
-  const targetSalt = getTargetSalt(referenceName, userSalt)
+  const targetSalt = getCreate3Salt(referenceName, userSalt)
 
   return getCreate3Address(managerAddress, targetSalt)
 }
@@ -68,10 +67,7 @@ export const getCreate3Address = (
   return getAddress(last20Bytes)
 }
 
-// TODO: change the UserSalt type from optional to required, and make it a string type. also c/f
-//  solidityPacked to ensure you're using it properly in the codebase. (you weren't here).
-
-export const getTargetSalt = (
+export const getCreate3Salt = (
   referenceName: string,
   userSalt: string
 ): string => {
@@ -81,14 +77,4 @@ export const getTargetSalt = (
       [referenceName, userSalt]
     )
   )
-}
-
-export const getUserSaltHash = (userSalt?: UserSalt): string => {
-  if (userSalt !== undefined) {
-    const userSaltString =
-      typeof userSalt === 'number' ? userSalt.toString() : userSalt
-    return solidityPackedKeccak256(['string'], [userSaltString])
-  } else {
-    return ZeroHash
-  }
 }

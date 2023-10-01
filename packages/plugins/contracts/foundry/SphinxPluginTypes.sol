@@ -21,19 +21,6 @@ struct BundledAuthLeaf {
     bytes32[] proof;
 }
 
-// TODO(docs)
-struct AuthLeafWithoutData {
-    uint256 chainId;
-    uint256 index;
-    address to;
-}
-// TODO(refactor): the data structure outputted by `get-bundle-info` is pretty messy.
-struct BundledAuthLeafJson {
-    AuthLeafWithoutData leaf;
-    uint256 leafType;
-    bytes32[] proof;
-}
-
 struct SphinxActionBundle {
     bytes32 root;
     BundledSphinxAction[] actions;
@@ -48,17 +35,6 @@ struct BundledSphinxAction {
     RawSphinxAction action;
     uint256 gas;
     bytes32[] siblings;
-}
-
-struct BundledSphinxActionJson {
-    RawSphinxActionJson action;
-    uint256 gas;
-    bytes32[] siblings;
-}
-struct RawSphinxActionJson {
-    uint256 actionType;
-    bytes data;
-    uint256 index;
 }
 
 struct BundledSphinxTarget {
@@ -86,20 +62,6 @@ struct BundleInfo {
     SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
 }
-
-// TODO: need:
-// DIFF:
-// - configcache: chainId, isManagerDeployed, networkName (can be calculated from the chainid), networkType
-// - for each contract to skip and deploy: referenceName, actionType | deploy_contract actions: constructor args, salt | call_actions: function args, function selector
-// - also need: abi (to decode constructor+function args as well as functoin selector for diff)
-// - skipped deploy_contract and call actions
-// DEPLOYMENT ARTIFACTS:
-// - managerAddress
-// BUNDLING:
-// - config artifacts (buildinfo for all; abi just for upgradeable contracts)
-// - CompilerConfig['inputs'] (for config uri)
-// - humanReadableActions (can be created from inputs above)
-// - bundles (can be created from inputs above)
 
 struct FoundryConfig {
     address manager;

@@ -3,12 +3,10 @@ import {
   DeploymentInfo,
   ConfigCache,
   DeployContractActionInput,
-  FunctionCallTODO,
+  FunctionCallActionInput,
   RawSphinxActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { AbiCoder } from 'ethers'
-
-// TODO: rename to 'decode' or something
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,

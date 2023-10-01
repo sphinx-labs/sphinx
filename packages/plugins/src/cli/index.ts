@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
 import { join, resolve } from 'path'
-import { spawnSync } from 'child_process'
+import { fork, spawnSync } from 'child_process'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { execAsync, makeParsedConfig } from '@sphinx-labs/core/dist/utils'
+import {
+  displayDeploymentTable,
+  execAsync,
+  makeParsedConfig,
+} from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
@@ -17,16 +21,20 @@ import {
   getDiffString,
   userConfirmation,
   DeploymentInfo,
+  SphinxActionType,
+  ensureSphinxInitialized,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
+
+import { ethers } from 'ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-// import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
-import { decodeDeploymentInfo } from '../foundry/structs'
+import { decodeDeploymentInfo } from '../foundry/decode'
 import { propose } from './propose'
+import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 
 // Load environment variables from .env
 dotenv.config()
@@ -36,13 +44,12 @@ const projectOption = 'project'
 const networkOption = 'network'
 const confirmOption = 'confirm'
 const dryRunOption = 'dry-run'
-
-// TODO(refactor): "SemverVersion" is redundant
+const targetContractOption = 'target-contract'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
 
-// TODO(refactor): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
+// TODO(md): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
 
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
@@ -52,7 +59,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose <script_path> [--testnets|--mainnets] [--${confirmOption}] [--dry-run]`
+          `Usage: npx sphinx propose <script_path> [--testnets|--mainnets] [OPTIONS]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
@@ -75,9 +82,15 @@ yargs(hideBin(process.argv))
           describe: `Simulate the proposal without sending it to Sphinx's back-end.`,
           boolean: true,
         })
+        .option(targetContractOption, {
+          describe:
+            'The name of the contract within the script file. Necessary when there are multiple contracts in the specified script.',
+          type: 'string',
+          alias: 'tc',
+        })
         .hide('version'),
     async (argv) => {
-      const { testnets, mainnets } = argv
+      const { testnets, mainnets, targetContract } = argv
       const confirm = !!argv[confirmOption]
       const dryRun = !!argv.dryRun
 
@@ -112,7 +125,7 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await propose(confirm, isTestnet, dryRun, scriptPath)
+      await propose(confirm, isTestnet, dryRun, scriptPath, targetContract)
     }
   )
   .command(
@@ -166,68 +179,12 @@ yargs(hideBin(process.argv))
     generateClient
   )
   .command(
-    'artifacts',
-    'Generate deployment artifacts for a Sphinx config file that was already deployed.',
-    (y) =>
-      y
-        .usage(
-          `Usage: npx sphinx artifacts --deployer <address> --${rpcOption} <rpc_url> --${projectOption} <name>`
-        )
-        .option('deployer', {
-          describe: 'Address that deployed the project',
-          type: 'string',
-        })
-        .option(rpcOption, {
-          describe: 'RPC URL of the network where the deployment occurred',
-          type: 'string',
-        })
-        .option(projectOption, {
-          describe: 'Name of the project that was deployed',
-          type: 'string',
-        })
-        .hide('version'),
-    async (argv) => {
-      const { deployer: owner, rpc, project } = argv
-      if (!owner) {
-        console.error('Must specify --deployer')
-        process.exit(1)
-      }
-      if (!rpc) {
-        console.error(`Must specify --${rpcOption}`)
-        process.exit(1)
-      }
-      if (!project) {
-        console.error(`Must specify --${projectOption}`)
-        process.exit(1)
-      }
-
-      const spinner = ora()
-      spinner.start(`Writing deployment artifacts...`)
-
-      const { deploymentFolder, cachePath } = await getFoundryConfigOptions()
-
-      const provider = new SphinxJsonRpcProvider(rpc)
-
-      const managerAddress = getSphinxManagerAddress(owner, project)
-
-      // TODO(artifacts)
-      // await writeDeploymentArtifactsUsingEvents(
-      //   provider,
-      //   project,
-      //   managerAddress,
-      //   cachePath,
-      //   deploymentFolder,
-      //   spinner
-      // )
-    }
-  )
-  .command(
     'deploy',
-    `Deploy a Sphinx config file using Foundry. Writes deployment artifacts if broadcasting.`, // TODO: update?
+    `Executes the user's 'deploy' function on the given network. Displays a preview before the deployment, and writes artifacts after.`,
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx deploy <script_path> [--${networkOption} <network_name> --${confirmOption}]`
+          `Usage: npx sphinx deploy <script_path> --network <network_name> [OPTIONS]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
@@ -241,12 +198,15 @@ yargs(hideBin(process.argv))
           describe: 'Confirm the deployment without displaying a preview.',
           boolean: true,
         })
+        .option(targetContractOption, {
+          describe:
+            'The name of the contract within the script file. Necessary when there are multiple contracts in the specified script.',
+          type: 'string',
+          alias: 'tc',
+        })
         .hide('version'),
     async (argv) => {
-      // TODO(case): two contracts in the script file. you'd need to replicate forge's --tc. you also
-      // need to do this for proposals.
-
-      const { network } = argv
+      const { network, targetContract } = argv
       const confirm = !!argv[confirmOption]
 
       if (argv._.length < 2) {
@@ -276,8 +236,27 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      const { artifactFolder, buildInfoFolder, cachePath, rpcEndpoints } =
-        await getFoundryConfigOptions()
+      const {
+        artifactFolder,
+        buildInfoFolder,
+        cachePath,
+        rpcEndpoints,
+        deploymentFolder,
+      } = await getFoundryConfigOptions()
+
+      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
+      // this task, in which case the artifact file won't exist yet.
+      const SphinxPluginTypesABI =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require(resolve(
+          `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+        )).abi
+
+      const getConfigArtifacts = makeGetConfigArtifacts(
+        artifactFolder,
+        buildInfoFolder,
+        cachePath
+      )
 
       const forkUrl = rpcEndpoints[network]
       if (!forkUrl) {
@@ -287,132 +266,130 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      // TODO(refactor): update spinner
-      const spinner = ora()
-      // spinner.start('Getting project info...')
-
       const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
-      // TODO(ryan): can we remove this now that we call the `preview` function directly intead of
-      // the user's 'run' function? ryan's answer: It’s just a nice sanity check imo to always
-      // require the file to be regenerated. On the off chance that some other bug results in the
-      // file not being output for some reason, the script would just fail b/c the file is missing
-      // vs potentially doing some outdated deployment. TODO: we should add this to the proposal
-      // preview too.
-
-      // Delete the deployment info if one already
-      // exists We do this b/c the file wont be output if there is not broadcast in the users script
-      // and we need a clean way to detect that
-      if (existsSync(deploymentInfoPath)) {
-        unlinkSync(deploymentInfoPath)
-      }
-
-      // TODO(docs): we run this even if the user is skipping the preview b/c we need the ParsedConfig
-      // for the deployment artifacts.
-
-      // TODO(case): there's an error in the script. we should bubble it up.
-      // TODO: this is the simulation. you should do this in every case.
-      try {
+      const spinner = ora()
+      if (confirm) {
+        spinner.info(`Skipping preview.`)
+      } else {
         spinner.start(`Generating preview...`)
-        await execAsync(
-          `forge script ${scriptPath} --sig 'sphinxPreviewTask(string,string)' ${network} ${deploymentInfoPath} --rpc-url ${forkUrl}`
+
+        // Delete the deployment info if one already exists. This isn't strictly necessary, but it
+        // ensures that we don't accidentally display an outdated preview to the user.
+        if (existsSync(deploymentInfoPath)) {
+          unlinkSync(deploymentInfoPath)
+        }
+
+        const forgeScriptPreviewArgs = [
+          'script',
+          scriptPath,
+          '--sig',
+          "'sphinxDeployTask(string,string)'",
+          network,
+          deploymentInfoPath,
+          '--rpc-url',
+          forkUrl,
+        ]
+        if (targetContract) {
+          forgeScriptPreviewArgs.push('--target-contract', targetContract)
+        }
+
+        try {
+          await execAsync(`forge ${forgeScriptPreviewArgs.join(' ')}`)
+        } catch (e) {
+          spinner.stop()
+          // The `stdout` contains the trace of the error.
+          console.log(e.stdout)
+          // The `stderr` contains the error message.
+          console.log(e.stderr)
+          process.exit(1)
+        }
+
+        const encodedPreviewDeploymentInfo = readFileSync(
+          deploymentInfoPath,
+          'utf8'
         )
-      } catch (e) {
-        spinner.stop()
-        // The `stdout` contains the trace of the error.
-        console.log(e.stdout)
-        // The `stderr` contains the error message.
-        console.log(e.stderr)
-        process.exit(1)
-      }
+        const previewDeploymentInfo = decodeDeploymentInfo(
+          encodedPreviewDeploymentInfo,
+          SphinxPluginTypesABI
+        )
+        const previewConfigArtifacts = await getConfigArtifacts(
+          previewDeploymentInfo.actionInputs
+        )
+        const previewParsedConfig = makeParsedConfig(
+          previewDeploymentInfo,
+          previewConfigArtifacts
+        )
 
-      // TODO(case): say the user is deploying on the anvil node with --skip-preview. i think we
-      // should keep this function minimal. e.g. i don't think we should require them to wrap their
-      // `deploy(...)` function with `vm.startBroadcast()`.
-
-      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
-      // this task, in which case the Sphinx ABI won't exist yet.
-      const SphinxPluginTypesABI =
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(resolve(
-          `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-        )).abi
-
-      // TODO(case): you should probably make sure that the user only calls `deploy` once
-      // in their script. e.g. we may execute incorrect actions if the user does
-      // something like `deploy(goerli); deploy(optimism-goerli)`.
-
-      const abiEncodedDeploymentInfo: string = readFileSync(
-        deploymentInfoPath,
-        'utf8'
-      )
-      const deploymentInfo: DeploymentInfo = decodeDeploymentInfo(
-        abiEncodedDeploymentInfo,
-        SphinxPluginTypesABI
-      )
-
-      const getConfigArtifacts = makeGetConfigArtifacts(
-        artifactFolder,
-        buildInfoFolder,
-        cachePath
-      )
-      const configArtifacts = await getConfigArtifacts(
-        deploymentInfo.actionInputs
-      )
-      const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
-
-      if (!confirm) {
-        const diff = getDiff([parsedConfig])
+        const diff = getDiff([previewParsedConfig])
         const diffString = getDiffString(diff)
 
         spinner.stop()
         await userConfirmation(diffString)
       }
 
-      const { status } = spawnSync(
-        `forge`,
-        [
-          'script',
-          scriptPath,
-          '--sig',
-          'sphinxDeployTask(string)',
-          network,
-          '--fork-url',
-          forkUrl,
-          '--broadcast',
-        ],
-        { stdio: 'inherit' }
-      )
+      // Delete the deployment info if one already exists. This isn't strictly necessary, but it
+      // ensures that we use the correct deployment info when writing the deployment artifacts.
+      if (existsSync(deploymentInfoPath)) {
+        unlinkSync(deploymentInfoPath)
+      }
+
+      const forgeScriptDeployArgs = [
+        'script',
+        scriptPath,
+        '--sig',
+        'sphinxDeployTask(string,string)',
+        network,
+        deploymentInfoPath,
+        '--fork-url',
+        forkUrl,
+        '--broadcast',
+      ]
+      if (targetContract) {
+        forgeScriptDeployArgs.push('--target-contract', targetContract)
+      }
+
+      const { status } = spawnSync(`forge`, forgeScriptDeployArgs, {
+        stdio: 'inherit',
+      })
       if (status !== 0) {
         process.exit(1)
       }
 
-      // TODO: currently, we don't check if the user has `vm.startBroadcast` in their script. if they don't,
-      // and we also don't have an existing 'sphinx-chain-info.txt' file, then i believe this will fail.
+      spinner.start(`Writing deployment artifacts...`)
 
-      // const containsContractDeployment = parsedConfig.actionInputs.some(
-      //   (e) => !e.skip && e.actionType === SphinxActionType.DEPLOY_CONTRACT
-      // )
+      const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
+      const deploymentInfo = decodeDeploymentInfo(
+        encodedDeploymentInfo,
+        SphinxPluginTypesABI
+      )
+      const configArtifacts = await getConfigArtifacts(
+        deploymentInfo.actionInputs
+      )
+      const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
-      // TODO: display addresses to the user
+      const containsDeployment = parsedConfig.actionInputs.some(
+        (action) =>
+          action.actionType === SphinxActionType.DEPLOY_CONTRACT && !action.skip
+      )
 
-      // TODO: write deployment artifacts
-      // if (containsContractDeployment) {
-      //   spinner.start(`Writing dwNote that we use --swc because it speeds up the execution of the
-      //   // script.
-      //   const { stdout } = await execAsync(
-      //     `npx ts-node --swc ${userConfigScriptPath} ${config}`
-      //   )
-      //   const userConfig: UserConfig = JSON.parse(stdout)
-      //   await writeDeploymentArtifactsUsingEvents(
-      //     provider,
-      //     userConfig.projectName,
-      //     owner.address,
-      //     cachePath,
-      //     deploymentFolder,
-      //     spinner
-      //   )
-      // }
+      if (containsDeployment) {
+        const provider = new SphinxJsonRpcProvider(forkUrl)
+        const deploymentArtifactPath =
+          await writeDeploymentArtifactsUsingEvents(
+            provider,
+            parsedConfig,
+            configArtifacts,
+            deploymentFolder
+          )
+        spinner.succeed(
+          `Wrote deployment artifacts to: ${deploymentArtifactPath}`
+        )
+      } else {
+        spinner.succeed(`No deployment artifacts to write.`)
+      }
+
+      displayDeploymentTable(parsedConfig)
     }
   )
   // The following command displays the help menu when `npx sphinx` is called with an incorrect

@@ -1,50 +1,3 @@
-/* Imports: External */
-import * as path from 'path'
-
-import * as Handlebars from 'handlebars'
-import { ConstructorFragment, ethers } from 'ethers'
-import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
-import { ASTDereferencer } from 'solidity-ast/utils'
-
-import {
-  SolidityStorageObj,
-  SolidityStorageType,
-} from '../languages/solidity/types'
-import {
-  isUserContractKind,
-  sphinxLog,
-  isDataHexString,
-  sortHexStrings,
-  remove0x,
-  isUserConstructorArgOverride,
-  isSupportedChainId,
-} from '../utils'
-import {
-  ParsedConfigVariable,
-  UserConfigVariable,
-  UserConfigVariables,
-  ParsedConfigVariables,
-  ConfigArtifacts,
-  UserSphinxConfig,
-  UserConfigOptions,
-  ParsedConfigOptions,
-  ParsedFunctionArgsPerChain,
-  UserArgOverride,
-} from './types'
-import { Keyword, keywords } from '../constants'
-import { getStorageType } from '../languages'
-import { buildMappingStorageObj } from '../languages/solidity/iterator'
-import { SphinxRuntimeEnvironment, FailureAction } from '../types'
-import { getTargetAddress } from './utils'
-import {
-  SUPPORTED_LOCAL_NETWORKS,
-  SUPPORTED_MAINNETS,
-  SUPPORTED_NETWORKS,
-  SUPPORTED_TESTNETS,
-  SupportedChainId,
-} from '../networks'
-import { REFERENCE_NAME_CANNOT_BE_SPHINX_MANAGER } from './validation-error-messages'
-
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message)
@@ -52,7 +5,7 @@ export class ValidationError extends Error {
   }
 }
 
-// TODO(upgrades): TODO(docs)
+// TODO(upgrades): Make sure to use the fully qualified name as the key for the configArtifacts.
 // export const assertValidParsedSphinxFile = async (
 //   parsedConfig: ParsedConfig,
 //   configArtifacts: ConfigArtifacts,

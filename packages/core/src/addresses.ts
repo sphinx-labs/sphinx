@@ -34,7 +34,7 @@ import {
 
 import { REFERENCE_ORG_ID } from './constants'
 import { USDC_ADDRESSES } from './networks'
-import { SemverVersion } from './types'
+import { SemVer } from './types'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -193,7 +193,7 @@ export const AUTH_FACTORY_ADDRESS = getCreate2Address(
   )
 )
 
-export const getAuthImplAddress = (version: SemverVersion) => {
+export const getAuthImplAddress = (version: SemVer) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -212,7 +212,7 @@ export const getAuthImplAddress = (version: SemverVersion) => {
 
 export const getManagerConstructorValues = (
   chainId: bigint,
-  version: SemverVersion
+  version: SemVer
 ) => [
   getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
@@ -227,7 +227,7 @@ const [managerConstructorFragment] = SphinxManagerABI.filter(
 
 export const getEncodedSphinxManagerConstructorArgs = (
   chainId: bigint,
-  version: SemverVersion
+  version: SemVer
 ): string => {
   return AbiCoder.defaultAbiCoder().encode(
     managerConstructorFragment.inputs,
@@ -237,7 +237,7 @@ export const getEncodedSphinxManagerConstructorArgs = (
 
 export const getSphinxManagerImplAddress = (
   chainId: bigint,
-  version: SemverVersion
+  version: SemVer
 ) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,

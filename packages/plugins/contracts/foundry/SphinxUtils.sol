@@ -2,26 +2,17 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
-import { CommonBase } from "forge-std/Base.sol";
-import { VmSafe } from "forge-std/Vm.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
-import "forge-std/Script.sol";
-import "forge-std/Test.sol";
-import { StdStyle } from "forge-std/StdStyle.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
-import { ISphinxAuthLibrary } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
+import { IAccessControlEnumerable } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
+import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
-import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.sol";
 import {
     RawSphinxAction,
-    DeploymentState,
-    DeploymentStatus,
     SphinxActionType,
     SphinxTarget,
     Version,
@@ -32,37 +23,21 @@ import {
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 import {
     BundledSphinxAction,
-    BundledSphinxTarget,
     SphinxActionBundle,
     BundledSphinxAction,
     SphinxTargetBundle,
-    BundledSphinxTarget,
     BundleInfo,
     DeploymentInfo,
     HumanReadableAction,
-    ContractKindEnum,
-    ProposalRoute,
-    ConfigContractInfo,
-    OptionalAddress,
-    OptionalBool,
-    OptionalString,
-    OptionalBytes32,
-    ParsedCallAction,
     SphinxActionInput,
-    SphinxAuthBundle,
     BundledAuthLeaf,
-    BundledAuthLeafJson,
-    BundledSphinxActionJson,
-    AuthLeafType,
     NetworkInfo,
     NetworkType,
     Network,
     SphinxConfig,
     InitialChainState
 } from "./SphinxPluginTypes.sol";
-import { Semver } from "@sphinx-labs/contracts/contracts/Semver.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
-import { StdUtils } from "forge-std/StdUtils.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -211,6 +186,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (result.exit_code == 1) {
             revert(string(result.stderr));
         }
+        vm.sleep(5000);
     }
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
@@ -251,7 +227,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function create2Deploy(bytes memory _creationCode) public returns (address) {
-        address addr = Create2.computeAddress(
+        address addr = computeCreate2Address(
             bytes32(0),
             keccak256(_creationCode),
             DETERMINISTIC_DEPLOYMENT_PROXY
@@ -284,16 +260,25 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @notice Deploys the SphinxManager contract to the target address by retrieving its bytecode
      *         from SphinxConstants.sol. By doing this, we avoid importing the SphinxManager into
      *         this contract, which could cause issues because its bytecode may be altered due to
-     *         the user's optimizer settings.
+     *         the user's optimizer settings. For example, this could cause the `CREATE2` address
+     *         of the SphinxManager to be different locally than it is on-chain, which would result
+     *         in all of the user's contracts having different addresses too.
      */
     function deploySphinxManagerTo(address _where) external {
-        // TODO(refactor): is there a more robust way to get its bytecode than using [1]?
-        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-        bytes memory managerCreationCodeWithArgs = contracts[1].creationCode;
-        vm.etch(_where, managerCreationCodeWithArgs);
+        vm.etch(_where, getSphinxManagerImplInitCode());
         (bool success, bytes memory runtimeBytecode) = _where.call("");
-        require(success, "Sphinx: Failed to create runtime bytecode.");
+        require(success, "Sphinx: Failed to deploy SphinxManager. Should never happen.");
         vm.etch(_where, runtimeBytecode);
+    }
+
+    function getSphinxManagerImplInitCode() private pure returns (bytes memory) {
+        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
+        for (uint i = 0; i < contracts.length; i++) {
+            if (contracts[i].expectedAddress == managerImplementationAddress) {
+                return contracts[i].creationCode;
+            }
+        }
+        revert("Sphinx: Unable to find SphinxManager initcode. Should never happen.");
     }
 
     function getSphinxAuthAddress(
@@ -328,7 +313,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _ownerThreshold,
         string memory _projectName
-    ) external view returns (address) {
+    ) external pure returns (address) {
         address authAddress = getSphinxAuthAddress(_owners, _ownerThreshold, _projectName);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
@@ -400,7 +385,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint min = 0;
         uint max = actions.length;
         while (min < max) {
-            uint mid = Math.ceilDiv((min + max), 2);
+            uint mid = ceilDiv((min + max), 2);
             BundledSphinxAction[] memory left = inefficientSlice(actions, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
@@ -443,8 +428,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
         return (numInitialActions, numSetStorageActions);
     }
-
-    // TODO: in the new propose function, do a local simulation before proposing. you may need to invoke a forge script to do this.
 
     function removeExecutedActions(
         BundledSphinxAction[] memory _actions,
@@ -910,7 +893,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function computeCreate3Address(
         address _deployer,
         bytes32 _salt
-    ) public view returns (address) {
+    ) public pure returns (address) {
         // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
         // library for details.
         bytes memory proxyBytecode = hex"67_36_3d_3d_37_36_3d_34_f0_3d_52_60_08_60_18_f3";
@@ -951,7 +934,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @param _ary The addresses to filter.
      * @return trimmed The unique addresses.
      */
-    function deduplicateElements(address[] memory _ary) public view returns (address[] memory) {
+    function deduplicateElements(address[] memory _ary) public pure returns (address[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the array is empty.
         if (_ary.length == 0) return new address[](0);
 
@@ -1102,15 +1085,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.testnets,
             NetworkType.Testnet
         );
-        // TODO: uncomment. i temporarily disabled when debugging.
-        // require(invalidTestnets.length == 0, string(abi.encodePacked(
-        //     "Sphinx: Your 'testnets' array contains invalid test networks: ",
-        //     utils.toString(invalidTestnets)
-        // )));
+        require(invalidTestnets.length == 0, string(abi.encodePacked(
+            "Sphinx: Your 'testnets' array contains invalid test networks: ",
+            toString(invalidTestnets)
+        )));
 
-        // TODO: do `anvil --fork-url <goerli_rpc_url>`, then do `npx sphinx deploy --network anvil`.
-        // this error will be thrown. should we remove this check? (uncommented temporarily).
-        // require(block.chainid == getNetworkInfo(_network).chainId, string(abi.encodePacked("Sphinx: The 'block.chainid' does not match the chain ID of the network: ", getNetworkInfo(_network).name, "\nCurrent chain ID: ", vm.toString(block.chainid), "\nExpected chain ID: ", vm.toString(getNetworkInfo(_network).chainId))));
+        require(block.chainid == getNetworkInfo(_network).chainId, string(abi.encodePacked("Sphinx: The 'block.chainid' does not match the chain ID of the network: ", getNetworkInfo(_network).name, "\nCurrent chain ID: ", vm.toString(block.chainid), "\nExpected chain ID: ", vm.toString(getNetworkInfo(_network).chainId))));
     }
 
     // TODO(docs): this is *only* for broadcasting deployments (not proposals). this can't be used
@@ -1119,20 +1099,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function liveNetworkValidation(
         SphinxConfig memory _config,
         InitialChainState memory _initialState,
-        ISphinxAuthLibrary _auth,
+        ISphinxAuth _auth,
         address _msgSender
     ) external view {
         require(
             _config.owners.length == 1,
             "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
         );
-        // TODO(parse): you should check that the key corresponding to PRIVATE_KEY matches
-        // CallerMode.msgSender. i don't think we currently do this.
-
-        // TODO(parse): case: the user is trying to deploy locally but has a proposer that's
-        // different from the signer. we may add the other account as a proposer in the auth
-        // contract, which may prevent the signer from deploying again without using the DevOps
-        // platform.
 
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         require(
@@ -1169,7 +1142,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: There must not be any addresses in your 'sphinxConfig.proposers' array when deploying on a live network."
         );
 
-        // It's not strictly required to check this, but these arrays aren't used outside of
+        // It's not strictly required to check this, but these fields aren't used outside of
         // the DevOps platform, so it's probably a mistake if they're not empty.
         require(
             _config.mainnets.length == 0,
@@ -1185,26 +1158,26 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         if (address(_auth).code.length > 0) {
+            IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
             // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
             // by OpenZeppelin's AccessControl contract.
             require(
-                _auth.hasRole(0x00, deployer),
+                auth.hasRole(0x00, deployer),
                 "Sphinx: The deployer must be an owner of the SphinxAuth contract."
             );
             require(
-                _auth.getRoleMemberCount(0x00) == 1,
+                auth.getRoleMemberCount(0x00) == 1,
                 "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
             );
             require(
                 !_initialState.firstProposalOccurred ||
-                    _auth.hasRole(keccak256("ProposerRole"), deployer),
+                    auth.hasRole(keccak256("ProposerRole"), deployer),
                 "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
             );
         }
     }
 
-    // TODO: make sure this is called before the deployment occurs.
-    function getInitialChainState(ISphinxAuthLibrary _auth, ISphinxManager _manager) external view returns (InitialChainState memory) {
+    function getInitialChainState(ISphinxAuth _auth, ISphinxManager _manager) external view returns (InitialChainState memory) {
         if (address(_auth).code.length == 0) {
             return
                 InitialChainState({
@@ -1220,17 +1193,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     isExecuting: false
                 });
         } else {
-            uint256 numOwners = _auth.getRoleMemberCount(0x00);
+            IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
+            uint256 numOwners = auth.getRoleMemberCount(0x00);
             address[] memory owners = new address[](numOwners);
             for (uint i = 0; i < numOwners; i++) {
-                owners[i] = _auth.getRoleMember(0x00, i);
+                owners[i] = auth.getRoleMember(0x00, i);
             }
 
             // Do the same for proposers.
-            uint256 numProposers = _auth.getRoleMemberCount(keccak256("ProposerRole"));
+            uint256 numProposers = auth.getRoleMemberCount(keccak256("ProposerRole"));
             address[] memory proposers = new address[](numProposers);
             for (uint i = 0; i < numProposers; i++) {
-                proposers[i] = _auth.getRoleMember(keccak256("ProposerRole"), i);
+                proposers[i] = auth.getRoleMember(keccak256("ProposerRole"), i);
             }
 
             return
@@ -1244,7 +1218,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function isReferenceNameUsed(string memory _referenceName, SphinxActionInput[] memory _inputs) external view returns (bool) {
+    function isReferenceNameUsed(string memory _referenceName, SphinxActionInput[] memory _inputs) external pure returns (bool) {
         for (uint256 i = 0; i < _inputs.length; i++) {
             SphinxActionInput memory action = _inputs[i];
             if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
@@ -1268,8 +1242,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function addRemoteExecutor(address _executor, ISphinxManager _manager) external {
         IAccessControl managedService = IAccessControl(_manager.managedService());
         if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor)) {
-            // TODO: you'll need to temporarily halt any existing pranks, then restart them.
-
             vm.startPrank(systemOwner);
             managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor);
             vm.stopPrank();
@@ -1306,5 +1278,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 vm.etch(address(to), impl.code);
             }
         }
+    }
+
+    /**
+     * @notice Copied from OpenZeppelin's Math.sol (v4.9.0). We copy this instead of importing
+     *         Math.sol in order to support a wider range of Solidity versions. Math.sol only
+     *         allows versions >= 0.8.0.
+     * @dev Returns the ceiling of the division of two numbers.
+     *
+     * This differs from standard division with `/` in that it rounds up instead
+     * of rounding down.
+     */
+    function ceilDiv(uint256 a, uint256 b) private pure returns (uint256) {
+        // (a + b - 1) / b can overflow on addition, so we distribute.
+        return a == 0 ? 0 : (a - 1) / b + 1;
     }
 }

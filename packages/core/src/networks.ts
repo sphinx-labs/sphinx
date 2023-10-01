@@ -53,8 +53,6 @@ export const SUPPORTED_MAINNETS: Record<
   base: 8453,
 }
 
-// TODO(post-foundry): are you supporting hardhat? if not, c/f hardhat.
-
 export const SUPPORTED_LOCAL_NETWORKS: Record<
   SupportedLocalNetworkName,
   SupportedLocalChainId

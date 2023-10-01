@@ -1,10 +1,9 @@
 import { join, resolve } from 'path'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
   AuthLeaf,
-  CanonicalConfig,
   DeploymentInfo,
   ConfigArtifacts,
   ParsedConfig,
@@ -33,7 +32,7 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 import { blue } from 'chalk'
 
-import { decodeDeploymentInfoArray } from '../../foundry/structs'
+import { decodeDeploymentInfoArray } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { makeGetConfigArtifacts } from '../../foundry/utils'
 
@@ -41,78 +40,20 @@ const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
 
 /**
- * @param getCanonicalConfig A function that returns the canonical config. By default, this function
- * will fetch the canonical config from the back-end. However, it can be overridden to return a
- * different canonical config. This is useful for testing.
  * @param dryRun If true, the proposal will not be relayed to the back-end.
+ * @param targetContract The name of the contract within the script file. Necessary when there are
+ * multiple contracts in the specified script.
  */
 export const propose = async (
   confirm: boolean,
   isTestnet: boolean,
   dryRun: boolean,
-  scriptPath: string
+  scriptPath: string,
+  targetContract?: string
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
   ipfsData: string[] | undefined
 }> => {
-  // We compile the contracts to make sure we're using the latest versions. This command
-  // displays the compilation process to the user in real time.
-  const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
-  // Exit the process if compilation fails.
-  if (status !== 0) {
-    process.exit(1)
-  }
-
-  // TODO(refactor): redo spinner
-  const spinner = ora()
-  // spinner.start(`Getting project info...`)
-
-  const { artifactFolder, buildInfoFolder, cachePath } =
-    await getFoundryConfigOptions()
-
-  const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
-  // TODO(case): there's an error in the script. we should bubble it up.
-  // TODO: this is the simulation. you should do this in every case.
-  try {
-    // TODO(refactor): probably change this spinner message b/c we run it even if the user skips
-    // the preview. potentially the same w/ deploy task.
-    spinner.start(`Generating preview...`)
-    await execAsync(
-      `forge script ${scriptPath} --sig 'sphinxProposeTask(bool,string)' ${isTestnet} ${deploymentInfoPath}`
-    )
-  } catch (e) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(e.stdout)
-    // The `stderr` contains the error message.
-    console.log(e.stderr)
-    process.exit(1)
-  }
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    artifactFolder,
-    buildInfoFolder,
-    cachePath
-  )
-
-  // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
-  // this task, in which case the Sphinx ABI won't exist yet.
-  const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-  const SphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${sphinxArtifactDir}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-    )).abi
-
-  const abiEncodedDeploymentInfoArray: string = readFileSync(
-    deploymentInfoPath,
-    'utf8'
-  )
-  const deploymentInfoArray: Array<DeploymentInfo> = decodeDeploymentInfoArray(
-    abiEncodedDeploymentInfoArray,
-    SphinxPluginTypesABI
-  )
-
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     throw new Error("You must specify a 'SPHINX_API_KEY' environment variable.")
@@ -125,7 +66,76 @@ export const propose = async (
     throw new Error('Could not find proposer private key. Should never happen.')
   }
 
-  const TODOarray: Array<{
+  // We compile the contracts to make sure we're using the latest versions. This command
+  // displays the compilation process to the user in real time.
+  const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+  // Exit the process if compilation fails.
+  if (status !== 0) {
+    process.exit(1)
+  }
+
+  const spinner = ora()
+  spinner.start(`Running simulation...`)
+
+  const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
+  const SphinxPluginTypesABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${sphinxArtifactDir}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
+
+  const { artifactFolder, buildInfoFolder, cachePath } =
+    await getFoundryConfigOptions()
+  const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
+
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    artifactFolder,
+    buildInfoFolder,
+    cachePath
+  )
+
+  // Delete the deployment info if one already exists. This isn't strictly necessary, but it ensures
+  // that we don't accidentally display an outdated preview to the user.
+  if (existsSync(deploymentInfoPath)) {
+    unlinkSync(deploymentInfoPath)
+  }
+
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    "'sphinxProposeTask(bool,string)'",
+    isTestnet,
+    deploymentInfoPath,
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  try {
+    await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
+  } catch (e) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(e.stdout)
+    // The `stderr` contains the error message.
+    console.log(e.stderr)
+    process.exit(1)
+  }
+
+  spinner.succeed(`Finished simulation.`)
+  spinner.start(`Parsing simulation results...`)
+
+  const abiEncodedDeploymentInfoArray: string = readFileSync(
+    deploymentInfoPath,
+    'utf8'
+  )
+  const deploymentInfoArray: Array<DeploymentInfo> = decodeDeploymentInfoArray(
+    abiEncodedDeploymentInfoArray,
+    SphinxPluginTypesABI
+  )
+
+  const parsedConfigsWithArtifacts: Array<{
     parsedConfig: ParsedConfig
     configArtifacts: ConfigArtifacts
   }> = []
@@ -134,29 +144,34 @@ export const propose = async (
       deploymentInfo.actionInputs
     )
     const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
-    TODOarray.push({ parsedConfig, configArtifacts })
+    parsedConfigsWithArtifacts.push({ parsedConfig, configArtifacts })
   }
 
-  const diff = getDiff(TODOarray.map((e) => e.parsedConfig))
-  if (!confirm) {
+  const diff = getDiff(parsedConfigsWithArtifacts.map((e) => e.parsedConfig))
+  if (confirm) {
+    spinner.succeed(`Parsed simulation results.`)
+  } else {
     const diffString = getDiffString(diff)
     spinner.stop()
     await userConfirmation(diffString)
   }
 
-  const shouldBeEqualTODO = TODOarray.map(({ parsedConfig }) => {
+  spinner.start(`Running proposal...`)
+
+  const shouldBeEqual = parsedConfigsWithArtifacts.map(({ parsedConfig }) => {
     return {
       newConfig: parsedConfig.newConfig,
       authAddress: parsedConfig.authAddress,
       managerAddress: parsedConfig.managerAddress,
     }
   })
-  if (!elementsEqual(shouldBeEqualTODO)) {
+  if (!elementsEqual(shouldBeEqual)) {
     throw new Error(`TODO(docs). This is currently unsupported.`)
   }
   // Since we know that the following fields are the same for each `parsedConfig`, we get their
   // values here.
-  const { newConfig, authAddress, managerAddress } = TODOarray[0].parsedConfig
+  const { newConfig, authAddress, managerAddress } =
+    parsedConfigsWithArtifacts[0].parsedConfig
 
   const wallet = new ethers.Wallet(proposerPrivateKey)
   const signerAddress = await wallet.getAddress()
@@ -167,7 +182,7 @@ export const propose = async (
     [ipfsHash: string]: string
   } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const { parsedConfig, configArtifacts } of TODOarray) {
+  for (const { parsedConfig, configArtifacts } of parsedConfigsWithArtifacts) {
     const leafsForChain = await getAuthLeafsForChain(
       parsedConfig,
       configArtifacts
@@ -236,7 +251,7 @@ export const propose = async (
     : undefined
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
-  for (const { parsedConfig } of TODOarray) {
+  for (const { parsedConfig } of parsedConfigsWithArtifacts) {
     const bundledLeafsForChain = bundledLeafs.filter(
       (l) => l.leaf.chainId === parsedConfig.chainId
     )
@@ -282,17 +297,9 @@ export const propose = async (
     }
   }
 
-  const newChainStates: CanonicalConfig['chainStates'] = {}
-  for (const { parsedConfig } of TODOarray) {
-    newChainStates[Number(parsedConfig.chainId)] = {
-      firstProposalOccurred: true,
-      projectCreated: true,
-    }
-  }
-
   const managerVersionString = `v${newConfig.version.major}.${newConfig.version.minor}.${newConfig.version.patch}`
 
-  // TODO: mv
+  // TODO(docs): mv
   // We calculate the auth address based on the current owners since this is used to store the
   // address of the auth contract on any new chains in the DB.
   // Note that calculating this here and passing in a single value works as long as the address
@@ -302,11 +309,13 @@ export const propose = async (
     apiKey,
     orgId: newConfig.orgId,
     isTestnet,
-    chainIds: TODOarray.map(({ parsedConfig }) => Number(parsedConfig.chainId)),
+    chainIds: parsedConfigsWithArtifacts.map(({ parsedConfig }) =>
+      Number(parsedConfig.chainId)
+    ),
     deploymentName: newConfig.projectName,
     owners: newConfig.owners,
     threshold: Number(newConfig.threshold),
-    canonicalConfig: '{}', // TODO(docs): deprecated field
+    canonicalConfig: '{}', // Deprecated field
     authAddress,
     managerAddress,
     managerVersion: managerVersionString,

@@ -6,33 +6,24 @@ import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
 import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
-import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
-import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { ISphinxAuthLibrary } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
+import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
     ISphinxAuthFactory
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
-import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.sol";
 import {
     DeploymentState,
     Version,
     DeploymentStatus,
     RawSphinxAction,
     SphinxActionType,
-    AuthState,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxTarget,
     BundledSphinxTarget,
-    SphinxActionBundle,
-    SphinxTargetBundle,
-    FoundryConfig,
     BundleInfo,
-    FoundryContractConfig,
-    OptionalAddress,
     HumanReadableAction,
     Network,
     SphinxActionInput,
@@ -40,14 +31,12 @@ import {
     BundleInfo,
     InitialChainState,
     DeploymentInfo,
-    SphinxAuthBundle,
     BundledAuthLeaf,
     SphinxMode,
-    NetworkInfo,
-    NetworkType
+    NetworkInfo
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
-import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+import { SphinxConstants } from "./SphinxConstants.sol";
 
 // TODO(docs): all functions in this contracts have names that begin with "sphinx" to avoid name
 // collisions with functions that the user defines. This applies to private functions too, since the
@@ -84,7 +73,7 @@ abstract contract Sphinx {
     bool public sphinxModifierEnabled;
 
     ISphinxManager private manager;
-    ISphinxAuthLibrary private auth; // TODO(refactor): AuthLibrary -> Auth
+    ISphinxAuth private auth;
 
     // TODO(docs): this is outdated i think
     /**
@@ -125,43 +114,24 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    // TODO(refactor): can we make the sphinxutils contract a library so that we can remove these
-    // delegatecalls? or perhaps we can just remove the delegatecalls and use the sphinxutils
-    // contract directly. or, maybe the easiest solution is to just put the necessary functions
-    // in the Sphinx.sol contract. we'd want to time it to be sure that it doesn't cause a noticeable regression.
-
     // TODO(optional): Make a note that you decided not to do this: I decided not to implement the logic
     // in the SphinxAuth contract that throws an error if there's an active auth bundle. I realized
     // that if the user needs to call the `setup` function more than once, this logic would prevent
     // them from doing it. I'd need to spend more time thinking about a proper solution, but it
     // doesn't strike me as important enough to prioritize for this release.
 
-    function sphinxPreviewTask(
-        string memory _networkName,
-        string memory _deploymentInfoPath
-    ) external {
-        require(
-            sphinxConfig.owners.length == 1,
-            "Sphinx: There must be a single address in the 'owners' array."
-        );
-        address owner = sphinxConfig.owners[0];
-        Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
-        vm.startBroadcast(owner);
-        deploy(network);
-        vm.stopBroadcast();
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
-    }
-
-    function sphinxDeployTask(string memory _networkName) external {
+    // TODO(docs): this functoin is called without the `--broadcast` flag for the preview.
+    function sphinxDeployTask(string memory _networkName, string memory _deploymentInfoPath) external {
         uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
         require(
             privateKey != 0,
-            "Sphinx: You must set the 'PRIVATE_KEY' environment variable to execute the deployment."
+            "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
         );
         Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
         vm.startBroadcast(privateKey);
         deploy(network);
         vm.stopBroadcast();
+        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
     function sphinxProposeTask(bool _testnets, string memory _deploymentInfoPath) external {
@@ -206,14 +176,10 @@ abstract contract Sphinx {
             // TODO(docs): `vm.createSelectFork` sets the` `block.chainid` to the target chain (e.g.
             // 1 for ethereum mainnet).
             uint256 forkId = vm.createSelectFork(rpcUrl);
-            console.log('first proposal loop', forkId);
-            console.log('rpc url', rpcUrl);
             forkIds[i] = forkId;
 
             sphinxUtils.initialize(rpcUrl);
 
-            // TODO(refactor): maybe these should be in an "initial state" struct or something?
-            // would probably be clearer.
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
             rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(network).name);
 
@@ -222,7 +188,7 @@ abstract contract Sphinx {
                 : false;
             if (firstProposalOccurred) {
                 require(
-                    auth.hasRole(keccak256("ProposerRole"), proposer),
+                    IAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), proposer),
                     string(
                         abi.encodePacked(
                             "Sphinx: The address ",
@@ -258,11 +224,8 @@ abstract contract Sphinx {
         for (uint256 i = 0; i < bundleInfoArray.length; i++) {
             uint256 forkId = forkIds[i];
             BundleInfo memory bundleInfo = bundleInfoArray[i];
-            NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByName(bundleInfo.networkName);
 
             vm.selectFork(forkId);
-            console.log('second proposal loop', forkId);
-            console.log('rpc url', vm.rpcUrl(networkInfo.name));
 
             vm.startPrank(proposer);
             sphinxDeployOnNetwork(authRoot, bundleInfo);
@@ -272,8 +235,8 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfoArray)));
     }
 
-    // TODO(optional): case: say a user wants to broadcast their deployment onto anvil, but there are
-    // multiple owners. i don't think we currently support this.
+    // TODO(test): check for the expected number of broadcasted transactions in `sphinx deploy`.
+    // e.g. it seemes there's an `authFactory.auths()` call being made that costs eth.
 
     function sphinxRegisterProject() private {
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
@@ -284,8 +247,8 @@ abstract contract Sphinx {
         bytes32 authSalt = keccak256(abi.encode(authData, sphinxConfig.projectName));
         bool isRegistered = address(authFactory.auths(authSalt)) != address(0);
         if (!isRegistered) {
-            console.log('registering auth on ', vm.activeFork());
-            // TODO: can we remove the hard-coded gas values in this contract?
+            // TODO(docs): we hard-code the `gas` because... also, explain that this does not impact
+            // the actual gas used. it's just an upper bound.
             authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
         }
     }
@@ -331,16 +294,12 @@ abstract contract Sphinx {
             if (isSetStorageActionArray) {
                 manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
             } else {
-                // manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
-                // TODO(refactor): can we remove this low-level call in favor of the command above?
-                // if not, we should document why.
+                // TODO(docs): explain why we use a low-level call here.
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
                 }(
-                    abi.encodeWithSignature(
-                        "executeInitialActions((uint8,uint256,bytes)[],bytes32[][])",
-                        rawActions,
-                        _proofs
+                    abi.encodeCall(
+                        ISphinxManager.executeInitialActions, (rawActions, _proofs)
                     )
                 );
                 if (!success) {
@@ -459,7 +418,7 @@ abstract contract Sphinx {
 
         sphinxUtils.validate(sphinxConfig, _network);
 
-        auth = ISphinxAuthLibrary(
+        auth = ISphinxAuth(
             sphinxUtils.getSphinxAuthAddress(
                 sphinxConfig.owners,
                 sphinxConfig.threshold,
@@ -473,8 +432,6 @@ abstract contract Sphinx {
                 sphinxConfig.projectName
             )
         );
-        console.log('set manager', address(manager));
-        console.log('active fork', vm.activeFork());
 
         if (sphinxMode == SphinxMode.Proposal) {
             delete deploymentInfo;
@@ -490,8 +447,6 @@ abstract contract Sphinx {
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
             sphinxUtils.initialize(rpcUrl);
 
-            // TODO(refactor): maybe these should be in an "initial state" struct or something?
-            // would probably be clearer.
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
             sphinxUtils.liveNetworkValidation(sphinxConfig, initialState, auth, msgSender);
 
@@ -566,16 +521,12 @@ abstract contract Sphinx {
     function sphinxDeployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo) private {
         (, address msgSender, ) = vm.readCallers();
 
-        // TODO(refactor): all messages in this function should include the network name.
-
         if (_bundleInfo.authLeafs.length == 0) {
-            console.log("Nothing to execute in this deployment. Exiting early.");
+            console.log(string(abi.encodePacked("Sphinx: Nothing to execute on", _bundleInfo.networkName, ". Exiting early.")));
             return;
         }
 
         sphinxRegisterProject();
-        console.log('registered on ', vm.activeFork());
-        console.log('registered manager code', address(manager).code.length);
 
         bytes32 deploymentId = sphinxUtils.getDeploymentId(
             _bundleInfo.actionBundle,
@@ -584,17 +535,9 @@ abstract contract Sphinx {
         );
         DeploymentState memory deploymentState = manager.deployments(deploymentId);
 
-        // TODO(refactor): should we actually revert in these cases, since this may be part of a multi-chain deployment?
-        require(
-            deploymentState.status != DeploymentStatus.CANCELLED,
-            "Deployment was previously cancelled. Exiting early."
-        );
-        require(
-            deploymentState.status != DeploymentStatus.FAILED,
-            "Deployment previously failed. Exiting early."
-        );
         if (deploymentState.status == DeploymentStatus.COMPLETED) {
-            console.log("Deployment was already completed. Exiting early.");
+            console.log(string(abi.encodePacked("Sphinx: Deployment was already completed on ", _bundleInfo.networkName, ". Exiting early.")));
+            return;
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
@@ -636,7 +579,7 @@ abstract contract Sphinx {
                             leaf.proof
                         );
                     } else if (sphinxMode == SphinxMode.Proposal) {
-                        if (!auth.hasRole(keccak256("ProposerRole"), msgSender)) {
+                        if (!IAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), msgSender)) {
                             bytes32 proposerRoleSlotKey = sphinxUtils.getMappingValueSlotKey(
                                 constants.authAccessControlRoleSlotKey(),
                                 keccak256("ProposerRole")
@@ -719,13 +662,13 @@ abstract contract Sphinx {
         }
     }
 
-    // TODO: we need to compile the plugins package with and without the optimizer to ensure that a
+    // TODO(test): we need to compile the plugins package with and without the optimizer to ensure that a
     // "stack too deep" error doesn't occur. (first, test that the private function inline thing
     // leads to a stack too deep error when the optimizer is enabled)
 
     function deploy(Network _network) public virtual;
 
-    // TODO: say a user has multiple owners, and they're planning to propose via the DevOps platform,
+    // TODO(optional): say a user has multiple owners, and they're planning to propose via the DevOps platform,
     // and they want to deploy their system onto anvil via `sphinx deploy`. it doesn't seem like they
     // can do that right now?
 
@@ -904,7 +847,6 @@ abstract contract Sphinx {
         deploymentInfo.actionInputs.push(_input);
     }
 
-    // TODO: filter out the "Define Contract" actions somewhere
     function sphinxUpdateDeploymentInfo(
         string memory _rpcUrl,
         InitialChainState memory _initialState,

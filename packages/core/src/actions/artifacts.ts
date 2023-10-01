@@ -13,7 +13,6 @@ import {
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SphinxActionType } from './types'
 
 /**
  * Gets the storage layout for a contract.
@@ -52,24 +51,22 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkDirName, deploymentFolderPath)
 
-  for (const deploymentEvent of deploymentEvents) {
-    if (!deploymentEvent.args) {
-      throw new Error(`Deployment event has no arguments. Should never happen.`)
+  const deploymentActions = parsedConfig.actionInputs
+    .filter(isExtendedDeployContractActionInput)
+    .filter((a) => !a.skip)
+
+  for (const action of deploymentActions) {
+    const deploymentEvent = deploymentEvents.find(
+      (e) => e.args.contractAddress === action.create3Address
+    )
+
+    if (!deploymentEvent) {
+      throw new Error(
+        `Could not find deployment event for ${action.referenceName}. Should never happen.`
+      )
     }
 
     const receipt = await deploymentEvent.getTransactionReceipt()
-    const { contractAddress } = deploymentEvent.args
-
-    const action = parsedConfig.actionInputs.find(
-      (a) =>
-        isExtendedDeployContractActionInput(a) && a.create3Address === contractAddress
-    )
-
-    if (!action) {
-      throw new Error(
-        `Could not find action for contract address ${contractAddress}. Should never happen.`
-      )
-    }
 
     // TODO(upgrades)
     // if (parsedConfig.contracts[referenceName].kind === 'proxy') {
@@ -138,7 +135,7 @@ export const writeDeploymentArtifacts = async (
 
     // Define the deployment artifact for the deployed contract.
     const contractArtifact = {
-      address: contractAddress,
+      address: action.create3Address,
       abi,
       transactionHash: deploymentEvent.transactionHash,
       solcInputHash: buildInfo.id,
@@ -156,7 +153,7 @@ export const writeDeploymentArtifacts = async (
         typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
       args: constructorArgValues,
       bytecode,
-      deployedBytecode: await provider.getCode(contractAddress),
+      deployedBytecode: await provider.getCode(action.create3Address),
       devdoc,
       userdoc,
       storageLayout,
