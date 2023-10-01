@@ -24,7 +24,6 @@ import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorEvent, ExecutorKey } from '../types'
-import { updateDeployment } from '../gql'
 
 /**
  *
@@ -110,38 +109,6 @@ const tryVerification = async (
           attempts + 1
         )
       }, 10000)
-    }
-  }
-
-  // Update status in the Sphinx managed database
-  if (graphQLClient) {
-    const contracts: {
-      referenceName: string
-      contractName: string
-      address: string
-    }[] = []
-    Object.entries(compilerConfig.contracts).forEach(
-      ([referenceName, contractConfig]) => {
-        contracts.push({
-          referenceName,
-          contractName: contractConfig.contract,
-          address: contractConfig.address,
-        })
-      }
-    )
-
-    try {
-      const { chainId } = await rpcProvider.getNetwork()
-      await updateDeployment(
-        graphQLClient,
-        activeDeploymentId,
-        Number(chainId),
-        'verified',
-        contracts,
-        []
-      )
-    } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
     }
   }
 }
@@ -239,7 +206,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName } = compilerConfig
+  const { projectName } = compilerConfig.newConfig
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
   const estimatedCost =
@@ -253,7 +220,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     )
     // check if managed service has funds
     const { chainId } = await rpcProvider.getNetwork()
-    const managedServiceAddress = getManagedServiceAddress(Number(chainId))
+    const managedServiceAddress = getManagedServiceAddress(chainId)
     const withdraw = (estimatedCost * 200n) / 100n
     // Log an error if not
     if ((await rpcProvider.getBalance(managedServiceAddress)) < withdraw) {
@@ -403,29 +370,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
     return
-  }
-
-  // Update status in the Sphinx managed database
-  if (graphQLClient) {
-    try {
-      const { chainId } = await rpcProvider.getNetwork()
-      await updateDeployment(
-        graphQLClient,
-        activeDeploymentId,
-        Number(chainId),
-        'executed',
-        [],
-        deploymentTransactionReceipts.map((receipt) => {
-          return {
-            txHash: receipt.hash,
-            cost: (receipt.gasUsed * receipt.gasPrice).toString(),
-            chainId: Number(chainId),
-          }
-        })
-      )
-    } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
-    }
   }
 
   // verify on etherscan 10s later

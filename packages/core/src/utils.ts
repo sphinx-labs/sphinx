@@ -1604,6 +1604,14 @@ export const isExtendedDeployContractActionInput = (
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
 }
 
+export const isExtendedFunctionCallTODO = (
+  actionInput:
+    | ExtendedDeployContractActionInput
+    | ExtendedFunctionCallActionInput
+): actionInput is ExtendedFunctionCallActionInput => {
+  return actionInput.actionType === SphinxActionType.CALL
+}
+
 export const isDeployContractActionInput = (
   actionInput: DeployContractActionInput | FunctionCallActionInput
 ): actionInput is DeployContractActionInput => {

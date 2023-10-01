@@ -130,7 +130,8 @@ export const propose = async (
     deploymentInfoPath,
     'utf8'
   )
-  const deploymentInfoArray: Array<DeploymentInfo> = decodeDeploymentInfoArray(
+
+  const deploymentInfoArray = decodeDeploymentInfoArray(
     abiEncodedDeploymentInfoArray,
     SphinxPluginTypesABI
   )
@@ -281,7 +282,11 @@ export const propose = async (
 
       const signers = signerAddresses.map((addr) => {
         const signature = addr === signerAddress ? metaTxnSignature : undefined
-        return { address: addr, signature }
+        return {
+          address: addr,
+          signature,
+          isProposer: proposers.includes(addr),
+        }
       })
 
       proposalRequestLeafs.push({

@@ -13,7 +13,6 @@ import {
   getDeploymentId,
   toHexString,
   fromHexString,
-  isSupportedChainId,
   prettyFunctionCall,
   isExtendedDeployContractActionInput,
 } from '../utils'
@@ -546,6 +545,10 @@ export const makeBundlesFromConfig = (
   return { bundles: { actionBundle, targetBundle }, humanReadableActions }
 }
 
+// TODO(test): I got a javascript "heap out of memory" error when i removed sphinx's build info
+// cache, but left a few dozen build info files in the artifacts folder. this was coming from the
+// Promise.all in `makeGetConfigArtifacts`.
+
 /**
  * Generates a Sphinx action bundle from a config file.
  *
@@ -610,7 +613,7 @@ export const makeActionBundleFromConfig = (
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
-    } else if (actionType === SphinxActionType.CALL) {
+    } else if (isExtendedFunctionCallActionInput(actionInput)) {
       const {
         to,
         selector,
@@ -636,6 +639,8 @@ export const makeActionBundleFromConfig = (
         ),
         actionType: SphinxActionType.CALL,
       }
+    } else {
+      throw new Error(`unknown action type: ${actionType}`)
     }
   }
 

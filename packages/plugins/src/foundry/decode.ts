@@ -6,7 +6,7 @@ import {
   FunctionCallActionInput,
   RawSphinxActionInput,
 } from '@sphinx-labs/core/dist/config/types'
-import { AbiCoder } from 'ethers'
+import { AbiCoder, Result } from 'ethers'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
@@ -25,6 +25,56 @@ export const decodeDeploymentInfo = (
   return deploymentInfo
 }
 
+// TODO(test)
+/**
+ * This function recursively converts a Result object to a plain object.
+ *
+ * Ethers.js' AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the
+ * underlying type. In cases where we need to JSON.parse the result, we need to convert it to a
+ * plain object first or else any bigint fields will be converted to strings.
+ */
+export const recursivelyConvertResult = (r: Result | unknown) => {
+  if (r instanceof Result) {
+    if (r.length === 0) {
+      return []
+    }
+
+    const objResult = r.toObject()
+
+    for (const [key, value] of Object.entries(objResult)) {
+      if (key === '_') {
+        return r
+      }
+
+      if (value instanceof Result) {
+        try {
+          objResult[key] = recursivelyConvertResult(value)
+        } catch (e) {
+          // eslint-disable-next-line no-template-curly-in-string
+          if (e.message.includes('value at index ${ index } unnamed')) {
+            objResult[key] = value.map((v) => {
+              if (v instanceof Result) {
+                return recursivelyConvertResult(v)
+              } else {
+                return v
+              }
+            })
+          } else {
+            throw e
+          }
+        }
+      }
+    }
+    return objResult
+  } else {
+    return r
+  }
+}
+
+// TODO: are these docs correct?
+// Decodes an ABI-encoded DeploymentInfo array. The returned value is actually a Result object,
+// which is a strict superset of the Array<DeploymentInfo> type. We cast it to Result so that it can
+// be passed to `recursivelyConvertResult`.
 export const decodeDeploymentInfoArray = (
   abiEncodedDeploymentInfoArray: string,
   abi: Array<any>
@@ -34,10 +84,17 @@ export const decodeDeploymentInfoArray = (
   ).outputs[0]
 
   const coder = AbiCoder.defaultAbiCoder()
-  const deploymentInfo = coder.decode(
+
+  // TODO: looks like we could potentially use ethers toObject method?
+
+  // This is actually a Result object which is a strict superset of the DeploymentInfo[] type.
+  // So we're able to safely mark it as Result here and then cast it to DeploymentInfo[] later.
+  const deploymentInfoResultArray: Result = coder.decode(
     [deploymentInfoType],
     abiEncodedDeploymentInfoArray
   )[0]
 
-  return deploymentInfo
+  return deploymentInfoResultArray.map((deploymentInfo) =>
+    recursivelyConvertResult(deploymentInfo)
+  ) as Array<DeploymentInfo>
 }
