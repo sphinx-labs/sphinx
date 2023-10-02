@@ -55,7 +55,7 @@ yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
     'propose',
-    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`, // TODO(docs): update description
+    `Propose a deployment. Signs a proposal meta transaction and relays it to Sphinx's back-end, unless dry run is enabled.`,
     (y) =>
       y
         .usage(
@@ -244,8 +244,9 @@ yargs(hideBin(process.argv))
         deploymentFolder,
       } = await getFoundryConfigOptions()
 
-      // TODO(docs): this must occur after forge build b/c user may run 'forge clean' then call
-      // this task, in which case the artifact file won't exist yet.
+      // We must load this ABI after running `forge build` to prevent a situation where the user
+      // clears their artifacts then calls this task, in which case the `SphinxPluginTypes` artifact
+      // won't exist yet.
       const SphinxPluginTypesABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require(resolve(

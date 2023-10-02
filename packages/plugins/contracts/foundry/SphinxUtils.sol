@@ -42,7 +42,8 @@ import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // TODO(docs): pasted from SphinxAuth contract
+    // These are constants thare are used when signing an EIP-712 meta transaction. They're copied
+    // from the `SphinxAuth` contract.
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
     bytes32 private constant DOMAIN_SEPARATOR =
@@ -455,24 +456,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return filteredActions;
     }
 
-    /**
-     * @notice Deploys a contract with the specified qualified name and arguments to the target address.
-     *         This function is copied from StdCheats. We do this instead of importing StdCheats because
-     *         it causes a "Linearization of inheritance graph impossible" error in t.sol.
-     *
-     * @param what The contract to deploy. Must be the qualified name or the path to the contracts artifact.
-     *             Details: https://book.getfoundry.sh/cheatcodes/get-code?highlight=getCode#getcode
-     * @param args The constructor arguments for the contract.
-     * @param where The address to deploy the contract too.
-     */
-    function deployCodeToAddress(string memory what, bytes memory args, address where) external {
-        bytes memory creationCode = vm.getCode(what);
-        vm.etch(where, abi.encodePacked(creationCode, args));
-        (bool success, bytes memory runtimeBytecode) = where.call("");
-        require(success, "StdCheats deployCodeTo(string,bytes,uint256,address): Failed to create runtime bytecode.");
-        vm.etch(where, runtimeBytecode);
-    }
-
     function splitActions(
         BundledSphinxAction[] memory _actions
     ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
@@ -808,7 +791,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 return all[i];
             }
         }
-        // TODO(docs)
         revert("Sphinx: Could not find network. Should never happen.");
     }
 
@@ -856,12 +838,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Checks if the rpcUrl is a live network by attempting to call the `hardhat_getAutomine` rpc method on it.
-     *         If the rpcUrl is anvil or hardat, the exit code will be 0. If the rpcUrl is a live network, the exit code
-     *         will be 1.
-    // TODO(docs): we FFI b/c i'm not crazy about using `cast` since it's not a dependency of our package, and
-    // i'm not sure how foundry handles major versions, so the user may have a new version that isn't compatible with this logic. we may not even need
-    // this function at all.
+     * @notice Checks if the rpcUrl is a live network (e.g. Ethereum) or a local network (e.g. an
+     *         Anvil or Hardhat node). It does this by attempting to call an RPC method that only
+     *         exists on an Anvil or Hardhat node.
      */
     function isLiveNetworkFFI(string memory _rpcUrl) external returns (bool) {
         string[] memory inputs = new string[](5);
@@ -992,7 +971,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.encodePacked(r, s, v);
     }
 
-    // TODO(docs): these should be validated whether the deployment is occurring locally, broadcasting on live network, etc.
+    /**
+     * @notice Performs validation on the user's deployment. This mainly checks that the user's
+     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
+     *         proposals, broadcasting, etc).
+     */
     function validate(SphinxConfig memory _config, Network _network) external view {
         require(
             bytes(_config.projectName).length > 0,
@@ -1093,10 +1076,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         require(block.chainid == getNetworkInfo(_network).chainId, string(abi.encodePacked("Sphinx: The 'block.chainid' does not match the chain ID of the network: ", getNetworkInfo(_network).name, "\nCurrent chain ID: ", vm.toString(block.chainid), "\nExpected chain ID: ", vm.toString(getNetworkInfo(_network).chainId))));
     }
 
-    // TODO(docs): this is *only* for broadcasting deployments (not proposals). this can't be used
-    // for proposals because the proposer isn't an owner of the SphinxAuth contract, which means
-    // these checks would always fail for proposals.
-    function liveNetworkValidation(
+    /**
+     * @notice Performs validation on the user's deployment. This is only run if a broadcast is
+     *         being performed. It's worth mentioning that this can't be used for proposals because
+     *         the proposer isn't an owner of the SphinxAuth contract, which means these checks
+     *         would always fail for proposals.
+     */
+    function validateBroadcast(
         SphinxConfig memory _config,
         InitialChainState memory _initialState,
         ISphinxAuth _auth,
@@ -1248,18 +1234,30 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function removeClients(SphinxActionInput[] memory _actions, ISphinxManager _manager) external {
+    /**
+     * @notice Removes the clients after a user's `deploy` function has been run. This function
+     *         has slightly different behavior depending on the `SphinxMode` in which it's called.
+     *
+     *         If the mode is `Default`, then each client is replaced by the user's contract that
+     *         it represents. This allows the user to interact with the *exact* version of their
+     *         contract in Foundry tests, instead of a proxied version of their contract. From
+     *         the user's perspective, the only benefit this provides is that calling
+     *         `address(contract).code` or `address(contract).codehash` will return their contract's
+     *         bytecode or bytecode hash instead of the client's.
+     *
+     *         If the mode is `Broadcast` or `Proposal`, then the client is simply removed so that
+     *         no code exists at the `CREATE3` address. This allows us to call `sphinxDeployCodeTo`
+     *         after this function, which deploys the user's contracts using the full deployment
+     *         flow instead of the fast "default" flow.
+     */
+    function tearDownClients(SphinxActionInput[] memory _actions, ISphinxManager _manager) external {
         for (uint i = 0; i < _actions.length; i++) {
             SphinxActionInput memory action = _actions[i];
-            // Set the contract's final runtime bytecode to its actual bytecode instead of its
-            // client's bytecode. This ensures that the user will be interacting with their exact
-            // contract after the deployment completes.
-            // TODO(docs): we do this even if the contract deployment was skipped because a client
-            // is used regardless.
-            // TODO(docs): the impl won't contain any code if the mode is broadcast or propose. this
-            // is because we never actually deploy the implementation. so, we're just removing the client's
-            // code in these cases. This is necessary to do before we execute the
-            // deployment because it'll fail if there's already code at the contract's address.
+            // If the mode is `Broadcast` or `Proposal`, then the implementation won't contain any
+            // code. This is because we just collect the action inputs in these modes during the
+            // user's `deploy` function. We do it this way because the `sphinxDeployCodeTo` call,
+            // which occurs after this function, would fail if code already exists at the `CREATE3`
+            // address.
             if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (, , bytes32 userSalt, string memory referenceName) = abi.decode(
                     action.data,

@@ -167,7 +167,10 @@ export const propose = async (
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
-    throw new Error(`TODO(docs). This is currently unsupported.`)
+    throw new Error(
+      `Detected different SphinxConfig values for different chains. This is currently unsupported.` +
+        `Please use the same config on all chains.`
+    )
   }
   // Since we know that the following fields are the same for each `parsedConfig`, we get their
   // values here.
@@ -261,7 +264,6 @@ export const propose = async (
       const { data } = leaf
       const { owners, threshold } = newConfig
 
-      // TODO(docs)
       const proposers = parsedConfig.initialState.firstProposalOccurred
         ? parsedConfig.initialState.proposers
         : newConfig.proposers
@@ -304,12 +306,6 @@ export const propose = async (
 
   const managerVersionString = `v${newConfig.version.major}.${newConfig.version.minor}.${newConfig.version.patch}`
 
-  // TODO(docs): mv
-  // We calculate the auth address based on the current owners since this is used to store the
-  // address of the auth contract on any new chains in the DB.
-  // Note that calculating this here and passing in a single value works as long as the address
-  // is the same on all networks, but we may need to change this in the future to support chains
-  // which calculate addresses in different ways. I.e ZKSync Era
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId: newConfig.orgId,

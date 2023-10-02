@@ -128,10 +128,10 @@ const abiEncodedDeploymentInfoArray = args[0]
   for (const deploymentInfo of deploymentInfoArray) {
     const networkName = getNetworkNameForChainId(deploymentInfo.chainId)
 
-    // TODO(docs): include only the leafs on the current chain
+    // Remove any auth leafs that won't be executed on the current chain.
     const authLeafsForChain = authBundle.leafs
       .filter((l) => l.leaf.chainId === deploymentInfo.chainId)
-      // TODO(docs): only include the necessary fields
+      // Remove any unnecessary fields from the Auth leaf.
       .map((l) => {
         return {
           leaf: {

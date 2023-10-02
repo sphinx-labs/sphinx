@@ -1,11 +1,4 @@
-import { fromRawSphinxActionInput } from '@sphinx-labs/core'
-import {
-  DeploymentInfo,
-  ConfigCache,
-  DeployContractActionInput,
-  FunctionCallActionInput,
-  RawSphinxActionInput,
-} from '@sphinx-labs/core/dist/config/types'
+import { DeploymentInfo } from '@sphinx-labs/core/dist/config/types'
 import { AbiCoder, Result } from 'ethers'
 
 export const decodeDeploymentInfo = (
@@ -25,13 +18,14 @@ export const decodeDeploymentInfo = (
   return deploymentInfo
 }
 
-// TODO(test)
+// TODO(ryan): Can you document why we can't invoke ethers' `toObject()` method instead of using
+// this function?
 /**
  * This function recursively converts a Result object to a plain object.
  *
- * Ethers.js' AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the
- * underlying type. In cases where we need to JSON.parse the result, we need to convert it to a
- * plain object first or else any bigint fields will be converted to strings.
+ * AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the underlying type.
+ * In cases where we need to JSON serialize the result, we need to convert it to a plain object first or
+ * the object will not be converted in the expected format.
  */
 export const recursivelyConvertResult = (r: Result | unknown) => {
   if (r instanceof Result) {
@@ -71,7 +65,6 @@ export const recursivelyConvertResult = (r: Result | unknown) => {
   }
 }
 
-// TODO: are these docs correct?
 // Decodes an ABI-encoded DeploymentInfo array. The returned value is actually a Result object,
 // which is a strict superset of the Array<DeploymentInfo> type. We cast it to Result so that it can
 // be passed to `recursivelyConvertResult`.
@@ -84,8 +77,6 @@ export const decodeDeploymentInfoArray = (
   ).outputs[0]
 
   const coder = AbiCoder.defaultAbiCoder()
-
-  // TODO: looks like we could potentially use ethers toObject method?
 
   // This is actually a Result object which is a strict superset of the DeploymentInfo[] type.
   // So we're able to safely mark it as Result here and then cast it to DeploymentInfo[] later.

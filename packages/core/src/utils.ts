@@ -319,7 +319,6 @@ export const writeCompilerConfig = (
     `${ipfsHash}.json`
   )
   if (!fs.existsSync(compilerConfigFilePath)) {
-    // TODO(docs)
     fs.writeFileSync(
       path.join(compilerConfigDirPath, `${ipfsHash}.json`),
       JSON.stringify(compilerConfig, null, 2)
@@ -1115,8 +1114,8 @@ export const fetchSphinxManagedBaseUrl = () => {
 }
 
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
-  // TODO(ryan): this TODO has been around for a while: "return undefined
-  // if the request returns an empty object." is this necessary anymore?
+  // TODO(ryan): I think this TODO has been around for a while: "return undefined if the request
+  // returns an empty object." is this necessary anymore?
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,
@@ -1505,7 +1504,6 @@ export const prettyFunctionCall = (
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
-  // TODO(docs)
   const stringified = JSON.stringify(variables, null, spaceToIndentVariables)
   // Removes the first and last characters, which are either '[' and ']', or '{' and '}'.
   const removedBrackets = stringified.substring(1, stringified.length - 1)
@@ -1604,7 +1602,7 @@ export const isExtendedDeployContractActionInput = (
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
 }
 
-export const isExtendedFunctionCallTODO = (
+export const isExtendedFunctionCallActionInput = (
   actionInput:
     | ExtendedDeployContractActionInput
     | ExtendedFunctionCallActionInput

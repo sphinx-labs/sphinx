@@ -15,6 +15,7 @@ import {
   fromHexString,
   prettyFunctionCall,
   isExtendedDeployContractActionInput,
+  isExtendedFunctionCallActionInput,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -384,7 +385,7 @@ export const fromRawSphinxActionInput = (
       referenceName,
     }
   } else {
-    throw new Error(`TODO(docs): invalid action type`)
+    throw new Error(`Invalid action type. Should never happen.`)
   }
 }
 
@@ -531,7 +532,7 @@ export const makeBundlesFromConfig = (
     configArtifacts
   )
 
-  // TODO(upgrades): TODO(docs)
+  // TODO(upgrades): This is unused for now because we don't support upgrades.
   const targetBundle = {
     root: ethers.ZeroHash,
     targets: [],
@@ -692,14 +693,9 @@ export const makeActionBundleFromConfig = (
 //   return makeTargetBundle(targets)
 // }
 
-// TODO(docs): natspec seems outdated
 /**
  * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
- * previous chain state. If the current parsed config is completely new, then the previous config
- * must be an empty config. If a chain ID exists in the parsed config but does not exist in the
- * previous config, then this function will generate the leafs required to approve the project's
- * deployment on the new chain. Note that this function will throw an error if the provided
- * `chainId` is not in the parsed config.
+ * previous chain state.
  *
  * @param projectName Name of the project to generate leafs for. If the project hasn't changed, then
  * no project-specific leafs will be generated.

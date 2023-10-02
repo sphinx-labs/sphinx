@@ -935,10 +935,12 @@ contract SphinxManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
+        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != msg.sender) {
             revert CallerIsNotSelectedExecutor();
-        } else if (_remoteExecution == false) {
-            // TODO(docs):
+        } else if (!_remoteExecution) {
+            // Non-remote deployments can only be executed if there is a single owner of the
+            // SphinxAuth contract, which owns this contract. In other words, we don't currently
+            // support non-remote deployments that have multiple owners.
             IAccessControlEnumerable auth = IAccessControlEnumerable(owner());
             if (!auth.hasRole(bytes32(0), msg.sender) || auth.getRoleMemberCount(bytes32(0)) != 1) revert CallerIsNotOwner();
         }

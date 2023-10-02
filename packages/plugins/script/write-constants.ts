@@ -46,7 +46,8 @@ const writeConstants = async () => {
     sphinxContractsBuildInfo.output,
     'threshold'
   )
-  // TODO(docs): this a mapping located in the AccessControl contract inherited by SphinxAuth.
+  // The `_roles` variable is a mapping located in the AccessControl contract inherited by
+  // SphinxAuth.
   const authAccessControlRoleSlotKey = getStorageSlotKey(
     'contracts/SphinxAuth.sol:SphinxAuth',
     sphinxContractsBuildInfo.output,
@@ -175,7 +176,9 @@ const writeConstants = async () => {
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
         if (type === 'bytes') {
-          // TODO(docs)
+          // We must use the hex"..." format instead of 0x... for dynamic bytes because Solidity
+          // prevents these types from using the latter format. Only fixed-size bytes, e.g. bytes32,
+          // can the 0x... format.
           return `  ${type} public constant ${name} = hex"${remove0x(
             value.toString()
           )}";`

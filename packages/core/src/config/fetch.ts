@@ -4,29 +4,28 @@ import { HumanReadableActions, SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
   getConfigArtifactsRemote,
-  isExtendedFunctionCallTODO,
+  isExtendedFunctionCallActionInput,
 } from '../utils'
 import {
   CompilerConfig,
   ConfigArtifacts,
-  ExtendedDeployContractTODO,
-  ExtendedFunctionCallTODO,
+  ExtendedDeployContractActionInput,
 } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { SemverVersion } from '../types'
+import { SemVer } from '../types'
 
 const parseCompilerAction = (
-  action: ExtendedDeployContractTODO | ExtendedFunctionCallTODO
+  action: ExtendedDeployContractActionInput | ExtendedDeployContractActionInput
 ) => {
   action.actionType = BigInt(action.actionType)
-  if (isExtendedFunctionCallTODO(action)) {
+  if (isExtendedFunctionCallActionInput(action)) {
     action.nonce = BigInt(action.nonce)
   }
 
   return action
 }
 
-const parseCompilerVersion = (version: SemverVersion) => {
+const parseCompilerVersion = (version: SemVer) => {
   version.major = BigInt(version.major)
   version.minor = BigInt(version.minor)
   version.patch = BigInt(version.patch)
@@ -36,10 +35,12 @@ const parseCompilerVersion = (version: SemverVersion) => {
 // Todo ensure all of the bigints are properly parsed in the compiler config
 const parseCompilerConfigBigInts = (config: CompilerConfig) => {
   config.chainId = BigInt(config.chainId)
-  config.actionsTODO = config.actionsTODO.map(parseCompilerAction)
+  config.actionInputs = config.actionInputs.map(parseCompilerAction)
   config.newConfig.threshold = BigInt(config.newConfig.threshold)
   config.newConfig.version = parseCompilerVersion(config.newConfig.version)
-  config.prevConfig.version = parseCompilerVersion(config.prevConfig.version)
+  config.initialState.version = parseCompilerVersion(
+    config.initialState.version
+  )
   return config
 }
 
@@ -84,6 +85,9 @@ export const sphinxFetchSubtask = async (args: {
     throw new Error('unsupported URI type')
   }
 
+  // TODO(ryan): Can you document why we need to do this?
+  // TODO(ryan): I think the fetch subtask is only called by the remote executor. Do we need to call
+  // this anywher in the user-facing logic too?
   return parseCompilerConfigBigInts(config)
 }
 

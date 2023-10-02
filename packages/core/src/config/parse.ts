@@ -141,7 +141,7 @@ export class ValidationError extends Error {
 //   assertNoValidationErrors(failureAction)
 // }
 
-// TODO(upgrades): TODO(docs)
+// TODO(upgrades): This may be relevant when we enable upgrades.
 // /**
 //  * Asserts that the Sphinx config can be initiated in a single transaction.
 //  */
