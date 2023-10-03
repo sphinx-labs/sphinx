@@ -2,6 +2,7 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import { AuthStatus, AuthLeaf } from "../SphinxDataTypes.sol";
+import { ISphinxManager } from "./ISphinxManager.sol";
 
 /**
  * @title SphinxManager
@@ -11,6 +12,8 @@ interface ISphinxAuth {
     function authStates(bytes32) external view returns (AuthStatus, uint256, uint256);
     function threshold() external view returns (uint256);
     function firstProposalOccurred() external view returns (bool);
+    function projectName() external view returns (string memory);
+    function manager() external view returns (ISphinxManager);
 
     /**
      * @notice Sets initial proposers. The number of owner signatures must be greater than

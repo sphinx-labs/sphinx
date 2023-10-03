@@ -1,14 +1,10 @@
 #!/bin/bash
 
+# TODO: change naem of this file
+
 # This setting ensures that this script will exit if any subsequent command in this script fails.
 # Without this, the CI process will pass even if tests in this script fail.
-set -e
-
-# TODO
-# npx hardhat test test/ManagerUpgrade.spec.ts --config-path \
-#   sphinx/manager-upgrade.config.ts --signer 8 &&
-# npx hardhat test test/Validation.spec.ts test/ContractReferences.spec.ts test/Create3.spec.ts
-# npx hardhat test test/Storage.spec.ts --log --config-path sphinx/Storage.config.ts --signer 0
+# set -e # TODO: undo
 
 # We spin up a few nodes to simulate a multi-chain deployment
 anvil --silent &
@@ -17,7 +13,7 @@ anvil --silent --chain-id 420 --port 42420 &
 anvil --silent --chain-id 10200 --port 42200 &
 anvil --silent --chain-id 421613 --port 42613 &
 anvil --silent --chain-id 84531 --port 42531 &
-npx hardhat test test/MultiChain.spec.ts
+forge test --match-contract 'Proposal_Test' -vvv # TODO: make more generic
 yarn test:kill
 
 # TODO

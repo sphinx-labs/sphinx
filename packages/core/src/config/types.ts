@@ -81,14 +81,14 @@ export type UserConfigVariable =
 /**
  * Parsed Sphinx config variable.
  */
-export type ParsedConfigVariable =
+export type ParsedVariable =
   | boolean
   | string
   | number
   | bigint
-  | Array<ParsedConfigVariable>
+  | Array<ParsedVariable>
   | {
-      [name: string]: ParsedConfigVariable
+      [name: string]: ParsedVariable
     }
 
 export type ParsedConfig = {
@@ -221,7 +221,7 @@ export interface ExtendedFunctionCallActionInput
 export type DecodedAction = {
   referenceName: string
   functionName: string
-  variables: ParsedConfigVariables
+  variables: ParsedVariables
 }
 
 export interface FunctionCallActionInput {
@@ -242,12 +242,8 @@ export type RawSphinxActionInput = {
   data: string
 }
 
-export type ParsedFunctionArgsPerChain = {
-  [key in SupportedChainId]?: ParsedConfigVariables
-}
-
-export type ParsedConfigVariables = {
-  [name: string]: ParsedConfigVariable
+export type ParsedVariables = {
+  [name: string]: ParsedVariable
 }
 
 /**

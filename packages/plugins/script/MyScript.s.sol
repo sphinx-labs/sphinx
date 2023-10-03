@@ -26,7 +26,12 @@ contract MyScript is Script, SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2), MyContract1.MyStruct(1, 2, MyContract1.MyNestedStruct(address(1))));
+        MyContract1Client myContract1 = deployMyContract1(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
         myContract1.incrementUint();
         myContract1.incrementUint();
         myContract1.incrementUint();

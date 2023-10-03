@@ -45,8 +45,8 @@ import {
   UserContractKind,
   userContractKinds,
   ContractKind,
-  ParsedConfigVariables,
-  ParsedConfigVariable,
+  ParsedVariables,
+  ParsedVariable,
   ConfigArtifacts,
   UserConstructorArgOverride,
   UserArgOverride,
@@ -636,10 +636,10 @@ export const isEqualType = (
  * which can be used by ethers.js and Etherscan.
  */
 export const getFunctionArgValueArray = (
-  args: ParsedConfigVariables,
+  args: ParsedVariables,
   fragment?: Fragment
-): Array<ParsedConfigVariable> => {
-  const argValues: Array<ParsedConfigVariable> = []
+): Array<ParsedVariable> => {
+  const argValues: Array<ParsedVariable> = []
 
   if (fragment === undefined) {
     return argValues
@@ -654,7 +654,7 @@ export const getFunctionArgValueArray = (
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: ParsedVariables,
   abi: ContractArtifact['abi']
 ): string => {
   const iface = new ethers.Interface(abi)
@@ -1086,7 +1086,7 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
 export const getImplAddress = (
   managerAddress: string,
   bytecode: string,
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: ParsedVariables,
   abi: ContractArtifact['abi']
 ): string => {
   const implInitCode = getCreationCodeWithConstructorArgs(
@@ -1201,8 +1201,8 @@ export const findNetwork = (chainId: number): string => {
 }
 
 export const arraysEqual = (
-  a: Array<string | ParsedConfigVariable>,
-  b: Array<string | ParsedConfigVariable>
+  a: Array<string | ParsedVariable>,
+  b: Array<string | ParsedVariable>
 ): boolean => {
   if (a.length !== b.length) {
     return false
@@ -1501,7 +1501,7 @@ export const isUserFunctionArgOverrideArray = (
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
   functionName: string,
-  variables: ParsedConfigVariables | Array<UserConfigVariable>,
+  variables: ParsedVariables | Array<UserConfigVariable>,
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
@@ -1546,10 +1546,7 @@ export const getRegistryData = (owner: string, projectName: string): string => {
 /**
  * @notice Returns true if and only if the two inputs are equal.
  */
-export const equal = (
-  a: ParsedConfigVariable,
-  b: ParsedConfigVariable
-): boolean => {
+export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   if (
     (Array.isArray(a) && !Array.isArray(b)) ||
     (!Array.isArray(a) && Array.isArray(b)) ||
@@ -1707,12 +1704,9 @@ export const makeParsedConfig = (
   }
 }
 
-export const elementsEqual = (ary: Array<ParsedConfigVariable>): boolean => {
+export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
-
-// TODO: make ethers = v6.7.0 in all packages b/c this recursivelyConvertResult function
-// is just asking to break
 
 export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
@@ -1730,23 +1724,33 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO(docs): Explain why you use a nested function. (it's so that an empty top-level result will return {}, and an empty element will return []. this makes this function compatible with the Result into a ParsedConfigVariables object.)
+// TODO(test): if ryan adds support for unnamed function args and constructor args in the type
+// generation logic, we should add support for this as well. the two areas that come to mind are
+// `recursivelyConvertResult`, and the diff. if he doesn't, we should document the fact that they
+// only work when the top-level parameters are named.
 
-// TODO(ryan): Can you document why we can't invoke ethers' `toObject()` method instead of using
-// this function?
+// TODO(docs): Explain why you use a nested function. (it's so that an empty top-level result will return {}, and an empty element will return []. this makes this function compatible with the Result into a ParsedVariables object.)
 /**
- * This function recursively converts a Result object to a plain object.
+ * @notice This function recursively converts a Result object to a plain object. In particular, it
+ * converts the `Result` object returned by EthersJS' ABI-decoding function. We must convert this to
+ * the underlying type so that we can use it in other areas of the codebase, e.g. serializing it or
+ * displaying a deployment preview.
  *
- * AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the underlying type.
- * In cases where we need to JSON serialize the result, we need to convert it to a plain object first or
- * the object will not be converted in the expected format.
+ * The top-level function returns an empty object if the `Result` is empty. This ensures correct
+ * behavior for things like function calls that don't have any parameters. This also ensures that
+ * the returned `ParsedVariables` type is correct, since it's an object, not an array. On the other
+ * hand, in the nested function, `recursivelyConvertResultElement`, we return empty `Result` objects
+ * into empty arrays instead of empty objects. TODO(docs)
+ *
+ * Unfortunately, Ethers doesn't have a native way to recursively decode `Result` objects, so we've
+ * implemented it ourselves. This is the sole reason that we've set the `ethers` version to be equal
+ * to 6.7.0. We do this because `Result` objects are not part of Ethers' user-facing library, so it
+ * wouldn't be surprising if there's a patch update that breaks this function.
  */
-// TODO(docs): document this function. also include that this is the sole reason that the ethers version = 6.7.0 for now, since i'm afraid that there'll be a patch that breaks this function.
-// TODO: tell ryan you updated this fn.
-export const recursivelyConvertResult = (r: Result): ParsedConfigVariables => {
+export const recursivelyConvertResult = (r: Result): ParsedVariables => {
   const recursivelyConvertResultElement = (
-    e: Result | ParsedConfigVariable
-  ): ParsedConfigVariable => {
+    e: Result | ParsedVariable
+  ): ParsedVariable => {
     if (!(e instanceof Result)) {
       return e
     }
@@ -1768,7 +1772,7 @@ export const recursivelyConvertResult = (r: Result): ParsedConfigVariables => {
         return []
       }
 
-      const parsedElements: ParsedConfigVariable = {}
+      const parsedElements: ParsedVariable = {}
       for (const [key, value] of Object.entries(elemObj)) {
         parsedElements[key] = recursivelyConvertResultElement(value)
       }
@@ -1777,7 +1781,7 @@ export const recursivelyConvertResult = (r: Result): ParsedConfigVariables => {
   }
 
   const objResult = r.toObject()
-  const parsed: ParsedConfigVariables = {}
+  const parsed: ParsedVariables = {}
   for (const [key, value] of Object.entries(objResult)) {
     parsed[key] = recursivelyConvertResultElement(value)
   }

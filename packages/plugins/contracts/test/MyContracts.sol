@@ -28,8 +28,7 @@ contract MyContract1 {
         address d;
     }
 
-    // TODO: rm last arg
-    constructor(int _intArg, uint _uintArg, address _addressArg, address _otherAddressArg, MyStruct memory _myStruct) {
+    constructor(int _intArg, uint _uintArg, address _addressArg, address _otherAddressArg) {
         intArg = _intArg;
         uintArg = _uintArg;
         addressArg = _addressArg;

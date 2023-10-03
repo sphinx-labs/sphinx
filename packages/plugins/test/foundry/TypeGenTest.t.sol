@@ -36,14 +36,16 @@ import { LocalContract } from "../../contracts/test/typegen/contractInputs/Funct
 import {
     FunctionContractClient
 } from "../../SphinxClient/typegen/contractInputs/FunctionContract.SphinxClient.sol";
-import {
-    ExternalContract
-} from "../../testExternalContracts/ExternalContract.sol";
+import { ExternalContract } from "../../testExternalContracts/ExternalContract.sol";
 
 import { ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { ConflictingEnum } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
-import { ConflictingType as TypegenConflictingNameContractsSecond_ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import { ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnum } from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingType as TypegenConflictingNameContractsSecond_ConflictingType
+} from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
+import {
+    ConflictingEnum as TypegenConflictingNameContractsSecond_ConflictingEnum
+} from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingStruct } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 
@@ -59,6 +61,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     SphinxUtils utils = new SphinxUtils();
 
     address manager;
+
     function setUp() public {
         manager = utils.getSphinxManagerAddress(
             sphinxConfig.owners,
@@ -212,17 +215,20 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // constructor args. Also covers that these types work properly in constructors.
     function testDidDeployContractsWithConflictingInputTypeNames() public {
         assertEq(ConflictingType.unwrap(conflictingTypeNameContractFirst.conflictingType()), true);
-        (bool a1) = conflictingTypeNameContractFirst.conflictingStruct();
+        bool a1 = conflictingTypeNameContractFirst.conflictingStruct();
         assertEq(a1, true);
         assertEq(
             uint(conflictingTypeNameContractFirst.conflictingEnum()),
             uint(ConflictingEnum.Third)
         );
 
-        assertEq(TypegenConflictingNameContractsSecond_ConflictingType.unwrap(
-            conflictingTypeNameContractSecond.conflictingType()
-        ), 1);
-        (uint a2) = conflictingTypeNameContractSecond.conflictingStruct();
+        assertEq(
+            TypegenConflictingNameContractsSecond_ConflictingType.unwrap(
+                conflictingTypeNameContractSecond.conflictingType()
+            ),
+            1
+        );
+        uint a2 = conflictingTypeNameContractSecond.conflictingStruct();
         assertEq(a2, 1);
         assertEq(
             uint(conflictingTypeNameContractSecond.conflictingEnum()),
@@ -232,19 +238,25 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers using User defined types, structs, and enums as function inputs
     function testDidCallFunctionWithUserDefinedTypes() public {
-        assertEq(ConflictingType.unwrap(conflictingTypeNameContractFirstTwo.conflictingType()), false);
-        (bool a1) = conflictingTypeNameContractFirstTwo.conflictingStruct();
+        assertEq(
+            ConflictingType.unwrap(conflictingTypeNameContractFirstTwo.conflictingType()),
+            false
+        );
+        bool a1 = conflictingTypeNameContractFirstTwo.conflictingStruct();
         assertEq(a1, false);
         assertEq(
             uint(conflictingTypeNameContractFirstTwo.conflictingEnum()),
             uint(ConflictingEnum.Second)
         );
-
     }
 
     // Covers returning User defined types, structs, and enums from pure functions
     function testDidReturnUserDefinedTypesFromPureFunction() public {
-        (ConflictingType a, ConflictingStruct memory b, ConflictingEnum c) = conflictingTypeNameContractClient.pureConflictingTypes();
+        (
+            ConflictingType a,
+            ConflictingStruct memory b,
+            ConflictingEnum c
+        ) = conflictingTypeNameContractClient.pureConflictingTypes();
         assertEq(ConflictingType.unwrap(a), true);
         assertEq(b.a, true);
         assertEq(uint(c), uint(ConflictingEnum.First));
@@ -253,7 +265,10 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // Covers importing a user defined type with a parent object
     function testDidImportUserDefinedTypeWithParent() public {
         // Library
-        assertEq(uint(noAliasImportsOne.libraryEnum()), uint(MyTypeLibrary.MyEnumInLibrary.Library));
+        assertEq(
+            uint(noAliasImportsOne.libraryEnum()),
+            uint(MyTypeLibrary.MyEnumInLibrary.Library)
+        );
         uint8 a1 = noAliasImportsOne.libraryStruct();
         assertEq(a1, 1);
         assertEq(MyTypeLibrary.MyTypeInLibrary.unwrap(noAliasImportsOne.libraryType()), 2);

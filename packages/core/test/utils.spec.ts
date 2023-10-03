@@ -1,6 +1,12 @@
 import { expect } from 'chai'
+import { ethers } from 'ethers'
 
-import { arraysEqual, equal, isUserFunctionOptions } from '../src/utils'
+import {
+  arraysEqual,
+  equal,
+  isUserFunctionOptions,
+  recursivelyConvertResult,
+} from '../src/utils'
 
 describe('Utils', () => {
   describe('isUserFunctionOptions', () => {
@@ -179,7 +185,7 @@ describe('Utils', () => {
       expect(arraysEqual(['test'], ['test', 'test2'])).to.equal(false)
     })
 
-    it('returns true for two equal ParsedConfigVariables', () => {
+    it('returns true for two equal ParsedVariables', () => {
       expect(
         arraysEqual(
           [
@@ -200,7 +206,7 @@ describe('Utils', () => {
       ).to.equal(true)
     })
 
-    it('returns false for two unequal ParsedConfigVariables', () => {
+    it('returns false for two unequal ParsedVariables', () => {
       expect(
         arraysEqual(
           [
@@ -219,6 +225,24 @@ describe('Utils', () => {
           ]
         )
       ).to.equal(false)
+    })
+  })
+
+  // TODO: .only
+  describe.only('recursivelyConvertResult', () => {
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    it('TODO(docs)', () => {
+      const encoded = coder.encode(
+        ['string', 'string'],
+        ['myFirstStr', 'mySecondStr']
+      )
+
+      const result = coder.decode(['string', 'string'], encoded)
+
+      const parsed = recursivelyConvertResult(result)
+
+      console.log(parsed)
     })
   })
 })

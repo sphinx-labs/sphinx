@@ -3,7 +3,9 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { StateDependentActionsConfiguration } from "../../script/StateDependentActionsConfiguration.s.sol";
+import {
+    StateDependentActionsConfiguration
+} from "../../script/StateDependentActionsConfiguration.s.sol";
 
 contract StateDependentActionsTest is Test, StateDependentActionsConfiguration {
     function setUp() public {

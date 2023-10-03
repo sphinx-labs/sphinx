@@ -36,13 +36,14 @@ const abiEncodedConstructorArgs = coder.encode(
   ['string', 'string'],
   ['myVal', 'myOtherVal']
 )
-// TODO(optional): if you convert the variable array into a ParsedConfigVariable pre-diff, then
+// TODO(optional): if you convert the variable array into a ParsedVariable pre-diff, then
 // replace this.
 const decodedConstructorArgs = coder.decode(
   ['string', 'string'],
   abiEncodedConstructorArgs
 )
 
+// TODO: rm?
 const originalParsedConfig: ParsedConfig = {
   actionInputs: Array<ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput>;
   newConfig: SphinxConfig;

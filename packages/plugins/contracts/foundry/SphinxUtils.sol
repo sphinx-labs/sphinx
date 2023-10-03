@@ -6,7 +6,9 @@ import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 
 import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
-import { IAccessControlEnumerable } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
+import {
+    IAccessControlEnumerable
+} from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
@@ -65,9 +67,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initialize(
-        string memory _rpcUrl
-    ) external {
+    function initialize(string memory _rpcUrl) external {
         ffiDeployOnAnvil(_rpcUrl);
         ensureSphinxInitialized();
     }
@@ -869,10 +869,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    function computeCreate3Address(
-        address _deployer,
-        bytes32 _salt
-    ) public pure returns (address) {
+    function computeCreate3Address(address _deployer, bytes32 _salt) public pure returns (address) {
         // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
         // library for details.
         bytes memory proxyBytecode = hex"67_36_3d_3d_37_36_3d_34_f0_3d_52_60_08_60_18_f3";
@@ -1051,10 +1048,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             )
         );
 
-        Network[] memory invalidMainnets = removeNetworkType(
-            _config.mainnets,
-            NetworkType.Mainnet
-        );
+        Network[] memory invalidMainnets = removeNetworkType(_config.mainnets, NetworkType.Mainnet);
         require(
             invalidMainnets.length == 0,
             string(
@@ -1064,16 +1058,30 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             )
         );
-        Network[] memory invalidTestnets = removeNetworkType(
-            _config.testnets,
-            NetworkType.Testnet
+        Network[] memory invalidTestnets = removeNetworkType(_config.testnets, NetworkType.Testnet);
+        require(
+            invalidTestnets.length == 0,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Your 'testnets' array contains invalid test networks: ",
+                    toString(invalidTestnets)
+                )
+            )
         );
-        require(invalidTestnets.length == 0, string(abi.encodePacked(
-            "Sphinx: Your 'testnets' array contains invalid test networks: ",
-            toString(invalidTestnets)
-        )));
 
-        require(block.chainid == getNetworkInfo(_network).chainId, string(abi.encodePacked("Sphinx: The 'block.chainid' does not match the chain ID of the network: ", getNetworkInfo(_network).name, "\nCurrent chain ID: ", vm.toString(block.chainid), "\nExpected chain ID: ", vm.toString(getNetworkInfo(_network).chainId))));
+        require(
+            block.chainid == getNetworkInfo(_network).chainId,
+            string(
+                abi.encodePacked(
+                    "Sphinx: The 'block.chainid' does not match the chain ID of the network: ",
+                    getNetworkInfo(_network).name,
+                    "\nCurrent chain ID: ",
+                    vm.toString(block.chainid),
+                    "\nExpected chain ID: ",
+                    vm.toString(getNetworkInfo(_network).chainId)
+                )
+            )
+        );
     }
 
     /**
@@ -1163,17 +1171,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function getInitialChainState(ISphinxAuth _auth, ISphinxManager _manager) external view returns (InitialChainState memory) {
+    function getInitialChainState(
+        ISphinxAuth _auth,
+        ISphinxManager _manager
+    ) external view returns (InitialChainState memory) {
         if (address(_auth).code.length == 0) {
             return
                 InitialChainState({
                     // We set these to default values.
                     proposers: new address[](0),
-                    version: Version({
-                        major: major,
-                        minor: minor,
-                        patch: patch
-                    }),
+                    version: Version({ major: major, minor: minor, patch: patch }),
                     isManagerDeployed: false,
                     firstProposalOccurred: false,
                     isExecuting: false
@@ -1204,7 +1211,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function isReferenceNameUsed(string memory _referenceName, SphinxActionInput[] memory _inputs) external pure returns (bool) {
+    function isReferenceNameUsed(
+        string memory _referenceName,
+        SphinxActionInput[] memory _inputs
+    ) external pure returns (bool) {
         for (uint256 i = 0; i < _inputs.length; i++) {
             SphinxActionInput memory action = _inputs[i];
             if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
@@ -1250,7 +1260,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         after this function, which deploys the user's contracts using the full deployment
      *         flow instead of the fast "default" flow.
      */
-    function tearDownClients(SphinxActionInput[] memory _actions, ISphinxManager _manager) external {
+    function tearDownClients(
+        SphinxActionInput[] memory _actions,
+        ISphinxManager _manager
+    ) external {
         for (uint i = 0; i < _actions.length; i++) {
             SphinxActionInput memory action = _actions[i];
             // If the mode is `Broadcast` or `Proposal`, then the implementation won't contain any
@@ -1264,7 +1277,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     (bytes, bytes, bytes32, string)
                 );
                 bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
-                address create3Address = computeCreate3Address(address(_manager), sphinxCreate3Salt);
+                address create3Address = computeCreate3Address(
+                    address(_manager),
+                    sphinxCreate3Salt
+                );
                 // The implementation's address is the CREATE3 address minus one.
                 address impl = address(uint160(create3Address) - 1);
                 vm.etch(create3Address, impl.code);

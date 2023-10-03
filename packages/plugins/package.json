@@ -42,9 +42,9 @@
     "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.8.1",
     "@eth-optimism/contracts": "^0.5.40",
     "@ethersproject/bignumber": "^5.7.0",
+    "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.24.0",
     "@sphinx-labs/contracts": "^0.11.0",
@@ -54,7 +54,7 @@
     "core-js": "^3.31.1",
     "dotenv": "^16.0.3",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "ethers": "^6.7.0",
+    "ethers": "6.7.0",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.6.1",
     "ipfs-http-client": "56.0.3",
     "ipfs-only-hash": "^4.0.0",
