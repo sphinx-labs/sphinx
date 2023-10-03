@@ -140,8 +140,12 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
       }
     }
 
-    const networkName = getNetworkNameForChainId(chainId)
-    const networkTag = getNetworkTag(networkName, isLiveNetwork, chainId)
+    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    const networkTag = getNetworkTag(
+      networkName,
+      isLiveNetwork,
+      BigInt(chainId)
+    )
 
     networks[networkTag] = { executing, skipping }
   }

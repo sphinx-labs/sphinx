@@ -27,6 +27,7 @@ import {
     HumanReadableAction,
     Network,
     SphinxActionInput,
+    ProposalOutput,
     SphinxConfig,
     BundleInfo,
     InitialChainState,
@@ -163,8 +164,7 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-// TODO: rename second input var
-    function sphinxProposeTask(bool _testnets, string memory _deploymentInfoPath) external {
+    function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
 
         require(
@@ -251,6 +251,11 @@ abstract contract Sphinx {
             deploymentInfoArray
         );
 
+        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
+            vm.envUint("PROPOSER_PRIVATE_KEY"),
+            authRoot
+        );
+
         for (uint256 i = 0; i < bundleInfoArray.length; i++) {
             uint256 forkId = forkIds[i];
             BundleInfo memory bundleInfo = bundleInfoArray[i];
@@ -258,11 +263,11 @@ abstract contract Sphinx {
             vm.selectFork(forkId);
 
             vm.startPrank(proposer);
-            sphinxDeployOnNetwork(authRoot, bundleInfo);
+            sphinxDeployOnNetwork(authRoot, bundleInfo, metaTxnSignature);
             vm.stopPrank();
         }
 
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfoArray)));
+        vm.writeFile(_proposalOutputPath, vm.toString(abi.encode(ProposalOutput({authRoot: authRoot, bundleInfoArray:  bundleInfoArray, metaTxnSignature: metaTxnSignature, proposerAddress: proposer}))));
     }
 
     // TODO(test): check for the expected number of broadcasted transactions in `sphinx deploy`.
@@ -500,10 +505,15 @@ abstract contract Sphinx {
             );
             BundleInfo memory bundleInfo = bundleInfoArray[0];
 
+            bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
+                vm.envUint("PRIVATE_KEY"),
+                authRoot
+            );
+
             sphinxUtils.tearDownClients(deploymentInfo.actionInputs, manager);
 
             vm.startBroadcast(msgSender);
-            sphinxDeployOnNetwork(authRoot, bundleInfo);
+            sphinxDeployOnNetwork(authRoot, bundleInfo, metaTxnSignature);
         } else if (sphinxMode == SphinxMode.Default) {
             // Deploy the SphinxManager. We only do this in the Default mode because the
             // SphinxManager will be deployed in the `SphinxAuthFactory.register` call in other
@@ -551,7 +561,7 @@ abstract contract Sphinx {
         sphinxModifierEnabled = false;
     }
 
-    function sphinxDeployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo) private {
+    function sphinxDeployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo, bytes memory _metaTxnSignature) private {
         (, address msgSender, ) = vm.readCallers();
 
         if (_bundleInfo.authLeafs.length == 0) {
@@ -605,10 +615,7 @@ abstract contract Sphinx {
             bytes[] memory ownerSignatureArray;
             if (sphinxMode == SphinxMode.Broadcast) {
                 ownerSignatureArray = new bytes[](1);
-                ownerSignatureArray[0] = sphinxUtils.signMetaTxnForAuthRoot(
-                    vm.envUint("PRIVATE_KEY"),
-                    _authRoot
-                );
+                ownerSignatureArray[0] = _metaTxnSignature;
             }
 
             (, uint256 leafsExecuted, ) = auth.authStates(_authRoot);
@@ -619,14 +626,14 @@ abstract contract Sphinx {
                     continue;
                 }
 
-                if (leaf.leafType == AuthLeafType.SETUP) {
+                if (leaf.leafTypeEnum == AuthLeafType.SETUP) {
                     auth.setup{ gas: 3000000 }(
                         _authRoot,
                         leaf.leaf,
                         ownerSignatureArray,
                         leaf.proof
                     );
-                } else if (leaf.leafType == AuthLeafType.PROPOSE) {
+                } else if (leaf.leafTypeEnum == AuthLeafType.PROPOSE) {
                     if (sphinxMode == SphinxMode.Broadcast) {
                         auth.propose{ gas: 1000000 }(
                             _authRoot,
@@ -653,10 +660,7 @@ abstract contract Sphinx {
                         }
 
                         bytes[] memory proposerSignatureArray = new bytes[](1);
-                        proposerSignatureArray[0] = sphinxUtils.signMetaTxnForAuthRoot(
-                            vm.envUint("PROPOSER_PRIVATE_KEY"),
-                            _authRoot
-                        );
+                        proposerSignatureArray[0] = _metaTxnSignature;
 
                         auth.propose{ gas: 1000000 }(
                             _authRoot,
@@ -665,21 +669,21 @@ abstract contract Sphinx {
                             leaf.proof
                         );
                     }
-                } else if (leaf.leafType == AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL) {
+                } else if (leaf.leafTypeEnum == AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL) {
                     auth.upgradeManagerAndAuthImpl{ gas: 1000000 }(
                         _authRoot,
                         leaf.leaf,
                         ownerSignatureArray,
                         leaf.proof
                     );
-                } else if (leaf.leafType == AuthLeafType.APPROVE_DEPLOYMENT) {
+                } else if (leaf.leafTypeEnum == AuthLeafType.APPROVE_DEPLOYMENT) {
                     auth.approveDeployment{ gas: 1000000 }(
                         _authRoot,
                         leaf.leaf,
                         ownerSignatureArray,
                         leaf.proof
                     );
-                } else if (leaf.leafType == AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT) {
+                } else if (leaf.leafTypeEnum == AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT) {
                     auth.cancelActiveDeployment{ gas: 1000000 }(
                         _authRoot,
                         leaf.leaf,

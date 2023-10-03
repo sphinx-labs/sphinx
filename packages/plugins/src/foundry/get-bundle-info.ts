@@ -121,6 +121,10 @@ const abiEncodedDeploymentInfoArray = args[0]
         actionsAbiEncoded,
       },
       targetBundleAbiEncoded,
+      compilerConfigStr: coder.encode(
+        ['string'],
+        [JSON.stringify(compilerConfig)]
+      ), // TODO(docs)
     }
   }
 
@@ -141,7 +145,8 @@ const abiEncodedDeploymentInfoArray = args[0]
             index: l.leaf.index,
             data: l.leaf.data,
           },
-          leafType: l.prettyLeaf.leafTypeEnum,
+          leafTypeEnum: l.leafTypeEnum,
+          leafFunctionName: l.leafFunctionName,
           proof: l.proof,
         }
       })

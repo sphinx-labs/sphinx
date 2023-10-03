@@ -17,7 +17,13 @@ import {
   SupportedNetworkName,
 } from '../networks'
 import { SemVer } from '../types'
-import { SphinxActionType } from '../actions/types'
+import {
+  BundledAuthLeaf,
+  HumanReadableAction,
+  SphinxActionBundle,
+  SphinxActionType,
+  SphinxTargetBundle,
+} from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -91,16 +97,17 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type ParsedConfig = {
+// TODO(docs)
+export type ParsedConfig<N = string | bigint> = {
   authAddress: string
   managerAddress: string
-  chainId: bigint
+  chainId: N
   actionInputs: Array<
-    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
+    ExtendedDeployContractActionInput<N> | ExtendedFunctionCallActionInput<N>
   >
-  newConfig: SphinxConfig
+  newConfig: SphinxConfig<N>
   isLiveNetwork: boolean
-  initialState: InitialChainState
+  initialState: InitialChainState<N>
   remoteExecution: boolean
 }
 
@@ -109,15 +116,15 @@ export type DeploymentInfo = {
   managerAddress: string
   chainId: bigint
   actionInputs: Array<RawSphinxActionInput>
-  newConfig: SphinxConfig
+  newConfig: SphinxConfig<bigint>
   isLiveNetwork: boolean
-  initialState: InitialChainState
+  initialState: InitialChainState<bigint>
   remoteExecution: boolean
 }
 
-export type InitialChainState = {
+export type InitialChainState<N = string | bigint> = {
   proposers: Array<string>
-  version: SemVer
+  version: SemVer<N>
   isManagerDeployed: boolean
   firstProposalOccurred: boolean
   isExecuting: boolean
@@ -186,9 +193,9 @@ export type UserAddressOverrides = {
   address: string
 }
 
-export interface DeployContractActionInput {
+export interface DeployContractActionInput<N = string | bigint> {
   fullyQualifiedName: string
-  actionType: typeof SphinxActionType.DEPLOY_CONTRACT
+  actionType: N
   skip: boolean
   initCode: string
   constructorArgs: string
@@ -196,25 +203,25 @@ export interface DeployContractActionInput {
   referenceName: string
 }
 
-export type SphinxConfig = {
+export type SphinxConfig<N = string | bigint> = {
   projectName: string
   orgId: string
   owners: Array<string>
   proposers: Array<string>
   mainnets: Array<SupportedMainnetNetworkName>
   testnets: Array<SupportedNetworkName>
-  threshold: bigint
-  version: SemVer
+  threshold: N
+  version: SemVer<N>
 }
 
-export interface ExtendedDeployContractActionInput
-  extends DeployContractActionInput {
+export interface ExtendedDeployContractActionInput<N = string | bigint>
+  extends DeployContractActionInput<N> {
   decodedAction: DecodedAction
   create3Address: string
 }
 
-export interface ExtendedFunctionCallActionInput
-  extends FunctionCallActionInput {
+export interface ExtendedFunctionCallActionInput<N = string | bigint>
+  extends FunctionCallActionInput<N> {
   decodedAction: DecodedAction
 }
 
@@ -224,14 +231,14 @@ export type DecodedAction = {
   variables: ParsedVariables
 }
 
-export interface FunctionCallActionInput {
+export interface FunctionCallActionInput<N = string | bigint> {
   fullyQualifiedName: string
-  actionType: bigint
+  actionType: N
   skip: boolean
   to: string
   selector: string
   functionParams: string
-  nonce: bigint
+  nonce: N
   referenceName: string
 }
 
@@ -250,7 +257,7 @@ export type ParsedVariables = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CompilerConfig extends ParsedConfig {
+export interface CompilerConfig<N = bigint | string> extends ParsedConfig<N> {
   inputs: Array<BuildInfoInputs>
 }
 

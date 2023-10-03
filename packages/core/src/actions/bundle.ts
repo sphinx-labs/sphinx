@@ -127,7 +127,7 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   if (isSetStorageAction(action)) {
     return {
       actionType: SphinxActionType.SET_STORAGE,
-      index: action.index,
+      index: BigInt(action.index),
       data: coder.encode(
         ['bytes32', 'address', 'bytes32', 'uint8', 'bytes'],
         [
@@ -142,7 +142,7 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   } else if (isDeployContractAction(action)) {
     return {
       actionType: SphinxActionType.DEPLOY_CONTRACT,
-      index: action.index,
+      index: BigInt(action.index),
       data: coder.encode(
         ['bytes32', 'bytes'],
         [action.salt, action.creationCodeWithConstructorArgs]
@@ -151,7 +151,7 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   } else if (isCallAction(action)) {
     return {
       actionType: SphinxActionType.CALL,
-      index: action.index,
+      index: BigInt(action.index),
       data: coder.encode(
         ['uint256', 'address', 'bytes'],
         [action.nonce, action.to, action.data]
@@ -180,7 +180,7 @@ export const fromRawSphinxAction = (
     return {
       to,
       contractKindHash,
-      index: rawAction.index,
+      index: Number(rawAction.index),
       key,
       offset,
       value,
@@ -191,7 +191,7 @@ export const fromRawSphinxAction = (
       rawAction.data
     )
     return {
-      index: rawAction.index,
+      index: Number(rawAction.index),
       salt,
       creationCodeWithConstructorArgs,
     }
@@ -202,7 +202,7 @@ export const fromRawSphinxAction = (
     )
     return {
       to,
-      index: rawAction.index,
+      index: Number(rawAction.index),
       data,
       nonce,
     }
@@ -340,19 +340,19 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
  * that is required to approve the leaf.
  */
 export const getAuthLeafSignerInfo = (
-  ownerThreshold: bigint,
+  ownerThreshold: string,
   functionName: string
 ): { leafThreshold: bigint; roleType: RoleType } => {
   if (functionName === AuthLeafFunctions.PROPOSE) {
     return { leafThreshold: 1n, roleType: RoleType.PROPOSER }
   } else {
-    return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
+    return { leafThreshold: BigInt(ownerThreshold), roleType: RoleType.OWNER }
   }
 }
 
 export const fromRawSphinxActionInput = (
   rawAction: RawSphinxActionInput
-): DeployContractActionInput | FunctionCallActionInput => {
+): DeployContractActionInput<bigint> | FunctionCallActionInput<bigint> => {
   const { skip, fullyQualifiedName } = rawAction
   const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
@@ -392,14 +392,14 @@ export const fromRawSphinxActionInput = (
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
   const { chainId, to, index } = leaf
-  return { chainId, to, index, data }
+  return { chainId, to, index: BigInt(index), data }
 }
 
 export const fromProposalRequestLeafToRawAuthLeaf = (
   leaf: ProposalRequestLeaf
 ): RawAuthLeaf => {
   const { chainId, to, index, data } = leaf
-  return { chainId: BigInt(chainId), to, index, data }
+  return { chainId: BigInt(chainId), to, index: BigInt(index), data }
 }
 
 /**
@@ -451,6 +451,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
         prettyLeaf,
         proof: tree.getProof(Object.values(leaf)),
         leafTypeEnum: prettyLeaf.leafTypeEnum,
+        leafFunctionName: prettyLeaf.functionName,
       }
     }),
   }
@@ -465,7 +466,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  */
 export const makeActionBundle = (
   actions: SphinxAction[],
-  costs: number[]
+  costs: bigint[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -567,7 +568,7 @@ export const makeActionBundleFromConfig = (
   const { actionInputs } = parsedConfig
 
   const actions: SphinxAction[] = []
-  const costs: number[] = []
+  const costs: bigint[] = []
 
   const humanReadableActions: HumanReadableActions = {}
 
@@ -608,9 +609,9 @@ export const makeActionBundleFromConfig = (
         ]),
       })
 
-      costs.push(Number(deployContractCost))
+      costs.push(deployContractCost)
       humanReadableActions[index] = {
-        actionIndex: index,
+        actionIndex: BigInt(index),
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       }
@@ -630,9 +631,9 @@ export const makeActionBundleFromConfig = (
         nonce: Number(nonce),
       })
 
-      costs.push(250_000)
+      costs.push(250_000n)
       humanReadableActions[index] = {
-        actionIndex: index,
+        actionIndex: BigInt(index),
         reason: prettyFunctionCall(
           referenceName,
           decodedAction.functionName,
@@ -701,7 +702,7 @@ export const makeActionBundleFromConfig = (
  * no project-specific leafs will be generated.
  */
 export const getAuthLeafsForChain = async (
-  parsedConfig: ParsedConfig,
+  parsedConfig: ParsedConfig<bigint>,
   configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
   const { chainId, managerAddress, initialState, newConfig, remoteExecution } =
@@ -870,7 +871,7 @@ export const getAuthLeafsForChain = async (
  */
 export const findBundledLeaf = (
   bundledLeafs: Array<BundledAuthLeaf>,
-  index: number,
+  index: bigint,
   chainId: bigint
 ): BundledAuthLeaf => {
   const leaf = bundledLeafs.find(
@@ -883,7 +884,7 @@ export const findBundledLeaf = (
 }
 
 export const getProjectDeploymentForChain = (
-  leafsOnChain: Array<AuthLeaf>,
+  leafsOnChain: Array<BundledAuthLeaf>,
   parsedConfig: ParsedConfig,
   configUri: string,
   actionBundle: SphinxActionBundle,
@@ -891,7 +892,9 @@ export const getProjectDeploymentForChain = (
 ): ProjectDeployment | undefined => {
   const { newConfig, initialState, chainId } = parsedConfig
 
-  const approvalLeafs = leafsOnChain.filter(isApproveDeploymentAuthLeaf)
+  const approvalLeafs = leafsOnChain.filter(
+    (l) => l.leafFunctionName === AuthLeafFunctions.APPROVE_DEPLOYMENT
+  )
 
   if (approvalLeafs.length === 0) {
     return undefined
@@ -909,10 +912,4 @@ export const getProjectDeploymentForChain = (
     name: newConfig.projectName,
     isExecuting: initialState.isExecuting,
   }
-}
-
-export const isApproveDeploymentAuthLeaf = (
-  leaf: AuthLeaf
-): leaf is ApproveDeployment => {
-  return leaf.functionName === AuthLeafFunctions.APPROVE_DEPLOYMENT
 }

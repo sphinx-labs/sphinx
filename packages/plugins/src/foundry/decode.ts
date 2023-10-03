@@ -2,6 +2,8 @@ import { DeploymentInfo } from '@sphinx-labs/core/dist/config/types'
 import { recursivelyConvertResult } from '@sphinx-labs/core/dist/utils'
 import { AbiCoder, Result } from 'ethers'
 
+import { ProposalOutput } from './types'
+
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
   abi: Array<any>
@@ -42,4 +44,29 @@ export const decodeDeploymentInfoArray = (
   return deploymentInfoResultArray.map((deploymentInfo) =>
     recursivelyConvertResult(deploymentInfo)
   ) as Array<DeploymentInfo>
+}
+
+export const decodeProposalOutput = (
+  abiEncodedProposalOutput: string,
+  abi: Array<any>
+): ProposalOutput => {
+  const proposalOutputType = abi.find(
+    (fragment) => fragment.name === 'proposalOutput'
+  ).outputs[0]
+
+  const coder = AbiCoder.defaultAbiCoder()
+  const proposalOutputResult = coder.decode(
+    [proposalOutputType],
+    abiEncodedProposalOutput
+  )[0]
+
+  // TODO: update after you update recursivelyConvertResult.
+  const proposalOutput = recursivelyConvertResult(proposalOutputResult) as any
+
+  for (const bundleInfo of proposalOutput.bundleInfoArray) {
+    bundleInfo.compilerConfig = JSON.parse(bundleInfo.compilerConfigStr)
+    delete bundleInfo.compilerConfigStr
+  }
+
+  return proposalOutput
 }

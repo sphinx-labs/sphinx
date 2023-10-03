@@ -1619,7 +1619,7 @@ export const isDeployContractActionInput = (
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   configArtifacts: ConfigArtifacts
-): ParsedConfig => {
+): ParsedConfig<bigint> => {
   const {
     authAddress,
     managerAddress,
@@ -1643,7 +1643,8 @@ export const makeParsedConfig = (
     .map(fromRawSphinxActionInput)
 
   const extendedActions: Array<
-    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
+    | ExtendedDeployContractActionInput<bigint>
+    | ExtendedFunctionCallActionInput<bigint>
   > = []
   for (const action of actions) {
     const { referenceName, fullyQualifiedName } = action

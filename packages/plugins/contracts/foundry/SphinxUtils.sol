@@ -556,6 +556,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".configUri"))
             );
+            // TODO: str -> bytes
+            bytes memory compilerConfigBytes = vm.parseJsonBytes(
+                json,
+                string(abi.encodePacked(".chains.", networkName, ".compilerConfigStr"))
+            );
+            string memory compilerConfigStr = abi.decode(compilerConfigBytes, (string));
             HumanReadableAction[] memory humanReadableActions = abi.decode(
                 vm.parseJsonBytes(
                     json,
@@ -601,7 +607,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 humanReadableActions: humanReadableActions,
                 actionBundle: SphinxActionBundle({ root: actionRoot, actions: bundledActions }),
                 targetBundle: targetBundle,
-                authLeafs: authLeafs
+                authLeafs: authLeafs,
+                compilerConfigStr: compilerConfigStr
             });
         }
 

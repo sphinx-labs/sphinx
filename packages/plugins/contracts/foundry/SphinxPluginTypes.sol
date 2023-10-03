@@ -17,7 +17,8 @@ struct SphinxAuthBundle {
 
 struct BundledAuthLeaf {
     AuthLeaf leaf;
-    AuthLeafType leafType;
+    AuthLeafType leafTypeEnum;
+    string leafFunctionName;
     bytes32[] proof;
 }
 
@@ -61,6 +62,7 @@ struct BundleInfo {
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
+    string compilerConfigStr;
 }
 
 struct FoundryConfig {
@@ -309,6 +311,13 @@ struct NetworkInfo {
     NetworkType networkType;
 }
 
+struct ProposalOutput {
+    address proposerAddress;
+    bytes metaTxnSignature;
+    BundleInfo[] bundleInfoArray;
+    bytes32 authRoot;
+}
+
 /**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
@@ -325,4 +334,6 @@ contract SphinxPluginTypes {
     function getDeploymentInfo() external view returns (DeploymentInfo memory) {}
 
     function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory) {}
+
+    function proposalOutput() external pure returns (ProposalOutput memory) {}
 }

@@ -28,7 +28,7 @@ export const DeploymentStatus = {
  */
 export interface RawSphinxAction {
   actionType: bigint
-  index: number
+  index: bigint
   data: string
 }
 
@@ -82,7 +82,7 @@ export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
 export type HumanReadableAction = {
   reason: string
   actionType: bigint
-  actionIndex: number
+  actionIndex: bigint
 }
 
 /**
@@ -98,7 +98,7 @@ export type HumanReadableActions = {
 export type BundledSphinxAction = {
   action: RawSphinxAction
   siblings: string[]
-  gas: number
+  gas: bigint
 }
 
 /**
@@ -117,14 +117,15 @@ export interface SphinxActionBundle {
   actions: BundledSphinxAction[]
 }
 
-/**
- * Auth leaf that is part of a bundle.
- */
-export type BundledAuthLeaf = {
+export interface BundledAuthLeaf {
   leaf: RawAuthLeaf
-  prettyLeaf: AuthLeaf
-  leafTypeEnum: AuthLeafType
+  leafTypeEnum: bigint
+  leafFunctionName: AuthLeafFunctions
   proof: string[]
+}
+
+export interface BundledAuthLeafWithPrettyLeaf extends BundledAuthLeaf {
+  prettyLeaf: AuthLeaf
 }
 
 /**
@@ -169,7 +170,7 @@ export interface BaseAuthLeaf {
 export interface RawAuthLeaf {
   chainId: bigint
   to: string
-  index: number
+  index: bigint
   data: string
 }
 
@@ -211,19 +212,19 @@ export enum AuthLeafFunctions {
 /**
  * @notice This is in the exact same order as the `AuthLeafType` enum defined in Solidity.
  */
-export enum AuthLeafType {
-  SETUP,
-  PROPOSE,
-  EXPORT_PROXY,
-  SET_OWNER,
-  SET_THRESHOLD,
-  TRANSFER_MANAGER_OWNERSHIP,
-  UPGRADE_MANAGER_IMPLEMENTATION,
-  UPGRADE_AUTH_IMPLEMENTATION,
-  UPGRADE_MANAGER_AND_AUTH_IMPL,
-  SET_PROPOSER,
-  APPROVE_DEPLOYMENT,
-  CANCEL_ACTIVE_DEPLOYMENT,
+export const AuthLeafType = {
+  SETUP: 0n,
+  PROPOSE: 1n,
+  EXPORT_PROXY: 2n,
+  SET_OWNER: 3n,
+  SET_THRESHOLD: 4n,
+  TRANSFER_MANAGER_OWNERSHIP: 5n,
+  UPGRADE_MANAGER_IMPLEMENTATION: 6n,
+  UPGRADE_AUTH_IMPLEMENTATION: 7n,
+  UPGRADE_MANAGER_AND_AUTH_IMPL: 8n,
+  SET_PROPOSER: 9n,
+  APPROVE_DEPLOYMENT: 10n,
+  CANCEL_ACTIVE_DEPLOYMENT: 11n,
 }
 
 export const AuthStatus = {
@@ -241,14 +242,14 @@ export type AuthState = {
 
 interface Setup extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SETUP
-  leafTypeEnum: AuthLeafType.SETUP
+  leafTypeEnum: bigint
   proposers: Array<SetRoleMember>
   numLeafs: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.EXPORT_PROXY
-  leafTypeEnum: AuthLeafType.EXPORT_PROXY
+  leafTypeEnum: bigint
   proxy: string
   contractKindHash: string
   newOwner: string
@@ -256,40 +257,40 @@ interface ExportProxy extends BaseAuthLeaf {
 
 interface SetOwner extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SET_OWNER
-  leafTypeEnum: AuthLeafType.SET_OWNER
+  leafTypeEnum: bigint
   owner: string
   add: boolean
 }
 
 interface SetThreshold extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SET_THRESHOLD
-  leafTypeEnum: AuthLeafType.SET_THRESHOLD
+  leafTypeEnum: bigint
   newThreshold: number
 }
 
 interface TransferManagerOwnership extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
-  leafTypeEnum: AuthLeafType.TRANSFER_MANAGER_OWNERSHIP
+  leafTypeEnum: bigint
   newOwner: string
 }
 
 interface UpgradeManagerImplementation extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
-  leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_IMPLEMENTATION
+  leafTypeEnum: bigint
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
-  leafTypeEnum: AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION
+  leafTypeEnum: bigint
   impl: string
   data: string
 }
 
 export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
-  leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL
+  leafTypeEnum: bigint
   managerImpl: string
   managerInitCallData: string
   authImpl: string
@@ -298,25 +299,25 @@ export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
 
 interface SetProposer extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SET_PROPOSER
-  leafTypeEnum: AuthLeafType.SET_PROPOSER
+  leafTypeEnum: bigint
   proposer: string
   add: boolean
 }
 
 export interface ApproveDeployment extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT
-  leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT
+  leafTypeEnum: bigint
   approval: DeploymentApproval
 }
 
 export interface CancelActiveDeployment extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
-  leafTypeEnum: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT
+  leafTypeEnum: bigint
 }
 
 interface Propose extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.PROPOSE
-  leafTypeEnum: AuthLeafType.PROPOSE
+  leafTypeEnum: bigint
   numLeafs: number
 }
 
