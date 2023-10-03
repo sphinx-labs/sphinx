@@ -18,10 +18,10 @@ export const decodeDeploymentInfo = (
   return deploymentInfo
 }
 
-// TODO(ryan): Can you document why we can't invoke ethers' `toObject()` method instead of using
-// this function?
 /**
- * This function recursively converts a Result object to a plain object.
+ * This function recursively converts a Result object to a plain object. It is necessary because the standard
+ * `toObject()` method on a Result object only converts the top level fields. Any nested Result objects are left
+ * as is which is an issue when using nested structs or arrays.
  *
  * AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the underlying type.
  * In cases where we need to JSON serialize the result, we need to convert it to a plain object first or

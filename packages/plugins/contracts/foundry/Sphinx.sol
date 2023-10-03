@@ -160,7 +160,11 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
+    function setupPropose() internal virtual {}
+
     function sphinxProposeTask(bool _testnets, string memory _deploymentInfoPath) external {
+        setupPropose();
+
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
 
         require(
@@ -191,6 +195,11 @@ abstract contract Sphinx {
         // TODO(test): try compiling with the earliest solc version you support (0.7.4)
 
         sphinxMode = SphinxMode.Proposal;
+
+        // We must setup the auth and manager addresses here even though they are later set
+        // when the `sphinx` modifier is trigger on the deploy function. This is because we
+        // need these addresses to be set before we call `sphinxUtils.getInitialChainState`.
+        setupAuthAndManagerAddresses();
 
         DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
         uint256[] memory forkIds = new uint256[](networks.length);
@@ -421,6 +430,23 @@ abstract contract Sphinx {
         return count;
     }
 
+    function setupAuthAndManagerAddresses() internal {
+        auth = ISphinxAuth(
+            sphinxUtils.getSphinxAuthAddress(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                sphinxConfig.projectName
+            )
+        );
+        manager = ISphinxManager(
+            sphinxUtils.getSphinxManagerAddress(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                sphinxConfig.projectName
+            )
+        );
+    }
+
     // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
 
     modifier sphinx(Network _network) {
@@ -445,20 +471,7 @@ abstract contract Sphinx {
 
         sphinxUtils.validate(sphinxConfig, _network);
 
-        auth = ISphinxAuth(
-            sphinxUtils.getSphinxAuthAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            )
-        );
-        manager = ISphinxManager(
-            sphinxUtils.getSphinxManagerAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            )
-        );
+        setupAuthAndManagerAddresses();
 
         if (sphinxMode == SphinxMode.Proposal) {
             delete deploymentInfo;

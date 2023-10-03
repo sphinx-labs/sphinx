@@ -30,4 +30,6 @@ interface ISphinxRegistry {
     function managerImplementations(address) external view returns (bool);
 
     function currentManagerImplementation() external returns (address);
+
+    function versions(uint256, uint256, uint256) external view returns (address);
 }
