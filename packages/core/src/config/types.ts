@@ -213,7 +213,8 @@ export interface ExtendedDeployContractActionInput
   create3Address: string
 }
 
-export interface ExtendedFunctionCallActionInput extends FunctionCallActionInput {
+export interface ExtendedFunctionCallActionInput
+  extends FunctionCallActionInput {
   decodedAction: DecodedAction
 }
 

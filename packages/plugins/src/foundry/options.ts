@@ -3,6 +3,10 @@ import { join, resolve } from 'path'
 import { promisify } from 'util'
 
 export type FoundryToml = {
+  src: string
+  test: string
+  script: string
+  solc: string
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
@@ -11,7 +15,6 @@ export type FoundryToml = {
   storageLayout: boolean
   gasEstimates: boolean
   rpcEndpoints: { [networkName: string]: string | undefined }
-  srcDirectory: string
   remappings: Record<string, string>
 }
 
@@ -52,10 +55,8 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
 
-  const cachePath = forgeConfig.cache_path
+  const { cache_path: cachePath, src, test, script, solc } = forgeConfig
   const rpcEndpoints = parseRpcEndpoints(forgeConfig.rpc_endpoints)
-
-  const srcDirectory = forgeConfig.src
 
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
   // artifacts will contain the necessary info as long as the config includes the expected options
@@ -74,7 +75,10 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     gasEstimates,
     cachePath,
     rpcEndpoints,
-    srcDirectory,
+    src,
+    test,
+    script,
+    solc,
     remappings,
   }
 }

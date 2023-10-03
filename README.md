@@ -1,45 +1,41 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is an open-core DevOps platform for smart contract deployments.
+Sphinx is a Foundry plugin for deployments.
 
-## Key Features
+TODO(md): it takes 9.5s to compile the sample project every time a change is made to a file. it
+takes less than 2s when the optimizer is off. we should definitely tell users to turn optimizer off
+during testing and development. i think there's a section in the foundry docs that covers this.
 
-Here is the deployment process with the DevOps platform:
+TODO(init): `contracts/` -> `src/`
 
-1. Define your project in a single declarative config file instead of writing deployment scripts. Sphinx has a Hardhat and Foundry plugin.
-2. Propose your deployment gaslessly from a CI process or the command line.
-3. Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
-4. Approve your deployment with a single meta transaction signed by your project owners. You'll always sign a single meta transaction regardless of the number of chains or the size of the deployment.
-5. Sphinx trustlessly executes your deployment on every chain and verifies your contracts on Etherscan. Your contracts will have consistent addresses across networks because Sphinx uses `CREATE3` by default.
-6. Generate deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+Key features:
+* Skips any transactions in your script that have already been executed, similar to other idempotent tools like [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+* Provides visibility into your deployments by letting you [preview](TODO(md)) the transactions that will be executed in your script.
+* Uses `CREATE3` by default, so your contracts will always have predictable addresses.
+* Generates deployments artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
-You can request access for the DevOps platform [here](https://sphinx.dev). We are working out pricing with teams on a case-by-case basis.
+## DevOps Platform (optional)
 
-### Standalone CLI tool
+Sphinx has a DevOps platform that automates the deployment process. It's built on top of the Foundry plugin, and is entirely opt-in.
 
-You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
+Key features:
+* Propose your deployments from a CI process.
+* Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
+* Approve your deployments via a multisig.
+* Automatic Etherscan verification.
 
-The standalone CLI tool is free to use and fully open-source. All of the code is in this repository. You can use it without using the DevOps platform.
+You can request access to the DevOps platform [here](https://sphinx.dev).
 
 ## Documentation
 
 ### Getting Started
 
-- Foundry:
+- Foundry Plugin:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
-- Hardhat:
-  - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
-  - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
-
-### DevOps Platform
-
-- Foundry:
+- DevOps Platform:
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
   - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
-- Hardhat:
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-hardhat-proposals.md)
 
 ### References
 
@@ -98,3 +94,6 @@ If you have any questions or feature requests, send us a message in our [Discord
 ## License
 
 MIT © 2022
+
+
+TODO(md-end): remove 'foundry' from the .md file names

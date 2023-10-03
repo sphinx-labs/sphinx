@@ -20,22 +20,22 @@ contract MyScript is Script, SphinxClient {
         sphinxConfig.projectName = "My Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
-        sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-        sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
-        sphinxConfig.orgId = "asdf";
+        // sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        // sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+        // sphinxConfig.orgId = "asdf";
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
+        MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2), MyContract1.MyStruct(1, 2, MyContract1.MyNestedStruct(address(1))));
         myContract1.incrementUint();
         myContract1.incrementUint();
         myContract1.incrementUint();
     }
 
     function run() public {
-        vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+        // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         deploy(Network.anvil);
-        vm.stopBroadcast();
+        // vm.stopBroadcast();
         MyContract1 ct = MyContract1(0x381dE02fE95ad4aDca4a9ee3c83a27d9162E4903);
         console.log(ct.uintArg());
 

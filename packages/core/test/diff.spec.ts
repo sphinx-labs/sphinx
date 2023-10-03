@@ -7,7 +7,7 @@ import {
   ParsedConfig,
   DecodedAction,
 } from '../src/config/types'
-import { CallAction } from '../src/actions/types'
+import { CallAction, SphinxActionType } from '../src/actions/types'
 import { getCallHash } from '../src/utils'
 import { getDiff } from '../src/diff'
 
@@ -30,11 +30,61 @@ const fullPostDeployAction = {
   nonce: callAction.nonce,
   readableSignature: postDeployFunctionSignature,
 }
-const constructorArgs = {
-  myVar: 'myVal',
-  myOtherVar: 'myOtherVal',
-}
+
+const coder = ethers.AbiCoder.defaultAbiCoder()
+const abiEncodedConstructorArgs = coder.encode(
+  ['string', 'string'],
+  ['myVal', 'myOtherVal']
+)
+// TODO(optional): if you convert the variable array into a ParsedConfigVariable pre-diff, then
+// replace this.
+const decodedConstructorArgs = coder.decode(
+  ['string', 'string'],
+  abiEncodedConstructorArgs
+)
+
 const originalParsedConfig: ParsedConfig = {
+  actionInputs: Array<ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput>;
+  newConfig: SphinxConfig;
+  isLiveNetwork: boolean;
+  initialState: InitialChainState;
+  remoteExecution: boolean;
+
+  authAddress: ethers.ZeroAddress, // unused
+  managerAddress: ethers.ZeroAddress, // unused
+  chainId: 10n,
+  actionInputs: [{
+    fullyQualifiedName: 'contracts/MyFile.sol:MyContract',
+    actionType: SphinxActionType.DEPLOY_CONTRACT,
+    skip: false,
+    initCode: '', // unused
+    constructorArgs: abiEncodedConstructorArgs,
+    userSalt: ethers.ZeroHash,
+    referenceName: 'MyReferenceName',
+    decodedAction: {
+      referenceName: 'MyReferenceName',
+      functionName: 'constructor',
+      variables: decodedConstructorArgs
+    },
+    create3Address: ethers.ZeroAddress // unused
+  },
+  {
+    fullyQualifiedName: 'contracts/MyFile.sol:MyContract',
+    actionType: SphinxActionType.CALL,
+    skip: false,
+    to: ethers.ZeroAddress, // unused
+    selector: '', // unused
+    functionParams: '', // unused
+    nonce: 0n,
+    referenceName: 'MyReferenceName',
+    decodedAction: {
+      referenceName: 'MyReferenceName',
+      functionName: 'myFunction',
+      variables: ['myFunctionVal']
+    }
+  }
+  ]
+
   projectName: 'Diff Test',
   manager: ethers.ZeroAddress,
   contracts: {

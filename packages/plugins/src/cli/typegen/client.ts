@@ -444,30 +444,29 @@ export const generateClient = async () => {
 
   spinner.start('Generating Sphinx clients...')
 
-  const { srcDirectory, artifactFolder, remappings } =
-    await getFoundryConfigOptions()
+  const { src, artifactFolder, remappings } = await getFoundryConfigOptions()
   const { deployFunctionImports, deployFunctions } =
     await generateClientsForExternalContracts(
-      srcDirectory,
+      src,
       artifactFolder,
       CLIENT_FOLDER_NAME,
       1,
       remappings
     )
 
-  if (!fs.existsSync(srcDirectory)) {
+  if (!fs.existsSync(src)) {
     throw new Error(
-      `The src directory: '${srcDirectory}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
+      `The src directory: '${src}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
     )
   }
 
   await generateClientsInFolder(
-    srcDirectory,
+    src,
     artifactFolder,
     CLIENT_FOLDER_NAME,
     1,
     remappings,
-    srcDirectory,
+    src,
     deployFunctionImports,
     deployFunctions
   )

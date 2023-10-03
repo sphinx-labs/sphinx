@@ -143,33 +143,15 @@ yargs(hideBin(process.argv))
     async (argv) => {
       const quickstart = argv.quickstart ?? false
 
-      const { stdout } = await execAsync('node -v')
-      if (!satisfies(stdout, '>=18.16.0')) {
-        console.warn(
-          '\x1b[33m%s\x1b[0m', // Yellow text
-          `Your Node version is less than v18.16.0. We HIGHLY recommend using v18.16.0 or later because\n` +
-            `it runs our Foundry plugin significantly faster. To update your Node version, go to:\n` +
-            `https://github.com/nvm-sh/nvm#intro`
-        )
-      }
-
       const spinner = ora()
+      spinner.start(`Initializing sample project...`)
 
-      const forgeConfigOutput = await execAsync('forge config --json')
-      const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
-      const { src, test, script, solc } = forgeConfig
+      const { src, test, script, solc } = await getFoundryConfigOptions()
 
       const solcVersion = solc ?? (await inferSolcVersion())
 
-      writeSampleProjectFiles(
-        src,
-        test,
-        script,
-        quickstart,
-        solcVersion,
-        'foundry'
-      )
-      spinner.succeed('Initialized Sphinx project.')
+      writeSampleProjectFiles(src, test, script, quickstart, solcVersion)
+      spinner.succeed('Initialized sample project.')
     }
   )
   .command(

@@ -3,8 +3,6 @@ export * from './sample-contracts'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Integration } from '@sphinx-labs/core'
-
 import { forgeConfig, sampleDotEnvFile } from './sample-foundry-config'
 import {
   getSampleContractFile,
@@ -16,18 +14,26 @@ export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleConfigFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
+// TODO(client):
+// - When compiling with Forge in the generate task, it'd be nice to display the compilation process
+//   directly via `spawnSync`, since it seems like this command is supposed to replace `forge
+//   build`
+// - Rename `SphinxClient/` to `client(s)`?
+// - Rename e.g. `HelloSphinx.SphinxClient.sol` to `HelloSphinx.c.sol`?
+// - Since the client folder exists outside of the `src/`, `test/`, and `script/` folders, it won't get
+//   compiled automatically by Foundry. Instead, only the files that the user imports will be
+//   compiled. Is that how this works?
+// - Are users supposed to commit their clients to version control? If so, we should make a note to
+//   document that. If not, we should add a step to the Getting Started guides that puts
+//   `SphinxClient/` in `.gitignore`.
+
 export const writeSampleProjectFiles = (
   contractDirPath: string,
   testDirPath: string,
   scriptDirPath: string,
   quickstart: boolean,
-  solcVersion: string,
-  integration: Integration
+  solcVersion: string
 ) => {
-  if (quickstart && integration === 'hardhat') {
-    throw new Error('Quickstart is not supported for Hardhat projects.')
-  }
-
   // Create the Sphinx config folder if it doesn't exist
   if (!fs.existsSync(scriptDirPath)) {
     fs.mkdirSync(scriptDirPath)
@@ -68,30 +74,23 @@ export const writeSampleProjectFiles = (
   }
 
   // Lastly, we'll create the sample test file.
+  if (quickstart) {
+    fs.writeFileSync('foundry.toml', forgeConfig)
+    fs.writeFileSync('.env', sampleDotEnvFile)
+  }
 
-  if (integration === 'hardhat') {
-    throw Error('hardhat not supported')
-  } else if (integration === 'foundry') {
-    if (quickstart) {
-      fs.writeFileSync('foundry.toml', forgeConfig)
-      fs.writeFileSync('.env', sampleDotEnvFile)
-    }
-
-    // Check if the sample test file exists.
-    const testFilePath = path.join(testDirPath, sampleTestFileName)
-    if (!fs.existsSync(testFilePath)) {
-      // Create the sample test file.
-      fs.writeFileSync(
-        testFilePath,
-        getSampleFoundryTestFile(
-          solcVersion,
-          testDirPath,
-          scriptDirPath,
-          quickstart
-        )
+  // Check if the sample test file exists.
+  const testFilePath = path.join(testDirPath, sampleTestFileName)
+  if (!fs.existsSync(testFilePath)) {
+    // Create the sample test file.
+    fs.writeFileSync(
+      testFilePath,
+      getSampleFoundryTestFile(
+        solcVersion,
+        testDirPath,
+        scriptDirPath,
+        quickstart
       )
-    }
-  } else {
-    throw new Error(`Unknown integration: ${integration}. Should never happen.`)
+    )
   }
 }

@@ -1,19 +1,24 @@
-# Quickstart with Foundry
+# Quickstart
 
-This guide will show you how to deploy and test a sample project with Sphinx's Foundry CLI plugin. Once you've finished this guide, the next guide will introduce you to the Sphinx DevOps platform, which extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
+script = 'script'
+test = 'test'
+ffi = true
+build_info = true
+extra_output = ['storageLayout', 'evm.gasEstimates']
+fs_permissions = [{ access = "read", path = "./"}]
+allow_paths = ["../.."]
+# We recommend setting the optimizer to 'false' for development because
+# this makes compilation happen ~5x faster. See here for more details:
+# https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage
+optimizer = false
+
+This guide will show you how to deploy and test a sample project with Sphinx.
 
 > Note: This guide is for setting up Sphinx in a fresh directory. To integrate Sphinx into an existing repository, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md).
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Update Foundry](#2-update-foundry)
-3. [Install Sphinx](#3-install-sphinx)
-4. [Initialize a project](#4-initialize-a-project)
-5. [Test the deployment](#5-test-the-deployment)
-6. [Deploy locally](#6-deploy-locally)
-7. [Broadcast deployment on Anvil](#7-broadcast-deployment-on-anvil)
-8. [Next steps](#8-next-steps)
+TODO(md-end)
 
 ## 1. Prerequisites
 
@@ -39,7 +44,7 @@ First, navigate to a fresh directory.
 mkdir hello_sphinx && cd hello_sphinx
 ```
 
-You can install Sphinx using Yarn or npm.
+Install Sphinx using either Yarn or npm.
 
 Yarn:
 ```
@@ -53,23 +58,14 @@ npm install --save-dev @sphinx-labs/plugins
 
 ## 4. Initialize a project
 
-Next, we'll create a sample project that deploys and tests two contracts. The project is defined in a Sphinx config file, which can be written in either TypeScript or JavaScript.
-
-To use a TypeScript Sphinx config file, run:
 ```
-npx sphinx init --ts --quickstart
-```
-
-To use a JavaScript Sphinx config file, run:
-```
-npx sphinx init --js --quickstart
+npx sphinx init --quickstart
 ```
 
 This command created a few files:
 - `src/HelloSphinx.sol`: A sample contract to deploy.
-- `sphinx/HelloSphinx.config.<ts/js>`: The Sphinx config file, which is where the deployment is defined. This config file will deploy two instances of the `HelloSphinx` contract.
 - `test/HelloSphinx.t.sol`: A test file for the deployment.
-- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx. It also contains public RPC endpoints for several of the networks that Sphinx supports.
+- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx. TODO(md): rm?: It also contains public RPC endpoints for several of the networks that Sphinx supports.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
 ## 5. Test the deployment
@@ -85,19 +81,9 @@ forge test
 With the Sphinx CLI tool, you deploy contracts using a CLI command instead of directly invoking a Forge script.
 The CLI command is a thin wrapper over a basic Forge script. When deploying on a standalone network, the deploy command  displays a preview of the deployment and generates deployment artifacts afterwards.
 
-If your Sphinx config file is written in TypeScript:
-
-```
-npx sphinx deploy --config sphinx/HelloSphinx.config.ts
-```
-
-If your Sphinx config file is written in JavaScript:
-
-```
-npx sphinx deploy --config sphinx/HelloSphinx.config.js
-```
-
 ## 7. Broadcast deployment on Anvil
+
+TODO(md): show both ways (`forge script` and `sphinx deploy`)
 
 Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which
 are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).

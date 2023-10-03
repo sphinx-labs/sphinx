@@ -16,6 +16,7 @@ import {
   Provider,
   JsonRpcSigner,
   ConstructorFragment,
+  Result,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -1655,17 +1656,16 @@ export const makeParsedConfig = (
       const create3Salt = getCreate3Salt(referenceName, action.userSalt)
       const create3Address = getCreate3Address(managerAddress, create3Salt)
 
-      // TODO(optional): currently, structs in the diff will look like this: [val1, val2], instead
-      // of { k1: val1, key2: val2}. you'd need to write a helper function that takes an ethers
-      // Interface and the encoded values, then returns the ParsedConfigVariable(s) object.
-
       // TODO(test): if the contract doesn't have a constructor, variables should be {}.
       // TODO(test): if the contract has a constructor with no args, variables should be {}.
       const constructorFragment = iface.fragments.find(
         ConstructorFragment.isFragment
       )
       const decodedConstructorArgs = constructorFragment
-        ? coder.decode(constructorFragment.inputs, action.constructorArgs)
+        ? // Decode the constructor args then convert from an Ethers `Result` into a plain object.
+          recursivelyConvertResult(
+            coder.decode(constructorFragment.inputs, action.constructorArgs)
+          )
         : {}
 
       const decodedAction: DecodedAction = {
@@ -1675,12 +1675,14 @@ export const makeParsedConfig = (
       }
       extendedActions.push({ create3Address, decodedAction, ...action })
     } else {
-      // TODO(optional): convert decodedFunctionParams into a ParsedConfigVariables object (see TODO
-      // above).
-      const decodedFunctionParams = iface.decodeFunctionData(
+      const functionParamsResult = iface.decodeFunctionData(
         action.selector,
         ethers.concat([action.selector, action.functionParams])
       )
+
+      // Convert the Ethers `Result` into a plain object.
+      const decodedFunctionParams =
+        recursivelyConvertResult(functionParamsResult)
 
       const functionName = iface.getFunctionName(action.selector)
 
@@ -1709,6 +1711,9 @@ export const elementsEqual = (ary: Array<ParsedConfigVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
 
+// TODO: make ethers = v6.7.0 in all packages b/c this recursivelyConvertResult function
+// is just asking to break
+
 export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
   parsedConfig.actionInputs
@@ -1723,4 +1728,59 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   if (Object.keys(deployments).length > 0) {
     console.table(deployments)
   }
+}
+
+// TODO(docs): Explain why you use a nested function. (it's so that an empty top-level result will return {}, and an empty element will return []. this makes this function compatible with the Result into a ParsedConfigVariables object.)
+
+// TODO(ryan): Can you document why we can't invoke ethers' `toObject()` method instead of using
+// this function?
+/**
+ * This function recursively converts a Result object to a plain object.
+ *
+ * AbiCoder.defaultAbiCoder() returns a Result object, which is a strict superset of the underlying type.
+ * In cases where we need to JSON serialize the result, we need to convert it to a plain object first or
+ * the object will not be converted in the expected format.
+ */
+// TODO(docs): document this function. also include that this is the sole reason that the ethers version = 6.7.0 for now, since i'm afraid that there'll be a patch that breaks this function.
+// TODO: tell ryan you updated this fn.
+export const recursivelyConvertResult = (r: Result): ParsedConfigVariables => {
+  const recursivelyConvertResultElement = (
+    e: Result | ParsedConfigVariable
+  ): ParsedConfigVariable => {
+    if (!(e instanceof Result)) {
+      return e
+    }
+
+    let isArray: boolean
+    try {
+      const obj = e.toObject()
+      isArray = !!obj._
+    } catch {
+      isArray = true
+    }
+
+    if (isArray) {
+      return e.map(recursivelyConvertResultElement)
+    } else {
+      const elemObj = e.toObject()
+
+      if (Object.keys(elemObj).length === 0) {
+        return []
+      }
+
+      const parsedElements: ParsedConfigVariable = {}
+      for (const [key, value] of Object.entries(elemObj)) {
+        parsedElements[key] = recursivelyConvertResultElement(value)
+      }
+      return parsedElements
+    }
+  }
+
+  const objResult = r.toObject()
+  const parsed: ParsedConfigVariables = {}
+  for (const [key, value] of Object.entries(objResult)) {
+    parsed[key] = recursivelyConvertResultElement(value)
+  }
+
+  return parsed
 }

@@ -315,7 +315,7 @@ export const makeGetConfigArtifacts = (
 
 /**
  * Attempts to infer the default solc version given by `solc --version`. If this fails, it will
- * return the default solc version used by Foundry's "Getting Started" guide, which is 0.8.20.
+ * return the default solc version used by Foundry's "Getting Started" guide, which is 0.8.19.
  */
 export const inferSolcVersion = async (): Promise<string> => {
   // This is the default solc version used by Foundry's "Getting Started" guide.
