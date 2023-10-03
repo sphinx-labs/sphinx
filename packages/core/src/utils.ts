@@ -68,6 +68,7 @@ import {
   DeploymentState,
   IPFSCommitResponse,
   ProposalRequest,
+  SphinxTargetBundle,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
@@ -95,15 +96,16 @@ import {
 } from './networks'
 
 export const getDeploymentId = (
-  bundles: SphinxBundles,
+  actionBundle: SphinxActionBundle,
+  targetBundle: SphinxTargetBundle,
   configUri: string
 ): string => {
-  const actionRoot = bundles.actionBundle.root
-  const targetRoot = bundles.targetBundle.root
-  const numTargets = bundles.targetBundle.targets.length
+  const actionRoot = actionBundle.root
+  const targetRoot = targetBundle.root
+  const numTargets = targetBundle.targets.length
 
-  const numTotalActions = bundles.actionBundle.actions.length
-  const numSetStorageActions = bundles.actionBundle.actions
+  const numTotalActions = actionBundle.actions.length
+  const numSetStorageActions = actionBundle.actions
     .map((action) => fromRawSphinxAction(action.action))
     .filter(isSetStorageAction).length
   const numInitialActions = numTotalActions - numSetStorageActions

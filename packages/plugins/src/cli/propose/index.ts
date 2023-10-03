@@ -6,7 +6,6 @@ import {
   AuthLeaf,
   DeploymentInfo,
   ConfigArtifacts,
-  ParsedConfig,
   ProjectDeployment,
   ProposalRequest,
   ProposalRequestLeaf,
@@ -22,7 +21,6 @@ import {
   getProjectDeploymentForChain,
   hyperlink,
   makeAuthBundle,
-  makeParsedConfig,
   relayIPFSCommit,
   relayProposal,
   signAuthRootMetaTxn,
@@ -84,20 +82,13 @@ export const propose = async (
       `${sphinxArtifactDir}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
 
-  const { artifactFolder, buildInfoFolder, cachePath } =
-    await getFoundryConfigOptions()
-  const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    artifactFolder,
-    buildInfoFolder,
-    cachePath
-  )
+  const { cachePath } = await getFoundryConfigOptions()
+  const bundleInfoPath = join(cachePath, 'sphinx-bundle-info.txt')
 
   // Delete the deployment info if one already exists. This isn't strictly necessary, but it ensures
   // that we don't accidentally display an outdated preview to the user.
-  if (existsSync(deploymentInfoPath)) {
-    unlinkSync(deploymentInfoPath)
+  if (existsSync(bundleInfoPath)) {
+    unlinkSync(bundleInfoPath)
   }
 
   const forgeScriptArgs = [
@@ -106,7 +97,7 @@ export const propose = async (
     '--sig',
     "'sphinxProposeTask(bool,string)'",
     isTestnet,
-    deploymentInfoPath,
+    bundleInfoPath,
   ]
   if (targetContract) {
     forgeScriptArgs.push('--target-contract', targetContract)
@@ -126,29 +117,29 @@ export const propose = async (
   spinner.succeed(`Finished simulation.`)
   spinner.start(`Parsing simulation results...`)
 
-  const abiEncodedDeploymentInfoArray: string = readFileSync(
-    deploymentInfoPath,
-    'utf8'
-  )
+  // TODO: you need to include the leafFunctionName in the solidity bundledauthleaf
 
-  const deploymentInfoArray = decodeDeploymentInfoArray(
-    abiEncodedDeploymentInfoArray,
+  const abiEncodedBundleInfo = readFileSync(bundleInfoPath, 'utf8')
+  // TODO:
+  // type BundleInfo {
+  //   string authRoot;
+  //   chains: BundleInfoOnChain {
+  //     string networkName;
+  //     string configUri;
+  //     BundledAuthLeaf[] authLeafs;
+  //     SphinxActionBundle actionBundle;
+  //     SphinxTargetBundle targetBundle;
+  //     HumanReadableAction[] humanReadableActions;
+  //     CompilerConfig compilerConfig
+  //   }
+  // }
+
+  const bundleInfo = decodeBundleInfo(
+    abiEncodedBundleInfo,
     SphinxPluginTypesABI
   )
 
-  const parsedConfigsWithArtifacts: Array<{
-    parsedConfig: ParsedConfig
-    configArtifacts: ConfigArtifacts
-  }> = []
-  for (const deploymentInfo of deploymentInfoArray) {
-    const configArtifacts = await getConfigArtifacts(
-      deploymentInfo.actionInputs
-    )
-    const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
-    parsedConfigsWithArtifacts.push({ parsedConfig, configArtifacts })
-  }
-
-  const diff = getDiff(parsedConfigsWithArtifacts.map((e) => e.parsedConfig))
+  const diff = getDiff(bundleInfo.chains.map((c) => c.compilerConfig))
   if (confirm) {
     spinner.succeed(`Parsed simulation results.`)
   } else {
@@ -159,11 +150,11 @@ export const propose = async (
 
   spinner.start(`Running proposal...`)
 
-  const shouldBeEqual = parsedConfigsWithArtifacts.map(({ parsedConfig }) => {
+  const shouldBeEqual = bundleInfo.chains.map(({ compilerConfig }) => {
     return {
-      newConfig: parsedConfig.newConfig,
-      authAddress: parsedConfig.authAddress,
-      managerAddress: parsedConfig.managerAddress,
+      newConfig: compilerConfig.newConfig,
+      authAddress: compilerConfig.authAddress,
+      managerAddress: compilerConfig.managerAddress,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -172,51 +163,43 @@ export const propose = async (
         `Please use the same config on all chains.`
     )
   }
-  // Since we know that the following fields are the same for each `parsedConfig`, we get their
+  // Since we know that the following fields are the same for each `compilerConfig`, we get their
   // values here.
   const { newConfig, authAddress, managerAddress } =
-    parsedConfigsWithArtifacts[0].parsedConfig
+    bundleInfo.chains[0].compilerConfig
 
   const wallet = new ethers.Wallet(proposerPrivateKey)
   const signerAddress = await wallet.getAddress()
 
-  const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployment> = []
   const compilerConfigs: {
     [ipfsHash: string]: string
   } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const { parsedConfig, configArtifacts } of parsedConfigsWithArtifacts) {
-    const leafsForChain = await getAuthLeafsForChain(
-      parsedConfig,
-      configArtifacts
-    )
-    leafs.push(...leafsForChain)
-
-    const { compilerConfig, configUri, bundles } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts
-    )
+  for (const bundleInfoOnChain of bundleInfo.chains) {
+    const { authLeafs, configUri, compilerConfig, actionBundle, targetBundle } =
+      bundleInfoOnChain
 
     let estimatedGas = 0
-    estimatedGas += bundles.actionBundle.actions
+    estimatedGas += actionBundle.actions
       .map((a) => a.gas)
       .reduce((a, b) => a + b, 0)
-    estimatedGas += bundles.targetBundle.targets.length * 200_000
+    estimatedGas += targetBundle.targets.length * 200_000
     // Add a constant amount of gas to account for the cost of executing each auth leaf. For
     // context, it costs ~350k gas to execute a Setup leaf that adds a single proposer and manager,
     // using a single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
-    estimatedGas += leafsForChain.length * 450_000
+    estimatedGas += authLeafs.length * 450_000
     gasEstimates.push({
       estimatedGas: estimatedGas.toString(),
-      chainId: Number(parsedConfig.chainId),
+      chainId: Number(compilerConfig.chainId),
     })
 
     const projectDeployment = getProjectDeploymentForChain(
-      leafs,
-      parsedConfig,
+      authLeafs,
+      compilerConfig,
       configUri,
-      bundles
+      actionBundle,
+      targetBundle
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
@@ -225,52 +208,37 @@ export const propose = async (
     compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
   }
 
-  if (leafs.length === 0) {
+  const emptyBundle = bundleInfo.chains.every((c) => c.authLeafs.length === 0)
+  if (emptyBundle.length === 0) {
     spinner.succeed(
-      `Skipping proposal because your Sphinx config file has not changed.`
+      `Skipping proposal because there is nothing to propose on any chain.`
     )
     return { proposalRequest: undefined, ipfsData: undefined }
   }
 
-  const chainIdToNumLeafs: { [chainId: number]: number } = {}
-  for (const leaf of leafs) {
-    const { chainId } = leaf
-    if (!chainIdToNumLeafs[Number(chainId)]) {
-      chainIdToNumLeafs[Number(chainId)] = 0
-    }
-    chainIdToNumLeafs[Number(chainId)] += 1
-  }
-  const chainStatus = Object.entries(chainIdToNumLeafs).map(
-    ([chainId, numLeaves]) => ({
-      chainId: parseInt(chainId, 10),
-      numLeaves,
-    })
-  )
-
-  const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+  const chainStatus = bundleInfo.chains.map((c) => ({
+    chainId: Number(c.compilerConfig.chainId),
+    numLeaves: c.authLeafs.length,
+  }))
 
   // Sign the meta-txn for the auth root, or leave it undefined if we're doing a dry run.
   const metaTxnSignature = dryRun
-    ? await signAuthRootMetaTxn(wallet, root)
+    ? await signAuthRootMetaTxn(wallet, bundleInfo.authRoot)
     : undefined
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
-  for (const { parsedConfig } of parsedConfigsWithArtifacts) {
-    const bundledLeafsForChain = bundledLeafs.filter(
-      (l) => l.leaf.chainId === parsedConfig.chainId
-    )
-    for (const { leaf, prettyLeaf, proof } of bundledLeafsForChain) {
-      const { chainId, index, to, functionName } = prettyLeaf
-      const { data } = leaf
+  for (const { compilerConfig, authLeafs } of bundleInfo.chains) {
+    for (const { leaf, leafFunctionName, proof } of authLeafs) {
+      const { data, chainId, index, to } = leaf
       const { owners, threshold } = newConfig
 
-      const proposers = parsedConfig.initialState.firstProposalOccurred
-        ? parsedConfig.initialState.proposers
+      const proposers = compilerConfig.initialState.firstProposalOccurred
+        ? compilerConfig.initialState.proposers
         : newConfig.proposers
 
       const { leafThreshold, roleType } = getAuthLeafSignerInfo(
         threshold,
-        functionName
+        leafFunctionName
       )
 
       let signerAddresses: string[]
@@ -295,7 +263,7 @@ export const propose = async (
         chainId: Number(chainId),
         index,
         to,
-        leafType: functionName,
+        leafType: leafFunctionName,
         data,
         siblings: proof,
         threshold: Number(leafThreshold),
@@ -310,8 +278,8 @@ export const propose = async (
     apiKey,
     orgId: newConfig.orgId,
     isTestnet,
-    chainIds: parsedConfigsWithArtifacts.map(({ parsedConfig }) =>
-      Number(parsedConfig.chainId)
+    chainIds: bundleInfo.chains.map(({ compilerConfig }) =>
+      Number(compilerConfig.chainId)
     ),
     deploymentName: newConfig.projectName,
     owners: newConfig.owners,
@@ -324,7 +292,7 @@ export const propose = async (
     gasEstimates,
     diff,
     tree: {
-      root,
+      root: bundleInfo.authRoot,
       chainStatus,
       leaves: proposalRequestLeafs,
     },

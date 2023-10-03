@@ -163,6 +163,7 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
+// TODO: rename second input var
     function sphinxProposeTask(bool _testnets, string memory _deploymentInfoPath) external {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
 

@@ -76,6 +76,7 @@ const abiEncodedDeploymentInfoArray = args[0]
     const { configUri, bundles, compilerConfig, humanReadableActions } =
       await getProjectBundleInfo(parsedConfig, configArtifacts)
 
+    // TODO: it appears we don't use the written compiler config anywhere, so rm this
     writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
 
     const ipfsHash = configUri.replace('ipfs://', '')

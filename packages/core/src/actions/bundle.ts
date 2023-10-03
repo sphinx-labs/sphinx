@@ -883,16 +883,15 @@ export const findBundledLeaf = (
 }
 
 export const getProjectDeploymentForChain = (
-  leafs: Array<AuthLeaf>,
+  leafsOnChain: Array<AuthLeaf>,
   parsedConfig: ParsedConfig,
   configUri: string,
-  bundles: SphinxBundles
+  actionBundle: SphinxActionBundle,
+  targetBundle: SphinxTargetBundle
 ): ProjectDeployment | undefined => {
   const { newConfig, initialState, chainId } = parsedConfig
 
-  const approvalLeafs = leafs
-    .filter(isApproveDeploymentAuthLeaf)
-    .filter((l) => l.chainId === chainId)
+  const approvalLeafs = leafsOnChain.filter(isApproveDeploymentAuthLeaf)
 
   if (approvalLeafs.length === 0) {
     return undefined
@@ -902,7 +901,7 @@ export const getProjectDeploymentForChain = (
     )
   }
 
-  const deploymentId = getDeploymentId(bundles, configUri)
+  const deploymentId = getDeploymentId(actionBundle, targetBundle, configUri)
 
   return {
     chainId: Number(chainId),
