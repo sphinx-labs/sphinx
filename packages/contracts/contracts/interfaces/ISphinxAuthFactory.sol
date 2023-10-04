@@ -18,4 +18,6 @@ interface ISphinxAuthFactory {
     function currentAuthImplementation() external returns (address);
 
     function setCurrentAuthImplementation(address) external;
+
+    function versions(uint256, uint256, uint256) external view returns (address);
 }
