@@ -185,7 +185,7 @@ describe('Utils', () => {
       expect(arraysEqual(['test'], ['test', 'test2'])).to.equal(false)
     })
 
-    it('returns true for two equal ParsedVariables', () => {
+    it('returns true for two equal ParsedVariable objects', () => {
       expect(
         arraysEqual(
           [
@@ -206,7 +206,7 @@ describe('Utils', () => {
       ).to.equal(true)
     })
 
-    it('returns false for two unequal ParsedVariables', () => {
+    it('returns false for two unequal ParsedVariable', () => {
       expect(
         arraysEqual(
           [
@@ -232,7 +232,7 @@ describe('Utils', () => {
   describe.only('recursivelyConvertResult', () => {
     const coder = ethers.AbiCoder.defaultAbiCoder()
 
-    it('TODO(docs)', () => {
+    it('Converts array', () => {
       const encoded = coder.encode(
         ['string', 'string'],
         ['myFirstStr', 'mySecondStr']
@@ -240,9 +240,84 @@ describe('Utils', () => {
 
       const result = coder.decode(['string', 'string'], encoded)
 
-      const parsed = recursivelyConvertResult(result)
+      const converted = recursivelyConvertResult(result)
 
-      console.log(parsed)
+      expect(converted).to.deep.equal(['myFirstStr', 'mySecondStr'])
+    })
+
+    it('Converts nested array', () => {
+      const encoded = coder.encode(
+        ['string', 'uint256[]'],
+        ['myFirstStr', [1, 2]]
+      )
+
+      // This converts any numbers to BigInt, so the converted result will contain BigInts too.
+      const result = coder.decode(['string', 'uint256[]'], encoded)
+
+      const converted = recursivelyConvertResult(result)
+
+      expect(converted).to.deep.equal(['myFirstStr', [1n, 2n]])
+    })
+
+    it('Converts empty object', () => {
+      const emptyResult = new ethers.Result([])
+
+      const converted = recursivelyConvertResult(emptyResult)
+
+      expect(converted).to.deep.equal([])
+    })
+
+    it('Converts object with unnamed fields', () => {
+      // TODO(docs)
+      const abi = [
+        {
+          inputs: [
+            {
+              internalType: 'string',
+              name: '',
+              type: 'string',
+            },
+            {
+              internalType: 'string',
+              name: '_name',
+              type: 'string',
+            },
+            {
+              internalType: 'uint256',
+              name: '_number',
+              type: 'uint256',
+            },
+            {
+              internalType: 'string',
+              name: '',
+              type: 'string',
+            },
+          ],
+          name: 'myFunction',
+          outputs: [],
+          stateMutability: 'nonpayable',
+          type: 'function',
+        },
+      ]
+      const iface = new ethers.Interface(abi)
+
+      const encoded = iface.encodeFunctionData('myFunction', [
+        'myFirstStr',
+        'myName',
+        1,
+        'mySecondStr',
+      ])
+
+      const decoded = iface.decodeFunctionData('myFunction', encoded)
+
+      const converted = recursivelyConvertResult(decoded)
+
+      expect(converted).to.deep.equal([
+        'myFirstStr',
+        'myName',
+        1n,
+        'mySecondStr',
+      ])
     })
   })
 })

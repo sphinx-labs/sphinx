@@ -164,7 +164,8 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external {
+    // TODO(docs): explain the return value
+    function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external returns (bytes32, uint256[] memory) {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
 
         require(
@@ -268,6 +269,8 @@ abstract contract Sphinx {
         }
 
         vm.writeFile(_proposalOutputPath, vm.toString(abi.encode(ProposalOutput({authRoot: authRoot, bundleInfoArray:  bundleInfoArray, metaTxnSignature: metaTxnSignature, proposerAddress: proposer}))));
+
+        return (authRoot, forkIds);
     }
 
     // TODO(test): check for the expected number of broadcasted transactions in `sphinx deploy`.

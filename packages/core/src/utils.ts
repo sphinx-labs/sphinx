@@ -45,7 +45,6 @@ import {
   UserContractKind,
   userContractKinds,
   ContractKind,
-  ParsedVariables,
   ParsedVariable,
   ConfigArtifacts,
   UserConstructorArgOverride,
@@ -64,7 +63,6 @@ import {
 import {
   SphinxActionBundle,
   SphinxActionType,
-  SphinxBundles,
   DeploymentState,
   IPFSCommitResponse,
   ProposalRequest,
@@ -638,7 +636,7 @@ export const isEqualType = (
  * which can be used by ethers.js and Etherscan.
  */
 export const getFunctionArgValueArray = (
-  args: ParsedVariables,
+  args: ParsedVariable,
   fragment?: Fragment
 ): Array<ParsedVariable> => {
   const argValues: Array<ParsedVariable> = []
@@ -652,24 +650,6 @@ export const getFunctionArgValueArray = (
   })
 
   return argValues
-}
-
-export const getCreationCodeWithConstructorArgs = (
-  bytecode: string,
-  constructorArgs: ParsedVariables,
-  abi: ContractArtifact['abi']
-): string => {
-  const iface = new ethers.Interface(abi)
-  const constructorArgValues = getFunctionArgValueArray(
-    constructorArgs,
-    iface.fragments.find(ConstructorFragment.isFragment)
-  )
-
-  const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(iface.encodeDeploy(constructorArgValues))
-  )
-
-  return creationCodeWithConstructorArgs
 }
 
 /**
@@ -1078,29 +1058,6 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
 }
 
 /**
- * Returns the address of a proxy's implementation contract that would be deployed by Sphinx via
- * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
- * includes constructor arguments. This essentially mimics the behavior of Create2 in the sense that
- * the implementation's address has a one-to-one mapping with its init code. This makes it easy to
- * detect if an implementation contract with the exact same bytecode is already deployed, which
- * allows us to skip deploying unnecessary implementations.
- */
-export const getImplAddress = (
-  managerAddress: string,
-  bytecode: string,
-  constructorArgs: ParsedVariables,
-  abi: ContractArtifact['abi']
-): string => {
-  const implInitCode = getCreationCodeWithConstructorArgs(
-    bytecode,
-    constructorArgs,
-    abi
-  )
-  const implSalt = ethers.keccak256(implInitCode)
-  return getCreate3Address(managerAddress, implSalt)
-}
-
-/**
  * @notice Stderr and stdout can be retrieved from the `stderr` and `stdout` properties of the
  * returned object. Error can be caught by wrapping the function in a try/catch block.
  */
@@ -1503,7 +1460,7 @@ export const isUserFunctionArgOverrideArray = (
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
   functionName: string,
-  variables: ParsedVariables | Array<UserConfigVariable>,
+  variables: ParsedVariable | Array<UserConfigVariable>,
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
@@ -1663,9 +1620,9 @@ export const makeParsedConfig = (
       )
       const decodedConstructorArgs = constructorFragment
         ? // Decode the constructor args then convert from an Ethers `Result` into a plain object.
-          recursivelyConvertResult(
+          (recursivelyConvertResult(
             coder.decode(constructorFragment.inputs, action.constructorArgs)
-          )
+          ) as ParsedVariable)
         : {}
 
       const decodedAction: DecodedAction = {
@@ -1681,8 +1638,9 @@ export const makeParsedConfig = (
       )
 
       // Convert the Ethers `Result` into a plain object.
-      const decodedFunctionParams =
-        recursivelyConvertResult(functionParamsResult)
+      const decodedFunctionParams = recursivelyConvertResult(
+        functionParamsResult
+      ) as ParsedVariable
 
       const functionName = iface.getFunctionName(action.selector)
 
@@ -1727,12 +1685,14 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO(test): if ryan adds support for unnamed function args and constructor args in the type
-// generation logic, we should add support for this as well. the two areas that come to mind are
-// `recursivelyConvertResult`, and the diff. if he doesn't, we should document the fact that they
-// only work when the top-level parameters are named.
+// TODO(test): enter an unnamed function into the diff
 
-// TODO(docs): Explain why you use a nested function. (it's so that an empty top-level result will return {}, and an empty element will return []. this makes this function compatible with the Result into a ParsedVariables object.)
+// TODO(docs): redo natspec. say that if the `Result` can be converted into an object, it will be.
+// Otherwise, it'll be converted into an array. It's worth mentioning that if any of the fields in
+// the `Result` are unnamed, then the returned value will be an array. For example, if the `Result`
+// represents function arguments, one of which is an unnamed variable, then the returned value will
+// be an array. If none of the function arguments are unnamed, then this'll return an object, not an
+// array.
 /**
  * @notice This function recursively converts a Result object to a plain object. In particular, it
  * converts the `Result` object returned by EthersJS' ABI-decoding function. We must convert this to
@@ -1741,7 +1701,7 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
  *
  * The top-level function returns an empty object if the `Result` is empty. This ensures correct
  * behavior for things like function calls that don't have any parameters. This also ensures that
- * the returned `ParsedVariables` type is correct, since it's an object, not an array. On the other
+ * the returned `ParsedVariable` type is correct, since it's an object, not an array. On the other
  * hand, in the nested function, `recursivelyConvertResultElement`, we return empty `Result` objects
  * into empty arrays instead of empty objects. TODO(docs)
  *
@@ -1750,44 +1710,44 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
  * to 6.7.0. We do this because `Result` objects are not part of Ethers' user-facing library, so it
  * wouldn't be surprising if there's a patch update that breaks this function.
  */
-export const recursivelyConvertResult = (r: Result): ParsedVariables => {
-  const recursivelyConvertResultElement = (
-    e: Result | ParsedVariable
-  ): ParsedVariable => {
-    if (!(e instanceof Result)) {
-      return e
-    }
+export const recursivelyConvertResult = (r: Result | unknown): unknown => {
+  if (!(r instanceof Result)) {
+    return r
+  }
 
-    let isArray: boolean
-    try {
-      const obj = e.toObject()
-      isArray = !!obj._
-    } catch {
-      isArray = true
-    }
+  let isArray: boolean
+  try {
+    const obj = r.toObject()
+    isArray = !!obj._
+  } catch {
+    isArray = true
+  }
 
-    if (isArray) {
-      return e.map(recursivelyConvertResultElement)
+  if (isArray) {
+    if (r.length === 0) {
+      return []
+    } else if (
+      // This is another case where the Result is empty. If we don't do this, the returned value
+      // will be an empty nested array, i.e. `[[]]`, when in fact it should just be an empty array.
+      r.length === 1 &&
+      Array.isArray(r[0]) &&
+      r[0].length === 0
+    ) {
+      return []
     } else {
-      const elemObj = e.toObject()
-
-      if (Object.keys(elemObj).length === 0) {
-        return []
-      }
-
-      const parsedElements: ParsedVariable = {}
-      for (const [key, value] of Object.entries(elemObj)) {
-        parsedElements[key] = recursivelyConvertResultElement(value)
-      }
-      return parsedElements
+      return r.map(recursivelyConvertResult)
     }
-  }
+  } else {
+    const elemObj = r.toObject()
 
-  const objResult = r.toObject()
-  const parsed: ParsedVariables = {}
-  for (const [key, value] of Object.entries(objResult)) {
-    parsed[key] = recursivelyConvertResultElement(value)
-  }
+    if (Object.keys(elemObj).length === 0) {
+      return []
+    }
 
-  return parsed
+    const converted = {}
+    for (const [key, value] of Object.entries(elemObj)) {
+      converted[key] = recursivelyConvertResult(value)
+    }
+    return converted
+  }
 }

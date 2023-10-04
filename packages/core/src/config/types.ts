@@ -17,13 +17,6 @@ import {
   SupportedNetworkName,
 } from '../networks'
 import { SemVer } from '../types'
-import {
-  BundledAuthLeaf,
-  HumanReadableAction,
-  SphinxActionBundle,
-  SphinxActionType,
-  SphinxTargetBundle,
-} from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -228,7 +221,7 @@ export interface ExtendedFunctionCallActionInput<N = string | bigint>
 export type DecodedAction = {
   referenceName: string
   functionName: string
-  variables: ParsedVariables
+  variables: ParsedVariable
 }
 
 export interface FunctionCallActionInput<N = string | bigint> {
@@ -247,10 +240,6 @@ export type RawSphinxActionInput = {
   actionType: bigint
   skip: boolean
   data: string
-}
-
-export type ParsedVariables = {
-  [name: string]: ParsedVariable
 }
 
 /**
