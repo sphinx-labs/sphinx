@@ -1,4 +1,4 @@
-import { SphinxDiff } from '../diff'
+import { SphinxPreview } from '../preview'
 
 /**
  * Possible action types.
@@ -362,7 +362,7 @@ export type ProposalRequest = {
   canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
-  diff: SphinxDiff
+  preview: SphinxPreview
   tree: {
     root: string
     chainStatus: Array<{

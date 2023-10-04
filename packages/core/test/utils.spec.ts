@@ -1,51 +1,9 @@
 import { expect } from 'chai'
 import { ethers } from 'ethers'
 
-import {
-  arraysEqual,
-  equal,
-  isUserFunctionOptions,
-  recursivelyConvertResult,
-} from '../src/utils'
+import { arraysEqual, equal, recursivelyConvertResult } from '../src/utils'
 
 describe('Utils', () => {
-  describe('isUserFunctionOptions', () => {
-    it('returns false for undefined arg', () => {
-      expect(isUserFunctionOptions(undefined)).to.equal(false)
-    })
-
-    it('returns false for boolean', () => {
-      expect(isUserFunctionOptions(false)).to.equal(false)
-      expect(isUserFunctionOptions(true)).to.equal(false)
-    })
-
-    it('returns false for number', () => {
-      expect(isUserFunctionOptions(1)).to.equal(false)
-      expect(isUserFunctionOptions(0)).to.equal(false)
-    })
-
-    it('returns false for string', () => {
-      expect(isUserFunctionOptions('')).to.equal(false)
-      expect(isUserFunctionOptions('test')).to.equal(false)
-    })
-
-    it('returns false for object that contains invalid overrides field', () => {
-      expect(
-        isUserFunctionOptions({
-          overrides: [{ incorrectField: 1, chains: ['goerli'] }],
-        })
-      ).to.equal(false)
-    })
-
-    it('returns true for valid UserFunctionOptions', () => {
-      expect(
-        isUserFunctionOptions({
-          overrides: [{ args: {}, chains: ['goerli'] }],
-        })
-      ).to.equal(true)
-    })
-  })
-
   describe('equal', () => {
     it('returns true for two empty objects', () => {
       expect(equal({}, {})).to.equal(true)
@@ -228,8 +186,7 @@ describe('Utils', () => {
     })
   })
 
-  // TODO: .only
-  describe.only('recursivelyConvertResult', () => {
+  describe('recursivelyConvertResult', () => {
     const coder = ethers.AbiCoder.defaultAbiCoder()
 
     it('Converts array', () => {
@@ -259,7 +216,7 @@ describe('Utils', () => {
       expect(converted).to.deep.equal(['myFirstStr', [1n, 2n]])
     })
 
-    it('Converts empty object', () => {
+    it('Converts empty array', () => {
       const emptyResult = new ethers.Result([])
 
       const converted = recursivelyConvertResult(emptyResult)
@@ -267,7 +224,7 @@ describe('Utils', () => {
       expect(converted).to.deep.equal([])
     })
 
-    it('Converts object with unnamed fields', () => {
+    it('Converts Result with unnamed fields into array', () => {
       // TODO(docs)
       const abi = [
         {
@@ -318,6 +275,60 @@ describe('Utils', () => {
         1n,
         'mySecondStr',
       ])
+    })
+
+    it('Converts Result with named fields into object', () => {
+      // TODO(docs)
+      const abi = [
+        {
+          inputs: [
+            {
+              internalType: 'string',
+              name: '_firstStr',
+              type: 'string',
+            },
+            {
+              internalType: 'string',
+              name: '_secondStr',
+              type: 'string',
+            },
+            {
+              internalType: 'uint256',
+              name: '_number',
+              type: 'uint256',
+            },
+            {
+              internalType: 'string',
+              name: '_thirdStr',
+              type: 'string',
+            },
+          ],
+          name: 'myFunction',
+          outputs: [],
+          stateMutability: 'nonpayable',
+          type: 'function',
+        },
+      ]
+
+      const iface = new ethers.Interface(abi)
+
+      const encoded = iface.encodeFunctionData('myFunction', [
+        'myFirstStr',
+        'mySecondStr',
+        1,
+        'myThirdStr',
+      ])
+
+      const decoded = iface.decodeFunctionData('myFunction', encoded)
+
+      const converted = recursivelyConvertResult(decoded)
+
+      expect(converted).to.deep.equal({
+        _firstStr: 'myFirstStr',
+        _secondStr: 'mySecondStr',
+        _number: 1n,
+        _thirdStr: 'myThirdStr',
+      })
     })
   })
 })

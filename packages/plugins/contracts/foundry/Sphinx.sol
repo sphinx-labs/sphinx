@@ -164,6 +164,7 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
+    // TODO(docs)
     function setupPropose() internal virtual {}
 
     function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external returns (bytes32, uint256[] memory) {

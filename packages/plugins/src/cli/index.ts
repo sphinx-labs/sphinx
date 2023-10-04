@@ -17,8 +17,8 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import {
-  getDiff,
-  getDiffString,
+  getPreview,
+  getPreviewString,
   userConfirmation,
   DeploymentInfo,
   SphinxActionType,
@@ -304,11 +304,11 @@ yargs(hideBin(process.argv))
           previewConfigArtifacts
         )
 
-        const diff = getDiff([previewParsedConfig])
-        const diffString = getDiffString(diff)
+        const preview = getPreview([previewParsedConfig])
+        const previewString = getPreviewString(preview)
 
         spinner.stop()
-        await userConfirmation(diffString)
+        await userConfirmation(previewString)
       }
 
       // Delete the deployment info if one already exists. This isn't strictly necessary, but it

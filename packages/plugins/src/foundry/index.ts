@@ -37,10 +37,17 @@ const command = args[0]
     case 'deployOnAnvil': {
       const rpcUrl = args[1]
       const provider = new SphinxJsonRpcProvider(rpcUrl)
-      const wallet = new ethers.Wallet(
-        '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
-        provider
+
+      // TODO(docs): hardhat works on anvil. also, we generate this address to ensure that this deployer's
+      // nonce doesn't...
+      const deployerPrivateKey = ethers.toBeHex(
+        BigInt(ethers.keccak256(ethers.toUtf8Bytes('sphinx.deployer'))) - 1n
       )
+      const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+      await provider.send('hardhat_setBalance', [
+        wallet.address,
+        ethers.toBeHex(ethers.parseEther('100')),
+      ])
 
       await ensureSphinxInitialized(provider, wallet, [], [], [])
 

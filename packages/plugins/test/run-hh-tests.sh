@@ -13,7 +13,7 @@ anvil --silent --chain-id 420 --port 42420 &
 anvil --silent --chain-id 10200 --port 42200 &
 anvil --silent --chain-id 421613 --port 42613 &
 anvil --silent --chain-id 84531 --port 42531 &
-forge test --match-contract 'Proposal_Test' -vvv # TODO: make more generic
+forge test --match-path test/foundry/Proposal.t.sol -vvvvv # TODO: make more generic
 yarn test:kill
 
 # TODO

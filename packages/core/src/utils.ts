@@ -286,47 +286,6 @@ export const formatEther = (amount: bigint, decimals: number): string => {
   return parseFloat(ethers.formatEther(amount)).toFixed(decimals)
 }
 
-export const readCompilerConfig = async (
-  compilerConfigFolderPath: string,
-  configUri: string
-): Promise<CompilerConfig | undefined> => {
-  const ipfsHash = configUri.replace('ipfs://', '')
-
-  // Check that the file containing the canonical config exists.
-  const configFilePath = path.join(compilerConfigFolderPath, `${ipfsHash}.json`)
-  if (!fs.existsSync(configFilePath)) {
-    return undefined
-  }
-
-  return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
-}
-
-export const writeCompilerConfig = (
-  compilerConfigDirPath: string,
-  configUri: string,
-  compilerConfig: CompilerConfig
-) => {
-  const ipfsHash = configUri.replace('ipfs://', '')
-
-  // Create the compiler config network folder if it doesn't already exist.
-  if (!fs.existsSync(compilerConfigDirPath)) {
-    fs.mkdirSync(compilerConfigDirPath, { recursive: true })
-  }
-
-  // Write the compiler config to the local file system. It will exist in a JSON file that has the
-  // config URI as its name.
-  const compilerConfigFilePath = path.join(
-    compilerConfigDirPath,
-    `${ipfsHash}.json`
-  )
-  if (!fs.existsSync(compilerConfigFilePath)) {
-    fs.writeFileSync(
-      path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-      JSON.stringify(compilerConfig, null, 2)
-    )
-  }
-}
-
 export const getEIP1967ProxyImplementationAddress = async (
   provider: Provider,
   proxyAddress: string
@@ -806,33 +765,6 @@ export const getPreviousConfigUri = async (
   return deploymentState.configUri
 }
 
-export const fetchAndCacheCompilerConfig = async (
-  configUri: string,
-  compilerConfigFolderPath: string
-): Promise<CompilerConfig> => {
-  const localCompilerConfig = await readCompilerConfig(
-    compilerConfigFolderPath,
-    configUri
-  )
-  if (localCompilerConfig) {
-    return localCompilerConfig
-  } else {
-    const remoteCompilerConfig = await callWithTimeout<CompilerConfig>(
-      sphinxFetchSubtask({ configUri }),
-      30000,
-      'Failed to fetch config file from IPFS'
-    )
-
-    // Cache the canonical config by saving it to the local filesystem.
-    writeCompilerConfig(
-      compilerConfigFolderPath,
-      configUri,
-      remoteCompilerConfig
-    )
-    return remoteCompilerConfig
-  }
-}
-
 export const getConfigArtifactsRemote = async (
   compilerConfig: CompilerConfig
 ): Promise<ConfigArtifacts> => {
@@ -1252,7 +1184,7 @@ export const getNetworkDirName = (
 }
 
 /**
- * @notice Returns a string that describes a network, which is used in the diff. A network tag can
+ * @notice Returns a string that describes a network, which is used in the preview. A network tag can
  * take three forms (in order of precedence):
  *
  * 1. `networkName` if the network is a live network. For example, 'ethereum'.
@@ -1419,32 +1351,6 @@ export const isSupportedNetworkName = (
 ): networkName is SupportedNetworkName => {
   const chainId = SUPPORTED_NETWORKS[networkName]
   return chainId !== undefined
-}
-
-export const isUserConstructorArgOverride = (
-  arg: UserArgOverride
-): arg is UserConstructorArgOverride => {
-  return (arg as UserConstructorArgOverride).constructorArgs !== undefined
-}
-
-export const isUserFunctionOptions = (
-  arg: UserConfigVariable | UserFunctionOptions | undefined
-): arg is UserFunctionOptions => {
-  return (
-    arg !== undefined &&
-    isUserFunctionArgOverrideArray((arg as UserFunctionOptions).overrides)
-  )
-}
-
-export const isUserFunctionArgOverrideArray = (
-  arg: Array<UserArgOverride> | UserConfigVariable | undefined
-): arg is Array<UserFunctionArgOverride> => {
-  return (
-    Array.isArray(arg) &&
-    arg.every((e) => {
-      return (e as UserFunctionArgOverride).args !== undefined
-    })
-  )
 }
 
 /**
@@ -1683,7 +1589,7 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO(test): enter an unnamed function into the diff
+// TODO(test): enter an unnamed function into the preview
 
 // TODO(docs): redo natspec. say that if the `Result` can be converted into an object, it will be.
 // Otherwise, it'll be converted into an array. It's worth mentioning that if any of the fields in

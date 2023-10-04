@@ -11,8 +11,8 @@ import {
   elementsEqual,
   execAsync,
   getAuthLeafSignerInfo,
-  getDiff,
-  getDiffString,
+  getPreview,
+  getPreviewString,
   getProjectBundleInfo,
   getProjectDeploymentForChain,
   hyperlink,
@@ -112,13 +112,13 @@ export const propose = async (
   const { proposerAddress, metaTxnSignature, bundleInfoArray, authRoot } =
     decodeProposalOutput(abiEncodedProposalOutput, SphinxPluginTypesABI)
 
-  const diff = getDiff(bundleInfoArray.map((b) => b.compilerConfig))
+  const preview = getPreview(bundleInfoArray.map((b) => b.compilerConfig))
   if (confirm) {
     spinner.succeed(`Parsed simulation results.`)
   } else {
-    const diffString = getDiffString(diff)
+    const previewString = getPreviewString(preview)
     spinner.stop()
-    await userConfirmation(diffString)
+    await userConfirmation(previewString)
   }
 
   spinner.start(`Running proposal...`)
@@ -256,7 +256,7 @@ export const propose = async (
     managerVersion: managerVersionString,
     projectDeployments,
     gasEstimates,
-    diff,
+    diff: preview,
     tree: {
       root: authRoot,
       chainStatus,

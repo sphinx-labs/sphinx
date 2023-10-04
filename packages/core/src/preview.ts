@@ -9,7 +9,7 @@ import {
   prettyFunctionCall,
 } from './utils'
 
-export type SphinxDiff = Array<{
+export type SphinxPreview = Array<{
   networkTags: Array<string>
   executing: Array<DecodedAction>
   skipping: Array<DecodedAction>
@@ -18,8 +18,8 @@ export type SphinxDiff = Array<{
 /**
  * @notice Returns a string that describes the changes that will be made to a set of contracts.
  */
-export const getDiffString = (diff: SphinxDiff): string => {
-  let diffString = ''
+export const getPreviewString = (preview: SphinxPreview): string => {
+  let previewString = ''
 
   const sphinxManagerLink = hyperlink(
     'here',
@@ -33,8 +33,8 @@ export const getDiffString = (diff: SphinxDiff): string => {
     `Already executed. See`
   )} ${blue(skippingLink)} ${yellow('for more info.')}`
 
-  for (const { networkTags, executing, skipping } of diff) {
-    // Get the diff string for the networks.
+  for (const { networkTags, executing, skipping } of preview) {
+    // Get the preview string for the networks.
     const networkTagsArray: Array<string> = []
     if (networkTags.length === 1) {
       networkTagsArray.push(`${bold(`Network:`)} ${networkTags[0]}`)
@@ -43,9 +43,9 @@ export const getDiffString = (diff: SphinxDiff): string => {
       const networks = networkTags.map((tag, i) => `${i + 1}. ${tag}`)
       networkTagsArray.push(...networks)
     }
-    diffString += `${networkTagsArray.join('\n')}\n`
+    previewString += `${networkTagsArray.join('\n')}\n`
 
-    // Get the diff string for the actions that will be executed.
+    // Get the preview string for the actions that will be executed.
     const executingArray: Array<string> = []
     if (executing.length === 0) {
       executingArray.push(green.underline.bold(`Nothing to execute.`))
@@ -77,9 +77,9 @@ export const getDiffString = (diff: SphinxDiff): string => {
         executingArray.push(executingStr)
       }
     }
-    diffString += `${executingArray.join('\n')}\n`
+    previewString += `${executingArray.join('\n')}\n`
 
-    // Get the diff string for the actions that will be skipped.
+    // Get the preview string for the actions that will be skipped.
     if (skipping.length > 0) {
       const skippingArray: Array<string> = []
       skippingArray.push(yellow.underline.bold(`Skipping:`))
@@ -99,16 +99,18 @@ export const getDiffString = (diff: SphinxDiff): string => {
         const skippingStr = yellow(`${i + 1}. ${functionCallStr}`)
         skippingArray.push(skippingStr)
       }
-      diffString += `${skippingArray.join('\n')}\n`
+      previewString += `${skippingArray.join('\n')}\n`
     }
 
-    diffString += '\n'
+    previewString += '\n'
   }
 
-  return diffString + `Confirm? [y/n]`
+  return previewString + `Confirm? [y/n]`
 }
 
-export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
+export const getPreview = (
+  parsedConfigs: Array<ParsedConfig>
+): SphinxPreview => {
   const networks: {
     [networkTag: string]: {
       executing: Array<DecodedAction>
@@ -151,11 +153,11 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
   }
 
   // Next, we group networks that have the same executing and skipping arrays.
-  const diff: SphinxDiff = []
+  const preview: SphinxPreview = []
   for (const [networkTag, { executing, skipping }] of Object.entries(
     networks
   )) {
-    const existingNetwork = diff.find(
+    const existingNetwork = preview.find(
       (e) =>
         arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
     )
@@ -163,7 +165,7 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
     if (existingNetwork) {
       existingNetwork.networkTags.push(networkTag)
     } else {
-      diff.push({
+      preview.push({
         networkTags: [networkTag],
         executing,
         skipping,
@@ -171,5 +173,5 @@ export const getDiff = (parsedConfigs: Array<ParsedConfig>): SphinxDiff => {
     }
   }
 
-  return diff
+  return preview
 }

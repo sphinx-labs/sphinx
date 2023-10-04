@@ -21,7 +21,7 @@ const args = process.argv.slice(2)
 const abiEncodedDeploymentInfoArray = args[0]
 
 ;(async () => {
-  const { compilerConfigFolder, cachePath, artifactFolder, buildInfoFolder } =
+  const { cachePath, artifactFolder, buildInfoFolder } =
     await getFoundryConfigOptions()
 
   const SphinxPluginTypesABI =
@@ -76,9 +76,6 @@ const abiEncodedDeploymentInfoArray = args[0]
     const { configUri, bundles, compilerConfig, humanReadableActions } =
       await getProjectBundleInfo(parsedConfig, configArtifacts)
 
-    // TODO: it appears we don't use the written compiler config anywhere, so rm this
-    writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
-
     const ipfsHash = configUri.replace('ipfs://', '')
     const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
     // Create the canonical config network folder if it doesn't already exist.
@@ -94,10 +91,11 @@ const abiEncodedDeploymentInfoArray = args[0]
     // config URI as its name.
     const configArtifactsPath = path.join(artifactCachePath, `${ipfsHash}.json`)
     if (!fs.existsSync(configArtifactsPath)) {
-      fs.writeFileSync(
-        configArtifactsPath,
-        JSON.stringify(configArtifacts, null, 2)
-      )
+      // TODO: undo. commented out for testing speed.
+      // fs.writeFileSync(
+      //   configArtifactsPath,
+      //   JSON.stringify(configArtifacts, null, 2)
+      // )
     }
 
     const actionsAbiEncoded = coder.encode(
