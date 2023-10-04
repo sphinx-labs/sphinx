@@ -126,6 +126,11 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
 }
 
 /**
+ * TODO: Reduce the memory footprint of this function by using a stream parser to read in the build
+ * info files and only actually store the parts of the build info files which are really necessary.
+ * This is important for making sure we do not run out of memory loading the build info files of large
+ * projects.
+ *
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
  * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
@@ -185,8 +190,9 @@ export const makeGetConfigArtifacts = (
       .sort((a, b) => b.time - a.time)
 
     // Read all of the new/modified files and update the cache to reflect the changes
-    // Keep an in memory cache of the read files so we don't have to read them again later
-    const localBuildInfoCache = {}
+    // We intentionally do not cache the files we read here because we do not know if they
+    // will be used or not and storing all of them can result in memory issues if there are
+    // a lot of large build info files which can happen in large projects.
     await Promise.all(
       buildInfoFileNamesWithTime
         .filter((file) => buildInfoCache[file.name]?.time !== file.time)
@@ -210,8 +216,6 @@ export const makeGetConfigArtifacts = (
             time: file.time,
             contracts: Object.keys(buildInfo.output.contracts),
           }
-
-          localBuildInfoCache[file.name] = buildInfo
         })
     )
     // Just make sure the files are sorted by time
@@ -222,7 +226,11 @@ export const makeGetConfigArtifacts = (
     // Look through the cache, read all the contract artifacts, and find all of the required build
     // info files names. We get the artifacts every action, even if it'll be skipped, because the
     // artifact is necessary when we're creating the preview, which includes skipped actions.
+    // We read in and store all of the required build info files here. This sometimes means we
+    // read files twice (above, and then again here) which is not ideal, but reduces the memory
+    // footprint of this function significantly in large projects.
     const toReadFiles: string[] = []
+    const localBuildInfoCache = {}
     const resolved = await Promise.all(
       actions.map(async ({ fullyQualifiedName }) => {
         const artifact = await getContractArtifact(
@@ -230,9 +238,9 @@ export const makeGetConfigArtifacts = (
           artifactFolder
         )
 
-        // Look through the cahce for the first build info file that contains the contract
+        // Look through the cache for the first build info file that contains the contract
         for (const file of sortedCachedFiles) {
-          if (file.contracts.includes(artifact.sourceName)) {
+          if (file.contracts?.includes(artifact.sourceName)) {
             const buildInfo =
               file.name in localBuildInfoCache
                 ? (localBuildInfoCache[file.name] as BuildInfo)

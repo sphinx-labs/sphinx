@@ -1074,8 +1074,6 @@ export const fetchSphinxManagedBaseUrl = () => {
 }
 
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
-  // TODO(ryan): I think this TODO has been around for a while: "return undefined if the request
-  // returns an empty object." is this necessary anymore?
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,

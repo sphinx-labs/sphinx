@@ -97,20 +97,32 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.startPrank(systemOwner);
 
         // Add initial manager version
-        if (!registry.managerImplementations(managerImplementationAddress)) {
+        Version memory managerVersion = ISemver(managerImplementationAddress).version();
+        if (
+            // We just check there is a manager version with the same number, we don't care if it's
+            // address is the same as the expected address b/c it may differ due to compiler settings
+            // when we deployed the actual contract on a live network
+            registry.versions(managerVersion.major, managerVersion.minor, managerVersion.patch) == address(0)
+        ) {
             registry.addVersion(managerImplementationAddress);
         }
 
-        // Set the default manager version
-        if (registry.currentManagerImplementation() != managerImplementationAddress) {
+        // Set the default manager version if not already set
+        if (registry.currentManagerImplementation() == address(0)) {
             registry.setCurrentManagerImplementation(managerImplementationAddress);
         }
 
-        if (!factory.authImplementations(authImplAddress)) {
+        // Add the current auth version if not already added
+        Version memory authVersion = ISemver(authImplAddress).version();
+        if (
+            // Like the manager, we just check there is an auth version with the same number
+            factory.versions(authVersion.major, authVersion.minor, authVersion.patch) == address(0)
+        ) {
             factory.addVersion(authImplAddress);
         }
 
-        if (factory.currentAuthImplementation() != authImplAddress) {
+        // Set the default auth version if not already set
+        if (factory.currentAuthImplementation() == address(0)) {
             factory.setCurrentAuthImplementation(authImplAddress);
         }
 

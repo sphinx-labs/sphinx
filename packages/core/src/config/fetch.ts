@@ -85,9 +85,12 @@ export const sphinxFetchSubtask = async (args: {
     throw new Error('unsupported URI type')
   }
 
-  // TODO(ryan): Can you document why we need to do this?
-  // TODO(ryan): I think the fetch subtask is only called by the remote executor. Do we need to call
-  // this anywher in the user-facing logic too?
+  // The compiler config is converted to JSON before being committed to IPFS. This causes an issue for bigints
+  // because JSON.stringify() converts bigints to strings, and then JSON.parse() converts them to numbers unless
+  // they exceed the maximum safe integer value. As a result, some of our logic which is valid for bigints fails
+  // when the values are converted to numbers. So we must convert the bigints back to strings here.
+  // We do not need to worry about this when working with the local compiler config because it is not converted to
+  // and from JSON.
   return parseCompilerConfigBigInts(config)
 }
 
