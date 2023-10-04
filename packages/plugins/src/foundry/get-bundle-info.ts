@@ -3,7 +3,6 @@ import fs from 'fs'
 
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import {
-  writeCompilerConfig,
   makeAuthBundle,
   getAuthLeafsForChain,
   DeploymentInfo,

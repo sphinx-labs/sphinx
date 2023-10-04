@@ -362,7 +362,7 @@ export type ProposalRequest = {
   canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
-  preview: SphinxPreview
+  diff: SphinxPreview
   tree: {
     root: string
     chainStatus: Array<{

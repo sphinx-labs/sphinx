@@ -2,6 +2,8 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
+import "forge-std/console.sol"; // TODO: rm
+
 import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 
@@ -67,12 +69,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initialize(string memory _rpcUrl) external {
+    function initializeFFI(string memory _rpcUrl) external {
         ffiDeployOnAnvil(_rpcUrl);
-        ensureSphinxInitialized();
+        initializeSphinxContracts();
     }
 
-    function ensureSphinxInitialized() public {
+    function initializeSphinxContracts() public {
         ISphinxRegistry registry = ISphinxRegistry(registryAddress);
         ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
@@ -121,6 +123,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             factory.addVersion(authImplAddress);
         }
 
+        // TODO: it looks like this differs from the TypeScript version of this logic.
         // Set the default auth version if not already set
         if (factory.currentAuthImplementation() == address(0)) {
             factory.setCurrentAuthImplementation(authImplAddress);
@@ -568,7 +571,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".configUri"))
             );
-            // TODO: str -> bytes
+            // TODO(docs)
             bytes memory compilerConfigBytes = vm.parseJsonBytes(
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".compilerConfigStr"))
@@ -879,7 +882,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
-    ) external pure returns (bool) {
+    ) private pure returns (bool) {
         for (uint i = 0; i < _ary.length; i++) {
             if (_ary[i] == _addr) {
                 return true;
@@ -1194,6 +1197,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ISphinxAuth _auth,
         ISphinxManager _manager
     ) external view returns (InitialChainState memory) {
+        console.log('auth', address(_auth));
         if (address(_auth).code.length == 0) {
             return
                 InitialChainState({
@@ -1325,5 +1329,36 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function ceilDiv(uint256 a, uint256 b) private pure returns (uint256) {
         // (a + b - 1) / b can overflow on addition, so we distribute.
         return a == 0 ? 0 : (a - 1) / b + 1;
+    }
+
+    function validateProposal(ISphinxAuth _auth, address _msgSender, Network _network, SphinxConfig memory _config) external view {
+            bool firstProposalOccurred = address(_auth).code.length > 0
+                ? _auth.firstProposalOccurred()
+                : false;
+
+            if (firstProposalOccurred) {
+                require(
+                    IAccessControl(address(_auth)).hasRole(keccak256("ProposerRole"), _msgSender),
+                    string(
+                        abi.encodePacked(
+                            "Sphinx: The address ",
+                            vm.toString(_msgSender),
+                            " is not currently a proposer on ",
+                            getNetworkInfo(_network).name,
+                            "."
+                        )
+                    )
+                );
+            } else {
+                require(
+                    arrayContainsAddress(_config.proposers, _msgSender),
+                    string(
+                        abi.encodePacked(
+                            "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
+                            vm.toString(_msgSender)
+                        )
+                    )
+                );
+            }
     }
 }

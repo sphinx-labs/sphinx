@@ -18,12 +18,12 @@ import {
 } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
 
 import { SphinxClient, SphinxConfig, Version } from "../../SphinxClient/SphinxClient.sol";
-import { Network, DeployOptions, SphinxMode } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, DeployOptions, SphinxMode, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1Client } from "../../SphinxClient/MyContracts.SphinxClient.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
-contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
+abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
     using stdStorage for StdStorage;
 
     MyContract1 myContract;
@@ -52,9 +52,7 @@ contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
     }
 
     function deploy(Network _network) public override virtual sphinx(_network) {
-        console.log('upper deploy');
         MyContract1Client myContractClient = deployMyContract1(1, 2, address(3), address(4));
-
         myContract = MyContract1(address(myContractClient));
     }
 
@@ -102,7 +100,9 @@ contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
             _proposalOutputPath: "./test-proposal-output.json"
         });
     }
+}
 
+contract FirstTODO_Thing is Proposal_Test {
     // TODO: rename all test functions in this file
     function test_1() public {
         IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(authAddress);
@@ -129,11 +129,11 @@ contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
             assertEq(auth.threshold(), 0);
             assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
 
-            // Check that the correct functions on the SphinxAuth contract were called.
-
             // Check that the Auth bundle was completed.
             assertTrue(auth.firstProposalOccurred());
             (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+            console.log('upper root');
+            console.logBytes32(authRoot);
             assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
             // Three leafs were executed: `setup`, `propose`, and `approveDeployment`
             assertEq(leafsExecuted, 3);
@@ -154,17 +154,39 @@ contract TODO_Thing is Proposal_Test {
     MyContract1 myNewContract;
 
     function deploy(Network _network) public override sphinx(_network) {
-        console.log('lower deploy');
         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
         myNewContract = MyContract1(address(myNewContractClient));
     }
 
-    function test_2() external {
-        // (authRoot, forkIds) = this.sphinxProposeTask({
-        //     _testnets: true,
-        //     _proposalOutputPath: "./test-proposal-output.json"
-        // });
+    // function test_2() external {
+    //     ISphinxAuth auth = ISphinxAuth(authAddress);
+    //     ISphinxManager manager = ISphinxManager(managerAddress);
 
-        assertTrue(true); // TODO
-    }
+    //     (authRoot, forkIds) = this.sphinxProposeTask({
+    //         _testnets: true,
+    //         _proposalOutputPath: "./test-proposal-output.json"
+    //     });
+
+    //     assertEq(forkIds.length, sphinxConfig.testnets.length);
+
+    //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
+    //         vm.selectFork(forkIds[idx]);
+
+    //         // Check that the Auth bundle was completed.
+    //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+    //         console.log('lower root');
+    //         console.logBytes32(authRoot);
+    //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
+    //         // Two leafs were executed: `propose` and `approveDeployment`
+    //         assertEq(leafsExecuted, 2);
+    //         assertEq(leafsExecuted, numLeafs);
+    //         assertFalse(manager.isExecuting());
+
+    //         // Check that the contract was deployed correctly.
+    //         assertEq(myNewContract.intArg(), 5);
+    //         assertEq(myNewContract.uintArg(), 6);
+    //         assertEq(myNewContract.addressArg(), address(7));
+    //         assertEq(myNewContract.otherAddressArg(), address(8));
+    //     }
+    // }
 }

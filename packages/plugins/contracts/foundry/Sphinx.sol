@@ -201,11 +201,6 @@ abstract contract Sphinx {
 
         sphinxMode = SphinxMode.Proposal;
 
-        // We must setup the auth and manager addresses here even though they are later set
-        // when the `sphinx` modifier is trigger on the deploy function. This is because we
-        // need these addresses to be set before we call `sphinxUtils.getInitialChainState`.
-        setupAuthAndManagerAddresses();
-
         DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
         uint256[] memory forkIds = new uint256[](networks.length);
         for (uint256 i = 0; i < networks.length; i++) {
@@ -218,42 +213,12 @@ abstract contract Sphinx {
             uint256 forkId = vm.createSelectFork(rpcUrl);
             forkIds[i] = forkId;
 
-            sphinxUtils.initialize(rpcUrl);
-
-            InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
-            rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(network).name);
-
-            bool firstProposalOccurred = address(auth).code.length > 0
-                ? auth.firstProposalOccurred()
-                : false;
-            if (firstProposalOccurred) {
-                require(
-                    IAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), proposer),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address ",
-                            vm.toString(proposer),
-                            " is not currently a proposer on ",
-                            networkInfo.name,
-                            "."
-                        )
-                    )
-                );
-            } else {
-                require(
-                    sphinxUtils.arrayContainsAddress(sphinxConfig.proposers, proposer),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
-                            vm.toString(proposer)
-                        )
-                    )
-                );
-            }
+            // TODO(docs): we don't call `sphinxUtils.initializeFFI` here because we never broadcast
+            // the transactions onto the forked network.
+            sphinxUtils.initializeSphinxContracts();
 
             deploy(network);
 
-            sphinxUpdateDeploymentInfo(rpcUrl, initialState, sphinxConfig, sphinxMode);
             deploymentInfoArray[i] = deploymentInfo;
         }
 
@@ -438,23 +403,6 @@ abstract contract Sphinx {
         return count;
     }
 
-    function setupAuthAndManagerAddresses() internal {
-        auth = ISphinxAuth(
-            sphinxUtils.getSphinxAuthAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            )
-        );
-        manager = ISphinxManager(
-            sphinxUtils.getSphinxManagerAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            )
-        );
-    }
-
     // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
 
     modifier sphinx(Network _network) {
@@ -477,23 +425,51 @@ abstract contract Sphinx {
         // pranking before calling `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
+        delete deploymentInfo;
+
+        auth = ISphinxAuth(
+            sphinxUtils.getSphinxAuthAddress(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                sphinxConfig.projectName
+            )
+        );
+        manager = ISphinxManager(
+            sphinxUtils.getSphinxManagerAddress(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                sphinxConfig.projectName
+            )
+        );
+
         sphinxUtils.validate(sphinxConfig, _network);
 
-        setupAuthAndManagerAddresses();
-
         if (sphinxMode == SphinxMode.Proposal) {
-            delete deploymentInfo;
+            // TODO(docs): we validated that the proposer private key exists earlier in `sphinxProposeTask`,
+            // so it's fine to retrieve it here without checking that it exists.
+            address proposer = vm.addr(vm.envUint("PROPOSER_PRIVATE_KEY"));
+            InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
+            sphinxUtils.validateProposal(auth, proposer, _network, sphinxConfig);
+
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
 
+            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
+            sphinxUpdateDeploymentInfo(sphinxUtils.isLiveNetworkFFI(_rpcUrl), initialState, sphinxConfig, sphinxMode);
+
             sphinxUtils.tearDownClients(deploymentInfo.actionInputs, manager);
         } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            sphinxMode = SphinxMode.Broadcast;
             vm.stopBroadcast();
 
+            // TODO: left off: check the diff of ryan's proposal bug fixes to make sure you didn't
+            // undo anything
+
+            sphinxMode = SphinxMode.Broadcast;
+            sphinxUtils.isLiveNetworkFFI(_rpcUrl);
+
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            sphinxUtils.initialize(rpcUrl);
+            sphinxUtils.initializeFFI(rpcUrl);
 
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
             sphinxUtils.validateBroadcast(sphinxConfig, initialState, auth, msgSender);
@@ -502,12 +478,11 @@ abstract contract Sphinx {
             // a proposer is required to call the `SphinxAuth.propose` function.
             sphinxConfig.proposers.push(sphinxConfig.owners[0]);
 
-            delete deploymentInfo;
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
 
-            sphinxUpdateDeploymentInfo(rpcUrl, initialState, sphinxConfig, sphinxMode);
+            sphinxUpdateDeploymentInfo(isLiveNetwork, initialState, sphinxConfig, sphinxMode);
 
             DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](1);
             deploymentInfoArray[0] = deploymentInfo;
@@ -536,7 +511,6 @@ abstract contract Sphinx {
             // modes.
             sphinxUtils.deploySphinxManagerTo(address(manager));
 
-            delete deploymentInfo;
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
@@ -616,6 +590,10 @@ abstract contract Sphinx {
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
+            // TODO: this prevents us from running `Auth._verifySignatures` for a list of owners,
+            // which isn't ideal because we don't test that elsewhere. So, instead, let's add new
+            // owners whose private keys are known, then submit those transactions. consider
+            // removing those owners at the end of this logic.
             // If we're in a `Proposal` mode, we set the number of owners required to approve the
             // deployment to zero. This allows us to simulate the proposal without an error being
             // thrown due to an insufficient number of owner signatures. This is necessary because
@@ -643,6 +621,7 @@ abstract contract Sphinx {
                 }
 
                 if (leaf.leafTypeEnum == AuthLeafType.SETUP) {
+                    console.log('setup');
                     auth.setup{ gas: 3000000 }(
                         _authRoot,
                         leaf.leaf,
@@ -650,6 +629,7 @@ abstract contract Sphinx {
                         leaf.proof
                     );
                 } else if (leaf.leafTypeEnum == AuthLeafType.PROPOSE) {
+                    console.log('propose');
                     if (sphinxMode == SphinxMode.Broadcast) {
                         auth.propose{ gas: 1000000 }(
                             _authRoot,
@@ -693,12 +673,14 @@ abstract contract Sphinx {
                         leaf.proof
                     );
                 } else if (leaf.leafTypeEnum == AuthLeafType.APPROVE_DEPLOYMENT) {
+                    console.log('approve');
                     auth.approveDeployment{ gas: 1000000 }(
                         _authRoot,
                         leaf.leaf,
                         ownerSignatureArray,
                         leaf.proof
                     );
+                    deploymentState.status = DeploymentStatus.APPROVED;
                 } else if (leaf.leafTypeEnum == AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT) {
                     auth.cancelActiveDeployment{ gas: 1000000 }(
                         _authRoot,
@@ -710,16 +692,6 @@ abstract contract Sphinx {
                     revert("Unsupported auth leaf type. Should never happen.");
                 }
             }
-            deploymentState.status = DeploymentStatus.APPROVED;
-        }
-
-        // If we're in a `Proposal` mode, we must set the proposer's address as a remote executor.
-        // Otherwise, an error will be thrown, which would prevent us from simulating the proposal.
-        if (sphinxMode == SphinxMode.Proposal) {
-            vm.stopPrank();
-            sphinxUtils.addRemoteExecutor(msgSender, manager);
-            vm.startPrank(msgSender);
-            manager.claimDeployment();
         }
 
         if (
@@ -728,6 +700,15 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
+            // If we're in a `Proposal` mode, we must set the proposer's address as a remote executor.
+            // Otherwise, an error will be thrown, which would prevent us from simulating the proposal.
+            if (sphinxMode == SphinxMode.Proposal) {
+                vm.stopPrank();
+                sphinxUtils.addRemoteExecutor(msgSender, manager);
+                vm.startPrank(msgSender);
+                manager.claimDeployment();
+            }
+
             (
                 bool executionSuccess,
                 HumanReadableAction memory readableAction
@@ -953,7 +934,7 @@ abstract contract Sphinx {
     }
 
     function sphinxUpdateDeploymentInfo(
-        string memory _rpcUrl,
+        bool _isLiveNetwork,
         InitialChainState memory _initialState,
         SphinxConfig memory _newConfig,
         SphinxMode _mode
@@ -962,7 +943,7 @@ abstract contract Sphinx {
         deploymentInfo.managerAddress = address(manager);
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.newConfig = _newConfig;
-        deploymentInfo.isLiveNetwork = sphinxUtils.isLiveNetworkFFI(_rpcUrl);
+        deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = _initialState;
         deploymentInfo.remoteExecution = _mode == SphinxMode.Proposal;
     }

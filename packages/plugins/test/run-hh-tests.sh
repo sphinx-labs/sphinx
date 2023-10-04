@@ -7,13 +7,12 @@
 # set -e # TODO: undo
 
 # We spin up a few nodes to simulate a multi-chain deployment
-anvil --silent &
 anvil --silent --chain-id 5 --port 42005 &
 anvil --silent --chain-id 420 --port 42420 &
 anvil --silent --chain-id 10200 --port 42200 &
 anvil --silent --chain-id 421613 --port 42613 &
 anvil --silent --chain-id 84531 --port 42531 &
-forge test --match-path test/foundry/Proposal.t.sol -vvvvv # TODO: make more generic
+forge test --match-path test/foundry/Proposal.t.sol # TODO: make more generic
 yarn test:kill
 
 # TODO
