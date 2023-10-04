@@ -1,3 +1,5 @@
+import fs from 'fs'
+
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
@@ -709,7 +711,6 @@ export const getAuthLeafsForChain = async (
   const {
     firstProposalOccurred,
     isExecuting,
-    isManagerDeployed,
     proposers: prevProposers,
     version: prevManagerVersion,
   } = initialState
@@ -765,7 +766,7 @@ export const getAuthLeafsForChain = async (
     prevManagerVersion.major === newManagerVersion.major &&
     prevManagerVersion.minor === newManagerVersion.minor &&
     prevManagerVersion.patch === newManagerVersion.patch
-  if (!equalManagerVersion && !isManagerDeployed) {
+  if (!equalManagerVersion) {
     const upgradeLeaf: UpgradeAuthAndManagerImpl = {
       chainId,
       to: managerAddress,

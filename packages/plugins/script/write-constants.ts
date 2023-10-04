@@ -7,6 +7,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   buildInfo as sphinxContractsBuildInfo,
+  SphinxManagerArtifact,
 } from '@sphinx-labs/contracts'
 import {
   CURRENT_SPHINX_MANAGER_VERSION,
@@ -24,6 +25,7 @@ import {
   getAuthImplAddress,
   CURRENT_SPHINX_AUTH_VERSION,
   getStorageSlotKey,
+  getManagerConstructorValues,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -101,12 +103,20 @@ const writeConstants = async () => {
       type: 'bytes32',
       value: EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
     },
-    managerImplementationAddress: {
+    managerImplementationAddressStandard: {
       type: 'address',
       value: getSphinxManagerImplAddress(
         31337n,
         CURRENT_SPHINX_MANAGER_VERSION
       ),
+    },
+    managerImplementationAddressOptimism: {
+      type: 'address',
+      value: getSphinxManagerImplAddress(10n, CURRENT_SPHINX_MANAGER_VERSION),
+    },
+    managerImplementationAddressOptimismGoerli: {
+      type: 'address',
+      value: getSphinxManagerImplAddress(420n, CURRENT_SPHINX_MANAGER_VERSION),
     },
     callNoncesSlotKey: {
       type: 'bytes32',
@@ -150,6 +160,38 @@ const writeConstants = async () => {
   }
 
   const sphinxConstants = await getSphinxConstants(hre.ethers.provider)
+
+  // Add the manager contract info for specifically optimism and optimism goerli
+  // where the address is different from the rest of the networks.
+  // We do not include these in the above getSphinxConstants function b/c that function
+  // is also used by our live network deployment process so including three copies of the
+  // Sphinx manager contract info would be redundant and potentially cause errors.
+  sphinxConstants.push(
+    ...[
+      {
+        artifact: SphinxManagerArtifact,
+        expectedAddress: getSphinxManagerImplAddress(
+          10n,
+          CURRENT_SPHINX_MANAGER_VERSION
+        ),
+        constructorArgs: getManagerConstructorValues(
+          10n,
+          CURRENT_SPHINX_MANAGER_VERSION
+        ),
+      },
+      {
+        artifact: SphinxManagerArtifact,
+        expectedAddress: getSphinxManagerImplAddress(
+          420n,
+          CURRENT_SPHINX_MANAGER_VERSION
+        ),
+        constructorArgs: getManagerConstructorValues(
+          420n,
+          CURRENT_SPHINX_MANAGER_VERSION
+        ),
+      },
+    ]
+  )
 
   const contractInfo = sphinxConstants.map(
     ({ artifact, constructorArgs, expectedAddress }) => {

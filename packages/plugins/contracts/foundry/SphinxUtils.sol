@@ -72,6 +72,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ensureSphinxInitialized();
     }
 
+    /**
+     * @notice Returns the SphinxManager implementation address for the current network.
+     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
+     */
+    function selectManagerImplAddressForNetwork() internal view returns (address) {
+        if (block.chainid == 10) {
+            return managerImplementationAddressOptimism;
+        } else if (block.chainid == 420) {
+            return managerImplementationAddressOptimismGoerli;
+        } else {
+            return managerImplementationAddressStandard;
+        }
+    }
+
     function ensureSphinxInitialized() public {
         ISphinxRegistry registry = ISphinxRegistry(registryAddress);
         ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
@@ -97,27 +111,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.startPrank(systemOwner);
 
         // Add initial manager version
-        Version memory managerVersion = ISemver(managerImplementationAddress).version();
-        if (
-            // We just check there is a manager version with the same number, we don't care if it's
-            // address is the same as the expected address b/c it may differ due to compiler settings
-            // when we deployed the actual contract on a live network
-            registry.versions(managerVersion.major, managerVersion.minor, managerVersion.patch) == address(0)
-        ) {
-            registry.addVersion(managerImplementationAddress);
+        address managerImplAddress = selectManagerImplAddressForNetwork();
+        if (!registry.managerImplementations(managerImplAddress)) {
+            registry.addVersion(managerImplAddress);
         }
 
         // Set the default manager version if not already set
         if (registry.currentManagerImplementation() == address(0)) {
-            registry.setCurrentManagerImplementation(managerImplementationAddress);
+            registry.setCurrentManagerImplementation(managerImplAddress);
         }
 
         // Add the current auth version if not already added
-        Version memory authVersion = ISemver(authImplAddress).version();
-        if (
-            // Like the manager, we just check there is an auth version with the same number
-            factory.versions(authVersion.major, authVersion.minor, authVersion.patch) == address(0)
-        ) {
+        if (!factory.authImplementations(authImplAddress)) {
             factory.addVersion(authImplAddress);
         }
 
@@ -284,10 +289,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.etch(_where, runtimeBytecode);
     }
 
-    function getSphinxManagerImplInitCode() private pure returns (bytes memory) {
+    function getSphinxManagerImplInitCode() private view returns (bytes memory) {
         SphinxContractInfo[] memory contracts = getSphinxContractInfo();
         for (uint i = 0; i < contracts.length; i++) {
-            if (contracts[i].expectedAddress == managerImplementationAddress) {
+            if (contracts[i].expectedAddress == selectManagerImplAddressForNetwork()) {
                 return contracts[i].creationCode;
             }
         }
@@ -1177,15 +1182,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getInitialChainState(ISphinxAuth _auth, ISphinxManager _manager) external view returns (InitialChainState memory) {
         if (address(_auth).code.length == 0) {
+            ISphinxRegistry registry = ISphinxRegistry(registryAddress);
+            ISemver currentManager = ISemver(registry.currentManagerImplementation());
+
             return
                 InitialChainState({
                     // We set these to default values.
                     proposers: new address[](0),
-                    version: Version({
-                        major: major,
-                        minor: minor,
-                        patch: patch
-                    }),
+                    // Use the current default manager version (which may be different from the latest manager version)
+                    version: currentManager.version(),
                     isManagerDeployed: false,
                     firstProposalOccurred: false,
                     isExecuting: false
