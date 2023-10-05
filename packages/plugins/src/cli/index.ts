@@ -20,6 +20,8 @@ import {
   getDiffString,
   userConfirmation,
   SphinxActionType,
+  getEtherscanEndpointForNetwork,
+  SUPPORTED_NETWORKS,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -38,6 +40,7 @@ const networkOption = 'network'
 const confirmOption = 'confirm'
 const dryRunOption = 'dry-run'
 const targetContractOption = 'target-contract'
+const verifyOption = 'verify'
 
 // TODO(md): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
 
@@ -194,9 +197,13 @@ yargs(hideBin(process.argv))
           type: 'string',
           alias: 'tc',
         })
+        .option(verifyOption, {
+          describe: 'Whether to verify the deployment on Etherscan.',
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
-      const { network, targetContract } = argv
+      const { network, targetContract, verify } = argv
       const confirm = !!argv[confirmOption]
 
       if (argv._.length < 2) {
@@ -232,7 +239,20 @@ yargs(hideBin(process.argv))
         cachePath,
         rpcEndpoints,
         deploymentFolder,
+        etherscan,
       } = await getFoundryConfigOptions()
+
+      // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
+      if (verify) {
+        if (!etherscan || !etherscan[network]) {
+          const endpoint = getEtherscanEndpointForNetwork(network)
+          console.log(`No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:
+[etherscan]
+${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = ${SUPPORTED_NETWORKS[network]} }
+`)
+          process.exit(1)
+        }
+      }
 
       // We must load this ABI after running `forge build` to prevent a situation where the user
       // clears their artifacts then calls this task, in which case the `SphinxPluginTypes` artifact
@@ -336,6 +356,9 @@ yargs(hideBin(process.argv))
         forkUrl,
         '--broadcast',
       ]
+      if (verify) {
+        forgeScriptDeployArgs.push('--verify')
+      }
       if (targetContract) {
         forgeScriptDeployArgs.push('--target-contract', targetContract)
       }

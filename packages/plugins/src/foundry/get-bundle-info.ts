@@ -1,5 +1,4 @@
-import path, { resolve } from 'path'
-import fs from 'fs'
+import { resolve } from 'path'
 
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import {
@@ -77,27 +76,6 @@ const abiEncodedDeploymentInfoArray = args[0]
       await getProjectBundleInfo(parsedConfig, configArtifacts)
 
     writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
-
-    const ipfsHash = configUri.replace('ipfs://', '')
-    const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
-    // Create the canonical config network folder if it doesn't already exist.
-    if (!fs.existsSync(artifactCachePath)) {
-      fs.mkdirSync(artifactCachePath)
-    }
-
-    // TODO(test): it seems we write the config artifacts here just for etherscan verification. if
-    // foundry can verify the user's contracts without us, i think we can delete the logic that
-    // writes it to the FS here.
-    // TODO(test): is the `configArtifactsPath` path correct? i'm curious how the ipfsHash is related to the configArtifacts.
-    // Write the config artifacts to the local file system. It will exist in a JSON file that has the
-    // config URI as its name.
-    const configArtifactsPath = path.join(artifactCachePath, `${ipfsHash}.json`)
-    if (!fs.existsSync(configArtifactsPath)) {
-      fs.writeFileSync(
-        configArtifactsPath,
-        JSON.stringify(configArtifacts, null, 2)
-      )
-    }
 
     const actionsAbiEncoded = coder.encode(
       [bundledActionType],

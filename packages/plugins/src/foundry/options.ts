@@ -13,6 +13,11 @@ export type FoundryToml = {
   rpcEndpoints: { [networkName: string]: string | undefined }
   srcDirectory: string
   remappings: Record<string, string>
+  etherscan: {
+    [networkName: string]: {
+      key: string
+    }
+  }
 }
 
 export const cleanPath = (dirtyPath: string) => {
@@ -68,6 +73,8 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     remappings[from] = to
   }
 
+  const etherscan = forgeConfig.etherscan
+
   return {
     ...resolvePaths(forgeConfig.out, buildInfoPath),
     storageLayout,
@@ -76,6 +83,7 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     rpcEndpoints,
     srcDirectory,
     remappings,
+    etherscan,
   }
 }
 
