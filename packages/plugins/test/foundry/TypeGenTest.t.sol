@@ -408,4 +408,9 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function testMsgSenderInConstructor() public {
         assertEq(msgSender.msgSenderInConstructor(), manager);
     }
+
+    // Covers deploying and interacting with a contract that has unnamed parameters in its constructor and functions
+    function testUnnamedParametersInConstructorAndFunction() public {
+        assertEq(unnamedParameters.number(), 4);
+    }
 }
