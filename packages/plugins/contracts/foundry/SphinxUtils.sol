@@ -101,6 +101,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // Add initial manager version
         Version memory managerVersion = ISemver(managerImplementationAddress).version();
         if (
+            // TODO(ryan): You mention here that there may be an address mismatch for the Manager
+            // implementation due to different compiler settings. Since the manager impl address and
+            // bytecode is loaded from the SphinxConstants file, which is generated directly from
+            // our contracts package, it seems like this shouldn't happen. If it can happen, then it
+            // seems like it could also be an issue for any other Sphinx contract, e.g. the
+            // AuthFactory or Registry.
+
             // We just check there is a manager version with the same number, we don't care if it's
             // address is the same as the expected address b/c it may differ due to compiler settings
             // when we deployed the actual contract on a live network
