@@ -315,9 +315,14 @@ struct NetworkInfo {
  */
 contract SphinxPluginTypes {
     function bundledActionsType() external pure returns (BundledSphinxAction[] memory) {}
+
     function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory) {}
+
     function targetBundleType() external pure returns (SphinxTargetBundle memory) {}
+
     function humanReadableActionsType() external pure returns (HumanReadableAction[] memory) {}
+
     function getDeploymentInfo() external view returns (DeploymentInfo memory) {}
+
     function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory) {}
 }

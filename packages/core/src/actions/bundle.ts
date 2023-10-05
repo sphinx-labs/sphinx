@@ -1,5 +1,3 @@
-import fs from 'fs'
-
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'

@@ -28,7 +28,10 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, isExtendedDeployContractActionInput } from './utils'
+import {
+  getFunctionArgValueArray,
+  isExtendedDeployContractActionInput,
+} from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'

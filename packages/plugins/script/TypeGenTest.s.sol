@@ -88,7 +88,9 @@ import {
 import { MsgSender } from "../contracts/test/MsgSender.sol";
 import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
 import { UnnamedParameters } from "../contracts/test/typegen/UnnamedParameters.sol";
-import { UnnamedParametersClient } from "../SphinxClient/typegen/UnnamedParameters.SphinxClient.sol";
+import {
+    UnnamedParametersClient
+} from "../SphinxClient/typegen/UnnamedParameters.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 

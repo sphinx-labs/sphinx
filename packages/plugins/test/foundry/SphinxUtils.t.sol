@@ -3,7 +3,12 @@ pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
-import { FoundryContractConfig, OptionalString, ContractKindEnum, ParsedCallAction } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import {
+    FoundryContractConfig,
+    OptionalString,
+    ContractKindEnum,
+    ParsedCallAction
+} from "../../contracts/foundry/SphinxPluginTypes.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
     function setUp() public {}

@@ -31,7 +31,7 @@ export const monitorExecution = async (
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const {  managerAddress } = parsedConfig
+  const { managerAddress } = parsedConfig
   const SphinxManager = getSphinxManager(managerAddress, signer)
 
   // Get the deployment state of the deployment ID.
