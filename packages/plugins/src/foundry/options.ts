@@ -16,6 +16,11 @@ export type FoundryToml = {
   gasEstimates: boolean
   rpcEndpoints: { [networkName: string]: string | undefined }
   remappings: Record<string, string>
+  etherscan: {
+    [networkName: string]: {
+      key: string
+    }
+  }
 }
 
 export const cleanPath = (dirtyPath: string) => {
@@ -69,6 +74,8 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     remappings[from] = to
   }
 
+  const etherscan = forgeConfig.etherscan
+
   return {
     ...resolvePaths(forgeConfig.out, buildInfoPath),
     storageLayout,
@@ -80,6 +87,7 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     script,
     solc,
     remappings,
+    etherscan,
   }
 }
 

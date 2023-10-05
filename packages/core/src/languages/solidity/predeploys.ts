@@ -323,8 +323,7 @@ export const initializeSphinx = async (
   logger?.info('[Sphinx]: setting the default SphinxManager version')
 
   if (
-    (await SphinxRegistry.currentManagerImplementation()) !==
-    sphinxManagerAddress
+    (await SphinxRegistry.currentManagerImplementation()) === ethers.ZeroAddress
   ) {
     await (
       await SphinxRegistry.setCurrentManagerImplementation(
@@ -354,7 +353,7 @@ export const initializeSphinx = async (
     ).wait()
   }
 
-  if ((await AuthFactory.currentAuthImplementation()) !== authAddress) {
+  if ((await AuthFactory.currentAuthImplementation()) === ethers.ZeroAddress) {
     await (
       await AuthFactory.setCurrentAuthImplementation(
         authAddress,

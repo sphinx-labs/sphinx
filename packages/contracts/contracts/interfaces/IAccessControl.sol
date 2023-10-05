@@ -8,14 +8,19 @@ pragma solidity >=0.7.4 <0.9.0;
  */
 interface IAccessControl {
     /**
-     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
+     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing
+     *      `previousAdminRole`
      *
      * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
      * {RoleAdminChanged} not being emitted signaling this.
      *
      * _Available since v3.1._
      */
-    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
+    event RoleAdminChanged(
+        bytes32 indexed role,
+        bytes32 indexed previousAdminRole,
+        bytes32 indexed newAdminRole
+    );
 
     /**
      * @dev Emitted when `account` is granted `role`.

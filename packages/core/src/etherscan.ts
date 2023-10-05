@@ -2,7 +2,11 @@ import assert from 'assert'
 
 import { ConstructorFragment, ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+import {
+  CustomChain,
+  EtherscanNetworkEntry,
+  EtherscanURLs,
+} from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
   verifyContract,
@@ -13,10 +17,8 @@ import {
   toVerifyRequest,
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
-import {
-  retrieveContractBytecode,
-  getEtherscanEndpoints,
-} from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/errors'
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
@@ -28,10 +30,14 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, isExtendedDeployContractActionInput } from './utils'
+import {
+  getFunctionArgValueArray,
+  isExtendedDeployContractActionInput,
+} from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
+import { SUPPORTED_NETWORKS } from './networks'
 
 export interface EtherscanResponseBody {
   status: string
@@ -40,6 +46,39 @@ export interface EtherscanResponseBody {
 }
 
 export const RESPONSE_OK = '1'
+
+export const getEtherscanEndpointForNetwork = (
+  networkName: string
+): EtherscanNetworkEntry | CustomChain => {
+  const chainId = SUPPORTED_NETWORKS[networkName]
+
+  const chainIdsToNames = new Map(
+    Object.entries(chainConfig).map(([chainName, config]) => [
+      config.chainId,
+      chainName,
+    ])
+  )
+
+  const networkInCustomChains = [...customChains]
+    .reverse() // the last entry wins
+    .find((customChain) => customChain.chainId === chainId)
+
+  // if there is a custom chain with the given chain id, that one is preferred
+  // over the built-in ones
+  if (networkInCustomChains !== undefined) {
+    return networkInCustomChains
+  }
+
+  const network = networkInCustomChains ?? chainIdsToNames.get(chainId)
+
+  if (network === undefined) {
+    throwUnsupportedNetwork(networkName, chainId)
+  }
+
+  const chainConfigEntry = chainConfig[network]
+
+  return { network, urls: chainConfigEntry.urls }
+}
 
 export const verifySphinxConfig = async (
   compilerConfig: CompilerConfig,
@@ -50,12 +89,8 @@ export const verifySphinxConfig = async (
 ) => {
   const { actionInputs } = compilerConfig
 
-  const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
-    provider as any,
-    networkName,
-    chainConfig,
-    customChains
+  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
+    networkName
   )
 
   const actionInputsToVerify = actionInputs
@@ -124,12 +159,8 @@ export const verifySphinx = async (
   networkName: string,
   apiKey: string
 ) => {
-  const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
-    provider as any,
-    networkName,
-    chainConfig,
-    customChains
+  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
+    networkName
   )
 
   for (const {

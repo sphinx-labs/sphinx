@@ -69,12 +69,40 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
-        ffiDeployOnAnvil(_rpcUrl, _executor);
-        initializeSphinxContracts(_executor);
+    function initialize(string memory _rpcUrl) external {
+        ffiDeployOnAnvil(_rpcUrl);
+        ensureSphinxInitialized();
     }
 
-    function initializeSphinxContracts(OptionalAddress memory _executor) public {
+    /**
+     * @notice Returns the SphinxManager implementation address for the current network.
+     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
+     */
+    function selectManagerImplAddressForNetwork() internal view returns (address) {
+        if (block.chainid == 10) {
+            return managerImplementationAddressOptimism;
+        } else if (block.chainid == 420) {
+            return managerImplementationAddressOptimismGoerli;
+        } else {
+            return managerImplementationAddressStandard;
+        }
+    }
+
+    /**
+     * @notice Returns the SphinxManager implementation address for the current network.
+     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
+     */
+    function selectManagerImplAddressForNetwork() internal view returns (address) {
+        if (block.chainid == 10) {
+            return managerImplementationAddressOptimism;
+        } else if (block.chainid == 420) {
+            return managerImplementationAddressOptimismGoerli;
+        } else {
+            return managerImplementationAddressStandard;
+        }
+    }
+
+    function ensureSphinxInitialized() public {
         ISphinxRegistry registry = ISphinxRegistry(registryAddress);
         ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
@@ -99,26 +127,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.startPrank(systemOwner);
 
         // Add initial manager version
-        Version memory managerVersion = ISemver(managerImplementationAddress).version();
-        if (
-            // TODO(ryan): You mention here that there may be an address mismatch for the Manager
-            // implementation due to different compiler settings. Since the manager impl address and
-            // bytecode is loaded from the SphinxConstants file, which is generated directly from
-            // our contracts package, it seems like this shouldn't happen. If it can happen, then it
-            // seems like it could also be an issue for any other Sphinx contract, e.g. the
-            // AuthFactory or Registry. Any chance you ran into this issue on Optimism? If so, the
-            // address mismatch may be due to the fact that the `write-constants.ts` script assumes
-            // that the chain ID is 31337 when calculating `managerImplementationAddress`. This
-            // results in a different address on OP and OP Goerli because the ManagedService
-            // contract, which is a constructor arg of the SphinxManager, is different on those
-            // chains.
-
-            // We just check there is a manager version with the same number, we don't care if it's
-            // address is the same as the expected address b/c it may differ due to compiler settings
-            // when we deployed the actual contract on a live network
-            registry.versions(managerVersion.major, managerVersion.minor, managerVersion.patch) == address(0)
-        ) {
-            registry.addVersion(managerImplementationAddress);
+        address managerImplAddress = selectManagerImplAddressForNetwork();
+        if (!registry.managerImplementations(managerImplAddress)) {
+            registry.addVersion(managerImplAddress);
         }
 
         // TODO: it looks like this initialization logic now differs from the TypeScript version that's
@@ -126,15 +137,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         // Set the default manager version if not already set
         if (registry.currentManagerImplementation() == address(0)) {
-            registry.setCurrentManagerImplementation(managerImplementationAddress);
+            registry.setCurrentManagerImplementation(managerImplAddress);
         }
 
         // Add the current auth version if not already added
-        Version memory authVersion = ISemver(authImplAddress).version();
-        if (
-            // Like the manager, we just check there is an auth version with the same number
-            factory.versions(authVersion.major, authVersion.minor, authVersion.patch) == address(0)
-        ) {
+        if (!factory.authImplementations(authImplAddress)) {
             factory.addVersion(authImplAddress);
         }
 
@@ -302,10 +309,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.etch(_where, runtimeBytecode);
     }
 
-    function getSphinxManagerImplInitCode() private pure returns (bytes memory) {
+    function getSphinxManagerImplInitCode() private view returns (bytes memory) {
         SphinxContractInfo[] memory contracts = getSphinxContractInfo();
         for (uint i = 0; i < contracts.length; i++) {
-            if (contracts[i].expectedAddress == managerImplementationAddress) {
+            if (contracts[i].expectedAddress == selectManagerImplAddressForNetwork()) {
                 return contracts[i].creationCode;
             }
         }
@@ -1197,21 +1204,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: There must not be any addresses in your 'sphinxConfig.proposers' array when broadcasting on a network."
         );
 
-        // It's not strictly required to check this, but these fields aren't used outside of
-        // the DevOps platform, so it's probably a mistake if they're not empty.
-        require(
-            _config.mainnets.length == 0,
-            "Sphinx: There must not be any networks in your 'sphinxConfig.mainnets' array when broadcasting on a network."
-        );
-        require(
-            _config.testnets.length == 0,
-            "Sphinx: There must not be any networks in your 'sphinxConfig.testnets' array when broadcasting on a network."
-        );
-        require(
-            bytes(_config.orgId).length == 0,
-            "Sphinx: You must not set the 'sphinxConfig.orgId' field when broadcasting on a network."
-        );
-
         if (address(_auth).code.length > 0) {
             IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
             // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
@@ -1237,11 +1229,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ISphinxManager _manager
     ) external view returns (InitialChainState memory) {
         if (address(_auth).code.length == 0) {
+            ISphinxRegistry registry = ISphinxRegistry(registryAddress);
+            ISemver currentManager = ISemver(registry.currentManagerImplementation());
+
             return
                 InitialChainState({
                     // We set these to default values.
                     proposers: new address[](0),
-                    version: Version({ major: major, minor: minor, patch: patch }),
+                    // Use the current default manager version (which may be different from the latest manager version)
+                    version: currentManager.version(),
                     isManagerDeployed: false,
                     firstProposalOccurred: false,
                     isExecuting: false

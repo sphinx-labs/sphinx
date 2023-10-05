@@ -39,6 +39,7 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
+import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to execute deployments using

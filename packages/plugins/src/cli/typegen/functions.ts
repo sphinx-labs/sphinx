@@ -48,13 +48,21 @@ const formatParameters = (
   joinString: string = ', ',
   duplicates: Record<string, string> = {}
 ) => {
+  let unnamedParameterCount = 0
   return parameters
     .map((input) => {
+      const nameAll =
+        input.name === '' ? `unnamed${unnamedParameterCount}` : input.name
+
+      if (input.name === '') {
+        unnamedParameterCount++
+      }
+
       const storageLocationTag =
         input.storageLocation !== 'default' && includeStorageLocation
           ? `${input.storageLocation} `
           : ''
-      const name = includeName ? input.name : ''
+      const name = includeName ? nameAll : ''
 
       let type: string | undefined
       if (input?.typeDescriptions?.typeString?.includes('contract')) {

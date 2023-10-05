@@ -1,5 +1,4 @@
 import {
-  ZeroHash,
   concat,
   dataSlice,
   ethers,
@@ -8,7 +7,7 @@ import {
   keccak256,
 } from 'ethers'
 
-import { ContractKind, ContractKindEnum, UserSalt } from './types'
+import { ContractKind, ContractKindEnum } from './types'
 
 export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
   switch (kind) {

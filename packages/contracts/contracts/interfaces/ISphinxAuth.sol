@@ -10,7 +10,9 @@ import { ISphinxManager } from "./ISphinxManager.sol";
  */
 interface ISphinxAuth {
     function authStates(bytes32) external view returns (AuthStatus, uint256, uint256);
+
     function threshold() external view returns (uint256);
+
     function firstProposalOccurred() external view returns (bool);
     function projectName() external view returns (string memory);
     function manager() external view returns (ISphinxManager);

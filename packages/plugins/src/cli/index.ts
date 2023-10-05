@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { join, resolve } from 'path'
-import { fork, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import * as dotenv from 'dotenv'
@@ -15,18 +15,15 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
-import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import {
   getPreview,
   getPreviewString,
   userConfirmation,
-  DeploymentInfo,
   SphinxActionType,
-  ensureSphinxInitialized,
+  getEtherscanEndpointForNetwork,
+  SUPPORTED_NETWORKS,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
-
-import { ethers } from 'ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
@@ -39,15 +36,11 @@ import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 // Load environment variables from .env
 dotenv.config()
 
-const rpcOption = 'rpc'
-const projectOption = 'project'
 const networkOption = 'network'
 const confirmOption = 'confirm'
 const dryRunOption = 'dry-run'
 const targetContractOption = 'target-contract'
-
-const pluginRootPath =
-  process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
+const verifyOption = 'verify'
 
 // TODO(md): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
 
@@ -186,9 +179,13 @@ yargs(hideBin(process.argv))
           type: 'string',
           alias: 'tc',
         })
+        .option(verifyOption, {
+          describe: 'Whether to verify the deployment on Etherscan.',
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
-      const { network, targetContract } = argv
+      const { network, targetContract, verify } = argv
       const confirm = !!argv[confirmOption]
 
       if (argv._.length < 2) {
@@ -224,7 +221,20 @@ yargs(hideBin(process.argv))
         cachePath,
         rpcEndpoints,
         deploymentFolder,
+        etherscan,
       } = await getFoundryConfigOptions()
+
+      // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
+      if (verify) {
+        if (!etherscan || !etherscan[network]) {
+          const endpoint = getEtherscanEndpointForNetwork(network)
+          console.log(`No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:
+[etherscan]
+${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = ${SUPPORTED_NETWORKS[network]} }
+`)
+          process.exit(1)
+        }
+      }
 
       // We must load this ABI after running `forge build` to prevent a situation where the user
       // clears their artifacts then calls this task, in which case the `SphinxPluginTypes` artifact
@@ -328,6 +338,9 @@ yargs(hideBin(process.argv))
         forkUrl,
         '--broadcast',
       ]
+      if (verify) {
+        forgeScriptDeployArgs.push('--verify')
+      }
       if (targetContract) {
         forgeScriptDeployArgs.push('--target-contract', targetContract)
       }
