@@ -1153,21 +1153,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: There must not be any addresses in your 'sphinxConfig.proposers' array when deploying on a live network."
         );
 
-        // It's not strictly required to check this, but these fields aren't used outside of
-        // the DevOps platform, so it's probably a mistake if they're not empty.
-        require(
-            _config.mainnets.length == 0,
-            "Sphinx: There must not be any networks in your 'sphinxConfig.mainnets' array when deploying on a live network."
-        );
-        require(
-            _config.testnets.length == 0,
-            "Sphinx: There must not be any networks in your 'sphinxConfig.testnets' array when deploying on a live network."
-        );
-        require(
-            bytes(_config.orgId).length == 0,
-            "Sphinx: You must not set the 'sphinxConfig.orgId' field when deploying on a live network."
-        );
-
         if (address(_auth).code.length > 0) {
             IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
             // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
