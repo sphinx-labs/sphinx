@@ -144,9 +144,9 @@ struct RegistrationInfo {
  */
 struct AuthLeaf {
     uint256 chainId;
-    bytes data;
-    uint256 index;
     address to;
+    uint256 index;
+    bytes data;
 }
 
 /**

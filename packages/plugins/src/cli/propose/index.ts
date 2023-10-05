@@ -4,7 +4,6 @@ import { spawnSync } from 'child_process'
 
 import {
   AuthLeaf,
-  DeploymentInfo,
   ConfigArtifacts,
   ParsedConfig,
   ProjectDeployment,

@@ -37,6 +37,7 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
+import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to execute deployments using
@@ -565,7 +566,7 @@ abstract contract Sphinx {
         (, address msgSender, ) = vm.readCallers();
 
         if (_bundleInfo.authLeafs.length == 0) {
-            console.log(string(abi.encodePacked("Sphinx: Nothing to execute on", _bundleInfo.networkName, ". Exiting early.")));
+            console.log(string(abi.encodePacked("Sphinx: Nothing to execute on ", _bundleInfo.networkName, ". Exiting early.")));
             return;
         }
 
