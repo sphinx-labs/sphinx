@@ -8,13 +8,18 @@ import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 contract ChainSpecificTestOptimism is Test, ChainSpecificConfiguration {
     function setUp() public {
         string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");
-        string memory rpcUrl = string(abi.encodePacked("https://opt-mainnet.g.alchemy.com/v2/", alchemyAPIKey));
+        string memory rpcUrl = string(
+            abi.encodePacked("https://opt-mainnet.g.alchemy.com/v2/", alchemyAPIKey)
+        );
         vm.createSelectFork(rpcUrl);
         deploy(Network.optimism);
     }
 
     function testDeployAllNetworkContract() public {
-        assertTrue(address(allNetworks) != address(0), "allNetworks should be deployed on optimism");
+        assertTrue(
+            address(allNetworks) != address(0),
+            "allNetworks should be deployed on optimism"
+        );
     }
 
     function testDeployWithCorrectAddress() public {
@@ -26,20 +31,28 @@ contract ChainSpecificTestOptimism is Test, ChainSpecificConfiguration {
     }
 
     function testDeployOnlyArbitrum() public {
-        assertTrue(address(onlyArbitrum) == address(0), "onlyArbitrum should not be deployed on optimism");
+        assertTrue(
+            address(onlyArbitrum) == address(0),
+            "onlyArbitrum should not be deployed on optimism"
+        );
     }
 }
 
 contract ChainSpecificTestEthereum is Test, ChainSpecificConfiguration {
     function setUp() public {
         string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");
-        string memory rpcUrl = string(abi.encodePacked("https://eth-mainnet.g.alchemy.com/v2/", alchemyAPIKey));
+        string memory rpcUrl = string(
+            abi.encodePacked("https://eth-mainnet.g.alchemy.com/v2/", alchemyAPIKey)
+        );
         vm.createSelectFork(rpcUrl);
         deploy(Network.ethereum);
     }
 
     function testDeployAllNetworkContract() public {
-        assertTrue(address(allNetworks) != address(0), "allNetworks should be deployed on ethereum");
+        assertTrue(
+            address(allNetworks) != address(0),
+            "allNetworks should be deployed on ethereum"
+        );
     }
 
     function testDeployWithCorrectAddress() public {
@@ -51,20 +64,28 @@ contract ChainSpecificTestEthereum is Test, ChainSpecificConfiguration {
     }
 
     function testDeployOnlyArbitrum() public {
-        assertTrue(address(onlyArbitrum) == address(0), "onlyArbitrum should not be deployed on ethereum");
+        assertTrue(
+            address(onlyArbitrum) == address(0),
+            "onlyArbitrum should not be deployed on ethereum"
+        );
     }
 }
 
 contract ChainSpecificTestArbitrum is Test, ChainSpecificConfiguration {
     function setUp() public {
         string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");
-        string memory rpcUrl = string(abi.encodePacked("https://arb-mainnet.g.alchemy.com/v2/", alchemyAPIKey));
+        string memory rpcUrl = string(
+            abi.encodePacked("https://arb-mainnet.g.alchemy.com/v2/", alchemyAPIKey)
+        );
         vm.createSelectFork(rpcUrl);
         deploy(Network.arbitrum);
     }
 
     function testDeployAllNetworkContract() public {
-        assertTrue(address(allNetworks) != address(0), "allNetworks should be deployed on optimism");
+        assertTrue(
+            address(allNetworks) != address(0),
+            "allNetworks should be deployed on optimism"
+        );
     }
 
     function testDeployWithCorrectAddress() public {
@@ -76,7 +97,10 @@ contract ChainSpecificTestArbitrum is Test, ChainSpecificConfiguration {
     }
 
     function testDeployOnlyArbitrum() public {
-        assertTrue(address(onlyArbitrum) != address(0), "onlyArbitrum should be deployed on arbitrum");
+        assertTrue(
+            address(onlyArbitrum) != address(0),
+            "onlyArbitrum should be deployed on arbitrum"
+        );
     }
 
     function testIncrementOnlyArbitrum() public {

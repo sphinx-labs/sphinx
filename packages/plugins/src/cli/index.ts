@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { join, resolve } from 'path'
-import { fork, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import * as dotenv from 'dotenv'
@@ -15,18 +15,13 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
-import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import {
   getDiff,
   getDiffString,
   userConfirmation,
-  DeploymentInfo,
   SphinxActionType,
-  ensureSphinxInitialized,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
-
-import { ethers } from 'ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
@@ -39,15 +34,10 @@ import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 // Load environment variables from .env
 dotenv.config()
 
-const rpcOption = 'rpc'
-const projectOption = 'project'
 const networkOption = 'network'
 const confirmOption = 'confirm'
 const dryRunOption = 'dry-run'
 const targetContractOption = 'target-contract'
-
-const pluginRootPath =
-  process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
 
 // TODO(md): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
 

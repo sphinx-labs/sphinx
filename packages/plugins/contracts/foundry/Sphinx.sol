@@ -148,7 +148,10 @@ abstract contract Sphinx {
      *            the specified network. It also writes the `DeploymentInfo` struct to the
      *            filesystem, which is used to write deployment artifacts to the filesystem.
      */
-    function sphinxDeployTask(string memory _networkName, string memory _deploymentInfoPath) external {
+    function sphinxDeployTask(
+        string memory _networkName,
+        string memory _deploymentInfoPath
+    ) external {
         uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
         require(
             privateKey != 0,
@@ -333,11 +336,7 @@ abstract contract Sphinx {
                 // a nice error message to the user.
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
-                }(
-                    abi.encodeCall(
-                        ISphinxManager.executeInitialActions, (rawActions, _proofs)
-                    )
-                );
+                }(abi.encodeCall(ISphinxManager.executeInitialActions, (rawActions, _proofs)));
                 if (!success) {
                     uint256 failureIndex;
                     assembly {
@@ -508,7 +507,10 @@ abstract contract Sphinx {
                 deploymentInfoArray
             );
             // There's a single bundle info in the array because we only deploy to one network.
-            require(bundleInfoArray.length == 1, "Sphinx: Found more than one BundleInfo in array. Should never happen.");
+            require(
+                bundleInfoArray.length == 1,
+                "Sphinx: Found more than one BundleInfo in array. Should never happen."
+            );
             BundleInfo memory bundleInfo = bundleInfoArray[0];
 
             sphinxUtils.tearDownClients(deploymentInfo.actionInputs, manager);
@@ -566,7 +568,15 @@ abstract contract Sphinx {
         (, address msgSender, ) = vm.readCallers();
 
         if (_bundleInfo.authLeafs.length == 0) {
-            console.log(string(abi.encodePacked("Sphinx: Nothing to execute on ", _bundleInfo.networkName, ". Exiting early.")));
+            console.log(
+                string(
+                    abi.encodePacked(
+                        "Sphinx: Nothing to execute on ",
+                        _bundleInfo.networkName,
+                        ". Exiting early."
+                    )
+                )
+            );
             return;
         }
 
@@ -580,7 +590,15 @@ abstract contract Sphinx {
         DeploymentState memory deploymentState = manager.deployments(deploymentId);
 
         if (deploymentState.status == DeploymentStatus.COMPLETED) {
-            console.log(string(abi.encodePacked("Sphinx: Deployment was already completed on ", _bundleInfo.networkName, ". Exiting early.")));
+            console.log(
+                string(
+                    abi.encodePacked(
+                        "Sphinx: Deployment was already completed on ",
+                        _bundleInfo.networkName,
+                        ". Exiting early."
+                    )
+                )
+            );
             return;
         }
 
@@ -606,7 +624,6 @@ abstract contract Sphinx {
                 );
             }
 
-
             (, uint256 leafsExecuted, ) = auth.authStates(_authRoot);
             for (uint i = 0; i < _bundleInfo.authLeafs.length; i++) {
                 BundledAuthLeaf memory leaf = _bundleInfo.authLeafs[i];
@@ -631,7 +648,12 @@ abstract contract Sphinx {
                             leaf.proof
                         );
                     } else if (sphinxMode == SphinxMode.Proposal) {
-                        if (!IAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), msgSender)) {
+                        if (
+                            !IAccessControl(address(auth)).hasRole(
+                                keccak256("ProposerRole"),
+                                msgSender
+                            )
+                        ) {
                             bytes32 proposerRoleSlotKey = sphinxUtils.getMappingValueSlotKey(
                                 constants.authAccessControlRoleSlotKey(),
                                 keccak256("ProposerRole")
@@ -699,10 +721,10 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
-            (bool executionSuccess, HumanReadableAction memory readableAction) = sphinxExecuteDeployment(
-                _bundleInfo,
-                block.gaslimit
-            );
+            (
+                bool executionSuccess,
+                HumanReadableAction memory readableAction
+            ) = sphinxExecuteDeployment(_bundleInfo, block.gaslimit);
 
             if (!executionSuccess) {
                 bytes memory revertMessage = abi.encodePacked(
@@ -949,7 +971,10 @@ abstract contract Sphinx {
                     (bytes, bytes, bytes32, string)
                 );
                 bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
-                address create3Address = sphinxUtils.computeCreate3Address(address(manager), sphinxCreate3Salt);
+                address create3Address = sphinxUtils.computeCreate3Address(
+                    address(manager),
+                    sphinxCreate3Salt
+                );
                 if (create3Address == _create3Address) {
                     return referenceName;
                 }

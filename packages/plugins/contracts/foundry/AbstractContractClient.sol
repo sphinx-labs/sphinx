@@ -2,7 +2,11 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxActionInput, SphinxMode, DeploymentInfo } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import {
+    SphinxActionInput,
+    SphinxMode,
+    DeploymentInfo
+} from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";

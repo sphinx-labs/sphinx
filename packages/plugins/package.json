@@ -30,7 +30,7 @@
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "lint:contracts:fix": "yarn prettier --write 'contracts/**/*.sol' && yarn prettier --write 'script/**/*.sol' && yarn prettier --write 'test/**/*.sol'",
+    "lint:contracts:fix": "yarn prettier --write 'contracts/**/*.sol'",
     "pre-commit": "lint-staged",
     "yalc:publish": "yarn build && yalc publish"
   },

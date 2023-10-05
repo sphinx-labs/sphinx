@@ -1,12 +1,7 @@
-import { readFileSync } from 'fs'
 import { join, sep } from 'path'
 
-import { Ora } from 'ora'
 import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
-import { DeploymentState } from '@sphinx-labs/core/dist/actions/types'
-import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import {
-  CompilerConfig,
   ConfigArtifacts,
   ParsedConfig,
 } from '@sphinx-labs/core/dist/config/types'
