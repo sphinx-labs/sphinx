@@ -20,7 +20,6 @@ contract SphinxConstants {
   bytes32 public constant externalTransparentProxyTypeHash = 0x7138a168ac6b86b6fcccbf21c6c4131a5e180eb9213a05933a5df6c402693c2b;
   address public constant managerImplementationAddress = 0x60dC6A20360078c1d7DF1A6656ee53F766491d40;
   bytes32 public constant callNoncesSlotKey = 0x000000000000000000000000000000000000000000000000000000000000009a;
-  bytes32 public constant ownerThresholdSlotKey = 0x00000000000000000000000000000000000000000000000000000000000000ca;
   bytes32 public constant authAccessControlRoleSlotKey = 0x0000000000000000000000000000000000000000000000000000000000000065;
   address public constant ozTransparentAdapterAddr = 0xfA62329AE55b6e7465571AC761f6150e28Adc5cd;
   address public constant ozUUPSOwnableAdapterAddr = 0x80F33f57348e892fcbf7Df0Bc1e6B7Dac3fA2a23;

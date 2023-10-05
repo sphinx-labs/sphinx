@@ -4,6 +4,7 @@ import {
   ensureSphinxInitialized,
   SphinxJsonRpcProvider,
   isLiveNetwork,
+  getManagedServiceAddress,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -36,20 +37,37 @@ const command = args[0]
     }
     case 'deployOnAnvil': {
       const rpcUrl = args[1]
+      const executor = args[2]
+      const executorArray = executor !== ethers.ZeroAddress ? [executor] : []
       const provider = new SphinxJsonRpcProvider(rpcUrl)
 
       // TODO(docs): hardhat works on anvil. also, we generate this address to ensure that this deployer's
       // nonce doesn't...
-      const deployerPrivateKey = ethers.toBeHex(
-        BigInt(ethers.keccak256(ethers.toUtf8Bytes('sphinx.deployer'))) - 1n
+      const firstSphinxPrivateKey = ethers.keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['string', 'uint256'],
+          ['sphinx.deployer', 0]
+        )
       )
-      const wallet = new ethers.Wallet(deployerPrivateKey, provider)
+      const secondSphinxPrivateKey = ethers.keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
+          ['string', 'uint256'],
+          ['sphinx.deployer', 1]
+        )
+      )
+      await provider.send('hardhat_setBalance', [
+        new ethers.Wallet(firstSphinxPrivateKey).address,
+        ethers.toBeHex(ethers.parseEther('100')),
+      ])
+      // TODO(docs) We use the second private key here because the first one is broadcasting
+      // transactions in Foundry
+      const wallet = new ethers.Wallet(secondSphinxPrivateKey, provider)
       await provider.send('hardhat_setBalance', [
         wallet.address,
         ethers.toBeHex(ethers.parseEther('100')),
       ])
 
-      await ensureSphinxInitialized(provider, wallet, [], [], [])
+      await ensureSphinxInitialized(provider, wallet, executorArray, [], [])
 
       break
     }

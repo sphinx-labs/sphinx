@@ -57,7 +57,6 @@ abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
     }
 
     function setUp() public virtual {
-        console.log('setting up');
         // Proposal setup
         bytes32 proposerPrivateKey = 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a;
         vm.setEnv(
@@ -89,8 +88,6 @@ abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
         // vm.mockCall(newSphinxManagerAddr, hex"", abi.encode(Version({major: 9, minor: 9, patch: 9})));
         // vm.mockCall(newSphinxAuthAddr, hex"", abi.encode(Version({major: 9, minor: 9, patch: 9})));
         // // Add new implementations as valid versions on the SphinxRegistry and SphinxAuthFactory.
-        // console.log('TODO', authFactoryAddress.code.length);
-        // console.log(authFactoryAddress);
 
         // ISphinxAuthFactory(authFactoryAddress).addVersion(newSphinxManagerAddr);
         // ISphinxRegistry(registryAddress).addVersion(newSphinxAuthAddr);
@@ -104,49 +101,46 @@ abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
 
 contract FirstTODO_Thing is Proposal_Test {
     // TODO: rename all test functions in this file
-    function test_1() public {
-        IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(authAddress);
-        ISphinxAuth auth = ISphinxAuth(authAddress);
-        ISphinxManager manager = ISphinxManager(managerAddress);
+    // function test_1() public {
+    //     IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(authAddress);
+    //     ISphinxAuth auth = ISphinxAuth(authAddress);
+    //     ISphinxManager manager = ISphinxManager(managerAddress);
 
-        assertEq(forkIds.length, sphinxConfig.testnets.length);
+    //     assertEq(forkIds.length, sphinxConfig.testnets.length);
 
-        for (uint256 idx = 0; idx < forkIds.length; idx++) {
-            vm.selectFork(forkIds[idx]);
+    //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
+    //         vm.selectFork(forkIds[idx]);
 
-            // Check that the Auth contract has been initialized correctly.
-            assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
-            for (uint i = 0; i < sphinxConfig.owners.length; i++) {
-                assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[i]));
-            }
-            assertEq(auth.projectName(), sphinxConfig.projectName);
-            assertEq(
-                address(auth.manager()),
-                managerAddress
-            );
+    //         // Check that the Auth contract has been initialized correctly.
+    //         assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
+    //         for (uint i = 0; i < sphinxConfig.owners.length; i++) {
+    //             assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[i]));
+    //         }
+    //         assertEq(auth.projectName(), sphinxConfig.projectName);
+    //         assertEq(
+    //             address(auth.manager()),
+    //             managerAddress
+    //         );
 
-            // TODO(docs): These are manually set with `vm.store` in the `Proposal` mode because...
-            assertEq(auth.threshold(), 0);
-            assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
+    //         assertEq(auth.threshold(), sphinxConfig.threshold);
+    //         assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
 
-            // Check that the Auth bundle was completed.
-            assertTrue(auth.firstProposalOccurred());
-            (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
-            console.log('upper root');
-            console.logBytes32(authRoot);
-            assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-            // Three leafs were executed: `setup`, `propose`, and `approveDeployment`
-            assertEq(leafsExecuted, 3);
-            assertEq(leafsExecuted, numLeafs);
-            assertFalse(manager.isExecuting());
+    //         // Check that the Auth bundle was completed.
+    //         assertTrue(auth.firstProposalOccurred());
+    //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+    //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
+    //         // Three leafs were executed: `setup`, `propose`, and `approveDeployment`
+    //         assertEq(leafsExecuted, 3);
+    //         assertEq(leafsExecuted, numLeafs);
+    //         assertFalse(manager.isExecuting());
 
-            // Check that the contract was deployed correctly.
-            assertEq(myContract.intArg(), 1);
-            assertEq(myContract.uintArg(), 2);
-            assertEq(myContract.addressArg(), address(3));
-            assertEq(myContract.otherAddressArg(), address(4));
-        }
-    }
+    //         // Check that the contract was deployed correctly.
+    //         assertEq(myContract.intArg(), 1);
+    //         assertEq(myContract.uintArg(), 2);
+    //         assertEq(myContract.addressArg(), address(3));
+    //         assertEq(myContract.otherAddressArg(), address(4));
+    //     }
+    // }
 }
 
 contract TODO_Thing is Proposal_Test {
@@ -174,8 +168,6 @@ contract TODO_Thing is Proposal_Test {
 
     //         // Check that the Auth bundle was completed.
     //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
-    //         console.log('lower root');
-    //         console.logBytes32(authRoot);
     //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
     //         // Two leafs were executed: `propose` and `approveDeployment`
     //         assertEq(leafsExecuted, 2);

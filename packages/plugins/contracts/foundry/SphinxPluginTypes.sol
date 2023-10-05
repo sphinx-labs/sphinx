@@ -49,12 +49,6 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-enum ownerSignatureArray {
-    Default,
-    Broadcast,
-    Proposal
-}
-
 struct BundleInfo {
     string networkName;
     string configUri;
@@ -82,7 +76,8 @@ struct FoundryContractConfig {
 
 enum SphinxMode {
     Default,
-    Broadcast,
+    LiveNetworkBroadcast,
+    LocalNetworkBroadcast,
     Proposal
 }
 

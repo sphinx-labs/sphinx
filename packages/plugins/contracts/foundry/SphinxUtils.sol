@@ -2,8 +2,6 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
-import "forge-std/console.sol"; // TODO: rm
-
 import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 
@@ -39,7 +37,9 @@ import {
     NetworkType,
     Network,
     SphinxConfig,
-    InitialChainState
+    InitialChainState,
+    OptionalAddress,
+    SphinxMode
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
@@ -69,12 +69,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initializeFFI(string memory _rpcUrl) external {
-        ffiDeployOnAnvil(_rpcUrl);
-        initializeSphinxContracts();
+    function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
+        ffiDeployOnAnvil(_rpcUrl, _executor);
+        initializeSphinxContracts(_executor);
     }
 
-    function initializeSphinxContracts() public {
+    function initializeSphinxContracts(OptionalAddress memory _executor) public {
         ISphinxRegistry registry = ISphinxRegistry(registryAddress);
         ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
@@ -106,7 +106,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             // bytecode is loaded from the SphinxConstants file, which is generated directly from
             // our contracts package, it seems like this shouldn't happen. If it can happen, then it
             // seems like it could also be an issue for any other Sphinx contract, e.g. the
-            // AuthFactory or Registry.
+            // AuthFactory or Registry. Any chance you ran into this issue on Optimism? If so, the
+            // address mismatch may be due to the fact that the `write-constants.ts` script assumes
+            // that the chain ID is 31337 when calculating `managerImplementationAddress`. This
+            // results in a different address on OP and OP Goerli because the ManagedService
+            // contract, which is a constructor arg of the SphinxManager, is different on those
+            // chains.
 
             // We just check there is a manager version with the same number, we don't care if it's
             // address is the same as the expected address b/c it may differ due to compiler settings
@@ -115,6 +120,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ) {
             registry.addVersion(managerImplementationAddress);
         }
+
+        // TODO: it looks like this initialization logic now differs from the TypeScript version that's
+        // called in `ffiDeployOnAnvil`
 
         // Set the default manager version if not already set
         if (registry.currentManagerImplementation() == address(0)) {
@@ -130,7 +138,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             factory.addVersion(authImplAddress);
         }
 
-        // TODO: it looks like this differs from the TypeScript version of this logic.
         // Set the default auth version if not already set
         if (factory.currentAuthImplementation() == address(0)) {
             factory.setCurrentAuthImplementation(authImplAddress);
@@ -159,18 +166,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             registry.addContractKind(bytes32(0), defaultAdapterAddr);
         }
 
+        // TODO: the managed service address and the manager impl address are always calculated via
+        // network 31337, which may be an issue when running a forked test against optimism.
+        if (_executor.exists) {
+            address managedServiceAddr = ISphinxManager(managerImplementationAddress).managedService();
+            IAccessControl managedService = IAccessControl(managedServiceAddr);
+            if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
+                managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
+            }
+        }
+
         vm.stopPrank();
     }
-
-    // These provide an easy way to get complex data types off-chain (via the ABI) without needing
-    // to hard-code them.
-    function bundledActionsType() external pure returns (BundledSphinxAction[] memory) {}
-
-    function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory) {}
-
-    function targetBundleType() external pure returns (SphinxTargetBundle memory) {}
-
-    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory) {}
 
     function slice(
         bytes calldata _data,
@@ -197,13 +204,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return decodeBundleInfo(_deploymentInfoArray, result.stdout);
     }
 
-    function ffiDeployOnAnvil(string memory _rpcUrl) public {
-        string[] memory cmds = new string[](5);
+    function ffiDeployOnAnvil(string memory _rpcUrl, OptionalAddress memory _address) public {
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
         cmds[3] = "deployOnAnvil";
         cmds[4] = _rpcUrl;
+        cmds[5] = vm.toString(_address.value);
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
         if (result.exit_code == 1) {
@@ -354,6 +362,30 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             }
         }
         return sorted;
+    }
+
+    function getSphinxDeployerPrivateKey(uint256 _num) public pure returns (uint256) {
+        return uint256(keccak256(abi.encode('sphinx.deployer', _num)));
+    }
+
+    function getSphinxWalletsSortedByAddress(uint256 _numWallets) external returns (Vm.Wallet[] memory) {
+        Vm.Wallet[] memory wallets = new Vm.Wallet[](_numWallets);
+        for (uint256 i = 0; i < _numWallets; i++) {
+            wallets[i] = vm.createWallet(getSphinxDeployerPrivateKey(i));
+        }
+
+        // Sort the wallets by address
+        for (uint256 i = 0; i < wallets.length; i++) {
+            for (uint256 j = i + 1; j < wallets.length; j++) {
+                if (wallets[i].addr > wallets[j].addr) {
+                    Vm.Wallet memory temp = wallets[i];
+                    wallets[i] = wallets[j];
+                    wallets[j] = temp;
+                }
+            }
+        }
+
+        return wallets;
     }
 
     /**
@@ -981,7 +1013,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getMappingValueSlotKey(
         bytes32 _mappingSlotKey,
         bytes32 _key
-    ) external pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
@@ -1115,11 +1147,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     /**
      * @notice Performs validation on the user's deployment. This is only run if a broadcast is
-     *         being performed. It's worth mentioning that this can't be used for proposals because
-     *         the proposer isn't an owner of the SphinxAuth contract, which means these checks
-     *         would always fail for proposals.
+     *         being performed on a live network (i.e. not an Anvil or Hardhat node). It's worth
+     *         mentioning that this can't be used for proposals because the proposer isn't an owner
+     *         of the SphinxAuth contract, which means these checks would always fail for proposals.
      */
-    function validateBroadcast(
+    function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
         InitialChainState memory _initialState,
         ISphinxAuth _auth,
@@ -1204,7 +1236,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ISphinxAuth _auth,
         ISphinxManager _manager
     ) external view returns (InitialChainState memory) {
-        console.log('auth', address(_auth));
         if (address(_auth).code.length == 0) {
             return
                 InitialChainState({
@@ -1265,14 +1296,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    function addRemoteExecutor(address _executor, ISphinxManager _manager) external {
-        IAccessControl managedService = IAccessControl(_manager.managedService());
-        if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor)) {
-            vm.startPrank(systemOwner);
-            managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor);
-            vm.stopPrank();
-        }
-    }
+    // TODO: c/f `Broadcast` and update stuff like docs since we now have two types of Broadcasts.
 
     /**
      * @notice Removes the clients after a user's `deploy` function has been run. This function
@@ -1367,5 +1391,41 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     )
                 );
             }
+    }
+
+    function grantRoleInAuthContract(ISphinxAuth _auth, bytes32 _role, address _account, string memory _rpcUrl, SphinxMode _mode) external {
+        if (
+            !IAccessControl(address(_auth)).hasRole(
+                _role,
+                _account
+            )
+        ) {
+            bytes32 roleSlotKey = getMappingValueSlotKey(
+                authAccessControlRoleSlotKey,
+                _role
+            );
+            bytes32 memberSlotKey = getMappingValueSlotKey(
+                roleSlotKey,
+                bytes32(uint256(uint160(_account)))
+            );
+            vm.store(address(_auth), memberSlotKey, bytes32(uint256(1)));
+
+            if (_mode == SphinxMode.LocalNetworkBroadcast) {
+                string[] memory inputs = new string[](8);
+                inputs[0] = "cast";
+                inputs[1] = "rpc";
+                inputs[2] = "--rpc-url";
+                inputs[3] = _rpcUrl;
+                // TODO(docs): hardhat
+                inputs[4] = "hardhat_setStorageAt";
+                inputs[5] = vm.toString(address(_auth));
+                inputs[6] = vm.toString(memberSlotKey);
+                inputs[7] = vm.toString(bytes32(uint256(1)));
+                Vm.FfiResult memory result = vm.tryFfi(inputs);
+                if (result.exit_code == 1) {
+                    revert(string(result.stderr));
+                }
+            }
+        }
     }
 }

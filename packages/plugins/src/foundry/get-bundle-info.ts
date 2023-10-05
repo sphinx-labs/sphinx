@@ -90,11 +90,10 @@ const abiEncodedDeploymentInfoArray = args[0]
     // config URI as its name.
     const configArtifactsPath = path.join(artifactCachePath, `${ipfsHash}.json`)
     if (!fs.existsSync(configArtifactsPath)) {
-      // TODO: undo. commented out for testing speed.
-      // fs.writeFileSync(
-      //   configArtifactsPath,
-      //   JSON.stringify(configArtifacts, null, 2)
-      // )
+      fs.writeFileSync(
+        configArtifactsPath,
+        JSON.stringify(configArtifacts, null, 2)
+      )
     }
 
     const actionsAbiEncoded = coder.encode(
