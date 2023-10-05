@@ -87,6 +87,8 @@ import {
 } from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
 import { MsgSender } from "../contracts/test/MsgSender.sol";
 import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
+import { UnnamedParameters } from "../contracts/test/typegen/UnnamedParameters.sol";
+import { UnnamedParametersClient } from "../SphinxClient/typegen/UnnamedParameters.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 
@@ -121,6 +123,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
+    UnnamedParameters unnamedParameters;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -394,5 +397,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
         MsgSenderClient msgSenderClient = deployMsgSender();
         msgSenderClient.setSender();
         msgSender = MsgSender(address(msgSenderClient));
+
+        // Deploy contract that has unnamed parameters
+        UnnamedParametersClient unnamedParametersClient = deployUnnamedParameters(1, 2);
+        unnamedParametersClient.increment(1, 3);
+        unnamedParameters = UnnamedParameters(address(unnamedParametersClient));
     }
 }
