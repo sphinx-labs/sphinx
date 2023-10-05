@@ -85,6 +85,15 @@ export const sphinxFetchSubtask = async (args: {
     throw new Error('unsupported URI type')
   }
 
+  // TODO(ryan): Are you sure that JSON.parse converts strings to numbers? It seems like they're
+  // always converted to strings, even if they're less than the max safe integer value. If that's
+  // the case, could we remove this? Otherwise, I'm going to need to add similar logic to the TS
+  // proposal function because we actually convert the compiler config to/from JSON now. In that
+  // logic, I had to deal with this same issue of certain fields either being bigints or strings. To
+  // resolve that, I made the CompilerConfig type generic, so now we can either specify
+  // CompilerConfig<bigint> or CompilerConfig<string>. This seems to have resolved things in the
+  // proposal logic, so maybe we can do the same thing here. Lmk if you want more details.
+
   // The compiler config is converted to JSON before being committed to IPFS. This causes an issue for bigints
   // because JSON.stringify() converts bigints to strings, and then JSON.parse() converts them to numbers unless
   // they exceed the maximum safe integer value. As a result, some of our logic which is valid for bigints fails

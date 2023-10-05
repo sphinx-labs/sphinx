@@ -456,7 +456,7 @@ abstract contract Sphinx {
             vm.stopPrank();
 
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            sphinxUpdateDeploymentInfo(sphinxUtils.isLiveNetworkFFI(_rpcUrl), initialState, sphinxConfig, sphinxMode);
+            sphinxUpdateDeploymentInfo(sphinxUtils.isLiveNetworkFFI(rpcUrl), initialState, sphinxConfig, sphinxMode);
 
             sphinxUtils.tearDownClients(deploymentInfo.actionInputs, manager);
         } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
@@ -466,9 +466,10 @@ abstract contract Sphinx {
             // undo anything
 
             sphinxMode = SphinxMode.Broadcast;
-            sphinxUtils.isLiveNetworkFFI(_rpcUrl);
 
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
+            bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
+
             sphinxUtils.initializeFFI(rpcUrl);
 
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
