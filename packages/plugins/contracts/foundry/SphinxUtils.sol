@@ -1218,6 +1218,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
             ISemver currentManager = ISemver(registry.currentManagerImplementation());
 
+            console.log()
             return
                 InitialChainState({
                     // We set these to default values.

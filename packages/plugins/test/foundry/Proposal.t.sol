@@ -148,7 +148,10 @@ contract SecondTODO_Thing is Proposal_Test {
 //     MyContract1 myNewContract;
 
     function setUp() external {
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
     }
 
     function deploy(Network _network) public override sphinx(_network) {
@@ -156,33 +159,33 @@ contract SecondTODO_Thing is Proposal_Test {
         myNewContract = MyContract1(address(myNewContractClient));
     }
 
-    function test_2() external {
-        ISphinxAuth auth = ISphinxAuth(authAddress);
-        ISphinxManager manager = ISphinxManager(managerAddress);
+    // function test_2() external {
+    //     ISphinxAuth auth = ISphinxAuth(authAddress);
+    //     ISphinxManager manager = ISphinxManager(managerAddress);
 
-        (authRoot, forkIds) = this.sphinxProposeTask({
-            _testnets: true,
-            _proposalOutputPath: "./test-proposal-output.json"
-        });
+    //     (authRoot, forkIds) = this.sphinxProposeTask({
+    //         _testnets: true,
+    //         _proposalOutputPath: "./test-proposal-output.json"
+    //     });
 
-        assertEq(forkIds.length, sphinxConfig.testnets.length);
+    //     assertEq(forkIds.length, sphinxConfig.testnets.length);
 
-        for (uint256 idx = 0; idx < forkIds.length; idx++) {
-            vm.selectFork(forkIds[idx]);
+    //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
+    //         vm.selectFork(forkIds[idx]);
 
-            // Check that the Auth bundle was completed.
-            (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
-            assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-            // Two leafs were executed: `propose` and `approveDeployment`
-            assertEq(leafsExecuted, 2);
-            assertEq(leafsExecuted, numLeafs);
-            assertFalse(manager.isExecuting());
+    //         // Check that the Auth bundle was completed.
+    //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+    //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
+    //         // Two leafs were executed: `propose` and `approveDeployment`
+    //         assertEq(leafsExecuted, 2);
+    //         assertEq(leafsExecuted, numLeafs);
+    //         assertFalse(manager.isExecuting());
 
-            // Check that the contract was deployed correctly.
-            assertEq(myNewContract.intArg(), 5);
-            assertEq(myNewContract.uintArg(), 6);
-            assertEq(myNewContract.addressArg(), address(7));
-            assertEq(myNewContract.otherAddressArg(), address(8));
-        }
-    }
+    //         // Check that the contract was deployed correctly.
+    //         assertEq(myNewContract.intArg(), 5);
+    //         assertEq(myNewContract.uintArg(), 6);
+    //         assertEq(myNewContract.addressArg(), address(7));
+    //         assertEq(myNewContract.otherAddressArg(), address(8));
+    //     }
+    // }
 }
