@@ -159,8 +159,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             registry.addContractKind(bytes32(0), defaultAdapterAddr);
         }
 
-        // TODO: the managed service address and the manager impl address are always calculated via
-        // network 31337, which may be an issue when running a forked test against optimism.
         if (_executor.exists) {
             address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
             IAccessControl managedService = IAccessControl(managedServiceAddr);
