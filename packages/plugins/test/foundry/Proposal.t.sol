@@ -145,7 +145,7 @@ contract FirstTODO_Thing is Proposal_Test, Script, Test, SphinxConstants {
 
 contract SecondTODO_Thing is Proposal_Test {
 
-//     MyContract1 myNewContract;
+    MyContract1 myNewContract;
 
     function setUp() external {
     }
