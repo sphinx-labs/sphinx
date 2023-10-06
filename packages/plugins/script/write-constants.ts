@@ -8,6 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   buildInfo as sphinxContractsBuildInfo,
   SphinxManagerArtifact,
+  ManagedServiceArtifact,
 } from '@sphinx-labs/contracts'
 import {
   CURRENT_SPHINX_MANAGER_VERSION,
@@ -26,6 +27,8 @@ import {
   CURRENT_SPHINX_AUTH_VERSION,
   getStorageSlotKey,
   getManagerConstructorValues,
+  getManagedServiceAddress,
+  getManagedServiceConstructorArgs,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -171,6 +174,11 @@ const writeConstants = async () => {
         ),
       },
       {
+        artifact: ManagedServiceArtifact,
+        expectedAddress: getManagedServiceAddress(10n),
+        constructorArgs: getManagedServiceConstructorArgs(10n),
+      },
+      {
         artifact: SphinxManagerArtifact,
         expectedAddress: getSphinxManagerImplAddress(
           420n,
@@ -180,6 +188,11 @@ const writeConstants = async () => {
           420n,
           CURRENT_SPHINX_MANAGER_VERSION
         ),
+      },
+      {
+        artifact: ManagedServiceArtifact,
+        expectedAddress: getManagedServiceAddress(420n),
+        constructorArgs: getManagedServiceConstructorArgs(420n),
       },
     ]
   )

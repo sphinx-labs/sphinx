@@ -61,11 +61,16 @@ export const getSphinxRegistryAddress = () =>
     )
   )
 
-export const getManagedServiceAddress = (chainId: bigint) => {
+export const getManagedServiceConstructorArgs = (chainId: bigint) => {
   const usdcAddress =
     chainId === 10n || chainId === 420n
       ? USDC_ADDRESSES[Number(chainId)]
       : ZeroAddress
+
+  return [getOwnerAddress(), usdcAddress]
+}
+
+export const getManagedServiceAddress = (chainId: bigint) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -75,7 +80,7 @@ export const getManagedServiceAddress = (chainId: bigint) => {
         ManagedServiceArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
-          [getOwnerAddress(), usdcAddress]
+          getManagedServiceConstructorArgs(chainId)
         ),
       ]
     )
