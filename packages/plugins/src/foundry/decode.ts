@@ -1,8 +1,5 @@
 import { DeploymentInfo } from '@sphinx-labs/core/dist/config/types'
-import {
-  recursivelyConvertResult,
-  recursivelyConvertResultWithConsole,
-} from '@sphinx-labs/core/dist/utils'
+import { recursivelyConvertResult } from '@sphinx-labs/core/dist/utils'
 import { AbiCoder, Result } from 'ethers'
 
 import { ProposalOutput } from './types'
