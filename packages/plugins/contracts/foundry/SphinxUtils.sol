@@ -69,9 +69,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initialize(string memory _rpcUrl) external {
-        ffiDeployOnAnvil(_rpcUrl);
-        ensureSphinxInitialized();
+    function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
+        ffiDeployOnAnvil(_rpcUrl, _executor);
+        initializeSphinxContracts(_executor);
     }
 
     /**
@@ -88,21 +88,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    /**
-     * @notice Returns the SphinxManager implementation address for the current network.
-     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
-     */
-    function selectManagerImplAddressForNetwork() internal view returns (address) {
-        if (block.chainid == 10) {
-            return managerImplementationAddressOptimism;
-        } else if (block.chainid == 420) {
-            return managerImplementationAddressOptimismGoerli;
-        } else {
-            return managerImplementationAddressStandard;
-        }
-    }
-
-    function ensureSphinxInitialized() public {
+    function initializeSphinxContracts(OptionalAddress memory _executor) public {
         ISphinxRegistry registry = ISphinxRegistry(registryAddress);
         ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
@@ -176,7 +162,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // TODO: the managed service address and the manager impl address are always calculated via
         // network 31337, which may be an issue when running a forked test against optimism.
         if (_executor.exists) {
-            address managedServiceAddr = ISphinxManager(managerImplementationAddress).managedService();
+            address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
             IAccessControl managedService = IAccessControl(managedServiceAddr);
             if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
                 managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
