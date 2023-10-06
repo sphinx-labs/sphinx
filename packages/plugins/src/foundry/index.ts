@@ -4,7 +4,6 @@ import {
   ensureSphinxInitialized,
   SphinxJsonRpcProvider,
   isLiveNetwork,
-  getManagedServiceAddress,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
