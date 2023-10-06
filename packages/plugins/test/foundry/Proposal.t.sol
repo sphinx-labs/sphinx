@@ -148,10 +148,6 @@ contract SecondTODO_Thing is Proposal_Test {
 //     MyContract1 myNewContract;
 
     function setUp() external {
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
     }
 
     function deploy(Network _network) public override sphinx(_network) {
