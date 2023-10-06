@@ -23,7 +23,7 @@ import { MyContract1Client } from "../../SphinxClient/MyContracts.SphinxClient.s
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
-abstract contract Proposal_Test is SphinxClient {
+abstract contract AbstractProposal_Test is SphinxClient {
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -71,7 +71,7 @@ abstract contract Proposal_Test is SphinxClient {
     }
 }
 
-contract FirstTODO_Thing is Proposal_Test, Script, Test, SphinxConstants {
+contract Proposal_Test is AbstractProposal_Test, Script, Test, SphinxConstants {
 
     function deploy(Network _network) public override virtual sphinx(_network) {
         MyContract1Client myContractClient = deployMyContract1(1, 2, address(3), address(4));
@@ -143,45 +143,45 @@ contract FirstTODO_Thing is Proposal_Test, Script, Test, SphinxConstants {
     }
 }
 
-contract SecondTODO_Thing is Proposal_Test {
+// contract SecondTODO_Thing is Proposal_Test {
 
-    MyContract1 myNewContract;
+//     MyContract1 myNewContract;
 
-    function setUp() external {
-    }
+//     // function setUp() external {
+//     // }
 
-    function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
-        myNewContract = MyContract1(address(myNewContractClient));
-    }
+//     function deploy(Network _network) public override sphinx(_network) {
+//         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
+//         myNewContract = MyContract1(address(myNewContractClient));
+//     }
 
-    // function test_2() external {
-    //     ISphinxAuth auth = ISphinxAuth(authAddress);
-    //     ISphinxManager manager = ISphinxManager(managerAddress);
+//     // function test_2() external {
+//     //     ISphinxAuth auth = ISphinxAuth(authAddress);
+//     //     ISphinxManager manager = ISphinxManager(managerAddress);
 
-    //     (authRoot, forkIds) = this.sphinxProposeTask({
-    //         _testnets: true,
-    //         _proposalOutputPath: "./test-proposal-output.json"
-    //     });
+//     //     (authRoot, forkIds) = this.sphinxProposeTask({
+//     //         _testnets: true,
+//     //         _proposalOutputPath: "./test-proposal-output.json"
+//     //     });
 
-    //     assertEq(forkIds.length, sphinxConfig.testnets.length);
+//     //     assertEq(forkIds.length, sphinxConfig.testnets.length);
 
-    //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
-    //         vm.selectFork(forkIds[idx]);
+//     //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
+//     //         vm.selectFork(forkIds[idx]);
 
-    //         // Check that the Auth bundle was completed.
-    //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
-    //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-    //         // Two leafs were executed: `propose` and `approveDeployment`
-    //         assertEq(leafsExecuted, 2);
-    //         assertEq(leafsExecuted, numLeafs);
-    //         assertFalse(manager.isExecuting());
+//     //         // Check that the Auth bundle was completed.
+//     //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+//     //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
+//     //         // Two leafs were executed: `propose` and `approveDeployment`
+//     //         assertEq(leafsExecuted, 2);
+//     //         assertEq(leafsExecuted, numLeafs);
+//     //         assertFalse(manager.isExecuting());
 
-    //         // Check that the contract was deployed correctly.
-    //         assertEq(myNewContract.intArg(), 5);
-    //         assertEq(myNewContract.uintArg(), 6);
-    //         assertEq(myNewContract.addressArg(), address(7));
-    //         assertEq(myNewContract.otherAddressArg(), address(8));
-    //     }
-    // }
-}
+//     //         // Check that the contract was deployed correctly.
+//     //         assertEq(myNewContract.intArg(), 5);
+//     //         assertEq(myNewContract.uintArg(), 6);
+//     //         assertEq(myNewContract.addressArg(), address(7));
+//     //         assertEq(myNewContract.otherAddressArg(), address(8));
+//     //     }
+//     // }
+// }

@@ -2,6 +2,8 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
+import { console } from "forge-std/console.sol"; // TODO: rm
+
 import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 
@@ -1144,7 +1146,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
-        InitialChainState memory _initialState,
         ISphinxAuth _auth,
         address _msgSender
     ) external view {
@@ -1201,7 +1202,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
             );
             require(
-                !_initialState.firstProposalOccurred ||
+                !_auth.firstProposalOccurred() ||
                     auth.hasRole(keccak256("ProposerRole"), deployer),
                 "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
             );
@@ -1214,7 +1215,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) external view returns (InitialChainState memory) {
         if (address(_auth).code.length == 0) {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
+
+            console.log('registry', address(registry).code.length);
+
             ISemver currentManager = ISemver(registry.currentManagerImplementation());
+            console.log('curr manager', address(currentManager));
+            console.log('curr manager len', address(currentManager).code.length);
 
             return
                 InitialChainState({
