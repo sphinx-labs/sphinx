@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import { console } from "forge-std/console.sol";
 import { Script } from "forge-std/Script.sol";
 import { Test } from "forge-std/Test.sol";
-import "forge-std/StdStorage.sol";
 import {
     ISphinxAuthFactory
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
@@ -23,9 +22,7 @@ import { MyContract1Client } from "../../SphinxClient/MyContracts.SphinxClient.s
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
-abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
-    using stdStorage for StdStorage;
-
+abstract contract AbstractProposal_Test is Script, SphinxClient, Test, SphinxConstants {
     MyContract1 myContract;
 
     address authAddress;
@@ -99,58 +96,58 @@ abstract contract Proposal_Test is Script, SphinxClient, Test, SphinxConstants {
     }
 }
 
-contract FirstTODO_Thing is Proposal_Test {
+contract Proposal_Test is AbstractProposal_Test {
     // TODO: rename all test functions in this file
-    // function test_1() public {
-    //     IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(authAddress);
-    //     ISphinxAuth auth = ISphinxAuth(authAddress);
-    //     ISphinxManager manager = ISphinxManager(managerAddress);
+    function test_1() public {
+        IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(authAddress);
+        ISphinxAuth auth = ISphinxAuth(authAddress);
+        ISphinxManager manager = ISphinxManager(managerAddress);
 
-    //     assertEq(forkIds.length, sphinxConfig.testnets.length);
+        assertEq(forkIds.length, sphinxConfig.testnets.length);
 
-    //     for (uint256 idx = 0; idx < forkIds.length; idx++) {
-    //         vm.selectFork(forkIds[idx]);
+        for (uint256 idx = 0; idx < forkIds.length; idx++) {
+            vm.selectFork(forkIds[idx]);
 
-    //         // Check that the Auth contract has been initialized correctly.
-    //         assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
-    //         for (uint i = 0; i < sphinxConfig.owners.length; i++) {
-    //             assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[i]));
-    //         }
-    //         assertEq(auth.projectName(), sphinxConfig.projectName);
-    //         assertEq(
-    //             address(auth.manager()),
-    //             managerAddress
-    //         );
+            // Check that the Auth contract has been initialized correctly.
+            assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
+            for (uint i = 0; i < sphinxConfig.owners.length; i++) {
+                assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[i]));
+            }
+            assertEq(auth.projectName(), sphinxConfig.projectName);
+            assertEq(
+                address(auth.manager()),
+                managerAddress
+            );
 
-    //         assertEq(auth.threshold(), sphinxConfig.threshold);
-    //         assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
+            assertEq(auth.threshold(), sphinxConfig.threshold);
+            assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
 
-    //         // Check that the Auth bundle was completed.
-    //         assertTrue(auth.firstProposalOccurred());
-    //         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
-    //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-    //         // Three leafs were executed: `setup`, `propose`, and `approveDeployment`
-    //         assertEq(leafsExecuted, 3);
-    //         assertEq(leafsExecuted, numLeafs);
-    //         assertFalse(manager.isExecuting());
+            // Check that the Auth bundle was completed.
+            assertTrue(auth.firstProposalOccurred());
+            (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(authRoot);
+            assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
+            // Three leafs were executed: `setup`, `propose`, and `approveDeployment`
+            assertEq(leafsExecuted, 3);
+            assertEq(leafsExecuted, numLeafs);
+            assertFalse(manager.isExecuting());
 
-    //         // Check that the contract was deployed correctly.
-    //         assertEq(myContract.intArg(), 1);
-    //         assertEq(myContract.uintArg(), 2);
-    //         assertEq(myContract.addressArg(), address(3));
-    //         assertEq(myContract.otherAddressArg(), address(4));
-    //     }
-    // }
+            // Check that the contract was deployed correctly.
+            assertEq(myContract.intArg(), 1);
+            assertEq(myContract.uintArg(), 2);
+            assertEq(myContract.addressArg(), address(3));
+            assertEq(myContract.otherAddressArg(), address(4));
+        }
+    }
 }
 
-contract TODO_Thing is Proposal_Test {
+// contract TODO_Thing is Proposal_Test {
 
-    MyContract1 myNewContract;
+//     MyContract1 myNewContract;
 
-    function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
-        myNewContract = MyContract1(address(myNewContractClient));
-    }
+//     function deploy(Network _network) public override sphinx(_network) {
+//         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
+//         myNewContract = MyContract1(address(myNewContractClient));
+//     }
 
     // function test_2() external {
     //     ISphinxAuth auth = ISphinxAuth(authAddress);
@@ -181,4 +178,4 @@ contract TODO_Thing is Proposal_Test {
     //         assertEq(myNewContract.otherAddressArg(), address(8));
     //     }
     // }
-}
+// }
