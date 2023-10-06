@@ -117,11 +117,6 @@ IPFS_API_KEY_SECRET: ...
   return { configUri, compilerConfig }
 }
 
-// TODO(test): see if Foundry can automatically verify the contracts. It's unlikely because we
-// deploy them in a non-standard way, but it's possible. If foundry can do it, we should just
-// never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
-// via `execAsync(forge config --json)` and pass it in here
-
 export const getProjectBundleInfo = async (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts
