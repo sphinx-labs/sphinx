@@ -6,25 +6,42 @@ import {
 
 import { generateImportsFromVariableDeclarations } from './imports'
 
-export const fetchTypeForUserDefinedType = (input: VariableDeclaration) => {
-  if (input.typeName?.nodeType === 'UserDefinedTypeName') {
+const fetchArrayStringSuffix = (arrayString: string) => {
+  return `[${arrayString.split('[')[1]}`
+}
+
+export const fetchTypeForUserDefinedType = (
+  input: VariableDeclaration,
+  includeArraySuffix: boolean = false
+) => {
+  const typeName =
+    input.typeName?.nodeType === 'ArrayTypeName'
+      ? input.typeName.baseType
+      : input.typeName
+
+  const suffix =
+    input.typeName?.nodeType === 'ArrayTypeName' && includeArraySuffix
+      ? fetchArrayStringSuffix(input.typeDescriptions.typeString ?? '')
+      : ''
+
+  if (typeName?.nodeType === 'UserDefinedTypeName') {
     let type: string | undefined
-    const pathNodeName = input.typeName.pathNode?.name
+    const pathNodeName = typeName.pathNode?.name
     const pathNodeNameIncludesParent = pathNodeName?.includes('.')
 
     // If the path node includes a parent type, then automatically use it since it will include any aliases used for the parent
     if (pathNodeNameIncludesParent) {
       type = pathNodeName
     } else {
-      const typeName = input.typeDescriptions.typeString
+      const aliasedTypeName = input.typeDescriptions.typeString
         ?.replace('struct ', '')
         .replace('enum ', '')
-      const typeNameIncludesParent = typeName?.includes('.')
+      const typeNameIncludesParent = aliasedTypeName?.includes('.')
 
       // The only case where the type name includes a parent and the pathnode does not is when the parent is the same contract
       // as where the type is used. So in this case, we use the type name since we're going to import the type from the original source contract.
       if (typeNameIncludesParent) {
-        type = typeName
+        type = aliasedTypeName
       } else {
         // If both the type name and the path node do not include a parent, then we use the path node name
         // since it will use any alias used when importing the type.
@@ -32,7 +49,8 @@ export const fetchTypeForUserDefinedType = (input: VariableDeclaration) => {
       }
     }
 
-    return type
+    // Append the array suffix if necesary
+    return `${type}${suffix}`
   } else {
     throw new Error(
       'fetchTypeForUserDefinedType: Input variable is not a user defined type. This should never happen, please report this as a bug.'
@@ -78,8 +96,12 @@ const formatParameters = (
             'address'
           )
         }
-      } else if (input.typeName?.nodeType === 'UserDefinedTypeName') {
-        type = fetchTypeForUserDefinedType(input)
+      } else if (
+        input.typeName?.nodeType === 'UserDefinedTypeName' ||
+        (input.typeName?.nodeType === 'ArrayTypeName' &&
+          input.typeName.baseType.nodeType === 'UserDefinedTypeName')
+      ) {
+        type = fetchTypeForUserDefinedType(input, true)
 
         // If the type is a user defined type, then replace any aliases used for the parent type with the unique name if necessary
         for (const [key, value] of Object.entries(duplicates)) {

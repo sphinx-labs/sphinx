@@ -48,6 +48,8 @@ import {
 } from "../../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import { ConflictingStruct } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
+import { MyContractType, MyEnum, MyType, MyStruct } from "../../contracts/test/typegen/ArrayInputTypes.sol";
+import { MyLocalTypeArray } from "../../contracts/test/typegen/imports/NoAliasArray.sol";
 
 import "forge-std/Test.sol";
 
@@ -166,6 +168,14 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(arrayInputTypes.myUintStaticArray(0), initialUintStaticArray[0]);
         assertEq(arrayInputTypes.myUintStaticArray(1), initialUintStaticArray[1]);
         assertEq(arrayInputTypes.myUintStaticArray(2), initialUintStaticArray[2]);
+        assertEq(arrayInputTypes.myStructArray(0), initialMyStructArray[0].myNumber);
+        assertEq(arrayInputTypes.myStructArray(1), initialMyStructArray[1].myNumber);
+        assertEq(MyType.unwrap(arrayInputTypes.myTypeArray(0)), MyType.unwrap(initialMyTypeArray[0]));
+        assertEq(MyType.unwrap(arrayInputTypes.myTypeArray(1)), MyType.unwrap(initialMyTypeArray[1]));
+        assertEq(address(arrayInputTypes.myContractTypeArray(0)), initialMyContractTypeArray[0]);
+        assertEq(address(arrayInputTypes.myContractTypeArray(1)), initialMyContractTypeArray[1]);
+        assertEq(uint(arrayInputTypes.myEnumArray(0)), uint(initialMyEnumArray[0]));
+        assertEq(uint(arrayInputTypes.myEnumArray(1)), uint(initialMyEnumArray[1]));
     }
 
     // Covers using array types as function inputs
@@ -191,14 +201,88 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(arrayInputTypesTwo.myUintStaticArray(0), updatedUintStaticArray[0]);
         assertEq(arrayInputTypesTwo.myUintStaticArray(1), updatedUintStaticArray[1]);
         assertEq(arrayInputTypesTwo.myUintStaticArray(2), updatedUintStaticArray[2]);
+        assertEq(arrayInputTypesTwo.myStructArray(0), updatedMyStructArray[0].myNumber);
+        assertEq(arrayInputTypesTwo.myStructArray(1), updatedMyStructArray[1].myNumber);
+        assertEq(MyType.unwrap(arrayInputTypesTwo.myTypeArray(0)), MyType.unwrap(updatedMyTypeArray[0]));
+        assertEq(MyType.unwrap(arrayInputTypesTwo.myTypeArray(1)), MyType.unwrap(updatedMyTypeArray[1]));
+        assertEq(address(arrayInputTypesTwo.myContractTypeArray(0)), updatedMyContractTypeArray[0]);
+        assertEq(address(arrayInputTypesTwo.myContractTypeArray(1)), updatedMyContractTypeArray[1]);
+        assertEq(uint(arrayInputTypesTwo.myEnumArray(0)), uint(updatedMyEnumArray[0]));
+        assertEq(uint(arrayInputTypesTwo.myEnumArray(1)), uint(updatedMyEnumArray[1]));
     }
+
+    // Covers importing a user defined type without an alias and using it in an array
+    function testDidImportUserDefinedTypeAndUseInArray() public {
+        assertEq(uint(noAliasArrayImportsOne.libraryEnum(0)), uint(noAliasLibraryEnumArray[0]));
+        assertEq(noAliasArrayImportsOne.libraryStruct(0), noAliasLibraryStruct[0].a);
+        assertEq(
+            MyTypeLibrary.MyTypeInLibrary.unwrap(noAliasArrayImportsOne.libraryType(0)),
+            MyTypeLibrary.MyTypeInLibrary.unwrap(noAliasLibraryType[0])
+        );
+        assertEq(uint(noAliasArrayImportsOne.contractEnum(0)), uint(noAliasContractEnum[0]));
+        assertEq(noAliasArrayImportsOne.contractStruct(0), noAliasContractStruct[0].a);
+        assertEq(
+            MyTypeContract.MyTypeInContract.unwrap(noAliasArrayImportsOne.contractType(0)),
+            MyTypeContract.MyTypeInContract.unwrap(noAliasContractType[0])
+        );
+
+        assertEq(uint(noAliasArrayImportsTwo.topLevelEnum(0)), uint(noAliasTopLevelEnum[0]));
+        assertEq(noAliasArrayImportsTwo.topLevelStruct(0), noAliasTopLevelStruct[0].a);
+        assertEq(MyTopLevelType.unwrap(noAliasArrayImportsTwo.topLevelType(0)), MyTopLevelType.unwrap(noAliasTopLevelType[0]));
+
+        assertEq(uint(noAliasArrayImportsTwo.localEnum(0)), uint(noAliasLocalEnum[0]));
+        assertEq(noAliasArrayImportsTwo.localStruct(0), noAliasLocalStruct[0].a);
+        assertEq(
+            MyLocalTypeArray.unwrap(noAliasArrayImportsTwo.localType(0)),
+            MyLocalTypeArray.unwrap(noAliasLocalType[0])
+        );
+    }
+
+    // Covers importing a user defined type with an alias and using it in an array
+    function testDidImportUserDefinedTypeAndUseInArrayWithAlias() public {
+        // Library
+        assertEq(
+            uint(aliasImportsArray.libraryEnum(0)),
+            uint(libraryEnumArray[0])
+        );
+        assertEq(aliasImportsArray.libraryStruct(0), libraryStruct[0].a);
+        assertEq(
+            MyTypeLibraryAlias.MyTypeInLibrary.unwrap(aliasImportsArray.libraryType(0)),
+            MyTypeLibraryAlias.MyTypeInLibrary.unwrap(libraryType[0])
+        );
+
+        // Contract
+        assertEq(
+            uint(aliasImportsArray.contractEnum(0)),
+            uint(contractEnum[0])
+        );
+        assertEq(aliasImportsArray.contractStruct(0), contractStruct[0].a);
+        assertEq(
+            MyTypeContractAlias.MyTypeInContract.unwrap(aliasImportsArray.contractType(0)),
+            MyTypeContractAlias.MyTypeInContract.unwrap(contractType[0])
+        );
+
+        // Top Level
+        assertEq(uint(aliasImportsArray.topLevelEnum(0)), uint(topLevelEnum[0]));
+        assertEq(aliasImportsArray.topLevelStruct(0), topLevelStruct[0].a);
+        assertEq(
+            MyTopLevelTypeAlias.unwrap(aliasImportsArray.topLevelType(0)),
+            MyTopLevelTypeAlias.unwrap(topLevelType[0])
+        );
+
+    }
+
 
     // Covers returning array types from pure functions
     function testDidReturnArrayTypesFromPureFunction() public {
         (
             uint8[] memory myUintDynamicArray,
             bytes32[][] memory myUintNestedDynamicArray,
-            address[3] memory myUintStaticArray
+            address[3] memory myUintStaticArray,
+            MyStruct[] memory myStructArray,
+            MyType[] memory myTypeArray,
+            MyContractType[] memory myContractTypeArray,
+            MyEnum[] memory myEnumArray
         ) = arrayInputTypes.returnValues();
         assertEq(myUintDynamicArray[0], intialUintDynamicArray[0]);
         assertEq(myUintDynamicArray[1], intialUintDynamicArray[1]);
