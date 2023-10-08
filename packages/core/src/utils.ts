@@ -1614,34 +1614,37 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
  * wouldn't be surprising if there's a patch update that breaks this function.
  */
 export const recursivelyConvertResult = (r: Result | unknown): unknown => {
-  if (!(r instanceof Result)) {
+  if (!(typeof (r as Result).toObject === 'function')) {
     return r
   }
+  // instanceof does not seem to reliably detect the Result class, so we have to use the above check instead
+  // Since we know that r is a Result, we can cast it to a Result to avoid type errors
+  const rAsResult = r as Result
 
   let isArray: boolean
   try {
-    const obj = r.toObject()
+    const obj = rAsResult.toObject()
     isArray = !!obj._
   } catch {
     isArray = true
   }
 
   if (isArray) {
-    if (r.length === 0) {
+    if (rAsResult.length === 0) {
       return []
     } else if (
       // This is another case where the Result is empty. If we don't do this, the returned value
       // will be an empty nested array, i.e. `[[]]`, when in fact it should just be an empty array.
-      r.length === 1 &&
-      Array.isArray(r[0]) &&
-      r[0].length === 0
+      rAsResult.length === 1 &&
+      Array.isArray(rAsResult[0]) &&
+      rAsResult[0].length === 0
     ) {
       return []
     } else {
-      return r.map(recursivelyConvertResult)
+      return rAsResult.map(recursivelyConvertResult)
     }
   } else {
-    const elemObj = r.toObject()
+    const elemObj = rAsResult.toObject()
 
     if (Object.keys(elemObj).length === 0) {
       return []
