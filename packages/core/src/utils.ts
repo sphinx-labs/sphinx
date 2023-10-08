@@ -1460,7 +1460,7 @@ export const isExtendedDeployContractActionInput = (
     | ExtendedDeployContractActionInput
     | ExtendedFunctionCallActionInput
 ): actionInput is ExtendedDeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
 export const isExtendedFunctionCallActionInput = (
@@ -1468,19 +1468,19 @@ export const isExtendedFunctionCallActionInput = (
     | ExtendedDeployContractActionInput
     | ExtendedFunctionCallActionInput
 ): actionInput is ExtendedFunctionCallActionInput => {
-  return actionInput.actionType === SphinxActionType.CALL
+  return actionInput.actionType === SphinxActionType.CALL.toString()
 }
 
 export const isDeployContractActionInput = (
   actionInput: DeployContractActionInput | FunctionCallActionInput
 ): actionInput is DeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   configArtifacts: ConfigArtifacts
-): ParsedConfig<bigint> => {
+): ParsedConfig => {
   const {
     authAddress,
     managerAddress,
@@ -1504,8 +1504,7 @@ export const makeParsedConfig = (
     .map(fromRawSphinxActionInput)
 
   const extendedActions: Array<
-    | ExtendedDeployContractActionInput<bigint>
-    | ExtendedFunctionCallActionInput<bigint>
+    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
   > = []
   for (const action of actions) {
     const { referenceName, fullyQualifiedName } = action
@@ -1560,7 +1559,7 @@ export const makeParsedConfig = (
   return {
     authAddress,
     managerAddress,
-    chainId,
+    chainId: chainId.toString(),
     newConfig,
     isLiveNetwork: isLiveNetwork_,
     initialState,

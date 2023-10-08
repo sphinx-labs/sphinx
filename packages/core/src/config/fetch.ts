@@ -1,48 +1,9 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { HumanReadableActions, SphinxBundles } from '../actions/types'
-import {
-  callWithTimeout,
-  getConfigArtifactsRemote,
-  isExtendedFunctionCallActionInput,
-} from '../utils'
-import {
-  CompilerConfig,
-  ConfigArtifacts,
-  ExtendedDeployContractActionInput,
-} from './types'
+import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
+import { CompilerConfig, ConfigArtifacts } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { SemVer } from '../types'
-
-const parseCompilerAction = (
-  action: ExtendedDeployContractActionInput | ExtendedDeployContractActionInput
-) => {
-  action.actionType = BigInt(action.actionType)
-  if (isExtendedFunctionCallActionInput(action)) {
-    action.nonce = BigInt(action.nonce)
-  }
-
-  return action
-}
-
-const parseCompilerVersion = (version: SemVer) => {
-  version.major = BigInt(version.major)
-  version.minor = BigInt(version.minor)
-  version.patch = BigInt(version.patch)
-  return version
-}
-
-// Todo ensure all of the bigints are properly parsed in the compiler config
-const parseCompilerConfigBigInts = (config: CompilerConfig) => {
-  config.chainId = BigInt(config.chainId)
-  config.actionInputs = config.actionInputs.map(parseCompilerAction)
-  config.newConfig.threshold = BigInt(config.newConfig.threshold)
-  config.newConfig.version = parseCompilerVersion(config.newConfig.version)
-  config.initialState.version = parseCompilerVersion(
-    config.initialState.version
-  )
-  return config
-}
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -85,23 +46,7 @@ export const sphinxFetchSubtask = async (args: {
     throw new Error('unsupported URI type')
   }
 
-  // TODO(ryan): Are you sure that JSON.parse converts strings to numbers? It seems like they're
-  // always converted to strings, even if they're less than the max safe integer value. If that's
-  // the case, could we remove this? Otherwise, I'm going to need to add similar logic to the TS
-  // proposal function because we actually convert the compiler config to/from JSON now. In the
-  // proposal logic, I had to deal with this same issue of certain fields in the CompilerConfig
-  // either being bigints or strings. To resolve that, I made the CompilerConfig type generic, so
-  // now we can either specify CompilerConfig<bigint> or CompilerConfig<string>. This seems to have
-  // resolved things in the proposal logic, so maybe we can do the same thing here. Lmk if you want
-  // more details.
-
-  // The compiler config is converted to JSON before being committed to IPFS. This causes an issue for bigints
-  // because JSON.stringify() converts bigints to strings, and then JSON.parse() converts them to numbers unless
-  // they exceed the maximum safe integer value. As a result, some of our logic which is valid for bigints fails
-  // when the values are converted to numbers. So we must convert the bigints back to strings here.
-  // We do not need to worry about this when working with the local compiler config because it is not converted to
-  // and from JSON.
-  return parseCompilerConfigBigInts(config)
+  return config
 }
 
 /**

@@ -1216,11 +1216,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_auth).code.length == 0) {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
 
-            console.log('registry', address(registry).code.length);
-
             ISemver currentManager = ISemver(registry.currentManagerImplementation());
-            console.log('curr manager', address(currentManager));
-            console.log('curr manager len', address(currentManager).code.length);
 
             return
                 InitialChainState({

@@ -352,7 +352,7 @@ export const getAuthLeafSignerInfo = (
 
 export const fromRawSphinxActionInput = (
   rawAction: RawSphinxActionInput
-): DeployContractActionInput<bigint> | FunctionCallActionInput<bigint> => {
+): DeployContractActionInput | FunctionCallActionInput => {
   const { skip, fullyQualifiedName } = rawAction
   const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
@@ -363,7 +363,7 @@ export const fromRawSphinxActionInput = (
     return {
       skip,
       fullyQualifiedName,
-      actionType: SphinxActionType.DEPLOY_CONTRACT,
+      actionType: SphinxActionType.DEPLOY_CONTRACT.toString(),
       initCode,
       constructorArgs,
       userSalt,
@@ -377,7 +377,7 @@ export const fromRawSphinxActionInput = (
     return {
       skip,
       fullyQualifiedName,
-      actionType: SphinxActionType.CALL,
+      actionType: SphinxActionType.CALL.toString(),
       to,
       selector,
       functionParams,
@@ -702,11 +702,12 @@ export const makeActionBundleFromConfig = (
  * no project-specific leafs will be generated.
  */
 export const getAuthLeafsForChain = async (
-  parsedConfig: ParsedConfig<bigint>,
+  parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
-  const { chainId, managerAddress, initialState, newConfig, remoteExecution } =
+  const { managerAddress, initialState, newConfig, remoteExecution } =
     parsedConfig
+  const chainId = BigInt(parsedConfig.chainId)
   const {
     firstProposalOccurred,
     isExecuting,

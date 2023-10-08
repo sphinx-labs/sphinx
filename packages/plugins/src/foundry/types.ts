@@ -13,7 +13,7 @@ export type BundleInfo = {
   actionBundle: SphinxActionBundle
   targetBundle: SphinxTargetBundle
   humanReadableActions: Array<HumanReadableAction>
-  compilerConfig: CompilerConfig<string>
+  compilerConfig: CompilerConfig
 }
 
 export type ProposalOutput = {

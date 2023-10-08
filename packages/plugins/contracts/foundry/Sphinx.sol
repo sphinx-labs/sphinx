@@ -123,6 +123,8 @@ abstract contract Sphinx {
      */
     constructor() {
         // Set default values for the SphinxConfig
+        // TODO(ryan): is it okay that we set this here? i think you may have said that the default
+        // version is different on OP, although i'm not sure.
         sphinxConfig.version = Version({ major: 0, minor: 2, patch: 5 });
 
         sphinxUtils = new SphinxUtils();

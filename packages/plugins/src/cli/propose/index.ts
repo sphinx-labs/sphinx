@@ -27,6 +27,7 @@ import { blue } from 'chalk'
 
 import { decodeProposalOutput } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
+import { Result } from 'ethers'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'

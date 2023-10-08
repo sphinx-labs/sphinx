@@ -4,15 +4,18 @@
 
 # This setting ensures that this script will exit if any subsequent command in this script fails.
 # Without this, the CI process will pass even if tests in this script fail.
-# set -e # TODO: undo
+set -e
 
 # We spin up a few nodes to simulate a multi-chain deployment
 anvil --silent --chain-id 5 --port 42005 &
 anvil --silent --chain-id 420 --port 42420 &
 anvil --silent --chain-id 10200 --port 42200 &
 anvil --silent --chain-id 421613 --port 42613 &
-anvil --silent --chain-id 84531 --port 42531 &
-forge test --match-path test/foundry/Proposal.t.sol -vvvv # TODO: make more generic
+forge test --match-contract Proposal_Test -vvvv # TODO: make more generic
+npx sphinx deploy test/foundry/Proposal.t.sol --network optimism_goerli  --confirm --target-contract Proposal_Test
+npx sphinx deploy test/foundry/Proposal.t.sol --network goerli  --confirm --target-contract Proposal_Test
+forge test --match-contract ProposalSecond_Test -vvvv # TODO: make more generic
+forge test --match-contract ProposalThird_Test -vvvv # TODO: make more generic
 yarn test:kill
 
 # TODO

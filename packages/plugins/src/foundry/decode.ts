@@ -61,6 +61,7 @@ export const decodeProposalOutput = (
   )[0]
 
   // TODO: update after you update recursivelyConvertResult.
+  const TODOrm = proposalOutputResult instanceof Result
   const proposalOutput = recursivelyConvertResult(proposalOutputResult) as any
 
   for (const bundleInfo of proposalOutput.bundleInfoArray) {

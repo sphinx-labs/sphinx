@@ -25,6 +25,8 @@ import {
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
+import { red } from 'chalk'
+
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
@@ -228,10 +230,13 @@ yargs(hideBin(process.argv))
       if (verify) {
         if (!etherscan || !etherscan[network]) {
           const endpoint = getEtherscanEndpointForNetwork(network)
-          console.log(`No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:
-[etherscan]
-${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = ${SUPPORTED_NETWORKS[network]} }
-`)
+          console.error(
+            red(
+              `No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:\n` +
+                `[etherscan]\n` +
+                `${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = ${SUPPORTED_NETWORKS[network]} }`
+            )
+          )
           process.exit(1)
         }
       }
@@ -254,7 +259,9 @@ ${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = 
       const forkUrl = rpcEndpoints[network]
       if (!forkUrl) {
         console.error(
-          `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+          red(
+            `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+          )
         )
         process.exit(1)
       }
@@ -366,7 +373,8 @@ ${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = 
 
       const containsDeployment = parsedConfig.actionInputs.some(
         (action) =>
-          action.actionType === SphinxActionType.DEPLOY_CONTRACT && !action.skip
+          action.actionType === SphinxActionType.DEPLOY_CONTRACT.toString() &&
+          !action.skip
       )
 
       if (containsDeployment) {

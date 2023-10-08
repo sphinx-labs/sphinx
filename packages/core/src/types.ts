@@ -2,10 +2,10 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { Integration } from './constants'
 
-export type SemVer<N = string | bigint> = {
-  major: N
-  minor: N
-  patch: N
+export type SemVer = {
+  major: string
+  minor: string
+  patch: string
 }
 
 export type SphinxRuntimeEnvironment = {
