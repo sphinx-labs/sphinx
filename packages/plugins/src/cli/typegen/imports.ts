@@ -123,7 +123,11 @@ export const generateImportsFromVariableDeclarations = (
   const duplicates: Record<string, string> = {}
   for (const variable of variableDeclarations) {
     // We only need to generate imports for user defined types
-    if (variable.typeName?.nodeType === 'UserDefinedTypeName') {
+    if (
+      variable.typeName?.nodeType === 'UserDefinedTypeName' ||
+      (variable.typeName?.nodeType === 'ArrayTypeName' &&
+        variable.typeName.baseType.nodeType === 'UserDefinedTypeName')
+    ) {
       if (variable.typeName.typeDescriptions.typeString?.includes('contract')) {
         // If item is contract
         // TODO: Generate import for the respective client
