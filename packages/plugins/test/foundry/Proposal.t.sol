@@ -29,6 +29,10 @@ import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 // convert it from a stringified JSON. I also removed `parseCompilerConfigBigInts` since it doesn't
 // seem necessary anymore, but lmk if we still need it
 
+// Also, I thought the entire `recursivelyConvertResult` function was cursed, so I changed our
+// approach. I added unit tests for it in `utils.spec.ts` in the core package, and pushed the latest
+// version to the feature branch
+
 // TODO: in what case does instanceof not work on Result objects? see ryan's pr:
 // (https://github.com/sphinx-labs/sphinx/pull/1072/files), then ask if he can update the test suite
 // in the core package.

@@ -1612,12 +1612,8 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO(docs): redo natspec. say that if the `Result` can be converted into an object, it will be.
-// Otherwise, it'll be converted into an array. It's worth mentioning that if any of the fields in
-// the `Result` are unnamed, then the returned value will be an array. For example, if the `Result`
-// represents function arguments, one of which is an unnamed variable, then the returned value will
-// be an array. If none of the function arguments are unnamed, then this'll return an object, not an
-// array.
+// TODO: loosen the 'ethers' package restriction in every sphinx package
+
 /**
  * @notice This function recursively converts an `ethers.Result` into a plain object. We do this
  * because `ethers.Result`s are essentially arrays, which makes it difficult to work with them
