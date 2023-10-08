@@ -504,11 +504,6 @@ abstract contract Sphinx {
         } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
             vm.stopBroadcast();
 
-            // Make the owner a proposer. If we don't do this, the execution logic will fail
-            // because a proposer's meta transaction signature is required for the
-            // `SphinxAuth.propose` function.
-            sphinxConfig.proposers.push(sphinxConfig.owners[0]);
-
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
 
             bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -516,9 +511,17 @@ abstract contract Sphinx {
                 sphinxMode = SphinxMode.LiveNetworkBroadcast;
                 sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, auth, msgSender);
                 // TODO: where do we check that the sphinx contracts are deployed in this mode?
+
+                // Make the owner a proposer. If we don't do this, the execution logic will fail
+                // because a proposer's meta transaction signature is required for the
+                // `SphinxAuth.propose` function.
+                sphinxConfig.proposers.push(sphinxConfig.owners[0]);
             } else {
                 sphinxMode = SphinxMode.LocalNetworkBroadcast;
                 sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({exists: true, value: msgSender}));
+
+                // TODO(docs)
+                sphinxConfig.proposers.push(vm.addr(sphinxUtils.getSphinxDeployerPrivateKey(0)));
             }
 
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);

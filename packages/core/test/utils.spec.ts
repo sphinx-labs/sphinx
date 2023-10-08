@@ -186,148 +186,335 @@ describe('Utils', () => {
     })
   })
 
+  // TODO(docs): the param types are taken from an actual ABI
   describe('recursivelyConvertResult', () => {
+    const abi = [
+      {
+        inputs: [
+          {
+            internalType: 'uint256[]',
+            name: '_myArray',
+            type: 'uint256[]',
+          },
+          {
+            internalType: 'uint256[][]',
+            name: '_myNestedArray',
+            type: 'uint256[][]',
+          },
+        ],
+        name: 'myArrayFunction',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+      {
+        inputs: [
+          {
+            internalType: 'string',
+            name: '',
+            type: 'string',
+          },
+          {
+            components: [
+              {
+                internalType: 'int256',
+                name: 'a',
+                type: 'int256',
+              },
+              {
+                internalType: 'bool',
+                name: 'b',
+                type: 'bool',
+              },
+              {
+                components: [
+                  {
+                    internalType: 'address',
+                    name: 'd',
+                    type: 'address',
+                  },
+                  {
+                    internalType: 'uint256[]',
+                    name: 'e',
+                    type: 'uint256[]',
+                  },
+                ],
+                internalType: 'struct HelloSphinx.MyNestedStruct',
+                name: 'c',
+                type: 'tuple',
+              },
+            ],
+            internalType: 'struct HelloSphinx.MyStruct',
+            name: '_myStruct',
+            type: 'tuple',
+          },
+          {
+            internalType: 'uint256',
+            name: '_myNumber',
+            type: 'uint256',
+          },
+          {
+            internalType: 'bool',
+            name: '',
+            type: 'bool',
+          },
+        ],
+        name: 'myFunctionWithUnnamedVars',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+      {
+        inputs: [],
+        name: 'myFunctionWithoutArgs',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+      {
+        inputs: [
+          {
+            internalType: 'uint256',
+            name: '_myNumber',
+            type: 'uint256',
+          },
+        ],
+        name: 'mySingleArgFunction',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+      {
+        inputs: [
+          {
+            components: [
+              {
+                internalType: 'int256',
+                name: 'a',
+                type: 'int256',
+              },
+              {
+                internalType: 'bool',
+                name: 'b',
+                type: 'bool',
+              },
+              {
+                components: [
+                  {
+                    internalType: 'address',
+                    name: 'd',
+                    type: 'address',
+                  },
+                  {
+                    internalType: 'uint256[]',
+                    name: 'e',
+                    type: 'uint256[]',
+                  },
+                ],
+                internalType: 'struct HelloSphinx.MyNestedStruct',
+                name: 'c',
+                type: 'tuple',
+              },
+            ],
+            internalType: 'struct HelloSphinx.MyStruct',
+            name: '_myStruct',
+            type: 'tuple',
+          },
+        ],
+        name: 'myStructFunction',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+      {
+        inputs: [
+          {
+            components: [
+              {
+                internalType: 'int256',
+                name: 'a',
+                type: 'int256',
+              },
+              {
+                internalType: 'bool',
+                name: 'b',
+                type: 'bool',
+              },
+              {
+                components: [
+                  {
+                    internalType: 'address',
+                    name: 'd',
+                    type: 'address',
+                  },
+                  {
+                    internalType: 'uint256[]',
+                    name: 'e',
+                    type: 'uint256[]',
+                  },
+                ],
+                internalType: 'struct HelloSphinx.MyNestedStruct',
+                name: 'c',
+                type: 'tuple',
+              },
+            ],
+            internalType: 'struct HelloSphinx.MyStruct[]',
+            name: '_myStructArray',
+            type: 'tuple[]',
+          },
+        ],
+        name: 'myStructArrayFunction',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+    ]
     const coder = ethers.AbiCoder.defaultAbiCoder()
+    const iface = ethers.Interface.from(abi)
+    const functionFragments = iface.fragments.filter(ethers.Fragment.isFunction)
 
-    it('Converts array', () => {
-      const encoded = coder.encode(
-        ['string', 'string'],
-        ['myFirstStr', 'mySecondStr']
+    it('converts empty result', () => {
+      const noArgParamTypes = functionFragments.find(
+        (f) => f.name === 'myFunctionWithoutArgs'
+      )!.inputs
+      const values = ethers.Result.fromItems([])
+
+      expect(() => coder.encode(noArgParamTypes, values)).to.not.throw()
+
+      expect(recursivelyConvertResult(noArgParamTypes, values)).to.deep.equal(
+        {}
       )
-
-      const result = coder.decode(['string', 'string'], encoded)
-
-      const converted = recursivelyConvertResult(result)
-
-      expect(converted).to.deep.equal(['myFirstStr', 'mySecondStr'])
     })
 
-    it('Converts nested array', () => {
-      const encoded = coder.encode(
-        ['string', 'uint256[]'],
-        ['myFirstStr', [1, 2]]
-      )
+    it('converts Result with a single arg', () => {
+      const singleArgParamTypes = functionFragments.find(
+        (f) => f.name === 'mySingleArgFunction'
+      )!.inputs
+      const values = ethers.Result.fromItems([2])
 
-      // This converts any numbers to BigInt, so the converted result will contain BigInts too.
-      const result = coder.decode(['string', 'uint256[]'], encoded)
+      expect(() => coder.encode(singleArgParamTypes, values)).to.not.throw()
 
-      const converted = recursivelyConvertResult(result)
-
-      expect(converted).to.deep.equal(['myFirstStr', [1n, 2n]])
+      expect(
+        recursivelyConvertResult(singleArgParamTypes, values)
+      ).to.deep.equal({
+        _myNumber: 2,
+      })
     })
 
-    it('Converts empty array', () => {
-      const emptyResult = new ethers.Result([])
+    it('converts arg that contains arrays, including a nested array', () => {
+      const arrayArgParamTypes = functionFragments.find(
+        (f) => f.name === 'myArrayFunction'
+      )!.inputs
+      const values = ethers.Result.fromItems([
+        [1, 2, 3],
+        [
+          [4, 5, 6],
+          [7, 8, 9],
+        ],
+      ])
 
-      const converted = recursivelyConvertResult(emptyResult)
+      expect(() => coder.encode(arrayArgParamTypes, values)).to.not.throw()
 
-      expect(converted).to.deep.equal([])
+      expect(
+        recursivelyConvertResult(arrayArgParamTypes, values)
+      ).to.deep.equal({
+        _myArray: [1, 2, 3],
+        _myNestedArray: [
+          [4, 5, 6],
+          [7, 8, 9],
+        ],
+      })
     })
 
-    it('Converts Result with unnamed fields into array', () => {
-      // TODO(docs)
-      const abi = [
+    // TODO(docs): we return an array in this case
+    it('converts Result with unnamed args', () => {
+      const unnamedArgsParamTypes = functionFragments.find(
+        (f) => f.name === 'myFunctionWithUnnamedVars'
+      )!.inputs
+      const values = ethers.Result.fromItems([
+        'test',
+        [1, true, ['0x' + '11'.repeat(20), [1, 2, 3]]],
+        2,
+        false,
+      ])
+
+      expect(() => coder.encode(unnamedArgsParamTypes, values)).to.not.throw()
+
+      expect(
+        recursivelyConvertResult(unnamedArgsParamTypes, values)
+      ).to.deep.equal([
+        'test',
         {
-          inputs: [
-            {
-              internalType: 'string',
-              name: '',
-              type: 'string',
-            },
-            {
-              internalType: 'string',
-              name: '_name',
-              type: 'string',
-            },
-            {
-              internalType: 'uint256',
-              name: '_number',
-              type: 'uint256',
-            },
-            {
-              internalType: 'string',
-              name: '',
-              type: 'string',
-            },
-          ],
-          name: 'myFunction',
-          outputs: [],
-          stateMutability: 'nonpayable',
-          type: 'function',
+          a: 1,
+          b: true,
+          c: {
+            d: '0x' + '11'.repeat(20),
+            e: [1, 2, 3],
+          },
         },
-      ]
-      const iface = new ethers.Interface(abi)
-
-      const encoded = iface.encodeFunctionData('myFunction', [
-        'myFirstStr',
-        'myName',
-        1,
-        'mySecondStr',
-      ])
-
-      const decoded = iface.decodeFunctionData('myFunction', encoded)
-
-      const converted = recursivelyConvertResult(decoded)
-
-      expect(converted).to.deep.equal([
-        'myFirstStr',
-        'myName',
-        1n,
-        'mySecondStr',
+        2,
+        false,
       ])
     })
 
-    it('Converts Result with named fields into object', () => {
-      // TODO(docs)
-      const abi = [
-        {
-          inputs: [
-            {
-              internalType: 'string',
-              name: '_firstStr',
-              type: 'string',
-            },
-            {
-              internalType: 'string',
-              name: '_secondStr',
-              type: 'string',
-            },
-            {
-              internalType: 'uint256',
-              name: '_number',
-              type: 'uint256',
-            },
-            {
-              internalType: 'string',
-              name: '_thirdStr',
-              type: 'string',
-            },
-          ],
-          name: 'myFunction',
-          outputs: [],
-          stateMutability: 'nonpayable',
-          type: 'function',
-        },
-      ]
-
-      const iface = new ethers.Interface(abi)
-
-      const encoded = iface.encodeFunctionData('myFunction', [
-        'myFirstStr',
-        'mySecondStr',
-        1,
-        'myThirdStr',
+    it('converts Result that contains a nested struct', () => {
+      const complexArgsParamTypes = functionFragments.find(
+        (f) => f.name === 'myStructFunction'
+      )!.inputs
+      const values = ethers.Result.fromItems([
+        [1, true, ['0x' + '11'.repeat(20), [1, 2, 3]]],
       ])
 
-      const decoded = iface.decodeFunctionData('myFunction', encoded)
+      expect(() => coder.encode(complexArgsParamTypes, values)).to.not.throw()
 
-      const converted = recursivelyConvertResult(decoded)
+      expect(
+        recursivelyConvertResult(complexArgsParamTypes, values)
+      ).to.deep.equal({
+        _myStruct: {
+          a: 1,
+          b: true,
+          c: {
+            d: '0x' + '11'.repeat(20),
+            e: [1, 2, 3],
+          },
+        },
+      })
+    })
 
-      expect(converted).to.deep.equal({
-        _firstStr: 'myFirstStr',
-        _secondStr: 'mySecondStr',
-        _number: 1n,
-        _thirdStr: 'myThirdStr',
+    it('converts Result that contains an array of structs', () => {
+      const structArrayParamTypes = functionFragments.find(
+        (f) => f.name === 'myStructArrayFunction'
+      )!.inputs
+      const values = ethers.Result.fromItems([
+        [
+          [1, true, ['0x' + '11'.repeat(20), [1, 2, 3]]],
+          [2, false, ['0x' + '22'.repeat(20), [4, 5, 6]]],
+        ],
+      ])
+
+      expect(() => coder.encode(structArrayParamTypes, values)).to.not.throw()
+
+      expect(
+        recursivelyConvertResult(structArrayParamTypes, values)
+      ).to.deep.equal({
+        _myStructArray: [
+          {
+            a: 1,
+            b: true,
+            c: {
+              d: '0x' + '11'.repeat(20),
+              e: [1, 2, 3],
+            },
+          },
+          {
+            a: 2,
+            b: false,
+            c: {
+              d: '0x' + '22'.repeat(20),
+              e: [4, 5, 6],
+            },
+          },
+        ],
       })
     })
   })

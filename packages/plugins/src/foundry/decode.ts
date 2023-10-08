@@ -1,6 +1,7 @@
 import { DeploymentInfo } from '@sphinx-labs/core/dist/config/types'
 import { recursivelyConvertResult } from '@sphinx-labs/core/dist/utils'
-import { AbiCoder, Result } from 'ethers'
+import { AbiCoder, Fragment, FunctionFragment, Interface, Result } from 'ethers'
+import { ParamType } from 'ethers/lib.commonjs/abi'
 
 import { ProposalOutput } from './types'
 
@@ -8,17 +9,30 @@ export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
   abi: Array<any>
 ): DeploymentInfo => {
-  const deploymentInfoType = abi.find(
-    (fragment) => fragment.name === 'getDeploymentInfo'
-  ).outputs[0]
+  const iface = new Interface(abi)
+  const deploymentInfoFragment = iface.fragments
+    .filter(Fragment.isFunction)
+    .find((fragment) => fragment.name === 'getDeploymentInfo')
+
+  if (!deploymentInfoFragment) {
+    throw new Error(
+      `'getDeploymentInfo' not found in ABI. Should never happen.`
+    )
+  }
 
   const coder = AbiCoder.defaultAbiCoder()
-  const deploymentInfo = coder.decode(
-    [deploymentInfoType],
-    abiEncodedDeploymentInfo
-  )[0]
 
-  return deploymentInfo
+  const deploymentInfoResult = coder.decode(
+    deploymentInfoFragment.outputs,
+    abiEncodedDeploymentInfo
+  )
+
+  const { deploymentInfo } = recursivelyConvertResult(
+    deploymentInfoFragment.outputs,
+    deploymentInfoResult
+  ) as any
+
+  return deploymentInfo as DeploymentInfo
 }
 
 // Decodes an ABI-encoded DeploymentInfo array. The returned value is actually a Result object,
@@ -28,46 +42,59 @@ export const decodeDeploymentInfoArray = (
   abiEncodedDeploymentInfoArray: string,
   abi: Array<any>
 ): Array<DeploymentInfo> => {
-  const deploymentInfoType = abi.find(
-    (fragment) => fragment.name === 'getDeploymentInfoArray'
-  ).outputs[0]
+  const iface = new Interface(abi)
+  const deploymentInfoFragment = iface.fragments
+    .filter(Fragment.isFunction)
+    .find((fragment) => fragment.name === 'getDeploymentInfoArray')
 
-  const coder = AbiCoder.defaultAbiCoder()
+  if (!deploymentInfoFragment) {
+    throw new Error(
+      `'getDeploymentInfoArray' not found in ABI. Should never happen.`
+    )
+  }
 
-  // This is actually a Result object which is a strict superset of the DeploymentInfo[] type.
-  // So we're able to safely mark it as Result here and then cast it to DeploymentInfo[] later.
-  const deploymentInfoResultArray: Result = coder.decode(
-    [deploymentInfoType],
+  const deploymentInfoResultArray = AbiCoder.defaultAbiCoder().decode(
+    deploymentInfoFragment.outputs,
     abiEncodedDeploymentInfoArray
-  )[0]
+  )
 
-  return deploymentInfoResultArray.map((deploymentInfo) =>
-    recursivelyConvertResult(deploymentInfo)
-  ) as Array<DeploymentInfo>
+  const { deploymentInfoArray } = recursivelyConvertResult(
+    deploymentInfoFragment.outputs,
+    deploymentInfoResultArray
+  ) as any
+
+  return deploymentInfoArray as Array<DeploymentInfo>
 }
 
 export const decodeProposalOutput = (
   abiEncodedProposalOutput: string,
   abi: Array<any>
 ): ProposalOutput => {
-  const proposalOutputType = abi.find(
-    (fragment) => fragment.name === 'proposalOutput'
-  ).outputs[0]
+  const iface = new Interface(abi)
+  const proposalOutputFragment = iface.fragments
+    .filter(Fragment.isFunction)
+    .find((fragment) => fragment.name === 'proposalOutput')
+
+  if (!proposalOutputFragment) {
+    throw new Error(`'proposalOutput' not found in ABI. Should never happen.`)
+  }
 
   const coder = AbiCoder.defaultAbiCoder()
+
   const proposalOutputResult = coder.decode(
-    [proposalOutputType],
+    proposalOutputFragment.outputs,
     abiEncodedProposalOutput
-  )[0]
+  )
 
-  // TODO: update after you update recursivelyConvertResult.
-  const TODOrm = proposalOutputResult instanceof Result
-  const proposalOutput = recursivelyConvertResult(proposalOutputResult) as any
+  const { output } = recursivelyConvertResult(
+    proposalOutputFragment.outputs,
+    proposalOutputResult
+  ) as any
 
-  for (const bundleInfo of proposalOutput.bundleInfoArray) {
+  for (const bundleInfo of output.bundleInfoArray) {
     bundleInfo.compilerConfig = JSON.parse(bundleInfo.compilerConfigStr)
     delete bundleInfo.compilerConfigStr
   }
 
-  return proposalOutput
+  return output as ProposalOutput
 }

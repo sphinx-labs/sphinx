@@ -318,17 +318,17 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function bundledActionsType() external pure returns (BundledSphinxAction[] memory) {}
+    function bundledActionsType() external pure returns (BundledSphinxAction[] memory bundledActions) {}
 
-    function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory) {}
+    function bundledAuthLeafsType() external pure returns (BundledAuthLeaf[] memory bundledAuthLeafs) {}
 
-    function targetBundleType() external pure returns (SphinxTargetBundle memory) {}
+    function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) {}
 
-    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory) {}
+    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory humanReadableActions) {}
 
-    function getDeploymentInfo() external view returns (DeploymentInfo memory) {}
+    function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
 
-    function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory) {}
+    function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory deploymentInfoArray) {}
 
-    function proposalOutput() external pure returns (ProposalOutput memory) {}
+    function proposalOutput() external pure returns (ProposalOutput memory output) {}
 }

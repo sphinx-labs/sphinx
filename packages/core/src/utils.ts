@@ -17,6 +17,7 @@ import {
   JsonRpcSigner,
   ConstructorFragment,
   Result,
+  ParamType,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -59,6 +60,7 @@ import {
   FunctionCallActionInput,
   DecodedAction,
   DeployContractActionInput,
+  SphinxConfig,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -91,6 +93,7 @@ import {
   SUPPORTED_NETWORKS,
   SupportedChainId,
   SupportedNetworkName,
+  networkEnumToName,
 } from './networks'
 
 export const getDeploymentId = (
@@ -1521,12 +1524,20 @@ export const makeParsedConfig = (
       const constructorFragment = iface.fragments.find(
         ConstructorFragment.isFragment
       )
-      const decodedConstructorArgs = constructorFragment
-        ? // Decode the constructor args then convert from an Ethers `Result` into a plain object.
-          (recursivelyConvertResult(
-            coder.decode(constructorFragment.inputs, action.constructorArgs)
-          ) as ParsedVariable)
-        : {}
+      let decodedConstructorArgs: ParsedVariable
+      if (constructorFragment) {
+        const decodedResult = coder.decode(
+          constructorFragment.inputs,
+          action.constructorArgs
+        )
+        // Convert from an Ethers `Result` into a plain object.
+        decodedConstructorArgs = recursivelyConvertResult(
+          constructorFragment.inputs,
+          decodedResult
+        ) as ParsedVariable
+      } else {
+        decodedConstructorArgs = {}
+      }
 
       const decodedAction: DecodedAction = {
         referenceName,
@@ -1539,9 +1550,16 @@ export const makeParsedConfig = (
         action.selector,
         ethers.concat([action.selector, action.functionParams])
       )
+      const functionFragment = iface.getFunction(action.selector)
+      if (!functionFragment) {
+        throw new Error(
+          `Could not find function fragment for selector: ${action.selector}. Should never happen.`
+        )
+      }
 
       // Convert the Ethers `Result` into a plain object.
       const decodedFunctionParams = recursivelyConvertResult(
+        functionFragment.inputs,
         functionParamsResult
       ) as ParsedVariable
 
@@ -1556,11 +1574,17 @@ export const makeParsedConfig = (
     }
   }
 
+  const parsedSphinxConfig: SphinxConfig<SupportedNetworkName> = {
+    ...newConfig,
+    testnets: newConfig.testnets.map(networkEnumToName),
+    mainnets: newConfig.mainnets.map(networkEnumToName),
+  }
+
   return {
     authAddress,
     managerAddress,
     chainId: chainId.toString(),
-    newConfig,
+    newConfig: parsedSphinxConfig,
     isLiveNetwork: isLiveNetwork_,
     initialState,
     actionInputs: extendedActions,
@@ -1588,8 +1612,6 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO(test): enter an unnamed function into the preview
-
 // TODO(docs): redo natspec. say that if the `Result` can be converted into an object, it will be.
 // Otherwise, it'll be converted into an array. It's worth mentioning that if any of the fields in
 // the `Result` are unnamed, then the returned value will be an array. For example, if the `Result`
@@ -1597,63 +1619,80 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
 // be an array. If none of the function arguments are unnamed, then this'll return an object, not an
 // array.
 /**
- * @notice This function recursively converts a Result object to a plain object. In particular, it
- * converts the `Result` object returned by EthersJS' ABI-decoding function. We must convert this to
- * the underlying type so that we can use it in other areas of the codebase, e.g. serializing it or
- * displaying a deployment preview.
+ * @notice This function recursively converts an `ethers.Result` into a plain object. We do this
+ * because `ethers.Result`s are essentially arrays, which makes it difficult to work with them
+ * because we can't access the fields by name. Converting these into objects also allows us to
+ * display function arguments in a more readable format in the deployment preview.
  *
- * The top-level function returns an empty object if the `Result` is empty. This ensures correct
- * behavior for things like function calls that don't have any parameters. This also ensures that
- * the returned `ParsedVariable` type is correct, since it's an object, not an array. On the other
- * hand, in the nested function, `recursivelyConvertResultElement`, we return empty `Result` objects
- * into empty arrays instead of empty objects. TODO(docs)
+ * If the `Result` contains any unnamed variables, then the returned value will be an array instead
+ * of an object. For example, if `values = [1, true]`, then the returned value will also be `[1,
+ * true]`. However, if one of the elements is a complex data type, like a struct, then it will
+ * convert its fields into an object. For example, if `value = [1, true, [2, 3]]`, where `[2, 3]`
+ * are the fields of a struct, then the result would look something like: `[1, true, { myField: 2,
+ * myOtherField: 3}]`.
  *
- * Unfortunately, Ethers doesn't have a native way to recursively decode `Result` objects, so we've
- * implemented it ourselves. This is the sole reason that we've set the `ethers` version to be equal
- * to 6.7.0. We do this because `Result` objects are not part of Ethers' user-facing library, so it
- * wouldn't be surprising if there's a patch update that breaks this function.
+ * @param types The types of the variables in the `Result`. This can be retrieved from an
+ * `ethers.Interface` object.
+ * @param values The `Result` to convert.
  */
-export const recursivelyConvertResult = (r: Result | unknown): unknown => {
-  if (!(typeof (r as Result).toObject === 'function')) {
-    return r
-  }
-  // instanceof does not seem to reliably detect the Result class, so we have to use the above check instead
-  // Since we know that r is a Result, we can cast it to a Result to avoid type errors
-  const rAsResult = r as Result
+export const recursivelyConvertResult = (
+  types: readonly ethers.ParamType[],
+  values: ethers.Result
+): unknown => {
+  const containsUnnamedValue = types.some((t) => t.name === '')
 
-  let isArray: boolean
-  try {
-    const obj = rAsResult.toObject()
-    isArray = !!obj._
-  } catch {
-    isArray = true
-  }
+  // If the `Result` contains any unnamed variables, then we return an array. Otherwise, we return
+  // an object.
+  const converted: Array<any> | { [key: string]: any } = containsUnnamedValue
+    ? []
+    : {}
 
-  if (isArray) {
-    if (rAsResult.length === 0) {
-      return []
-    } else if (
-      // This is another case where the Result is empty. If we don't do this, the returned value
-      // will be an empty nested array, i.e. `[[]]`, when in fact it should just be an empty array.
-      rAsResult.length === 1 &&
-      Array.isArray(rAsResult[0]) &&
-      rAsResult[0].length === 0
-    ) {
-      return []
+  for (let i = 0; i < types.length; i++) {
+    const paramType = types[i]
+    const value = values[i]
+    // Structs are represented as tuples.
+    if (paramType.isTuple()) {
+      const convertedTuple = recursivelyConvertResult(
+        paramType.components,
+        value
+      )
+      // Add the converted tuple to the array or object.
+      if (containsUnnamedValue) {
+        converted.push(convertedTuple)
+      } else {
+        converted[paramType.name] = convertedTuple
+      }
+    } else if (paramType.isArray()) {
+      // Recursively convert the elements of the array.
+      const convertedElements = value.map((e) => {
+        if (paramType.arrayChildren.isTuple()) {
+          const elementResult = ethers.Result.fromItems(e)
+          return recursivelyConvertResult(
+            paramType.arrayChildren.components,
+            elementResult
+          )
+        } else if (paramType.arrayChildren.isArray()) {
+          // The element is itself an array.
+          const elementResult = ethers.Result.fromItems(e)
+          return recursivelyConvertResult(
+            // Create an array of `ParamType` objects of the same length as the element array.
+            Array(e.length).fill(paramType.arrayChildren.arrayChildren),
+            elementResult
+          )
+        } else {
+          return e
+        }
+      })
+      if (containsUnnamedValue) {
+        converted.push(convertedElements)
+      } else {
+        converted[paramType.name] = convertedElements
+      }
+    } else if (containsUnnamedValue) {
+      converted.push(value)
     } else {
-      return rAsResult.map(recursivelyConvertResult)
+      converted[paramType.name] = value
     }
-  } else {
-    const elemObj = rAsResult.toObject()
-
-    if (Object.keys(elemObj).length === 0) {
-      return []
-    }
-
-    const converted = {}
-    for (const [key, value] of Object.entries(elemObj)) {
-      converted[key] = recursivelyConvertResult(value)
-    }
-    return converted
   }
+  return converted
 }

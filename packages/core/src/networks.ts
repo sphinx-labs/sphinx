@@ -35,6 +35,91 @@ export type SupportedNetworkName =
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
 
+// TODO(docs): this is the same as the `Network` enum defined in Solidity, which
+// is used in the Foundry plugin.
+export const NetworkEnum = {
+  anvil: 0n,
+  // production networks (i.e. mainnets)
+  ethereum: 1n,
+  optimism: 2n,
+  arbitrum: 3n,
+  polygon: 4n,
+  bnb: 5n,
+  gnosis: 6n,
+  linea: 7n,
+  polygon_zkevm: 8n,
+  avalanche: 9n,
+  fantom: 10n,
+  base: 11n,
+  // testnets
+  goerli: 12n,
+  optimism_goerli: 13n,
+  arbitrum_goerli: 14n,
+  polygon_mumbai: 15n,
+  bnb_testnet: 16n,
+  gnosis_chiado: 17n,
+  linea_goerli: 18n,
+  polygon_zkevm_goerli: 19n,
+  avalanche_fuji: 20n,
+  fantom_testnet: 21n,
+  base_goerli: 22n,
+}
+
+export const networkEnumToName = (
+  networkEnum: bigint
+): SupportedNetworkName => {
+  switch (networkEnum) {
+    case NetworkEnum.anvil:
+      return 'anvil'
+    case NetworkEnum.ethereum:
+      return 'ethereum'
+    case NetworkEnum.optimism:
+      return 'optimism'
+    case NetworkEnum.arbitrum:
+      return 'arbitrum'
+    case NetworkEnum.polygon:
+      return 'polygon'
+    case NetworkEnum.bnb:
+      return 'bnb'
+    case NetworkEnum.gnosis:
+      return 'gnosis'
+    case NetworkEnum.linea:
+      return 'linea'
+    case NetworkEnum.polygon_zkevm:
+      return 'polygon_zkevm'
+    case NetworkEnum.avalanche:
+      return 'avalanche'
+    case NetworkEnum.fantom:
+      return 'fantom'
+    case NetworkEnum.base:
+      return 'base'
+    case NetworkEnum.goerli:
+      return 'goerli'
+    case NetworkEnum.optimism_goerli:
+      return 'optimism_goerli'
+    case NetworkEnum.arbitrum_goerli:
+      return 'arbitrum_goerli'
+    case NetworkEnum.polygon_mumbai:
+      return 'polygon_mumbai'
+    case NetworkEnum.bnb_testnet:
+      return 'bnb_testnet'
+    case NetworkEnum.gnosis_chiado:
+      return 'gnosis_chiado'
+    case NetworkEnum.linea_goerli:
+      return 'linea_goerli'
+    case NetworkEnum.polygon_zkevm_goerli:
+      return 'polygon_zkevm_goerli'
+    case NetworkEnum.avalanche_fuji:
+      return 'avalanche_fuji'
+    case NetworkEnum.fantom_testnet:
+      return 'fantom_testnet'
+    case NetworkEnum.base_goerli:
+      return 'base_goerli'
+    default:
+      throw new Error(`Unsupported network enum ${networkEnum}`)
+  }
+}
+
 // Maps a live network name to its chain ID. Does not include testnets.
 export const SUPPORTED_MAINNETS: Record<
   SupportedMainnetNetworkName,

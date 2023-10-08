@@ -98,7 +98,7 @@ export type ParsedConfig = {
   actionInputs: Array<
     ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
   >
-  newConfig: SphinxConfig
+  newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
   remoteExecution: boolean
@@ -109,7 +109,7 @@ export type DeploymentInfo = {
   managerAddress: string
   chainId: bigint
   actionInputs: Array<RawSphinxActionInput>
-  newConfig: SphinxConfig
+  newConfig: SphinxConfig<bigint>
   isLiveNetwork: boolean
   initialState: InitialChainState
   remoteExecution: boolean
@@ -196,13 +196,14 @@ export interface DeployContractActionInput {
   referenceName: string
 }
 
-export type SphinxConfig = {
+// TODO(docs) ;
+export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
   owners: Array<string>
   proposers: Array<string>
-  mainnets: Array<SupportedMainnetNetworkName>
-  testnets: Array<SupportedNetworkName>
+  mainnets: Array<N>
+  testnets: Array<N>
   threshold: string
   version: SemVer
 }
