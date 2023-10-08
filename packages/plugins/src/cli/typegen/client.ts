@@ -174,9 +174,23 @@ export const generateClientForFile = async (
   src: string
 ) => {
   const fileName = path.basename(filePath)
+  if (!fileName.endsWith('.sol')) {
+    return { deployFunctionImports: {}, deployFunctions: [] }
+  }
 
   const fileArtifactPath = path.join(artifactFolder, fileName)
-  const artifactFiles = fs.readdirSync(fileArtifactPath)
+  let artifactFiles
+  try {
+    artifactFiles = fs.readdirSync(fileArtifactPath)
+  } catch (e) {
+    if (e.message.includes('no such file or directory')) {
+      throw new Error(
+        `Could not find compiler artifact for file: ${filePath}, try running 'forge build'. If this problem persists please report it to the developers.`
+      )
+    } else {
+      throw e
+    }
+  }
 
   const contracts: Array<{
     uniqueClientName: string

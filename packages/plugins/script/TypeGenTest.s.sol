@@ -91,6 +91,14 @@ import { UnnamedParameters } from "../contracts/test/typegen/UnnamedParameters.s
 import {
     UnnamedParametersClient
 } from "../SphinxClient/typegen/UnnamedParameters.SphinxClient.sol";
+import { MyEnum, MyType, MyStruct } from "../contracts/test/typegen/ArrayInputTypes.sol";
+import { NoAliasArrayImportsOne, NoAliasArrayImportsTwo } from "../contracts/test/typegen/imports/NoAliasArray.sol";
+import { AliasImportsArray } from "../contracts/test/typegen/imports/AliasArray.sol";
+import {
+    MyLocalTypeArray,
+    MyLocalStructArray,
+    MyLocalEnumArray
+} from "../contracts/test/typegen/imports/NoAliasArray.sol";
 
 import "forge-std/Test.sol";
 
@@ -112,7 +120,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ArrayInputTypes arrayInputTypesTwo;
     NoAliasImportsOne noAliasImportsOne;
     NoAliasImportsTwo noAliasImportsTwo;
+    NoAliasArrayImportsOne noAliasArrayImportsOne;
+    NoAliasArrayImportsTwo noAliasArrayImportsTwo;
     AliasImports aliasImports;
+    AliasImportsArray aliasImportsArray;
     LocalParentTypes localParentTypes;
     FunctionContract functionContract;
     FunctionContract functionContractTwo;
@@ -130,10 +141,42 @@ contract TypeGenTestConfig is Test, SphinxClient {
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
     address[3] public initialUintStaticArray;
+    MyStruct[] public initialMyStructArray;
+    MyType[] public initialMyTypeArray;
+    address[] public initialMyContractTypeArray;
+    MyEnum[] public initialMyEnumArray;
 
     uint8[] public updatedUintDynamicArray;
     bytes32[][] public updatedUintNestedDynamicArray;
     address[3] public updatedUintStaticArray;
+    MyStruct[] public updatedMyStructArray;
+    MyType[] public updatedMyTypeArray;
+    address[] public updatedMyContractTypeArray;
+    MyEnum[] public updatedMyEnumArray;
+
+    MyTypeLibraryAlias.MyEnumInLibrary[] public libraryEnumArray;
+    MyTypeLibraryAlias.MyStructInLibrary[] public libraryStruct;
+    MyTypeLibraryAlias.MyTypeInLibrary[] public libraryType;
+    MyTypeContractAlias.MyEnumInContract[] public contractEnum;
+    MyTypeContractAlias.MyStructInContract[] public contractStruct;
+    MyTypeContractAlias.MyTypeInContract[] public contractType;
+    MyTopLevelEnumAlias[] public topLevelEnum;
+    MyTopLevelStructAlias[] public topLevelStruct;
+    MyTopLevelTypeAlias[] public topLevelType;
+
+    MyTypeLibrary.MyEnumInLibrary[] public noAliasLibraryEnumArray;
+    MyTypeLibrary.MyStructInLibrary[] public noAliasLibraryStruct;
+    MyTypeLibrary.MyTypeInLibrary[] public noAliasLibraryType;
+    MyTypeContract.MyEnumInContract[] public noAliasContractEnum;
+    MyTypeContract.MyStructInContract[] public noAliasContractStruct;
+    MyTypeContract.MyTypeInContract[] public noAliasContractType;
+
+    MyTopLevelEnum[] public noAliasTopLevelEnum;
+    MyTopLevelStruct[] public noAliasTopLevelStruct;
+    MyTopLevelType[] public noAliasTopLevelType;
+    MyLocalEnumArray[] public noAliasLocalEnum;
+    MyLocalStructArray[] public noAliasLocalStruct;
+    MyLocalTypeArray[] public noAliasLocalType;
 
     function setupVariables() internal {
         intialUintDynamicArray = new uint8[](2);
@@ -147,6 +190,17 @@ contract TypeGenTestConfig is Test, SphinxClient {
         initialUintNestedDynamicArray[1][0] = keccak256("5");
         initialUintNestedDynamicArray[1][1] = keccak256("6");
         initialUintStaticArray = [address(7), address(8), address(9)];
+        initialMyStructArray.push(MyStruct({ myNumber: 10 }));
+        initialMyStructArray.push(MyStruct({ myNumber: 11 }));
+        initialMyTypeArray = new MyType[](2);
+        initialMyTypeArray[0] = MyType.wrap(12);
+        initialMyTypeArray[1] = MyType.wrap(13);
+        initialMyContractTypeArray = new address[](2);
+        initialMyContractTypeArray[0] = address(14);
+        initialMyContractTypeArray[1] = address(15);
+        initialMyEnumArray = new MyEnum[](2);
+        initialMyEnumArray[0] = MyEnum.A;
+        initialMyEnumArray[1] = MyEnum.B;
 
         updatedUintDynamicArray = new uint8[](2);
         updatedUintDynamicArray[0] = 10;
@@ -159,6 +213,41 @@ contract TypeGenTestConfig is Test, SphinxClient {
         updatedUintNestedDynamicArray[1][0] = keccak256("14");
         updatedUintNestedDynamicArray[1][1] = keccak256("15");
         updatedUintStaticArray = [address(16), address(17), address(18)];
+        updatedMyStructArray.push(MyStruct({ myNumber: 19 }));
+        updatedMyStructArray.push(MyStruct({ myNumber: 20 }));
+        updatedMyTypeArray = new MyType[](2);
+        updatedMyTypeArray[0] = MyType.wrap(21);
+        updatedMyTypeArray[1] = MyType.wrap(22);
+        updatedMyContractTypeArray = new address[](2);
+        updatedMyContractTypeArray[0] = address(23);
+        updatedMyContractTypeArray[1] = address(24);
+        updatedMyEnumArray = new MyEnum[](2);
+        updatedMyEnumArray[0] = MyEnum.C;
+        updatedMyEnumArray[1] = MyEnum.D;
+
+        libraryEnumArray.push(MyTypeLibraryAlias.MyEnumInLibrary.Library);
+        libraryStruct.push(MyTypeLibraryAlias.MyStructInLibrary({ a: 1 }));
+        libraryType.push(MyTypeLibraryAlias.MyTypeInLibrary.wrap(3));
+        contractEnum.push(MyTypeContractAlias.MyEnumInContract.Contract);
+        contractStruct.push(MyTypeContractAlias.MyStructInContract({ a: keccak256("5") }));
+        contractType.push(MyTypeContractAlias.MyTypeInContract.wrap(keccak256("7")));
+        topLevelEnum.push(MyTopLevelEnumAlias.TopLevel);
+        topLevelStruct.push(MyTopLevelStructAlias({ a: true }));
+        topLevelType.push(MyTopLevelTypeAlias.wrap(true));
+
+        noAliasLibraryEnumArray.push(MyTypeLibrary.MyEnumInLibrary.Library);
+        noAliasLibraryStruct.push(MyTypeLibrary.MyStructInLibrary({ a: 1 }));
+        noAliasLibraryType.push(MyTypeLibrary.MyTypeInLibrary.wrap(3));
+        noAliasContractEnum.push(MyTypeContract.MyEnumInContract.Contract);
+        noAliasContractStruct.push(MyTypeContract.MyStructInContract({ a: keccak256("5") }));
+        noAliasContractType.push(MyTypeContract.MyTypeInContract.wrap(keccak256("7")));
+
+        noAliasTopLevelEnum.push(MyTopLevelEnum.TopLevel);
+        noAliasTopLevelStruct.push(MyTopLevelStruct({ a: true }));
+        noAliasTopLevelType.push(MyTopLevelType.wrap(true));
+        noAliasLocalEnum.push(MyLocalEnumArray.Local);
+        noAliasLocalStruct.push(MyLocalStructArray({ a: -1 }));
+        noAliasLocalType.push(MyLocalTypeArray.wrap(-2));
     }
 
     constructor() {
@@ -234,7 +323,11 @@ contract TypeGenTestConfig is Test, SphinxClient {
                 deployArrayInputTypes(
                     intialUintDynamicArray,
                     initialUintNestedDynamicArray,
-                    initialUintStaticArray
+                    initialUintStaticArray,
+                    initialMyStructArray,
+                    initialMyTypeArray,
+                    initialMyContractTypeArray,
+                    initialMyEnumArray
                 )
             )
         );
@@ -244,12 +337,20 @@ contract TypeGenTestConfig is Test, SphinxClient {
             intialUintDynamicArray,
             initialUintNestedDynamicArray,
             initialUintStaticArray,
+            initialMyStructArray,
+            initialMyTypeArray,
+            initialMyContractTypeArray,
+            initialMyEnumArray,
             DeployOptions({ salt: 0, referenceName: "arrayInputTypesTwo" })
         );
         arrayInputTypesTwoClient.setValues(
             updatedUintDynamicArray,
             updatedUintNestedDynamicArray,
-            updatedUintStaticArray
+            updatedUintStaticArray,
+            updatedMyStructArray,
+            updatedMyTypeArray,
+            updatedMyContractTypeArray,
+            updatedMyEnumArray
         );
         arrayInputTypesTwo = ArrayInputTypes(address(arrayInputTypesTwoClient));
 
@@ -307,6 +408,49 @@ contract TypeGenTestConfig is Test, SphinxClient {
                     MyLocalTypeContract.MyEnumInContract.Contract,
                     MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
                     MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
+                )
+            )
+        );
+
+        // Deploy contract which requires types imported with aliasing and used in arrays
+        aliasImportsArray = AliasImportsArray(
+            address(
+                deployAliasImportsArray(
+                    libraryEnumArray,
+                    libraryStruct,
+                    libraryType,
+                    contractEnum,
+                    contractStruct,
+                    contractType,
+                    topLevelEnum,
+                    topLevelStruct,
+                    topLevelType
+                )
+            )
+        );
+
+        // Deploy contracts which requires types imported without aliasing and used in arrays
+        noAliasArrayImportsOne = NoAliasArrayImportsOne(
+            address(
+                deployNoAliasArrayImportsOne(
+                    noAliasLibraryEnumArray,
+                    noAliasLibraryStruct,
+                    noAliasLibraryType,
+                    noAliasContractEnum,
+                    noAliasContractStruct,
+                    noAliasContractType
+                )
+            )
+        );
+        noAliasArrayImportsTwo = NoAliasArrayImportsTwo(
+            address(
+                deployNoAliasArrayImportsTwo(
+                    noAliasTopLevelEnum,
+                    noAliasTopLevelStruct,
+                    noAliasTopLevelType,
+                    noAliasLocalEnum,
+                    noAliasLocalStruct,
+                    noAliasLocalType
                 )
             )
         );
