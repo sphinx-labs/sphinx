@@ -607,7 +607,7 @@ abstract contract Sphinx {
             console.log(
                 string(
                     abi.encodePacked(
-                        "Sphinx: Nothing to execute on",
+                        "Sphinx: Nothing to execute on ",
                         _bundleInfo.networkName,
                         ". Exiting early."
                     )

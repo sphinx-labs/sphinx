@@ -379,6 +379,7 @@ describe('Utils', () => {
       )!.inputs
       const values = ethers.Result.fromItems([])
 
+      // TODO: explain why we do this
       expect(() => coder.encode(noArgParamTypes, values)).to.not.throw()
 
       expect(recursivelyConvertResult(noArgParamTypes, values)).to.deep.equal(

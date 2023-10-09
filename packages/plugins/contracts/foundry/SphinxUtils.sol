@@ -62,7 +62,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     string private mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
     uint private systemOwnerPrivateKey = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
-    address private systemOwner =
+
+    address public systemOwner =
         systemOwnerPrivateKey != 0
             ? vm.rememberKey(systemOwnerPrivateKey)
             : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
@@ -1027,7 +1028,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(SphinxConfig memory _config, Network _network) external view {
+    function validate(SphinxConfig memory _config, Network _network) external {
         require(
             bytes(_config.projectName).length > 0,
             "Sphinx: You must assign a value to 'sphinxConfig.projectName' in your constructor."
@@ -1040,22 +1041,24 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.threshold > 0,
             "Sphinx: Your 'sphinxConfig.threshold' must be greater than 0."
         );
-        require(
-            _config.version.major == major &&
-                _config.version.minor == minor &&
-                _config.version.patch == patch,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.version' field must be ",
-                    vm.toString(major),
-                    ".",
-                    vm.toString(minor),
-                    ".",
-                    vm.toString(patch),
-                    "."
+        if (!vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false)) {
+            require(
+                _config.version.major == major &&
+                    _config.version.minor == minor &&
+                    _config.version.patch == patch,
+                string(
+                    abi.encodePacked(
+                        "Sphinx: Your 'sphinxConfig.version' field must be ",
+                        vm.toString(major),
+                        ".",
+                        vm.toString(minor),
+                        ".",
+                        vm.toString(patch),
+                        "."
+                    )
                 )
-            )
-        );
+            );
+        }
         require(
             _config.owners.length >= _config.threshold,
             "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."

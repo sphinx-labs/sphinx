@@ -13,6 +13,13 @@ contract SphinxTestUtils is SphinxConstants {
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+    /**
+     * @notice The storage slot that holds the address of an EIP-1967 implementation.
+     *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+     */
+    bytes32 public constant EIP1967_IMPLEMENTATION_KEY =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
     function deploySphinxAuthTo(address _where) public {
         vm.etch(_where, getSphinxAuthImplInitCode());
         (bool success, bytes memory runtimeBytecode) = _where.call("");
