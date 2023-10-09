@@ -45,6 +45,8 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
+import "forge-std/console.sol";
+
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 

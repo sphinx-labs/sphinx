@@ -99,7 +99,7 @@ abstract contract Sphinx {
     SphinxMode public sphinxMode;
     bool public sphinxModifierEnabled;
 
-    ISphinxManager private manager;
+    ISphinxManager internal manager;
     ISphinxAuth private auth;
 
     // TODO(md): This is outdated. We don't require the user to call the constructor of Sphinx.sol
