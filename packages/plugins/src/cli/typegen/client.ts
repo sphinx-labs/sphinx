@@ -5,12 +5,11 @@ import { astDereferencer, findAll } from 'solidity-ast/utils'
 import {
   ContractDefinition,
   FunctionDefinition,
-  ImportDirective,
   InheritanceSpecifier,
   SourceUnit,
 } from 'solidity-ast/types'
 import ora from 'ora'
-import { GetConfigArtifacts, execAsync } from '@sphinx-labs/core'
+import { ConfigArtifacts, execAsync } from '@sphinx-labs/core'
 
 import {
   generateDeploymentFunctionFromASTDefinition,
@@ -19,6 +18,7 @@ import {
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { fetchUniqueTypeName } from './imports'
 import { makeGetConfigArtifacts } from '../../foundry/utils'
+import { fetchSourceContractNames } from './artifacts'
 
 // Maybe:
 // - handle using contract clients when the input type is a contract instead of just converting it to an address
@@ -28,19 +28,17 @@ const CLIENT_FOLDER_NAME = 'SphinxClient'
 
 const generateFunctionsForParentContracts = async (
   baseContracts: InheritanceSpecifier[],
-  imports: Generator<ImportDirective, any, unknown>,
   remappings: Record<string, string>,
   allDeployFunctionImports: Record<string, string>,
   clientPath: string,
   artifactFolder: string,
   src: string,
   fullyQualifiedContractName: string,
-  getConfigArtifacts: GetConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ) => {
   const parentImports: Record<string, string> = {}
   const parentFunctionDefinitions: string[] = []
 
-  const configArtifacts = await getConfigArtifacts([fullyQualifiedContractName])
   const buildInfo = configArtifacts[fullyQualifiedContractName].buildInfo
 
   const deref = astDereferencer(buildInfo.output)
@@ -76,7 +74,7 @@ const generateFunctionsForParentContracts = async (
       clientPath,
       src,
       artifactFolder,
-      getConfigArtifacts
+      configArtifacts
     )
 
     if (!contractData) {
@@ -106,7 +104,7 @@ const generateClientContractFromArtifact = async (
   clientPath: string,
   src: string,
   artifactFolder: string,
-  getConfigArtifacts: GetConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ) => {
   const fileName = path.basename(filePath)
   const contractName = path.basename(artifactFile).replace('.json', '')
@@ -195,14 +193,13 @@ const generateClientContractFromArtifact = async (
   const { parentImports, parentFunctionDefinitions } =
     await generateFunctionsForParentContracts(
       contractDefinition.baseContracts,
-      findAll('ImportDirective', sourceUnit),
       remappings,
       allDeployFunctionImports,
       clientPath,
       artifactFolder,
       src,
       fullyQualifiedContractName,
-      getConfigArtifacts
+      configArtifacts
     )
 
   for (const [localName, importString] of Object.entries(parentImports)) {
@@ -268,7 +265,7 @@ export const generateClientForFile = async (
   remappings: Record<string, string>,
   allDeployFunctionImports: Record<string, string>,
   src: string,
-  getConfigArtifacts: GetConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ) => {
   const fileName = path.basename(filePath)
   if (!fileName.endsWith('.sol')) {
@@ -282,7 +279,7 @@ export const generateClientForFile = async (
   } catch (e) {
     if (e.message.includes('no such file or directory')) {
       throw new Error(
-        `Could not find compiler artifact for file: ${filePath}, try running 'forge build'. If this problem persists please report it to the developers.`
+        `Could not find compiler artifact for file: ${filePath}. If this problem persists please report it to the developers.`
       )
     } else {
       throw e
@@ -306,7 +303,7 @@ export const generateClientForFile = async (
       outputPath,
       src,
       artifactFolder,
-      getConfigArtifacts
+      configArtifacts
     )
 
     if (contract !== undefined) {
@@ -393,7 +390,7 @@ export const generateClientsInFolder = async (
   src: string,
   allDeployFunctionImports: Record<string, string>,
   allDeployFunctions: string[],
-  getConfigArtifacts: GetConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ) => {
   const subdirs: string[] = []
   const files: string[] = []
@@ -417,7 +414,7 @@ export const generateClientsInFolder = async (
       src,
       allDeployFunctionImports,
       allDeployFunctions,
-      getConfigArtifacts
+      configArtifacts
     )
   }
 
@@ -439,7 +436,7 @@ export const generateClientsInFolder = async (
         remappings,
         allDeployFunctionImports,
         src,
-        getConfigArtifacts
+        configArtifacts
       )
 
     for (const [localName, importString] of Object.entries(
@@ -463,7 +460,7 @@ export const generateClientsForExternalContracts = async (
   outputPath: string,
   fileDepth: number,
   remappings: Record<string, string>,
-  getConfigArtifacts: GetConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ): Promise<{
   deployFunctionImports: Record<string, string>
   deployFunctions: string[]
@@ -499,7 +496,7 @@ export const generateClientsForExternalContracts = async (
         remappings,
         allDeployFunctionImports,
         src,
-        getConfigArtifacts
+        configArtifacts
       )
 
     for (const [localName, importString] of Object.entries(
@@ -571,6 +568,9 @@ export const generateClient = async () => {
     cachePath
   )
 
+  const contractNames = await fetchSourceContractNames(artifactFolder, src)
+  const configArtifacts = await getConfigArtifacts(contractNames)
+
   const { deployFunctionImports, deployFunctions } =
     await generateClientsForExternalContracts(
       src,
@@ -578,7 +578,7 @@ export const generateClient = async () => {
       CLIENT_FOLDER_NAME,
       1,
       remappings,
-      getConfigArtifacts
+      configArtifacts
     )
 
   if (!fs.existsSync(src)) {
@@ -596,7 +596,7 @@ export const generateClient = async () => {
     src,
     deployFunctionImports,
     deployFunctions,
-    getConfigArtifacts
+    configArtifacts
   )
 
   await generateSphinxClient(
