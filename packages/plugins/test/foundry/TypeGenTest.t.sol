@@ -293,6 +293,14 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(myUintStaticArray[0], initialUintStaticArray[0]);
         assertEq(myUintStaticArray[1], initialUintStaticArray[1]);
         assertEq(myUintStaticArray[2], initialUintStaticArray[2]);
+        assertEq(myStructArray[0].myNumber, initialMyStructArray[0].myNumber);
+        assertEq(myStructArray[1].myNumber, initialMyStructArray[1].myNumber);
+        assertEq(MyType.unwrap(myTypeArray[0]), MyType.unwrap(initialMyTypeArray[0]));
+        assertEq(MyType.unwrap(myTypeArray[1]), MyType.unwrap(initialMyTypeArray[1]));
+        assertEq(address(myContractTypeArray[0]), initialMyContractTypeArray[0]);
+        assertEq(address(myContractTypeArray[1]), initialMyContractTypeArray[1]);
+        assertEq(uint(myEnumArray[0]), uint(initialMyEnumArray[0]));
+        assertEq(uint(myEnumArray[1]), uint(initialMyEnumArray[1]));
     }
 
     // Covers deploying contracts with conflicting User defined types, structs, and enums as
@@ -511,5 +519,23 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // Covers deploying and interacting with a contract that has unnamed parameters in its constructor and functions
     function testUnnamedParametersInConstructorAndFunction() public {
         assertEq(unnamedParameters.number(), 4);
+    }
+
+    // Covers deploying and interacting with a contract that inherits from another contract
+    function testDidDeployAndInteractWithInheritedContract() public {
+        assertEq(parent.myNumber(), 2);
+        assertEq(parent.myBool(), true);
+
+        assertEq(child.myNumber(), 3);
+        assertEq(child.myBool(), false);
+        assertEq(child.myAddress(), address(3));
+    }
+
+    // Covers deploying and interacting with a contract that inherits from a contract which inherits from another contract
+    // and that uses an alias
+    function testDidDeployAndInteractWithInheritedContractWithAlias() public {
+        assertEq(grandchild.myNumber(), 3);
+        assertEq(grandchild.myBytes32(), keccak256("3"));
+        assertEq(grandchild.myBool(), false);
     }
 }

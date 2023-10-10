@@ -99,6 +99,12 @@ import {
     MyLocalStructArray,
     MyLocalEnumArray
 } from "../contracts/test/typegen/imports/NoAliasArray.sol";
+import { Parent } from "../contracts/test/typegen/inheritance/Parent.sol";
+import { Child } from "../contracts/test/typegen/inheritance/Child.sol";
+import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
+import { ParentClient } from "../SphinxClient/typegen/inheritance/Parent.SphinxClient.sol";
+import { ChildClient } from "../SphinxClient/typegen/inheritance/Child.SphinxClient.sol";
+import { GrandchildClient } from "../SphinxClient/typegen/inheritance/Alias.SphinxClient.sol";
 
 import "forge-std/Test.sol";
 
@@ -137,6 +143,9 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
     UnnamedParameters unnamedParameters;
+    Parent parent;
+    Child child;
+    Grandchild grandchild;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -548,5 +557,29 @@ contract TypeGenTestConfig is Test, SphinxClient {
         UnnamedParametersClient unnamedParametersClient = deployUnnamedParameters(1, 2);
         unnamedParametersClient.increment(1, 3);
         unnamedParameters = UnnamedParameters(address(unnamedParametersClient));
+
+        // Deploy parent contract
+        ParentClient parentClient = deployParent(1, false);
+        parentClient.add(parentClient.myPureA());
+        parentClient.setBool(true);
+        parent = Parent(address(parentClient));
+
+        // Deploy inherited contract and interact with it
+        ChildClient childClient = deployChild(1, false, address(2));
+        childClient.add(childClient.myPureB());
+        childClient.setMyAddress(address(3));
+        child = Child(address(childClient));
+
+        // Deploy multi-inherited contract that uses an alias and interact with it
+        GrandchildClient grandchildClient = deployGrandchild(
+            1,
+            false,
+            address(2),
+            keccak256("3")
+        );
+        grandchildClient.setMyBytes32(grandchildClient.myPureC());
+        grandchildClient.setMyAddress(address(4));
+        grandchildClient.add(grandchildClient.myPureB());
+        grandchild = Grandchild(address(grandchildClient));
     }
 }

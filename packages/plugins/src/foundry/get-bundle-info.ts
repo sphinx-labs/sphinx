@@ -60,7 +60,9 @@ const abiEncodedDeploymentInfoArray = args[0]
     const networkName = getNetworkNameForChainId(deploymentInfo.chainId)
 
     const configArtifacts = await getConfigArtifacts(
-      deploymentInfo.actionInputs
+      deploymentInfo.actionInputs.map(
+        (actionInput) => actionInput.fullyQualifiedName
+      )
     )
 
     const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
