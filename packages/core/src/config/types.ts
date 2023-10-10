@@ -11,11 +11,7 @@ import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import {
-  SupportedChainId,
-  SupportedMainnetNetworkName,
-  SupportedNetworkName,
-} from '../networks'
+import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
 
 export const userContractKinds = [
@@ -299,7 +295,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  actions: Array<RawSphinxActionInput>
+  fullyQualifiedNames: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

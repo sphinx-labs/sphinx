@@ -17,7 +17,6 @@ import {
   ConfigArtifacts,
   GetConfigArtifacts,
   GetProviderForChainId,
-  RawSphinxActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 
@@ -141,7 +140,7 @@ export const makeGetConfigArtifacts = (
   buildInfoFolder: string,
   cachePath: string
 ): GetConfigArtifacts => {
-  return async (actions: Array<RawSphinxActionInput>) => {
+  return async (fullyQualifiedNames: Array<string>) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {
       fs.mkdirSync(cachePath)
@@ -232,7 +231,7 @@ export const makeGetConfigArtifacts = (
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
     const resolved = await Promise.all(
-      actions.map(async ({ fullyQualifiedName }) => {
+      fullyQualifiedNames.map(async (fullyQualifiedName) => {
         const artifact = await getContractArtifact(
           fullyQualifiedName,
           artifactFolder

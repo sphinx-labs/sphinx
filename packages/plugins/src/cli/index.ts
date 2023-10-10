@@ -314,7 +314,9 @@ yargs(hideBin(process.argv))
           SphinxPluginTypesABI
         )
         const previewConfigArtifacts = await getConfigArtifacts(
-          previewDeploymentInfo.actionInputs
+          previewDeploymentInfo.actionInputs.map(
+            (actionInput) => actionInput.fullyQualifiedName
+          )
         )
         const previewParsedConfig = makeParsedConfig(
           previewDeploymentInfo,
@@ -367,7 +369,9 @@ yargs(hideBin(process.argv))
         SphinxPluginTypesABI
       )
       const configArtifacts = await getConfigArtifacts(
-        deploymentInfo.actionInputs
+        deploymentInfo.actionInputs.map(
+          (actionInput) => actionInput.fullyQualifiedName
+        )
       )
       const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
