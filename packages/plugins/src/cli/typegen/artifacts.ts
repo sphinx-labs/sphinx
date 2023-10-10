@@ -11,7 +11,6 @@ const fetchContractsForImports = async (
 ) => {
   const contracts: string[] = []
   for (const importDirective of imports) {
-    console.log('fetchContractsForImports: ')
     const fileContracts = await fetchContractNamesInFile(
       importDirective.absolutePath,
       artifactFolder,
