@@ -8,12 +8,12 @@ import {
     DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { StateDependentActions, Box } from "../contracts/test/StateDependentActions.sol";
 import {
     StateDependentActionsClient,
     BoxClient
-} from "../SphinxClient/StateDependentActions.SphinxClient.sol";
+} from "../client/StateDependentActions.c.sol";
 
 /**
  * @title StateDependentActionsConfiguration

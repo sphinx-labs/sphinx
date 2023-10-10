@@ -15,17 +15,9 @@ export const sampleConfigFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
 // TODO(client):
-// - When compiling with Forge in the generate task, it'd be nice to display the compilation process
-//   directly via `spawnSync`, since it seems like this command is supposed to replace `forge
-//   build`
-// - Rename `SphinxClient/` to `client(s)`?
-// - Rename e.g. `HelloSphinx.SphinxClient.sol` to `HelloSphinx.c.sol`?
-// - Since the client folder exists outside of the `src/`, `test/`, and `script/` folders, it won't get
-//   compiled automatically by Foundry. Instead, only the files that the user imports will be
-//   compiled. Is that how this works?
 // - Are users supposed to commit their clients to version control? If so, we should make a note to
 //   document that. If not, we should add a step to the Getting Started guides that puts
-//   `SphinxClient/` in `.gitignore`.
+//   `client/` in `.gitignore`.
 
 export const writeSampleProjectFiles = (
   contractDirPath: string,

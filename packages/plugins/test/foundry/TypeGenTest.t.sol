@@ -35,7 +35,7 @@ import { MyImportContract } from "../../contracts/test/typegen/contractInputs/Im
 import { LocalContract } from "../../contracts/test/typegen/contractInputs/FunctionContract.sol";
 import {
     FunctionContractClient
-} from "../../SphinxClient/typegen/contractInputs/FunctionContract.SphinxClient.sol";
+} from "../../client/typegen/contractInputs/FunctionContract.c.sol";
 import { ExternalContract } from "../../testExternalContracts/ExternalContract.sol";
 
 import { ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
