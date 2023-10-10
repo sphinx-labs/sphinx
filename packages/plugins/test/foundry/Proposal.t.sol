@@ -25,6 +25,13 @@ import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
+// TODO(refactor): put these contracts in separate files in a `test/proposal/` directory
+
+// TODO:
+// - Define contract x 2
+// - Deploy contract x 2
+// - Call function x 
+
 abstract contract AbstractProposal_Test is SphinxClient, Test {
 
     SphinxTestUtils testUtils;
