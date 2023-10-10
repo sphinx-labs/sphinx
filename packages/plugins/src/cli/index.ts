@@ -12,6 +12,7 @@ import {
   displayDeploymentTable,
   execAsync,
   makeParsedConfig,
+  spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
@@ -294,14 +295,16 @@ yargs(hideBin(process.argv))
           forgeScriptPreviewArgs.push('--target-contract', targetContract)
         }
 
-        try {
-          await execAsync(`forge ${forgeScriptPreviewArgs.join(' ')}`)
-        } catch (e) {
+        const { stdout, stderr, code } = await spawnAsync(
+          'forge',
+          forgeScriptPreviewArgs
+        )
+        if (code !== 0) {
           spinner.stop()
           // The `stdout` contains the trace of the error.
-          console.log(e.stdout)
+          console.log(stdout)
           // The `stderr` contains the error message.
-          console.log(e.stderr)
+          console.log(stderr)
           process.exit(1)
         }
 

@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import { promisify } from 'util'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
@@ -1691,4 +1691,33 @@ export const recursivelyConvertResult = (
     }
   }
   return converted
+}
+
+// TODO(docs)
+export const spawnAsync = (
+  cmd: string,
+  args: string[]
+): Promise<{ stdout: string; stderr: string; code: number | null }> => {
+  return new Promise((resolve) => {
+    const output: Buffer[] = []
+    const error: Buffer[] = []
+
+    const child = spawn(cmd, args)
+
+    child.stdout.on('data', (data: Buffer) => {
+      output.push(data)
+    })
+
+    child.stderr.on('data', (data: Buffer) => {
+      error.push(data)
+    })
+
+    child.on('close', (code) => {
+      return resolve({
+        stdout: Buffer.concat(output).toString(),
+        stderr: Buffer.concat(error).toString(),
+        code,
+      })
+    })
+  })
 }

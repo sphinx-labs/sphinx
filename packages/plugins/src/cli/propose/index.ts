@@ -20,14 +20,15 @@ import {
   relayIPFSCommit,
   relayProposal,
   signAuthRootMetaTxn,
+  spawnAsync,
   userConfirmation,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
+import { Result } from 'ethers'
 
 import { decodeProposalOutput } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
-import { Result } from 'ethers'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
@@ -88,21 +89,20 @@ export const propose = async (
     scriptPath,
     '--sig',
     "'sphinxProposeTask(bool,string)'",
-    isTestnet,
+    isTestnet.toString(),
     proposalOutputPath,
   ]
   if (targetContract) {
     forgeScriptArgs.push('--target-contract', targetContract)
   }
 
-  try {
-    await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
-  } catch (e) {
+  const { stdout, stderr, code } = await spawnAsync('forge', forgeScriptArgs)
+  if (code !== 0) {
     spinner.stop()
     // The `stdout` contains the trace of the error.
-    console.log(e.stdout)
+    console.log(stdout)
     // The `stderr` contains the error message.
-    console.log(e.stderr)
+    console.log(stderr)
     process.exit(1)
   }
 
