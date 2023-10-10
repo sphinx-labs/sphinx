@@ -8,12 +8,12 @@ import {
     DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum } from "../contracts/test/ChainSpecific.sol";
 import {
     AllNetworksClient,
     OnlyArbitrumClient
-} from "../SphinxClient/ChainSpecific.SphinxClient.sol";
+} from "../client/ChainSpecific.c.sol";
 
 /**
  * @title ChainSpecificConfiguration

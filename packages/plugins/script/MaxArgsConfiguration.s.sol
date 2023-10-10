@@ -8,9 +8,9 @@ import {
     DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { MaxArgs } from "../contracts/test/MaxArgs.sol";
-import { MaxArgsClient } from "../SphinxClient/MaxArgs.SphinxClient.sol";
+import { MaxArgsClient } from "../client/MaxArgs.c.sol";
 
 /**
  * @title MaxArgsConfiguration

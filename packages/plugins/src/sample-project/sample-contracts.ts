@@ -33,10 +33,7 @@ export const getSampleFoundryConfigFile = (
   // is necessary to avoid a trailing double slash in the import path for the HelloSphinx contract.
   // In other words, if the script directory path is 'scripts/', then the relative path won't
   // include the trailing slash, which is what we want.
-  const relativeSphinxClientPath = relative(
-    scriptDirPath,
-    resolve('SphinxClient/')
-  )
+  const relativeSphinxClientPath = relative(scriptDirPath, resolve('client/'))
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
   const sphinxImport = quickstart ? '@sphinx' : '@sphinx-labs/plugins'
@@ -47,7 +44,7 @@ pragma solidity ^${solcVersion};
 import { SphinxConfig, Network, DeployOptions, Version } from "${sphinxImport}/SphinxPluginTypes.sol";
 import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
-import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.SphinxClient.sol";
+import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.c.sol";
 
 contract HelloSphinxConfig is SphinxClient {
     HelloSphinx helloSphinx;

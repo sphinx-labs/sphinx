@@ -7,7 +7,7 @@ import {
     DeployOptions,
     DefineOptions
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
     ConflictingNameContract as ConflictingNameContractFirst
@@ -16,10 +16,10 @@ import {
     ConflictingNameContract as ConflictingNameContractSecond
 } from "../contracts/test/typegen/conflictingNameContracts/Second.sol";
 import { BasicInputTypes } from "../contracts/test/typegen/BasicInputTypes.sol";
-import { BasicInputTypesClient } from "../SphinxClient/typegen/BasicInputTypes.SphinxClient.sol";
+import { BasicInputTypesClient } from "../client/typegen/BasicInputTypes.c.sol";
 import { ImmutableInputTypes } from "../contracts/test/typegen/ImmutableInputTypes.sol";
 import { ArrayInputTypes } from "../contracts/test/typegen/ArrayInputTypes.sol";
-import { ArrayInputTypesClient } from "../SphinxClient/typegen/ArrayInputTypes.SphinxClient.sol";
+import { ArrayInputTypesClient } from "../client/typegen/ArrayInputTypes.c.sol";
 import {
     NoAliasImportsOne,
     NoAliasImportsTwo
@@ -54,10 +54,10 @@ import { MyImportContract } from "../contracts/test/typegen/contractInputs/Impor
 import { LocalContract } from "../contracts/test/typegen/contractInputs/FunctionContract.sol";
 import {
     FunctionContractClient
-} from "../SphinxClient/typegen/contractInputs/FunctionContract.SphinxClient.sol";
+} from "../client/typegen/contractInputs/FunctionContract.c.sol";
 import { FunctionInputContract } from "../contracts/test/typegen/FunctionInputType.sol";
 import { ExternalContract } from "../testExternalContracts/ExternalContract.sol";
-import { ExternalContractClient } from "../SphinxClient/ExternalContract.SphinxClient.sol";
+import { ExternalContractClient } from "../client/ExternalContract.c.sol";
 import {
     ConflictingTypeNameContractFirst
 } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -84,13 +84,13 @@ import {
 } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
 import {
     ConflictingTypeNameContractFirstClient
-} from "../SphinxClient/typegen/conflictingTypeNames/First.SphinxClient.sol";
+} from "../client/typegen/conflictingTypeNames/First.c.sol";
 import { MsgSender } from "../contracts/test/MsgSender.sol";
-import { MsgSenderClient } from "../SphinxClient/MsgSender.SphinxClient.sol";
+import { MsgSenderClient } from "../client/MsgSender.c.sol";
 import { UnnamedParameters } from "../contracts/test/typegen/UnnamedParameters.sol";
 import {
     UnnamedParametersClient
-} from "../SphinxClient/typegen/UnnamedParameters.SphinxClient.sol";
+} from "../client/typegen/UnnamedParameters.c.sol";
 import { MyEnum, MyType, MyStruct } from "../contracts/test/typegen/ArrayInputTypes.sol";
 import { NoAliasArrayImportsOne, NoAliasArrayImportsTwo } from "../contracts/test/typegen/imports/NoAliasArray.sol";
 import { AliasImportsArray } from "../contracts/test/typegen/imports/AliasArray.sol";
@@ -102,9 +102,9 @@ import {
 import { Parent } from "../contracts/test/typegen/inheritance/Parent.sol";
 import { Child } from "../contracts/test/typegen/inheritance/Child.sol";
 import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
-import { ParentClient } from "../SphinxClient/typegen/inheritance/Parent.SphinxClient.sol";
-import { ChildClient } from "../SphinxClient/typegen/inheritance/Child.SphinxClient.sol";
-import { GrandchildClient } from "../SphinxClient/typegen/inheritance/Alias.SphinxClient.sol";
+import { ParentClient } from "../client/typegen/inheritance/Parent.c.sol";
+import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
+import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 
 import "forge-std/Test.sol";
 

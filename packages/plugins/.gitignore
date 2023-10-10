@@ -20,4 +20,4 @@ node_modules/@sphinx-labs
 
 broadcast/
 
-SphinxClient
+client/

@@ -1,5 +1,6 @@
 import path from 'path'
 import fs, { readdirSync } from 'fs'
+import { spawnSync } from 'child_process'
 
 import { astDereferencer, findAll } from 'solidity-ast/utils'
 import {
@@ -9,7 +10,7 @@ import {
   SourceUnit,
 } from 'solidity-ast/types'
 import ora from 'ora'
-import { ConfigArtifacts, execAsync } from '@sphinx-labs/core'
+import { ConfigArtifacts } from '@sphinx-labs/core'
 
 import {
   generateDeploymentFunctionFromASTDefinition,
@@ -24,7 +25,7 @@ import { fetchSourceContractNames } from './artifacts'
 // - handle using contract clients when the input type is a contract instead of just converting it to an address
 // - handle if an external contract is used for an input/output value in a function or constructor
 
-const CLIENT_FOLDER_NAME = 'SphinxClient'
+const CLIENT_FOLDER_NAME = 'client'
 
 const generateFunctionsForParentContracts = async (
   baseContracts: InheritanceSpecifier[],
@@ -34,7 +35,8 @@ const generateFunctionsForParentContracts = async (
   artifactFolder: string,
   src: string,
   fullyQualifiedContractName: string,
-  configArtifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts,
+  functionSelectors: string[]
 ) => {
   const parentImports: Record<string, string> = {}
   const parentFunctionDefinitions: string[] = []
@@ -62,8 +64,11 @@ const generateFunctionsForParentContracts = async (
       `${node.canonicalName}.json`
     )
 
-    const pathFromSrc = absolutePath.replace(src, '')
-    const depth = pathFromSrc.split('/').length - 1
+    let pathFromSrc = absolutePath.replace(src, '')
+    if (pathFromSrc.startsWith('/')) {
+      pathFromSrc = pathFromSrc.replace('/', '')
+    }
+    const depth = pathFromSrc.split('/').length
 
     const contractData = await generateClientContractFromArtifact(
       artifactFile,
@@ -74,7 +79,8 @@ const generateFunctionsForParentContracts = async (
       clientPath,
       src,
       artifactFolder,
-      configArtifacts
+      configArtifacts,
+      functionSelectors
     )
 
     if (!contractData) {
@@ -104,7 +110,8 @@ const generateClientContractFromArtifact = async (
   clientPath: string,
   src: string,
   artifactFolder: string,
-  configArtifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts,
+  functionSelectors: string[]
 ) => {
   const fileName = path.basename(filePath)
   const contractName = path.basename(artifactFile).replace('.json', '')
@@ -175,13 +182,18 @@ const generateClientContractFromArtifact = async (
         fileDepth,
         remappings,
         src,
-        fullyQualifiedContractName
+        fullyQualifiedContractName,
+        functionSelectors
       )
   )
 
   const clientImports: Record<string, string> = {}
   const allFunctionDefinitions: string[] = []
   importsAndDefinitions.forEach((importAndDefinition) => {
+    if (!importAndDefinition) {
+      return
+    }
+
     const { imports, functionDefinition } = importAndDefinition
     allFunctionDefinitions.push(functionDefinition)
 
@@ -199,7 +211,8 @@ const generateClientContractFromArtifact = async (
       artifactFolder,
       src,
       fullyQualifiedContractName,
-      configArtifacts
+      configArtifacts,
+      functionSelectors
     )
 
   for (const [localName, importString] of Object.entries(parentImports)) {
@@ -228,7 +241,7 @@ const generateClientContractFromArtifact = async (
   const artifactPath = `${fileName}:${contractName}`
   const clientArtifactPath = `${fileName.replace(
     '.sol',
-    '.SphinxClient.sol'
+    '.c.sol'
   )}:${uniqueClientName}`
 
   const {
@@ -303,7 +316,8 @@ export const generateClientForFile = async (
       outputPath,
       src,
       artifactFolder,
-      configArtifacts
+      configArtifacts,
+      []
     )
 
     if (contract !== undefined) {
@@ -425,7 +439,7 @@ export const generateClientsInFolder = async (
     }
 
     const filePath = path.join(folder, file)
-    const outputFileName = file.replace('.sol', `.${CLIENT_FOLDER_NAME}.sol`)
+    const outputFileName = file.replace('.sol', `.c.sol`)
     const outputFilePath = path.join(outputPath, outputFileName)
     const { deployFunctionImports, deployFunctions } =
       await generateClientForFile(
@@ -486,7 +500,7 @@ export const generateClientsForExternalContracts = async (
     const fileName = path.basename(importDirective.absolutePath)
     const clientOutputPath = path
       .join(outputPath, fileName)
-      .replace('.sol', '.SphinxClient.sol')
+      .replace('.sol', '.c.sol')
     const { deployFunctionImports, deployFunctions } =
       await generateClientForFile(
         importDirective.absolutePath,
@@ -534,27 +548,25 @@ abstract contract SphinxClient is Sphinx {
 
   const fullClientFolder = path.resolve(clientFolder)
   fs.mkdirSync(path.dirname(clientFolder), { recursive: true })
-  fs.writeFileSync(
-    path.join(fullClientFolder, `${CLIENT_FOLDER_NAME}.sol`),
-    source
-  )
+  fs.writeFileSync(path.join(fullClientFolder, `SphinxClient.sol`), source)
 }
 
 export const generateClient = async () => {
   const spinner = ora()
-  spinner.start('Compiling sources...')
+  spinner.info('Compiling sources...')
 
-  let stdout
-  try {
-    // Using --swc speeds up the execution of the script.
-    ;({ stdout } = await execAsync(`forge build --skip test --skip script`))
-  } catch ({ stderr }) {
-    spinner.stop()
-    console.error(`Failed compiling sources: \n${stderr.trim()}`)
+  const { status: compilationStatusSrc } = spawnSync(
+    `forge`,
+    ['build', '--skip', 'test', '--skip', 'script'],
+    {
+      stdio: 'inherit',
+    }
+  )
+  // Exit the process if compilation fails.
+  if (compilationStatusSrc !== 0) {
     process.exit(1)
   }
 
-  spinner.info(`Compiler output: \n${stdout.trim()}`)
   spinner.succeed('Finished compiling sources')
 
   spinner.start('Generating Sphinx clients...')
@@ -606,17 +618,15 @@ export const generateClient = async () => {
   )
 
   spinner.succeed('Generated Sphinx clients')
-  spinner.start('Compiling clients and scripts...')
+  spinner.info('Compiling clients and scripts...')
 
-  try {
-    // Using --swc speeds up the execution of the script.
-    ;({ stdout } = await execAsync(`forge build`))
-  } catch ({ stderr }) {
-    spinner.stop()
-    console.error(`Failed compiling scripts: \n${stderr.trim()}`)
+  const { status: compilationStatusScripts } = spawnSync(`forge`, ['build'], {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatusScripts !== 0) {
     process.exit(1)
   }
 
-  spinner.info(`Compiler output: \n${stdout.trim()}`)
   spinner.succeed('Finished compiling clients and scripts')
 }
