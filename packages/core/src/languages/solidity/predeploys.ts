@@ -137,9 +137,7 @@ export const ensureSphinxInitialized = async (
   funders: string[] = [],
   logger?: Logger
 ) => {
-  if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
-    return
-  } else if (!(await isLiveNetwork(provider))) {
+  if (!(await isLiveNetwork(provider))) {
     await initializeSphinx(
       provider,
       signer,
@@ -148,6 +146,8 @@ export const ensureSphinxInitialized = async (
       funders,
       logger
     )
+  } else if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
+    return
   } else {
     throw new Error(`Sphinx is not supported on this network.`)
   }
@@ -238,7 +238,7 @@ export const initializeSphinx = async (
       await (
         await signer.sendTransaction({
           to: await owner.getAddress(),
-          value: ethers.parseEther('0.1'),
+          value: ethers.parseEther('1'),
         })
       ).wait()
     }

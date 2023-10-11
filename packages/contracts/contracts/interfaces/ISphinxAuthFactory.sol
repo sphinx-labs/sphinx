@@ -2,7 +2,7 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 interface ISphinxAuthFactory {
-    function auths(bytes32) external returns (address payable);
+    function auths(bytes32) external view returns (address payable);
 
     /**
      * @notice Deploys a new SphinxAuthProxy and initializes it with the given `_authData`.
@@ -19,7 +19,7 @@ interface ISphinxAuthFactory {
 
     function addVersion(address) external;
 
-    function currentAuthImplementation() external returns (address);
+    function currentAuthImplementation() external view returns (address);
 
     function setCurrentAuthImplementation(address) external;
 

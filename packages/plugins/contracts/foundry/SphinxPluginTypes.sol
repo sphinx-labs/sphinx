@@ -332,3 +332,8 @@ contract SphinxPluginTypes {
 
     function proposalOutput() external pure returns (ProposalOutput memory output) {}
 }
+
+struct Wallet {
+    uint256 privateKey;
+    address addr;
+}

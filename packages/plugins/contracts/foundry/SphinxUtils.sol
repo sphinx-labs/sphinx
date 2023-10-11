@@ -41,7 +41,8 @@ import {
     SphinxConfig,
     InitialChainState,
     OptionalAddress,
-    SphinxMode
+    SphinxMode,
+    Wallet
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
@@ -56,6 +57,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
     bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
 
+    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE = vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
     string private rootPluginPath =
         vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
     string private rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
@@ -115,14 +117,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // Impersonate system owner
         vm.startPrank(systemOwner);
 
-        // Add initial manager version
         address managerImplAddress = selectManagerImplAddressForNetwork();
+
+        if (_executor.exists) {
+            address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
+            IAccessControl managedService = IAccessControl(managedServiceAddr);
+            if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
+                managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
+            }
+        }
+
+        // Add initial manager version
         if (!registry.managerImplementations(managerImplAddress)) {
             registry.addVersion(managerImplAddress);
         }
-
-        // TODO: it looks like this initialization logic now differs from the TypeScript version that's
-        // called in `ffiDeployOnAnvil`
 
         // Set the default manager version if not already set
         if (registry.currentManagerImplementation() == address(0)) {
@@ -160,14 +168,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // Add default proxy type
         if (registry.adapters(bytes32(0)) == address(0)) {
             registry.addContractKind(bytes32(0), defaultAdapterAddr);
-        }
-
-        if (_executor.exists) {
-            address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
-            IAccessControl managedService = IAccessControl(managedServiceAddr);
-            if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
-                managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
-            }
         }
 
         vm.stopPrank();
@@ -249,6 +249,23 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getCurrentSphinxManagerVersion() public pure returns (Version memory) {
         return Version({ major: major, minor: minor, patch: patch });
+    }
+
+    function getAddress(
+        SphinxConfig memory _config,
+        string memory _referenceName
+    ) public pure returns (address) {
+        return getAddress(_config, _referenceName, bytes32(0));
+    }
+
+    function getAddress(SphinxConfig memory _config, string memory _referenceName, bytes32 _salt) public pure returns (address) {
+        address manager = getSphinxManagerAddress(
+            _config.owners,
+            _config.threshold,
+            _config.projectName
+        );
+        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
+        return computeCreate3Address(manager, create3Salt);
     }
 
     function create2Deploy(bytes memory _creationCode) public returns (address) {
@@ -338,7 +355,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _ownerThreshold,
         string memory _projectName
-    ) external pure returns (address) {
+    ) public pure returns (address) {
         address authAddress = getSphinxAuthAddress(_owners, _ownerThreshold, _projectName);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
@@ -362,17 +379,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return uint256(keccak256(abi.encode('sphinx.deployer', _num)));
     }
 
-    function getSphinxWalletsSortedByAddress(uint256 _numWallets) external returns (Vm.Wallet[] memory) {
-        Vm.Wallet[] memory wallets = new Vm.Wallet[](_numWallets);
+    // TODO(docs): we don't use vm.createWallet because this function must be view/pure. explain why
+    function getSphinxWalletsSortedByAddress(uint256 _numWallets) external pure returns (Wallet[] memory) {
+        Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
-            wallets[i] = vm.createWallet(getSphinxDeployerPrivateKey(i));
+            uint256 privateKey = getSphinxDeployerPrivateKey(i);
+            wallets[i] = Wallet({
+                addr: vm.addr(privateKey),
+                privateKey: privateKey
+            });
         }
 
         // Sort the wallets by address
         for (uint256 i = 0; i < wallets.length; i++) {
             for (uint256 j = i + 1; j < wallets.length; j++) {
                 if (wallets[i].addr > wallets[j].addr) {
-                    Vm.Wallet memory temp = wallets[i];
+                    Wallet memory temp = wallets[i];
                     wallets[i] = wallets[j];
                     wallets[j] = temp;
                 }
@@ -1028,7 +1050,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(SphinxConfig memory _config, Network _network) external {
+    function validate(SphinxConfig memory _config, Network _network) external view {
         require(
             bytes(_config.projectName).length > 0,
             "Sphinx: You must assign a value to 'sphinxConfig.projectName' in your constructor."
@@ -1041,7 +1063,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.threshold > 0,
             "Sphinx: Your 'sphinxConfig.threshold' must be greater than 0."
         );
-        if (!vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false)) {
+        if (!SPHINX_INTERNAL__TEST_VERSION_UPGRADE) {
             require(
                 _config.version.major == major &&
                     _config.version.minor == minor &&
@@ -1376,41 +1398,5 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     )
                 );
             }
-    }
-
-    function grantRoleInAuthContract(ISphinxAuth _auth, bytes32 _role, address _account, string memory _rpcUrl, SphinxMode _mode) external {
-        if (
-            !IAccessControl(address(_auth)).hasRole(
-                _role,
-                _account
-            )
-        ) {
-            bytes32 roleSlotKey = getMappingValueSlotKey(
-                authAccessControlRoleSlotKey,
-                _role
-            );
-            bytes32 memberSlotKey = getMappingValueSlotKey(
-                roleSlotKey,
-                bytes32(uint256(uint160(_account)))
-            );
-            vm.store(address(_auth), memberSlotKey, bytes32(uint256(1)));
-
-            if (_mode == SphinxMode.LocalNetworkBroadcast) {
-                string[] memory inputs = new string[](8);
-                inputs[0] = "cast";
-                inputs[1] = "rpc";
-                inputs[2] = "--rpc-url";
-                inputs[3] = _rpcUrl;
-                // TODO(docs): hardhat
-                inputs[4] = "hardhat_setStorageAt";
-                inputs[5] = vm.toString(address(_auth));
-                inputs[6] = vm.toString(memberSlotKey);
-                inputs[7] = vm.toString(bytes32(uint256(1)));
-                Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) {
-                    revert(string(result.stderr));
-                }
-            }
-        }
     }
 }

@@ -24,4 +24,20 @@ contract OnlyArbitrum {
     function increment() public {
         number++;
     }
+
+    function decrement() public {
+        number--;
+    }
+}
+
+contract OnlyOptimism {
+    int public number;
+
+    function incrementTwice() public {
+        number += 2;
+    }
+
+    function decrementTwice() public {
+        number -= 2;
+    }
 }

@@ -2,6 +2,8 @@ import { exec } from 'child_process'
 import { join, resolve } from 'path'
 import { promisify } from 'util'
 
+import { execAsync, spawnAsync } from '@sphinx-labs/core'
+
 export type FoundryToml = {
   src: string
   test: string
@@ -52,10 +54,8 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
  * parsing needed to support them.
  */
 export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
-  const execAsync = promisify(exec)
-
-  const forgeConfigOutput = await execAsync('forge config --json')
-  const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
+  const { stdout } = await spawnAsync('forge', ['config', '--json'])
+  const forgeConfig = JSON.parse(stdout)
 
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')

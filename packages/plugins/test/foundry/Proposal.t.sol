@@ -12,8 +12,8 @@ import { AuthState, AuthStatus } from "@sphinx-labs/contracts/contracts/SphinxDa
 
 import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
-import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
+import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import {
     IAccessControlEnumerable
 } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
@@ -27,10 +27,7 @@ import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
 // TODO(refactor): put these contracts in separate files in a `test/proposal/` directory
 
-// TODO:
-// - Define contract x 2
-// - Deploy contract x 2
-// - Call function x 
+// TODO(md): known limitations: externally linked libraries
 
 abstract contract AbstractProposal_Test is SphinxClient, Test {
 
@@ -110,6 +107,8 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
         assertFalse(manager.isExecuting());
     }
 }
+
+// TODO(test): we should test for idempotence, i.e. executing the same script twice results in the same outcome.
 
 contract Proposal_Test is AbstractProposal_Test, Script, SphinxConstants {
 

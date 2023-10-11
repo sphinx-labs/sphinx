@@ -285,7 +285,7 @@ yargs(hideBin(process.argv))
           'script',
           scriptPath,
           '--sig',
-          "'sphinxDeployTask(string,string)'",
+          'sphinxDeployTask(string,string)',
           network,
           deploymentInfoPath,
           '--rpc-url',

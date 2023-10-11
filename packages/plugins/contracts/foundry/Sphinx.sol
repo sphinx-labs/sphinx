@@ -35,7 +35,8 @@ import {
     BundledAuthLeaf,
     SphinxMode,
     NetworkInfo,
-    OptionalAddress
+    OptionalAddress,
+    Wallet
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -123,8 +124,6 @@ abstract contract Sphinx {
      */
     constructor() {
         // Set default values for the SphinxConfig
-        // TODO(ryan): is it okay that we set this here? i think you may have said that the default
-        // version is different on OP, although i'm not sure.
         sphinxConfig.version = Version({ major: 0, minor: 2, patch: 5 });
 
         sphinxUtils = new SphinxUtils();
@@ -228,7 +227,7 @@ abstract contract Sphinx {
             forkIds[i] = forkId;
 
             // TODO(docs): we don't call `sphinxUtils.initializeFFI` here because we never broadcast
-            // the transactions onto the forked network.
+            // the transactions onto the forked network. this is a performance optimization.
             sphinxUtils.initializeSphinxContracts(OptionalAddress({exists: true, value: proposer}));
 
             // We prank the proposer here so that the `msgSender` is the proposer's address, which
@@ -472,6 +471,10 @@ abstract contract Sphinx {
 
         delete deploymentInfo;
 
+        // TODO(docs): explain why these aren't in the constructor. (it's because the user assigns
+        // values to the sphinxConfig in the child contract's constructor, which is executed after
+        // this contract's constructor. so, the relevant fields of the SphinxConfig will be empty in
+        // this constructor).
         auth = ISphinxAuth(
             sphinxUtils.getSphinxAuthAddress(
                 sphinxConfig.owners,
@@ -649,13 +652,13 @@ abstract contract Sphinx {
                 uint256 currentOwnerThreshold = auth.threshold();
                 ownerSignatureArray = new bytes[](currentOwnerThreshold);
 
-                Vm.Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(currentOwnerThreshold);
+                Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(currentOwnerThreshold);
                 for (uint256 i = 0; i < currentOwnerThreshold; i++) {
                     // TODO(docs): another potential strategy is to set the owner threshold to 0,
                     // but we do it this way because it allows us to run the meta transaction
                     // signature verification logic in the SphinxAuth contract instead of skipping
                     // it entirely, which would be the case if we set the owner threshold to 0.
-                    sphinxUtils.grantRoleInAuthContract(auth, bytes32(0), wallets[i].addr, _rpcUrl, sphinxMode);
+                    _sphinxGrantRoleInAuthContract(bytes32(0), wallets[i].addr, _rpcUrl);
                     ownerSignatureArray[i] = sphinxUtils.signMetaTxnForAuthRoot(
                         wallets[i].privateKey,
                         _authRoot
@@ -687,7 +690,7 @@ abstract contract Sphinx {
                             leaf.proof
                         );
                     } else if (sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-                        sphinxUtils.grantRoleInAuthContract(auth, keccak256("ProposerRole"), msgSender, _rpcUrl, sphinxMode);
+                        _sphinxGrantRoleInAuthContract(keccak256("ProposerRole"), msgSender, _rpcUrl);
 
                         bytes[] memory proposerSignatureArray = new bytes[](1);
                         proposerSignatureArray[0] = _metaTxnSignature;
@@ -1003,5 +1006,42 @@ abstract contract Sphinx {
             }
         }
         revert("Sphinx: No reference name found for the given address. Should never happen.");
+    }
+
+    // TODO(docs): explain why this is defined in this contract instead of in SphinxUtils
+    function _sphinxGrantRoleInAuthContract(bytes32 _role, address _account, string memory _rpcUrl) private {
+        if (
+            !IAccessControl(address(auth)).hasRole(
+                _role,
+                _account
+            )
+        ) {
+            bytes32 roleSlotKey = sphinxUtils.getMappingValueSlotKey(
+                constants.authAccessControlRoleSlotKey(),
+                _role
+            );
+            bytes32 memberSlotKey = sphinxUtils.getMappingValueSlotKey(
+                roleSlotKey,
+                bytes32(uint256(uint160(_account)))
+            );
+            vm.store(address(auth), memberSlotKey, bytes32(uint256(1)));
+
+            if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
+                string[] memory inputs = new string[](8);
+                inputs[0] = "cast";
+                inputs[1] = "rpc";
+                inputs[2] = "--rpc-url";
+                inputs[3] = _rpcUrl;
+                // TODO(docs): hardhat
+                inputs[4] = "hardhat_setStorageAt";
+                inputs[5] = vm.toString(address(auth));
+                inputs[6] = vm.toString(memberSlotKey);
+                inputs[7] = vm.toString(bytes32(uint256(1)));
+                Vm.FfiResult memory result = vm.tryFfi(inputs);
+                if (result.exit_code == 1) {
+                    revert(string(result.stderr));
+                }
+            }
+        }
     }
 }

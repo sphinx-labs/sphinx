@@ -10,7 +10,7 @@ import {
   SourceUnit,
 } from 'solidity-ast/types'
 import ora from 'ora'
-import { GetConfigArtifacts, execAsync } from '@sphinx-labs/core'
+import { GetConfigArtifacts, spawnAsync } from '@sphinx-labs/core'
 
 import {
   generateDeploymentFunctionFromASTDefinition,
@@ -547,11 +547,16 @@ export const generateClient = async () => {
   const spinner = ora()
   spinner.start('Compiling sources...')
 
-  let stdout
-  try {
-    // Using --swc speeds up the execution of the script.
-    ;({ stdout } = await execAsync(`forge build --skip test --skip script`))
-  } catch ({ stderr }) {
+  const { stdout, stderr, code } = await spawnAsync(`forge`, [
+    'build',
+    // TODO(ryan): If the user has a test or script file that's named something other than 'test'
+    // and 'script', will this command fail to skip them?
+    '--skip',
+    'test',
+    '--skip',
+    'script',
+  ])
+  if (code !== 0) {
     spinner.stop()
     console.error(`Failed compiling sources: \n${stderr.trim()}`)
     process.exit(1)
@@ -608,12 +613,10 @@ export const generateClient = async () => {
   spinner.succeed('Generated Sphinx clients')
   spinner.start('Compiling clients and scripts...')
 
-  try {
-    // Using --swc speeds up the execution of the script.
-    ;({ stdout } = await execAsync(`forge build`))
-  } catch ({ stderr }) {
+  const result = await spawnAsync(`forge`, ['build'])
+  if (result.code !== 0) {
     spinner.stop()
-    console.error(`Failed compiling scripts: \n${stderr.trim()}`)
+    console.error(`Failed compiling scripts: \n${result.stderr.trim()}`)
     process.exit(1)
   }
 
