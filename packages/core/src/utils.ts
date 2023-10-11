@@ -1519,8 +1519,6 @@ export const makeParsedConfig = (
       const create3Salt = getCreate3Salt(referenceName, action.userSalt)
       const create3Address = getCreate3Address(managerAddress, create3Salt)
 
-      // TODO(test): if the contract doesn't have a constructor, variables should be {}.
-      // TODO(test): if the contract has a constructor with no args, variables should be {}.
       const constructorFragment = iface.fragments.find(
         ConstructorFragment.isFragment
       )

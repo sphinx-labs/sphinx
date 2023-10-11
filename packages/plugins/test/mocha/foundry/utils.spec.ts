@@ -11,6 +11,9 @@ import {
 } from '../../../src/foundry/utils'
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
+// TODO(test): update this
+// TODO(test): make sure this is still run when running `yarn test`
+
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {
     // These contract paths actually exist in the artifacts folder that's generated when building

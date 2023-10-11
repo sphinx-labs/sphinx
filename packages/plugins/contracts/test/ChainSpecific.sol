@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -24,8 +24,8 @@ contract AllNetworks is Ownable {
 contract OnlyArbitrum {
     uint public number;
 
-    constructor(uint _number) {
-        number = _number;
+    constructor() {
+        number = 42;
     }
 
     function increment() public {

@@ -6,7 +6,6 @@ build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read-write", path = "./"}]
 optimizer = false # TODO: set to 'true'
-
 ffi = true
 libs = ['node_modules']
 test = 'test/foundry'

@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../../contracts/test/ChainSpecific.sol";
 import { ChainSpecific } from "../../script/ChainSpecific.s.sol";
 import { Network, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxTestUtils } from "./SphinxTestUtils.sol";
+import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
 abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestUtils {
@@ -123,8 +123,9 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
             address(onlyArbitrum) != address(0)
         );
         assertGt(address(onlyArbitrum).code.length, 0);
-        // Check that `increment` is called twice.
-        assertEq(onlyArbitrum.number(), 2);
+        // Check that `increment` is called twice. Its initial value is `42`, so it should be `44`
+        // after the two calls.
+        assertEq(onlyArbitrum.number(), 44);
     }
 
     function assertArbitrumGoerliActionsExecuted() internal {
@@ -136,9 +137,11 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         );
         assertGt(address(onlyArbitrumGoerliOne).code.length, 0);
         assertGt(address(onlyArbitrumGoerliTwo).code.length, 0);
-        // Check that `decrement` is called twice on the first contract.
-        assertEq(onlyArbitrumGoerliOne.number(), 8);
-        // Check that `increment was not called on the second contract.
-        assertEq(onlyArbitrumGoerliTwo.number(), 20);
+        // Check that `decrement` is called twice on the first contract. Its initial value
+        // is `42`, so it should be `40` after the two calls.
+        assertEq(onlyArbitrumGoerliOne.number(), 40);
+        // Check that `increment` was not called on the second contract. Its initial value
+        // is `42`, so it should still be `42`.
+        assertEq(onlyArbitrumGoerliTwo.number(), 42);
     }
 }

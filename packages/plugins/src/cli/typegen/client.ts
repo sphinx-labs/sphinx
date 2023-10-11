@@ -555,8 +555,6 @@ export const generateClient = async () => {
   const spinner = ora()
   spinner.info('Compiling sources...')
 
-  // TODO(ryan): If the user has a test or script file that's named something other than 'test'
-  // and 'script', will this command fail to skip them?
   const { status: compilationStatusSrc } = spawnSync(
     `forge`,
     ['build', '--skip', 'test', '--skip', 'script'],

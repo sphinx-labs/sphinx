@@ -1,5 +1,7 @@
 // // SPDX-License-Identifier: UNLICENSED
-// pragma solidity ^0.8.13;
+// pragma solidity ^0.8.0;
+
+// TODO(ryan): this was commented out at some point. should we uncomment or remove it?
 
 // import { Script, console } from "forge-std/Script.sol";
 // import { TypeGenTestConfig } from "./TypeGenTest.config.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.4 <0.9.0;
+pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import { VmSafe, Vm } from "forge-std/Vm.sol";
@@ -93,9 +93,6 @@ abstract contract Sphinx {
     // something, or just explain that this is how the tool works.
 
     // TODO(md): perhaps add to faq that users can use `computeCreateAddress` from `StdUtils.sol`.
-
-    // TODO(test): if the user's contract's constructor reverts during the deployment, can we recover
-    // the reason? maybe the returned data could be helpful?
 
     SphinxMode public sphinxMode;
     bool public sphinxModifierEnabled;

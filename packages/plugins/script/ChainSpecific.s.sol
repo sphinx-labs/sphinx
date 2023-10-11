@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.0;
 
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
@@ -28,6 +28,9 @@ import {
  *      - Defining a previously deployed contract on a specific network, with and without
           `DefineOptions`
  *      - Calling functions on specific networks
+ *      - TODO(docs): deploying a contract without a constructor (`OnlyOptimism`), with a
+ *        constructor that has arguments (`AllNetworks`), and with a constructor that has no arguments
+ *        (OnlyArbitrum)
  */
 contract ChainSpecific is SphinxClient {
 
@@ -102,15 +105,15 @@ contract ChainSpecific is SphinxClient {
         allNetworks = AllNetworks(address(allNetworksClient));
 
         if (_network == Network.arbitrum) {
-            OnlyArbitrumClient onlyArbitrumClient = deployOnlyArbitrum(0);
+            OnlyArbitrumClient onlyArbitrumClient = deployOnlyArbitrum();
             onlyArbitrumClient.increment();
             onlyArbitrumClient.increment();
             onlyArbitrum = OnlyArbitrum(address(onlyArbitrumClient));
         } else if (_network == Network.arbitrum_goerli) {
-            OnlyArbitrumClient onlyArbitrumGoerliClientOne = deployOnlyArbitrum(10, DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
+            OnlyArbitrumClient onlyArbitrumGoerliClientOne = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
             onlyArbitrumGoerliClientOne.decrement();
             onlyArbitrumGoerliClientOne.decrement();
-            OnlyArbitrumClient onlyArbitrumGoerliClientTwo = deployOnlyArbitrum(20, DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
+            OnlyArbitrumClient onlyArbitrumGoerliClientTwo = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
             onlyArbitrumGoerliOne = OnlyArbitrum(address(onlyArbitrumGoerliClientOne));
             onlyArbitrumGoerliTwo = OnlyArbitrum(address(onlyArbitrumGoerliClientTwo));
         }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.0;
 
 import { Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
@@ -23,7 +23,7 @@ import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress } from
 import { MyOwnableClient, MyContract1Client } from "../../client/MyContracts.c.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
-import { SphinxTestUtils } from "./SphinxTestUtils.sol";
+import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 
 // TODO(refactor): put these contracts in separate files in a `test/proposal/` directory
 

@@ -547,7 +547,8 @@ export const makeBundlesFromConfig = (
   return { bundles: { actionBundle, targetBundle }, humanReadableActions }
 }
 
-// TODO(test): I got a javascript "heap out of memory" error when i removed sphinx's build info
+// TODO(ryan): This is a TODO from last week. I think you fixed it, but I just want to make sure.
+// I got a javascript "heap out of memory" error when i removed sphinx's build info
 // cache, but left a few dozen build info files in the artifacts folder. this was coming from the
 // Promise.all in `makeGetConfigArtifacts`.
 

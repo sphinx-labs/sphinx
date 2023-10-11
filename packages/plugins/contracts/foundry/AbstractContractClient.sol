@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.4 <0.9.0;
+pragma solidity ^0.8.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import {

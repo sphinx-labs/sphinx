@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 import { MyTypeLibrary } from "./Types.sol";
 import { MyTypeContract } from "./Types.sol";
