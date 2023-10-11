@@ -19,8 +19,30 @@ import {
   GetProviderForChainId,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
+import chain from 'stream-chain'
+import parser from 'stream-json'
+import { streamValues } from 'stream-json/streamers/StreamValues'
 
 const readFileAsync = promisify(fs.readFile)
+
+export const streamJsonFile = async (filePath: string) => {
+  const pipeline = new chain([
+    fs.createReadStream(filePath),
+    parser(),
+    streamValues(),
+    (data) => {
+      return data
+    },
+  ])
+
+  let buildInfo
+  pipeline.on('data', (b) => {
+    buildInfo = b.value
+  })
+
+  await new Promise((resolve) => pipeline.on('finish', resolve))
+  return buildInfo
+}
 
 export const getBuildInfo = (
   buildInfos: Array<{
@@ -205,8 +227,8 @@ export const makeGetConfigArtifacts = (
             return
           }
 
-          const buildInfo = JSON.parse(
-            fs.readFileSync(join(buildInfoFolder, file.name), 'utf8')
+          const buildInfo = await streamJsonFile(
+            join(buildInfoFolder, file.name)
           )
 
           // Update the build info file dictionary in the cache
@@ -275,9 +297,7 @@ export const makeGetConfigArtifacts = (
     await Promise.all(
       toReadFiles.map(async (file) => {
         try {
-          const buildInfo = JSON.parse(
-            await readFileAsync(join(buildInfoFolder, file), 'utf8')
-          )
+          const buildInfo = await streamJsonFile(join(buildInfoFolder, file))
           localBuildInfoCache[file] = buildInfo
         } catch (e) {
           // Throw an error if we can't read the file

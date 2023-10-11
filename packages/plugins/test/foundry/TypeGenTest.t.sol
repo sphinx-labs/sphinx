@@ -35,7 +35,7 @@ import { MyImportContract } from "../../contracts/test/typegen/contractInputs/Im
 import { LocalContract } from "../../contracts/test/typegen/contractInputs/FunctionContract.sol";
 import {
     FunctionContractClient
-} from "../../SphinxClient/typegen/contractInputs/FunctionContract.SphinxClient.sol";
+} from "../../client/typegen/contractInputs/FunctionContract.c.sol";
 import { ExternalContract } from "../../testExternalContracts/ExternalContract.sol";
 
 import { ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -56,21 +56,21 @@ import "forge-std/Test.sol";
 contract TypeGenTest is Test, TypeGenTestConfig {
     ExternalContract myPredeployedExternalContract;
 
-    function map(uint256 value) external pure returns (uint256) {
-        return 2 * value;
-    }
-
-    SphinxUtils utils = new SphinxUtils();
-
     address manager;
 
-    function setUp() public {
-        manager = utils.getSphinxManagerAddress(
+    constructor () {
+        manager = sphinxUtils.getSphinxManagerAddress(
             sphinxConfig.owners,
             sphinxConfig.threshold,
             sphinxConfig.projectName
         );
+    }
 
+    function map(uint256 value) external pure returns (uint256) {
+        return 2 * value;
+    }
+
+    function setUp() public {
         // Deploy an external contract ahead of time so we can later define an interact with it
         myPredeployedExternalContract = new ExternalContract(5);
         alreadyDeployedContractAddress = address(myPredeployedExternalContract);
@@ -508,12 +508,12 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers calling a function that relies on the msg.sender
     function testMsgSenderInFunction() public {
-        assertEq(msgSender.msgSenderInFunction(), manager);
+        assertEq(msgSender.msgSenderInFunction(), address(manager));
     }
 
     // Covers deploying a contract with constructor logic that depends on the msg.sender
     function testMsgSenderInConstructor() public {
-        assertEq(msgSender.msgSenderInConstructor(), manager);
+        assertEq(msgSender.msgSenderInConstructor(), address(manager));
     }
 
     // Covers deploying and interacting with a contract that has unnamed parameters in its constructor and functions

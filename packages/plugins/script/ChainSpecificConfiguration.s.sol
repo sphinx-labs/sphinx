@@ -14,7 +14,7 @@ import {
     AllNetworksClient,
     OnlyArbitrumClient,
     OnlyOptimismClient
-} from "../SphinxClient/ChainSpecific.SphinxClient.sol";
+} from "../SphinxClient/ChainSpecific.c.sol";
 
 /**
  * @title ChainSpecificConfiguration

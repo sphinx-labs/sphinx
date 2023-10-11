@@ -222,8 +222,17 @@ export const generateFunctionFromASTDefinition = (
   fileDepth: number,
   remappings: Record<string, string>,
   src: string,
-  fullyQualifiedName: string
+  fullyQualifiedName: string,
+  functionSelectors: string[]
 ) => {
+  if (definition.functionSelector) {
+    if (functionSelectors.includes(definition.functionSelector)) {
+      return
+    } else {
+      functionSelectors.push(definition.functionSelector)
+    }
+  }
+
   // Construct the function header
   const isPure = definition.stateMutability === 'pure'
   const isView = definition.stateMutability === 'view'

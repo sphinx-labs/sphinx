@@ -16,18 +16,13 @@ const resolveRemappingOnImportPath = (
 
 const generateImportPath = (
   absolutePath: string,
-  remappings: Record<string, string>,
-  fileDepth: number
+  remappings: Record<string, string>
 ) => {
   const remappedPath = resolveRemappingOnImportPath(absolutePath, remappings)
 
   // If there was a remapping that matched the import path, then use that
   // otherwise, use the current file depth to construct an import path using the absolute path
-  const path =
-    remappedPath !== undefined
-      ? remappedPath
-      : `${'../'.repeat(fileDepth)}${absolutePath}`
-
+  const path = remappedPath !== undefined ? remappedPath : absolutePath
   return path
 }
 
@@ -62,7 +57,6 @@ const fetchImportForType = (
   localName: string,
   sourceUnit: SourceUnit,
   sourceFilePath: string,
-  fileDepth: number,
   remappings: Record<string, string>,
   currentImports: Record<string, string>,
   src: string
@@ -75,11 +69,7 @@ const fetchImportForType = (
     )
 
     if (typeImport) {
-      const path = generateImportPath(
-        importDirective.absolutePath,
-        remappings,
-        fileDepth
-      )
+      const path = generateImportPath(importDirective.absolutePath, remappings)
 
       const uniqueName = fetchUniqueTypeName(
         currentImports,
@@ -152,7 +142,6 @@ export const generateImportsFromVariableDeclarations = (
             localName,
             sourceUnit,
             sourceFilePath,
-            fileDepth,
             remappings,
             currentImports,
             src
@@ -168,11 +157,7 @@ export const generateImportsFromVariableDeclarations = (
             // Else if there was no import statement then the parent type must be defined in the same file
             // so generate an import statement for that type from the current original contract source file
 
-            const path = generateImportPath(
-              sourceFilePath,
-              remappings,
-              fileDepth
-            )
+            const path = generateImportPath(sourceFilePath, remappings)
 
             const uniqueName = fetchUniqueTypeName(
               currentImports,

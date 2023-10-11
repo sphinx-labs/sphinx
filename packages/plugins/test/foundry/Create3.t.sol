@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 import { Script } from "forge-std/Script.sol";
 import { Test } from "forge-std/Test.sol";
-import { SphinxClient, SphinxConfig, Version } from "../../SphinxClient/SphinxClient.sol";
-import { StatelessClient } from "../../SphinxClient/Stateless.SphinxClient.sol";
+import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
+import { StatelessClient } from "../../client/Stateless.c.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
 import { Network, DeployOptions } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";

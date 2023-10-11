@@ -10,12 +10,10 @@ import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
 import {
   displayDeploymentTable,
-  execAsync,
   makeParsedConfig,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
-import { satisfies } from 'semver'
 import {
   getPreview,
   getPreviewString,
@@ -23,6 +21,7 @@ import {
   SphinxActionType,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
+  ConfigArtifacts,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -270,6 +269,7 @@ yargs(hideBin(process.argv))
       const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
       const spinner = ora()
+      let previewConfigArtifacts: ConfigArtifacts | undefined
       if (confirm) {
         spinner.info(`Skipping preview.`)
       } else {
@@ -316,7 +316,7 @@ yargs(hideBin(process.argv))
           encodedPreviewDeploymentInfo,
           SphinxPluginTypesABI
         )
-        const previewConfigArtifacts = await getConfigArtifacts(
+        previewConfigArtifacts = await getConfigArtifacts(
           previewDeploymentInfo.actionInputs.map(
             (actionInput) => actionInput.fullyQualifiedName
           )
@@ -371,11 +371,13 @@ yargs(hideBin(process.argv))
         encodedDeploymentInfo,
         SphinxPluginTypesABI
       )
-      const configArtifacts = await getConfigArtifacts(
-        deploymentInfo.actionInputs.map(
-          (actionInput) => actionInput.fullyQualifiedName
-        )
-      )
+      const configArtifacts = previewConfigArtifacts
+        ? previewConfigArtifacts
+        : await getConfigArtifacts(
+            deploymentInfo.actionInputs.map(
+              (actionInput) => actionInput.fullyQualifiedName
+            )
+          )
       const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
       const containsDeployment = parsedConfig.actionInputs.some(

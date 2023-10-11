@@ -18,9 +18,9 @@ import {
     IAccessControlEnumerable
 } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
 
-import { SphinxClient, SphinxConfig, Version } from "../../SphinxClient/SphinxClient.sol";
+import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
 import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress } from "../../contracts/foundry/SphinxPluginTypes.sol";
-import { MyContract1Client } from "../../SphinxClient/MyContracts.SphinxClient.sol";
+import { MyContract1Client } from "../../client/MyContracts.c.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
