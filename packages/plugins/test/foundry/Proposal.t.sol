@@ -20,8 +20,8 @@ import {
 
 import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
 import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress } from "../../contracts/foundry/SphinxPluginTypes.sol";
-import { MyContract1Client } from "../../client/MyContracts.c.sol";
-import { MyContract1 } from "../../contracts/test/MyContracts.sol";
+import { MyOwnableClient, MyContract1Client } from "../../client/MyContracts.c.sol";
+import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
@@ -31,11 +31,13 @@ import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
 abstract contract AbstractProposal_Test is SphinxClient, Test {
 
+    address finalOwner = address(0x200);
+
     SphinxTestUtils testUtils;
 
     Network[] initialTestnets = [Network.goerli, Network.optimism_goerli];
 
-    MyContract1 myContract;
+    MyOwnable ownable;
 
     ISphinxAuth auth;
     ISphinxManager manager;
@@ -74,11 +76,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
             sphinxConfig.threshold,
             sphinxConfig.projectName
         );
-        address managerAddress = sphinxUtils.getSphinxManagerAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            );
+        address managerAddress = sphinxUtils.getSphinxManagerAddress(sphinxConfig);
         auth = ISphinxAuth(authAddress);
         manager = ISphinxManager(managerAddress);
     }
@@ -106,18 +104,25 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
         assertEq(leafsExecuted, numLeafs);
         assertFalse(manager.isExecuting());
     }
+
+    function initialDeployment() internal {
+        MyOwnableClient ownableClient = deployMyOwnable(address(manager), 500);
+        ownableClient.set(8);
+        ownableClient.increment();
+        ownableClient.increment();
+        ownableClient.transferOwnership(finalOwner);
+        ownable = MyOwnable(address(ownableClient));
+    }
 }
 
-// TODO(test): we should test for idempotence, i.e. executing the same script twice results in the same outcome.
-
+// TODO(docs): 'Setup -> Propose -> Approve -> Execute'
 contract Proposal_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     function deploy(Network _network) public override virtual sphinx(_network) {
-        MyContract1Client myContractClient = deployMyContract1(1, 2, address(3), address(4));
-        myContract = MyContract1(address(myContractClient));
+        initialDeployment();
     }
 
-    // TODO: rename all test functions in this file
+    // TODO(refactor): rename all test functions in this file
     function test_1() public {
         for (uint256 i = 0; i < sphinxConfig.testnets.length; i++) {
             Network network = sphinxConfig.testnets[i];
@@ -148,19 +153,19 @@ contract Proposal_Test is AbstractProposal_Test, Script, SphinxConstants {
             assertAuthBundleCompleted(3, authRoot);
 
             // Check that the contract was deployed correctly.
-            assertEq(myContract.intArg(), 1);
-            assertEq(myContract.uintArg(), 2);
-            assertEq(myContract.addressArg(), address(3));
-            assertEq(myContract.otherAddressArg(), address(4));
+            assertEq(ownable.value(), 10);
+            assertEq(ownable.owner(), finalOwner);
         }
     }
 }
 
+// TODO(docs): 'Add contract to config -> Propose -> Approve deployment -> Execute deployment'
 contract ProposalSecond_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
     function deploy(Network _network) public override sphinx(_network) {
+        initialDeployment();
         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
         myNewContract = MyContract1(address(myNewContractClient));
     }
@@ -201,6 +206,7 @@ contract ProposalSecond_Test is AbstractProposal_Test, Script, SphinxConstants {
     }
 }
 
+// TODO(docs): 'Deploy existing project on new chains'
 contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     Network[] newNetworks = [Network.arbitrum_goerli, Network.gnosis_chiado];
@@ -211,8 +217,7 @@ contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
     }
 
     function deploy(Network _network) public override virtual sphinx(_network) {
-        MyContract1Client myContractClient = deployMyContract1(1, 2, address(3), address(4));
-        myContract = MyContract1(address(myContractClient));
+        initialDeployment();
     }
 
     function test_3() public {
@@ -250,21 +255,13 @@ contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
             assertAuthBundleCompleted(3, authRoot);
 
             // Check that the contract was deployed correctly.
-            assertEq(myContract.intArg(), 1);
-            assertEq(myContract.uintArg(), 2);
-            assertEq(myContract.addressArg(), address(3));
-            assertEq(myContract.otherAddressArg(), address(4));
+            assertEq(ownable.value(), 10);
+            assertEq(ownable.owner(), finalOwner);
         }
     }
 }
 
-// TODO(ryan): functions can be defined outside of a contract, just like structs and enums. how do
-// we handle those? can anything else be defined outside of a contract that we haven't accounted
-// for?
-
-// TODO: `sphinx deploy` freezes when not connected to wifi. is that inherent with foundry, or
-// is it caused by something in our plugin?
-
+// TODO(docs): it('Add contract to config -> Upgrade to new manager and auth impl -> Deploy project on new and existing chains'
 contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
@@ -280,11 +277,8 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
         sphinxConfig.version = newVersion;
     }
 
-    function setUp() external {
-        vm.setEnv("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", "true");
-    }
-
     function deploy(Network _network) public override virtual sphinx(_network) {
+        initialDeployment();
         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
         myNewContract = MyContract1(address(myNewContractClient));
     }
@@ -362,11 +356,13 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
     }
 }
 
+// TODO(docs): 'Cancel existing deployment then execute new deployment'
 contract ProposalFifth_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
     function deploy(Network _network) public override virtual sphinx(_network) {
+        initialDeployment();
         MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
         myNewContract = MyContract1(address(myNewContractClient));
     }

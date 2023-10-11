@@ -606,7 +606,6 @@ contract SphinxManager is
                     (bytes32, bytes)
                 );
                 address expectedAddress = ICreate3(create3).getAddressFromDeployer(
-
                     salt,
                     address(this)
                 );

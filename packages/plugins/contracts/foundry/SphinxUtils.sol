@@ -350,8 +350,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getSphinxManagerAddress(
         SphinxConfig memory _config
     ) public pure returns (address) {
-        address authAddress = getSphinxAuthAddress(_config.owners, _config.ownerThreshold, _config.projectName);
-        bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _projectName, hex""));
+        address authAddress = getSphinxAuthAddress(_config.owners, _config.threshold, _config.projectName);
+        bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _config.projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
     }
 

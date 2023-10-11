@@ -86,7 +86,7 @@ contract MyOwnable is Ownable {
         _transferOwnership(_sphinxManager);
     }
 
-    function increment() external onlyOwner {
+    function increment() external {
         value += 1;
     }
 

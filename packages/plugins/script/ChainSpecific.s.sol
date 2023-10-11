@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import {
     SphinxConfig,
     Network,
@@ -8,18 +10,17 @@ import {
     DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../SphinxClient/SphinxClient.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../contracts/test/ChainSpecific.sol";
 import {
     AllNetworksClient,
     OnlyArbitrumClient,
     OnlyOptimismClient
-} from "../SphinxClient/ChainSpecific.c.sol";
+} from "../client/ChainSpecific.c.sol";
 
 /**
- * @title ChainSpecificConfiguration
  * @dev Configuration script testing a more complex multi-network deployment.
- *      TODO(docs): See ChainSpecificConfiguration.t.sol for corresponding tests.
+ *      TODO(docs): See AbstractChainSpecific.t.sol for corresponding tests.
  * Tests:
  *      - Deploying a contract to all networks with a different constructor arg on each network
  *      - Calling a function with a different value on each network
@@ -28,7 +29,12 @@ import {
           `DefineOptions`
  *      - Calling functions on specific networks
  */
-contract ChainSpecificConfiguration is SphinxClient {
+contract ChainSpecific is SphinxClient {
+
+    address finalOwner = address(0x200);
+
+    ISphinxAuth auth;
+    ISphinxManager manager;
     AllNetworks allNetworks;
     OnlyArbitrum onlyArbitrum;
     OnlyArbitrum onlyArbitrumGoerliOne;
@@ -77,13 +83,22 @@ contract ChainSpecificConfiguration is SphinxClient {
         onlyArbitrumGoerliTwo = OnlyArbitrum(sphinxUtils.getAddress(
             sphinxConfig, "OnlyArbitrumGoerliTwo", bytes32(uint(2))
         ));
+
+        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(
+            sphinxConfig.owners,
+            sphinxConfig.threshold,
+            sphinxConfig.projectName
+        ));
+        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(sphinxConfig));
     }
 
     function deploy(Network _network) public override virtual sphinx(_network) {
         setupVariables();
 
-        AllNetworksClient allNetworksClient = deployAllNetworks(chainSpecificConstructorArgs[_network]);
+        AllNetworksClient allNetworksClient = deployAllNetworks(chainSpecificConstructorArgs[_network], address(manager));
         allNetworksClient.setFee(chainSpecificFee[_network]);
+        allNetworksClient.incrementFee();
+        allNetworksClient.transferOwnership(finalOwner);
         allNetworks = AllNetworks(address(allNetworksClient));
 
         if (_network == Network.arbitrum) {

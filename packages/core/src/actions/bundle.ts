@@ -575,7 +575,7 @@ export const makeActionBundleFromConfig = (
   const notSkipping = actionInputs.filter((action) => !action.skip)
 
   for (let index = 0; index < notSkipping.length; index++) {
-    const actionInput = actionInputs[index]
+    const actionInput = notSkipping[index]
     const { fullyQualifiedName, actionType } = actionInput
     if (isExtendedDeployContractActionInput(actionInput)) {
       const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]

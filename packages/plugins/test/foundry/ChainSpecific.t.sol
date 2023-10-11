@@ -32,12 +32,8 @@ contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
         assertArbitrumGoerliNotExecuted();
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }
 
@@ -69,12 +65,8 @@ contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
         assertArbitrumGoerliNotExecuted();
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }
 
@@ -106,12 +98,8 @@ contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
         assertEq(address(onlyOptimismGoerli).code.length, 0);
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }
 
@@ -143,12 +131,8 @@ contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
         assertEq(address(onlyOptimismGoerli).code.length, 0);
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }
 
@@ -180,12 +164,8 @@ contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
         assertEq(address(onlyOptimismGoerli).code.length, 0);
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }
 
@@ -217,11 +197,7 @@ contract ChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
         assertEq(address(onlyOptimismGoerli).code.length, 0);
     }
 
-    function testDeployWithCorrectConstructorArg() external {
-        assertDeployWithCorrectConstructorArg(network);
-    }
-
-    function testSetFeeCorrectly() external {
-        assertSetFeeCorrectly(network);
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
     }
 }

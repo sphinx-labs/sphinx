@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-contract AllNetworks {
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+
+contract AllNetworks is Ownable {
     address public someOtherProtocolAddress;
     uint public feePercent;
 
-    constructor(address _someOtherProtocolAddress) {
+    constructor(address _someOtherProtocolAddress, address _initialOwner) {
         someOtherProtocolAddress = _someOtherProtocolAddress;
+        _transferOwnership(_initialOwner);
     }
 
-    function setFee(uint _fee) public {
+    function incrementFee() public {
+        feePercent++;
+    }
+
+    function setFee(uint _fee) public onlyOwner {
         feePercent = _fee;
     }
 }
@@ -27,6 +34,10 @@ contract OnlyArbitrum {
 
     function decrement() public {
         number--;
+    }
+
+    function setNumber(uint256 _number) public {
+        number = _number;
     }
 }
 

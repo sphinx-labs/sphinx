@@ -2,22 +2,14 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
-import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISphinxAuthFactory } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 
-import { AllNetworks, OnlyArbitrum } from "../../contracts/test/ChainSpecific.sol";
-import { ChainSpecificConfiguration } from "../../script/ChainSpecificConfiguration.s.sol";
+import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../../contracts/test/ChainSpecific.sol";
+import { ChainSpecific } from "../../script/ChainSpecific.s.sol";
 import { Network, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
-// TODO(refactor): split these contracts into separate files
-
-abstract contract AbstractChainSpecific_Test is Test, ChainSpecificConfiguration, SphinxTestUtils {
-
-    ISphinxAuth auth;
-    ISphinxManager manager;
+abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestUtils {
 
     function testChainSpecificActionsExecuted() external virtual;
 
@@ -35,13 +27,6 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecificConfiguration
     function initializeBroadcastTests(Network _network) internal {
         setupVariables();
 
-        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(
-            sphinxConfig.owners,
-            sphinxConfig.threshold,
-            sphinxConfig.projectName
-        ));
-        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(sphinxConfig));
-
         NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(_network);
         string memory rpcUrl = vm.rpcUrl(networkInfo.name);
         vm.createSelectFork(rpcUrl);
@@ -50,10 +35,8 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecificConfiguration
         assertEq(block.chainid, networkInfo.chainId);
     }
 
-    // TODO(docs): point to the place where we explain why the
-    // authFactory.deploy call isn't broadcasted.
-    function assertBroadcastSuccess(uint256 _expectedNumTxns) internal {
-        string memory broadcastFilePath = string.concat(vm.projectRoot(), "/broadcast/ChainSpecificConfiguration.s.sol/", vm.toString(block.chainid), "/sphinxDeployTask-latest.json");
+    function assertBroadcastSuccess() internal {
+        string memory broadcastFilePath = string.concat(vm.projectRoot(), "/broadcast/ChainSpecific.s.sol/", vm.toString(block.chainid), "/sphinxDeployTask-latest.json");
         AnvilBroadcastedTxn[] memory broadcastedTxns = readAnvilBroadcastedTxns(broadcastFilePath);
 
         vm.rollFork(broadcastedTxns[0].hash);
@@ -87,19 +70,23 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecificConfiguration
             assertTrue(to == address(auth) || to == address(manager));
         }
 
-        assertEq(broadcastedTxns.length, _expectedNumTxns);
+        assertEq(broadcastedTxns.length, 6);
     }
 
-    function assertDeployWithCorrectConstructorArg(Network _network) internal {
+    function assertAllNetworksContractSuccess(Network _network) internal {
+        // Check that the constructor arg is set correctly.
         address constructorArg = chainSpecificConstructorArgs[_network];
         assertTrue(constructorArg != address(0));
         assertEq(allNetworks.someOtherProtocolAddress(), constructorArg);
-    }
 
-    function assertSetFeeCorrectly(Network _network) internal {
+        // Check that the fee is set correctly.
         uint256 fee = chainSpecificFee[_network];
         assertGt(fee, 0);
-        assertEq(allNetworks.feePercent(), fee);
+        // The final fee is the initial fee plus one, since `incrementFee` was called once
+        // on each chain.
+        assertEq(allNetworks.feePercent(), fee + 1);
+
+        assertEq(allNetworks.owner(), finalOwner);
     }
 
     function assertArbitrumGoerliNotExecuted() internal {

@@ -59,7 +59,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     address manager;
 
     constructor () {
-        manager = utils.getSphinxManagerAddress(sphinxConfig);
+        manager = sphinxUtils.getSphinxManagerAddress(sphinxConfig);
     }
 
     function map(uint256 value) external pure returns (uint256) {
