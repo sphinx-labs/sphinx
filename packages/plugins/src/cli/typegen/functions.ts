@@ -135,7 +135,8 @@ export const generateDeploymentFunctionFromASTDefinition = (
   sourceFilePath: string,
   remappings: Record<string, string>,
   allDeployFunctionImports: Record<string, string>,
-  src: string
+  src: string,
+  includeDeployFunctions: boolean
 ) => {
   const inputParams = definition?.parameters?.parameters
 
@@ -144,7 +145,6 @@ export const generateDeploymentFunctionFromASTDefinition = (
       inputParams ?? [],
       sourceUnit,
       sourceFilePath,
-      1,
       remappings,
       allDeployFunctionImports,
       src
@@ -160,8 +160,7 @@ export const generateDeploymentFunctionFromASTDefinition = (
     ? formatParameters(inputParams, false, false, true, ',\n      ', duplicates)
     : ''
 
-  const functionDefinitions = `
-  function define${contractName}(
+  const defineFunctionDefinitions = `function define${contractName}(
     address addr
   ) internal returns (${uniqueClientName}) {
     return define${contractName}(
@@ -181,9 +180,9 @@ export const generateDeploymentFunctionFromASTDefinition = (
         "${clientArtifactPath}"
       )
     );
-  }
+  }`
 
-  function deploy${contractName}(${
+  const deployFunctionDefinitions = `function deploy${contractName}(${
     inputs !== '' ? `\n    ${inputs}\n  ` : ''
   }) internal returns (${uniqueClientName}) {
     return deploy${contractName}(
@@ -212,6 +211,13 @@ export const generateDeploymentFunctionFromASTDefinition = (
     );
   }`
 
+  const functionDefinitions = includeDeployFunctions
+    ? `
+  ${defineFunctionDefinitions}
+
+  ${deployFunctionDefinitions}`
+    : defineFunctionDefinitions
+
   return { imports, functionDefinitions }
 }
 
@@ -219,7 +225,6 @@ export const generateFunctionFromASTDefinition = (
   definition: FunctionDefinition,
   sourceUnit: SourceUnit,
   sourceFilePath: string,
-  fileDepth: number,
   remappings: Record<string, string>,
   src: string,
   fullyQualifiedName: string,
@@ -258,7 +263,6 @@ export const generateFunctionFromASTDefinition = (
     importSources,
     sourceUnit,
     sourceFilePath,
-    fileDepth,
     remappings,
     {},
     src

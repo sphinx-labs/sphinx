@@ -104,7 +104,6 @@ export const generateImportsFromVariableDeclarations = (
   variableDeclarations: VariableDeclaration[],
   sourceUnit: SourceUnit,
   sourceFilePath: string,
-  fileDepth: number,
   remappings: Record<string, string>,
   currentImports: Record<string, string>,
   src: string
