@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.4 <0.9.0;
 
-import "./ISphinxAccessControl.sol";
+import "./IAccessControl.sol";
 
 /**
  * @notice Clone of `IAccessControlEnumerable.sol` in OpenZeppelin Contracts v4.4.1. The only
@@ -10,7 +10,7 @@ import "./ISphinxAccessControl.sol";
  *         with other interfaces the user may have in their project.
  * @dev External interface of AccessControlEnumerable declared to support ERC165 detection.
  */
-interface ISphinxAccessControlEnumerable is ISphinxAccessControl {
+interface IAccessControlEnumerable is IAccessControl {
     /**
      * @dev Returns one of the accounts that have `role`. `index` must be a
      * value between 0 and {getRoleMemberCount}, non-inclusive.

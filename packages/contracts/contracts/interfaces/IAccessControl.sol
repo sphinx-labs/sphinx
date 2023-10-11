@@ -8,7 +8,7 @@ pragma solidity >=0.7.4 <0.9.0;
  *         with other interfaces the user may have in their project.
  * @dev External interface of AccessControl declared to support ERC165 detection.
  */
-interface ISphinxAccessControl {
+interface IAccessControl {
     /**
      * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing
      *      `previousAdminRole`
