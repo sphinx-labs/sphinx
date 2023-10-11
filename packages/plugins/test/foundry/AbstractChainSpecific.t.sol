@@ -40,11 +40,7 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecificConfiguration
             sphinxConfig.threshold,
             sphinxConfig.projectName
         ));
-        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            ));
+        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(sphinxConfig));
 
         NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(_network);
         string memory rpcUrl = vm.rpcUrl(networkInfo.name);

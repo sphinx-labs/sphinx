@@ -259,11 +259,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getAddress(SphinxConfig memory _config, string memory _referenceName, bytes32 _salt) public pure returns (address) {
-        address manager = getSphinxManagerAddress(
-            _config.owners,
-            _config.threshold,
-            _config.projectName
-        );
+        address manager = getSphinxManagerAddress(_config);
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
         return computeCreate3Address(manager, create3Salt);
     }
@@ -352,11 +348,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getSphinxManagerAddress(
-        address[] memory _owners,
-        uint256 _ownerThreshold,
-        string memory _projectName
+        SphinxConfig memory _config
     ) public pure returns (address) {
-        address authAddress = getSphinxAuthAddress(_owners, _ownerThreshold, _projectName);
+        address authAddress = getSphinxAuthAddress(_config.owners, _config.ownerThreshold, _config.projectName);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
     }

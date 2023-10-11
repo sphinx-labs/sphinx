@@ -33,7 +33,7 @@ contract ChainSpecificConfiguration is SphinxClient {
     OnlyArbitrum onlyArbitrum;
     OnlyArbitrum onlyArbitrumGoerliOne;
     OnlyArbitrum onlyArbitrumGoerliTwo;
-    OnlyOptimism onlyOptimism = OnlyOptimism(address(256));
+    OnlyOptimism onlyOptimism = OnlyOptimism(address(0x100));
     OnlyOptimism onlyOptimismGoerli = onlyOptimism;
 
     mapping(Network => address) public chainSpecificConstructorArgs;

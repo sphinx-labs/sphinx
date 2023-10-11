@@ -483,11 +483,7 @@ abstract contract Sphinx {
             )
         );
         manager = ISphinxManager(
-            sphinxUtils.getSphinxManagerAddress(
-                sphinxConfig.owners,
-                sphinxConfig.threshold,
-                sphinxConfig.projectName
-            )
+            sphinxUtils.getSphinxManagerAddress(sphinxConfig)
         );
 
         sphinxUtils.validate(sphinxConfig, _network);
