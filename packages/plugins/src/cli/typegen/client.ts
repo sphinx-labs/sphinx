@@ -6,6 +6,7 @@ import { findAll } from 'solidity-ast/utils'
 import {
   ContractDefinition,
   FunctionDefinition,
+  ImportDirective,
   InheritanceSpecifier,
   SourceUnit,
 } from 'solidity-ast/types'
@@ -24,41 +25,30 @@ import { fetchUniqueTypeName } from './imports'
 
 const CLIENT_FOLDER_NAME = 'client'
 
-const generateFunctionsForParentContract = async (
+const searchAllPossibleArtifactPaths = async (
+  parentImport: ImportDirective,
   artifactFolder: string,
-  sourceUnit: SourceUnit,
-  parentContract: InheritanceSpecifier,
+  expectedContractName: string,
   remappings: Record<string, string>,
   allDeployFunctionImports: Record<string, string>,
   clientPath: string,
   src: string,
   functionSelectors: string[]
 ) => {
-  const namedSolImports = findAll('ImportDirective', sourceUnit)
-
-  // Search for parent contract in named imports
-  for (const parentImport of namedSolImports) {
-    let expectedContractName = parentContract.baseName.name
-    if (parentImport.symbolAliases.length > 0) {
-      expectedContractName = parentImport.symbolAliases.find(
-        (symbolAlias) =>
-          symbolAlias.local === expectedContractName ||
-          (!symbolAlias.local &&
-            symbolAlias.foreign.name === expectedContractName)
-      )?.foreign.name
-    } else {
-      continue
-    }
-
-    if (!expectedContractName) {
-      continue
-    }
+  const pathPieces = parentImport.absolutePath.split('/')
+  let filePath: string | undefined
+  for (let i = pathPieces.length - 1; i >= 0; i--) {
+    filePath = filePath ? path.join(pathPieces[i], filePath) : pathPieces[i]
 
     const artifactFile = path.join(
       artifactFolder,
-      path.basename(parentImport.absolutePath),
+      filePath,
       `${expectedContractName}.json`
     )
+
+    if (!fs.existsSync(artifactFile)) {
+      continue
+    }
 
     const contractData = await generateClientContractFromArtifact(
       artifactFile,
@@ -71,50 +61,61 @@ const generateFunctionsForParentContract = async (
       functionSelectors
     )
 
-    // if contract is undefined, then the user may have two contracts with the same name in two files with the same name
-    if (!contractData) {
-      throw new Error(
-        `Could not find artifact for contract: ${parentImport.absolutePath}:${expectedContractName}. This may happen if you have multiple files with the same name that contain a contract with the same name. Please rename one of the files or contracts. If this problem persistes, please report it to the developers.`
-      )
-    } else {
+    if (contractData) {
       return contractData
     }
   }
+}
 
-  const unnamedSolImports = findAll('ImportDirective', sourceUnit)
+const generateFunctionsForParentContract = async (
+  artifactFolder: string,
+  sourceUnit: SourceUnit,
+  parentContract: InheritanceSpecifier,
+  remappings: Record<string, string>,
+  allDeployFunctionImports: Record<string, string>,
+  clientPath: string,
+  src: string,
+  functionSelectors: string[]
+) => {
+  const solImports = findAll('ImportDirective', sourceUnit)
 
-  // Search for parent contract in unnamed imports
-  for (const parentImport of unnamedSolImports) {
-    if (parentImport.symbolAliases.length === 0) {
-      // If the parent contract exists in this unnamed import, then there will be an artifact file for it in the artifact
-      // folder that corresponds to the parent import's absolute path
-      const artifactFilePath = path.join(
-        artifactFolder,
-        path.basename(parentImport.absolutePath),
-        `${parentContract.baseName.name}.json`
-      )
+  if (!parentContract.baseName.name) {
+    throw new Error(
+      "Parent contract doesn't have a name. This should never happen, please report this to the developers."
+    )
+  }
 
-      if (fs.existsSync(artifactFilePath)) {
-        const contractData = await generateClientContractFromArtifact(
-          artifactFilePath,
-          parentImport.absolutePath,
-          remappings,
-          allDeployFunctionImports,
-          clientPath,
-          src,
-          artifactFolder,
-          functionSelectors
-        )
+  // Search for parent contract in named imports
+  for (const parentImport of solImports) {
+    let expectedContractName: string | undefined = parentContract.baseName.name
+    if (parentImport.symbolAliases.length > 0) {
+      expectedContractName = parentImport.symbolAliases.find(
+        (symbolAlias) =>
+          symbolAlias.local === expectedContractName ||
+          (!symbolAlias.local &&
+            symbolAlias.foreign.name === expectedContractName)
+      )?.foreign.name
 
-        // if contract is undefined, then the user may have two contracts with the same name in two files with the same name
-        if (!contractData) {
-          throw new Error(
-            `Could not find artifact for contract: ${parentImport.absolutePath}:${parentContract.baseName.name}. This may happen if you have multiple files with the same name that contain a contract with the same name. Please rename one of the files or contracts. If this problem persistes, please report it to the developers.`
-          )
-        } else {
-          return contractData
-        }
+      if (!expectedContractName) {
+        continue
       }
+    } else {
+      expectedContractName = parentContract.baseName.name
+    }
+
+    const contractData = await searchAllPossibleArtifactPaths(
+      parentImport,
+      artifactFolder,
+      expectedContractName,
+      remappings,
+      allDeployFunctionImports,
+      clientPath,
+      src,
+      functionSelectors
+    )
+
+    if (contractData) {
+      return contractData
     }
   }
 
