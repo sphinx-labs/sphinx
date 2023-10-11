@@ -214,19 +214,15 @@ export const makeGetConfigArtifacts = (
     // We intentionally do not cache the files we read here because we do not know if they
     // will be used or not and storing all of them can result in memory issues if there are
     // a lot of large build info files which can happen in large projects.
-    await Promise.all(
-      buildInfoFileNamesWithTime
-        .filter((file) => buildInfoCache[file.name]?.time !== file.time)
-        .map(async (file) => {
-          // If the file exists in the cache and the time has changed, then we just update the time
-          if (
-            buildInfoCache[file.name]?.time &&
-            buildInfoCache[file.name]?.time !== file.time
-          ) {
-            buildInfoCache[file.name].time = file.time
-            return
-          }
-
+    for (const file of buildInfoFileNamesWithTime) {
+      if (!cachedNames.includes(file.name)) {
+        // If the file exists in the cache and the time has changed, then we just update the time
+        if (
+          buildInfoCache[file.name]?.time &&
+          buildInfoCache[file.name]?.time !== file.time
+        ) {
+          buildInfoCache[file.name].time = file.time
+        } else {
           const buildInfo = await streamJsonFile(
             join(buildInfoFolder, file.name)
           )
@@ -237,8 +233,10 @@ export const makeGetConfigArtifacts = (
             time: file.time,
             contracts: Object.keys(buildInfo.output.contracts),
           }
-        })
-    )
+        }
+      }
+    }
+
     // Just make sure the files are sorted by time
     const sortedCachedFiles = Object.values(buildInfoCache).sort(
       (a, b) => b.time - a.time

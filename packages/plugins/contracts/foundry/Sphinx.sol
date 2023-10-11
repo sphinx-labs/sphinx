@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
-import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
+import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
@@ -40,7 +40,7 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
-import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
+import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to execute deployments using
@@ -1007,7 +1007,7 @@ abstract contract Sphinx {
     // TODO(docs): explain why this is defined in this contract instead of in SphinxUtils
     function _sphinxGrantRoleInAuthContract(bytes32 _role, address _account, string memory _rpcUrl) private {
         if (
-            !IAccessControl(address(auth)).hasRole(
+            !ISphinxAccessControl(address(auth)).hasRole(
                 _role,
                 _account
             )
