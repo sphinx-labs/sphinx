@@ -442,7 +442,6 @@ abstract contract Sphinx {
     }
 
     // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
-    // TODO(ryan): I tested 
 
     modifier sphinx(Network _network) {
         sphinxModifierEnabled = true;

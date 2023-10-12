@@ -16,7 +16,7 @@
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "npx hardhat clean && yarn generate && npx hardhat compile && ts-node ./src/cli/index.ts generate",
+    "build:contracts": "forge clean && yarn generate && forge build && ts-node ./src/cli/index.ts generate",
     "generate": "npx ts-node script/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat && yarn test:mocha && yarn test:solc",
