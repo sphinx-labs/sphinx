@@ -1,4 +1,4 @@
-import path from 'path'
+import path, { dirname } from 'path'
 import fs, { readdirSync } from 'fs'
 import { spawnSync } from 'child_process'
 
@@ -68,6 +68,7 @@ const searchAllPossibleArtifactPaths = async (
 }
 
 const generateFunctionsForParentContract = async (
+  artifactFile: string,
   artifactFolder: string,
   sourceUnit: SourceUnit,
   parentContract: InheritanceSpecifier,
@@ -77,15 +78,41 @@ const generateFunctionsForParentContract = async (
   src: string,
   functionSelectors: string[]
 ) => {
-  const solImports = findAll('ImportDirective', sourceUnit)
-
   if (!parentContract.baseName.name) {
     throw new Error(
       "Parent contract doesn't have a name. This should never happen, please report this to the developers."
     )
   }
 
-  // Search for parent contract in named imports
+  // Search for parent contract in file
+  const contractDefinitions = findAll('ContractDefinition', sourceUnit)
+  for (const contractDefinition of contractDefinitions) {
+    if (contractDefinition.canonicalName === parentContract.baseName.name) {
+      const directory = dirname(artifactFile)
+      const parentContractArtifactFile = path.join(
+        directory,
+        `${parentContract.baseName.name}.json`
+      )
+
+      const contractData = await generateClientContractFromArtifact(
+        parentContractArtifactFile,
+        sourceUnit.absolutePath,
+        remappings,
+        allDeployFunctionImports,
+        clientPath,
+        src,
+        artifactFolder,
+        functionSelectors
+      )
+
+      if (contractData) {
+        return contractData
+      }
+    }
+  }
+
+  // Search for parent contract in imports
+  const solImports = findAll('ImportDirective', sourceUnit)
   for (const parentImport of solImports) {
     let expectedContractName: string | undefined = parentContract.baseName.name
     if (parentImport.symbolAliases.length > 0) {
@@ -126,6 +153,7 @@ const generateFunctionsForParentContract = async (
 }
 
 const generateFunctionsForParentContracts = async (
+  artifactFile: string,
   sourceUnit: SourceUnit,
   baseContracts: InheritanceSpecifier[],
   remappings: Record<string, string>,
@@ -140,6 +168,7 @@ const generateFunctionsForParentContracts = async (
 
   for (const parentContract of baseContracts) {
     const contractData = await generateFunctionsForParentContract(
+      artifactFile,
       artifactFolder,
       sourceUnit,
       parentContract,
@@ -273,6 +302,7 @@ const generateClientContractFromArtifact = async (
 
   const { parentImports, parentFunctionDefinitions } =
     await generateFunctionsForParentContracts(
+      artifactFile,
       sourceUnit,
       contractDefinition.baseContracts,
       remappings,

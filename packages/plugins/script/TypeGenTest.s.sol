@@ -105,6 +105,8 @@ import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
 import { ParentClient } from "../client/typegen/inheritance/Parent.c.sol";
 import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
 import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
+import { ChildInSameFile } from "../contracts/test/typegen/inheritance/SameFile.sol";
+import { ChildInSameFileClient } from "../client/typegen/inheritance/SameFile.c.sol";
 
 import "forge-std/Test.sol";
 
@@ -138,6 +140,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     Parent parent;
     Child child;
     Grandchild grandchild;
+    ChildInSameFile childInSameFile;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -573,5 +576,11 @@ contract TypeGenTestConfig is Test, SphinxClient {
         grandchildClient.setMyAddress(address(4));
         grandchildClient.add(grandchildClient.myPureB());
         grandchild = Grandchild(address(grandchildClient));
+
+        // Deploy contract that inherits from a contract in the same file
+        ChildInSameFileClient childInSameFileClient = deployChildInSameFile(1, false);
+        childInSameFileClient.setBool(true);
+        childInSameFileClient.add(2);
+        childInSameFile = ChildInSameFile(address(childInSameFileClient));
     }
 }

@@ -518,7 +518,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     }
 
     // Covers deploying and interacting with a contract that inherits from another contract
-    function testDidDeployAndInteractWithInheritedContract() public {
+    function testDidDeployInheritedContract() public {
         assertEq(parent.myNumber(), 2);
         assertEq(parent.myBool(), true);
 
@@ -529,9 +529,14 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers deploying and interacting with a contract that inherits from a contract which inherits from another contract
     // and that uses an alias
-    function testDidDeployAndInteractWithInheritedContractWithAlias() public {
+    function testDidDeployInheritedContractWithAlias() public {
         assertEq(grandchild.myNumber(), 3);
         assertEq(grandchild.myBytes32(), keccak256("3"));
         assertEq(grandchild.myBool(), false);
+    }
+
+    function testDidDeployInheritedContractInSameFile() public {
+      assertEq(childInSameFile.myNumber(), 3);
+      assertEq(childInSameFile.myBool(), true);
     }
 }
