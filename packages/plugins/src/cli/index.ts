@@ -208,7 +208,7 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await deploy(confirm, scriptPath, network, targetContract, verify)
+      await deploy(scriptPath, network, confirm, targetContract, verify)
     }
   )
   // The following command displays the help menu when `npx sphinx` is called with an incorrect

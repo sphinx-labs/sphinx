@@ -1,6 +1,23 @@
-import { AuthABI, AuthArtifact, AuthFactoryABI, EXECUTION_LOCK_TIME, OWNER_MULTISIG_ADDRESS, SphinxManagerABI, SphinxManagerArtifact } from "@sphinx-labs/contracts"
-import { AUTH_FACTORY_ADDRESS, DEFAULT_CREATE3_ADDRESS, SphinxJsonRpcProvider, doDeterministicDeploy, getImpersonatedSigner, getManagedServiceAddress, getSphinxRegistry, getSphinxRegistryAddress } from "@sphinx-labs/core"
-import { ethers } from "ethers"
+import {
+  AuthABI,
+  AuthArtifact,
+  AuthFactoryABI,
+  EXECUTION_LOCK_TIME,
+  OWNER_MULTISIG_ADDRESS,
+  SphinxManagerABI,
+  SphinxManagerArtifact,
+} from '@sphinx-labs/contracts'
+import {
+  AUTH_FACTORY_ADDRESS,
+  DEFAULT_CREATE3_ADDRESS,
+  SphinxJsonRpcProvider,
+  doDeterministicDeploy,
+  getImpersonatedSigner,
+  getManagedServiceAddress,
+  getSphinxRegistry,
+  getSphinxRegistryAddress,
+} from '@sphinx-labs/core'
+import { ethers } from 'ethers'
 
 // TODO(docs)
 const main = async () => {
@@ -25,7 +42,7 @@ const main = async () => {
         getSphinxRegistryAddress(),
         DEFAULT_CREATE3_ADDRESS,
         getManagedServiceAddress(
-          await provider.getNetwork().then(n => n.chainId)
+          await provider.getNetwork().then((n) => n.chainId)
         ),
         EXECUTION_LOCK_TIME,
         [9, 9, 9],
@@ -56,9 +73,7 @@ const main = async () => {
       systemOwner
     )
     await (
-      await AuthFactory.addVersion(
-        await NewAuthImplementation.getAddress(),
-      )
+      await AuthFactory.addVersion(await NewAuthImplementation.getAddress())
     ).wait()
   }
 }

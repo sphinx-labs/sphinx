@@ -32,14 +32,14 @@ import { propose } from './propose'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 
 export const deploy = async (
-  skipPreview: boolean,
   scriptPath: string,
   network: string,
+  skipPreview: boolean,
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
-  deployedParsedConfig: ParsedConfig
+  deployedParsedConfig?: ParsedConfig
   previewParsedConfig?: ParsedConfig
 }> => {
   // First, we compile the contracts to make sure we're using the latest versions. This command
@@ -165,8 +165,18 @@ export const deploy = async (
     const preview = getPreview([previewParsedConfig])
     const previewString = getPreviewString(preview)
 
-    spinner.stop()
-    await prompt(previewString)
+    const emptyDeployment = previewParsedConfig.actionInputs.every(
+      (action) => action.skip
+    )
+
+    if (emptyDeployment) {
+      console.log(previewString)
+      spinner.succeed(`Nothing to deploy.`)
+      return { previewParsedConfig }
+    } else {
+      spinner.stop()
+      await prompt(previewString)
+    }
   }
 
   // Delete the deployment info if one already exists. This isn't strictly necessary, but it ensures
