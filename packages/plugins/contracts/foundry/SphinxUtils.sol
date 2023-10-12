@@ -74,6 +74,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    // TODO(docs)
+    uint8 internal constant numSupportedNetworks = 23;
+
     function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
         ffiDeployOnAnvil(_rpcUrl, _executor);
         initializeSphinxContracts(_executor);
@@ -107,10 +110,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             address addr = create2Deploy(ct.creationCode);
             require(
                 addr == ct.expectedAddress,
-                string.concat(
+                string(abi.encodePacked(
                     "address mismatch. expected address: ",
                     vm.toString(ct.expectedAddress)
-                )
+                ))
             );
         }
 
@@ -187,7 +190,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
         cmds[1] = "node";
-        cmds[2] = string.concat(rootFfiPath, "get-bundle-info.js");
+        cmds[2] = string(abi.encodePacked(rootFfiPath, "get-bundle-info.js"));
         cmds[3] = vm.toString(abi.encode(_deploymentInfoArray));
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
@@ -272,11 +275,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         if (addr.code.length == 0) {
-            bytes memory code = bytes.concat(bytes32(0), _creationCode);
+            bytes memory code = abi.encodePacked(bytes32(0), _creationCode);
             (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
             require(
                 success,
-                string.concat("failed to deploy contract. expected address: ", vm.toString(addr))
+                string(abi.encodePacked("failed to deploy contract. expected address: ", vm.toString(addr)))
             );
         }
 
@@ -713,7 +716,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getNetworkInfoArray() private pure returns (NetworkInfo[] memory) {
-        NetworkInfo[] memory all = new NetworkInfo[](uint8(type(Network).max) + 1);
+        NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
         all[0] = NetworkInfo({
             network: Network.anvil,
             name: "anvil",
@@ -868,12 +871,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function toString(Network[] memory _network) public pure returns (string memory) {
         string memory result = "\n";
         for (uint i = 0; i < _network.length; i++) {
-            result = string.concat(result, getNetworkInfo(_network[i]).name);
+            result = string(abi.encodePacked(result, getNetworkInfo(_network[i]).name));
             if (i != _network.length - 1) {
-                result = string.concat(result, "\n");
+                result = string(abi.encodePacked(result, "\n"));
             }
         }
-        result = string.concat(result);
+        result = string(abi.encodePacked(result));
         return result;
     }
 
@@ -899,12 +902,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function toString(address[] memory _ary) public pure returns (string memory) {
         string memory result = "\n";
         for (uint i = 0; i < _ary.length; i++) {
-            result = string.concat(result, vm.toString(_ary[i]));
+            result = string(abi.encodePacked(result, vm.toString(_ary[i])));
             if (i != _ary.length - 1) {
-                result = string.concat(result, "\n");
+                result = string(abi.encodePacked(result, "\n"));
             }
         }
-        result = string.concat(result);
+        result = string(abi.encodePacked(result));
         return result;
     }
 

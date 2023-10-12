@@ -11,6 +11,7 @@ import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 // the same source file as the child contract?
 // TODO(ryan): nit: looks like there's unnecessary spinner output before and after the `forge build`
 // calls in the generate command.
+// TODO(ryan): did he check that the `generate` command works when inheriting from abstract contracts?
 // TODO(ryan): thoughts on removing the third step of the generate command? when building from a clean
 // repo in the plugins package, it compiles all the contracts, which takes ~20 seconds. forge will
 // automatically compile the contracts that it needs to compile when the user runs any `forge` command after

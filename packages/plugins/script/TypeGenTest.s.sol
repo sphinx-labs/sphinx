@@ -108,14 +108,6 @@ import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 
 import "forge-std/Test.sol";
 
-// TODO(test): you should use `vm.createSelectFork` in one of your tests for the solidity
-// config.
-
-// TODO(test): what happens if you startBroadcast with a public key, not private key, on anvil?
-
-// TODO(md): consider changing the readme so that it focuses on the local deployment experience
-// first, then talks about the devops platform next.
-
 contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingNameContractFirst firstConflictingNameContract;
     ConflictingNameContractSecond secondConflictingNameContract;

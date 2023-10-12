@@ -13,6 +13,8 @@ import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
 // TODO(test): update this
 // TODO(test): make sure this is still run when running `yarn test`
+// TODO(test): make sure that all of the tests are run when running `yarn test`
+
 
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {

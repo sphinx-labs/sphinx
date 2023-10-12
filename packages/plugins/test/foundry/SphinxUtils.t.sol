@@ -7,7 +7,8 @@ import {
     FoundryContractConfig,
     OptionalString,
     ContractKindEnum,
-    ParsedCallAction
+    ParsedCallAction,
+    Network
 } from "../../contracts/foundry/SphinxPluginTypes.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
@@ -57,5 +58,10 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertEq(uniqueAddresses[1], address(0x1));
         assertEq(uniqueAddresses[2], address(0x2));
         assertEq(uniqueAddresses[3], address(0x3));
+    }
+
+    function test_networkEnumSize() external {
+        uint256 expected = uint8(type(Network).max) + 1;
+        assertEq(numSupportedNetworks, expected);
     }
 }

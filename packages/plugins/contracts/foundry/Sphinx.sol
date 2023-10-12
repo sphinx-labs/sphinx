@@ -70,20 +70,20 @@ abstract contract Sphinx {
 
     DeploymentInfo private deploymentInfo;
 
-    SphinxConstants private immutable constants;
+    SphinxConstants private constants;
 
     /**
-     * @notice The configuration options for the user's project. This variable must have `internal`
+     * @dev The configuration options for the user's project. This variable must have `internal`
      *         visibility so that the user can set fields on it in their constructor.
      */
     SphinxConfig internal sphinxConfig;
 
     /**
-     * @notice A utility contract that provides helper functions. This variable must have `internal`
+     * @dev A utility contract that provides helper functions. This variable must have `internal`
      *         visibility so that the user can call functions on it, such as retrieving a `CREATE3`
      *         address of a contract.
      */
-    SphinxUtils internal immutable sphinxUtils;
+    SphinxUtils internal sphinxUtils;
 
     // TODO(md): forge-std needs to be 1.6.1
 
@@ -207,8 +207,6 @@ abstract contract Sphinx {
             "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
 
-        // TODO(test): try compiling with the earliest solc version you support (0.7.4)
-
         sphinxMode = SphinxMode.Proposal;
 
         DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
@@ -262,9 +260,6 @@ abstract contract Sphinx {
 
         return (authRoot, forkIds);
     }
-
-    // TODO(test): check for the expected number of broadcasted transactions in `sphinx deploy`.
-    // e.g. it seemes there's an `authFactory.auths()` call being made that costs eth.
 
     function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
@@ -349,7 +344,10 @@ abstract contract Sphinx {
                 // a nice error message to the user.
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
-                }(abi.encodeCall(ISphinxManager.executeInitialActions, (rawActions, _proofs)));
+                // `abi.encodeCall` provides better type support than `abi.encodeWithSelector`, but
+                // we can't use it here because it isn't supported in Solidity v0.8.0, which is the
+                // earliest version we support.
+                }(abi.encodeWithSelector(ISphinxManager.executeInitialActions.selector, rawActions, _proofs));
                 if (!success) {
                     uint256 failureIndex;
                     assembly {
@@ -444,6 +442,7 @@ abstract contract Sphinx {
     }
 
     // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
+    // TODO(ryan): I tested 
 
     modifier sphinx(Network _network) {
         sphinxModifierEnabled = true;

@@ -3,6 +3,8 @@ pragma solidity >=0.7.4 <0.9.0;
 
 import "./IAccessControl.sol";
 
+// TODO: remove this and iaccesscontrol.sol, since we don't need them anymore
+
 /**
  * @notice Clone of `IAccessControlEnumerable.sol` in OpenZeppelin Contracts v4.4.1. The only
  *         modification is that this interface supports a wider Solidity version range.
