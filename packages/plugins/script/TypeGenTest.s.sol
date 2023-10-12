@@ -113,6 +113,10 @@ import { ConflictingQualifiedNameChild } from "../contracts/test/typegen/conflic
 import { ConflictingQualifiedNameChildClient } from "../client/typegen/conflictingQualifiedNames/ConflictingNameChild.c.sol";
 import { ConflictingQualifiedNameChildInSameFile } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.sol";
 import { ConflictingQualifiedNameChildInSameFileClient } from "../client/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.c.sol";
+import { ChildParentImportsTypesClient } from "../client/typegen/imports/ChildParentImportsTypes.c.sol";
+import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/ChildParentImportsTypes.sol";
+import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
+import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
 
 import "forge-std/Test.sol";
 
@@ -151,6 +155,8 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingQualifiedNamesA conflictingQualifiedNamesA;
     ConflictingQualifiedNameChild conflictingQualifiedNameChild;
     ConflictingQualifiedNameChildInSameFile conflictingQualifiedNameChildInSameFile;
+    ChildParentImportsTypes childParentImportsTypes;
+    ChildOverrides childOverrides;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -627,5 +633,29 @@ contract TypeGenTestConfig is Test, SphinxClient {
         conflictingQualifiedNameChildInSameFile = ConflictingQualifiedNameChildInSameFile(
             address(conflictingQualifiedNameChildInSameFileClient)
         );
+
+        // Deploy and interact with a contract that inherits from a contract that uses user defined types
+        ChildParentImportsTypesClient childParentImportsTypesClient = deployChildParentImportsTypes(
+          MyLocalTypeLibrary.MyEnumInLibrary.Library,
+          MyLocalTypeLibrary.MyStructInLibrary({ a: true }),
+          MyLocalTypeLibrary.MyTypeInLibrary.wrap(true),
+          MyLocalTypeContract.MyEnumInContract.Contract,
+          MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
+          MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
+        );
+        childParentImportsTypesClient.updateValues(
+          MyLocalTypeLibrary.MyEnumInLibrary.Local,
+          MyLocalTypeLibrary.MyStructInLibrary({ a: false }),
+          MyLocalTypeLibrary.MyTypeInLibrary.wrap(false),
+          MyLocalTypeContract.MyEnumInContract.Enum,
+          MyLocalTypeContract.MyStructInContract({ a: keccak256("3") }),
+          MyLocalTypeContract.MyTypeInContract.wrap(keccak256("4"))
+        );
+        childParentImportsTypes = ChildParentImportsTypes(address(childParentImportsTypesClient));
+
+        // Deploy and interact with a contract that overrides a function from a parent contract
+        ChildOverridesClient childOverridesClient = deployChildOverrides(2);
+        childOverridesClient.add(2);
+        childOverrides = ChildOverrides(address(childOverridesClient));
     }
 }

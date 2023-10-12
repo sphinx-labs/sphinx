@@ -558,4 +558,33 @@ contract TypeGenTest is Test, TypeGenTestConfig {
       assertEq(conflictingQualifiedNameChildInSameFile.y(), 5);
       assertEq(conflictingQualifiedNameChildInSameFile.x(), 6);
     }
+
+    // Coverts using a contract that inherits from a contract which imports user defined types
+    function testDidDeployContractInheritedFromContractWithImportedTypes() public {
+        // Library
+        assertEq(
+            uint(childParentImportsTypes.libraryEnum()),
+            uint(MyLocalTypeLibrary.MyEnumInLibrary.Local)
+        );
+        bool a1 = childParentImportsTypes.libraryStruct();
+        assertEq(a1, false);
+        assertEq(MyLocalTypeLibrary.MyTypeInLibrary.unwrap(childParentImportsTypes.libraryType()), false);
+
+        // Contract
+        assertEq(
+            uint(childParentImportsTypes.contractEnum()),
+            uint(MyLocalTypeContract.MyEnumInContract.Enum)
+        );
+        bytes32 a2 = childParentImportsTypes.contractStruct();
+        assertEq(a2, keccak256("3"));
+        assertEq(
+            MyLocalTypeContract.MyTypeInContract.unwrap(childParentImportsTypes.contractType()),
+            keccak256("4")
+        );
+    }
+
+    // Covers using a contract that inherits from a contract and overrides a function
+    function testDidDeployContractInheritedFromContractWithOverriddenFunction() public {
+        assertEq(childOverrides.myNumber(), 4);
+    }
 }
