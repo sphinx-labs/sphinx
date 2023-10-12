@@ -1,0 +1,1905 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/ChainSpecific.sol": {
+      "lastModificationDate": 1697058062432,
+      "contentHash": "5f6e5ee9d043f832294962789b2856f7",
+      "sourceName": "contracts/test/ChainSpecific.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "AllNetworks",
+        "OnlyArbitrum",
+        "OnlyOptimism"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1695765086338,
+      "contentHash": "5a20b2cad87ddb61c7a3a6af21289e28",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Ownable"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1695765086344,
+      "contentHash": "5f2c5c4b6af2dd4551027144797bc8be",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Context"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/access/AccessControl.sol": {
+      "lastModificationDate": 1695765086338,
+      "contentHash": "a2b1ec38a8dad325a596f926890772b8",
+      "sourceName": "@openzeppelin/contracts/access/AccessControl.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./IAccessControl.sol",
+        "../utils/Context.sol",
+        "../utils/Strings.sol",
+        "../utils/introspection/ERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "AccessControl"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/access/IAccessControl.sol": {
+      "lastModificationDate": 1695765086338,
+      "contentHash": "57c84298234411cea19c7c284d86be8b",
+      "sourceName": "@openzeppelin/contracts/access/IAccessControl.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IAccessControl"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
+      "lastModificationDate": 1695765086345,
+      "contentHash": "48686fc32a22a3754b8e63321857dd2a",
+      "sourceName": "@openzeppelin/contracts/utils/Strings.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./math/Math.sol",
+        "./math/SignedMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Strings"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": {
+      "lastModificationDate": 1695765087716,
+      "contentHash": "0e7db055ce108f9da7bb6686a00287c0",
+      "sourceName": "@openzeppelin/contracts/utils/introspection/ERC165.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ERC165"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
+      "lastModificationDate": 1695765087714,
+      "contentHash": "fe63409d8a06818b926cf89e0ea88b1b",
+      "sourceName": "@openzeppelin/contracts/utils/math/Math.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Math"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
+      "lastModificationDate": 1695765087715,
+      "contentHash": "9488ebd4daacfee8ad04811600d7d061",
+      "sourceName": "@openzeppelin/contracts/utils/math/SignedMath.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SignedMath"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
+      "lastModificationDate": 1695765087716,
+      "contentHash": "03e6768535ac4da0e9756f1d8a4a018a",
+      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC165"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/MyContracts.sol": {
+      "lastModificationDate": 1697058062432,
+      "contentHash": "9fed032075ad1680fd083c5d80d4b109",
+      "sourceName": "contracts/test/MyContracts.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/access/AccessControl.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "MyAccessControl",
+        "MyContract1",
+        "MyContract2",
+        "MyOwnable"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/ComplexConstructorArgs.sol": {
+      "lastModificationDate": 1690776651767,
+      "contentHash": "0c9d9c5598ad863924f6390c63b4ecce",
+      "sourceName": "contracts/test/ComplexConstructorArgs.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ComplexConstructorArgs"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/ConstructorArgsValidationPartOne.sol": {
+      "lastModificationDate": 1690776651768,
+      "contentHash": "746612d810ac5729e4c8ba5f8ed127f3",
+      "sourceName": "contracts/test/ConstructorArgsValidationPartOne.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConstructorArgsValidationPartOne"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/ConstructorArgsValidationPartTwo.sol": {
+      "lastModificationDate": 1690776651768,
+      "contentHash": "366bc738c6187631e9cacaf6d789b12e",
+      "sourceName": "contracts/test/ConstructorArgsValidationPartTwo.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConstructorArgsValidationPartTwo"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/ContainsStorage.sol": {
+      "lastModificationDate": 1693785019510,
+      "contentHash": "40632dfb010eb3fec4d313cf92cb84d6",
+      "sourceName": "contracts/test/ContainsStorage.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./SimpleStorage.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "OtherImmutables",
+        "Storage",
+        "Types"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/SimpleStorage.sol": {
+      "lastModificationDate": 1696825547753,
+      "contentHash": "bd9ffa37925338ad06d0a7e42e649c86",
+      "sourceName": "contracts/test/SimpleStorage.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./ContainsStorage.sol",
+        "./Stateless.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "SimpleStorage"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/Stateless.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "315ce2d121592d89fb66a28a80329238",
+      "sourceName": "contracts/test/Stateless.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "AnotherStateless",
+        "Stateless"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/contracts/contracts/SphinxDataTypes.sol": {
+      "lastModificationDate": 1696825547733,
+      "contentHash": "c3a530845e5f6f816439d780a7e295f5",
+      "sourceName": "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.7.4 <0.9.0"
+      ],
+      "artifacts": []
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/MaxArgs.sol": {
+      "lastModificationDate": 1696825547753,
+      "contentHash": "072997e2b0f04ea532a13cfca92e22fe",
+      "sourceName": "contracts/test/MaxArgs.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "MaxArgs"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/MsgSender.sol": {
+      "lastModificationDate": 1696825547753,
+      "contentHash": "4935edafc2dbbd8140452c0f928387f8",
+      "sourceName": "contracts/test/MsgSender.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "MsgSender"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/Reverter.sol": {
+      "lastModificationDate": 1690776651768,
+      "contentHash": "f910923032f1c2c7c8713ccca711fe59",
+      "sourceName": "contracts/test/Reverter.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "Reverter"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/SphinxExternal.sol": {
+      "lastModificationDate": 1696825547753,
+      "contentHash": "10c1923554a22f9bcc7f4f583af851ec",
+      "sourceName": "contracts/test/SphinxExternal.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "../../testExternalContracts/ExternalContract.sol"
+      ],
+      "versionPragmas": [
+        ">=0.8.4 <0.9.0"
+      ],
+      "artifacts": []
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/testExternalContracts/ExternalContract.sol": {
+      "lastModificationDate": 1696825547767,
+      "contentHash": "8f58c818b70d88d76239ba6076fccaaf",
+      "sourceName": "testExternalContracts/ExternalContract.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ExternalContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/StateDependentActions.sol": {
+      "lastModificationDate": 1696825547753,
+      "contentHash": "ebdfe93ea4e28837a0f849c5230cee86",
+      "sourceName": "contracts/test/StateDependentActions.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "Box",
+        "StateDependentActions"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/VariableValidation.sol": {
+      "lastModificationDate": 1690776651768,
+      "contentHash": "131450904f0689d703d6aa072a1227ce",
+      "sourceName": "contracts/test/VariableValidation.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "VariableValidation"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/ArrayInputTypes.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "8e08619fabd0a112f928c0289ce110ab",
+      "sourceName": "contracts/test/typegen/ArrayInputTypes.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ArrayInputTypes",
+        "MyContractType"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/BasicInputTypes.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "f00b6a51780fea0c687f03abed6dfd91",
+      "sourceName": "contracts/test/typegen/BasicInputTypes.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "BasicInputTypes"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/Duplicates.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "8fbe8dcea74ab58895140b1915df787e",
+      "sourceName": "contracts/test/typegen/Duplicates.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "MyEdgeCasesDuplicate"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/FunctionInputType.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "8c37ff94ea8a0b57e7095783d964065a",
+      "sourceName": "contracts/test/typegen/FunctionInputType.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "FunctionInputContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/ImmutableInputTypes.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "9ec7e6e6094c7957d0214cec25479278",
+      "sourceName": "contracts/test/typegen/ImmutableInputTypes.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ImmutableInputTypes"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/UnnamedParameters.sol": {
+      "lastModificationDate": 1696825547754,
+      "contentHash": "908a4ed1681531723a052c8f122840dd",
+      "sourceName": "contracts/test/typegen/UnnamedParameters.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "UnnamedParameters"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/conflictingNameContracts/First.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "fa8e75b0d137acb1fb9d43e98f21f1f0",
+      "sourceName": "contracts/test/typegen/conflictingNameContracts/First.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConflictingNameContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/conflictingNameContracts/Second.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "6e808df337659bf95f59f185ddb28120",
+      "sourceName": "contracts/test/typegen/conflictingNameContracts/Second.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConflictingNameContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/conflictingTypeNames/First.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "195eac7377422e7b7aab00162ede4755",
+      "sourceName": "contracts/test/typegen/conflictingTypeNames/First.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConflictingTypeNameContractFirst"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/conflictingTypeNames/Second.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "d9ba29cb7d22da53ea077719ac9e5544",
+      "sourceName": "contracts/test/typegen/conflictingTypeNames/Second.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "ConflictingTypeNameContractSecond"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/contractInputs/FunctionContract.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "c8313004b415987484fddd5e0320536a",
+      "sourceName": "contracts/test/typegen/contractInputs/FunctionContract.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./ImportContract.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "FunctionContract",
+        "LocalContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/contractInputs/ImportContract.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "043f050d4dff3552eabb67d832efa03f",
+      "sourceName": "contracts/test/typegen/contractInputs/ImportContract.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "MyImportContract"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/Alias.sol": {
+      "lastModificationDate": 1696825547755,
+      "contentHash": "1765d3c4721c315ac96488cf07090ade",
+      "sourceName": "contracts/test/typegen/imports/Alias.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Types.sol",
+        "./Types.sol",
+        "./Types.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "AliasImports"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/Types.sol": {
+      "lastModificationDate": 1696825547756,
+      "contentHash": "c2048a0f5e1e0f4a8f0b31dacf221e06",
+      "sourceName": "contracts/test/typegen/imports/Types.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "MyTypeContract",
+        "MyTypeLibrary"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/NoAliasArray.sol": {
+      "lastModificationDate": 1696825547756,
+      "contentHash": "ecf9a058e6b489d0694c5a8f7ded6826",
+      "sourceName": "contracts/test/typegen/imports/NoAliasArray.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Types.sol",
+        "./Types.sol",
+        "./Types.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "NoAliasArrayImportsOne",
+        "NoAliasArrayImportsTwo"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/NoAlias.sol": {
+      "lastModificationDate": 1696825547756,
+      "contentHash": "fa502912bf4aefce383843d33bd2bf92",
+      "sourceName": "contracts/test/typegen/imports/NoAlias.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Types.sol",
+        "./Types.sol",
+        "./Types.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "NoAliasImportsOne",
+        "NoAliasImportsTwo"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/AliasArray.sol": {
+      "lastModificationDate": 1696825547756,
+      "contentHash": "3da2ac9b7540d5ebd1d1d0d68a01143b",
+      "sourceName": "contracts/test/typegen/imports/AliasArray.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Types.sol",
+        "./Types.sol",
+        "./Types.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "AliasImportsArray"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/imports/LocalParent.sol": {
+      "lastModificationDate": 1696825547756,
+      "contentHash": "96e715c0c4dd298c1bb457c975a6a6ba",
+      "sourceName": "contracts/test/typegen/imports/LocalParent.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "LocalParentTypes",
+        "MyLocalTypeContract",
+        "MyLocalTypeLibrary"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/inheritance/Alias.sol": {
+      "lastModificationDate": 1696997641610,
+      "contentHash": "d765dfdc09f7e3aab19235c7a84c3770",
+      "sourceName": "contracts/test/typegen/inheritance/Alias.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Child.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "Grandchild"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/inheritance/Child.sol": {
+      "lastModificationDate": 1696997641610,
+      "contentHash": "cfe88a784de62602f402f998aa8c8117",
+      "sourceName": "contracts/test/typegen/inheritance/Child.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [
+        "./Parent.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "Child"
+      ]
+    },
+    "/Users/samgoldman/dev/sphinx/packages/plugins/contracts/test/typegen/inheritance/Parent.sol": {
+      "lastModificationDate": 1696997641611,
+      "contentHash": "1038bb28dd9f12b650c320d268d3e99c",
+      "sourceName": "contracts/test/typegen/inheritance/Parent.sol",
+      "solcConfig": {
+        "version": "0.8.15",
+        "settings": {
+          "outputSelection": {
+            "*": {
+              "*": [
+                "storageLayout",
+                "evm.gasEstimates",
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "metadata": {
+            "bytecodeHash": "none"
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.9"
+      ],
+      "artifacts": [
+        "Parent"
+      ]
+    }
+  }
+}

@@ -1,15 +1,6 @@
 .env*
-.deployed
 artifacts
-cache
 deployments/
-
-# Compiler files
-forge-cache/
-out/
-
-# Sphinx artifacts
-.compiler-configs
 
 # Typescript
 dist/
@@ -19,5 +10,3 @@ node_modules/@sphinx-labs
 .openzeppelin/*
 
 broadcast/
-
-client/
