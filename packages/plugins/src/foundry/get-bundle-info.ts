@@ -54,16 +54,21 @@ const abiEncodedDeploymentInfoArray = args[0]
     cachePath
   )
 
+  const fullyQualifiedSet = new Set<string>()
+  for (const deploymentInfo of deploymentInfoArray) {
+    for (const actionInput of deploymentInfo.actionInputs) {
+      fullyQualifiedSet.add(actionInput.fullyQualifiedName)
+    }
+  }
+
+  const configArtifacts = await getConfigArtifacts(
+    Array.from(fullyQualifiedSet)
+  )
+
   const bundleInfoPerChain = {}
   const authLeafs: Array<AuthLeaf> = []
   for (const deploymentInfo of deploymentInfoArray) {
     const networkName = getNetworkNameForChainId(deploymentInfo.chainId)
-
-    const configArtifacts = await getConfigArtifacts(
-      deploymentInfo.actionInputs.map(
-        (actionInput) => actionInput.fullyQualifiedName
-      )
-    )
 
     const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
