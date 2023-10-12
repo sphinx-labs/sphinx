@@ -8,6 +8,8 @@ import "./IAccessControl.sol";
 /**
  * @notice Clone of `IAccessControlEnumerable.sol` in OpenZeppelin Contracts v4.4.1. The only
  *         modification is that this interface supports a wider Solidity version range.
+ *         We've also added the `Sphinx` prefix to the interface name to avoid potential conflicts
+ *         with other interfaces the user may have in their project.
  * @dev External interface of AccessControlEnumerable declared to support ERC165 detection.
  */
 interface IAccessControlEnumerable is IAccessControl {
