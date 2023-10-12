@@ -117,7 +117,7 @@ export const propose = async (
   if (confirm) {
     spinner.succeed(`Parsed simulation results.`)
   } else {
-    const previewString = getPreviewString(preview)
+    const previewString = getPreviewString(preview, true)
     spinner.stop()
     await userConfirmation(previewString)
   }

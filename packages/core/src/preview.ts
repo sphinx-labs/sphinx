@@ -18,7 +18,10 @@ export type SphinxPreview = Array<{
 /**
  * @notice Returns a string that describes the changes that will be made to a set of contracts.
  */
-export const getPreviewString = (preview: SphinxPreview): string => {
+export const getPreviewString = (
+  preview: SphinxPreview,
+  includeConfirmQuestion: boolean
+): string => {
   let previewString = ''
 
   const sphinxManagerLink = hyperlink(
@@ -105,7 +108,10 @@ export const getPreviewString = (preview: SphinxPreview): string => {
     previewString += '\n'
   }
 
-  return previewString + `Confirm? [y/n]`
+  if (includeConfirmQuestion) {
+    previewString += `Confirm? [y/n]`
+  }
+  return previewString
 }
 
 export const getPreview = (

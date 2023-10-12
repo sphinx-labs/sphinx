@@ -163,18 +163,18 @@ export const deploy = async (
     )
 
     const preview = getPreview([previewParsedConfig])
-    const previewString = getPreviewString(preview)
 
     const emptyDeployment = previewParsedConfig.actionInputs.every(
       (action) => action.skip
     )
 
+    spinner.stop()
     if (emptyDeployment) {
+      const previewString = getPreviewString(preview, false)
       console.log(previewString)
-      spinner.succeed(`Nothing to deploy.`)
       return { previewParsedConfig }
     } else {
-      spinner.stop()
+      const previewString = getPreviewString(preview, true)
       await prompt(previewString)
     }
   }
