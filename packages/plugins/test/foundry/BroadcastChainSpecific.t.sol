@@ -4,18 +4,25 @@ pragma solidity ^0.8.0;
 import { AbstractChainSpecific_Test } from "./AbstractChainSpecific.t.sol";
 import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 
-// TODO(ryan): did he test that overloaded functions work? e.g. `increment(uint256)` and `increment(uint256, uint256)`
-// TODO(ryan): does the parent contract typegen logic work on partial rebuilds? i.e. the same situation
-// that causes the OZ storage slot checker logic to fail.
-// TODO(ryan): does the parent contract typegen logic work when the parent contract is defined in
-// the same source file as the child contract?
-// TODO(ryan): nit: looks like there's unnecessary spinner output before and after the `forge build`
-// calls in the generate command.
-// TODO(ryan): did he check that the `generate` command works when inheriting from abstract contracts?
-// TODO(ryan): thoughts on removing the third step of the generate command? when building from a clean
-// repo in the plugins package, it compiles all the contracts, which takes ~20 seconds. forge will
-// automatically compile the contracts that it needs to compile when the user runs any `forge` command after
-// the generate command, so the third step seems unnecessary.
+// TODO(ryan): A few random edge cases related to the typegen logic came to mind over the past few
+// days. I haven't tested these myself, but I figured I'd run them by you to see if any of them are
+// worthwhile. Feel free to disregard any of them if they seem irrelevant.
+// 1. Do overloaded functions work with the typegen logic? e.g. `increment(uint256)` and
+//    `increment(uint256, uint256)`
+// 2. Does the typegen logic for parent contracts work when the parent contract is defined in the
+//    same source file as the child contract?
+// 3. The `generate` command works when inheriting from interfaces, but does it also work when
+//    inheriting from abstract contracts?
+// 4. A few months ago, we were blocked by a bug in Foundry that prevented us from using OZ's
+//    storage slot checker, which uses `solidity-ast` under the hood. The issue hasn't been fixed
+//    yet, so I'm wondering if it'd be an issue for the typegen logic as well. Here's the link:
+//    https://github.com/foundry-rs/foundry/issues/4981.
+// 5. Thoughts on removing the third step of the generate command? When building from a clean repo
+//    in the plugins package, it compiles all the contracts, which takes ~20 seconds. Forge will
+//    automatically compile the necessary contracts when the user runs any Forge command afte
+//    `generate`, so the third step may be unnecessary.
+// 6. Looks like there's unnecessary spinner output before and after the `forge build` calls in the
+//    generate command.
 
 contract BroadcastChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
 

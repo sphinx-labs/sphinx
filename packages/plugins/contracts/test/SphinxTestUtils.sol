@@ -7,9 +7,6 @@ import { StdCheatsSafe } from "forge-std/StdCheats.sol";
 
 import { SphinxConstants, SphinxContractInfo } from "../../contracts/foundry/SphinxConstants.sol";
 
-// TODO(ryan): this bug in `SphinxTestUtils.c.sol`:
-// `import { SphinxContractInfo } from "@sphinx-labs/pluginsSphinxConstants.sol";`
-
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
  *         because this file only contains helper functions for tests, whereas `SphinxUtils`
