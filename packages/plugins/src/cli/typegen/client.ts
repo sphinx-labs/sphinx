@@ -541,6 +541,11 @@ export const generateClientsInFolder = async (
       continue
     }
 
+    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
+    if (file.endsWith('.s.sol')) {
+      continue
+    }
+
     const filePath = path.join(folder, file)
     const outputFileName = file.replace('.sol', `.c.sol`)
     const outputFilePath = path.join(outputPath, outputFileName)
@@ -596,6 +601,11 @@ export const generateClientsForExternalContracts = async (
   )
 
   for (const importDirective of findAll('ImportDirective', artifact.ast)) {
+    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
+    if (importDirective.absolutePath.endsWith('.s.sol')) {
+      continue
+    }
+
     const fileName = path.basename(importDirective.absolutePath)
     const clientOutputPath = path
       .join(outputPath, fileName)
