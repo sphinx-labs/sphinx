@@ -50,10 +50,10 @@ contract Sample is Script, SphinxClient {
         console.log(ct.uintArg());
         vm.stopBroadcast();
 
-        vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
-        vm.createSelectFork(sphinxUtils.getNetworkInfo(Network.optimism_goerli).name);
-        deploy(Network.optimism_goerli);
-        console.log(ct.uintArg());
-        vm.stopBroadcast();
+        // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+        // vm.createSelectFork(sphinxUtils.getNetworkInfo(Network.optimism_goerli).name);
+        // deploy(Network.optimism_goerli);
+        // console.log(ct.uintArg());
+        // vm.stopBroadcast();
     }
 }
