@@ -1,3 +1,5 @@
+import { join } from 'path'
+
 import { findAll } from 'solidity-ast/utils'
 import { SourceUnit, VariableDeclaration } from 'solidity-ast/types'
 
@@ -9,7 +11,11 @@ const resolveRemappingOnImportPath = (
 ) => {
   for (const [target, prefix] of Object.entries(remappings)) {
     if (importPath.startsWith(prefix)) {
-      return importPath.replace(prefix, target)
+      importPath = importPath.replace(prefix, '')
+      if (importPath.startsWith('/')) {
+        importPath = importPath.slice(1)
+      }
+      return join(target, importPath)
     }
   }
 }
