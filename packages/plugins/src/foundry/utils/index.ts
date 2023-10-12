@@ -287,9 +287,8 @@ export const makeGetConfigArtifacts = (
       })
     )
 
-    // TODO(test): do this after deciding whether you can remove writing the config artifacts. run
-    // `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil --broadcast`.
-    // when i tried to do this, it froze for a couple mins, then i exited out.
+    // TODO(test): run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil
+    // --broadcast`. it's really, really slow.
 
     // Read any build info files that we didn't already have in memory
     await Promise.all(
