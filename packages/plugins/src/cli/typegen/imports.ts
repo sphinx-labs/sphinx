@@ -176,7 +176,7 @@ export const generateImportsFromVariableDeclarations = (
         } else {
           // TODO: In what case is this triggered?
           throw new Error(
-            "No type string for user defined type's name when generating imports. This should never happen, please report this as a bug."
+            "No type string for user defined type's name when generating imports. This should never happen. Please report this as a bug."
           )
         }
       }

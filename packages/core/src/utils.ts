@@ -1093,8 +1093,8 @@ export const findNetwork = (chainId: number): string => {
 }
 
 export const arraysEqual = (
-  a: Array<string | ParsedVariable>,
-  b: Array<string | ParsedVariable>
+  a: Array<ParsedVariable>,
+  b: Array<ParsedVariable>
 ): boolean => {
   if (a.length !== b.length) {
     return false

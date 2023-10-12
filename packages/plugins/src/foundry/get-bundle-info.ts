@@ -18,6 +18,8 @@ import { makeGetConfigArtifacts } from './utils'
 const args = process.argv.slice(2)
 const abiEncodedDeploymentInfoArray = args[0]
 
+// TODO: ryan moved `getConfigArtifacts` outside of the for-loop in `get-bundle-info.ts`. is that okay?
+
 ;(async () => {
   const { cachePath, artifactFolder, buildInfoFolder } =
     await getFoundryConfigOptions()

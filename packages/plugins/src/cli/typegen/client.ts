@@ -81,7 +81,7 @@ const generateFunctionsForParentContract = async (
 
   if (!parentContract.baseName.name) {
     throw new Error(
-      "Parent contract doesn't have a name. This should never happen, please report this to the developers."
+      "Parent contract doesn't have a name. This should never happen. Please report this to the developers."
     )
   }
 
@@ -121,7 +121,7 @@ const generateFunctionsForParentContract = async (
 
   // Throw error if not found
   throw new Error(
-    `Could not find artifact for parent contract: ${parentContract.baseName.name}. This should never happen, please report this to the developers.`
+    `Could not find artifact for parent contract: ${parentContract.baseName.name}. This should never happen. Please report this to the developers.`
   )
 }
 

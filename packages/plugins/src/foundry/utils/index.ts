@@ -67,12 +67,10 @@ export const getBuildInfo = (
   return false
 }
 
-export const messageArtifactNotFound = (
-  contractNameOrFullyQualifiedName: string
-): string => {
+export const messageArtifactNotFound = (fullyQualifiedName: string): string => {
   return (
-    `Could not find artifact for: ${contractNameOrFullyQualifiedName}. Please make sure that this contract\n` +
-    `exists in your contract, script, or test directory.`
+    `Could not find artifact for: ${fullyQualifiedName}. Please reload your artifacts by running:\n` +
+    `forge clean`
   )
 }
 
@@ -95,10 +93,7 @@ export const getContractArtifact = async (
   const [sourceName, contractName] = basename.split(':')
   const artifactPath = join(artifactFolder, sourceName, `${contractName}.json`)
   if (!fs.existsSync(artifactPath)) {
-    throw new Error(
-      `Could not find artifact for: ${fullyQualifiedName}. Please reload your artifacts by running:\n` +
-        `forge clean`
-    )
+    throw new Error(messageArtifactNotFound(fullyQualifiedName))
   }
   return parseFoundryArtifact(
     JSON.parse(await readFileAsync(artifactPath, 'utf8'))
@@ -287,7 +282,7 @@ export const makeGetConfigArtifacts = (
       })
     )
 
-    // TODO(test): run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil
+    // TODO: run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil
     // --broadcast`. it's really, really slow.
 
     // Read any build info files that we didn't already have in memory

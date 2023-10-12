@@ -53,7 +53,7 @@ export const fetchTypeForUserDefinedType = (
     return `${type}${suffix}`
   } else {
     throw new Error(
-      'fetchTypeForUserDefinedType: Input variable is not a user defined type. This should never happen, please report this as a bug.'
+      'fetchTypeForUserDefinedType: Input variable is not a user defined type. This should never happen. Please report this as a bug.'
     )
   }
 }
@@ -115,7 +115,7 @@ const formatParameters = (
 
       if (type === undefined) {
         throw new Error(
-          `Unable to generate parameter string for parameter ${input.name}. This should never happen, please report this as a bug.`
+          `Unable to generate parameter string for parameter ${input.name}. This should never happen. Please report this as a bug.`
         )
       }
 

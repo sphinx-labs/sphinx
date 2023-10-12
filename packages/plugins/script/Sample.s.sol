@@ -30,13 +30,11 @@ contract Sample is Script, SphinxClient {
         myContract1.incrementUint();
         myContract1.incrementUint();
         myContract1.incrementUint();
-        myContract1.incrementUint();
-        myContract1.incrementUint();
+
+        console.log("MyContract1: %s", address(myContract1));
     }
 
     function run() public {
-        vm.startBroadcast(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-        deploy(Network.goerli);
-        vm.stopBroadcast();
+        deploy(Network.anvil);
     }
 }
