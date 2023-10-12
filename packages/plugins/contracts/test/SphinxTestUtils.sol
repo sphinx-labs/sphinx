@@ -96,4 +96,21 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
             opcode: opcode
         });
     }
+
+    function resetAnvilNode(uint256 _chainId) internal {
+        // Exit the Anvil node if it's running.
+        string[] memory ffiCmds = new string[](3);
+        ffiCmds[0] = "/bin/bash";
+        ffiCmds[1] = "./script/kill-nodes.sh";
+        ffiCmds[2] = vm.toString(_chainId);
+        Vm.FfiResult memory result = vm.tryFfi(ffiCmds);
+        require(result.exit_code == 0, "SphinxTestUtils: Failed to kill Anvil node.");
+
+        // Start the Anvil node.
+        ffiCmds[0] = "/bin/bash";
+        ffiCmds[1] = "./script/start-nodes.sh";
+        ffiCmds[2] = vm.toString(_chainId);
+        result = vm.tryFfi(ffiCmds);
+        require(result.exit_code == 0, "SphinxTestUtils: Failed to start Anvil node.");
+    }
 }

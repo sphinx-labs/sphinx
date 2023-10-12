@@ -442,6 +442,12 @@ abstract contract Sphinx {
     }
 
     // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
+    // TODO(ryan): I noticed you wrote the TODO above. See `Idempotence.t.sol` for tests that cover
+    // this case. If a user tries to do `deploy(optimism); deploy(arbitrum);`, without changing the
+    // fork / chain ID, their script will fail due to the last check in `sphinxUtils.validate`. They
+    // can't broadcast on two chains in a single forge script because foundry doesn't allow that.
+    // Lmk if there are any other cases that you think we should test. otherwise, feel free to
+    // delete these comments.
 
     modifier sphinx(Network _network) {
         sphinxModifierEnabled = true;
@@ -747,10 +753,6 @@ abstract contract Sphinx {
             }
         }
     }
-
-    // TODO(test): we need to compile the plugins package with and without the optimizer to ensure that a
-    // "stack too deep" error doesn't occur. (first, test that the private function inline thing
-    // leads to a stack too deep error when the optimizer is enabled)
 
     function deploy(Network _network) public virtual;
 
