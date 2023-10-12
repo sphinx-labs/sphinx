@@ -742,9 +742,11 @@ export const generateClient = async () => {
 
   const { src, artifactFolder, remappings } = await getFoundryConfigOptions()
 
+  const srcFolder = process.env.DEV_FILE_PATH ? 'contracts/test' : src
+
   const { deployFunctionImports, deployFunctions } =
     await generateClientsForExternalContracts(
-      src,
+      srcFolder,
       artifactFolder,
       CLIENT_FOLDER_NAME,
       remappings
@@ -757,11 +759,11 @@ export const generateClient = async () => {
   }
 
   await generateClientsInFolder(
-    src,
+    srcFolder,
     artifactFolder,
     CLIENT_FOLDER_NAME,
     remappings,
-    src,
+    srcFolder,
     deployFunctionImports,
     deployFunctions
   )

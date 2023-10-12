@@ -7,12 +7,12 @@ import { console } from "forge-std/console.sol"; // TODO: rm
 import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 
-import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
+import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import {
-    IAccessControlEnumerable
-} from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
+    ISphinxAccessControlEnumerable
+} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
+import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
@@ -124,7 +124,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         if (_executor.exists) {
             address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
-            IAccessControl managedService = IAccessControl(managedServiceAddr);
+            ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
             if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
                 managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
             }
@@ -1212,7 +1212,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         if (address(_auth).code.length > 0) {
-            IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
+            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(address(_auth));
             // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
             // by OpenZeppelin's AccessControl contract.
             require(
@@ -1238,7 +1238,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_auth).code.length == 0) {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
 
-            ISemver currentManager = ISemver(registry.currentManagerImplementation());
+            ISphinxSemver currentManager = ISphinxSemver(registry.currentManagerImplementation());
 
             return
                 InitialChainState({
@@ -1251,7 +1251,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     isExecuting: false
                 });
         } else {
-            IAccessControlEnumerable auth = IAccessControlEnumerable(address(_auth));
+            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(address(_auth));
             uint256 numOwners = auth.getRoleMemberCount(0x00);
             address[] memory owners = new address[](numOwners);
             for (uint i = 0; i < numOwners; i++) {
@@ -1268,7 +1268,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return
                 InitialChainState({
                     proposers: proposers,
-                    version: ISemver(address(_manager)).version(),
+                    version: ISphinxSemver(address(_manager)).version(),
                     isManagerDeployed: true,
                     firstProposalOccurred: _auth.firstProposalOccurred(),
                     isExecuting: _manager.isExecuting()
@@ -1373,7 +1373,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
             if (firstProposalOccurred) {
                 require(
-                    IAccessControl(address(_auth)).hasRole(keccak256("ProposerRole"), _msgSender),
+                    ISphinxAccessControl(address(_auth)).hasRole(keccak256("ProposerRole"), _msgSender),
                     string(
                         abi.encodePacked(
                             "Sphinx: The address ",

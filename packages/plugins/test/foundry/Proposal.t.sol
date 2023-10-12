@@ -10,13 +10,13 @@ import {
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 import { AuthState, AuthStatus } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
-import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
+import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
 import {
-    IAccessControlEnumerable
-} from "@sphinx-labs/contracts/contracts/interfaces/IAccessControlEnumerable.sol";
+    ISphinxAccessControlEnumerable
+} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
 
 import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
 import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress } from "../../contracts/foundry/SphinxPluginTypes.sol";
@@ -82,7 +82,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
     }
 
     function assertAuthContractInitialized() internal {
-        IAccessControlEnumerable authAccessControl = IAccessControlEnumerable(address(auth));
+        ISphinxAccessControlEnumerable authAccessControl = ISphinxAccessControlEnumerable(address(auth));
         assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
         for (uint j = 0; j < sphinxConfig.owners.length; j++) {
             assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[j]));
@@ -297,8 +297,8 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
             assertTrue(ISphinxRegistry(registryAddress).managerImplementations(newManagerImpl));
             assertTrue(ISphinxAuthFactory(authFactoryAddress).authImplementations(newAuthImplAddr));
 
-            Version memory authVersion = ISemver(address(auth)).version();
-            Version memory managerVersion = ISemver(address(manager)).version();
+            Version memory authVersion = ISphinxSemver(address(auth)).version();
+            Version memory managerVersion = ISphinxSemver(address(manager)).version();
             assertEq(authVersion.major, major);
             assertEq(authVersion.minor, minor);
             assertEq(authVersion.patch, patch);
@@ -325,8 +325,8 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
             vm.selectFork(forkIds[i]);
 
             // Check that the upgrade occurred
-            Version memory authVersion = ISemver(address(auth)).version();
-            Version memory managerVersion = ISemver(address(manager)).version();
+            Version memory authVersion = ISphinxSemver(address(auth)).version();
+            Version memory managerVersion = ISphinxSemver(address(manager)).version();
             assertEq(authVersion.major, newVersion.major);
             assertEq(authVersion.minor, newVersion.minor);
             assertEq(authVersion.patch, newVersion.patch);
