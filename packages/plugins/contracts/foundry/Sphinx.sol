@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
-import { IAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/IAccessControl.sol";
+import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
@@ -40,7 +40,7 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
-import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol";
+import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to execute deployments using
@@ -64,6 +64,21 @@ import { ISemver } from "@sphinx-labs/contracts/contracts/interfaces/ISemver.sol
  *         `SphinxUtils.initialize`). Since it doesn't detect that these contracts exist, it will
  *         use a very low gas amount for the deployment transactions, since it expects them to fail.
  *         This causes the deployment to fail.
+ *
+ * @notice We should always prefix the name of contracts that need to be imported into this file with
+ *         `Sphinx`.
+ *
+ *         This is because files imported into this contract may cause conflicts with the user's
+ *         contracts where artifacts from our contracts may overwrite the artifacts from the users
+ *         contracts if they have the same qualified name. So we always use a prefix to reduce the
+ *         likelyhood of this happening. For example, above we import `ISphinxAccessControl.sol`
+ *         which is a clone of `IAccessControl.sol` from OpenZeppelin Contracts that we have renamed
+ *         to `ISphinxAccessControl.sol` since it is very likely the user may have their own version
+ *         of it.
+ *
+ *         TODO: In the future, we should address this issue more thoroughly by moving more logic into
+ *         SphinxUtils.sol and then ensuring that SphinxUtils.sol does not get compiled in the users
+ *         project by storing it's bytecode in SphinxConstants.sol.
  */
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -1004,7 +1019,7 @@ abstract contract Sphinx {
     // TODO(docs): explain why this is defined in this contract instead of in SphinxUtils
     function _sphinxGrantRoleInAuthContract(bytes32 _role, address _account, string memory _rpcUrl) private {
         if (
-            !IAccessControl(address(auth)).hasRole(
+            !ISphinxAccessControl(address(auth)).hasRole(
                 _role,
                 _account
             )
@@ -1036,5 +1051,12 @@ abstract contract Sphinx {
                 }
             }
         }
+    }
+
+    /**
+     * @notice Utility function for the user, which allows them to easily fetch the managers address.
+     */
+    function sphinxFetchManagerAddress() internal view returns (address) {
+        return address(manager);
     }
 }

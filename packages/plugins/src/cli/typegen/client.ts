@@ -1,4 +1,4 @@
-import path, { dirname } from 'path'
+import path, { join } from 'path'
 import fs, { readdirSync } from 'fs'
 import { spawnSync } from 'child_process'
 
@@ -6,7 +6,6 @@ import { findAll } from 'solidity-ast/utils'
 import {
   ContractDefinition,
   FunctionDefinition,
-  ImportDirective,
   InheritanceSpecifier,
   SourceUnit,
 } from 'solidity-ast/types'
@@ -25,8 +24,13 @@ import { fetchUniqueTypeName } from './imports'
 
 const CLIENT_FOLDER_NAME = 'client'
 
-const searchAllPossibleArtifactPaths = async (
-  parentImport: ImportDirective,
+type ClientNotGeneratedReason =
+  | 'library'
+  | 'no contract definition'
+  | 'mismatching path'
+
+const searchAllPossibleParentArtifactPaths = async (
+  absolutePath: string,
   artifactFolder: string,
   expectedContractName: string,
   remappings: Record<string, string>,
@@ -35,7 +39,7 @@ const searchAllPossibleArtifactPaths = async (
   src: string,
   functionSelectors: string[]
 ) => {
-  const pathPieces = parentImport.absolutePath.split('/')
+  const pathPieces = absolutePath.split('/')
   let filePath: string | undefined
   for (let i = pathPieces.length - 1; i >= 0; i--) {
     filePath = filePath ? path.join(pathPieces[i], filePath) : pathPieces[i]
@@ -52,7 +56,7 @@ const searchAllPossibleArtifactPaths = async (
 
     const contractData = await generateClientContractFromArtifact(
       artifactFile,
-      parentImport.absolutePath,
+      absolutePath,
       remappings,
       allDeployFunctionImports,
       clientPath,
@@ -61,6 +65,14 @@ const searchAllPossibleArtifactPaths = async (
       functionSelectors
     )
 
+    if (
+      contractData === 'mismatching path' ||
+      contractData === 'library' ||
+      contractData === 'no contract definition'
+    ) {
+      continue
+    }
+
     if (contractData) {
       return contractData
     }
@@ -68,7 +80,6 @@ const searchAllPossibleArtifactPaths = async (
 }
 
 const generateFunctionsForParentContract = async (
-  artifactFile: string,
   artifactFolder: string,
   sourceUnit: SourceUnit,
   parentContract: InheritanceSpecifier,
@@ -88,20 +99,14 @@ const generateFunctionsForParentContract = async (
   const contractDefinitions = findAll('ContractDefinition', sourceUnit)
   for (const contractDefinition of contractDefinitions) {
     if (contractDefinition.canonicalName === parentContract.baseName.name) {
-      const directory = dirname(artifactFile)
-      const parentContractArtifactFile = path.join(
-        directory,
-        `${parentContract.baseName.name}.json`
-      )
-
-      const contractData = await generateClientContractFromArtifact(
-        parentContractArtifactFile,
+      const contractData = await searchAllPossibleParentArtifactPaths(
         sourceUnit.absolutePath,
+        artifactFolder,
+        parentContract.baseName.name,
         remappings,
         allDeployFunctionImports,
         clientPath,
         src,
-        artifactFolder,
         functionSelectors
       )
 
@@ -130,8 +135,8 @@ const generateFunctionsForParentContract = async (
       expectedContractName = parentContract.baseName.name
     }
 
-    const contractData = await searchAllPossibleArtifactPaths(
-      parentImport,
+    const contractData = await searchAllPossibleParentArtifactPaths(
+      parentImport.absolutePath,
       artifactFolder,
       expectedContractName,
       remappings,
@@ -148,7 +153,7 @@ const generateFunctionsForParentContract = async (
 
   // Throw error if not found
   throw new Error(
-    `Could not find artifact for parent contract: ${parentContract.baseName.name}. This should never happen. Please report this to the developers.`
+    `Could not find artifact for parent contract: '${parentContract.baseName.name}' in '${sourceUnit.absolutePath}'. Try running 'forge clean'. If this problem persists, please report this to the developers.`
   )
 }
 
@@ -168,7 +173,6 @@ const generateFunctionsForParentContracts = async (
 
   for (const parentContract of baseContracts) {
     const contractData = await generateFunctionsForParentContract(
-      artifactFile,
       artifactFolder,
       sourceUnit,
       parentContract,
@@ -210,7 +214,7 @@ const generateClientContractFromArtifact = async (
       deployFunctions: string
       deployFunctionImports: Record<string, string>
     }
-  | undefined
+  | ClientNotGeneratedReason
 > => {
   const fileName = path.basename(filePath)
   const contractName = path.basename(artifactFile).replace('.json', '')
@@ -237,17 +241,17 @@ const generateClientContractFromArtifact = async (
   // then this artifact is for a file with the same name but in a different folder
   // so we should skip it
   if (sourceUnit.absolutePath !== filePath) {
-    return undefined
+    return 'mismatching path'
   }
 
   // If there is no contract definition, then we don't need to generate a client so we skip this file
   if (!contractDefinition) {
-    return undefined
+    return 'no contract definition'
   }
 
   // If the definition is a library, then we don't need to generate a client so we skip this file
   if (contractDefinition.contractKind === 'library') {
-    return undefined
+    return 'library'
   }
 
   const functionDefinitions = contractDefinition.nodes
@@ -371,6 +375,87 @@ const generateClientContractFromArtifact = async (
   }
 }
 
+const searchAllPossibleClientArtifactPaths = async (
+  filePath: string,
+  artifactFolder: string,
+  remappings: Record<string, string>,
+  allDeployFunctionImports: Record<string, string>,
+  src: string,
+  outputPath: string
+) => {
+  const couldNotFindArtifactError = `Could not find compiler artifact for file: ${filePath}. Try running 'forge clean'. If this problem persists, please report it to the developers.`
+
+  const pathPieces = filePath.split('/')
+  let fileArtifactPath: string | undefined
+  for (let i = pathPieces.length - 1; i >= 0; i--) {
+    fileArtifactPath = fileArtifactPath
+      ? path.join(pathPieces[i], fileArtifactPath)
+      : pathPieces[i]
+
+    const artifactFile = path.join(artifactFolder, fileArtifactPath)
+
+    if (!fs.existsSync(artifactFile)) {
+      continue
+    }
+
+    if (!fileArtifactPath) {
+      throw new Error(couldNotFindArtifactError)
+    }
+
+    const completefileArtifactPath = join(artifactFolder, fileArtifactPath)
+    let artifactFiles
+    try {
+      artifactFiles = fs.readdirSync(completefileArtifactPath)
+    } catch (e) {
+      if (e.message.includes('no such file or directory')) {
+        throw new Error(couldNotFindArtifactError)
+      } else {
+        throw e
+      }
+    }
+
+    let didFindCorrectArtifact = false
+    const contracts: Array<{
+      uniqueClientName: string
+      clientContract: string
+      clientImports: Record<string, string>
+      deployFunctions: string
+      deployFunctionImports: Record<string, string>
+    }> = []
+    for (const file of artifactFiles) {
+      const contract = await generateClientContractFromArtifact(
+        path.join(completefileArtifactPath, file),
+        filePath,
+        remappings,
+        allDeployFunctionImports,
+        outputPath,
+        src,
+        artifactFolder,
+        []
+      )
+
+      // If the artifact is for a library, then we don't need to generate a client so we skip this file
+      // but we did find the correct artifact so we can continue without an error
+      if (contract === 'library' || contract === 'no contract definition') {
+        didFindCorrectArtifact = true
+        continue
+      }
+
+      if (contract !== 'mismatching path') {
+        contracts.push(contract)
+      }
+    }
+
+    if (contracts.length > 0) {
+      return contracts
+    } else if (didFindCorrectArtifact) {
+      return []
+    }
+  }
+
+  throw new Error(couldNotFindArtifactError)
+}
+
 export const generateClientForFile = async (
   filePath: string,
   artifactFolder: string,
@@ -388,44 +473,20 @@ export const generateClientForFile = async (
     return { deployFunctionImports: {}, deployFunctions: [] }
   }
 
-  const fileArtifactPath = path.join(artifactFolder, fileName)
-  let artifactFiles
-  try {
-    artifactFiles = fs.readdirSync(fileArtifactPath)
-  } catch (e) {
-    if (e.message.includes('no such file or directory')) {
-      throw new Error(
-        `Could not find compiler artifact for file: ${filePath}. Did you forget to run the 'sphinx generate' command?\n` +
-          `If this problem persists, please report it to the developers.`
-      )
-    } else {
-      throw e
-    }
-  }
-
   const contracts: Array<{
     uniqueClientName: string
     clientContract: string
     clientImports: Record<string, string>
     deployFunctions: string
     deployFunctionImports: Record<string, string>
-  }> = []
-  for (const file of artifactFiles) {
-    const contract = await generateClientContractFromArtifact(
-      path.join(artifactFolder, fileName, file),
-      filePath,
-      remappings,
-      allDeployFunctionImports,
-      outputPath,
-      src,
-      artifactFolder,
-      []
-    )
-
-    if (contract !== undefined) {
-      contracts.push(contract)
-    }
-  }
+  }> = await searchAllPossibleClientArtifactPaths(
+    filePath,
+    artifactFolder,
+    remappings,
+    allDeployFunctionImports,
+    src,
+    outputPath
+  )
 
   const uniqueClientNames: string[] = []
   const clientContracts: string[] = []
@@ -542,6 +603,11 @@ export const generateClientsInFolder = async (
       continue
     }
 
+    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
+    if (file.endsWith('.s.sol')) {
+      continue
+    }
+
     const filePath = path.join(folder, file)
     const outputFileName = file.replace('.sol', `.c.sol`)
     const outputFilePath = path.join(outputPath, outputFileName)
@@ -597,6 +663,11 @@ export const generateClientsForExternalContracts = async (
   )
 
   for (const importDirective of findAll('ImportDirective', artifact.ast)) {
+    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
+    if (importDirective.absolutePath.endsWith('.s.sol')) {
+      continue
+    }
+
     const fileName = path.basename(importDirective.absolutePath)
     const clientOutputPath = path
       .join(outputPath, fileName)
@@ -671,9 +742,11 @@ export const generateClient = async () => {
 
   const { src, artifactFolder, remappings } = await getFoundryConfigOptions()
 
+  const srcFolder = process.env.DEV_FILE_PATH ? 'contracts/test' : src
+
   const { deployFunctionImports, deployFunctions } =
     await generateClientsForExternalContracts(
-      src,
+      srcFolder,
       artifactFolder,
       CLIENT_FOLDER_NAME,
       remappings
@@ -686,11 +759,11 @@ export const generateClient = async () => {
   }
 
   await generateClientsInFolder(
-    src,
+    srcFolder,
     artifactFolder,
     CLIENT_FOLDER_NAME,
     remappings,
-    src,
+    srcFolder,
     deployFunctionImports,
     deployFunctions
   )

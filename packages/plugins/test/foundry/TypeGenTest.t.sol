@@ -535,8 +535,56 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(grandchild.myBool(), false);
     }
 
+    // Covers inheriting from a contract in the same file as the child contract
     function testDidDeployInheritedContractInSameFile() public {
       assertEq(childInSameFile.myNumber(), 3);
       assertEq(childInSameFile.myBool(), true);
+    }
+
+    // Covers using two contracts that have the same file name and contract name
+    function testDidDeployConflictingQualifiedNames() public {
+      assertEq(conflictingQualifiedNames.x(), 1);
+      assertEq(conflictingQualifiedNamesA.x(), true);
+    }
+
+    // Covers using a contract that inherits from a contract with a conflicting qualified name
+    function testDidDeployConflictingQualifiedNamesChild() public {
+      assertEq(conflictingQualifiedNameChild.x(), false);
+      assertEq(conflictingQualifiedNameChild.x2(), 3);
+    }
+
+    // Covers using a contract that inherits from a contract in the same file with a conflicting qualified name
+    function testDidDeployConflictingQualifiedNamesChildInSameFile() public {
+      assertEq(conflictingQualifiedNameChildInSameFile.y(), 5);
+      assertEq(conflictingQualifiedNameChildInSameFile.x(), 6);
+    }
+
+    // Coverts using a contract that inherits from a contract which imports user defined types
+    function testDidDeployContractInheritedFromContractWithImportedTypes() public {
+        // Library
+        assertEq(
+            uint(childParentImportsTypes.libraryEnum()),
+            uint(MyLocalTypeLibrary.MyEnumInLibrary.Local)
+        );
+        bool a1 = childParentImportsTypes.libraryStruct();
+        assertEq(a1, false);
+        assertEq(MyLocalTypeLibrary.MyTypeInLibrary.unwrap(childParentImportsTypes.libraryType()), false);
+
+        // Contract
+        assertEq(
+            uint(childParentImportsTypes.contractEnum()),
+            uint(MyLocalTypeContract.MyEnumInContract.Enum)
+        );
+        bytes32 a2 = childParentImportsTypes.contractStruct();
+        assertEq(a2, keccak256("3"));
+        assertEq(
+            MyLocalTypeContract.MyTypeInContract.unwrap(childParentImportsTypes.contractType()),
+            keccak256("4")
+        );
+    }
+
+    // Covers using a contract that inherits from a contract and overrides a function
+    function testDidDeployContractInheritedFromContractWithOverriddenFunction() public {
+        assertEq(childOverrides.myNumber(), 4);
     }
 }

@@ -107,6 +107,16 @@ import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
 import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 import { ChildInSameFile } from "../contracts/test/typegen/inheritance/SameFile.sol";
 import { ChildInSameFileClient } from "../client/typegen/inheritance/SameFile.c.sol";
+import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.sol";
+import { ConflictingQualifiedNames as ConflictingQualifiedNamesA } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
+import { ConflictingQualifiedNameChild } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingNameChild.sol";
+import { ConflictingQualifiedNameChildClient } from "../client/typegen/conflictingQualifiedNames/ConflictingNameChild.c.sol";
+import { ConflictingQualifiedNameChildInSameFile } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.sol";
+import { ConflictingQualifiedNameChildInSameFileClient } from "../client/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.c.sol";
+import { ChildParentImportsTypesClient } from "../client/typegen/imports/ChildParentImportsTypes.c.sol";
+import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/ChildParentImportsTypes.sol";
+import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
+import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
 
 import "forge-std/Test.sol";
 
@@ -141,6 +151,12 @@ contract TypeGenTestConfig is Test, SphinxClient {
     Child child;
     Grandchild grandchild;
     ChildInSameFile childInSameFile;
+    ConflictingQualifiedNames conflictingQualifiedNames;
+    ConflictingQualifiedNamesA conflictingQualifiedNamesA;
+    ConflictingQualifiedNameChild conflictingQualifiedNameChild;
+    ConflictingQualifiedNameChildInSameFile conflictingQualifiedNameChildInSameFile;
+    ChildParentImportsTypes childParentImportsTypes;
+    ChildOverrides childOverrides;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -582,5 +598,64 @@ contract TypeGenTestConfig is Test, SphinxClient {
         childInSameFileClient.setBool(true);
         childInSameFileClient.add(2);
         childInSameFile = ChildInSameFile(address(childInSameFileClient));
+
+        // Deploy two contracts with conflicting qualified names
+        conflictingQualifiedNames = ConflictingQualifiedNames(
+            address(deployTypegenConflictingQualifiedNamesConflictingQualifiedNames_ConflictingQualifiedNames(1))
+        );
+        conflictingQualifiedNamesA = ConflictingQualifiedNamesA(
+            address(
+                deployConflictingQualifiedNames(
+                    true,
+                    DeployOptions({ salt: 0, referenceName: "conflictingQualifiedNamesA" })
+                )
+            )
+        );
+
+        // Deploy contract that inherits from a contract with a conflicting qualified name
+        ConflictingQualifiedNameChildClient conflictingQualifiedNameChildClient = deployConflictingQualifiedNameChild(
+            1,
+            true
+        );
+        conflictingQualifiedNameChildClient.add(2);
+        conflictingQualifiedNameChildClient.set(false);
+        conflictingQualifiedNameChild = ConflictingQualifiedNameChild(
+            address(conflictingQualifiedNameChildClient)
+        );
+
+        // Deploy contract that inherits from a contract in the same file which has a conflicting qualified name
+        ConflictingQualifiedNameChildInSameFileClient conflictingQualifiedNameChildInSameFileClient = deployConflictingQualifiedNameChildInSameFile(
+            1,
+            2
+        );
+        conflictingQualifiedNameChildInSameFileClient.addY(4);
+        conflictingQualifiedNameChildInSameFileClient.add(4);
+        conflictingQualifiedNameChildInSameFile = ConflictingQualifiedNameChildInSameFile(
+            address(conflictingQualifiedNameChildInSameFileClient)
+        );
+
+        // Deploy and interact with a contract that inherits from a contract that uses user defined types
+        ChildParentImportsTypesClient childParentImportsTypesClient = deployChildParentImportsTypes(
+          MyLocalTypeLibrary.MyEnumInLibrary.Library,
+          MyLocalTypeLibrary.MyStructInLibrary({ a: true }),
+          MyLocalTypeLibrary.MyTypeInLibrary.wrap(true),
+          MyLocalTypeContract.MyEnumInContract.Contract,
+          MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
+          MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
+        );
+        childParentImportsTypesClient.updateValues(
+          MyLocalTypeLibrary.MyEnumInLibrary.Local,
+          MyLocalTypeLibrary.MyStructInLibrary({ a: false }),
+          MyLocalTypeLibrary.MyTypeInLibrary.wrap(false),
+          MyLocalTypeContract.MyEnumInContract.Enum,
+          MyLocalTypeContract.MyStructInContract({ a: keccak256("3") }),
+          MyLocalTypeContract.MyTypeInContract.wrap(keccak256("4"))
+        );
+        childParentImportsTypes = ChildParentImportsTypes(address(childParentImportsTypesClient));
+
+        // Deploy and interact with a contract that overrides a function from a parent contract
+        ChildOverridesClient childOverridesClient = deployChildOverrides(2);
+        childOverridesClient.add(2);
+        childOverrides = ChildOverrides(address(childOverridesClient));
     }
 }
