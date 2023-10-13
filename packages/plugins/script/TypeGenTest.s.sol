@@ -525,7 +525,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
         IExternalContract alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
             alreadyDeployedContractAddress,
             DefineOptions({ referenceName: "MyExternalContractInterface" })
-        )
+        );
         alreadyDeployedExternalContractInterfaceClient.setNumber(5);
         alreadyDeployedExternalContractInterface = ExternalContract(
             address(alreadyDeployedExternalContractInterfaceClient)
