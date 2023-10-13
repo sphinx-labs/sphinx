@@ -694,7 +694,7 @@ export const generateClientsForExternalContracts = async (
 
     const fileName = path.basename(importDirective.absolutePath)
     const clientOutputPath = path
-      .join(outputPath, fileName)
+      .join(outputPath, 'SphinxExternal', fileName)
       .replace('.sol', '.c.sol')
     const { deployFunctionImports, deployFunctions } =
       await generateClientForFile(

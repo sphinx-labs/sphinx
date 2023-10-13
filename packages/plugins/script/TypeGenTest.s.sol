@@ -57,7 +57,7 @@ import {
 } from "../client/typegen/contractInputs/FunctionContract.c.sol";
 import { FunctionInputContract } from "../contracts/test/typegen/FunctionInputType.sol";
 import { ExternalContract } from "../testExternalContracts/ExternalContract.sol";
-import { ExternalContractClient } from "../client/ExternalContract.c.sol";
+import { ExternalContractClient } from "../client/SphinxExternal/ExternalContract.c.sol";
 import {
     ConflictingTypeNameContractFirst
 } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -115,6 +115,8 @@ import { ChildParentImportsTypesClient } from "../client/typegen/imports/ChildPa
 import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/ChildParentImportsTypes.sol";
 import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
 import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
+import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
+import { IExternalContractClient } from "../client/SphinxExternal/IExternalContract.c.sol";
 
 import "forge-std/Test.sol";
 
@@ -522,8 +524,8 @@ contract TypeGenTestConfig is Test, SphinxClient {
         );
 
         // Define external contract and interact with it using an interface
-        IExternalContract alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
-            alreadyDeployedContractAddress,
+        IExternalContractClient alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
+            alreadyDeployedContractAddressForInterface,
             DefineOptions({ referenceName: "MyExternalContractInterface" })
         );
         alreadyDeployedExternalContractInterfaceClient.setNumber(5);

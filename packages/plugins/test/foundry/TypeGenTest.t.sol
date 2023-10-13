@@ -55,6 +55,7 @@ import "forge-std/Test.sol";
 
 contract TypeGenTest is Test, TypeGenTestConfig {
     ExternalContract myPredeployedExternalContract;
+    ExternalContract myPredeployedExternalContractForInterface;
 
     address manager;
 
