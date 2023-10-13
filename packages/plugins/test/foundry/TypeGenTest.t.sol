@@ -69,7 +69,9 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function setUp() public {
         // Deploy an external contract ahead of time so we can later define an interact with it
         myPredeployedExternalContract = new ExternalContract(5);
+        myPredeployedExternalContractForInterface = new ExternalContract(1);
         alreadyDeployedContractAddress = address(myPredeployedExternalContract);
+        alreadyDeployedContractAddressForInterface = address(myPredeployedExternalContractForInterface);
         deploy(Network.anvil);
     }
 
@@ -500,6 +502,10 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // defining that it exists at an address, and then interacting with it
     function testDidDefineAndInteractWithExternalContract() public {
         assertEq(alreadyDeployedExternalContract.number(), 7);
+    }
+
+    function testDidDefineAndInteractWithExternalContractUsingInterface() public  {
+        assertEq(alreadyDeployedExternalContractInterface.number(), 5);
     }
 
     // Covers calling a function that relies on the msg.sender
