@@ -519,10 +519,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers deploying and interacting with a contract that inherits from another contract
     function testDidDeployInheritedContract() public {
-        assertEq(parent.myNumber(), 2);
-        assertEq(parent.myBool(), true);
-
-        assertEq(child.myNumber(), 3);
+        assertEq(child.myNumber(), 7);
         assertEq(child.myBool(), false);
         assertEq(child.myAddress(), address(3));
     }

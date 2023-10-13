@@ -99,10 +99,8 @@ import {
     MyLocalStructArray,
     MyLocalEnumArray
 } from "../contracts/test/typegen/imports/NoAliasArray.sol";
-import { Parent } from "../contracts/test/typegen/inheritance/Parent.sol";
 import { Child } from "../contracts/test/typegen/inheritance/Child.sol";
 import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
-import { ParentClient } from "../client/typegen/inheritance/Parent.c.sol";
 import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
 import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 import { ChildInSameFile } from "../contracts/test/typegen/inheritance/SameFile.sol";
@@ -147,7 +145,6 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
     UnnamedParameters unnamedParameters;
-    Parent parent;
     Child child;
     Grandchild grandchild;
     ChildInSameFile childInSameFile;
@@ -569,15 +566,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
         unnamedParametersClient.increment(1, 3);
         unnamedParameters = UnnamedParameters(address(unnamedParametersClient));
 
-        // Deploy parent contract
-        ParentClient parentClient = deployParent(1, false);
-        parentClient.add(parentClient.myPureA());
-        parentClient.setBool(true);
-        parent = Parent(address(parentClient));
-
         // Deploy inherited contract and interact with it
         ChildClient childClient = deployChild(1, false, address(2));
         childClient.add(childClient.myPureB());
+        childClient.add(childClient.myPureB(), 2);
         childClient.setMyAddress(address(3));
         child = Child(address(childClient));
 
