@@ -46,6 +46,10 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
+/**
+ * @notice We should always prefix the name of contracts that need to be imported into this file with
+ *         `Sphinx`. See Sphinx.sol for more details.
+ */
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
