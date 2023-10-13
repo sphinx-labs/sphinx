@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "forge-std/console.sol";
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import {
     SphinxActionInput,
@@ -11,7 +10,7 @@ import {
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
-import { VmSafe } from "forge-std/Vm.sol";
+import { VmSafe } from "sphinx-forge-std/Vm.sol";
 
 /**
  * @title AbstractContractClient

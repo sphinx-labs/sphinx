@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
-import { VmSafe, Vm } from "forge-std/Vm.sol";
-import { console } from "forge-std/console.sol";
+import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
@@ -306,7 +306,7 @@ abstract contract Sphinx {
                 // transaction here would increment its nonce, causing the broadcast to fail.
                 inputs[7] = vm.toString(bytes32(sphinxUtils.getSphinxDeployerPrivateKey(1)));
                 Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) revert(string(result.stderr));
+                if (result.exitCode == 1) revert(string(result.stderr));
             } else {
                 authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
             }
@@ -1038,7 +1038,7 @@ abstract contract Sphinx {
                 inputs[6] = vm.toString(memberSlotKey);
                 inputs[7] = vm.toString(bytes32(uint256(1)));
                 Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) {
+                if (result.exitCode == 1) {
                     revert(string(result.stderr));
                 }
             }

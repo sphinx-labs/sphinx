@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "forge-std/console.sol";
-import { Vm } from "forge-std/Vm.sol";
-import { StdCheatsSafe } from "forge-std/StdCheats.sol";
+import { console } from "sphinx-forge-std/console.sol";
+import { Vm } from "sphinx-forge-std/Vm.sol";
+import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
 import { SphinxConstants, SphinxContractInfo } from "../../contracts/foundry/SphinxConstants.sol";
 
@@ -101,13 +101,13 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
         ffiCmds[1] = "./script/kill-nodes.sh";
         ffiCmds[2] = vm.toString(_chainId);
         Vm.FfiResult memory result = vm.tryFfi(ffiCmds);
-        require(result.exit_code == 0, "SphinxTestUtils: Failed to kill Anvil node.");
+        require(result.exitCode == 0, "SphinxTestUtils: Failed to kill Anvil node.");
 
         // Start the Anvil node.
         ffiCmds[0] = "/bin/bash";
         ffiCmds[1] = "./script/start-nodes.sh";
         ffiCmds[2] = vm.toString(_chainId);
         result = vm.tryFfi(ffiCmds);
-        require(result.exit_code == 0, "SphinxTestUtils: Failed to start Anvil node.");
+        require(result.exitCode == 0, "SphinxTestUtils: Failed to start Anvil node.");
     }
 }

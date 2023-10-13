@@ -51,7 +51,7 @@ import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 import { MyContractType, MyEnum, MyType, MyStruct } from "../../contracts/test/typegen/ArrayInputTypes.sol";
 import { MyLocalTypeArray } from "../../contracts/test/typegen/imports/NoAliasArray.sol";
 
-import "forge-std/Test.sol";
+import "sphinx-forge-std/Test.sol";
 
 contract TypeGenTest is Test, TypeGenTestConfig {
     ExternalContract myPredeployedExternalContract;
