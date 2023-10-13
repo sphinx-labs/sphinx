@@ -118,7 +118,7 @@ import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.
 import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
 import { IExternalContractClient } from "../client/SphinxExternal/IExternalContract.c.sol";
 
-import "forge-std/Test.sol";
+import "sphinx-forge-std/Test.sol";
 
 contract TypeGenTestConfig is Test, SphinxClient {
     address alreadyDeployedContractAddress;
