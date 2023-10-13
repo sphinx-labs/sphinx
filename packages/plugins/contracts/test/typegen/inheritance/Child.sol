@@ -17,4 +17,12 @@ contract Child is Parent {
     function myPureB() public pure returns (uint256) {
         return 2;
     }
+
+    function add(uint256 _value) public override {
+        myNumber += _value;
+    }
+
+    function add(uint256 _value, uint _value2) public {
+        myNumber += (_value + _value2);
+    }
 }
