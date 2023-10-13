@@ -119,6 +119,8 @@ import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.
 import "forge-std/Test.sol";
 
 contract TypeGenTestConfig is Test, SphinxClient {
+    address alreadyDeployedContractAddress;
+    address alreadyDeployedContractAddressForInterface;
     ConflictingNameContractFirst firstConflictingNameContract;
     ConflictingNameContractSecond secondConflictingNameContract;
     BasicInputTypes basicInputTypes;
@@ -138,7 +140,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     FunctionInputContract functionInputContract;
     ExternalContract externalContract;
     ExternalContract alreadyDeployedExternalContract;
-    address alreadyDeployedContractAddress;
+    ExternalContract alreadyDeployedExternalContractInterface;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirst;
     ConflictingTypeNameContractSecond conflictingTypeNameContractSecond;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
@@ -517,6 +519,16 @@ contract TypeGenTestConfig is Test, SphinxClient {
         alreadyDeployedExternalContractClient.setNumber(7);
         alreadyDeployedExternalContract = ExternalContract(
             address(alreadyDeployedExternalContractClient)
+        );
+
+        // Define external contract and interact with it using an interface
+        IExternalContract alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
+            alreadyDeployedContractAddress,
+            DefineOptions({ referenceName: "MyExternalContractInterface" })
+        )
+        alreadyDeployedExternalContractInterfaceClient.setNumber(5);
+        alreadyDeployedExternalContractInterface = ExternalContract(
+            address(alreadyDeployedExternalContractInterfaceClient)
         );
 
         // Deploy contracts with conflicting type names
