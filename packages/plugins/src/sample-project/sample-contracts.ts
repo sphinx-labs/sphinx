@@ -5,24 +5,22 @@ export const getSampleContractFile = (solcVersion: string) => {
 pragma solidity ^${solcVersion};
 
 contract HelloSphinx {
-  string public greeting;
-  string public name;
-  uint public number;
+    string public greeting;
+    uint public number;
 
-  constructor(string memory _greeting, string memory _name, uint _number) {
-      greeting = _greeting;
-      name = _name;
-      number = _number;
-  }
+    constructor(string memory _greeting, uint _number) {
+        greeting = _greeting;
+        number = _number;
+    }
 
-  function add(uint _add) public {
-      number += _add;
+    function add(uint256 _myNum) public {
+        number += _myNum;
+    }
   }
-}
 `
 }
 
-export const getSampleFoundryConfigFile = (
+export const getSampleScriptFile = (
   solcVersion: string,
   scriptDirPath: string,
   srcDirPath: string,
@@ -50,18 +48,19 @@ contract HelloSphinxConfig is SphinxClient {
     HelloSphinx helloSphinx;
 
     constructor() {
-      sphinxConfig.projectName = "HelloSphinx";
-      sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-      sphinxConfig.threshold = 1;
+        sphinxConfig.projectName = "Hello Sphinx";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hello", "Bob", 0);
-        helloSphinxClient.add(5);
+        HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hi!", 2);
+        helloSphinxClient.add(8);
 
         helloSphinx = HelloSphinx(address(helloSphinxClient));
     }
-}`
+}
+`
 }
 
 export const getSampleFoundryTestFile = (
@@ -92,14 +91,14 @@ contract HelloSphinxTest is Test, HelloSphinxConfig {
     }
 
     function testDidDeploy() public {
-        assertEq(helloSphinx.greeting(), "Hello");
-        assertEq(helloSphinx.name(), "Bob");
-        assertEq(helloSphinx.number(), 5);
+        assertEq(helloSphinx.greeting(), "Hi!");
+        assertEq(helloSphinx.number(), 10);
     }
 
     function testAdd() public {
-        helloSphinx.add(5);
-        assertEq(helloSphinx.number(), 10);
+        helloSphinx.add(1);
+        assertEq(helloSphinx.number(), 11);
     }
-}`
+}
+`
 }

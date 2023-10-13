@@ -23,7 +23,7 @@ if (typeof configPath !== 'string') {
  * with Forge. This script is NOT meant to be called via FFI in the Foundry plugin.
  *
  * This script can be called by running:
- * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/sphinx/file>
+ * npx ts-node --require hardhat/register scripts/display-bundle-info.ts <path/to/sphinx/file>
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */

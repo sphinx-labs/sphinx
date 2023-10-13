@@ -12,6 +12,11 @@ contract Simple is Script, SphinxClient {
         sphinxConfig.projectName = "Simple Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
+
+        sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
+        sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli];
+        sphinxConfig.orgId = 'test-org-id';
     }
 
     function deploy(Network _network) public override sphinx(_network) {

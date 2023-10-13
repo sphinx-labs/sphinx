@@ -247,7 +247,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
 
   const expectedDeploymentId = getDeploymentId(
-    bundles,
+    bundles.actionBundle,
+    bundles.targetBundle,
     deploymentState.configUri
   )
 

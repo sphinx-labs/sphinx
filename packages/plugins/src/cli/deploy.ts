@@ -23,18 +23,19 @@ import 'core-js/features/array/at'
 
 import { red } from 'chalk'
 
-import { writeSampleProjectFiles } from '../sample-project'
-import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
+// TODO: instead of running `forge build` at the beginning of the deploy and propose commands,
+// should we run `sphinx generate`?
+
+import { makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { generateClient } from './typegen/client'
 import { decodeDeploymentInfo } from '../foundry/decode'
-import { propose } from './propose'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
   network: string,
   skipPreview: boolean,
+  // silent: boolean, // TODO: add this field to the `deploy` call everywhere
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation

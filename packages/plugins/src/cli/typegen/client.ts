@@ -395,7 +395,8 @@ export const generateClientForFile = async (
   } catch (e) {
     if (e.message.includes('no such file or directory')) {
       throw new Error(
-        `Could not find compiler artifact for file: ${filePath}. If this problem persists please report it to the developers.`
+        `Could not find compiler artifact for file: ${filePath}. Did you forget to run the 'sphinx generate' command?\n` +
+          `If this problem persists, please report it to the developers.`
       )
     } else {
       throw e

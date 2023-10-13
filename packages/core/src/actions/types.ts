@@ -240,7 +240,7 @@ export type AuthState = {
   numLeafs: bigint
 }
 
-interface Setup extends BaseAuthLeaf {
+export interface Setup extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SETUP
   leafTypeEnum: bigint
   proposers: Array<SetRoleMember>

@@ -14,7 +14,7 @@
     "build:contracts": "hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
-    "test": "export SPHINX_INTERNAL_OVERRIDE_DEPLOY_SCRIPT=true && npx hardhat test",
+    "test": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:ts:check",
     "lint:fix": "yarn lint:ts:fix",

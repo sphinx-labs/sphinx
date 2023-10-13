@@ -31,7 +31,7 @@ contract Sample is Script, SphinxClient {
         myContract1.incrementUint();
         myContract1.incrementUint();
 
-        console.log("MyContract1: %s", address(myContract1));
+        console.log("Deployed:", address(myContract1));
     }
 
     function run() public {

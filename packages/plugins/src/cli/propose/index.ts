@@ -46,7 +46,8 @@ export const propose = async (
   isTestnet: boolean,
   dryRun: boolean,
   scriptPath: string,
-  targetContract?: string
+  targetContract?: string,
+  prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
   ipfsData: string[] | undefined
@@ -88,7 +89,7 @@ export const propose = async (
     'script',
     scriptPath,
     '--sig',
-    "'sphinxProposeTask(bool,string)'",
+    'sphinxProposeTask(bool,string)',
     isTestnet.toString(),
     proposalOutputPath,
   ]
@@ -119,7 +120,7 @@ export const propose = async (
   } else {
     const previewString = getPreviewString(preview, true)
     spinner.stop()
-    await userConfirmation(previewString)
+    await prompt(previewString)
   }
 
   spinner.start(`Running proposal...`)
@@ -266,15 +267,15 @@ export const propose = async (
   }
 
   const compilerConfigArray = Object.values(compilerConfigs)
-  if (!dryRun) {
+  if (dryRun) {
+    spinner.succeed(`Proposal dry run succeeded.`)
+  } else {
     const websiteLink = blue(hyperlink('website', WEBSITE_URL))
     await relayProposal(proposalRequest)
     await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
     spinner.succeed(
       `Proposal succeeded! Go to ${websiteLink} to approve the deployment.`
     )
-  } else {
-    spinner.succeed(`Proposal dry run succeeded!`)
   }
   return { proposalRequest, ipfsData: compilerConfigArray }
 }

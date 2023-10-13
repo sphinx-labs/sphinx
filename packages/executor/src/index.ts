@@ -28,7 +28,9 @@ import {
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
-const defaultURL = 'http://127.0.0.1:8545'
+// TODO(ryan): i changed this from 8545 to 42005 to make the executor test easier to write. Is that
+// okay?
+const defaultURL = 'http://127.0.0.1:42005'
 export class SphinxExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,

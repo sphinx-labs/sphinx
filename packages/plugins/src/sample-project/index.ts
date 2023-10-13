@@ -7,11 +7,11 @@ import { forgeConfig, sampleDotEnvFile } from './sample-foundry-config'
 import {
   getSampleContractFile,
   getSampleFoundryTestFile,
-  getSampleFoundryConfigFile,
+  getSampleScriptFile,
 } from './sample-contracts'
 
 export const sampleContractFileName = 'HelloSphinx.sol'
-export const sampleConfigFileName = 'HelloSphinx.s.sol'
+export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
 // TODO(client):
@@ -42,12 +42,12 @@ export const writeSampleProjectFiles = (
   }
 
   // Check if the sample Sphinx config file already exists.
-  const configPath = path.join(scriptDirPath, sampleConfigFileName)
+  const configPath = path.join(scriptDirPath, sampleScriptFileName)
   if (!fs.existsSync(configPath)) {
     // Create the sample Sphinx config file.
     fs.writeFileSync(
       configPath,
-      getSampleFoundryConfigFile(
+      getSampleScriptFile(
         solcVersion,
         scriptDirPath,
         contractDirPath,

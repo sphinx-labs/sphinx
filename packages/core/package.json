@@ -13,7 +13,7 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "yarn test",
-    "test": "npx mocha --require ts-node/register test/**/*.ts",
+    "test": "npx mocha --require ts-node/register 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",

@@ -10,8 +10,8 @@ import {
 } from '../../../src/foundry/utils'
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
-// TODO: make sure that all of the tests are run when running `yarn test`
-
+// TODO(test): make sure that you don't skip any tests in `yarn test`. checked the contracts, core,
+// and demo packages.
 
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {
