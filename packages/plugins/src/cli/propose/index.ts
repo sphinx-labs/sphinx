@@ -88,7 +88,7 @@ export const propose = async (
     'script',
     scriptPath,
     '--sig',
-    "'sphinxProposeTask(bool,string)'",
+    'sphinxProposeTask(bool,string)',
     isTestnet.toString(),
     proposalOutputPath,
   ]
