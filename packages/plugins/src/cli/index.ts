@@ -186,10 +186,15 @@ yargs(hideBin(process.argv))
           describe: 'Whether to verify the deployment on Etherscan.',
           boolean: true,
         })
+        .option('silent', {
+          describe: 'Silence the output except for error messages.',
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
       const { network, targetContract, verify } = argv
       const confirm = !!argv[confirmOption]
+      const silent = !!argv.silent
 
       if (argv._.length < 2) {
         console.error('Must specify a path to a Forge script.')
@@ -207,8 +212,16 @@ yargs(hideBin(process.argv))
         )
         process.exit(1)
       }
+      if (silent && !confirm) {
+        // Since the '--silent' option silences the preview, the user must confirm the deployment
+        // via the CLI flag.
+        console.error(
+          `If you specify '--silent', you must also specify '--${confirmOption}' to confirm the deployment.`
+        )
+        process.exit(1)
+      }
 
-      await deploy(scriptPath, network, confirm, targetContract, verify)
+      await deploy(scriptPath, network, confirm, silent, targetContract, verify)
     }
   )
   // The following command displays the help menu when `npx sphinx` is called with an incorrect

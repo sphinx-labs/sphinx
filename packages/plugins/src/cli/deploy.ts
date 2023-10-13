@@ -35,7 +35,7 @@ export const deploy = async (
   scriptPath: string,
   network: string,
   skipPreview: boolean,
-  // silent: boolean, // TODO: add this field to the `deploy` call everywhere
+  silent: boolean, // TODO: add this field to the `deploy` call everywhere
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
@@ -43,9 +43,9 @@ export const deploy = async (
   deployedParsedConfig?: ParsedConfig
   previewParsedConfig?: ParsedConfig
 }> => {
-  // First, we compile the contracts to make sure we're using the latest versions. This command
-  // displays the compilation process to the user in real time.
-  const { status: compilationStatus } = spawnSync(`forge`, ['build'], {
+  // First, we compile the contracts to make sure we're using the latest versions.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',
   })
   // Exit the process if compilation fails.
@@ -104,7 +104,7 @@ export const deploy = async (
 
   const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
-  const spinner = ora()
+  const spinner = ora({ isSilent: silent })
   let previewParsedConfig: ParsedConfig | undefined
   let previewConfigArtifacts: ConfigArtifacts | undefined
   if (skipPreview) {
@@ -132,6 +132,7 @@ export const deploy = async (
       forgeScriptPreviewArgs.push('--target-contract', targetContract)
     }
 
+    // TODO(docs): we don't need to silence this call because...
     const { stdout, stderr, code } = await spawnAsync(
       'forge',
       forgeScriptPreviewArgs
@@ -204,11 +205,25 @@ export const deploy = async (
     forgeScriptDeployArgs.push('--target-contract', targetContract)
   }
 
-  const { status } = spawnSync(`forge`, forgeScriptDeployArgs, {
-    stdio: 'inherit',
-  })
-  if (status !== 0) {
-    process.exit(1)
+  if (silent) {
+    const { code, stdout, stderr } = await spawnAsync(
+      'forge',
+      forgeScriptDeployArgs
+    )
+    if (code !== 0) {
+      // The `stdout` contains the trace of the error.
+      console.log(stdout)
+      // The `stderr` contains the error message.
+      console.log(stderr)
+      process.exit(1)
+    }
+  } else {
+    const { status } = spawnSync(`forge`, forgeScriptDeployArgs, {
+      stdio: 'inherit',
+    })
+    if (status !== 0) {
+      process.exit(1)
+    }
   }
 
   spinner.start(`Writing deployment artifacts...`)
@@ -246,7 +261,9 @@ export const deploy = async (
     spinner.succeed(`No deployment artifacts to write.`)
   }
 
-  displayDeploymentTable(parsedConfig)
+  if (!silent) {
+    displayDeploymentTable(parsedConfig)
+  }
 
   return {
     deployedParsedConfig: parsedConfig,

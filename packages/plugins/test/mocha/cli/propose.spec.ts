@@ -182,11 +182,13 @@ describe('Propose CLI command', () => {
       forgeScriptPath,
       'goerli',
       true, // Skip preview
+      true, // Silent
     )
     await deploy(
       forgeScriptPath,
       'optimism_goerli',
       true, // Skip preview
+      true, // Silent
     )
 
     const { proposalRequest, ipfsData } = await propose(
@@ -207,11 +209,13 @@ describe('Propose CLI command', () => {
       forgeScriptPath,
       'goerli',
       true, // Skip preview
+      true, // Silent
     )
     await deploy(
       forgeScriptPath,
       'optimism_goerli',
       true, // Skip preview
+      true, // Silent
     )
 
     const { proposalRequest, ipfsData } = await propose(

@@ -70,6 +70,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         false, // Run preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
@@ -129,6 +130,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         true, // Skip preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
@@ -145,6 +147,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         false, // Run preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
@@ -199,6 +202,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         true, // Skip preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
@@ -222,6 +226,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         true, // Skip preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
@@ -238,6 +243,7 @@ describe('Deploy CLI command', () => {
         forgeScriptPath,
         'goerli',
         true, // Skip preview
+        true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
         mockPrompt
