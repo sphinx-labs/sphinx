@@ -1040,6 +1040,9 @@ abstract contract Sphinx {
         }
     }
 
+    // TODO: update this to check if the relevant fields in the sphinx config have been set.
+    // TODO: move `sphinxUtils.getAddress` here, then call the `sphinxFetchManagerAddress`
+    // within it so that we know the sphinx config fields are set
     /**
      * @notice Utility function for the user, which allows them to easily fetch the managers address.
      */

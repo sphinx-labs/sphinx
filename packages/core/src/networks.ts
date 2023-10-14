@@ -35,6 +35,8 @@ export type SupportedNetworkName =
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
 
+// TODO(md): ryan's dogfooding notion
+
 // This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
 // The fields in the two enums must be kept in sync, and the order of the fields must be the same.
 export const NetworkEnum = {

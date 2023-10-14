@@ -2,6 +2,7 @@ import util from 'util'
 import { exec } from 'child_process'
 
 import ora from 'ora'
+import { deploy } from '../src/cli/deploy'
 
 const execAsync = util.promisify(exec)
 
@@ -17,9 +18,20 @@ const main = async () => {
 
     const begin = Date.now()
 
-    await execAsync(
-      'npx sphinx deploy script/Sample.s.sol --network anvil --confirm'
+    const mockPrompt = async (_) => {}
+    await deploy(
+      './script/Sample.s.sol',
+      'anvil',
+      false, // Run preview
+      true, // Silent
+      undefined, // Only one contract in the script file, so there's no target contract to specify.
+      undefined, // Don't verify on Etherscan.
+      mockPrompt
     )
+
+    // await execAsync(
+    //   'npx sphinx deploy script/Sample.s.sol --network anvil --confirm'
+    // )
 
     const end = Date.now()
     agg += (end - begin) / 1000

@@ -7,6 +7,8 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
+# TODO(docs): explain what this file does
+
 source .env
 
 # Kill any existing anvil processes
