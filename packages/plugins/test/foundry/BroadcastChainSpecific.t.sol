@@ -41,6 +41,10 @@ contract BroadcastChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Tes
         assertArbitrumGoerliNotExecuted();
     }
 
+    function testBroadcastSuccess() external {
+        assertBroadcastSuccess();
+    }
+
     function testAllNetworksContractSuccess() external {
         assertAllNetworksContractSuccess(network);
     }

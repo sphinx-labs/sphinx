@@ -44,10 +44,10 @@ import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.c.sol";
 
-contract HelloSphinxConfig is SphinxClient {
+contract HelloSphinxScript is SphinxClient {
     HelloSphinx helloSphinx;
 
-    constructor() {
+    function setUp() public virtual {
         sphinxConfig.projectName = "Hello Sphinx";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
@@ -82,11 +82,12 @@ export const getSampleFoundryTestFile = (
 pragma solidity ^${solcVersion};
 
 import "forge-std/Test.sol";
-import { HelloSphinxConfig } from "${relativeScriptPath}/HelloSphinx.s.sol";
+import { HelloSphinxScript } from "${relativeScriptPath}/HelloSphinx.s.sol";
 import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 
-contract HelloSphinxTest is Test, HelloSphinxConfig {
-    function setUp() public {
+contract HelloSphinxTest is Test, HelloSphinxScript {
+    function setUp() public override {
+        HelloSphinxScript.setUp();
         deploy(Network.anvil);
     }
 

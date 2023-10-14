@@ -52,13 +52,10 @@ describe('Deploy CLI command', () => {
     await execAsync(`kill $(lsof -t -i:42005)`)
   })
 
-  // TODO(test): run all of the tests in the repo
-
-  // TODO: it appears the DefaultMode takes significantly longer to run when -vvv. if we can't
-  // fix this, we should at least run as many commands as we can with verbosity=0.
-
   describe('With preview', () => {
     it('Executes deployment', async () => {
+      // We run `forge clean` to ensure that a proposal can occur even if we're running
+      // a fresh compilation process.
       await execAsync(`forge clean`)
 
       expect((await provider.getCode(contractAddress)) === '0x')

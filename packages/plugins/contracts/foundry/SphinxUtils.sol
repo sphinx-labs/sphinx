@@ -71,7 +71,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    // TODO(docs)
+    // Number of networks that Sphinx supports, i.e. the number of networks in the `Networks` enum
+    // in SphinxPluginTypes.sol. Unfortunately, we can't retrieve this value using type(Network).max
+    // because Solidity v0.8.0 doesn't support this operation. The test file for this contract
+    // contains a test that ensures this value is correct.
     uint8 internal constant numSupportedNetworks = 23;
 
     function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
@@ -251,19 +254,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return Version({ major: major, minor: minor, patch: patch });
     }
 
-    function getAddress(
-        SphinxConfig memory _config,
-        string memory _referenceName
-    ) public pure returns (address) {
-        return getAddress(_config, _referenceName, bytes32(0));
-    }
-
-    function getAddress(SphinxConfig memory _config, string memory _referenceName, bytes32 _salt) public pure returns (address) {
-        address manager = getSphinxManagerAddress(_config);
-        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
-        return computeCreate3Address(manager, create3Salt);
-    }
-
     function create2Deploy(bytes memory _creationCode) public returns (address) {
         address addr = computeCreate2Address(
             bytes32(0),
@@ -326,15 +316,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) public pure returns (address) {
         require(
             bytes(_projectName).length > 0,
-            "SphinxUtils: You must assign a value to 'sphinxConfig.projectName' in your constructor."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
         );
         require(
             _owners.length > 0,
-            "SphinxUtils: You must have at least one owner in your 'sphinxConfig.owners' array."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
         );
         require(
             _ownerThreshold > 0,
-            "SphinxUtils: Your 'sphinxConfig.threshold' must be greater than 0."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
         );
 
         // Sort the owners in ascending order. This is required to calculate the address of the
@@ -373,7 +363,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return uint256(keccak256(abi.encode('sphinx.deployer', _num)));
     }
 
-    // TODO(docs): we don't use vm.createWallet because this function must be view/pure. explain why
+    /**
+     * @notice Get auto-generated wallets sorted in ascending order according to their addresses.
+     *         We don't use `vm.createWallet` because this function must be view/pure, since it may
+     *         be called during a broadcast. If it's not view/pure, then this call would be
+     *         broadcasted, which is not what we want.
+     */
     function getSphinxWalletsSortedByAddress(uint256 _numWallets) external pure returns (Wallet[] memory) {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
@@ -620,7 +615,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".configUri"))
             );
-            // TODO(docs)
+            // Although the CompilerConfig is unused in Solidity, we load it here because
+            // it will be used
             bytes memory compilerConfigBytes = vm.parseJsonBytes(
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".compilerConfigStr"))
@@ -1047,15 +1043,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function validate(SphinxConfig memory _config, Network _network) external view {
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' in your constructor."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
         );
         require(
             _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
         );
         require(
             _config.threshold > 0,
-            "Sphinx: Your 'sphinxConfig.threshold' must be greater than 0."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
         );
         if (!SPHINX_INTERNAL__TEST_VERSION_UPGRADE) {
             require(
@@ -1296,9 +1292,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    // TODO(docs): c/f `Broadcast` and 'sphinxMode` and update docs since we now have two types of
-    // Broadcasts.
-
     /**
      * @notice Removes the clients after a user's `deploy` function has been run. This function
      *         has slightly different behavior depending on the `SphinxMode` in which it's called.
@@ -1310,7 +1303,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         `address(contract).code` or `address(contract).codehash` will return their contract's
      *         bytecode or bytecode hash instead of the client's.
      *
-     *         If the mode is `Broadcast` or `Proposal`, then the client is simply removed so that
+     *         If the mode is not `Default`, then the client is simply removed so that
      *         no code exists at the `CREATE3` address. This allows us to call `sphinxDeployCodeTo`
      *         after this function, which deploys the user's contracts using the full deployment
      *         flow instead of the fast "default" flow.
@@ -1321,7 +1314,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) external {
         for (uint i = 0; i < _actions.length; i++) {
             SphinxActionInput memory action = _actions[i];
-            // If the mode is `Broadcast` or `Proposal`, then the implementation won't contain any
+            // If the mode is not `Default`, then the implementation won't contain any
             // code. This is because we just collect the action inputs in these modes during the
             // user's `deploy` function. We do it this way because the `sphinxDeployCodeTo` call,
             // which occurs after this function, would fail if code already exists at the `CREATE3`
@@ -1394,7 +1387,25 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             }
     }
 
-    // TODO(docs): explain why this is necessary
+    /**
+     * @notice Deploys a user's SphinxManager and SphinxAuth contract by calling
+     *         `SphinxAuthFactory.deploy` via FFI. This is only called when broadcasting on a local
+     *         network (i.e. Anvil). If we don't do this, the following situation will occur,
+     *         resulting in an error:
+     *
+     *         1. The local Forge simulation is run, which triggers an FFI call that grants
+     *            ownership roles to the auto-generated address(es) in the SphinxAuth contract. This
+     *            occurs in `_sphinxGrantRoleInAuthContract`. Crucially, the SphinxAuth contract is
+     *            not deployed yet because the broadcast has not occurred yet.
+     *         2. The broadcast occurs, which includes a transaction for `SphinxAuthFactory.deploy`.
+     *            This overwrites the storage slots that were set in the previous step, which means
+     *            the auto-generated addresses no longer have ownership privileges.
+     *         3. The deployment fails during the broadcast because the signatures signed by the
+     *            auto-generated addresses are no longer valid.
+     *
+     *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
+     *        before the storage values are set in the SphinxAuth contract in step 1.
+     */
     function authFactoryDeployFFI(
         bytes memory _authData,
         string memory _projectName,
@@ -1409,9 +1420,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[4] = "--rpc-url";
         inputs[5] = _rpcUrl;
         inputs[6] = "--private-key";
-        // TODO(docs): we use the second sphinx account (index 1) here because the first
-        // sphinx account is broadcasting the transactions, which means executing a
-        // transaction here would increment its nonce, causing the broadcast to fail.
+        // We use the second auto-generated address to execute the transaction because we use the
+        // first address to deploy the user's contracts when broadcasting on Anvil. If we use the
+        // same address for both purposes, then its nonce will be incremented in this logic, causing
+        // a nonce mismatch error in the user's deployment, leading it to fail.
         inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exit_code == 1) revert(string(result.stderr));

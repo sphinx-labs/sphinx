@@ -282,9 +282,6 @@ export const makeGetConfigArtifacts = (
       })
     )
 
-    // TODO: run `forge clean` then `npx sphinx deploy script/MyScript.s.sol --network anvil
-    // --broadcast`. it's really, really slow.
-
     // Read any build info files that we didn't already have in memory
     await Promise.all(
       toReadFiles.map(async (file) => {

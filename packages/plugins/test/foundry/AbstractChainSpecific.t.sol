@@ -9,14 +9,34 @@ import { Network, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 
+/**
+ * @dev An abstract contract to test multi-chain deployments that differ between networks (e.g.
+ *      deploying a contract on one network, but skipping it on another). This contract is inherited
+ *      by two test suites: one that tests the in-process deployment logic, and another that tests
+ *      the broadcasted deployment logic. The scenarios that are tested in both test suites are:
+ *      - Deploying a contract to all networks with a different constructor arg on each network
+ *      - Calling a function with a different value on each network
+ *      - Deploying a contract on a specific network, with and without `DeployOptions`.
+ *      - Deploying a contract that does not have a constructor (`OnlyOptimism`), a contract that
+ *         has a constructor with arguments (`AllNetworks`), and a contract that has a
+ *         constructorwith no arguments (OnlyArbitrum).
+ *      - Defining a previously deployed contract on a specific network, with and without
+ *        `DefineOptions`
+ *      - Calling functions on specific networks and skipping them on others
+ *
+ *      Additionally, the broadcast test suite tests that the deployment was successfully broadcasted
+ *      onto the target network.
+ */
 abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestUtils {
 
     function testChainSpecificActionsExecuted() external virtual;
 
     function testOtherNetworkActionsNotExecuted() external virtual;
 
-    // TODO(docs): since the visibility of this function is `external` and it's prefixed with `test`,
-    // it will automatically be run for every contract that inherits from this contract.
+    /**
+     * @notice Since the visibility of this function is `external` and it's prefixed with `test`,
+     *        it will automatically run for every test contract that inherits from this contract.
+     */
     function testDeployAllNetworkContract() external {
         assertTrue(
             address(allNetworks) != address(0)

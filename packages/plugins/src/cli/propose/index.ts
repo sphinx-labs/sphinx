@@ -1,6 +1,5 @@
 import { join, resolve } from 'path'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
-import { spawnSync } from 'child_process'
 
 import {
   ProjectDeployment,
@@ -29,6 +28,7 @@ import { Result } from 'ethers'
 
 import { decodeProposalOutput } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
+import { generateClient } from '../typegen/client'
 
 const pluginRootPath =
   process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
@@ -60,16 +60,7 @@ export const propose = async (
 
   // We run the `sphinx generate` command to make sure that the user's contracts and clients are
   // up-to-date. The Solidity compiler is run within this command via `forge build`.
-  const generateArgs = silent
-    ? ['sphinx', 'generate', '--silent']
-    : ['sphinx', 'generate']
-  const { status: compilationStatus } = spawnSync(`npx`, generateArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatus !== 0) {
-    process.exit(1)
-  }
+  await generateClient(silent, true)
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Running simulation...`)

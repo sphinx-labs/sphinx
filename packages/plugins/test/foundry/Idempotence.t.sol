@@ -10,18 +10,23 @@ import { MyContract1Client } from "../../client/MyContracts.c.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
+import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 
 contract Idempotence_Script is Script, SphinxClient, Test, SphinxTestUtils {
     MyContract1 myContract;
 
+    SphinxUtils sphinxUtils;
+
     constructor() {
+        sphinxUtils = new SphinxUtils();
+
         sphinxConfig.projectName = "DefaultMode";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
         // We get the address here because we need the contract's address before the `deploy`
         // function is called, which is normally where we would assign its address.
-        myContract = MyContract1(sphinxUtils.getAddress(
+        myContract = MyContract1(sphinxAddress(
             sphinxConfig,
             "MyContract1"
         ));

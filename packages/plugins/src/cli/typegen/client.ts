@@ -10,6 +10,7 @@ import {
   SourceUnit,
 } from 'solidity-ast/types'
 import ora from 'ora'
+import { spawnAsync } from '@sphinx-labs/core'
 
 import {
   generateDeploymentFunctionFromASTDefinition,
@@ -720,23 +721,39 @@ abstract contract SphinxClient is Sphinx {
   fs.writeFileSync(path.join(fullClientFolder, `SphinxClient.sol`), source)
 }
 
-export const generateClient = async (silent?: boolean) => {
+export const generateClient = async (
+  silent?: boolean,
+  skipLastCompile: boolean = false
+) => {
   const spinner = ora({ isSilent: silent })
-  spinner.info('Compiling sources...')
+  spinner.start('Running compilation...')
 
-  const forgeBuildArgs = ['build', '--skip', 'test', '--skip', 'script']
-  if (silent) {
-    forgeBuildArgs.push('--silent')
+  const { stdout, code } = await spawnAsync(
+    'forge',
+    silent ? ['build', '--silent'] : ['build']
+  )
+  if (code === 0) {
+    spinner.stop()
+    // Log any warnings to the user.
+    console.log(stdout)
+  } else {
+    spinner.stop()
+    const forgeBuildArgs = ['build', '--skip', 'test', '--skip', 'script']
+    if (silent) {
+      forgeBuildArgs.push('--silent')
+    }
+    const { status: compilationStatusSrc } = spawnSync(
+      `forge`,
+      forgeBuildArgs,
+      {
+        stdio: 'inherit',
+      }
+    )
+    // Exit the process if compilation fails.
+    if (compilationStatusSrc !== 0) {
+      process.exit(1)
+    }
   }
-  const { status: compilationStatusSrc } = spawnSync(`forge`, forgeBuildArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatusSrc !== 0) {
-    process.exit(1)
-  }
-
-  spinner.succeed('Finished compiling sources')
 
   spinner.start('Generating Sphinx clients...')
 
@@ -775,20 +792,19 @@ export const generateClient = async (silent?: boolean) => {
   )
 
   spinner.succeed('Generated Sphinx clients')
-  spinner.info('Compiling clients and scripts...')
 
-  const finalBuildArgs = silent ? ['build', '--silent'] : ['build']
-  const { status: compilationStatusScripts } = spawnSync(
-    `forge`,
-    finalBuildArgs,
-    {
-      stdio: 'inherit',
+  if (!skipLastCompile) {
+    const finalBuildArgs = silent ? ['build', '--silent'] : ['build']
+    const { status: compilationStatusScripts } = spawnSync(
+      `forge`,
+      finalBuildArgs,
+      {
+        stdio: 'inherit',
+      }
+    )
+    // Exit the process if compilation fails.
+    if (compilationStatusScripts !== 0) {
+      process.exit(1)
     }
-  )
-  // Exit the process if compilation fails.
-  if (compilationStatusScripts !== 0) {
-    process.exit(1)
   }
-
-  spinner.succeed('Finished compiling clients and scripts')
 }

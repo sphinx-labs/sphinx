@@ -27,6 +27,7 @@ import { makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import { decodeDeploymentInfo } from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
+import { generateClient } from './typegen/client'
 
 export const deploy = async (
   scriptPath: string,
@@ -42,16 +43,15 @@ export const deploy = async (
 }> => {
   // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
   // are up-to-date. The Solidity compiler is run within this command via `forge build`.
-  const generateArgs = silent
-    ? ['sphinx', 'generate', '--silent']
-    : ['sphinx', 'generate']
-  const { status: compilationStatus } = spawnSync(`npx`, generateArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatus !== 0) {
-    process.exit(1)
-  }
+
+  // Generate the clients to make sure that the user's contracts and clients are up-to-date. We skip
+  // the last compilation step in the generate command to reduce the number of times in a row that
+  // we compile the contracts. If we didn't do this, then it'd be possible for the user to see
+  // "Compiling..." three times in a row when they run the deploy command with the preview skipped.
+  // This isn't a big deal, but it may be puzzling to the user.
+  await generateClient(silent, true)
+
+  // TODO: that build info bug you ran into yesterday
 
   const {
     artifactFolder,
@@ -132,17 +132,13 @@ export const deploy = async (
       forgeScriptPreviewArgs.push('--target-contract', targetContract)
     }
 
-    // TODO(docs): we don't need to silence this call because...
-    const { stdout, stderr, code } = await spawnAsync(
-      'forge',
-      forgeScriptPreviewArgs
-    )
-    if (code !== 0) {
+    const previewOutput = await spawnAsync('forge', forgeScriptPreviewArgs)
+    if (previewOutput.code !== 0) {
       spinner.stop()
       // The `stdout` contains the trace of the error.
-      console.log(stdout)
+      console.log(previewOutput.stdout)
       // The `stderr` contains the error message.
-      console.log(stderr)
+      console.log(previewOutput.stderr)
       process.exit(1)
     }
 
@@ -207,25 +203,21 @@ export const deploy = async (
     forgeScriptDeployArgs.push('--target-contract', targetContract)
   }
 
-  if (silent) {
-    const { code, stdout, stderr } = await spawnAsync(
-      'forge',
-      forgeScriptDeployArgs
-    )
-    if (code !== 0) {
-      // The `stdout` contains the trace of the error.
-      console.log(stdout)
-      // The `stderr` contains the error message.
-      console.log(stderr)
-      process.exit(1)
-    }
-  } else {
-    const { status } = spawnSync(`forge`, forgeScriptDeployArgs, {
-      stdio: 'inherit',
-    })
-    if (status !== 0) {
-      process.exit(1)
-    }
+  spinner.start(`Deploying...`)
+
+  const { code, stdout, stderr } = await spawnAsync(
+    'forge',
+    forgeScriptDeployArgs
+  )
+  spinner.stop()
+  if (code !== 0) {
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  } else if (!silent) {
+    console.log(stdout)
   }
 
   spinner.start(`Writing deployment artifacts...`)

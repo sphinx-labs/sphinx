@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Vm } from "forge-std/Vm.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import {
@@ -10,6 +11,7 @@ import {
     DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { SphinxUtils } from "@sphinx-labs/plugins/SphinxUtils.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../contracts/test/ChainSpecific.sol";
 import {
@@ -19,23 +21,16 @@ import {
 } from "../client/ChainSpecific.c.sol";
 
 /**
- * @dev Configuration script testing a more complex multi-network deployment.
- *      TODO(docs): See AbstractChainSpecific.t.sol for corresponding tests.
- * Tests:
- *      - Deploying a contract to all networks with a different constructor arg on each network
- *      - Calling a function with a different value on each network
- *      - Deploying a contract on a specific network, with and without `DeployOptions`
- *      - Defining a previously deployed contract on a specific network, with and without
-          `DefineOptions`
- *      - Calling functions on specific networks
- *      - TODO(docs): deploying a contract without a constructor (`OnlyOptimism`), with a
- *        constructor that has arguments (`AllNetworks`), and with a constructor that has no arguments
- *        (OnlyArbitrum)
+ * @dev A script meant to be inherited by test contracts in order to test multi-chain deployments
+ *      that differ between networks. See AbstractChainSpecific.t.sol for corresponding tests.
  */
 contract ChainSpecific is SphinxClient {
 
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     address finalOwner = address(0x200);
 
+    SphinxUtils sphinxUtils;
     ISphinxAuth auth;
     ISphinxManager manager;
     AllNetworks allNetworks;
@@ -54,6 +49,13 @@ contract ChainSpecific is SphinxClient {
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism, Network.arbitrum];
         sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli];
         sphinxConfig.threshold = 1;
+
+        sphinxUtils = new SphinxUtils();
+        vm.makePersistent(address(sphinxUtils));
+
+        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(
+            sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName
+        ));
     }
 
     function setupVariables() internal {
@@ -71,28 +73,25 @@ contract ChainSpecific is SphinxClient {
         chainSpecificFee[Network.optimism_goerli] = 5;
         chainSpecificFee[Network.arbitrum_goerli] = 6;
 
-        // TODO(docs): these need to be defined regardless of what network we're executing the
-        // deployment on. if we don't do this, e.g. the arbitrum-specific contracts won't be
-        // assigned on any chain besides arbitrum.
-        allNetworks = AllNetworks(sphinxUtils.getAddress(
+        // Get the addresses of the contracts that will be deployed. These need to be set regardless
+        // of what network we're executing the deployment on. If we don't do this, we won't be able
+        // to, for example, test that Arbitrum-specific contracts weren't deployed to chains other
+        // than Arbitrum. This is because the contracts in the `deploy` function are only assigned
+        // for the network that the deployment is being executed on.
+        allNetworks = AllNetworks(sphinxAddress(
             sphinxConfig, "AllNetworks"
         ));
-        onlyArbitrum = OnlyArbitrum(sphinxUtils.getAddress(
+        onlyArbitrum = OnlyArbitrum(sphinxAddress(
             sphinxConfig, "OnlyArbitrum"
         ));
-        onlyArbitrumGoerliOne = OnlyArbitrum(sphinxUtils.getAddress(
+        onlyArbitrumGoerliOne = OnlyArbitrum(sphinxAddress(
             sphinxConfig, "OnlyArbitrumGoerliOne", bytes32(uint(1))
         ));
-        onlyArbitrumGoerliTwo = OnlyArbitrum(sphinxUtils.getAddress(
+        onlyArbitrumGoerliTwo = OnlyArbitrum(sphinxAddress(
             sphinxConfig, "OnlyArbitrumGoerliTwo", bytes32(uint(2))
         ));
 
-        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(
-            sphinxConfig.owners,
-            sphinxConfig.threshold,
-            sphinxConfig.projectName
-        ));
-        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(sphinxConfig));
+        manager = ISphinxManager(sphinxManager(sphinxConfig));
     }
 
     function deploy(Network _network) public override virtual sphinx(_network) {

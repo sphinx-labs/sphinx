@@ -24,14 +24,20 @@ import { MyOwnableClient, MyContract1Client } from "../../client/MyContracts.c.s
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
+import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 
 // TODO(md): known limitations: externally linked libraries
 
+/**
+ * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
+ *         `run-proposal-tests.sh`.
+ */
 abstract contract AbstractProposal_Test is SphinxClient, Test {
 
     address finalOwner = address(0x200);
 
     SphinxTestUtils testUtils;
+    SphinxUtils sphinxUtils;
 
     Network[] initialTestnets = [Network.goerli, Network.optimism_goerli];
 
@@ -45,6 +51,9 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
     address proposer = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
 
     constructor() {
+        sphinxUtils = new SphinxUtils();
+        vm.makePersistent(address(sphinxUtils));
+
         sphinxConfig.projectName = "Multisig project";
         // Accounts #0-3 on Anvil
         sphinxConfig.owners = [
@@ -69,14 +78,8 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
             vm.toString(proposerPrivateKey)
         );
 
-        address authAddress = sphinxUtils.getSphinxAuthAddress(
-            sphinxConfig.owners,
-            sphinxConfig.threshold,
-            sphinxConfig.projectName
-        );
-        address managerAddress = sphinxUtils.getSphinxManagerAddress(sphinxConfig);
-        auth = ISphinxAuth(authAddress);
-        manager = ISphinxManager(managerAddress);
+        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName));
+        manager = ISphinxManager(sphinxManager(sphinxConfig));
     }
 
     function assertAuthContractInitialized() internal {
@@ -113,7 +116,9 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
     }
 }
 
-// TODO(docs): 'Setup -> Propose -> Approve -> Execute'
+/**
+ * @notice Tests a proposal for a project that has not been deployed on any network yet.
+ */
 contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     function deploy(Network _network) public override virtual sphinx(_network) {
@@ -156,7 +161,11 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
     }
 }
 
-// TODO(docs): 'Add contract to config -> Propose -> Approve deployment -> Execute deployment'
+/**
+ * @notice Tests a proposal for a project that was previously deployed. In this test, a contract
+ *         is added to the project's deployment, then a new proposal is created. This occurs
+ *         on the same networks that the project was previously deployed on.
+ */
 contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
@@ -203,7 +212,10 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
     }
 }
 
-// TODO(docs): 'Deploy existing project on new chains'
+/**
+ * @notice Tests a proposal for a project that was previously deployed on some initial networks.
+ *         In this test, the same project is deployed on new networks.
+ */
 contract Proposal_NewChains_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     Network[] newNetworks = [Network.arbitrum_goerli, Network.gnosis_chiado];
@@ -258,12 +270,18 @@ contract Proposal_NewChains_Test is AbstractProposal_Test, Script, SphinxConstan
     }
 }
 
-// TODO(docs): it('Add contract to config -> Upgrade to new manager and auth impl -> Deploy project on new and existing chains'
+/**
+ * @notice Tests a proposal for a project that was previously deployed on some initial networks.
+ *         In this test, a contract is added to the deployment, and an upgrade is performed to
+ *         a new version of the SphinxManager and SphinxAuth contracts. Then, the project is
+ *         proposed on the same networks that it was previously deployed on.
+ */
 contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
-    // TODO(docs)
+    // These contracts were deployed in `AddVersion.ts`, which is executed before this
+    // test is called.
     address newAuthImplAddr = 0x39be176F0f70b1A30E8094727b6615f0131786C9;
     address newManagerImplAddrStandard = 0xb9d4717B15D60CBb59a27E88734adcda2287e197;
     address newManagerImplAddrOptimismGoerli = 0x774b239c5e77723D65B6E70980Db08D15d497C40;
@@ -353,7 +371,12 @@ contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxCo
     }
 }
 
-// TODO(docs): 'Cancel existing deployment then execute new deployment'
+/**
+ * @notice Tests a proposal for a project that failed to be executed on some networks. This
+ *         can occur when a deployment fails on-chain, e.g. if a user's constructor reverts.
+ *         In this test, we propose a new deployment for the same project on the same networks.
+ *         This new deployment should succeed.
+ */
 contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;

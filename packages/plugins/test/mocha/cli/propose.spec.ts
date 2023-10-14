@@ -48,6 +48,8 @@ describe('Propose CLI command', () => {
   })
 
   it('Proposes with preview on testnets', async () => {
+    // We run `forge clean` to ensure that a proposal can occur even if we're running
+    // a fresh compilation process.
     await execAsync(`forge clean`)
 
     const { proposalRequest, ipfsData } = await propose(

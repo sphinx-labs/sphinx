@@ -11,7 +11,7 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
 // first, then talks about the devops platform next.
 
 contract Sample is Script, SphinxClient {
-    constructor() {
+    function setUp() public {
         sphinxConfig.projectName = "My Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;

@@ -7,8 +7,6 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
-# TODO(docs): explain what this file does
-
 source .env
 
 # Kill any existing anvil processes
@@ -22,6 +20,8 @@ anvil --silent --port 42161 --fork-url https://arb-mainnet.g.alchemy.com/v2/$ALC
 anvil --silent --port 42613 --fork-url https://arb-goerli.g.alchemy.com/v2/$ALCHEMY_API_KEY &
 sleep 3
 
+# Deploy the `OnlyOptimism` contract to Optimism and Optimism Goerli. This is meant to be an
+# external contract, i.e. a contract that was previously deployed outside of Sphinx.
 onlyOptimismDeployedBytecode=$(forge inspect contracts/test/ChainSpecific.sol:OnlyOptimism deployedBytecode)
 cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode > /dev/null
 cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode > /dev/null

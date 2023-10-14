@@ -77,12 +77,7 @@ abstract contract Sphinx {
      */
     SphinxConfig internal sphinxConfig;
 
-    /**
-     * @dev A utility contract that provides helper functions. This variable must have `internal`
-     *         visibility so that the user can call functions on it, such as retrieving a `CREATE3`
-     *         address of a contract.
-     */
-    SphinxUtils internal sphinxUtils;
+    SphinxUtils private sphinxUtils;
 
     // TODO(md): forge-std does NOT need to be 1.6.1 since we use our own forge-std dependency
 
@@ -1028,7 +1023,9 @@ abstract contract Sphinx {
                 inputs[1] = "rpc";
                 inputs[2] = "--rpc-url";
                 inputs[3] = _rpcUrl;
-                inputs[4] = "anvil_setStorageAt";
+                // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
+                // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
+                inputs[4] = "hardhat_setStorageAt";
                 inputs[5] = vm.toString(address(auth));
                 inputs[6] = vm.toString(memberSlotKey);
                 inputs[7] = vm.toString(bytes32(uint256(1)));
@@ -1040,13 +1037,38 @@ abstract contract Sphinx {
         }
     }
 
-    // TODO: update this to check if the relevant fields in the sphinx config have been set.
-    // TODO: move `sphinxUtils.getAddress` here, then call the `sphinxFetchManagerAddress`
-    // within it so that we know the sphinx config fields are set
     /**
-     * @notice Utility function for the user, which allows them to easily fetch the managers address.
+     * @notice Get the address of the SphinxManager. Before calling this function, the following
+     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxFetchManagerAddress() internal view returns (address) {
-        return address(manager);
+    function sphinxManager(
+        SphinxConfig memory _config
+    ) internal view returns (address) {
+        return sphinxUtils.getSphinxManagerAddress(_config);
+    }
+
+    /**
+     * @notice Get an address of a contract to be deployed by Sphinx. This function assumes that a
+     *         user-defined salt is not being used to deploy the contract. If it is, use the
+     *         overloaded function of the same name. Before calling this function, the following
+     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
+     */
+    function sphinxAddress(
+        SphinxConfig memory _config,
+        string memory _referenceName
+    ) internal view returns (address) {
+        return sphinxAddress(_config, _referenceName, bytes32(0));
+    }
+
+    /**
+     * @notice Get an address of a contract to be deployed by Sphinx. This function assumes that a
+     *         user-defined salt is being used to deploy the contract. If it's not, use the
+     *         overloaded function of the same name. Before calling this function, the following
+     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
+     */
+    function sphinxAddress(SphinxConfig memory _config, string memory _referenceName, bytes32 _salt) internal view returns (address) {
+        address managerAddress = sphinxUtils.getSphinxManagerAddress(_config);
+        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
+        return sphinxUtils.computeCreate3Address(managerAddress, create3Salt);
     }
 }

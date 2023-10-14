@@ -2,15 +2,16 @@ import util from 'util'
 import { exec } from 'child_process'
 
 import ora from 'ora'
+
 import { deploy } from '../src/cli/deploy'
 
 const execAsync = util.promisify(exec)
 
-const spinner = ora()
+const spinner = ora({ isSilent: true })
 
 const main = async () => {
   let agg = 0
-  const runs = 3
+  const runs = 1
   for (let i = 0; i < runs; i++) {
     spinner.start(`Starting run: ${i + 1} of ${runs}`)
 
@@ -22,8 +23,8 @@ const main = async () => {
     await deploy(
       './script/Sample.s.sol',
       'anvil',
-      false, // Run preview
-      true, // Silent
+      true, // Skip preview
+      false, // Verbose
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       undefined, // Don't verify on Etherscan.
       mockPrompt

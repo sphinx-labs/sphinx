@@ -10,9 +10,6 @@ import {
 } from '../../../src/foundry/utils'
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
-// TODO(test): make sure that you don't skip any tests in `yarn test`. checked the contracts, core,
-// and demo packages. checked plugins `yarn test:ts`
-
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {
     it('Errors if artifact is not found', async () => {
