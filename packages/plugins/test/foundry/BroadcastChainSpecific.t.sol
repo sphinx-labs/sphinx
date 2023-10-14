@@ -80,7 +80,7 @@ contract BroadcastChainSpecificEthereum_Test is AbstractChainSpecific_Test {
         initializeBroadcastTests(network);
     }
 
-    // TODO(docs): nothing network-specific on this chain.
+    // Nothing network-specific on this chain.
     function testChainSpecificActionsExecuted() external override {}
 
     function testOtherNetworkActionsNotExecuted() external override {
@@ -108,7 +108,7 @@ contract BroadcastChainSpecificGoerli_Test is AbstractChainSpecific_Test {
         initializeBroadcastTests(network);
     }
 
-    // TODO(docs): nothing network-specific on this chain.
+    // Nothing network-specific on this chain.
     function testChainSpecificActionsExecuted() external override {}
 
     function testOtherNetworkActionsNotExecuted() external override {

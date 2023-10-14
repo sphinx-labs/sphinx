@@ -25,8 +25,6 @@ import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 
-// TODO(refactor): put these contracts in separate files in a `test/proposal/` directory
-
 // TODO(md): known limitations: externally linked libraries
 
 abstract contract AbstractProposal_Test is SphinxClient, Test {
@@ -116,14 +114,13 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
 }
 
 // TODO(docs): 'Setup -> Propose -> Approve -> Execute'
-contract Proposal_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     function deploy(Network _network) public override virtual sphinx(_network) {
         initialDeployment();
     }
 
-    // TODO(refactor): rename all test functions in this file
-    function test_1() public {
+    function test_initial_proposal() public {
         for (uint256 i = 0; i < sphinxConfig.testnets.length; i++) {
             Network network = sphinxConfig.testnets[i];
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(network).name);
@@ -160,7 +157,7 @@ contract Proposal_Test is AbstractProposal_Test, Script, SphinxConstants {
 }
 
 // TODO(docs): 'Add contract to config -> Propose -> Approve deployment -> Execute deployment'
-contract ProposalSecond_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
@@ -170,7 +167,7 @@ contract ProposalSecond_Test is AbstractProposal_Test, Script, SphinxConstants {
         myNewContract = MyContract1(address(myNewContractClient));
     }
 
-    function test_2() external {
+    function test_add_contract_between_proposals() external {
         uint256 i;
         for (i = 0; i < sphinxConfig.testnets.length; i++) {
             Network network = sphinxConfig.testnets[i];
@@ -207,7 +204,7 @@ contract ProposalSecond_Test is AbstractProposal_Test, Script, SphinxConstants {
 }
 
 // TODO(docs): 'Deploy existing project on new chains'
-contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_NewChains_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     Network[] newNetworks = [Network.arbitrum_goerli, Network.gnosis_chiado];
 
@@ -220,7 +217,7 @@ contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
         initialDeployment();
     }
 
-    function test_3() public {
+    function test_new_chains_proposal() public {
         for (uint256 i = 0; i < newNetworks.length; i++) {
             Network network = newNetworks[i];
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(network).name);
@@ -262,7 +259,7 @@ contract ProposalThird_Test is AbstractProposal_Test, Script, SphinxConstants {
 }
 
 // TODO(docs): it('Add contract to config -> Upgrade to new manager and auth impl -> Deploy project on new and existing chains'
-contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
@@ -283,7 +280,7 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
         myNewContract = MyContract1(address(myNewContractClient));
     }
 
-    function test_4() external {
+    function test_version_upgrade_proposal() external {
         uint256 i;
         for (i = 0; i < sphinxConfig.testnets.length; i++) {
             Network network = sphinxConfig.testnets[i];
@@ -357,7 +354,7 @@ contract ProposalFourth_Test is AbstractProposal_Test, Script, SphinxConstants {
 }
 
 // TODO(docs): 'Cancel existing deployment then execute new deployment'
-contract ProposalFifth_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script, SphinxConstants {
 
     MyContract1 myNewContract;
 
@@ -367,7 +364,7 @@ contract ProposalFifth_Test is AbstractProposal_Test, Script, SphinxConstants {
         myNewContract = MyContract1(address(myNewContractClient));
     }
 
-    function test_5() external {
+    function test_cancel_existing_deployment_proposal() external {
         uint256 i;
         for (i = 0; i < sphinxConfig.testnets.length; i++) {
             Network network = sphinxConfig.testnets[i];

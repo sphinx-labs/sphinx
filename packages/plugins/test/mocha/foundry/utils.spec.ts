@@ -11,7 +11,7 @@ import {
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
 // TODO(test): make sure that you don't skip any tests in `yarn test`. checked the contracts, core,
-// and demo packages.
+// and demo packages. checked plugins `yarn test:ts`
 
 describe('Utils', async () => {
   describe('getContractArtifact', async () => {

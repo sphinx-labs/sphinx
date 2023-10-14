@@ -186,8 +186,8 @@ describe('Utils', () => {
     })
   })
 
-  // TODO(docs): the param types are taken from an actual ABI
   describe('recursivelyConvertResult', () => {
+    // This is the ABI that was generated for a test contract.
     const abi = [
       {
         inputs: [
@@ -379,7 +379,7 @@ describe('Utils', () => {
       )!.inputs
       const values = ethers.Result.fromItems([])
 
-      // TODO: explain why we do this
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(noArgParamTypes, values)).to.not.throw()
 
       expect(recursivelyConvertResult(noArgParamTypes, values)).to.deep.equal(
@@ -393,6 +393,7 @@ describe('Utils', () => {
       )!.inputs
       const values = ethers.Result.fromItems([2])
 
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(singleArgParamTypes, values)).to.not.throw()
 
       expect(
@@ -414,6 +415,7 @@ describe('Utils', () => {
         ],
       ])
 
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(arrayArgParamTypes, values)).to.not.throw()
 
       expect(
@@ -427,7 +429,6 @@ describe('Utils', () => {
       })
     })
 
-    // TODO(docs): we return an array in this case
     it('converts Result with unnamed args', () => {
       const unnamedArgsParamTypes = functionFragments.find(
         (f) => f.name === 'myFunctionWithUnnamedVars'
@@ -439,8 +440,10 @@ describe('Utils', () => {
         false,
       ])
 
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(unnamedArgsParamTypes, values)).to.not.throw()
 
+      // We return an array instead of an object if there are any unnamed args.
       expect(
         recursivelyConvertResult(unnamedArgsParamTypes, values)
       ).to.deep.equal([
@@ -466,6 +469,7 @@ describe('Utils', () => {
         [1, true, ['0x' + '11'.repeat(20), [1, 2, 3]]],
       ])
 
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(complexArgsParamTypes, values)).to.not.throw()
 
       expect(
@@ -493,6 +497,7 @@ describe('Utils', () => {
         ],
       ])
 
+      // Check that the values are valid for the param types.
       expect(() => coder.encode(structArrayParamTypes, values)).to.not.throw()
 
       expect(

@@ -14,10 +14,8 @@ export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
-// TODO(client):
-// - Are users supposed to commit their clients to version control? If so, we should make a note to
-//   document that. If not, we should add a step to the Getting Started guides that puts
-//   `client/` in `.gitignore`.
+// TODO(md): clients don't need to be committed to version control. also, add a step to the Getting
+//   Started guides that puts `client/` in `.gitignore`.
 
 export const writeSampleProjectFiles = (
   contractDirPath: string,

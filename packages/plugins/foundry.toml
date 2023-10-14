@@ -5,7 +5,7 @@ build_info_path = 'out/artifacts/build-info'
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read-write", path = "./"}]
-optimizer = false # TODO: set to 'true'
+optimizer = false
 ffi = true
 libs = ['node_modules']
 test = 'test/foundry'
@@ -24,6 +24,3 @@ arbitrum_goerli = "http://127.0.0.1:42613"
 optimism_goerli_live = "https://opt-goerli.g.alchemy.com/v2/HXYkeCZv7eQIL6_dAnBGkC3zD5k4gdWI"
 arbitrum_goerli_live = "https://arb-goerli.g.alchemy.com/v2/HXYkeCZv7eQIL6_dAnBGkC3zD5k4gdWI"
 gnosis_chiado = "http://127.0.0.1:42200"
-
-[etherscan]
-# TODO: undo arbitrum_goerli = { key = "${ARBITRUM_ETHERSCAN_API_KEY}", url = "https://api-goerli.arbiscan.io/api", chain = 421613 }

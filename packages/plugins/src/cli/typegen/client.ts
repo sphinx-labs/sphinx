@@ -720,17 +720,17 @@ abstract contract SphinxClient is Sphinx {
   fs.writeFileSync(path.join(fullClientFolder, `SphinxClient.sol`), source)
 }
 
-export const generateClient = async () => {
-  const spinner = ora()
+export const generateClient = async (silent?: boolean) => {
+  const spinner = ora({ isSilent: silent })
   spinner.info('Compiling sources...')
 
-  const { status: compilationStatusSrc } = spawnSync(
-    `forge`,
-    ['build', '--skip', 'test', '--skip', 'script'],
-    {
-      stdio: 'inherit',
-    }
-  )
+  const forgeBuildArgs = ['build', '--skip', 'test', '--skip', 'script']
+  if (silent) {
+    forgeBuildArgs.push('--silent')
+  }
+  const { status: compilationStatusSrc } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
   // Exit the process if compilation fails.
   if (compilationStatusSrc !== 0) {
     process.exit(1)
@@ -777,9 +777,14 @@ export const generateClient = async () => {
   spinner.succeed('Generated Sphinx clients')
   spinner.info('Compiling clients and scripts...')
 
-  const { status: compilationStatusScripts } = spawnSync(`forge`, ['build'], {
-    stdio: 'inherit',
-  })
+  const finalBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatusScripts } = spawnSync(
+    `forge`,
+    finalBuildArgs,
+    {
+      stdio: 'inherit',
+    }
+  )
   // Exit the process if compilation fails.
   if (compilationStatusScripts !== 0) {
     process.exit(1)

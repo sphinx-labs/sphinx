@@ -19,7 +19,10 @@ import {
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
-// TODO(docs)
+/**
+ * Adds a new version of the SphinxManager and Auth contracts to the SphinxRegistry and AuthFactory.
+ * Used for testing version upgrades.
+ */
 const main = async () => {
   const rpcUrls = ['http://127.0.0.1:42005', 'http://127.0.0.1:42420']
 

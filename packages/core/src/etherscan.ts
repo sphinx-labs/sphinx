@@ -94,7 +94,7 @@ export const verifySphinxConfig = async (
   )
 
   const actionInputsToVerify = actionInputs
-    // .filter((a) => !a.skip) // TODO: why is this commented out?
+    .filter((a) => !a.skip)
     .filter(isExtendedDeployContractActionInput)
 
   for (const action of actionInputsToVerify) {

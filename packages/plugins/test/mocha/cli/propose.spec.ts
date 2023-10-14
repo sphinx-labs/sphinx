@@ -54,6 +54,7 @@ describe('Propose CLI command', () => {
       false, // Run preview
       true, // Is testnet
       true, // Dry run
+      true, // Silent
       forgeScriptPath,
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       mockPrompt
@@ -117,6 +118,7 @@ describe('Propose CLI command', () => {
       true, // Skip preview
       false, // Is prod network
       true, // Dry run
+      true, // Silent
       forgeScriptPath,
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
@@ -195,6 +197,7 @@ describe('Propose CLI command', () => {
       false, // Run preview
       true, // Is testnet
       true, // Dry run
+      true, // Silent
       forgeScriptPath,
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       mockPrompt
@@ -222,6 +225,7 @@ describe('Propose CLI command', () => {
       true, // Skip preview
       true, // Is testnet
       true, // Dry run
+      true, // Silent
       forgeScriptPath,
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       mockPrompt

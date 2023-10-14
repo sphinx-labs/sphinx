@@ -45,6 +45,7 @@ export const propose = async (
   confirm: boolean,
   isTestnet: boolean,
   dryRun: boolean,
+  silent: boolean,
   scriptPath: string,
   targetContract?: string,
   prompt: (q: string) => Promise<void> = userConfirmation
@@ -57,15 +58,20 @@ export const propose = async (
     throw new Error("You must specify a 'SPHINX_API_KEY' environment variable.")
   }
 
-  // We compile the contracts to make sure we're using the latest versions. This command
-  // displays the compilation process to the user in real time.
-  const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+  // We run the `sphinx generate` command to make sure that the user's contracts and clients are
+  // up-to-date. The Solidity compiler is run within this command via `forge build`.
+  const generateArgs = silent
+    ? ['sphinx', 'generate', '--silent']
+    : ['sphinx', 'generate']
+  const { status: compilationStatus } = spawnSync(`npx`, generateArgs, {
+    stdio: 'inherit',
+  })
   // Exit the process if compilation fails.
-  if (status !== 0) {
+  if (compilationStatus !== 0) {
     process.exit(1)
   }
 
-  const spinner = ora()
+  const spinner = ora({ isSilent: silent })
   spinner.start(`Running simulation...`)
 
   const sphinxArtifactDir = `${pluginRootPath}out/artifacts`

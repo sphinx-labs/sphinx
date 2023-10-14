@@ -86,7 +86,6 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-// TODO(docs)
 export type ParsedConfig = {
   authAddress: string
   managerAddress: string
@@ -192,7 +191,6 @@ export interface DeployContractActionInput {
   referenceName: string
 }
 
-// TODO(docs) ;
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string

@@ -23,9 +23,6 @@ import 'core-js/features/array/at'
 
 import { red } from 'chalk'
 
-// TODO: instead of running `forge build` at the beginning of the deploy and propose commands,
-// should we run `sphinx generate`?
-
 import { makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import { decodeDeploymentInfo } from '../foundry/decode'
@@ -35,7 +32,7 @@ export const deploy = async (
   scriptPath: string,
   network: string,
   skipPreview: boolean,
-  silent: boolean, // TODO: add this field to the `deploy` call everywhere
+  silent: boolean,
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
@@ -43,9 +40,12 @@ export const deploy = async (
   deployedParsedConfig?: ParsedConfig
   previewParsedConfig?: ParsedConfig
 }> => {
-  // First, we compile the contracts to make sure we're using the latest versions.
-  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+  // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
+  // are up-to-date. The Solidity compiler is run within this command via `forge build`.
+  const generateArgs = silent
+    ? ['sphinx', 'generate', '--silent']
+    : ['sphinx', 'generate']
+  const { status: compilationStatus } = spawnSync(`npx`, generateArgs, {
     stdio: 'inherit',
   })
   // Exit the process if compilation fails.
@@ -172,8 +172,10 @@ export const deploy = async (
 
     spinner.stop()
     if (emptyDeployment) {
-      const previewString = getPreviewString(preview, false)
-      console.log(previewString)
+      if (!silent) {
+        const previewString = getPreviewString(preview, false)
+        console.log(previewString)
+      }
       return { previewParsedConfig }
     } else {
       const previewString = getPreviewString(preview, true)

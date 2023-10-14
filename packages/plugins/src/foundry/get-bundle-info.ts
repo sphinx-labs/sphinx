@@ -18,8 +18,6 @@ import { makeGetConfigArtifacts } from './utils'
 const args = process.argv.slice(2)
 const abiEncodedDeploymentInfoArray = args[0]
 
-// TODO: ryan moved `getConfigArtifacts` outside of the for-loop in `get-bundle-info.ts`. is that okay?
-
 ;(async () => {
   const { cachePath, artifactFolder, buildInfoFolder } =
     await getFoundryConfigOptions()
@@ -104,10 +102,13 @@ const abiEncodedDeploymentInfoArray = args[0]
         actionsAbiEncoded,
       },
       targetBundleAbiEncoded,
+      // We include the compiler config so that we don't need to regenerate it in the TypeScript
+      // `propose` function after running the simulation. An alternative approach is to save
+      // it to the file system.
       compilerConfigStr: coder.encode(
         ['string'],
         [JSON.stringify(compilerConfig)]
-      ), // TODO(docs)
+      ),
     }
   }
 

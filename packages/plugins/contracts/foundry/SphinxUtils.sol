@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
-
-import { console } from "forge-std/console.sol"; // TODO: rm
 
 import { Vm } from "forge-std/Vm.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
@@ -46,10 +43,6 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
-/**
- * @notice We should always prefix the name of contracts that need to be imported into this file with
- *         `Sphinx`. See Sphinx.sol for more details.
- */
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -1166,15 +1159,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     /**
      * @notice Performs validation on the user's deployment. This is only run if a broadcast is
-     *         being performed on a live network (i.e. not an Anvil or Hardhat node). It's worth
-     *         mentioning that this can't be used for proposals because the proposer isn't an owner
-     *         of the SphinxAuth contract, which means these checks would always fail for proposals.
+     *         being performed on a live network (i.e. not an Anvil or Hardhat node).
      */
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
         ISphinxAuth _auth,
         address _msgSender
     ) external view {
+        require(registryAddress.code.length > 0, "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it.");
         require(
             _config.owners.length == 1,
             "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
@@ -1304,7 +1296,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    // TODO: c/f `Broadcast` and update stuff like docs since we now have two types of Broadcasts.
+    // TODO(docs): c/f `Broadcast` and 'sphinxMode` and update docs since we now have two types of
+    // Broadcasts.
 
     /**
      * @notice Removes the clients after a user's `deploy` function has been run. This function
@@ -1399,5 +1392,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     )
                 );
             }
+    }
+
+    // TODO(docs): explain why this is necessary
+    function authFactoryDeployFFI(
+        bytes memory _authData,
+        string memory _projectName,
+        string memory _rpcUrl
+    ) external {
+        string[] memory inputs;
+        inputs = new string[](8);
+        inputs[0] = "cast";
+        inputs[1] = "send";
+        inputs[2] = vm.toString(authFactoryAddress);
+        inputs[3] = vm.toString(abi.encodePacked(ISphinxAuthFactory(authFactoryAddress).deploy.selector, abi.encode(_authData, hex"", _projectName)));
+        inputs[4] = "--rpc-url";
+        inputs[5] = _rpcUrl;
+        inputs[6] = "--private-key";
+        // TODO(docs): we use the second sphinx account (index 1) here because the first
+        // sphinx account is broadcasting the transactions, which means executing a
+        // transaction here would increment its nonce, causing the broadcast to fail.
+        inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
+        Vm.FfiResult memory result = vm.tryFfi(inputs);
+        if (result.exit_code == 1) revert(string(result.stderr));
     }
 }

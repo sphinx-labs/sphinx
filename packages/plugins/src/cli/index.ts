@@ -84,11 +84,17 @@ yargs(hideBin(process.argv))
           type: 'string',
           alias: 'tc',
         })
+        .option('silent', {
+          describe:
+            'Silence the output except for error messages. You must also confirm the proposal via the --confirm flag if you specify this option.',
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
       const { testnets, mainnets, targetContract } = argv
       const confirm = !!argv[confirmOption]
       const dryRun = !!argv.dryRun
+      const silent = !!argv.silent
 
       if (argv._.length < 2) {
         console.error('Must specify a path to a Forge script.')
@@ -121,7 +127,23 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await propose(confirm, isTestnet, dryRun, scriptPath, targetContract)
+      if (silent && !confirm) {
+        // Since the '--silent' option silences the preview, the user must confirm the proposal
+        // via the CLI flag.
+        console.error(
+          `If you specify '--silent', you must also specify '--${confirmOption}' to confirm the proposal.`
+        )
+        process.exit(1)
+      }
+
+      await propose(
+        confirm,
+        isTestnet,
+        dryRun,
+        silent,
+        scriptPath,
+        targetContract
+      )
     }
   )
   .command(
@@ -153,8 +175,15 @@ yargs(hideBin(process.argv))
   .command(
     'generate',
     'Generate Sphinx Client contracts for a project',
-    (y) => y.usage(`Usage: npx sphinx generate`).hide('version'),
-    generateClient
+    (y) =>
+      y
+        .usage(`Usage: npx sphinx generate [--silent]`)
+        .option('silent', {
+          describe: 'Silence the output except for error messages.',
+          boolean: true,
+        })
+        .hide('version'),
+    async (argv) => generateClient(argv.silent)
   )
   .command(
     'deploy',
@@ -187,7 +216,8 @@ yargs(hideBin(process.argv))
           boolean: true,
         })
         .option('silent', {
-          describe: 'Silence the output except for error messages.',
+          describe:
+            'Silence the output except for error messages. You must also confirm the deployment via the --confirm flag if you specify this option.',
           boolean: true,
         })
         .hide('version'),

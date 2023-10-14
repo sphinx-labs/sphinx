@@ -87,7 +87,7 @@ contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
         deploy(network);
     }
 
-    // TODO(docs): nothing network-specific on this chain.
+    // Nothing network-specific on this chain.
     function testChainSpecificActionsExecuted() external override {}
 
     function testOtherNetworkActionsNotExecuted() external override {
@@ -120,7 +120,7 @@ contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
         deploy(network);
     }
 
-    // TODO(docs): nothing network-specific on this chain.
+    // Nothing network-specific on this chain.
     function testChainSpecificActionsExecuted() external override {}
 
     function testOtherNetworkActionsNotExecuted() external override {

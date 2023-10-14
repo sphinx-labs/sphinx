@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
 
 import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
@@ -61,24 +60,9 @@ import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphi
  *         to avoid an edge case that occurs when deploying against an Anvil node. In particular,
  *         Foundry will fail to detect that the pre-deployed Sphinx contracts are already deployed
  *         on the network, which occurs because we deploy them via FFI (in
- *         `SphinxUtils.initialize`). Since it doesn't detect that these contracts exist, it will
+ *         `SphinxUtils.initializeFFI`). Since it doesn't detect that these contracts exist, it will
  *         use a very low gas amount for the deployment transactions, since it expects them to fail.
  *         This causes the deployment to fail.
- *
- * @notice We should always prefix the name of contracts that need to be imported into this file with
- *         `Sphinx`.
- *
- *         This is because files imported into this contract may cause conflicts with the user's
- *         contracts where artifacts from our contracts may overwrite the artifacts from the users
- *         contracts if they have the same qualified name. So we always use a prefix to reduce the
- *         likelyhood of this happening. For example, above we import `ISphinxAccessControl.sol`
- *         which is a clone of `IAccessControl.sol` from OpenZeppelin Contracts that we have renamed
- *         to `ISphinxAccessControl.sol` since it is very likely the user may have their own version
- *         of it.
- *
- *         TODO: In the future, we should address this issue more thoroughly by moving more logic into
- *         SphinxUtils.sol and then ensuring that SphinxUtils.sol does not get compiled in the users
- *         project by storing it's bytecode in SphinxConstants.sol.
  */
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -100,7 +84,7 @@ abstract contract Sphinx {
      */
     SphinxUtils internal sphinxUtils;
 
-    // TODO(md): forge-std needs to be 1.6.1
+    // TODO(md): forge-std does NOT need to be 1.6.1 since we use our own forge-std dependency
 
     // TODO(md): it may be surprising to the user if a previously deployed contract (with
     // different bytecode or a different abi) is returned from a "deploy<Contract>" call instead of
@@ -146,12 +130,6 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    // TODO(optional): Make a note that you decided not to do this: I decided not to implement the logic
-    // in the SphinxAuth contract that throws an error if there's an active auth bundle. I realized
-    // that if the user needs to call the `setup` function more than once, this logic would prevent
-    // them from doing it. I'd need to spend more time thinking about a proper solution, but it
-    // doesn't strike me as important enough to prioritize for this release.
-
     /**
      * @notice Called within the `sphinx deploy` CLI command. It is not meant to be called directly
      *         by the user, which is why it's marked as `external`. This function serves two
@@ -179,7 +157,8 @@ abstract contract Sphinx {
                 "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
             );
         } else {
-            // TODO(docs):
+            // We use an auto-generated private key when deploying to a local network so that anyone
+            // can deploy a project even if they don't own it.
             privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
         }
 
@@ -189,7 +168,10 @@ abstract contract Sphinx {
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    // TODO(docs)
+    /**
+     * @notice A helper function used by the Sphinx devs during testing to hook into the proposal
+     *         proposal process to do environment setup. Not intended to be used by users.
+     */
     function setupPropose() internal virtual {}
 
     function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external returns (bytes32, uint256[] memory) {
@@ -236,8 +218,9 @@ abstract contract Sphinx {
             uint256 forkId = vm.createSelectFork(rpcUrl);
             forkIds[i] = forkId;
 
-            // TODO(docs): we don't call `sphinxUtils.initializeFFI` here because we never broadcast
-            // the transactions onto the forked network. this is a performance optimization.
+            // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
+            // because we never broadcast the transactions onto the forked network. This is a
+            // performance optimization.
             sphinxUtils.initializeSphinxContracts(OptionalAddress({exists: true, value: proposer}));
 
             // We prank the proposer here so that the `msgSender` is the proposer's address, which
@@ -285,28 +268,15 @@ abstract contract Sphinx {
         bytes32 authSalt = keccak256(abi.encode(authData, sphinxConfig.projectName));
         bool isRegistered = address(authFactory.auths(authSalt)) != address(0);
         if (!isRegistered) {
-            // TODO(docs)
             if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
                 vm.stopBroadcast();
-                authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
-                vm.startBroadcast(_msgSender);
 
-                // TODO(mv)
-                string[] memory inputs;
-                inputs = new string[](8);
-                inputs[0] = "cast";
-                inputs[1] = "send";
-                inputs[2] = vm.toString(address(authFactory));
-                inputs[3] = vm.toString(abi.encodePacked(authFactory.deploy.selector, abi.encode(authData, hex"", sphinxConfig.projectName)));
-                inputs[4] = "--rpc-url";
-                inputs[5] = _rpcUrl;
-                inputs[6] = "--private-key";
-                // TODO(docs): we use the second sphinx account (index 1) here because the first
-                // sphinx account is broadcasting the transactions, which means executing a
-                // transaction here would increment its nonce, causing the broadcast to fail.
-                inputs[7] = vm.toString(bytes32(sphinxUtils.getSphinxDeployerPrivateKey(1)));
-                Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) revert(string(result.stderr));
+                authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
+                // Call the `authFactory.deploy` function via FFI. See the docs of this
+                // function call for more info.
+                sphinxUtils.authFactoryDeployFFI(authData, sphinxConfig.projectName, _rpcUrl);
+
+                vm.startBroadcast(_msgSender);
             } else {
                 authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
             }
@@ -487,10 +457,12 @@ abstract contract Sphinx {
 
         delete deploymentInfo;
 
-        // TODO(docs): explain why these aren't in the constructor. (it's because the user assigns
-        // values to the sphinxConfig in the child contract's constructor, which is executed after
-        // this contract's constructor. so, the relevant fields of the SphinxConfig will be empty in
-        // this constructor).
+        // Assign the `SphinxAuth` and `SphinxManager` addresses. We can't assign these in the
+        // constructor of this contract because the user doesn't assign values to the SphinxConfig
+        // until after this constructor is executed. To be more specific, inheritance in Solidity
+        // works by executing parent contract constructors before the child contract's constructor.
+        // Since the user assigns values to the SphinxConfig in the child contract's constructor,
+        // the relevant fields of the SphinxConfig will be empty in this constructor.
         auth = ISphinxAuth(
             sphinxUtils.getSphinxAuthAddress(
                 sphinxConfig.owners,
@@ -525,7 +497,6 @@ abstract contract Sphinx {
             if (isLiveNetwork) {
                 sphinxMode = SphinxMode.LiveNetworkBroadcast;
                 sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, auth, msgSender);
-                // TODO: where do we check that the sphinx contracts are deployed in this mode?
 
                 // Make the owner a proposer. If we don't do this, the execution logic will fail
                 // because a proposer's meta transaction signature is required for the
@@ -535,7 +506,8 @@ abstract contract Sphinx {
                 sphinxMode = SphinxMode.LocalNetworkBroadcast;
                 sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({exists: true, value: msgSender}));
 
-                // TODO(docs)
+                // Make a pre-determined address a proposer. We'll use it later to since a meta
+                // transaction, which allows us to propose the deployment.
                 sphinxConfig.proposers.push(vm.addr(sphinxUtils.getSphinxDeployerPrivateKey(0)));
             }
 
@@ -571,7 +543,7 @@ abstract contract Sphinx {
             sphinxDeployOnNetwork(authRoot, bundleInfo, metaTxnSignature, rpcUrl);
         } else if (sphinxMode == SphinxMode.Default) {
             // Deploy the SphinxManager. We only do this in the Default mode because the
-            // SphinxManager will be deployed in the `SphinxAuthFactory.register` call in other
+            // SphinxManager will be deployed in the `SphinxAuthFactory.deploy` call in other
             // modes.
             sphinxUtils.deploySphinxManagerTo(address(manager));
 
@@ -653,8 +625,6 @@ abstract contract Sphinx {
             return;
         }
 
-        // TODO: document this entire process. some stuff here is outdated
-
         if (deploymentState.status == DeploymentStatus.EMPTY) {
             bytes[] memory ownerSignatureArray;
             if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
@@ -666,10 +636,14 @@ abstract contract Sphinx {
 
                 Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(currentOwnerThreshold);
                 for (uint256 i = 0; i < currentOwnerThreshold; i++) {
-                    // TODO(docs): another potential strategy is to set the owner threshold to 0,
-                    // but we do it this way because it allows us to run the meta transaction
-                    // signature verification logic in the SphinxAuth contract instead of skipping
-                    // it entirely, which would be the case if we set the owner threshold to 0.
+                    // Create a list of owner meta transactions. This allows us to run the rest of
+                    // this function without needing to know the owner private keys. If we don't do
+                    // this, the rest of this function will fail because there are an insufficent
+                    // number of owner signatures. It's worth mentioning that another strategy is to
+                    // set the owner threshold to 0 via `vm.store`, but we do it this way because it
+                    // allows us to run the meta transaction signature verification logic in the
+                    // SphinxAuth contract instead of skipping it entirely, which would be the case
+                    // if we set the owner threshold to 0.
                     _sphinxGrantRoleInAuthContract(bytes32(0), wallets[i].addr, _rpcUrl);
                     ownerSignatureArray[i] = sphinxUtils.signMetaTxnForAuthRoot(
                         wallets[i].privateKey,
@@ -748,8 +722,11 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
-            // TODO(docs)
             if (sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast) {
+                // Claim the deployment. It's not necessary to call this function when broadcasting
+                // on a live network because the user will be executing the deployment themselves.
+                // To be more specific, `remoteExecution` will be set to false when broadcasting on
+                // a live network, which allows us to skip this function call.
                 manager.claimDeployment{ gas: 1000000 }();
             }
 
@@ -981,7 +958,9 @@ abstract contract Sphinx {
         deploymentInfo.newConfig = _newConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = _initialState;
-        // TODO(docs)
+        // Remote execution is always true for proposals and false for live network broadcasts. Local
+        // network broadcasts can be either one, but we set it to make it easier to share code with
+        // the proposal mode.
         deploymentInfo.remoteExecution = _mode == SphinxMode.Proposal || _mode == SphinxMode.LocalNetworkBroadcast;
     }
 
@@ -1016,7 +995,16 @@ abstract contract Sphinx {
         revert("Sphinx: No reference name found for the given address. Should never happen.");
     }
 
-    // TODO(docs): explain why this is defined in this contract instead of in SphinxUtils
+    /**
+     * @notice Grant a role to an account in the SphinxAuth contract. This is meant to be called
+     *         when running against local networks. It is not used as part of the live network
+     *         execution process. Its purpose on local networks is to make projects executable
+     *         even if the private keys of the owners are not known. It's worth mentioning that
+     *         we define this function in this contract instead of in `SphinxUtils` because it
+     *         involves an external call, which increases the number of transactions broadcasted
+     *         against local networks, making it difficult to test that no unnecessary transactions
+     *         are being broadcasted.
+     */
     function _sphinxGrantRoleInAuthContract(bytes32 _role, address _account, string memory _rpcUrl) private {
         if (
             !ISphinxAccessControl(address(auth)).hasRole(
@@ -1040,8 +1028,7 @@ abstract contract Sphinx {
                 inputs[1] = "rpc";
                 inputs[2] = "--rpc-url";
                 inputs[3] = _rpcUrl;
-                // TODO(docs): hardhat
-                inputs[4] = "hardhat_setStorageAt";
+                inputs[4] = "anvil_setStorageAt";
                 inputs[5] = vm.toString(address(auth));
                 inputs[6] = vm.toString(memberSlotKey);
                 inputs[7] = vm.toString(bytes32(uint256(1)));

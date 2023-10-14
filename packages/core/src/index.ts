@@ -1,4 +1,3 @@
-// TODO: do we still need this?
 // Converts BigInt values to strings when calling JSON.stringify. An error would be thrown
 // otherwise. For more context, see these sources:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json

@@ -1610,8 +1610,6 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   }
 }
 
-// TODO: loosen the 'ethers' package restriction in every sphinx package
-
 /**
  * @notice This function recursively converts an `ethers.Result` into a plain object. We do this
  * because `ethers.Result`s are essentially arrays, which makes it difficult to work with them
@@ -1691,7 +1689,11 @@ export const recursivelyConvertResult = (
   return converted
 }
 
-// TODO(docs)
+/**
+ * @notice Spawns a child process and returns a promise that resolves when the process exits. Use
+ * this function instead of `execAsync` if the command generates a lot of output, since `execAsync`
+ * will run out of memory if the output is too large.
+ */
 export const spawnAsync = (
   cmd: string,
   args: string[]
