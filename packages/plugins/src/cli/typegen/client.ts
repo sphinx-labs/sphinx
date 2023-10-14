@@ -628,8 +628,9 @@ export const generateClientsInFolder = async (
       continue
     }
 
-    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
-    if (file.endsWith('.s.sol')) {
+    // Skip script and test files (which aren't compiled during the generation process due to
+    // `--skip script` and `--skip test`)
+    if (file.endsWith('.s.sol') || file.endsWith('.t.sol')) {
       continue
     }
 
@@ -688,8 +689,12 @@ export const generateClientsForExternalContracts = async (
   )
 
   for (const importDirective of findAll('ImportDirective', artifact.ast)) {
-    // Skip script files (which aren't compiled during the generation process due to `--skip script`)
-    if (importDirective.absolutePath.endsWith('.s.sol')) {
+    // Skip script and test files (which aren't compiled during the generation process due to
+    // `--skip script` and `--skip test`)
+    if (
+      importDirective.absolutePath.endsWith('.s.sol') ||
+      importDirective.absolutePath.endsWith('.t.sol')
+    ) {
       continue
     }
 
@@ -815,6 +820,8 @@ export const generateClient = async (
     CLIENT_FOLDER_NAME
   )
 
+  spinner.succeed('Generated clients')
+
   if (!skipLastCompile) {
     const finalBuildArgs = silent ? ['build', '--silent'] : ['build']
     const { status: compilationStatusScripts } = spawnSync(
@@ -829,6 +836,4 @@ export const generateClient = async (
       process.exit(1)
     }
   }
-
-  spinner.succeed('Generated clients')
 }

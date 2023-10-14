@@ -11,9 +11,9 @@ remappings=[
   '@sphinx-labs/plugins=../../node_modules/@sphinx-labs/plugins/contracts/foundry',
   '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/',
   'forge-std/=node_modules/forge-std/src/',
-  'ds-test/=node_modules/ds-test/src/'
+  'ds-test/=node_modules/ds-test/src/',
+  'sphinx-forge-std=node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/'
 ]
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
-goerli = "http://127.0.0.1:42005"

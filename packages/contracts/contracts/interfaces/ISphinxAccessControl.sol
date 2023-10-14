@@ -5,8 +5,7 @@ pragma solidity >=0.7.4 <0.9.0;
  * @notice Clone of `ISphinxAccessControl.sol` in OpenZeppelin Contracts v4.4.1. The only modification is
  *         that this interface supports a wider Solidity version range.
  *         We've also added the `Sphinx` prefix to the interface name to avoid potential conflicts
- *         with other interfaces the user may have in their project. `See plugins/contracts/foundry/Sphinx.sol`
- *         for more details.
+ *         with other interfaces the user may have in their project.
  * @dev External interface of AccessControl declared to support ERC165 detection.
  */
 interface ISphinxAccessControl {

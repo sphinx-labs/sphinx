@@ -11,7 +11,7 @@
   "scripts": {
     "build": "yarn build:contracts && yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "hardhat compile",
+    "build:contracts": "forge build",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
     "test": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
@@ -48,7 +48,7 @@
     "@types/node": "^18.0.0",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^6.7.0",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.6.1",
+    "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1",
     "solidity-ast": "^0.4.46"
   }
 }

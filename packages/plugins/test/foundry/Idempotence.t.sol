@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "forge-std/console.sol";
-import { Vm } from "forge-std/Vm.sol";
-import { Script } from "forge-std/Script.sol";
-import { Test } from "forge-std/Test.sol";
+import { console } from "sphinx-forge-std/console.sol";
+import { Vm } from "sphinx-forge-std/Vm.sol";
+import { Script } from "sphinx-forge-std/Script.sol";
+import { Test } from "sphinx-forge-std/Test.sol";
 import { SphinxClient, SphinxConfig } from "../../client/SphinxClient.sol";
 import { MyContract1Client } from "../../client/MyContracts.c.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";

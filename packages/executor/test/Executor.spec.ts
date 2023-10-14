@@ -164,7 +164,7 @@ describe('Remote executor', () => {
     )
   })
 
-  it('does deploy non-proxy contract remotely', async () => {
+  it('does execute remote deployment', async () => {
     expect(await contract.val()).equals(42n)
   })
 })

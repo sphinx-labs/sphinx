@@ -1426,6 +1426,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // a nonce mismatch error in the user's deployment, leading it to fail.
         inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
         Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exit_code == 1) revert(string(result.stderr));
+        if (result.exitCode == 1) revert(string(result.stderr));
     }
 }
