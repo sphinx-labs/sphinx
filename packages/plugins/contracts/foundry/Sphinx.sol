@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { VmSafe, Vm } from "forge-std/Vm.sol";
-import { console } from "forge-std/console.sol";
+import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
@@ -420,14 +420,6 @@ abstract contract Sphinx {
         }
         return count;
     }
-
-    // TODO(test): What should be the expected behavior if you call deploy(optimism) and then call deploy(arbitrum) in the same script?
-    // TODO(ryan): I noticed you wrote the TODO above. See `Idempotence.t.sol` for tests that cover
-    // this case. If a user tries to do `deploy(optimism); deploy(arbitrum);`, without changing the
-    // fork / chain ID, their script will fail due to the last check in `sphinxUtils.validate`. They
-    // can't broadcast on two chains in a single forge script because foundry doesn't allow that.
-    // Lmk if there are any other cases that you think we should test. otherwise, feel free to
-    // delete these comments.
 
     modifier sphinx(Network _network) {
         sphinxModifierEnabled = true;
@@ -1030,7 +1022,7 @@ abstract contract Sphinx {
                 inputs[6] = vm.toString(memberSlotKey);
                 inputs[7] = vm.toString(bytes32(uint256(1)));
                 Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exit_code == 1) {
+                if (result.exitCode == 1) {
                     revert(string(result.stderr));
                 }
             }

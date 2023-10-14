@@ -51,10 +51,11 @@ import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 import { MyContractType, MyEnum, MyType, MyStruct } from "../../contracts/test/typegen/ArrayInputTypes.sol";
 import { MyLocalTypeArray } from "../../contracts/test/typegen/imports/NoAliasArray.sol";
 
-import "forge-std/Test.sol";
+import "sphinx-forge-std/Test.sol";
 
 contract TypeGenTest is Test, TypeGenTestConfig {
     ExternalContract myPredeployedExternalContract;
+    ExternalContract myPredeployedExternalContractForInterface;
 
     address manager;
 
@@ -69,7 +70,9 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function setUp() public {
         // Deploy an external contract ahead of time so we can later define an interact with it
         myPredeployedExternalContract = new ExternalContract(5);
+        myPredeployedExternalContractForInterface = new ExternalContract(1);
         alreadyDeployedContractAddress = address(myPredeployedExternalContract);
+        alreadyDeployedContractAddressForInterface = address(myPredeployedExternalContractForInterface);
         deploy(Network.anvil);
     }
 
@@ -502,6 +505,10 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(alreadyDeployedExternalContract.number(), 7);
     }
 
+    function testDidDefineAndInteractWithExternalContractUsingInterface() public  {
+        assertEq(alreadyDeployedExternalContractInterface.number(), 5);
+    }
+
     // Covers calling a function that relies on the msg.sender
     function testMsgSenderInFunction() public {
         assertEq(msgSender.msgSenderInFunction(), address(manager));
@@ -519,10 +526,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
 
     // Covers deploying and interacting with a contract that inherits from another contract
     function testDidDeployInheritedContract() public {
-        assertEq(parent.myNumber(), 2);
-        assertEq(parent.myBool(), true);
-
-        assertEq(child.myNumber(), 3);
+        assertEq(child.myNumber(), 7);
         assertEq(child.myBool(), false);
         assertEq(child.myAddress(), address(3));
     }

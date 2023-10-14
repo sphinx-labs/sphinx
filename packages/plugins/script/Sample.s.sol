@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { Script, console } from "forge-std/Script.sol";
+import { Script, console } from "sphinx-forge-std/Script.sol";
 import { SphinxClient, SphinxConfig, Version } from "../client/SphinxClient.sol";
 import { MyContract1Client } from "../client/MyContracts.c.sol";
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";

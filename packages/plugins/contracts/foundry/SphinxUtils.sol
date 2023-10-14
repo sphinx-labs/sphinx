@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "forge-std/Vm.sol";
-import { StdUtils } from "forge-std/StdUtils.sol";
+import { Vm } from "sphinx-forge-std/Vm.sol";
+import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
 import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import {
@@ -194,7 +194,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         cmds[3] = vm.toString(abi.encode(_deploymentInfoArray));
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exit_code == 1) {
+        if (result.exitCode == 1) {
             bytes memory revertMessage = abi.encodePacked("Sphinx: ", result.stderr);
             revert(string(revertMessage));
         }
@@ -211,7 +211,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         cmds[5] = vm.toString(_address.value);
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exit_code == 1) {
+        if (result.exitCode == 1) {
             revert(string(result.stderr));
         }
         vm.sleep(5000);
@@ -918,7 +918,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[4] = _rpcUrl;
 
         Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exit_code == 1) {
+        if (result.exitCode == 1) {
             revert(string(result.stderr));
         }
         return abi.decode(result.stdout, (bool));

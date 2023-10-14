@@ -57,7 +57,7 @@ import {
 } from "../client/typegen/contractInputs/FunctionContract.c.sol";
 import { FunctionInputContract } from "../contracts/test/typegen/FunctionInputType.sol";
 import { ExternalContract } from "../testExternalContracts/ExternalContract.sol";
-import { ExternalContractClient } from "../client/ExternalContract.c.sol";
+import { ExternalContractClient } from "../client/SphinxExternal/ExternalContract.c.sol";
 import {
     ConflictingTypeNameContractFirst
 } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -99,10 +99,8 @@ import {
     MyLocalStructArray,
     MyLocalEnumArray
 } from "../contracts/test/typegen/imports/NoAliasArray.sol";
-import { Parent } from "../contracts/test/typegen/inheritance/Parent.sol";
 import { Child } from "../contracts/test/typegen/inheritance/Child.sol";
 import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
-import { ParentClient } from "../client/typegen/inheritance/Parent.c.sol";
 import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
 import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 import { ChildInSameFile } from "../contracts/test/typegen/inheritance/SameFile.sol";
@@ -117,10 +115,14 @@ import { ChildParentImportsTypesClient } from "../client/typegen/imports/ChildPa
 import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/ChildParentImportsTypes.sol";
 import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
 import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
+import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
+import { IExternalContractClient } from "../client/SphinxExternal/IExternalContract.c.sol";
 
-import "forge-std/Test.sol";
+import "sphinx-forge-std/Test.sol";
 
 contract TypeGenTestConfig is Test, SphinxClient {
+    address alreadyDeployedContractAddress;
+    address alreadyDeployedContractAddressForInterface;
     ConflictingNameContractFirst firstConflictingNameContract;
     ConflictingNameContractSecond secondConflictingNameContract;
     BasicInputTypes basicInputTypes;
@@ -140,14 +142,13 @@ contract TypeGenTestConfig is Test, SphinxClient {
     FunctionInputContract functionInputContract;
     ExternalContract externalContract;
     ExternalContract alreadyDeployedExternalContract;
-    address alreadyDeployedContractAddress;
+    ExternalContract alreadyDeployedExternalContractInterface;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirst;
     ConflictingTypeNameContractSecond conflictingTypeNameContractSecond;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
     ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
     UnnamedParameters unnamedParameters;
-    Parent parent;
     Child child;
     Grandchild grandchild;
     ChildInSameFile childInSameFile;
@@ -522,6 +523,16 @@ contract TypeGenTestConfig is Test, SphinxClient {
             address(alreadyDeployedExternalContractClient)
         );
 
+        // Define external contract and interact with it using an interface
+        IExternalContractClient alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
+            alreadyDeployedContractAddressForInterface,
+            DefineOptions({ referenceName: "MyExternalContractInterface" })
+        );
+        alreadyDeployedExternalContractInterfaceClient.setNumber(5);
+        alreadyDeployedExternalContractInterface = ExternalContract(
+            address(alreadyDeployedExternalContractInterfaceClient)
+        );
+
         // Deploy contracts with conflicting type names
         conflictingTypeNameContractFirst = ConflictingTypeNameContractFirst(
             address(
@@ -569,15 +580,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
         unnamedParametersClient.increment(1, 3);
         unnamedParameters = UnnamedParameters(address(unnamedParametersClient));
 
-        // Deploy parent contract
-        ParentClient parentClient = deployParent(1, false);
-        parentClient.add(parentClient.myPureA());
-        parentClient.setBool(true);
-        parent = Parent(address(parentClient));
-
         // Deploy inherited contract and interact with it
         ChildClient childClient = deployChild(1, false, address(2));
         childClient.add(childClient.myPureB());
+        childClient.add(childClient.myPureB(), 2);
         childClient.setMyAddress(address(3));
         child = Child(address(childClient));
 

@@ -207,7 +207,8 @@ const generateClientContractFromArtifact = async (
   functionSelectors: string[]
 ): Promise<
   | {
-      artifact: any
+      fullyImplemented: boolean
+      isInterface: boolean
       uniqueClientName: string
       clientContract: string
       clientImports: Record<string, string>
@@ -366,7 +367,8 @@ const generateClientContractFromArtifact = async (
   )
 
   return {
-    artifact,
+    fullyImplemented: contractDefinition.fullyImplemented,
+    isInterface: contractDefinition.contractKind === 'interface',
     uniqueClientName,
     clientContract,
     clientImports,
@@ -383,7 +385,17 @@ const searchAllPossibleClientArtifactPaths = async (
   allDeployFunctionImports: Record<string, string>,
   src: string,
   outputPath: string
-) => {
+): Promise<
+  Array<{
+    fullyImplemented: boolean
+    isInterface: boolean
+    uniqueClientName: string
+    clientContract: string
+    clientImports: Record<string, string>
+    deployFunctions: string
+    deployFunctionImports: Record<string, string>
+  }>
+> => {
   const couldNotFindArtifactError = `Could not find compiler artifact for file: ${filePath}. Try running 'forge clean'. If this problem persists, please report it to the developers.`
 
   const pathPieces = filePath.split('/')
@@ -417,6 +429,8 @@ const searchAllPossibleClientArtifactPaths = async (
 
     let didFindCorrectArtifact = false
     const contracts: Array<{
+      fullyImplemented: boolean
+      isInterface: boolean
       uniqueClientName: string
       clientContract: string
       clientImports: Record<string, string>
@@ -475,6 +489,8 @@ export const generateClientForFile = async (
   }
 
   const contracts: Array<{
+    fullyImplemented: boolean
+    isInterface: boolean
     uniqueClientName: string
     clientContract: string
     clientImports: Record<string, string>
@@ -497,14 +513,22 @@ export const generateClientForFile = async (
 
   // Consolidate all of the imports and contracts into arrays and objects
   // Remove any duplicate imports
-  contracts.forEach((contract) => {
+  for (const contract of contracts) {
     const {
+      fullyImplemented,
+      isInterface,
       uniqueClientName,
       clientContract,
       clientImports,
       deployFunctions,
       deployFunctionImports,
     } = contract
+
+    // If contract is an abstract contract, then skip outputting it
+    if (fullyImplemented === false && isInterface === false) {
+      continue
+    }
+
     uniqueClientNames.push(uniqueClientName)
     clientContracts.push(clientContract)
     consolidatedDeployFunctions.push(deployFunctions)
@@ -518,7 +542,7 @@ export const generateClientForFile = async (
     )) {
       consolidatedDeployFunctionImports[localName] = importString
     }
-  })
+  }
 
   // If there are no contracts, then we have nothing to put in the client file so we return
   // This can happen for files that only contain libraries or other types
@@ -671,7 +695,7 @@ export const generateClientsForExternalContracts = async (
 
     const fileName = path.basename(importDirective.absolutePath)
     const clientOutputPath = path
-      .join(outputPath, fileName)
+      .join(outputPath, 'SphinxExternal', fileName)
       .replace('.sol', '.c.sol')
     const { deployFunctionImports, deployFunctions } =
       await generateClientForFile(
@@ -791,8 +815,6 @@ export const generateClient = async (
     CLIENT_FOLDER_NAME
   )
 
-  spinner.succeed('Generated Sphinx clients')
-
   if (!skipLastCompile) {
     const finalBuildArgs = silent ? ['build', '--silent'] : ['build']
     const { status: compilationStatusScripts } = spawnSync(
@@ -807,4 +829,6 @@ export const generateClient = async (
       process.exit(1)
     }
   }
+
+  spinner.succeed('Generated clients')
 }

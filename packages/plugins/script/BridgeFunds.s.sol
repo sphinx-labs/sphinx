@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { LzApp } from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
-import { Script } from "forge-std/Script.sol";
+import { Script } from "sphinx-forge-std/Script.sol";
 import {
     ILayerZeroEndpoint
 } from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";

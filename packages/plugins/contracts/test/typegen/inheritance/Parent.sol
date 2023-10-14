@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Parent {
+abstract contract Parent {
     uint public myNumber;
     bool public myBool;
 
@@ -10,9 +10,7 @@ contract Parent {
         myBool = _myBool;
     }
 
-    function add(uint256 _value) public {
-        myNumber += _value;
-    }
+    function add(uint256 _value) public virtual;
 
     function setBool(bool _value) public {
         myBool = _value;
