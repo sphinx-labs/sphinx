@@ -186,6 +186,14 @@ export const makeGetConfigArtifacts = (
         return fileName.endsWith('.json')
       })
 
+    // Remove any non-existent files from the cache. This can happen if the user manually deletes a
+    // build info file.
+    for (const cachedFile of Object.keys(buildInfoCache)) {
+      if (!buildInfoFileNames.includes(cachedFile)) {
+        delete buildInfoCache[cachedFile]
+      }
+    }
+
     const cachedNames = Object.keys(buildInfoCache)
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
