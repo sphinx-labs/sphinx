@@ -14,7 +14,9 @@ interface ISphinxAuth {
     function threshold() external view returns (uint256);
 
     function firstProposalOccurred() external view returns (bool);
+
     function projectName() external view returns (string memory);
+
     function manager() external view returns (ISphinxManager);
 
     /**

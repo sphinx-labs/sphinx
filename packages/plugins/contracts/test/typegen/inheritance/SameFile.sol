@@ -14,13 +14,13 @@ contract ParentInSameFile {
 }
 
 contract ChildInSameFile is ParentInSameFile {
-  bool public myBool;
+    bool public myBool;
 
-  constructor(uint256 _myNumber, bool _myBool) ParentInSameFile(_myNumber) {
-      myBool = _myBool;
-  }
+    constructor(uint256 _myNumber, bool _myBool) ParentInSameFile(_myNumber) {
+        myBool = _myBool;
+    }
 
-  function setBool(bool _value) public {
-      myBool = _value;
-  }
+    function setBool(bool _value) public {
+        myBool = _value;
+    }
 }

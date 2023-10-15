@@ -16,8 +16,6 @@ import {
   Provider,
   JsonRpcSigner,
   ConstructorFragment,
-  Result,
-  ParamType,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -48,11 +46,7 @@ import {
   ContractKind,
   ParsedVariable,
   ConfigArtifacts,
-  UserConstructorArgOverride,
-  UserArgOverride,
-  UserFunctionArgOverride,
   UserConfigVariable,
-  UserFunctionOptions,
   ExtendedDeployContractActionInput,
   ExtendedFunctionCallActionInput,
   DeploymentInfo,
@@ -79,7 +73,6 @@ import {
   CompilerOutput,
   ContractArtifact,
 } from './languages/solidity/types'
-import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,

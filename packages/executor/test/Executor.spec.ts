@@ -1,5 +1,4 @@
 import path from 'path'
-
 import '@sphinx-labs/plugins'
 import { readFileSync } from 'fs'
 

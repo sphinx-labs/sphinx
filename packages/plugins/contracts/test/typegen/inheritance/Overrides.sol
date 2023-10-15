@@ -14,10 +14,9 @@ contract ParentOverrides {
 }
 
 contract ChildOverrides is ParentOverrides {
+    constructor(uint256 _myNumber) ParentOverrides(_myNumber) {}
 
-  constructor(uint256 _myNumber) ParentOverrides(_myNumber) {}
-
-  function add(uint _value) public override {
-      myNumber = myNumber * _value;
-  }
+    function add(uint _value) public override {
+        myNumber = myNumber * _value;
+    }
 }

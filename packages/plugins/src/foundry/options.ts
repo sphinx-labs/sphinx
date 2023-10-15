@@ -1,8 +1,6 @@
-import { exec } from 'child_process'
 import { join, resolve } from 'path'
-import { promisify } from 'util'
 
-import { execAsync, spawnAsync } from '@sphinx-labs/core'
+import { spawnAsync } from '@sphinx-labs/core'
 
 export type FoundryToml = {
   src: string

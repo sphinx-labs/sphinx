@@ -16,16 +16,11 @@ contract Simple is Script, SphinxClient {
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
         sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli];
-        sphinxConfig.orgId = 'test-org-id';
+        sphinxConfig.orgId = "test-org-id";
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myContract1 = deployMyContract1(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
         myContract1.incrementUint();
     }
 

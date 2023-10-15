@@ -1,8 +1,6 @@
 import { join, resolve } from 'path'
-import { spawnSync } from 'child_process'
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 
-import ora from 'ora'
 import {
   displayDeploymentTable,
   makeParsedConfig,
@@ -20,7 +18,6 @@ import {
   ParsedConfig,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
-
 import { red } from 'chalk'
 
 import { makeGetConfigArtifacts } from '../foundry/utils'

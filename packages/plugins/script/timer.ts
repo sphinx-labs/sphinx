@@ -19,6 +19,7 @@ const main = async () => {
 
     const begin = Date.now()
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
     const mockPrompt = async (_) => {}
     await deploy(
       './script/Sample.s.sol',

@@ -8,23 +8,18 @@ import {
   RoleType,
   WEBSITE_URL,
   elementsEqual,
-  execAsync,
   getAuthLeafSignerInfo,
   getPreview,
   getPreviewString,
-  getProjectBundleInfo,
   getProjectDeploymentForChain,
   hyperlink,
-  makeAuthBundle,
   relayIPFSCommit,
   relayProposal,
-  signAuthRootMetaTxn,
   spawnAsync,
   userConfirmation,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
-import { Result } from 'ethers'
 
 import { decodeProposalOutput } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'

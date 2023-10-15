@@ -4,7 +4,9 @@ pragma solidity ^0.8.0;
 import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
-import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
+import {
+    ISphinxAccessControl
+} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
@@ -169,7 +171,10 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    function sphinxProposeTask(bool _testnets, string memory _proposalOutputPath) external returns (bytes32, uint256[] memory) {
+    function sphinxProposeTask(
+        bool _testnets,
+        string memory _proposalOutputPath
+    ) external returns (bytes32, uint256[] memory) {
         setupPropose();
 
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
@@ -216,7 +221,9 @@ abstract contract Sphinx {
             // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
             // because we never broadcast the transactions onto the forked network. This is a
             // performance optimization.
-            sphinxUtils.initializeSphinxContracts(OptionalAddress({exists: true, value: proposer}));
+            sphinxUtils.initializeSphinxContracts(
+                OptionalAddress({ exists: true, value: proposer })
+            );
 
             // We prank the proposer here so that the `msgSender` is the proposer's address, which
             // we use in `validateProposal`.
@@ -249,7 +256,19 @@ abstract contract Sphinx {
             vm.stopPrank();
         }
 
-        vm.writeFile(_proposalOutputPath, vm.toString(abi.encode(ProposalOutput({authRoot: authRoot, bundleInfoArray:  bundleInfoArray, metaTxnSignature: metaTxnSignature, proposerAddress: proposer}))));
+        vm.writeFile(
+            _proposalOutputPath,
+            vm.toString(
+                abi.encode(
+                    ProposalOutput({
+                        authRoot: authRoot,
+                        bundleInfoArray: bundleInfoArray,
+                        metaTxnSignature: metaTxnSignature,
+                        proposerAddress: proposer
+                    })
+                )
+            )
+        );
 
         return (authRoot, forkIds);
     }
@@ -324,10 +343,16 @@ abstract contract Sphinx {
                 // a nice error message to the user.
                 (bool success, bytes memory result) = address(manager).call{
                     gas: bufferedGasLimit
+                }(
                 // `abi.encodeCall` provides better type support than `abi.encodeWithSelector`, but
                 // we can't use it here because it isn't supported in Solidity v0.8.0, which is the
                 // earliest version we support.
-                }(abi.encodeWithSelector(ISphinxManager.executeInitialActions.selector, rawActions, _proofs));
+                    abi.encodeWithSelector(
+                        ISphinxManager.executeInitialActions.selector,
+                        rawActions,
+                        _proofs
+                    )
+                );
                 if (!success) {
                     uint256 failureIndex;
                     assembly {
@@ -457,9 +482,7 @@ abstract contract Sphinx {
                 sphinxConfig.projectName
             )
         );
-        manager = ISphinxManager(
-            sphinxUtils.getSphinxManagerAddress(sphinxConfig)
-        );
+        manager = ISphinxManager(sphinxUtils.getSphinxManagerAddress(sphinxConfig));
 
         sphinxUtils.validate(sphinxConfig, _network);
 
@@ -472,7 +495,12 @@ abstract contract Sphinx {
             vm.stopPrank();
 
             string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            sphinxUpdateDeploymentInfo(sphinxUtils.isLiveNetworkFFI(rpcUrl), initialState, sphinxConfig, sphinxMode);
+            sphinxUpdateDeploymentInfo(
+                sphinxUtils.isLiveNetworkFFI(rpcUrl),
+                initialState,
+                sphinxConfig,
+                sphinxMode
+            );
 
             sphinxUtils.tearDownClients(deploymentInfo.actionInputs, manager);
         } else if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
@@ -491,7 +519,10 @@ abstract contract Sphinx {
                 sphinxConfig.proposers.push(sphinxConfig.owners[0]);
             } else {
                 sphinxMode = SphinxMode.LocalNetworkBroadcast;
-                sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({exists: true, value: msgSender}));
+                sphinxUtils.initializeFFI(
+                    rpcUrl,
+                    OptionalAddress({ exists: true, value: msgSender })
+                );
 
                 // Make a pre-determined address a proposer. We'll use it later to since a meta
                 // transaction, which allows us to propose the deployment.
@@ -518,7 +549,9 @@ abstract contract Sphinx {
             );
             BundleInfo memory bundleInfo = bundleInfoArray[0];
 
-            uint256 deployerPrivateKey = isLiveNetwork ? vm.envUint("PRIVATE_KEY") : sphinxUtils.getSphinxDeployerPrivateKey(0);
+            uint256 deployerPrivateKey = isLiveNetwork
+                ? vm.envUint("PRIVATE_KEY")
+                : sphinxUtils.getSphinxDeployerPrivateKey(0);
             bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
                 deployerPrivateKey,
                 authRoot
@@ -574,7 +607,12 @@ abstract contract Sphinx {
         sphinxModifierEnabled = false;
     }
 
-    function sphinxDeployOnNetwork(bytes32 _authRoot, BundleInfo memory _bundleInfo, bytes memory _metaTxnSignature, string memory _rpcUrl) private {
+    function sphinxDeployOnNetwork(
+        bytes32 _authRoot,
+        BundleInfo memory _bundleInfo,
+        bytes memory _metaTxnSignature,
+        string memory _rpcUrl
+    ) private {
         (, address msgSender, ) = vm.readCallers();
 
         if (_bundleInfo.authLeafs.length == 0) {
@@ -617,11 +655,15 @@ abstract contract Sphinx {
             if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
                 ownerSignatureArray = new bytes[](1);
                 ownerSignatureArray[0] = _metaTxnSignature;
-            } else if (sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal) {
+            } else if (
+                sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal
+            ) {
                 uint256 currentOwnerThreshold = auth.threshold();
                 ownerSignatureArray = new bytes[](currentOwnerThreshold);
 
-                Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(currentOwnerThreshold);
+                Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(
+                    currentOwnerThreshold
+                );
                 for (uint256 i = 0; i < currentOwnerThreshold; i++) {
                     // Create a list of owner meta transactions. This allows us to run the rest of
                     // this function without needing to know the owner private keys. If we don't do
@@ -662,8 +704,15 @@ abstract contract Sphinx {
                             ownerSignatureArray,
                             leaf.proof
                         );
-                    } else if (sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-                        _sphinxGrantRoleInAuthContract(keccak256("ProposerRole"), msgSender, _rpcUrl);
+                    } else if (
+                        sphinxMode == SphinxMode.Proposal ||
+                        sphinxMode == SphinxMode.LocalNetworkBroadcast
+                    ) {
+                        _sphinxGrantRoleInAuthContract(
+                            keccak256("ProposerRole"),
+                            msgSender,
+                            _rpcUrl
+                        );
 
                         bytes[] memory proposerSignatureArray = new bytes[](1);
                         proposerSignatureArray[0] = _metaTxnSignature;
@@ -709,7 +758,9 @@ abstract contract Sphinx {
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
             deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
-            if (sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast) {
+            if (
+                sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast
+            ) {
                 // Claim the deployment. It's not necessary to call this function when broadcasting
                 // on a live network because the user will be executing the deployment themselves.
                 // To be more specific, `remoteExecution` will be set to false when broadcasting on
@@ -948,7 +999,9 @@ abstract contract Sphinx {
         // Remote execution is always true for proposals and false for live network broadcasts. Local
         // network broadcasts can be either one, but we set it to make it easier to share code with
         // the proposal mode.
-        deploymentInfo.remoteExecution = _mode == SphinxMode.Proposal || _mode == SphinxMode.LocalNetworkBroadcast;
+        deploymentInfo.remoteExecution =
+            _mode == SphinxMode.Proposal ||
+            _mode == SphinxMode.LocalNetworkBroadcast;
     }
 
     function sphinxGetReferenceNameForAddress(
@@ -992,13 +1045,12 @@ abstract contract Sphinx {
      *         against local networks, making it difficult to test that no unnecessary transactions
      *         are being broadcasted.
      */
-    function _sphinxGrantRoleInAuthContract(bytes32 _role, address _account, string memory _rpcUrl) private {
-        if (
-            !ISphinxAccessControl(address(auth)).hasRole(
-                _role,
-                _account
-            )
-        ) {
+    function _sphinxGrantRoleInAuthContract(
+        bytes32 _role,
+        address _account,
+        string memory _rpcUrl
+    ) private {
+        if (!ISphinxAccessControl(address(auth)).hasRole(_role, _account)) {
             bytes32 roleSlotKey = sphinxUtils.getMappingValueSlotKey(
                 constants.authAccessControlRoleSlotKey(),
                 _role
@@ -1033,9 +1085,7 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxManager. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxManager(
-        SphinxConfig memory _config
-    ) internal view returns (address) {
+    function sphinxManager(SphinxConfig memory _config) internal view returns (address) {
         return sphinxUtils.getSphinxManagerAddress(_config);
     }
 
@@ -1058,7 +1108,11 @@ abstract contract Sphinx {
      *         overloaded function of the same name. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxAddress(SphinxConfig memory _config, string memory _referenceName, bytes32 _salt) internal view returns (address) {
+    function sphinxAddress(
+        SphinxConfig memory _config,
+        string memory _referenceName,
+        bytes32 _salt
+    ) internal view returns (address) {
         address managerAddress = sphinxUtils.getSphinxManagerAddress(_config);
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
         return sphinxUtils.computeCreate3Address(managerAddress, create3Salt);

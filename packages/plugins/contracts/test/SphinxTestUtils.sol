@@ -13,7 +13,6 @@ import { SphinxConstants, SphinxContractInfo } from "../../contracts/foundry/Sph
  *         contains helper functions for the plugin itself.
  */
 contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
-
     // Same as the `RawTx1559` struct defined in StdCheats.sol, except this struct has two
     // addditional fields: `additionalContracts` and `isFixedGasLimit`.
     struct AnvilBroadcastedTxn {
@@ -57,7 +56,9 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
         revert("Sphinx: Unable to find SphinxAuth initcode. Should never happen.");
     }
 
-    function readAnvilBroadcastedTxns(string memory _path) internal view returns (AnvilBroadcastedTxn[] memory) {
+    function readAnvilBroadcastedTxns(
+        string memory _path
+    ) internal view returns (AnvilBroadcastedTxn[] memory) {
         string memory deployData = vm.readFile(_path);
         uint256 numTxns = vm.parseJsonStringArray(deployData, ".transactions").length;
         AnvilBroadcastedTxn[] memory txns = new AnvilBroadcastedTxn[](numTxns);
@@ -84,34 +85,62 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
      *         exist in the JSON for Anvil deployments: `isFixedGasLimit` and
      *         `additionalContracts`.
      */
-    function readAnvilBroadcastedTxn(string memory _path, uint256 _index) internal view returns (AnvilBroadcastedTxn memory) {
+    function readAnvilBroadcastedTxn(
+        string memory _path,
+        uint256 _index
+    ) internal view returns (AnvilBroadcastedTxn memory) {
         string memory deployData = vm.readFile(_path);
         string memory key = string(abi.encodePacked(".transactions[", vm.toString(_index), "]"));
         bytes32 hash = vm.parseJsonBytes32(deployData, string(abi.encodePacked(key, ".hash")));
-        string memory opcode = vm.parseJsonString(deployData, string(abi.encodePacked(key, ".transactionType")));
-        string memory contractName = vm.parseJsonString(deployData, string(abi.encodePacked(key, ".contractName")));
-        string memory functionSig = vm.parseJsonString(deployData, string(abi.encodePacked(key, ".function")));
+        string memory opcode = vm.parseJsonString(
+            deployData,
+            string(abi.encodePacked(key, ".transactionType"))
+        );
+        string memory contractName = vm.parseJsonString(
+            deployData,
+            string(abi.encodePacked(key, ".contractName"))
+        );
+        string memory functionSig = vm.parseJsonString(
+            deployData,
+            string(abi.encodePacked(key, ".function"))
+        );
 
         // Parse the `arguments` array. Since this field may be `null` in the JSON, we can't use
         // `vm.parseJsonStringArray` right away. Instead, we must first check if the returned
         // `argumentsBytes` is a 32-byte array of zeros, which is how `null` is encoded.
-        bytes memory argumentsBytes = vm.parseJson(deployData, string(abi.encodePacked(key, ".arguments")));
-        string[] memory arguments = argumentsBytes.length == 32 && bytes32(argumentsBytes) == bytes32(0) ? new string[](0) : vm.parseJsonStringArray(deployData, string(abi.encodePacked(key, ".arguments")));
+        bytes memory argumentsBytes = vm.parseJson(
+            deployData,
+            string(abi.encodePacked(key, ".arguments"))
+        );
+        string[] memory arguments = argumentsBytes.length == 32 &&
+            bytes32(argumentsBytes) == bytes32(0)
+            ? new string[](0)
+            : vm.parseJsonStringArray(deployData, string(abi.encodePacked(key, ".arguments")));
 
-        RawTx1559Detail memory txDetail = abi.decode(vm.parseJson(deployData, string(abi.encodePacked(key, ".transaction"))), (RawTx1559Detail));
-        address[] memory additionalContracts = vm.parseJsonAddressArray(deployData, string(abi.encodePacked(key, ".additionalContracts")));
-        bool isFixedGasLimit = vm.parseJsonBool(deployData, string(abi.encodePacked(key, ".isFixedGasLimit")));
-        return AnvilBroadcastedTxn({
-            additionalContracts: additionalContracts,
-            arguments: arguments,
-            contractAddress: txDetail.to,
-            contractName: contractName,
-            functionSig: functionSig,
-            hash: hash,
-            isFixedGasLimit: isFixedGasLimit,
-            txDetail: txDetail,
-            opcode: opcode
-        });
+        RawTx1559Detail memory txDetail = abi.decode(
+            vm.parseJson(deployData, string(abi.encodePacked(key, ".transaction"))),
+            (RawTx1559Detail)
+        );
+        address[] memory additionalContracts = vm.parseJsonAddressArray(
+            deployData,
+            string(abi.encodePacked(key, ".additionalContracts"))
+        );
+        bool isFixedGasLimit = vm.parseJsonBool(
+            deployData,
+            string(abi.encodePacked(key, ".isFixedGasLimit"))
+        );
+        return
+            AnvilBroadcastedTxn({
+                additionalContracts: additionalContracts,
+                arguments: arguments,
+                contractAddress: txDetail.to,
+                contractName: contractName,
+                functionSig: functionSig,
+                hash: hash,
+                isFixedGasLimit: isFixedGasLimit,
+                txDetail: txDetail,
+                opcode: opcode
+            });
     }
 
     function resetAnvilNode(uint256 _chainId) internal {

@@ -4,7 +4,9 @@ pragma solidity ^0.8.0;
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
-import { ISphinxAccessControl } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
+import {
+    ISphinxAccessControl
+} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
 import {
     ISphinxAccessControlEnumerable
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
@@ -54,7 +56,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
     bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
 
-    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE = vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
+    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
+        vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
     string private rootPluginPath =
         vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
     string private rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
@@ -110,10 +113,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             address addr = create2Deploy(ct.creationCode);
             require(
                 addr == ct.expectedAddress,
-                string(abi.encodePacked(
-                    "address mismatch. expected address: ",
-                    vm.toString(ct.expectedAddress)
-                ))
+                string(
+                    abi.encodePacked(
+                        "address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
+                    )
+                )
             );
         }
 
@@ -266,7 +271,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
             require(
                 success,
-                string(abi.encodePacked("failed to deploy contract. expected address: ", vm.toString(addr)))
+                string(
+                    abi.encodePacked(
+                        "failed to deploy contract. expected address: ",
+                        vm.toString(addr)
+                    )
+                )
             );
         }
 
@@ -337,10 +347,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return computeCreate2Address(authSalt, authProxyInitCodeHash, authFactoryAddress);
     }
 
-    function getSphinxManagerAddress(
-        SphinxConfig memory _config
-    ) public pure returns (address) {
-        address authAddress = getSphinxAuthAddress(_config.owners, _config.threshold, _config.projectName);
+    function getSphinxManagerAddress(SphinxConfig memory _config) public pure returns (address) {
+        address authAddress = getSphinxAuthAddress(
+            _config.owners,
+            _config.threshold,
+            _config.projectName
+        );
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _config.projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
     }
@@ -360,7 +372,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getSphinxDeployerPrivateKey(uint256 _num) public pure returns (uint256) {
-        return uint256(keccak256(abi.encode('sphinx.deployer', _num)));
+        return uint256(keccak256(abi.encode("sphinx.deployer", _num)));
     }
 
     /**
@@ -369,14 +381,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         be called during a broadcast. If it's not view/pure, then this call would be
      *         broadcasted, which is not what we want.
      */
-    function getSphinxWalletsSortedByAddress(uint256 _numWallets) external pure returns (Wallet[] memory) {
+    function getSphinxWalletsSortedByAddress(
+        uint256 _numWallets
+    ) external pure returns (Wallet[] memory) {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
             uint256 privateKey = getSphinxDeployerPrivateKey(i);
-            wallets[i] = Wallet({
-                addr: vm.addr(privateKey),
-                privateKey: privateKey
-            });
+            wallets[i] = Wallet({ addr: vm.addr(privateKey), privateKey: privateKey });
         }
 
         // Sort the wallets by address
@@ -1162,7 +1173,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ISphinxAuth _auth,
         address _msgSender
     ) external view {
-        require(registryAddress.code.length > 0, "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it.");
+        require(
+            registryAddress.code.length > 0,
+            "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
+        );
         require(
             _config.owners.length == 1,
             "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
@@ -1216,8 +1230,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
             );
             require(
-                !_auth.firstProposalOccurred() ||
-                    auth.hasRole(keccak256("ProposerRole"), deployer),
+                !_auth.firstProposalOccurred() || auth.hasRole(keccak256("ProposerRole"), deployer),
                 "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
             );
         }
@@ -1356,35 +1369,40 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return a == 0 ? 0 : (a - 1) / b + 1;
     }
 
-    function validateProposal(ISphinxAuth _auth, address _msgSender, Network _network, SphinxConfig memory _config) external view {
-            bool firstProposalOccurred = address(_auth).code.length > 0
-                ? _auth.firstProposalOccurred()
-                : false;
+    function validateProposal(
+        ISphinxAuth _auth,
+        address _msgSender,
+        Network _network,
+        SphinxConfig memory _config
+    ) external view {
+        bool firstProposalOccurred = address(_auth).code.length > 0
+            ? _auth.firstProposalOccurred()
+            : false;
 
-            if (firstProposalOccurred) {
-                require(
-                    ISphinxAccessControl(address(_auth)).hasRole(keccak256("ProposerRole"), _msgSender),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address ",
-                            vm.toString(_msgSender),
-                            " is not currently a proposer on ",
-                            getNetworkInfo(_network).name,
-                            "."
-                        )
+        if (firstProposalOccurred) {
+            require(
+                ISphinxAccessControl(address(_auth)).hasRole(keccak256("ProposerRole"), _msgSender),
+                string(
+                    abi.encodePacked(
+                        "Sphinx: The address ",
+                        vm.toString(_msgSender),
+                        " is not currently a proposer on ",
+                        getNetworkInfo(_network).name,
+                        "."
                     )
-                );
-            } else {
-                require(
-                    arrayContainsAddress(_config.proposers, _msgSender),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
-                            vm.toString(_msgSender)
-                        )
+                )
+            );
+        } else {
+            require(
+                arrayContainsAddress(_config.proposers, _msgSender),
+                string(
+                    abi.encodePacked(
+                        "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
+                        vm.toString(_msgSender)
                     )
-                );
-            }
+                )
+            );
+        }
     }
 
     /**
@@ -1416,7 +1434,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[0] = "cast";
         inputs[1] = "send";
         inputs[2] = vm.toString(authFactoryAddress);
-        inputs[3] = vm.toString(abi.encodePacked(ISphinxAuthFactory(authFactoryAddress).deploy.selector, abi.encode(_authData, hex"", _projectName)));
+        inputs[3] = vm.toString(
+            abi.encodePacked(
+                ISphinxAuthFactory(authFactoryAddress).deploy.selector,
+                abi.encode(_authData, hex"", _projectName)
+            )
+        );
         inputs[4] = "--rpc-url";
         inputs[5] = _rpcUrl;
         inputs[6] = "--private-key";

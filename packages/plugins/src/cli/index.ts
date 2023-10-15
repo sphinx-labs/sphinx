@@ -1,39 +1,16 @@
 #!/usr/bin/env node
 
-import { join, resolve } from 'path'
-import { spawnSync } from 'child_process'
-import { readFileSync, existsSync, unlinkSync } from 'fs'
-
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import {
-  displayDeploymentTable,
-  makeParsedConfig,
-  spawnAsync,
-} from '@sphinx-labs/core/dist/utils'
-import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
-import {
-  getPreview,
-  getPreviewString,
-  userConfirmation,
-  SphinxActionType,
-  getEtherscanEndpointForNetwork,
-  SUPPORTED_NETWORKS,
-  ConfigArtifacts,
-} from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
-import { red } from 'chalk'
-
 import { writeSampleProjectFiles } from '../sample-project'
-import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
+import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import { generateClient } from './typegen/client'
-import { decodeDeploymentInfo } from '../foundry/decode'
 import { propose } from './propose'
-import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { deploy } from './deploy'
 
 // Load environment variables from .env

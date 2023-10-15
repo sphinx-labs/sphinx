@@ -1,7 +1,6 @@
 import { DeploymentInfo } from '@sphinx-labs/core/dist/config/types'
 import { recursivelyConvertResult } from '@sphinx-labs/core/dist/utils'
-import { AbiCoder, Fragment, FunctionFragment, Interface, Result } from 'ethers'
-import { ParamType } from 'ethers/lib.commonjs/abi'
+import { AbiCoder, Fragment, Interface } from 'ethers'
 
 import { ProposalOutput } from './types'
 
