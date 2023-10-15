@@ -186,11 +186,17 @@ export const makeGetConfigArtifacts = (
         return fileName.endsWith('.json')
       })
 
-    // 
-    for (const cachedFile of Object.keys(buildInfoCache)) {
-      if (!buildInfoFileNames.includes(cachedFile)) {
-        delete buildInfoCache[cachedFile]
-      }
+    // Check if there are any build info files in the cache that don't exist in the filesystem. If
+    // the cache contains any files that don't exist, then the user probably removed a build info
+    // file manually. This could cause us to use an outdated build info file for a contract, so we
+    // throw an error in this situation.
+    const cacheIsSubsetOfBuildInfoFiles = Object.keys(buildInfoCache).every(
+      (v) => buildInfoFileNames.includes(v)
+    )
+    if (!cacheIsSubsetOfBuildInfoFiles) {
+      throw new Error(
+        `Build info cache is outdated. Please run 'forge clean' then try again.`
+      )
     }
 
     const cachedNames = Object.keys(buildInfoCache)
