@@ -1,24 +1,17 @@
 # Quickstart
+This guide will show you how to setup a fresh Sphinx project, deploy contracts, and run tests.
 
-script = 'script'
-test = 'test'
-ffi = true
-build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
-fs_permissions = [{ access = "read", path = "./"}]
-allow_paths = ["../.."]
-# We recommend setting the optimizer to 'false' for development because
-# this makes compilation happen ~5x faster. See here for more details:
-# https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage
-optimizer = false
-
-This guide will show you how to deploy and test a sample project with Sphinx.
-
-> Note: This guide is for setting up Sphinx in a fresh directory. To integrate Sphinx into an existing repository, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md).
+> For a guide on adding Sphinx to an existing project, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md).
 
 ## Table of Contents
 
-TODO(md-end)
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Initialize a project](#4-initialize-a-project)
+5. [Generate Sphinx clients](#5-generate-sphinx-clients)
+6. [Run the tests](#6-run-the-tests)
+7. [Deploy on Anvil](#7-deploy-on-anvil)
 
 ## 1. Prerequisites
 
@@ -68,7 +61,14 @@ This command created a few files:
 - `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx. TODO(md): rm?: It also contains public RPC endpoints for several of the networks that Sphinx supports.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
-## 5. Test the deployment
+## 5. Generate Sphinx clients
+```
+npx sphinx generate
+```
+
+Sphinx scripts are written using Sphinx client contracts instead of using your contracts directly. The above command generates these clients into a new `client` folder. You'll learn more about Sphinx clients in the [Writing Scripts with Sphinx](TODO) guide.
+
+## 6. Run the tests
 
 Run the test file at `test/HelloSphinx.t.sol`:
 
@@ -76,14 +76,7 @@ Run the test file at `test/HelloSphinx.t.sol`:
 forge test
 ```
 
-## 6. Deploy locally
-
-With the Sphinx CLI tool, you deploy contracts using a CLI command instead of directly invoking a Forge script.
-The CLI command is a thin wrapper over a basic Forge script. When deploying on a standalone network, the deploy command  displays a preview of the deployment and generates deployment artifacts afterwards.
-
-## 7. Broadcast deployment on Anvil
-
-TODO(md): show both ways (`forge script` and `sphinx deploy`)
+## 7. Deploy on Anvil
 
 Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which
 are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
@@ -93,26 +86,17 @@ First, start an Anvil node:
 anvil
 ```
 
-Then, navigate to a new terminal window.
-
-In the new terminal window, load the `.env` file, which contains a valid private key on Anvil:
-
+Then deploy on Anvil using the `deploy` command:
 ```
-source .env
+npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 ```
 
-If your Sphinx config file is written in TypeScript:
+You'll be shown a preview of your deployment and prompted to confirm. You'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
-```
-npx sphinx deploy --config sphinx/HelloSphinx.config.ts --broadcast --private-key $PRIVATE_KEY --rpc http://127.0.0.1:8545
-```
+TODO(md): show using `forge script`
 
-If your Sphinx config file is written in JavaScript:
+## 9. Next steps
 
-```
-npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --private-key $PRIVATE_KEY --rpc http://127.0.0.1:8545
-```
+[Writing Scripts with Sphinx](TODO): Learn about writing your own deployment scripts using Sphinx.
 
-## 8. Next steps
-
-To get started with the Sphinx DevOps platform, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md).
+[Getting Started with the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md): Try deploying on a live network using the Sphinx DevOps Platform.

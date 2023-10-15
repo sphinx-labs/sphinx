@@ -1,4 +1,4 @@
-# Getting Started with the DevOps Platform
+# Getting Started with the Sphinx DevOps Platform
 
 This guide will walk you through a sample multi-chain deployment using the Sphinx Foundry plugin and DevOps platform.
 

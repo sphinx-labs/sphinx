@@ -27,8 +27,7 @@ contract HelloSphinx {
 export const getSampleScriptFile = (
   solcVersion: string,
   scriptDirPath: string,
-  srcDirPath: string,
-  quickstart: boolean
+  srcDirPath: string
 ) => {
   // Get the relative path from the test directory to the scripts directory. Note that this also
   // strips the trailing path separator ('/') from the contract directory path (if it exists), which
@@ -38,7 +37,7 @@ export const getSampleScriptFile = (
   const relativeSphinxClientPath = relative(scriptDirPath, resolve('client/'))
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
-  const sphinxImport = quickstart ? '@sphinx' : '@sphinx-labs/plugins'
+  const sphinxImport = '@sphinx-labs/plugins'
 
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
@@ -70,8 +69,7 @@ contract HelloSphinxScript is SphinxClient {
 export const getSampleFoundryTestFile = (
   solcVersion: string,
   testDirPath: string,
-  scriptDirPath: string,
-  quickstart: boolean
+  scriptDirPath: string
 ) => {
   // Get the relative path from the test directory to the scripts directory. Note that this also
   // strips the trailing path separator ('/') from the contract directory path (if it exists), which
@@ -80,7 +78,7 @@ export const getSampleFoundryTestFile = (
   // include the trailing slash, which is what we want.
   const relativeScriptPath = relative(testDirPath, scriptDirPath)
 
-  const sphinxImport = quickstart ? '@sphinx' : '@sphinx-labs/plugins'
+  const sphinxImport = '@sphinx-labs/plugins'
 
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
