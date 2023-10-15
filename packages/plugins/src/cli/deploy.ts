@@ -49,8 +49,6 @@ export const deploy = async (
   // This isn't a big deal, but it may be puzzling to the user.
   await generateClient(silent, true)
 
-  // TODO: that build info bug you ran into yesterday
-
   const {
     artifactFolder,
     buildInfoFolder,
