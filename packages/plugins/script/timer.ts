@@ -31,10 +31,6 @@ const main = async () => {
       mockPrompt
     )
 
-    // await execAsync(
-    //   'npx sphinx deploy script/Sample.s.sol --network anvil --confirm'
-    // )
-
     const end = Date.now()
     agg += (end - begin) / 1000
 
