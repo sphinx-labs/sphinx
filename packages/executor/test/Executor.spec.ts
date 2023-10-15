@@ -3,6 +3,8 @@ import path from 'path'
 import '@sphinx-labs/plugins'
 import { readFileSync } from 'fs'
 
+// TODO: yarn link
+
 import {
   makeAuthBundle,
   getProjectBundleInfo,
