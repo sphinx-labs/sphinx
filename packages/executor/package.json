@@ -11,7 +11,7 @@
     "start": "node ./dist/index.js",
     "build": "yarn build:ts && forge build",
     "build:ts": "tsc -p ./tsconfig.json",
-    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo && forge clean",
     "test:coverage": "export DEV_FILE_PATH=../../node_modules/@sphinx-labs/plugins/ apt install lsof && yarn test",
     "test": "export DISABLE_ANALYTICS=true && yarn test:start-node && yarn test:start-executor && yarn test:run && yarn test:kill",
     "test:start-node": "anvil --silent > /dev/null 2>&1 & sleep 5",

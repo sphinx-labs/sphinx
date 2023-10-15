@@ -2,7 +2,7 @@ dist/
 .env*
 cache
 .compiler-configs
-artifacts
+out
 cache
 deployments/
 broadcast/

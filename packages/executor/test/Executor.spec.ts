@@ -175,7 +175,7 @@ describe('Remote executor', () => {
 const getContract = (): ethers.Contract => {
   const abi =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(path.resolve('./artifacts/ExecutorTest.sol/ExecutorTest.json')).abi
+    require(path.resolve('./out/ExecutorTest.sol/ExecutorTest.json')).abi
 
   const contract = new ethers.Contract(contractAddress, abi, provider)
   return contract
