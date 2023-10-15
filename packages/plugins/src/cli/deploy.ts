@@ -19,6 +19,7 @@ import {
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 import { red } from 'chalk'
+import ora from 'ora'
 
 import { makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
