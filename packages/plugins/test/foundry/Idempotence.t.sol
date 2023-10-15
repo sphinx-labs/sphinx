@@ -74,20 +74,19 @@ contract Idempotence_Test is Idempotence_Script {
         deploy(Network.optimism_goerli);
         assertEq(myContract.uintArg(), 3);
     }
+}
+
+contract ForkIdempotence_Test is Idempotence_Script {
 
     function test_fork_deploy_success() external {
-        resetAnvilNode({_chainId: 1});
-
-        vm.createSelectFork("ethereum");
+        vm.createSelectFork("ethereum", uint(0));
         assertEq(address(myContract).code.length, 0);
         deploy(Network.ethereum);
         assertEq(myContract.uintArg(), 3);
     }
 
     function test_fork_idempotence_success() external {
-        resetAnvilNode({_chainId: 5});
-
-        vm.createSelectFork("goerli");
+        vm.createSelectFork("goerli", uint(0));
         assertEq(address(myContract).code.length, 0);
         deploy(Network.goerli);
         deploy(Network.goerli);
@@ -95,18 +94,15 @@ contract Idempotence_Test is Idempotence_Script {
         assertEq(myContract.uintArg(), 3);
     }
 
-    function test_multiple_forks_idempotence_success() external {
-        resetAnvilNode({_chainId: 10});
-
-        vm.createSelectFork("optimism");
+    function test_fork_multichain_idempotence_success() external {
+        vm.createSelectFork("optimism", uint(0));
         assertEq(address(myContract).code.length, 0);
         deploy(Network.optimism);
         deploy(Network.optimism);
         deploy(Network.optimism);
         assertEq(myContract.uintArg(), 3);
 
-        resetAnvilNode({_chainId: 420});
-        vm.createSelectFork("optimism_goerli");
+        vm.createSelectFork("optimism_goerli", uint(0));
         assertEq(address(myContract).code.length, 0);
         deploy(Network.optimism_goerli);
         deploy(Network.optimism_goerli);
