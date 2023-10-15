@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "start": "node ./dist/index.js",
-    "build": "yarn build:ts && ts-node ./src/cli/index.ts generate",
+    "build": "yarn build:ts && ts-node ../plugins/src/cli/index.ts generate",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo cache/",
     "test:coverage": "apt install lsof && yarn test",
