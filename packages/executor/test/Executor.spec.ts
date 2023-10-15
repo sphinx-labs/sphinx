@@ -5,6 +5,8 @@ import { readFileSync } from 'fs'
 
 // TODO: yarn link
 
+// TODO: order a desk and chair
+
 // TODO(md): we should probably tell users to add `npx sphinx generate` to their build command.
 
 import {
