@@ -56,7 +56,7 @@ describe('Remote executor', () => {
 
     const deploymentInfoPath = path.join(cachePath, 'sphinx-chain-info.txt')
 
-    const { code } = await spawnAsync('forge', [
+    const { code, stdout, stderr } = await spawnAsync('forge', [
       'script',
       'script/ExecutorTest.s.sol',
       '--sig',
@@ -67,6 +67,8 @@ describe('Remote executor', () => {
       rpcUrl,
     ])
     if (code !== 0) {
+      console.log(stdout)
+      console.log(stderr)
       throw new Error(`Failed to dry run deployment`)
     }
     const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
