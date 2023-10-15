@@ -2,8 +2,6 @@ import path from 'path'
 import '@sphinx-labs/plugins'
 import { readFileSync } from 'fs'
 
-// TODO: order a desk and chair
-
 // TODO(md): we should probably tell users to add `npx sphinx generate` to their build command.
 
 import {
