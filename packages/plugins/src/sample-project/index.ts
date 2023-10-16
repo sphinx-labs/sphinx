@@ -45,12 +45,7 @@ export const writeSampleProjectFiles = (
     // Create the sample Sphinx config file.
     fs.writeFileSync(
       configPath,
-      getSampleScriptFile(
-        solcVersion,
-        scriptDirPath,
-        contractDirPath,
-        quickstart
-      )
+      getSampleScriptFile(solcVersion, scriptDirPath, contractDirPath)
     )
   }
 
@@ -75,12 +70,7 @@ export const writeSampleProjectFiles = (
     // Create the sample test file.
     fs.writeFileSync(
       testFilePath,
-      getSampleFoundryTestFile(
-        solcVersion,
-        testDirPath,
-        scriptDirPath,
-        quickstart
-      )
+      getSampleFoundryTestFile(solcVersion, testDirPath, scriptDirPath)
     )
   }
 }
