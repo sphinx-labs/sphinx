@@ -15,7 +15,7 @@ remappings=[
   'ds-test/=node_modules/ds-test/src/',
   '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
   '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
-  'sphinx-forge-std/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/'
+  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/'
 ]
 
 [rpc_endpoints]

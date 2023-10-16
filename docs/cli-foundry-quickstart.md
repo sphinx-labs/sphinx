@@ -97,6 +97,4 @@ TODO(md): show using `forge script`
 
 ## 9. Next steps
 
-[Writing Scripts with Sphinx](TODO): Learn about writing your own deployment scripts using Sphinx.
-
-[Getting Started with the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md): Try deploying on a live network using the Sphinx DevOps Platform.
+[Writing Deployment Scripts with Sphinx](TODO): Learn about writing your own deployment scripts using Sphinx.
