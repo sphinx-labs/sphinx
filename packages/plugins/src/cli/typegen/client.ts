@@ -591,6 +591,8 @@ ${contractClientSrc}
 
 export const generateClientsInFolder = async (
   folder: string,
+  scriptFolder: string,
+  testFolder: string,
   artifactFolder: string,
   outputPath: string,
   remappings: Record<string, string>,
@@ -598,6 +600,18 @@ export const generateClientsInFolder = async (
   allDeployFunctionImports: Record<string, string>,
   allDeployFunctions: string[]
 ) => {
+  // Skip the script and test folders
+  // This can happen if the user has a script or test folder nested in their src directory
+  if (folder === scriptFolder) {
+    console.log('skipping script folder')
+    return
+  }
+
+  if (folder === testFolder) {
+    console.log('skipping test folder')
+    return
+  }
+
   const subdirs: string[] = []
   const files: string[] = []
   readdirSync(folder, { withFileTypes: true }).map((dirent) => {
@@ -613,6 +627,8 @@ export const generateClientsInFolder = async (
     const subdirPath = path.join(folder, subdir)
     await generateClientsInFolder(
       subdirPath,
+      scriptFolder,
+      testFolder,
       artifactFolder,
       subdirOutputPath,
       remappings,
@@ -786,7 +802,8 @@ export const generateClient = async (
 
   spinner.start('Generating Sphinx clients...')
 
-  const { src, artifactFolder, remappings } = await getFoundryConfigOptions()
+  const { src, artifactFolder, remappings, script, test } =
+    await getFoundryConfigOptions()
 
   const srcFolder = process.env.DEV_FILE_PATH ? 'contracts/test' : src
 
@@ -806,6 +823,8 @@ export const generateClient = async (
 
   await generateClientsInFolder(
     srcFolder,
+    script,
+    test,
     artifactFolder,
     CLIENT_FOLDER_NAME,
     remappings,
