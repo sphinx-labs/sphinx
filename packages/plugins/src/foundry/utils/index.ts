@@ -255,13 +255,8 @@ export const makeGetConfigArtifacts = (
         // Look through the cache for the first build info file that contains the contract
         for (const file of sortedCachedFiles) {
           if (file.contracts?.includes(artifact.sourceName)) {
-            const buildInfo =
-              file.name in localBuildInfoCache
-                ? (localBuildInfoCache[file.name] as BuildInfo)
-                : undefined
-
             // Keep track of if we need to read the file or not
-            if (!buildInfo && !toReadFiles.includes(file.name)) {
+            if (!toReadFiles.includes(file.name)) {
               toReadFiles.push(file.name)
             }
 
@@ -269,15 +264,17 @@ export const makeGetConfigArtifacts = (
               fullyQualifiedName,
               artifact,
               buildInfoName: file.name,
-              buildInfo,
             }
           }
         }
 
         // Throw an error if no build info file is found in the cache for this contract
         // This should only happen if the user manually deletes a build info file
+        if (fs.existsSync(buildInfoCacheFilePath)) {
+          fs.unlinkSync(buildInfoCacheFilePath)
+        }
         throw new Error(
-          `Failed to find build info for ${artifact.sourceName}. Try recompiling with force: forge build --force`
+          `Build info cache is outdated, please run 'forge build --force' then try again.`
         )
       })
     )
@@ -285,15 +282,17 @@ export const makeGetConfigArtifacts = (
     // Read any build info files that we didn't already have in memory
     await Promise.all(
       toReadFiles.map(async (file) => {
-        try {
-          const buildInfo = await streamJsonFile(join(buildInfoFolder, file))
-          localBuildInfoCache[file] = buildInfo
-        } catch (e) {
-          // Throw an error if we can't read the file
-          // This should only happen if the user manually deleted the file
+        const fullFilePath = join(buildInfoFolder, file)
+        if (!fs.existsSync(fullFilePath)) {
+          if (fs.existsSync(buildInfoCacheFilePath)) {
+            fs.unlinkSync(buildInfoCacheFilePath)
+          }
           throw new Error(
-            `Failed to read file ${file}. Try recompiling with force: forge build --force`
+            `Build info cache is outdated, please run 'forge build --force' then try again.`
           )
+        } else {
+          const buildInfo = await streamJsonFile(fullFilePath)
+          localBuildInfoCache[file] = buildInfo
         }
       })
     )
