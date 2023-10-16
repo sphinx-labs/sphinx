@@ -27,12 +27,14 @@ cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000
 cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
 
 echo "Deploying contracts to forks of networks (TODO: rm)..."
-npx sphinx deploy script/ChainSpecific.s.sol --network optimism --confirm
-npx sphinx deploy script/ChainSpecific.s.sol --network optimism_goerli --confirm
-npx sphinx deploy script/ChainSpecific.s.sol --network ethereum --confirm
-npx sphinx deploy script/ChainSpecific.s.sol --network goerli --confirm
-npx sphinx deploy script/ChainSpecific.s.sol --network arbitrum --confirm
-npx sphinx deploy script/ChainSpecific.s.sol --network arbitrum_goerli --confirm
+# TODO(docs): we use ts-node because...
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network optimism --confirm
+echo "Deployed to optimism (TODO: rm)"
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network optimism_goerli --confirm
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network ethereum --confirm
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network goerli --confirm
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network arbitrum --confirm
+npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network arbitrum_goerli --confirm
 forge test --match-contract Broadcast
 
 yarn test:kill

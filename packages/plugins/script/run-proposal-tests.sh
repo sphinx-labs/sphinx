@@ -16,8 +16,9 @@ forge test --match-contract Proposal_Initial_Test
 
 # The rest of the tests in this file are meant to occur after a deployment has been completed on the
 # networks in `Proposal_Initial_Test`.
-npx sphinx deploy test/foundry/Proposal.t.sol --network optimism_goerli  --confirm --target-contract Proposal_Initial_Test --silent
-npx sphinx deploy test/foundry/Proposal.t.sol --network goerli  --confirm --target-contract Proposal_Initial_Test --silent
+# TODO(docs): we use ts-node because...
+npx ts-node src/cli/index.ts deploy test/foundry/Proposal.t.sol --network optimism_goerli  --confirm --target-contract Proposal_Initial_Test --silent
+npx ts-node src/cli/index.ts deploy test/foundry/Proposal.t.sol --network goerli  --confirm --target-contract Proposal_Initial_Test --silent
 
 forge test --match-contract Proposal_AddContract_Test
 forge test --match-contract Proposal_NewChains_Test
