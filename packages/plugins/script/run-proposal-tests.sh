@@ -4,8 +4,6 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
-source .env
-
 yarn test:kill > /dev/null
 
 anvil --silent --chain-id 5 --port 42005 &
