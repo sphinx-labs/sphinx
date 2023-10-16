@@ -10,6 +10,7 @@ yarn test:kill > /dev/null
 anvil --silent --chain-id 1 --port 42001 &
 anvil --silent --chain-id 5 --port 42005 &
 anvil --silent --chain-id 10 --port 42010 &
+anvil --silent --chain-id 420 --port 42420 &
 sleep 1
 
 forge test --match-contract Fork
