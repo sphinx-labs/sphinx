@@ -185,10 +185,12 @@ export const propose = async (
     return { proposalRequest: undefined, ipfsData: undefined }
   }
 
-  const chainStatus = bundleInfoArray.map((b) => ({
-    chainId: Number(b.compilerConfig.chainId),
-    numLeaves: b.authLeafs.length,
-  }))
+  const chainStatus = bundleInfoArray
+    .map((b) => ({
+      chainId: Number(b.compilerConfig.chainId),
+      numLeaves: b.authLeafs.length,
+    }))
+    .filter((b) => b.numLeaves > 0)
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
   for (const { compilerConfig, authLeafs } of bundleInfoArray) {
