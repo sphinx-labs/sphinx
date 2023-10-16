@@ -26,6 +26,7 @@ onlyOptimismDeployedBytecode=$(forge inspect contracts/test/ChainSpecific.sol:On
 cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
 cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
 
+echo "Deploying contracts to forks of networks (TODO: rm)..."
 npx sphinx deploy script/ChainSpecific.s.sol --network optimism --confirm
 npx sphinx deploy script/ChainSpecific.s.sol --network optimism_goerli --confirm
 npx sphinx deploy script/ChainSpecific.s.sol --network ethereum --confirm
