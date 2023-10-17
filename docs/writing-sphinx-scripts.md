@@ -25,8 +25,8 @@ Create a new script file and paste in the following template:
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Script, console } from "sphinx-forge-std/Script.sol";
-import { SphinxClient, SphinxConfig, Version } from "../client/SphinxClient.sol";
+import { Script } from "sphinx-forge-std/Script.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
 
 contract Sample is Script, SphinxClient {
@@ -145,8 +145,12 @@ function deploy(Network _network) public override sphinx(_network) {
 
 > If you're project includes any Solidity interfaces, we'll automatically generate clients for them along with the rest of your contracts. However, we will only generate a `define` function for interfaces.
 
-## 9. Permissioned Functions
-Sometimes you may need to call functions that require the caller have a certain set of permissions such as if you are using OpenZeppelin AccessControl or Ownable. You can still use Sphinx in these cases, but will need to do some custom configuration to make sure everything works properly. We've put together a separate guide on this topic.
+## 9. Ownable, Access Control, and Permissioned Functions
+Often times, you might have a contract that has some type of ownership or access control scheme implemented on it such as OpenZeppelin AccessControl or Ownable. When using Sphinx, it is important that you explicitly set the owner of your contracts in the contract constructor and that you *do not* use `msg.sender`. This is because your contracts are deployed through the Sphinx Protocol contracts. So if you use `msg.sender` to assign the ownership if your contracts, the owner will end up being one of the Sphinx Protocol contracts. When using an ownership or access control scheme, you should *always* pass an address into the contract constructor directly and use that to set the owner and/or admin roles.
+
+> When deploying with Sphinx, `msg.sender` is one of the Sphinx Protocol contracts. So you should never use `msg.sender` to set the owner of your contracts.
+
+Sometimes you may need to call functions that require the caller have a certain set of permissions such as if you are using OpenZeppelin AccessControl or Ownable. This will not work out of the box when using Sphinx because the Sphinx Protocol contracts will not have the required permissions, however you can still use Sphinx in these cases with some additional configuration. We've put together a separate guide on this topic.
 
 [Calling Permissioned Functions with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md)
 

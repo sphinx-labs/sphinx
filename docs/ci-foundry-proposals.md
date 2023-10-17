@@ -75,11 +75,12 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Dry Run
-        run: npx sphinx propose --config ./sphinx/HelloSphinx.config.ts --dry-run --testnets
+        # You may need to update this to point to your Sphinx deployment script
+        run: npx sphinx propose ./script/HelloSphinx.c.sol --dry-run --testnets
 ```
 
 ## 6. Create the propose workflow
-Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command allowing the proposal command to complete automatically.
+Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command allowing the proposal command to complete automatically. Your deployment will still required approval via the Sphinx UI before it will be executed on chain.
 
 Copy and paste the following into your `sphinx.deploy.yml` file:
 
@@ -108,16 +109,18 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Propose
-        run: npx sphinx propose --config ./sphinx/HelloSphinx.config.ts --confirm --testnets
+        run: npx sphinx propose ./script/HelloSphinx.c.sol  --confirm --testnets
 ```
 
-Here is a checklist of things to do before moving on:
-- [ ] Add the `PROPOSER_PRIVATE_KEY` secret to your CI process. This should be the private key of one of the proposer addresses in your Sphinx config file (under the `proposers` field).
+There's some additional configuration that may be necessary for the above workflows to work correctly.
+
+Here is a list of things to check before testing your integration:
+- [ ] Add the `PROPOSER_PRIVATE_KEY` [secret to your CI process](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository). This should be the private key of one of the proposer addresses in your Sphinx config file (under the `proposers` field).
 - [ ] Add the `SPHINX_API_KEY` secret to your CI process. You can find this in the Sphinx UI after registering your organization.
-- [ ] Enter any node provider API keys or urls  in the `env` section of the template and make sure they are also [configured as secrets in GitHub actions](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository).
-- [ ] If you want to push to a branch other than `main`, update the `branches` section of the template.
-- [ ] If your repository doesn't use `yarn --frozen-lockfile`, update the `yarn --frozen-lockfile` step under `jobs`.
-- [ ] Add the path to your Sphinx config in the `npx sphinx propose` command under `jobs`.
+- [ ] Enter any node provider API keys or urls in the `env` section of the template and make sure they are also [configured as secrets in GitHub actions](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository).
+- [ ] If you want to trigger deployments when pushing to a branch other than `main`, update the `branches` section of the template.
+- [ ] If your repository doesn't use `yarn`, update the `yarn --frozen-lockfile` step under `jobs`.
+- [ ] Make sure the path to your Sphinx deployment script in the `npx sphinx propose` command is correct.
 
 ## 7. Test your integration
 
@@ -126,4 +129,4 @@ Push your branch to Github, open a PR, and merge it after the dryrun check compl
 ## 8. Production Deployments
 In this example we've configured the CI deployment process to deploy against test networks when merging to main. If you want to go straight to production, you can do so by switching out the `--testnets` flag for the `--mainnets` production.
 
-However, in practice you may want something different depending on your workflow. For a more robust setup we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. Then you should setup a separate workflow to trigger production deployments when merging to main.
+However, in practice you may want something different depending on your workflow. For a more robust setup we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. Then having a separate workflow that triggers deployments on production networks when you eventually do merge to main.
