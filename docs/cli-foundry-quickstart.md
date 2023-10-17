@@ -100,4 +100,4 @@ TODO(md): show using `forge script`
 
 ## 9. Next steps
 
-[Writing Deployment Scripts with Sphinx](TODO): Learn about writing your own deployment scripts using Sphinx.
+[Writing Deployment Scripts with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md): Learn about writing your own deployment scripts using Sphinx.
