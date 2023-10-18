@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "sphinx-forge-std/console.sol";
 import { Vm } from "sphinx-forge-std/Vm.sol";
+import { Network } from "../foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
 import { SphinxConstants, SphinxContractInfo } from "../../contracts/foundry/SphinxConstants.sol";
@@ -39,23 +39,6 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
     bytes32 public constant EIP1967_IMPLEMENTATION_KEY =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    function deploySphinxAuthTo(address _where) public {
-        vm.etch(_where, getSphinxAuthImplInitCode());
-        (bool success, bytes memory runtimeBytecode) = _where.call("");
-        require(success, "Sphinx: Failed to deploy SphinxAuth. Should never happen.");
-        vm.etch(_where, runtimeBytecode);
-    }
-
-    function getSphinxAuthImplInitCode() private pure returns (bytes memory) {
-        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-        for (uint i = 0; i < contracts.length; i++) {
-            if (contracts[i].expectedAddress == authImplAddress) {
-                return contracts[i].creationCode;
-            }
-        }
-        revert("Sphinx: Unable to find SphinxAuth initcode. Should never happen.");
-    }
-
     function readAnvilBroadcastedTxns(
         string memory _path
     ) internal view returns (AnvilBroadcastedTxn[] memory) {
@@ -66,6 +49,32 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
             txns[i] = readAnvilBroadcastedTxn(_path, i);
         }
         return txns;
+    }
+
+    function createSelectAlchemyFork(Network _network) internal {
+        string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");
+
+        string memory networkUrlStr;
+        if (_network == Network.optimism) {
+            networkUrlStr = "opt-mainnet";
+        } else if (_network == Network.optimism_goerli) {
+            networkUrlStr = "opt-goerli";
+        } else if (_network == Network.arbitrum) {
+            networkUrlStr = "arb-mainnet";
+        } else if (_network == Network.arbitrum_goerli) {
+            networkUrlStr = "arb-goerli";
+        } else if (_network == Network.goerli) {
+            networkUrlStr = "eth-goerli";
+        } else if (_network == Network.ethereum) {
+            networkUrlStr = "eth-mainnet";
+        } else {
+            revert("SphinxTestUtils: unknown network");
+        }
+
+        string memory rpcUrl = string(
+            abi.encodePacked("https://", networkUrlStr, ".g.alchemy.com/v2/", alchemyAPIKey)
+        );
+        vm.createSelectFork(rpcUrl);
     }
 
     /**

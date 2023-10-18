@@ -13,6 +13,7 @@ remappings=[
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
   'sphinx-forge-std=../../node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/'
+  'sphinx-solmate=../../node_modules/@sphinx-labs/plugins/node_modules/sphinx-solmate/src/'
 ]
 
 [rpc_endpoints]

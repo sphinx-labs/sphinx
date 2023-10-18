@@ -14,7 +14,7 @@
     ],
     "nohoist": [
       "@sphinx-labs/contracts/@connext/interfaces",
-      "@sphinx-labs/{contracts,plugins}/solmate",
+      "@sphinx-labs/contracts/solmate",
       "@sphinx-labs/{contracts,plugins,demo,executor}/forge-std",
       "@sphinx-labs/{contracts,plugins,executor,demo}/ds-test",
       "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts",
@@ -23,6 +23,7 @@
       "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts",
       "@sphinx-labs/{plugins,demo,executor}/@sphinx-labs/contracts",
       "@sphinx-labs/plugins/sphinx-forge-std",
+      "@sphinx-labs/plugins/sphinx-solmate",
       "@sphinx-labs/plugins/solidity-stringutils",
       "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
     ]

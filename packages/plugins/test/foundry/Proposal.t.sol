@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
-import { console } from "sphinx-forge-std/console.sol";
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Test } from "sphinx-forge-std/Test.sol";
 import {
@@ -78,7 +77,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
             vm.toString(proposerPrivateKey)
         );
 
-        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName));
+        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         manager = ISphinxManager(sphinxManager(sphinxConfig));
     }
 

@@ -29,6 +29,7 @@ import {
   getManagerConstructorValues,
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
+  DEFAULT_CREATE3_ADDRESS,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -80,6 +81,10 @@ const writeConstants = async () => {
     patch: {
       type: 'uint256',
       value: patch,
+    },
+    defaultCreate3Address: {
+      type: 'address',
+      value: DEFAULT_CREATE3_ADDRESS,
     },
     defaultProxyTypeHash: {
       type: 'bytes32',

@@ -294,21 +294,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    /**
-     * @notice Deploys the SphinxManager contract to the target address by retrieving its bytecode
-     *         from SphinxConstants.sol. By doing this, we avoid importing the SphinxManager into
-     *         this contract, which could cause issues because its bytecode may be altered due to
-     *         the user's optimizer settings. For example, this could cause the `CREATE2` address
-     *         of the SphinxManager to be different locally than it is on-chain, which would result
-     *         in all of the user's contracts having different addresses too.
-     */
-    function deploySphinxManagerTo(address _where) external {
-        vm.etch(_where, getSphinxManagerImplInitCode());
-        (bool success, bytes memory runtimeBytecode) = _where.call("");
-        require(success, "Sphinx: Failed to deploy SphinxManager. Should never happen.");
-        vm.etch(_where, runtimeBytecode);
-    }
-
     function getSphinxManagerImplInitCode() private view returns (bytes memory) {
         SphinxContractInfo[] memory contracts = getSphinxContractInfo();
         for (uint i = 0; i < contracts.length; i++) {
@@ -320,38 +305,34 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getSphinxAuthAddress(
-        address[] memory _owners,
-        uint256 _ownerThreshold,
-        string memory _projectName
+        SphinxConfig memory _config
     ) public pure returns (address) {
         require(
-            bytes(_projectName).length > 0,
+            bytes(_config.projectName).length > 0,
             "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
         );
         require(
-            _owners.length > 0,
+            _config.owners.length > 0,
             "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
         );
         require(
-            _ownerThreshold > 0,
+            _config.threshold > 0,
             "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
         );
 
         // Sort the owners in ascending order. This is required to calculate the address of the
         // SphinxAuth contract, which determines the CREATE3 addresses of the user's contracts.
-        address[] memory sortedOwners = sortAddresses(_owners);
+        address[] memory sortedOwners = sortAddresses(_config.owners);
 
-        bytes memory authData = abi.encode(sortedOwners, _ownerThreshold);
-        bytes32 authSalt = keccak256(abi.encode(authData, _projectName));
+        bytes memory authData = abi.encode(sortedOwners, _config.threshold);
+        bytes32 authSalt = keccak256(abi.encode(authData, _config.projectName));
 
         return computeCreate2Address(authSalt, authProxyInitCodeHash, authFactoryAddress);
     }
 
     function getSphinxManagerAddress(SphinxConfig memory _config) public pure returns (address) {
         address authAddress = getSphinxAuthAddress(
-            _config.owners,
-            _config.threshold,
-            _config.projectName
+            _config
         );
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _config.projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
@@ -1303,56 +1284,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             }
         }
         return false;
-    }
-
-    /**
-     * @notice Removes the clients after a user's `deploy` function has been run. This function
-     *         has slightly different behavior depending on the `SphinxMode` in which it's called.
-     *
-     *         If the mode is `Default`, then each client is replaced by the user's contract that
-     *         it represents. This allows the user to interact with the *exact* version of their
-     *         contract in Foundry tests, instead of a proxied version of their contract. From
-     *         the user's perspective, the only benefit this provides is that calling
-     *         `address(contract).code` or `address(contract).codehash` will return their contract's
-     *         bytecode or bytecode hash instead of the client's.
-     *
-     *         If the mode is not `Default`, then the client is simply removed so that
-     *         no code exists at the `CREATE3` address. This allows us to call `sphinxDeployCodeTo`
-     *         after this function, which deploys the user's contracts using the full deployment
-     *         flow instead of the fast "default" flow.
-     */
-    function tearDownClients(
-        SphinxActionInput[] memory _actions,
-        ISphinxManager _manager
-    ) external {
-        for (uint i = 0; i < _actions.length; i++) {
-            SphinxActionInput memory action = _actions[i];
-            // If the mode is not `Default`, then the implementation won't contain any
-            // code. This is because we just collect the action inputs in these modes during the
-            // user's `deploy` function. We do it this way because the `sphinxDeployCodeTo` call,
-            // which occurs after this function, would fail if code already exists at the `CREATE3`
-            // address.
-            if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                (, , bytes32 userSalt, string memory referenceName) = abi.decode(
-                    action.data,
-                    (bytes, bytes, bytes32, string)
-                );
-                bytes32 sphinxCreate3Salt = keccak256(abi.encode(referenceName, userSalt));
-                address create3Address = computeCreate3Address(
-                    address(_manager),
-                    sphinxCreate3Salt
-                );
-                // The implementation's address is the CREATE3 address minus one.
-                address impl = address(uint160(create3Address) - 1);
-                vm.etch(create3Address, impl.code);
-            } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
-                // Replace the client's bytecode with the actual contract at its proper address.
-                (address to, ) = abi.decode(action.data, (address, string));
-                // The contract's bytecode is stored at its proper address minus one.
-                address impl = address(uint160(address(to)) - 1);
-                vm.etch(address(to), impl.code);
-            }
-        }
     }
 
     /**

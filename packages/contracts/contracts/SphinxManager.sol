@@ -24,7 +24,7 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import {
     IAccessControlEnumerable
 } from "@openzeppelin/contracts/access/IAccessControlEnumerable.sol";
-import { ICreate3 } from "./interfaces/ICreate3.sol";
+import { ISphinxCreate3 } from "./interfaces/ISphinxCreate3.sol";
 import { Semver, Version } from "./Semver.sol";
 import {
     ContextUpgradeable
@@ -605,7 +605,7 @@ contract SphinxManager is
                     action.data,
                     (bytes32, bytes)
                 );
-                address expectedAddress = ICreate3(create3).getAddressFromDeployer(
+                address expectedAddress = ISphinxCreate3(create3).getAddressFromDeployer(
                     salt,
                     address(this)
                 );
@@ -628,7 +628,7 @@ contract SphinxManager is
                     // attacker to deploy a malicious contract at the expected address by calling
                     // the `deploy` function on the Create3 contract directly.
                     (bool deploySuccess, ) = create3.delegatecall(
-                        abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
+                        abi.encodeCall(ISphinxCreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
                     );
 
                     if (deploySuccess) {

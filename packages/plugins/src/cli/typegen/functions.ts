@@ -268,7 +268,9 @@ export const generateFunctionFromASTDefinition = (
     src
   )
 
-  // We only return data for pure functions
+  // We only return data for pure functions. We don't add `pure` to the function header for pure
+  // functions because of the `delegateIfNotManager` modifier, which the Solidity compiler detects
+  // as a potentially state-changing expression.
   const outputsString =
     isPure && outputs.length > 0 ? ` returns (${outputs})` : ''
   const functionHeader = `function ${definition.name}(${inputs}) external delegateIfNotManager${outputsString}`

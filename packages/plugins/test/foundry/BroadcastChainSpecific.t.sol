@@ -9,7 +9,7 @@ contract BroadcastChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Tes
     Network network = Network.optimism;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -22,7 +22,9 @@ contract BroadcastChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Tes
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 2
+        });
     }
 
     function testAllNetworksContractSuccess() external {
@@ -35,7 +37,7 @@ contract BroadcastChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test
     Network network = Network.optimism_goerli;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -48,7 +50,9 @@ contract BroadcastChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 2
+        });
     }
 
     function testAllNetworksContractSuccess() external {
@@ -61,7 +65,7 @@ contract BroadcastChainSpecificEthereum_Test is AbstractChainSpecific_Test {
     Network network = Network.ethereum;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     // Nothing network-specific on this chain.
@@ -76,7 +80,9 @@ contract BroadcastChainSpecificEthereum_Test is AbstractChainSpecific_Test {
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 0
+        });
     }
 
     function testAllNetworksContractSuccess() external {
@@ -89,7 +95,7 @@ contract BroadcastChainSpecificGoerli_Test is AbstractChainSpecific_Test {
     Network network = Network.goerli;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     // Nothing network-specific on this chain.
@@ -104,7 +110,9 @@ contract BroadcastChainSpecificGoerli_Test is AbstractChainSpecific_Test {
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 0
+        });
     }
 
     function testAllNetworksContractSuccess() external {
@@ -117,7 +125,7 @@ contract BroadcastChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
     Network network = Network.arbitrum;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -132,7 +140,9 @@ contract BroadcastChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 3
+        });
     }
 
     function testAllNetworksContractSuccess() external {
@@ -145,7 +155,7 @@ contract BroadcastChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test
     Network network = Network.arbitrum_goerli;
 
     function setUp() public {
-        initializeBroadcastTests(network);
+        setUpBroadcastTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -160,7 +170,9 @@ contract BroadcastChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test
     }
 
     function testBroadcastSuccess() external {
-        assertBroadcastSuccess();
+        assertBroadcastSuccess({
+            _expectedNumChainSpecificActions: 4
+        });
     }
 
     function testAllNetworksContractSuccess() external {

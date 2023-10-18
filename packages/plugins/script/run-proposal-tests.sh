@@ -4,6 +4,11 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
+# Load the environment variables from the `.env` file if it exists. It doesn't exist in CI.
+if [ -f .env ]; then
+    source .env
+fi
+
 yarn test:kill > /dev/null
 
 anvil --silent --chain-id 5 --port 42005 &
@@ -14,7 +19,7 @@ forge test --match-contract Proposal_Initial_Test
 
 # The rest of the tests in this file are meant to occur after a deployment has been completed on the
 # networks in `Proposal_Initial_Test`.
-# TODO(docs): we use ts-node because...
+# We use ts-node instead of the `sphinx deploy` task because the latter fails in CI for an unknown reason.
 npx ts-node src/cli/index.ts deploy test/foundry/Proposal.t.sol --network optimism_goerli  --confirm --target-contract Proposal_Initial_Test --silent
 npx ts-node src/cli/index.ts deploy test/foundry/Proposal.t.sol --network goerli  --confirm --target-contract Proposal_Initial_Test --silent
 

@@ -54,7 +54,7 @@ contract ChainSpecific is SphinxClient {
         vm.makePersistent(address(sphinxUtils));
 
         auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(
-            sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName
+            sphinxConfig
         ));
     }
 
@@ -99,7 +99,8 @@ contract ChainSpecific is SphinxClient {
 
         AllNetworksClient allNetworksClient = deployAllNetworks(chainSpecificConstructorArgs[_network], address(manager));
         allNetworksClient.setFee(chainSpecificFee[_network]);
-        allNetworksClient.incrementFee();
+        uint256 fee = allNetworksClient.feeToAdd();
+        allNetworksClient.incrementFee(fee);
         allNetworksClient.transferOwnership(finalOwner);
         allNetworks = AllNetworks(address(allNetworksClient));
 

@@ -10,6 +10,7 @@ import {
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxActionType } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
+import { LocalSphinxManager } from "./LocalSphinxManager.sol";
 import { VmSafe } from "sphinx-forge-std/Vm.sol";
 
 /**
@@ -25,13 +26,14 @@ import { VmSafe } from "sphinx-forge-std/Vm.sol";
  *      be immutable variables, or the need to be stored in the Sphinx library contract.
  */
 abstract contract AbstractContractClient {
+    Sphinx private immutable sphinxLib;
+
     address internal immutable sphinxInternalManager;
-    Sphinx internal immutable sphinxInternalSphinxLib;
     address internal immutable sphinxInternalImpl;
 
     constructor(address _sphinxManager, address _sphinx, address _impl) {
         sphinxInternalManager = _sphinxManager;
-        sphinxInternalSphinxLib = Sphinx(_sphinx);
+        sphinxLib = Sphinx(_sphinx);
         sphinxInternalImpl = _impl;
     }
 
@@ -62,7 +64,7 @@ abstract contract AbstractContractClient {
         string memory fullyQualifiedName
     ) internal {
         require(
-            Sphinx(sphinxInternalSphinxLib).sphinxModifierEnabled(),
+            Sphinx(sphinxLib).sphinxModifierEnabled(),
             "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
         );
 
@@ -72,16 +74,17 @@ abstract contract AbstractContractClient {
         uint256 currentNonceInManager = sphinxInternalManager.code.length > 0
             ? ISphinxManager(sphinxInternalManager).callNonces(callHash)
             : 0;
-        uint256 currentNonceInDeployment = sphinxInternalSphinxLib.sphinxGetCallCountInDeployment(
+        uint256 currentNonceInDeployment = sphinxLib.sphinxGetCallCountInDeployment(
             callHash
         );
 
-        string memory referenceName = sphinxInternalSphinxLib.sphinxGetReferenceNameForAddress(
-            address(this)
+        string memory referenceName = sphinxLib.sphinxGetReferenceNameForAddress(
+            address(this),
+            sphinxInternalManager
         );
 
-        bool skip = currentNonceInManager > currentNonceInDeployment;
-        if (!skip && sphinxInternalSphinxLib.sphinxMode() == SphinxMode.Default) {
+        bool skip = currentNonceInManager != currentNonceInDeployment;
+        if (!skip) {
             (bool sphinxCallSuccess, bytes memory sphinxReturnData) = sphinxInternalImpl
                 .delegatecall(encodedCall);
             if (!sphinxCallSuccess) {
@@ -90,6 +93,9 @@ abstract contract AbstractContractClient {
                     revert(add(32, sphinxReturnData), mload(sphinxReturnData))
                 }
             }
+            // We update the `callNonces` mapping in the SphinxManager after each successful call
+            // because this mimics what happens on a live network.
+            LocalSphinxManager(address(sphinxInternalManager)).incrementCallNonce(callHash);
         }
 
         bytes memory actionData = abi.encode(
@@ -99,7 +105,7 @@ abstract contract AbstractContractClient {
             currentNonceInDeployment,
             referenceName
         );
-        sphinxInternalSphinxLib.sphinxAddActionInput(
+        sphinxLib.sphinxAddActionInput(
             SphinxActionInput({
                 fullyQualifiedName: fullyQualifiedName,
                 actionType: SphinxActionType.CALL,

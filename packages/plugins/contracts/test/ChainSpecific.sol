@@ -12,8 +12,12 @@ contract AllNetworks is Ownable {
         _transferOwnership(_initialOwner);
     }
 
-    function incrementFee() public {
-        feePercent++;
+    function incrementFee(uint256 _val) public {
+        feePercent += _val;
+    }
+
+    function feeToAdd() external pure returns (uint) {
+        return 42;
     }
 
     function setFee(uint _fee) public onlyOwner {

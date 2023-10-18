@@ -4,19 +4,15 @@ pragma solidity ^0.8.0;
 import { AbstractChainSpecific_Test } from "./AbstractChainSpecific.t.sol";
 import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 
-contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
+// This test suite checks that local deployments are idempotent after they've been broadcasted to an
+// Anvil node.
+
+contract BroadcastIdempotentChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
 
     Network network = Network.optimism;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimism));
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -33,19 +29,12 @@ contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
     }
 }
 
-contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
+contract BroadcastIdempotentChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
 
     Network network = Network.optimism_goerli;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimismGoerli));
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -62,17 +51,12 @@ contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
     }
 }
 
-contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
+contract BroadcastIdempotentChainSpecificEthereum_Test is AbstractChainSpecific_Test {
 
     Network network = Network.ethereum;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     // Nothing network-specific on this chain.
@@ -91,17 +75,12 @@ contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
     }
 }
 
-contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
+contract BroadcastIdempotentChainSpecificGoerli_Test is AbstractChainSpecific_Test {
 
     Network network = Network.goerli;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     // Nothing network-specific on this chain.
@@ -120,17 +99,12 @@ contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
     }
 }
 
-contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
+contract BroadcastIdempotentChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
 
     Network network = Network.arbitrum;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -149,17 +123,12 @@ contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
     }
 }
 
-contract ChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
+contract BroadcastIdempotentChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
 
     Network network = Network.arbitrum_goerli;
 
     function setUp() public {
-        createSelectAlchemyFork(network);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-        deploy(network);
+        setUpBroadcastIdempotentTests(network);
     }
 
     function testChainSpecificActionsExecuted() external override {

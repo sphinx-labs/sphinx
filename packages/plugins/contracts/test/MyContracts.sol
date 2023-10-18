@@ -39,9 +39,8 @@ contract MyContract1 {
         uintArg += 1;
     }
 
-    function set(int _int, int _secondInt) external {
+    function set(int _int) external {
         intArg = _int;
-        secondIntArg = _secondInt;
     }
 
     function set(address _addr, address _otherAddr) external {
@@ -61,8 +60,8 @@ contract MyContract1 {
         addressArg = _myStruct.c.d;
     }
 
-    function myPure() external pure returns (MyStruct memory) {
-        return MyStruct({ a: 1, b: 2, c: MyNestedStruct({ d: address(1) }) });
+    function myPureFunction() external pure returns (MyStruct memory) {
+        return MyStruct({ a: 42, b: 123, c: MyNestedStruct({ d: address(256) }) });
     }
 
     function reverter() external pure {

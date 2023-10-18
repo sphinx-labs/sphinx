@@ -7,7 +7,7 @@ import { SphinxConfig, DeployOptions, DefineOptions } from "@sphinx-labs/plugins
 import { ExecutorTestClient } from "./ExecutorTest.c.sol";
 
 abstract contract SphinxClient is Sphinx {
-  
+
   function defineExecutorTest(
     address addr
   ) internal returns (ExecutorTestClient) {

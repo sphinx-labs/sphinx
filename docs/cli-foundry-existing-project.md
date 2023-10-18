@@ -125,6 +125,7 @@ If you're using a `remappings.txt` file, add:
 @sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry/
 @sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/
 sphinx-forge-std/=node_modules/sphinx-forge-std/src/
+sphinx-solmate/=node_modules/sphinx-solmate/src/
 ```
 
 If your remappings are in `foundry.toml`, update your `remappings` array to include:
@@ -133,6 +134,7 @@ remappings=[
   '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
   '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
   'sphinx-forge-std/=node_modules/sphinx-forge-std/src/'
+  'sphinx-solmate/=node_modules/sphinx-solmate/src/'
 ]
 ```
 

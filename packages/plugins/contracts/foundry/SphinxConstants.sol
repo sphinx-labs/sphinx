@@ -13,6 +13,7 @@ contract SphinxConstants {
   uint256 public constant major = 0;
   uint256 public constant minor = 2;
   uint256 public constant patch = 5;
+  address public constant defaultCreate3Address = 0x95297dA4A0C2Aa88b9baD37389DbfBca25AB46aE;
   bytes32 public constant defaultProxyTypeHash = 0x0000000000000000000000000000000000000000000000000000000000000000;
   bytes32 public constant ozTransparentProxyTypeHash = 0xd76431e21c065b4b093c05924ead6faf5da6f979ba0fb1dae58a8b668ec8c957;
   bytes32 public constant ozUUPSOwnableProxyTypeHash = 0x449ff20099d041c42fe19798275484d3a5e1603a748082b78b39101f99874a6d;

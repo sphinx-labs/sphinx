@@ -8,6 +8,8 @@ import { ChainSpecific } from "../../script/ChainSpecific.s.sol";
 import { Network, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
+import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
+import { DeploymentState, DeploymentStatus } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 /**
  * @dev An abstract contract to test multi-chain deployments that differ between networks (e.g.
@@ -44,7 +46,18 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         assertGt(address(allNetworks).code.length, 0);
     }
 
-    function initializeBroadcastTests(Network _network) internal {
+    function setUpBroadcastIdempotentTests(Network _network) internal {
+        NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(_network);
+        string memory rpcUrl = vm.rpcUrl(networkInfo.name);
+        vm.createSelectFork(rpcUrl);
+
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(_network).chainId);
+
+        deploy(_network);
+    }
+
+    function setUpBroadcastTests(Network _network) internal {
         setupVariables();
 
         NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(_network);
@@ -55,7 +68,12 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         assertEq(block.chainid, networkInfo.chainId);
     }
 
-    function assertBroadcastSuccess() internal {
+    /**
+     * @param _expectedNumChainSpecificActions The number of chain-specific `DEPLOY_CONTRACT` and
+     *                                         `CALL` actions that were included in the deployment
+     *                                         for the current network.
+     */
+    function assertBroadcastSuccess(uint256 _expectedNumChainSpecificActions) internal {
         string memory broadcastFilePath = string.concat(vm.projectRoot(), "/broadcast/ChainSpecific.s.sol/", vm.toString(block.chainid), "/sphinxDeployTask-latest.json");
         AnvilBroadcastedTxn[] memory broadcastedTxns = readAnvilBroadcastedTxns(broadcastFilePath);
 
@@ -71,6 +89,7 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         vm.expectCall(address(auth), abi.encodePacked(auth.approveDeployment.selector), 1);
         vm.expectCall(address(manager), abi.encodePacked(manager.executeInitialActions.selector), 1);
 
+        vm.recordLogs();
         for (uint256 i = 0; i < broadcastedTxns.length; i++) {
             AnvilBroadcastedTxn memory txn = broadcastedTxns[i];
             uint256 gas = bytesToUint(txn.txDetail.gas);
@@ -79,6 +98,24 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
             (bool success, ) = txn.txDetail.to.call{ gas: gas, value: value }(txn.txDetail.data);
             assertTrue(success);
         }
+
+        bytes32 deploymentId;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            Vm.Log memory log = logs[i];
+            if (log.emitter == address(manager) && log.topics[0] == SphinxManagerEvents.SphinxDeploymentCompleted.selector) {
+                deploymentId = log.topics[1];
+                break;
+            }
+        }
+        DeploymentState memory deploymentState = manager.deployments(deploymentId);
+        assertTrue(deploymentState.status == DeploymentStatus.COMPLETED);
+
+        // Four actions were executed for the 'AllNetworks' contract, which is executed on all networks.
+        uint256 numAllNetworksActions = 4;
+        // Check that the correct number of `DEPLOY_CONTRACT` and `CALL` actions were executed on
+        // the SphinxManager contract.
+        assertEq(deploymentState.numInitialActions, _expectedNumChainSpecificActions + numAllNetworksActions);
 
         assertTrue(auth.firstProposalOccurred());
 
@@ -102,9 +139,8 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         // Check that the fee is set correctly.
         uint256 fee = chainSpecificFee[_network];
         assertGt(fee, 0);
-        // The final fee is the initial fee plus one, since `incrementFee` was called once
-        // on each chain.
-        assertEq(allNetworks.feePercent(), fee + 1);
+        // The final fee is the initial fee plus the returned value of `AllNetworks.feeToAdd`.
+        assertEq(allNetworks.feePercent(), fee + allNetworks.feeToAdd());
 
         assertEq(allNetworks.owner(), finalOwner);
     }

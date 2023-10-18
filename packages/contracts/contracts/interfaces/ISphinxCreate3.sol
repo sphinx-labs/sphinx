@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.0;
 
 /**
- * @title ICreate3
+ * @title ISphinxCreate3
  * @notice Interface for a Create3 contract. Normally, this functionality would exist as internal
  *         functions in a library, which can be inherited by other contracts. Instead, we put this
  *         functionality in a contract so that other contracts can use non-standard Create3 formulas
@@ -18,7 +18,7 @@ pragma solidity ^0.8.15;
  *         attacker to snipe a user's contract by calling the `deploy` function on the Create3
  *         contract.
  */
-interface ICreate3 {
+interface ISphinxCreate3 {
     // The creation code isn't used in the address calculation.
     function deploy(
         bytes32 _salt,

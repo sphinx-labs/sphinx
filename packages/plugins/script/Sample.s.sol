@@ -11,6 +11,9 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
 // first, then talks about the devops platform next.
 
 contract Sample is Script, SphinxClient {
+
+    MyContract1 myContract;
+
     function setUp() public {
         sphinxConfig.projectName = "My Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
@@ -21,20 +24,24 @@ contract Sample is Script, SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myContract1 = deployMyContract1(
+        MyContract1Client myClient = deployMyContract1(
             -1,
             2,
             address(1),
             address(2)
         );
-        myContract1.incrementUint();
-        myContract1.incrementUint();
-        myContract1.incrementUint();
+        MyContract1.MyStruct memory myStruct = myClient.myPureFunction();
+        console.logInt(myStruct.a);
+        myClient.set(myStruct.a);
+        myClient.incrementUint();
+        myClient.incrementUint();
+        myClient.incrementUint();
 
-        console.log("MyContract1:", address(myContract1));
+        myContract = MyContract1(address(myClient));
     }
 
     function run() public {
         deploy(Network.anvil);
+        console.logInt(myContract.intArg());
     }
 }

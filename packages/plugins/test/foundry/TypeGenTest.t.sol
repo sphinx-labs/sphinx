@@ -514,9 +514,16 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(msgSender.msgSenderInFunction(), address(manager));
     }
 
-    // Covers deploying a contract with constructor logic that depends on the msg.sender
+    // Covers deploying a contract with constructor logic that depends on the msg.sender. The
+    // msg.sender inside the contract's constructor is a minimal proxy, which is deployed by the
+    // SphinxManager as part of the CREATE3 logic. See the `CREATE3.sol` library for details.
     function testMsgSenderInConstructor() public {
-        assertEq(msgSender.msgSenderInConstructor(), address(manager));
+        // Hard-coded bytecode of the proxy used by Create3 to deploy the contract.
+        bytes memory minimalProxyBytecode = hex"67_36_3d_3d_37_36_3d_34_f0_3d_52_60_08_60_18_f3";
+        bytes32 create3Salt = keccak256(abi.encode("MsgSender", bytes32(0)));
+        address minimalProxy = computeCreate2Address(create3Salt, keccak256(minimalProxyBytecode), address(manager));
+
+        assertEq(msgSender.msgSenderInConstructor(), address(minimalProxy));
     }
 
     // Covers deploying and interacting with a contract that has unnamed parameters in its constructor and functions
