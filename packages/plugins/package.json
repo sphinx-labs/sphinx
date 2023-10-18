@@ -19,7 +19,7 @@
     "build:contracts": "forge clean && yarn write-constants && forge build --skip script --skip test && ts-node ./src/cli/index.ts generate",
     "write-constants": "npx ts-node script/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "clean": "rimraf out/ dist/ ./tsconfig.tsbuildinfo ./forge-cache ./client",
-    "test": "yarn test:kill && yarn test:solc && yarn test:forge && yarn test:ts",
+    "test": "yarn test:kill && yarn test:solc && yarn test:ts && yarn test:forge",
     "test:ts": "npx mocha --require ts-node/register --timeout 200000 'test/mocha/**/*.ts'",
     "test:solc": "/bin/bash ./script/solc.sh",
     "test:forge": "forge test --no-match-contract '^(Proposal|Broadcast|Fork)' && /bin/bash script/run-fork-tests.sh && /bin/bash script/run-broadcast-tests.sh && /bin/bash script/run-proposal-tests.sh",
