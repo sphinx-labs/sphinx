@@ -1,5 +1,9 @@
 import chai from 'chai'
 
+// TODO(hai):
+// - what does the governor private key do?
+// - what does the `yarn script:goerli` command do?
+
 import {
   buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'
