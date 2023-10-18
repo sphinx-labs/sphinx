@@ -94,7 +94,7 @@ Then deploy on Anvil using the `deploy` command:
 npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm. You'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+You'll be shown a preview of your deployment and prompted to confirm. Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
 TODO(md): show using `forge script`
 

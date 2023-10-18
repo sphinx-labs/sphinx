@@ -207,33 +207,36 @@ export type SupportedChainId =
 
 export const MinimumWalletBalanceTestnets = {
   goerli: '0.15',
-  'optimism-goerli': '0.15',
-  'arbitrum-goerli': '0.15',
-  bnbt: '0.15',
-  maticmum: '0.15',
-  'gnosis-chiado': '0.15',
-  'linea-goerli': '0.15',
-  'polygon-zkevm-goerli': '0.15',
-  'avalanche-fuji': '1',
-  'fantom-testnet': '1',
-  'base-goerli': '0.15',
+  optimism_goerli: '0.15',
+  arbitrum_goerli: '0.15',
+  bnb_testnet: '0.15',
+  polygon_mumbai: '0.15',
+  gnosis_chiado: '0.15',
+  linea_goerli: '0.15',
+  polygon_zkevm_goerli: '0.15',
+  avalanche_fuji: '1',
+  fantom_testnet: '1',
+  base_goerli: '0.15',
 }
 
 export const MinimumWalletBalanceMainnets = {
   ethereum: '.05',
   optimism: '.025',
   arbitrum: '.025',
-  matic: '1',
+  polygon: '1',
   bnb: '.05',
-  xdai: '1',
+  gnosis: '1',
   linea: '0.025',
-  'polygon-zkevm': '0.025',
+  polygon_zkevm: '0.025',
   avalanche: '1',
   fantom: '1',
   base: '0.025',
 }
 
-export const MinimumWalletBalance = {
+export const MinimumWalletBalance: Record<
+  SupportedMainnetNetworkName | SupportedTestnetNetworkName,
+  string
+> = {
   ...MinimumWalletBalanceTestnets,
   ...MinimumWalletBalanceMainnets,
 }
