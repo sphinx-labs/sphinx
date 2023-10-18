@@ -628,7 +628,10 @@ contract SphinxManager is
                     // attacker to deploy a malicious contract at the expected address by calling
                     // the `deploy` function on the Create3 contract directly.
                     (bool deploySuccess, ) = create3.delegatecall(
-                        abi.encodeCall(ISphinxCreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
+                        abi.encodeCall(
+                            ISphinxCreate3.deploy,
+                            (salt, creationCodeWithConstructorArgs, 0)
+                        )
                     );
 
                     if (deploySuccess) {
