@@ -199,7 +199,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         cmds[3] = vm.toString(abi.encode(_deploymentInfoArray));
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exitCode == 1) {
+        if (result.exitCode != 0) {
             bytes memory revertMessage = abi.encodePacked("Sphinx: ", result.stderr);
             revert(string(revertMessage));
         }
@@ -216,7 +216,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         cmds[5] = vm.toString(_address.value);
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exitCode == 1) {
+        if (result.exitCode != 0) {
             revert(string(result.stderr));
         }
         vm.sleep(5000);
@@ -910,7 +910,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[4] = _rpcUrl;
 
         Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exitCode == 1) {
+        if (result.exitCode != 0) {
             revert(string(result.stderr));
         }
         return abi.decode(result.stdout, (bool));
@@ -1380,6 +1380,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // a nonce mismatch error in the user's deployment, leading it to fail.
         inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
         Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exitCode == 1) revert(string(result.stderr));
+        if (result.exitCode != 0) revert(string(result.stderr));
     }
 }
