@@ -33,14 +33,14 @@ contract SphinxDefaultCreate3 is ISphinxCreate3 {
     /**
      * @inheritdoc ISphinxCreate3
      */
-    function getAddress(bytes32 _salt) external override view returns (address) {
+    function getAddress(bytes32 _salt) external view override returns (address) {
         return CREATE3.getDeployed(_salt);
     }
 
     function getAddressFromDeployer(
         bytes32 _salt,
         address _deployer
-    ) public override pure returns (address) {
+    ) public pure override returns (address) {
         address proxy = keccak256(
             abi.encodePacked(
                 // Prefix:

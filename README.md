@@ -4,7 +4,8 @@ Sphinx is a Foundry plugin for deployments.
 
 TODO(md): it takes 9.5s to compile the sample project every time a change is made to a file. it
 takes less than 2s when the optimizer is off. we should definitely tell users to turn optimizer off
-during testing and development. i think there's a section in the foundry docs that covers this.
+during testing and development. there's a section in the foundry docs that covers this:
+https://book.getfoundry.sh/reference/forge/forge-build?highlight=significant#conditional-optimizer-usage
 
 Key features:
 * Skips any transactions in your script that have already been executed, similar to other idempotent tools like [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).

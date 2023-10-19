@@ -1,5 +1,11 @@
 import chai from 'chai'
 
+// TODO(hai):
+// - what does the governor private key do?
+// - what does the `yarn script:goerli` command do?
+
+// - TODO(md): add pnpm option in installation guide(s) since mean finance uses this
+
 import {
   buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'

@@ -55,11 +55,12 @@ import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphi
 //   (optimizer on), then 5s with sphinx (optimizer off). unfortunately, it seems like turning the
 //   optimizer off causes some of their tests to fail, but i think it'd still be useful when you're
 //   just trying to get the deployment script to work.
-// - TODO(ask): ask keep3r if it matters that the gas report breaks
 // - TODO(md): gas report results in higher values for all function calls in the `deploy` function.
 //   the reported contract deployment costs are identical to the actual deployment costs. the gas
-//   report in unit tests isn't impacted by this, since users interact with their real contracts
-//   in those tests. (assuming they don't call deploy in those tests).
+//   report for anything outside of the `deploy` function is unchanged, even when interacting with
+//   contracts deployed by sphinx.
+
+// - TODO(ask): ask keep3r if it matters that the gas report breaks
 
 /**
  * @notice An abstract contract that the user must inherit in order to execute deployments using
@@ -487,13 +488,13 @@ abstract contract Sphinx {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Sphinx: Cannot deploy within a broadcast. Please remove the broadcast or use the 'sphinx deploy' CLI command instead."
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
             callerMode != VmSafe.CallerMode.RecurrentBroadcast ||
             sphinxMode == SphinxMode.LocalNetworkBroadcast ||
                 sphinxMode == SphinxMode.LiveNetworkBroadcast,
-            "Sphinx: Cannot deploy within a broadcast. Please remove the broadcast or use the 'sphinx deploy' CLI command instead."
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,

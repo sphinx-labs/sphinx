@@ -4,7 +4,7 @@
 
 export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
 
-// TODO(md): update these
+// TODO(md): Update the list of 'supported networks' to include all of these
 export type SupportedMainnetNetworkName =
   | 'ethereum'
   | 'optimism'
