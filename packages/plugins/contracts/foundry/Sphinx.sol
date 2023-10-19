@@ -487,13 +487,13 @@ abstract contract Sphinx {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Sphinx: Cannot deploy within a broadcast. Please remove the broadcast or use the 'sphinx deploy' CLI command instead."
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
             callerMode != VmSafe.CallerMode.RecurrentBroadcast ||
             sphinxMode == SphinxMode.LocalNetworkBroadcast ||
                 sphinxMode == SphinxMode.LiveNetworkBroadcast,
-            "Sphinx: Cannot deploy within a broadcast. Please remove the broadcast or use the 'sphinx deploy' CLI command instead."
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,

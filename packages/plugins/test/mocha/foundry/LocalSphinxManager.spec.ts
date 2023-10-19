@@ -4,6 +4,9 @@ import chai from 'chai'
 // - what does the governor private key do?
 // - what does the `yarn script:goerli` command do?
 
+// TODO(permit2):
+// - TODO(md): add pnpm option 
+
 import {
   buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'
