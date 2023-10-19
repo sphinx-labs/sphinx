@@ -59,10 +59,9 @@ contract Sample is Script, SphinxClient {
 
     function deploy(Network _network) public override sphinx(_network) {
       // We first deploy PermissionedBox, setting the manager as its owner.
-      // Note that the `sphinxManager` variable is automatically calculated and stored
-      // in the `SphinxClient` contract that this script inherits from. So it will be
-      // available to you automatically.
-      PermissionedBoxClient permissionedBoxClient = deployPermissionedBox(sphinxManager);
+      // Note that the `sphinxManager` is a utility function implemented on the SphinxClient
+      // contract that this script inherits from. So it will be available to you automatically.
+      PermissionedBoxClient permissionedBoxClient = deployPermissionedBox(sphinxManager(sphinxConfig));
 
       // Then we call the permissioned function
       permissionedBoxClient.setValue(5);
