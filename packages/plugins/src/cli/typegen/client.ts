@@ -38,44 +38,112 @@ const searchAllPossibleParentArtifactPaths = async (
   allDeployFunctionImports: Record<string, string>,
   clientPath: string,
   src: string,
-  functionSelectors: string[]
-) => {
+  functionSelectors: string[],
+  searchedPaths: string[],
+  searchImports: boolean
+): Promise<
+  | {
+      fullyImplemented: boolean
+      isInterface: boolean
+      uniqueClientName: string
+      clientContract: string
+      clientImports: Record<string, string>
+      clientFunctions: string[]
+      deployFunctions: string
+      deployFunctionImports: Record<string, string>
+    }
+  | undefined
+> => {
   const pathPieces = absolutePath.split('/')
   let filePath: string | undefined
   for (let i = pathPieces.length - 1; i >= 0; i--) {
     filePath = filePath ? path.join(pathPieces[i], filePath) : pathPieces[i]
 
-    const artifactFile = path.join(
+    const artifactFilePath = path.join(
       artifactFolder,
       filePath,
       `${expectedContractName}.json`
     )
 
-    if (!fs.existsSync(artifactFile)) {
-      continue
-    }
+    if (fs.existsSync(artifactFilePath)) {
+      // If an artifact exists with the expected name, then we can generate the client using it
 
-    const contractData = await generateClientContractFromArtifact(
-      artifactFile,
-      absolutePath,
-      remappings,
-      allDeployFunctionImports,
-      clientPath,
-      src,
-      artifactFolder,
-      functionSelectors
-    )
+      const contractData = await generateClientContractFromArtifact(
+        artifactFilePath,
+        absolutePath,
+        remappings,
+        allDeployFunctionImports,
+        clientPath,
+        src,
+        artifactFolder,
+        functionSelectors
+      )
 
-    if (
-      contractData === 'mismatching path' ||
-      contractData === 'library' ||
-      contractData === 'no contract definition'
-    ) {
-      continue
-    }
+      if (
+        contractData === 'mismatching path' ||
+        contractData === 'library' ||
+        contractData === 'no contract definition'
+      ) {
+        continue
+      }
 
-    if (contractData) {
-      return contractData
+      if (contractData) {
+        return contractData
+      }
+    } else if (searchImports) {
+      // If no artifact exists with the expected name, then it's still possible that the contract was imported
+      // into the file that was imported
+      // I.e Contract inherits from Parent which is imported from File which imports Parent
+      // So we must search for the parent in all imports into the imported file
+
+      const artifactFolderPath = path.join(artifactFolder, filePath)
+      if (fs.existsSync(artifactFolderPath)) {
+        const artifactFiles = fs.readdirSync(artifactFolderPath)
+
+        for (const file of artifactFiles) {
+          const artifact = JSON.parse(
+            fs.readFileSync(path.join(artifactFolder, filePath, file), 'utf-8')
+          )
+          const exportedSymbols = artifact.ast.exportedSymbols
+
+          // If the absolute path from the artifact does not match the file path, then this artifact
+          // is for a file with the same name but in a different folder so we should break and continue
+          // searching for the correct artifact path
+          if (artifact.ast.absolutePath !== absolutePath) {
+            break
+          }
+
+          // If the expected contract name is in the exported symbols, then we search all the imports
+          // into this file for the expected contract name
+          if (exportedSymbols[expectedContractName]) {
+            const nestedImports = findAll('ImportDirective', artifact.ast)
+            for (const nestedImport of nestedImports) {
+              if (searchedPaths.includes(nestedImport.absolutePath)) {
+                continue
+              } else {
+                searchedPaths.push(nestedImport.absolutePath)
+              }
+
+              const contractData = await searchAllPossibleParentArtifactPaths(
+                nestedImport.absolutePath,
+                artifactFolder,
+                expectedContractName,
+                remappings,
+                allDeployFunctionImports,
+                clientPath,
+                src,
+                functionSelectors,
+                searchedPaths,
+                searchImports
+              )
+
+              if (contractData) {
+                return contractData
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -108,7 +176,9 @@ const generateFunctionsForParentContract = async (
         allDeployFunctionImports,
         clientPath,
         src,
-        functionSelectors
+        functionSelectors,
+        [],
+        false
       )
 
       if (contractData) {
@@ -136,6 +206,8 @@ const generateFunctionsForParentContract = async (
       expectedContractName = parentContract.baseName.name
     }
 
+    // We have to keep track of all the imports we've already checked, just in case there's a circular import
+    const searchedPaths: string[] = [parentImport.absolutePath]
     const contractData = await searchAllPossibleParentArtifactPaths(
       parentImport.absolutePath,
       artifactFolder,
@@ -144,7 +216,9 @@ const generateFunctionsForParentContract = async (
       allDeployFunctionImports,
       clientPath,
       src,
-      functionSelectors
+      functionSelectors,
+      searchedPaths,
+      true
     )
 
     if (contractData) {
@@ -604,12 +678,10 @@ export const generateClientsInFolder = async (
   // Skip the script and test folders
   // This can happen if the user has a script or test folder nested in their src directory
   if (folder === scriptFolder) {
-    console.log('skipping script folder')
     return
   }
 
   if (folder === testFolder) {
-    console.log('skipping test folder')
     return
   }
 

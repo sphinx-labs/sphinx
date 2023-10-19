@@ -117,6 +117,8 @@ import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.
 import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
 import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
 import { IExternalContractClient } from "../client/SphinxExternal/IExternalContract.c.sol";
+import { NestedImportChild } from "../contracts/test/typegen/nestedParentImport/C.sol";
+import { NestedImportChildClient } from "../client/typegen/nestedParentImport/C.c.sol";
 
 import "sphinx-forge-std/Test.sol";
 
@@ -158,6 +160,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ConflictingQualifiedNameChildInSameFile conflictingQualifiedNameChildInSameFile;
     ChildParentImportsTypes childParentImportsTypes;
     ChildOverrides childOverrides;
+    NestedImportChild nestedImportChild;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -663,5 +666,13 @@ contract TypeGenTestConfig is Test, SphinxClient {
         ChildOverridesClient childOverridesClient = deployChildOverrides(2);
         childOverridesClient.add(2);
         childOverrides = ChildOverrides(address(childOverridesClient));
+
+        // Deploy and interact with a contract that inherits from a parent contract which is
+        // imported from a file that imports it from another file
+        NestedImportChildClient nestedImportChildClient = deployNestedImportChild("hello", 1, true);
+        nestedImportChildClient.increment();
+        nestedImportChildClient.setString("world");
+        nestedImportChildClient.toggle();
+        nestedImportChild = NestedImportChild(address(nestedImportChildClient));
     }
 }
