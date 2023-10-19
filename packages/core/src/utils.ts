@@ -55,6 +55,8 @@ import {
   DecodedAction,
   DeployContractActionInput,
   SphinxConfig,
+  BuildInfoRemote,
+  ConfigArtifactsRemote,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -553,8 +555,19 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const compilationTarget = artifact.metadata.settings.compilationTarget
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
+  const metadata = artifact.metadata
 
-  return { abi, bytecode, sourceName, contractName, deployedBytecode }
+  return {
+    abi,
+    bytecode,
+    sourceName,
+    contractName,
+    deployedBytecode,
+    metadata,
+    methodIdentifiers: artifact.methodIdentifiers,
+    gasEstimates: artifact.gasEstimates,
+    storageLayout: artifact.storageLayout,
+  }
 }
 
 export const isEqualType = (
@@ -763,8 +776,8 @@ export const getPreviousConfigUri = async (
 
 export const getConfigArtifactsRemote = async (
   compilerConfig: CompilerConfig
-): Promise<ConfigArtifacts> => {
-  const solcArray: BuildInfo[] = []
+): Promise<ConfigArtifactsRemote> => {
+  const solcArray: BuildInfoRemote[] = []
   // Get the compiler output for each compiler input.
   for (const sphinxInput of compilerConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
@@ -803,7 +816,7 @@ export const getConfigArtifactsRemote = async (
     })
   }
 
-  const artifacts: ConfigArtifacts = {}
+  const artifacts: ConfigArtifactsRemote = {}
   const notSkipping = compilerConfig.actionInputs.filter((e) => !e.skip)
   for (const actionInput of notSkipping) {
     const { fullyQualifiedName } = actionInput
@@ -820,6 +833,10 @@ export const getConfigArtifactsRemote = async (
     }
     const contractOutput = buildInfo.output.contracts[sourceName][contractName]
 
+    const metadata =
+      typeof contractOutput.metadata === 'string'
+        ? JSON.parse(contractOutput.metadata)
+        : contractOutput.metadata
     artifacts[fullyQualifiedName] = {
       buildInfo,
       artifact: {
@@ -828,6 +845,9 @@ export const getConfigArtifactsRemote = async (
         contractName,
         bytecode: add0x(contractOutput.evm.bytecode.object),
         deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+        gasEstimates: contractOutput.evm.gasEstimates,
+        methodIdentifiers: contractOutput.evm.methodIdentifiers,
+        metadata,
       },
     }
   }

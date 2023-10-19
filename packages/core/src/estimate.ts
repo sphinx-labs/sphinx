@@ -1,4 +1,4 @@
-import { CompilerOutputContract } from './languages/solidity/types'
+import { GasEstimates } from './languages'
 
 export type DeployContractCost = {
   referenceName: string
@@ -6,7 +6,7 @@ export type DeployContractCost = {
 }
 
 export const getEstDeployContractCost = (
-  gasEstimates: CompilerOutputContract['evm']['gasEstimates']
+  gasEstimates: GasEstimates
 ): bigint => {
   const { totalCost, codeDepositCost } = gasEstimates.creation
 

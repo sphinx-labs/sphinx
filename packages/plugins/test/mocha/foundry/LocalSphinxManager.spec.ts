@@ -1,9 +1,6 @@
 import chai from 'chai'
 
-// TODO(hai):
-// - what does the governor private key do?
-// - what does the `yarn script:goerli` command do?
-
+// - TODO(ask): hai: what does the `yarn script:goerli:delegate` command do?
 
 // - TODO(md): add pnpm option in installation guide(s) since mean finance uses this
 
@@ -11,16 +8,23 @@ import {
   buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
-import { getStorageSlotKey } from '@sphinx-labs/core'
+import { getStorageLayout, getStorageSlotKey } from '@sphinx-labs/core'
 import { makeGetConfigArtifacts } from '../../../src/foundry/utils'
 
 const expect = chai.expect
 
 describe('LocalSphinxManager', () => {
   it(`LocalSphinxManager 'callNonces' mapping matches SphinxManager in storage layout`, async () => {
+    const fullyQualifiedName = 'contracts/SphinxManager.sol:SphinxManager'
+    const [sourceName, contractName] = fullyQualifiedName.split(':')
+    const storageLayout = getStorageLayout(
+      sphinxContractsBuildInfo.output,
+      sourceName,
+      contractName
+    )
     const managerSlotKey = getStorageSlotKey(
       'contracts/SphinxManager.sol:SphinxManager',
-      sphinxContractsBuildInfo.output,
+      storageLayout,
       'callNonces'
     )
 
@@ -37,7 +41,7 @@ describe('LocalSphinxManager', () => {
 
     const localManagerSlotKey = getStorageSlotKey(
       localManagerFullyQualifiedName,
-      configArtifacts[localManagerFullyQualifiedName].buildInfo.output,
+      configArtifacts[localManagerFullyQualifiedName].artifact.storageLayout ?? { storage: [], types: {} },
       'callNonces'
     )
 
