@@ -96,8 +96,6 @@ npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 
 You'll be shown a preview of your deployment and prompted to confirm. Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
-TODO(md): show using `forge script`
-
 ## 9. Next steps
 
 [Writing Deployment Scripts with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md): Learn about writing your own deployment scripts using Sphinx.

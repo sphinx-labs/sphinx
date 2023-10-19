@@ -236,7 +236,8 @@ const generateClientContractFromArtifact = async (
   const contractDefinition: ContractDefinition = astNodes.find(
     (node) =>
       node.nodeType === 'ContractDefinition' &&
-      node.canonicalName === contractName
+      (node.canonicalName === contractName ||
+        (node.canonicalName === undefined && node.name === contractName))
   )
 
   // If the absolute path from the artifact does not match the file path,
