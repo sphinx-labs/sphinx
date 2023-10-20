@@ -35,20 +35,15 @@ export const sphinxCommitAbstractSubtask = async (
 
   for (const actionInput of notSkipped) {
     const { fullyQualifiedName } = actionInput
-    const { buildInfo } = configArtifacts[fullyQualifiedName]
+    const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
 
     const prevSphinxInput = sphinxInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
     )
 
-    // Split the contract's fully qualified name
-    const [sourceName, contractName] = fullyQualifiedName.split(':')
-
     const { language, settings, sources } = getMinimumCompilerInput(
       buildInfo.input,
-      buildInfo.output.contracts,
-      sourceName,
-      contractName
+      artifact.metadata
     )
 
     if (prevSphinxInput === undefined) {

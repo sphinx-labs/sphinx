@@ -100,8 +100,8 @@ export const verifySphinxConfig = async (
   for (const action of actionInputsToVerify) {
     const { fullyQualifiedName, create3Address } = action
 
-    const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
-    const { abi, contractName, sourceName } = artifact
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const { abi, contractName, sourceName, metadata } = artifact
     const iface = new ethers.Interface(abi)
     const constructorArgValues = getFunctionArgValueArray(
       action.decodedAction.variables,
@@ -119,12 +119,7 @@ export const verifySphinxConfig = async (
     }
     const { input, solcVersion } = sphinxInput
 
-    const minimumCompilerInput = getMinimumCompilerInput(
-      input,
-      buildInfo.output.contracts,
-      sourceName,
-      contractName
-    )
+    const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
 
     await attemptVerification(
       provider,
@@ -172,9 +167,7 @@ export const verifySphinx = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       sphinxBuildInfo.input,
-      sphinxBuildInfo.output.contracts,
-      sourceName,
-      contractName
+      sphinxBuildInfo.output.contracts
     )
 
     await attemptVerification(

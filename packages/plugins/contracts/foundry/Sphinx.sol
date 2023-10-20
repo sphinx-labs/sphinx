@@ -1173,7 +1173,7 @@ abstract contract Sphinx {
                 inputs[6] = vm.toString(memberSlotKey);
                 inputs[7] = vm.toString(bytes32(uint256(1)));
                 Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exitCode == 1) {
+                if (result.exitCode != 0) {
                     revert(string(result.stderr));
                 }
             }

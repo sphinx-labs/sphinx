@@ -129,6 +129,7 @@ export const deploy = async (
     }
 
     const previewOutput = await spawnAsync('forge', forgeScriptPreviewArgs)
+
     if (previewOutput.code !== 0) {
       spinner.stop()
       // The `stdout` contains the trace of the error.
@@ -205,6 +206,7 @@ export const deploy = async (
     'forge',
     forgeScriptDeployArgs
   )
+
   spinner.stop()
   if (code !== 0) {
     // The `stdout` contains the trace of the error.
@@ -230,6 +232,7 @@ export const deploy = async (
           (actionInput) => actionInput.fullyQualifiedName
         )
       )
+
   const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
 
   const containsDeployment = parsedConfig.actionInputs.some(

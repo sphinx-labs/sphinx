@@ -30,6 +30,7 @@ import {
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
   DEFAULT_CREATE3_ADDRESS,
+  getStorageLayout,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -42,16 +43,31 @@ import { ethers } from 'ethers'
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const writeConstants = async () => {
-  const callNoncesSlotKey = getStorageSlotKey(
-    'contracts/SphinxManager.sol:SphinxManager',
+  const fullyQualifiedName = 'contracts/SphinxManager.sol:SphinxManager'
+  const [sourceName, contractName] = fullyQualifiedName.split(':')
+  const storageLayout = getStorageLayout(
     sphinxContractsBuildInfo.output,
+    sourceName,
+    contractName
+  )
+  const callNoncesSlotKey = getStorageSlotKey(
+    fullyQualifiedName,
+    storageLayout,
     'callNonces'
+  )
+
+  const fullyQualifiedNameAuth = 'contracts/SphinxAuth.sol:SphinxAuth'
+  const [sourceNameAuth, contractNameAuth] = fullyQualifiedNameAuth.split(':')
+  const storageLayoutAuth = getStorageLayout(
+    sphinxContractsBuildInfo.output,
+    sourceNameAuth,
+    contractNameAuth
   )
   // The `_roles` variable is a mapping located in the AccessControl contract inherited by
   // SphinxAuth.
   const authAccessControlRoleSlotKey = getStorageSlotKey(
-    'contracts/SphinxAuth.sol:SphinxAuth',
-    sphinxContractsBuildInfo.output,
+    fullyQualifiedNameAuth,
+    storageLayoutAuth,
     '_roles'
   )
 
