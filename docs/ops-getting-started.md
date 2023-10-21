@@ -20,8 +20,8 @@ You'll need an EOA that exists on live networks.
 
 Also, make sure that you've already completed one of the following guides:
 
-* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
+* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
 ## 2. High-level overview
 
@@ -98,7 +98,7 @@ polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 
 ## 8. Propose the deployment
 
-For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for Foundry.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 
 Propose the deployment:
 
@@ -110,4 +110,4 @@ Follow the instructions in the terminal to complete the deployment.
 
 ## 9. Learn more
 
-[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)

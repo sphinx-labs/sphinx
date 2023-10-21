@@ -4,7 +4,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 
 Once you've finished this guide, the next guide will give you more details on how you can write your own deployment scripts using Sphinx.
 
-> Note: If you're looking to setup Sphinx in a fresh directory, go to the [Quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md).
+> Note: If you're looking to setup Sphinx in a fresh directory, go to the [Quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md).
 
 ## Table of Contents
 
@@ -188,6 +188,8 @@ If your Sphinx config file is written in TypeScript:
 ```
 npx sphinx deploy ./solidity/scripts/HelloSphinx.s.sol --network anvil
 ```
+
+When deploying on a live network, you can verify your contracts using the `--verify` flag.
 
 ## 11. Learn more
 

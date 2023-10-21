@@ -3,7 +3,7 @@ Sphinx is built on the Sphinx Protocol which is a smart contract deployment prot
 
 Deploying using Sphinx is different from other tools because of the use of its protocol. To use Sphinx, you ust write your deployment scripts using Sphinx client contracts. These client contracts are automatically generated and make it easy for you to deploy and interact with your contracts using the Sphinx Protocol.
 
-If you haven't already, we recommend running through the [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md) guide, or setting up a fresh project using the [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md).
+If you haven't already, we recommend running through the [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md) guide, or setting up a fresh project using the [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md).
 
 ## Table of Contents
 
@@ -196,4 +196,4 @@ To generate Sphinx clients for external contracts, you can use the `SphinxExtern
 ## 11. Learn more
 With the tools listed above, you can now write custom scripts to deploy and interact with your contracts using Sphinx. If you have questions, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np).
 
-[Getting Started with the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md): Learn to trigger gasless and multichain deployments using the Sphinx DevOps Platform
+[Getting Started with the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md): Learn to trigger gasless and multichain deployments using the Sphinx DevOps Platform

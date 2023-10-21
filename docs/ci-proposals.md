@@ -19,7 +19,7 @@ If you're using Sphinx's Hardhat plugin instead of Foundry, check out the [Hardh
 
 ## 1. Prerequisites
 
-Make sure that you've already completed the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md) guide for the project you're going to use in this guide.
+Make sure that you've already completed the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide for the project you're going to use in this guide.
 
 Also, make sure that your `foundry.toml` has an `rpc_endpoints` section that contains an RPC endpoint for each network you want to support in your project.
 
