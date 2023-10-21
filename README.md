@@ -1,27 +1,27 @@
 # Sphinx (formerly ChugSplash)
+Sphinx is a [Foundry](https://github.com/foundry-rs/foundry) plugin for easily writing Solidity deployment scripts that are transparent, predictable, and multi-chain. Sphinx scripts can also be executed using the Sphinx DevOps platform which is a CI platform designed to help teams deploy smart contracts at scale.
 
-Sphinx is a Foundry plugin for deployments.
+## Key features of the Sphinx Plugin
 
-TODO(md): it takes 9.5s to compile the sample project every time a change is made to a file. it
-takes less than 2s when the optimizer is off. we should definitely tell users to turn optimizer off
-during testing and development. there's a section in the foundry docs that covers this:
-https://book.getfoundry.sh/reference/forge/forge-build?highlight=significant#conditional-optimizer-usage
+### Deployment Preview
+Sphinx has a “planning” step where it generates a deployment plan. Sphinx then provides you with a detailed preview of every action Sphinx will take during the deployment. This helps you avoid any surprises when Sphinx deploys and interacts with your contracts.
 
-Key features:
-* Skips any transactions in your script that have already been executed, similar to other idempotent tools like [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
-* Provides visibility into your deployments by letting you [preview](TODO(md)) the transactions that will be executed in your script.
-* Uses `CREATE3` by default, so your contracts will always have predictable addresses.
-* Generates deployments artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+### Idempotent & Deterministic
+Sphinx deploys your contracts to predictable addresses using create3. It intelligently detects which parts of your script have already been executed on a given network and automatically skips them, simplifying the process of extending your scripts.
 
-## DevOps Platform (optional)
+### Multi-chain
+Sphinx provides an intuitive interface for customizing your scripts to suit different networks, and makes it easy to replicate those network-specific configurations locally.
 
-Sphinx has a DevOps platform that automates the deployment process. It's built on top of the Foundry plugin, and is entirely opt-in.
+## key features of the Sphinx DevOps Platform
 
-Key features:
-* Propose your deployments from a CI process.
-* Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
-* Approve your deployments via a multisig.
-* Automatic Etherscan verification.
+### Automated Deployments
+With Sphinx, you can effortlessly trigger gasless deployments from your local machine or CI process. Approve deployments via the UI with a single meta transaction, and let the Sphinx Platform execute your deployment automatically on your behalf.
+
+### Payments in USDC
+Simplify the payment process by settling deployment costs on all networks in USDC on a single chain. Enjoy free deployments on testnets.
+
+### Multichain Deployments
+Sphinx empowers you to deploy and verify your contracts on up to 11 supported networks simultaneously, streamlining your deployment workflow.
 
 You can request access to the DevOps platform [here](https://sphinx.dev).
 
@@ -29,20 +29,17 @@ You can request access to the DevOps platform [here](https://sphinx.dev).
 
 ### Getting Started
 
-- Foundry Plugin:
-  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
+  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 - DevOps Platform:
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
+  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 
 ### References
 
-- [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Post-Deployment Actions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/post-deployment-actions.md): How to call arbitrary functions after your contracts are deployed.
-- [Constructor Argument Overrides](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-arg-overrides.md): How to set constructor arguments on a chain-by-chain basis.
-- [Contract Variables](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Shows how to define every type of contract variable in your Sphinx config file (structs, arrays, etc.).
-- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
+- [Writing Sphinx Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
+- [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
+- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 
 ## Supported Networks
@@ -92,7 +89,5 @@ If you have any questions or feature requests, send us a message in our [Discord
 
 ## License
 
-MIT © 2022
+MIT © 2023
 
-
-TODO(md-end): remove 'foundry' from the .md file names
