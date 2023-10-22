@@ -5,7 +5,6 @@ import {
     SphinxConfig,
     Network,
     DeployOptions,
-    DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";

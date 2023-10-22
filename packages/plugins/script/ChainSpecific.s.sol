@@ -8,7 +8,6 @@ import {
     SphinxConfig,
     Network,
     DeployOptions,
-    DefineOptions,
     Version
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxUtils } from "@sphinx-labs/plugins/SphinxUtils.sol";

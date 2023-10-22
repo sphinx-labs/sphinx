@@ -4,8 +4,7 @@ pragma solidity ^0.8.0;
 import {
     SphinxConfig,
     Network,
-    DeployOptions,
-    DefineOptions
+    DeployOptions
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
@@ -97,6 +96,7 @@ import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/Child
 import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
 import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
 import { NestedImportChild } from "../contracts/test/typegen/nestedParentImport/C.sol";
+import { MyContractType } from "../contracts/test/typegen/ArrayInputTypes.sol";
 
 import "sphinx-forge-std/Test.sol";
 
@@ -122,7 +122,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     FunctionInputContract functionInputContract;
     ExternalContract externalContract;
     ExternalContract alreadyDeployedExternalContract;
-    ExternalContract alreadyDeployedExternalContractInterface;
+    IExternalContract alreadyDeployedExternalContractInterface;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirst;
     ConflictingTypeNameContractSecond conflictingTypeNameContractSecond;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
@@ -144,7 +144,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     address[3] public initialUintStaticArray;
     MyStruct[] public initialMyStructArray;
     MyType[] public initialMyTypeArray;
-    address[] public initialMyContractTypeArray;
+    MyContractType[] public initialMyContractTypeArray;
     MyEnum[] public initialMyEnumArray;
 
     uint8[] public updatedUintDynamicArray;
@@ -152,7 +152,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     address[3] public updatedUintStaticArray;
     MyStruct[] public updatedMyStructArray;
     MyType[] public updatedMyTypeArray;
-    address[] public updatedMyContractTypeArray;
+    MyContractType[] public updatedMyContractTypeArray;
     MyEnum[] public updatedMyEnumArray;
 
     MyTypeLibraryAlias.MyEnumInLibrary[] public libraryEnumArray;
@@ -196,9 +196,9 @@ contract TypeGenTestConfig is Test, SphinxClient {
         initialMyTypeArray = new MyType[](2);
         initialMyTypeArray[0] = MyType.wrap(12);
         initialMyTypeArray[1] = MyType.wrap(13);
-        initialMyContractTypeArray = new address[](2);
-        initialMyContractTypeArray[0] = address(14);
-        initialMyContractTypeArray[1] = address(15);
+        initialMyContractTypeArray = new MyContractType[](2);
+        initialMyContractTypeArray[0] = MyContractType(address(14));
+        initialMyContractTypeArray[1] = MyContractType(address(15));
         initialMyEnumArray = new MyEnum[](2);
         initialMyEnumArray[0] = MyEnum.A;
         initialMyEnumArray[1] = MyEnum.B;
@@ -219,9 +219,9 @@ contract TypeGenTestConfig is Test, SphinxClient {
         updatedMyTypeArray = new MyType[](2);
         updatedMyTypeArray[0] = MyType.wrap(21);
         updatedMyTypeArray[1] = MyType.wrap(22);
-        updatedMyContractTypeArray = new address[](2);
-        updatedMyContractTypeArray[0] = address(23);
-        updatedMyContractTypeArray[1] = address(24);
+        updatedMyContractTypeArray = new MyContractType[](2);
+        updatedMyContractTypeArray[0] = MyContractType(address(23));
+        updatedMyContractTypeArray[1] = MyContractType(address(24));
         updatedMyEnumArray = new MyEnum[](2);
         updatedMyEnumArray[0] = MyEnum.C;
         updatedMyEnumArray[1] = MyEnum.D;
@@ -413,7 +413,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
 
         // Deploy contracts to be used as input
         MyImportContract myImportContractOne = deployMyImportContract(1);
-        MyImportContract localContractOne = deployLocalContract(1);
+        LocalContract localContractOne = deployLocalContract(1);
 
         MyImportContract myImportContractTwo = deployMyImportContract(
             2,

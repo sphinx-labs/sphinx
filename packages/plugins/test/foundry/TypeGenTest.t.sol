@@ -168,8 +168,8 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(arrayInputTypes.myStructArray(1), initialMyStructArray[1].myNumber);
         assertEq(MyType.unwrap(arrayInputTypes.myTypeArray(0)), MyType.unwrap(initialMyTypeArray[0]));
         assertEq(MyType.unwrap(arrayInputTypes.myTypeArray(1)), MyType.unwrap(initialMyTypeArray[1]));
-        assertEq(address(arrayInputTypes.myContractTypeArray(0)), initialMyContractTypeArray[0]);
-        assertEq(address(arrayInputTypes.myContractTypeArray(1)), initialMyContractTypeArray[1]);
+        assertEq(address(arrayInputTypes.myContractTypeArray(0)), address(initialMyContractTypeArray[0]));
+        assertEq(address(arrayInputTypes.myContractTypeArray(1)), address(initialMyContractTypeArray[1]));
         assertEq(uint(arrayInputTypes.myEnumArray(0)), uint(initialMyEnumArray[0]));
         assertEq(uint(arrayInputTypes.myEnumArray(1)), uint(initialMyEnumArray[1]));
     }
@@ -201,8 +201,8 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(arrayInputTypesTwo.myStructArray(1), updatedMyStructArray[1].myNumber);
         assertEq(MyType.unwrap(arrayInputTypesTwo.myTypeArray(0)), MyType.unwrap(updatedMyTypeArray[0]));
         assertEq(MyType.unwrap(arrayInputTypesTwo.myTypeArray(1)), MyType.unwrap(updatedMyTypeArray[1]));
-        assertEq(address(arrayInputTypesTwo.myContractTypeArray(0)), updatedMyContractTypeArray[0]);
-        assertEq(address(arrayInputTypesTwo.myContractTypeArray(1)), updatedMyContractTypeArray[1]);
+        assertEq(address(arrayInputTypesTwo.myContractTypeArray(0)), address(updatedMyContractTypeArray[0]));
+        assertEq(address(arrayInputTypesTwo.myContractTypeArray(1)), address(updatedMyContractTypeArray[1]));
         assertEq(uint(arrayInputTypesTwo.myEnumArray(0)), uint(updatedMyEnumArray[0]));
         assertEq(uint(arrayInputTypesTwo.myEnumArray(1)), uint(updatedMyEnumArray[1]));
     }
@@ -293,8 +293,8 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(myStructArray[1].myNumber, initialMyStructArray[1].myNumber);
         assertEq(MyType.unwrap(myTypeArray[0]), MyType.unwrap(initialMyTypeArray[0]));
         assertEq(MyType.unwrap(myTypeArray[1]), MyType.unwrap(initialMyTypeArray[1]));
-        assertEq(address(myContractTypeArray[0]), initialMyContractTypeArray[0]);
-        assertEq(address(myContractTypeArray[1]), initialMyContractTypeArray[1]);
+        assertEq(address(myContractTypeArray[0]), address(initialMyContractTypeArray[0]));
+        assertEq(address(myContractTypeArray[1]), address(initialMyContractTypeArray[1]));
         assertEq(uint(myEnumArray[0]), uint(initialMyEnumArray[0]));
         assertEq(uint(myEnumArray[1]), uint(initialMyEnumArray[1]));
     }
@@ -344,7 +344,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
             ConflictingType a,
             ConflictingStruct memory b,
             ConflictingEnum c
-        ) = conflictingTypeNameContractSecond.pureConflictingTypes();
+        ) = conflictingTypeNameContractFirst.pureConflictingTypes();
         assertEq(ConflictingType.unwrap(a), true);
         assertEq(b.a, true);
         assertEq(uint(c), uint(ConflictingEnum.First));
@@ -471,11 +471,11 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // Covers returning a contract from a pure function
     function testDidReturnContractAsAddressFromPureFunction() public {
         assertEq(
-            functionContract.fetchImportContract(),
+            address(functionContract.fetchImportContract()),
             address(10)
         );
         assertEq(
-            functionContract.fetchLocalContract(),
+            address(functionContract.fetchLocalContract()),
             address(11)
         );
     }
