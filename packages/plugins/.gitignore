@@ -21,3 +21,6 @@ node_modules/@sphinx-labs
 broadcast/
 
 client/
+
+# test
+test-proposal-output.json

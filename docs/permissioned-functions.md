@@ -1,10 +1,13 @@
-# Calling Permissioned Functions with Sphinx
-Sometimes you might need to write a deployment script that involves calling some permissioned functions on your contracts to perform additional configuration. This is often the case if you are using OpenZeppelins Ownable or AccessControl contracts.
+# Deploying owned contracts (e.g. `Ownable` or `AccessControl`)
 
-Calling permissioned functions is possible with Sphinx, but requires some custom configuration since you're deployments are executed through the Sphinx Protocol. In this guide we'll walk you through how to call a permissioned function using an example contract that inherits from OpenZeppelin Ownable.
+Deploying owned contracts with Sphinx requires some extra configuration because your contracts are deployed by your `SphinxManager`[TODO(md)] contract instead of a deployer private key. This means you'll need to explicitly revoke . The rest of this guide will cover how to call permissioned functions on your owned contract during the deployment process.
+
+Sometimes you might need to write a deployment script that involves calling some permissioned functions on your contracts. This is often the case if you are using OpenZeppelin's `Ownable` or `AccessControl` contracts.
+
+Calling permissioned functions requires some additional configuration since your deployments are executed by your `SphinxManager`[TODO(md)] contract. To call permissioned functions on a contract, your `SphinxManager` must be the initial owner of the contract. You must transfer ownership from the `SphinxManager` to your final owner at the end of your deployment. This guide will show you how to do that.
 
 ## Sample Contract
-The following contract is a simple `PermissionedBox` contract which inherits from `Ownable` and stores a single `value` state variable. Only owner can set the value by calling `setValue`.
+The following contract is a simple `PermissionedBox` contract which inherits from `Ownable` and stores a single `value` state variable. Only the owner can set the value by calling `setValue`.
 
 ```
 // SPDX-License-Identifier: MIT
@@ -13,10 +16,8 @@ pragma solidity ^0.8.0;
 contract PermissionedBox is Ownable {
     uint public value;
 
-    // Note, here we pass the owner into the constructor and transfer
-    // ownership to them as is the best practice when using Sphinx
-    constructor (address owner) {
-        transferOwnership(owner);
+    constructor(address _owner) {
+        _transferOwnership(_owner);
     }
 
     setValue(uint _value) onlyOwner {
@@ -25,8 +26,12 @@ contract PermissionedBox is Ownable {
 }
 ```
 
+TODO(md): mention OZ's ownable's default behavior
+
 ## Deployment Script
-Say for example, that we wanted to deploy the `PermissionedBox` and then immediately call the `setValue` function to store a value in the contract. The default behavior of `Ownable` is to set the owner of the contract to the deployer, however we cannot do that when deploying with Sphinx because the deployer of the contract will not be your wallet. So instead, we've configured the constructor to accept an address which we then transfer ownership of the contract too.
+Say that you want to deploy the `PermissionedBox` contract, then call the `setValue` function, then transfer ownership to a new owner. To do this, you must set the `SphinxManager` contract as the ini
+
+> When using `Ownable`, you must **always** explicitly call `_transferOwnership` in the constructor of your contract.This is because the default behavior of `Ownable` is to set the owner of the contract to the deployer, however we cannot do that when deploying with Sphinx because the deployer of the contract will not be your wallet. So instead, we've configured the constructor to accept an address which we then transfer ownership of the contract too.
 
 With this setup, we can deploy the contract and if we pass a wallet address we own into the constructor then the contract will be transferred to me. However, if we then try to call the `setValue` function from the same deployment script it will fail. This is because ownership of the contract has been transferred to our wallet, but your `SphinxManager` is attempting to call the `setValue` function during the deployment.
 

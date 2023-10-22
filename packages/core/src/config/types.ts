@@ -9,7 +9,11 @@ import {
 } from '@sphinx-labs/contracts'
 import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 
-import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
+import {
+  BuildInfo,
+  CompilerOutput,
+  ContractArtifact,
+} from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
@@ -253,6 +257,17 @@ export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
+    artifact: ContractArtifact
+  }
+}
+
+export type BuildInfoRemote = BuildInfo & {
+  output: CompilerOutput
+}
+
+export type ConfigArtifactsRemote = {
+  [fullyQualifiedName: string]: {
+    buildInfo: BuildInfoRemote
     artifact: ContractArtifact
   }
 }

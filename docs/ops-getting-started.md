@@ -20,8 +20,8 @@ You'll need an EOA that exists on live networks.
 
 Also, make sure that you've already completed one of the following guides:
 
-* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
+* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
 ## 2. High-level overview
 
@@ -29,13 +29,15 @@ To give some context on the deployment process, here's a high-level overview of 
 
 Deployments are a three-step process with the DevOps platform.
 
+TODO(md): c/f and remove 'trustless'.
+
 1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. For simplicity, we'll propose the deployment on the command line in this guide.
-2. **Approval**: Each owner signs a meta transaction to approve the deployment in the Sphinx UI.
+2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
 3. **Execution**: The deployment is trustlessly executed on-chain by a relayer. In order to execute the deployment, the relayer must submit the meta transactions signed by the proposer and the owners.
 
 ## 3. Get testnet ETH on OP Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. We require that you pay for the cost of your deployments by depositing USDC into this contract during execution. You'll need do go through this process on both test and production networks. On testnets we will provide you with testnet USDC to use. This contract only exists on Optimism Goerli (and Optimism Mainnet for production deployments), so deploying it is a one-time cost.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, we  only allow you to fund deployments in USDC on Optimism Goerli. Likewise, on production networks, we only allow you to fund deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
@@ -50,10 +52,11 @@ Enter your Sphinx API key in your `.env` file:
 SPHINX_API_KEY=<your API key>
 ```
 
-Then, open your Sphinx deployment script. We're going to add some additional options to support a multi-chain deployment using Sphinx which will occur on several testnets.
+Then, open your Sphinx deployment script. We're going to add some additional options to support a multi-chain deployment on several testnets.
 
-Copy and paste the following options to your script constructor below your current options:
+Copy and paste the following options into your script's `setUp` function:
 ```
+sphinxConfig.orgId = "<your org id>";
 sphinxConfig.testnets = [
   Network.goerli,
   Network.optimism_goerli,
@@ -62,19 +65,21 @@ sphinxConfig.testnets = [
   Network.bnbt,
   Network.gnosis_chiado
 ];
-sphinxConfig.orgId = "<your org id>";
 ```
 
-Fill in the `orgId` field with your organization ID from the Sphinx UI. The `orgId` is a public field, so you don't need to keep it secret. You'll also want to update the owner you've configured to be a live network EOA you have available to you.
+Fill in the `orgId` field with your organization ID from the Sphinx UI. The `orgId` is a public field, so you don't need to keep it secret.
+
+You should also update the `sphinxConfig.owners` array to contain an EOA that exists on live networks.
 
 ## 6. Configure Your Proposer
-Sphinx uses a 'proposer' account to secure your deployment. The proposer is an account that exists on your local machine or in your CI process and signs your deployment bundle with its private key. This signature is sent along with your deployment bundle to the Sphinx DevOps platform and is required for the deployment to be executed on chain in addition to the signature of your owner account. This signature prevents your deployment from being tampered with prior to you approving it via the UI.
 
-The proposer can be any EOA, but we recommend generating a fresh and unfunded account using the wallet of your choice.
+Sphinx includes a proposal step to make the deployment process more secure. The proposal occurs either on your local machine or in your CI process. In the proposal,  It signs a hash of your deployment with its private key. This signature is required for the deployment to be executed on chain in addition to the signature of your owner account. This signature prevents your deployment from being tampered with prior to you approving it via the UI.
+
+The proposer can be any EOA, but we recommend generating a fresh account that does not store any funds.  using the wallet of your choice.
 
 Once you've created the proposer, add it to your Sphinx configuration underneath the rest of your options:
 ```
-sphinxConfig.proposer = [<your proposer address>];
+sphinxConfig.proposers = [<your proposer address>];
 ```
 
 Then add your proposer private key to your .env file:
@@ -98,7 +103,7 @@ polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 
 ## 8. Propose the deployment
 
-For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for Foundry.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 
 Propose the deployment:
 
@@ -110,4 +115,4 @@ Follow the instructions in the terminal to complete the deployment.
 
 ## 9. Learn more
 
-[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)

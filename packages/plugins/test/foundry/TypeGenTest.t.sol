@@ -598,4 +598,12 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     function testDidDeployContractInheritedFromContractWithOverriddenFunction() public {
         assertEq(childOverrides.myNumber(), 4);
     }
+
+    // Covers inheriting from a parent contract that is imported from a file which in turn imports it from another file
+    // Also covers the possibility of a circular dependency
+    function testDidInheritFromParentInNestedImport() public {
+        assertEq(nestedImportChild.number(), 2);
+        assertEq(nestedImportChild.boolean(), false);
+        assertEq(nestedImportChild.str(), "world");
+    }
 }

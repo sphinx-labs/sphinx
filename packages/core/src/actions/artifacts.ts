@@ -15,7 +15,9 @@ import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
 
 /**
- * Gets the storage layout for a contract.
+ * Gets the storage layout for a contract. Still requires the build info compiler input
+ * which is acceptable b/c this function is only used during out local development and testing.
+ * This function should not be used in production.
  *
  * @param contractFullyQualifiedName Fully qualified name of the contract.
  * @param artifactFolder Relative path to the folder where artifacts are stored.
@@ -116,18 +118,13 @@ export const writeDeploymentArtifacts = async (
     // } else {
 
     const { artifact, buildInfo } = configArtifacts[action.fullyQualifiedName]
-    const { sourceName, contractName, bytecode, abi } = artifact
+    const { bytecode, abi, metadata } = artifact
     const iface = new ethers.Interface(abi)
     const constructorArgValues = getFunctionArgValueArray(
       action.decodedAction.variables,
       iface.fragments.find(ConstructorFragment.isFragment)
     )
-    const { metadata } = buildInfo.output.contracts[sourceName][contractName]
-    const storageLayout = getStorageLayout(
-      buildInfo.output,
-      sourceName,
-      contractName
-    )
+    const storageLayout = artifact.storageLayout ?? { storage: [], types: {} }
     const { devdoc, userdoc } =
       typeof metadata === 'string'
         ? JSON.parse(metadata).output
@@ -170,15 +167,9 @@ export const writeDeploymentArtifacts = async (
 
 export const getStorageSlotKey = (
   fullyQualifiedName: string,
-  compilerOutput: CompilerOutput,
+  storageLayout: SolidityStorageLayout,
   varName: string
 ): string => {
-  const [sourceName, contractName] = fullyQualifiedName.split(':')
-  const storageLayout = getStorageLayout(
-    compilerOutput,
-    sourceName,
-    contractName
-  )
   const storageObj = storageLayout.storage.find((s) => s.label === varName)
 
   if (!storageObj) {
