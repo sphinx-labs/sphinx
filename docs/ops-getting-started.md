@@ -4,15 +4,7 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [High-level overview](#2-high-level-overview)
-3. [Get testnet ETH on OP Goerli](#3-get-testnet-eth-on-op-goerli)
-4. [Get your credentials](#4-get-your-credentials)
-5. [Update your Sphinx config options](#5-update-your-sphinx-script-config-options)
-6. [Configure your Proposer](#6-configure-your-proposer)
-7. [Add RPC endpoints](#7-add-rpc-endpoints)
-8. [Propose the deployment](#8-propose-the-deployment)
-9. [Learn more](#12-learn-more)
+
 
 ## 1. Prerequisites
 
@@ -29,34 +21,42 @@ To give some context on the deployment process, here's a high-level overview of 
 
 Deployments are a three-step process with the DevOps platform.
 
-TODO(md): c/f and remove 'trustless'.
-
 1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. For simplicity, we'll propose the deployment on the command line in this guide.
 2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
-3. **Execution**: The deployment is trustlessly executed on-chain by a relayer. In order to execute the deployment, the relayer must submit the meta transactions signed by the proposer and the owners.
+3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit **both** the meta transaction signed by the proposer and the owners.
+
+> Note: Although it's not strictly necessary to have both a proposal and approval step, we include both to improve the security of the deployment process. Having both steps prevents a scenario where one of the steps is a single point of failure. In other words, if a proposer's private key is leaked, an attacker would also need to trick the project owners into approving a malicious deployment. Likewise, if the project owners are tricked into approving a malicious deployment in a phishing attack on the Sphinx UI, the attacker would also need access to the proposer's private key, since its signature is also required to execute the deployment.
 
 ## 3. Get testnet ETH on OP Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, we  only allow you to fund deployments in USDC on Optimism Goerli. Likewise, on production networks, we only allow you to fund deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, we only allow you to fund deployments in USDC on Optimism Goerli. Likewise, on production networks, we only allow you to fund deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
 You'll need a Sphinx API key and an organization ID. You can get these in the [Sphinx DevOps platform](https://www.sphinx.dev/).
 
-## 5. Update your Sphinx Script Config Options
+TODO(md-end): redo numbers
+## 5. Set environment variables
 
-Navigate to the repository where you completed the Foundry getting started guide.
+Navigate to the repository that contains the script you'd like to deploy.
 
-Enter your Sphinx API key in your `.env` file:
+In your `.env` file, enter the following fields:
 ```
 SPHINX_API_KEY=<your API key>
+PROPOSER_PRIVATE_KEY=<proposer private key>
 ```
 
-Then, open your Sphinx deployment script. We're going to add some additional options to support a multi-chain deployment on several testnets.
+## 6. Configure your script
 
-Copy and paste the following options into your script's `setUp` function:
+Open the Sphinx script you'd like to deploy.
+
+In your `setUp` function, update the `owners` array to include the address of your EOA.
+
+Then, copy and paste the following config options into your `setUp` function:
 ```
-sphinxConfig.orgId = "<your org id>";
+sphinxConfig.orgId = <org ID>;
+sphinxConfig.proposers = [<your address>];
+sphinxConfig.mainnets = [];
 sphinxConfig.testnets = [
   Network.goerli,
   Network.optimism_goerli,
@@ -67,25 +67,15 @@ sphinxConfig.testnets = [
 ];
 ```
 
-Fill in the `orgId` field with your organization ID from the Sphinx UI. The `orgId` is a public field, so you don't need to keep it secret.
+TODO(md): disclaimer about verifying your contracts were deployed correctly.
 
-You should also update the `sphinxConfig.owners` array to contain an EOA that exists on live networks.
+We'll describe these fields briefly here:
+- `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
+- `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose aside from proposing.
+- `mainnets`: (`Network[]`): The list of production networks to deploy on. See [here](TODO(md)) for a full list of supported production networks.
+- `testnets`: (`Network[]`): The list of testnets to deploy on. See [here](TODO(md)) for a full list of supported testnets.
 
-## 6. Configure Your Proposer
-
-Sphinx includes a proposal step to make the deployment process more secure. The proposal occurs either on your local machine or in your CI process. In the proposal,  It signs a hash of your deployment with its private key. This signature is required for the deployment to be executed on chain in addition to the signature of your owner account. This signature prevents your deployment from being tampered with prior to you approving it via the UI.
-
-The proposer can be any EOA, but we recommend generating a fresh account that does not store any funds.  using the wallet of your choice.
-
-Once you've created the proposer, add it to your Sphinx configuration underneath the rest of your options:
-```
-sphinxConfig.proposers = [<your proposer address>];
-```
-
-Then add your proposer private key to your .env file:
-```
-PROPOSER_PRIVATE_KEY=<proposer private key>
-```
+Fill in these fields with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide.
 
 ## 7. Add RPC endpoints
 
@@ -103,7 +93,7 @@ polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 
 ## 8. Propose the deployment
 
-For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
+For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments.
 
 Propose the deployment:
 
@@ -115,4 +105,4 @@ Follow the instructions in the terminal to complete the deployment.
 
 ## 9. Learn more
 
-[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
+We recommend deploying from a CI process in production. See [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md) to setup proposals in CI.

@@ -31,7 +31,6 @@ contract Sample is Script, SphinxClient {
             address(2)
         );
         MyContract1.MyStruct memory myStruct = myClient.myPureFunction();
-        console.logInt(myStruct.a);
         myClient.set(myStruct.a);
         myClient.incrementUint();
         myClient.incrementUint();

@@ -71,18 +71,8 @@ extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
-TODO(md): move this to the section on broadcasting to anvil?
 
-Then, add Anvil to your `rpc_endpoints`:
-```
-[rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
-```
-
-We also recommend setting the optimizer to 'false' for development because this makes compilation happen ~5x faster. See [here](https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage) for more details.
-```
-optimizer = false
-```
+We also highly recommend setting `optimizer = 'false'` for development because this makes compilation happen ~5x faster. See the [Foundry docs](https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage) for more details.
 
 ## 6. Add remappings
 
@@ -134,14 +124,16 @@ forge test --match-contract HelloSphinxTest
 
 ## 10. Broadcast deployment on Anvil (optional)
 
+First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
+```
+[rpc_endpoints]
+anvil = "http://127.0.0.1:8545"
+```
+
 Start an Anvil node:
 ```
 anvil
 ```
-
-TODO(md): in any of our code examples, do we use the constructor in any scripts? if so, we should change that to be setUp.
-
-TODO(md): where do we talk about the limitations of clients? e.g. you can't define them using view functions
 
 Add a private key to your .env file. We'll use the first valid one on Anvil:
 ```

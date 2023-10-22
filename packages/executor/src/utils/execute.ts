@@ -201,7 +201,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
       await compileRemoteBundles(deploymentState.configUri))
   } catch (e) {
-    throw e
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
