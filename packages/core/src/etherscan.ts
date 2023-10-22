@@ -37,7 +37,7 @@ import {
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
-import { SUPPORTED_NETWORKS } from './networks'
+import { CompilerOutputMetadata } from './languages'
 
 export interface EtherscanResponseBody {
   status: string
@@ -48,10 +48,8 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const getEtherscanEndpointForNetwork = (
-  networkName: string
+  chainId: number
 ): EtherscanNetworkEntry | CustomChain => {
-  const chainId = SUPPORTED_NETWORKS[networkName]
-
   const chainIdsToNames = new Map(
     Object.entries(chainConfig).map(([chainName, config]) => [
       config.chainId,
@@ -72,7 +70,8 @@ export const getEtherscanEndpointForNetwork = (
   const network = networkInCustomChains ?? chainIdsToNames.get(chainId)
 
   if (network === undefined) {
-    throwUnsupportedNetwork(networkName, chainId)
+    // The network name isn't actually used by this function
+    throwUnsupportedNetwork('', chainId)
   }
 
   const chainConfigEntry = chainConfig[network]
@@ -90,7 +89,7 @@ export const verifySphinxConfig = async (
   const { actionInputs } = compilerConfig
 
   const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
-    networkName
+    Number((await provider.getNetwork()).chainId)
   )
 
   const actionInputsToVerify = actionInputs
@@ -155,7 +154,7 @@ export const verifySphinx = async (
   apiKey: string
 ) => {
   const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
-    networkName
+    Number((await provider.getNetwork()).chainId)
   )
 
   for (const {
@@ -165,9 +164,16 @@ export const verifySphinx = async (
   } of await getSphinxConstants(provider)) {
     const { sourceName, contractName, abi } = artifact
 
+    const contractOutput =
+      sphinxBuildInfo.output.contracts[sourceName][contractName]
+    const metadata: CompilerOutputMetadata =
+      typeof contractOutput.metadata === 'string'
+        ? JSON.parse(contractOutput.metadata)
+        : contractOutput.metadata
+
     const minimumCompilerInput = getMinimumCompilerInput(
       sphinxBuildInfo.input,
-      sphinxBuildInfo.output.contracts
+      metadata
     )
 
     await attemptVerification(

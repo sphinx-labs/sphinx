@@ -58,10 +58,19 @@ export const deploy = async (
     etherscan,
   } = await getFoundryConfigOptions()
 
+  const chainId = SUPPORTED_NETWORKS[network]
+  if (chainId === undefined) {
+    throw new Error(
+      `Network name ${network} is not supported, you must use a network name included in the Network enum: \n${Object.keys(
+        SUPPORTED_NETWORKS
+      ).join('\n')}`
+    )
+  }
+
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
     if (!etherscan || !etherscan[network]) {
-      const endpoint = getEtherscanEndpointForNetwork(network)
+      const endpoint = getEtherscanEndpointForNetwork(chainId)
       console.error(
         red(
           `No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:\n` +
