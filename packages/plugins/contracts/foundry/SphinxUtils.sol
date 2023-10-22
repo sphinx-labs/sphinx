@@ -32,7 +32,7 @@ import {
     BundleInfo,
     DeploymentInfo,
     HumanReadableAction,
-    SphinxActionInput,
+    DeployContractActionInput,
     BundledAuthLeaf,
     NetworkInfo,
     NetworkType,
@@ -1264,24 +1264,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function isReferenceNameUsed(
         string memory _referenceName,
-        SphinxActionInput[] memory _inputs
+        DeployContractActionInput[] memory _inputs
     ) external pure returns (bool) {
         for (uint256 i = 0; i < _inputs.length; i++) {
-            SphinxActionInput memory action = _inputs[i];
-            if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                (, , , string memory referenceName) = abi.decode(
-                    action.data,
-                    (bytes, bytes, bytes32, string)
-                );
-                if (keccak256(abi.encode(referenceName)) == keccak256(abi.encode(_referenceName))) {
+            DeployContractActionInput memory action = _inputs[i];
+                if (keccak256(abi.encode(action.referenceName)) == keccak256(abi.encode(_referenceName))) {
                     return true;
                 }
-            } else if (action.actionType == SphinxActionType.DEFINE_CONTRACT) {
-                (, string memory referenceName) = abi.decode(action.data, (address, string));
-                if (keccak256(abi.encode(referenceName)) == keccak256(abi.encode(_referenceName))) {
-                    return true;
-                }
-            }
         }
         return false;
     }

@@ -72,16 +72,11 @@ struct SphinxTarget {
  * @custom:value SET_STORAGE Set a storage slot value in a proxy contract.
  * @custom:value DEPLOY_CONTRACT Deploy a contract.
  * @custom:value CALL Execute a low-level call on an address.
- * @custom:value DEFINE_CONTRACT Define a previously deployed contract. This action is used when the
- *               user is defining their deployment, and wants to execute function calls on a
- *               previously deployed contract. This is never used during the actual execution
- *               process.
  */
 enum SphinxActionType {
     SET_STORAGE,
     DEPLOY_CONTRACT,
-    CALL,
-    DEFINE_CONTRACT
+    CALL
 }
 
 /**
