@@ -14,11 +14,6 @@ import {
 import { SphinxUtils } from "@sphinx-labs/plugins/SphinxUtils.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../contracts/test/ChainSpecific.sol";
-import {
-    AllNetworksClient,
-    OnlyArbitrumClient,
-    OnlyOptimismClient
-} from "../client/ChainSpecific.c.sol";
 
 /**
  * @dev A script meant to be inherited by test contracts in order to test multi-chain deployments
@@ -97,36 +92,31 @@ contract ChainSpecific is SphinxClient {
     function deploy(Network _network) public override virtual sphinx(_network) {
         setupVariables();
 
-        AllNetworksClient allNetworksClient = deployAllNetworks(chainSpecificConstructorArgs[_network], address(manager));
-        allNetworksClient.setFee(chainSpecificFee[_network]);
-        uint256 fee = allNetworksClient.feeToAdd();
-        allNetworksClient.incrementFee(fee);
-        allNetworksClient.transferOwnership(finalOwner);
-        allNetworks = AllNetworks(address(allNetworksClient));
+        allNetworks = deployAllNetworks(chainSpecificConstructorArgs[_network], address(manager));
+        allNetworks.setFee(chainSpecificFee[_network]);
+        uint256 fee = allNetworks.feeToAdd();
+        allNetworks.incrementFee(fee);
+        allNetworks.transferOwnership(finalOwner);
 
         if (_network == Network.arbitrum) {
-            OnlyArbitrumClient onlyArbitrumClient = deployOnlyArbitrum();
-            onlyArbitrumClient.increment();
-            onlyArbitrumClient.increment();
-            onlyArbitrum = OnlyArbitrum(address(onlyArbitrumClient));
+            onlyArbitrum = deployOnlyArbitrum();
+            onlyArbitrum.increment();
+            onlyArbitrum.increment();
         } else if (_network == Network.arbitrum_goerli) {
-            OnlyArbitrumClient onlyArbitrumGoerliClientOne = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
-            onlyArbitrumGoerliClientOne.decrement();
-            onlyArbitrumGoerliClientOne.decrement();
-            OnlyArbitrumClient onlyArbitrumGoerliClientTwo = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
-            onlyArbitrumGoerliOne = OnlyArbitrum(address(onlyArbitrumGoerliClientOne));
-            onlyArbitrumGoerliTwo = OnlyArbitrum(address(onlyArbitrumGoerliClientTwo));
+            onlyArbitrumGoerliOne = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
+            onlyArbitrumGoerliOne.decrement();
+            onlyArbitrumGoerliOne.decrement();
+            onlyArbitrumGoerliTwo = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
         }
 
         if (_network == Network.optimism_goerli) {
-            OnlyOptimismClient onlyOptimismGoerliClient = defineOnlyOptimism(address(onlyOptimismGoerli));
-            onlyOptimismGoerliClient.incrementTwice();
-            onlyOptimismGoerliClient.incrementTwice();
+            onlyOptimismGoerli = OnlyOptimism(onlyOptimismGoerli);
+            onlyOptimismGoerli.incrementTwice();
+            onlyOptimismGoerli.incrementTwice();
         } else if (_network == Network.optimism) {
-            OnlyOptimismClient onlyOptimismClient = defineOnlyOptimism(address(onlyOptimism), DefineOptions({ referenceName: "OnlyOptimismMainnet"} ));
-            onlyOptimismClient.decrementTwice();
-            onlyOptimismClient.decrementTwice();
-            onlyOptimism = OnlyOptimism(address(onlyOptimismClient));
+            onlyOptimism = OnlyOptimism(onlyOptimism);
+            onlyOptimism.decrementTwice();
+            onlyOptimism.decrementTwice();
         }
     }
 }

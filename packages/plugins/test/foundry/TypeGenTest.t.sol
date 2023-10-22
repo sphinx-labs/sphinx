@@ -33,9 +33,6 @@ import {
 } from "../../contracts/test/typegen/imports/LocalParent.sol";
 import { MyImportContract } from "../../contracts/test/typegen/contractInputs/ImportContract.sol";
 import { LocalContract } from "../../contracts/test/typegen/contractInputs/FunctionContract.sol";
-import {
-    FunctionContractClient
-} from "../../client/typegen/contractInputs/FunctionContract.c.sol";
 import { ExternalContract } from "../../testExternalContracts/ExternalContract.sol";
 
 import { ConflictingType } from "../../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -347,7 +344,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
             ConflictingType a,
             ConflictingStruct memory b,
             ConflictingEnum c
-        ) = conflictingTypeNameContractClient.pureConflictingTypes();
+        ) = conflictingTypeNameContractSecond.pureConflictingTypes();
         assertEq(ConflictingType.unwrap(a), true);
         assertEq(b.a, true);
         assertEq(uint(c), uint(ConflictingEnum.First));
@@ -474,11 +471,11 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     // Covers returning a contract from a pure function
     function testDidReturnContractAsAddressFromPureFunction() public {
         assertEq(
-            FunctionContractClient(address(functionContract)).fetchImportContract(),
+            functionContract.fetchImportContract(),
             address(10)
         );
         assertEq(
-            FunctionContractClient(address(functionContract)).fetchLocalContract(),
+            functionContract.fetchLocalContract(),
             address(11)
         );
     }

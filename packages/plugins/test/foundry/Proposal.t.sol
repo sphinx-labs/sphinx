@@ -19,7 +19,6 @@ import {
 
 import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
 import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress } from "../../contracts/foundry/SphinxPluginTypes.sol";
-import { MyOwnableClient, MyContract1Client } from "../../client/MyContracts.c.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
@@ -106,12 +105,11 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
     }
 
     function initialDeployment() internal {
-        MyOwnableClient ownableClient = deployMyOwnable(address(manager), 500);
-        ownableClient.set(8);
-        ownableClient.increment();
-        ownableClient.increment();
-        ownableClient.transferOwnership(finalOwner);
-        ownable = MyOwnable(address(ownableClient));
+        ownable = deployMyOwnable(address(manager), 500);
+        ownable.set(8);
+        ownable.increment();
+        ownable.increment();
+        ownable.transferOwnership(finalOwner);
     }
 }
 
@@ -171,8 +169,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
 
     function deploy(Network _network) public override sphinx(_network) {
         initialDeployment();
-        MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
-        myNewContract = MyContract1(address(myNewContractClient));
+        myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
     }
 
     function test_add_contract_between_proposals() external {
@@ -293,8 +290,7 @@ contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxCo
 
     function deploy(Network _network) public override virtual sphinx(_network) {
         initialDeployment();
-        MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
-        myNewContract = MyContract1(address(myNewContractClient));
+        myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
     }
 
     function test_version_upgrade_proposal() external {
@@ -382,8 +378,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
 
     function deploy(Network _network) public override virtual sphinx(_network) {
         initialDeployment();
-        MyContract1Client myNewContractClient = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
-        myNewContract = MyContract1(address(myNewContractClient));
+        myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
     }
 
     function test_cancel_existing_deployment_proposal() external {

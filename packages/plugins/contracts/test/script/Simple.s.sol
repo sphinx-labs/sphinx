@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
 import { SphinxClient, SphinxConfig, Version } from "../../../client/SphinxClient.sol";
-import { MyContract1Client } from "../../../client/MyContracts.c.sol";
 import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../../../contracts/test/MyContracts.sol";
 
@@ -20,7 +19,7 @@ contract Simple is Script, SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MyContract1Client myContract1 = deployMyContract1(-1, 2, address(1), address(2));
+        MyContract1 myContract1 = deployMyContract1(-1, 2, address(1), address(2));
         myContract1.incrementUint();
     }
 

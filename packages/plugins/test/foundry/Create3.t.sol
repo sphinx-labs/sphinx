@@ -4,14 +4,13 @@ pragma solidity ^0.8.0;
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Test } from "sphinx-forge-std/Test.sol";
 import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
-import { StatelessClient } from "../../client/Stateless.c.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
 import { Network, DeployOptions } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../../contracts/test/MyContracts.sol";
 
 contract Create3_Script is Script, SphinxClient {
-    StatelessClient clientNoSalt;
-    StatelessClient clientWithSalt;
+    Stateless noSalt;
+    Stateless withSalt;
 
     constructor() {
         sphinxConfig.projectName = "Create3";
@@ -20,8 +19,8 @@ contract Create3_Script is Script, SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        clientNoSalt = deployStateless(1, address(1), Version(0, 0, 0));
-        clientWithSalt = deployStateless(
+        noSalt = deployStateless(1, address(1), Version(0, 0, 0));
+        withSalt = deployStateless(
             2,
             address(2),
             Version(0, 0, 0),
@@ -36,9 +35,6 @@ contract Create3_Test is Create3_Script, Test {
 
     function setUp() external {
         deploy(Network.anvil);
-
-        statelessNoSalt = Stateless(address(clientNoSalt));
-        statelessWithSalt = Stateless(address(clientWithSalt));
     }
 
     function test_deploy_success() external {

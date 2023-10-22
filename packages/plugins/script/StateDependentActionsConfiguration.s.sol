@@ -10,10 +10,6 @@ import {
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { StateDependentActions, Box } from "../contracts/test/StateDependentActions.sol";
-import {
-    StateDependentActionsClient,
-    BoxClient
-} from "../client/StateDependentActions.c.sol";
 
 /**
  * @title StateDependentActionsConfiguration
@@ -38,10 +34,9 @@ contract StateDependentActionsConfiguration is SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        BoxClient boxClient = deployBox(2);
-        boxClient.addValue(3);
-        StateDependentActionsClient client = deployStateDependentActions(address(boxClient), 1);
-        client.setMultiple(3);
-        stateDependentActions = StateDependentActions(address(client));
+        Box box = deployBox(2);
+        box.addValue(3);
+        stateDependentActions = deployStateDependentActions(box, 1);
+        stateDependentActions.setMultiple(3);
     }
 }

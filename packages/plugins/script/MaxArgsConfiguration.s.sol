@@ -10,7 +10,6 @@ import {
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { MaxArgs } from "../contracts/test/MaxArgs.sol";
-import { MaxArgsClient } from "../client/MaxArgs.c.sol";
 
 /**
  * @title MaxArgsConfiguration
@@ -40,7 +39,7 @@ contract MaxArgsConfiguration is SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        MaxArgsClient maxArgsClient = deployMaxArgs(
+        maxArgs = deployMaxArgs(
             1,
             2,
             3,
@@ -54,7 +53,6 @@ contract MaxArgsConfiguration is SphinxClient {
             11,
             DeployOptions({ salt: bytes32(0), referenceName: "MyMaxArgs" })
         );
-        maxArgsClient.addValues(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-        maxArgs = MaxArgs(address(maxArgsClient));
+        maxArgs.addValues(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
     }
 }

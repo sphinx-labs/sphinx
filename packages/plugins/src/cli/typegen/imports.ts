@@ -123,68 +123,63 @@ export const generateImportsFromVariableDeclarations = (
       (variable.typeName?.nodeType === 'ArrayTypeName' &&
         variable.typeName.baseType.nodeType === 'UserDefinedTypeName')
     ) {
-      if (variable.typeName.typeDescriptions.typeString?.includes('contract')) {
-        // If item is contract
-        // TODO: Generate import for the respective client
-      } else {
-        // else if item is struct, enum, or user defined type
+      // else if item is struct, enum, or user defined type
 
-        const type = fetchTypeForUserDefinedType(variable)
-        if (type) {
-          // Slice out the parent type name
-          // If there is no parent type, then this will be the actual type name which is fine b/c
-          // it causes the following logic to handle the case where the type is imported directly or defined in the same file
-          const localName = type.split(' ').at(-1)?.split('.')[0]
+      const type = fetchTypeForUserDefinedType(variable)
+      if (type) {
+        // Slice out the parent type name
+        // If there is no parent type, then this will be the actual type name which is fine b/c
+        // it causes the following logic to handle the case where the type is imported directly or defined in the same file
+        const localName = type.split(' ').at(-1)?.split('.')[0]
 
-          if (!localName) {
-            throw new Error(
-              `Unable to fetch local name for type string: ${variable.typeName.typeDescriptions.typeString}`
-            )
-          }
+        if (!localName) {
+          throw new Error(
+            `Unable to fetch local name for type string: ${variable.typeName.typeDescriptions.typeString}`
+          )
+        }
 
-          // Fetch the import statement for the parent type and the alias if any
-          const importData = fetchImportForType(
-            localName,
-            sourceUnit,
-            sourceFilePath,
-            remappings,
+        // Fetch the import statement for the parent type and the alias if any
+        const importData = fetchImportForType(
+          localName,
+          sourceUnit,
+          sourceFilePath,
+          remappings,
+          currentImports,
+          src
+        )
+
+        if (importData) {
+          const { importString, uniqueName } = importData
+          // If there is an import statement for the parent type, then generate an import statement for
+          // that type from the original source
+          newImports[uniqueName] = importString
+          duplicates[localName] = uniqueName
+        } else {
+          // Else if there was no import statement then the parent type must be defined in the same file
+          // so generate an import statement for that type from the current original contract source file
+
+          const path = generateImportPath(sourceFilePath, remappings)
+
+          const uniqueName = fetchUniqueTypeName(
             currentImports,
+            localName,
+            path,
+            sourceFilePath,
             src
           )
 
-          if (importData) {
-            const { importString, uniqueName } = importData
-            // If there is an import statement for the parent type, then generate an import statement for
-            // that type from the original source
-            newImports[uniqueName] = importString
-            duplicates[localName] = uniqueName
-          } else {
-            // Else if there was no import statement then the parent type must be defined in the same file
-            // so generate an import statement for that type from the current original contract source file
-
-            const path = generateImportPath(sourceFilePath, remappings)
-
-            const uniqueName = fetchUniqueTypeName(
-              currentImports,
-              localName,
-              path,
-              sourceFilePath,
-              src
-            )
-
-            newImports[uniqueName] = `import { ${
-              localName === uniqueName
-                ? localName
-                : `${localName} as ${uniqueName}`
-            } } from "${path}";`
-            duplicates[localName] = uniqueName
-          }
-        } else {
-          // TODO: In what case is this triggered?
-          throw new Error(
-            "No type string for user defined type's name when generating imports. This should never happen. Please report this as a bug."
-          )
+          newImports[uniqueName] = `import { ${
+            localName === uniqueName
+              ? localName
+              : `${localName} as ${uniqueName}`
+          } } from "${path}";`
+          duplicates[localName] = uniqueName
         }
+      } else {
+        // TODO: In what case is this triggered?
+        throw new Error(
+          "No type string for user defined type's name when generating imports. This should never happen. Please report this as a bug."
+        )
       }
     }
   }
