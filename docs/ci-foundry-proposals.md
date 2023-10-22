@@ -79,8 +79,10 @@ jobs:
         run: npx sphinx propose ./script/HelloSphinx.c.sol --dry-run --testnets
 ```
 
+TODO(md-end): grammar check
+
 ## 6. Create the propose workflow
-Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command allowing the proposal command to complete automatically. Your deployment will still required approval via the Sphinx UI before it will be executed on chain.
+Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command. This allows the proposal command to complete automatically. Your deployment will still require approval via the Sphinx UI before it will be executed on chain.
 
 Copy and paste the following into your `sphinx.deploy.yml` file:
 
@@ -129,4 +131,4 @@ Push your branch to Github, open a PR, and merge it after the dryrun check compl
 ## 8. Production Deployments
 In this example we've configured the CI deployment process to deploy against test networks when merging to main. If you want to go straight to production, you can do so by switching out the `--testnets` flag for the `--mainnets` production.
 
-However, in practice you may want something different depending on your workflow. For a more robust setup we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. Then having a separate workflow that triggers deployments on production networks when you eventually do merge to main.
+However, in practice, you may want something different depending on your workflow. For a more robust setup we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. We recommend using a separate workflow that triggers deployments on production networks when you eventually merge to main.
