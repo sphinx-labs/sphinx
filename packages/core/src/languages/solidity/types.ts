@@ -62,20 +62,28 @@ export type BuildInfo = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
-  output: CompilerOutput
 }
 
-/**
- * @param abi The ABI of the contract. We use the `any` type here to match the type used by
- * Hardhat. We don't use Ethers' `Fragment` type because it has additional fields that Hardhat
- * doesn't include.
- */
 export type ContractArtifact = {
   abi: Array<any>
   sourceName: string
   contractName: string
   bytecode: string
   deployedBytecode: string
+  gasEstimates: GasEstimates
+  methodIdentifiers: {
+    [methodSignature: string]: string
+  }
+  metadata: CompilerOutputMetadata
+  storageLayout?: SolidityStorageLayout
+}
+
+export type GasEstimates = {
+  creation: {
+    totalCost: string
+    codeDepositCost: string
+    executionCost: string
+  }
 }
 
 export interface CompilerOutputMetadata {

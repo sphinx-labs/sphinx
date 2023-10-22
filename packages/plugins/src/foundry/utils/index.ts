@@ -2,13 +2,9 @@ import * as fs from 'fs'
 import path, { join } from 'path'
 import { promisify } from 'util'
 
-import {
-  BuildInfo,
-  ContractArtifact,
-} from '@sphinx-labs/core/dist/languages/solidity/types'
+import { ContractArtifact } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   parseFoundryArtifact,
-  validateBuildInfo,
   execAsync,
   getNetworkNameForChainId,
 } from '@sphinx-labs/core/dist/utils'
@@ -21,14 +17,39 @@ import {
 import { parse } from 'semver'
 import chain from 'stream-chain'
 import parser from 'stream-json'
+import { ignore } from 'stream-json/filters/Ignore'
+import { pick } from 'stream-json/filters/Pick'
+import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 
 const readFileAsync = promisify(fs.readFile)
 
-export const streamJsonFile = async (filePath: string) => {
+export const streamOutputContractNames = async (filePath: string) => {
   const pipeline = new chain([
     fs.createReadStream(filePath),
     parser(),
+    pick({ filter: 'output' }),
+    pick({ filter: 'contracts' }),
+    streamObject(),
+    (data) => {
+      return data.key
+    },
+  ])
+
+  const names: string[] = []
+  pipeline.on('data', (name) => {
+    names.push(name)
+  })
+
+  await new Promise((resolve) => pipeline.on('finish', resolve))
+  return names
+}
+
+export const streamBuildInfo = async (filePath: string) => {
+  const pipeline = new chain([
+    fs.createReadStream(filePath),
+    parser(),
+    ignore({ filter: 'output' }),
     streamValues(),
     (data) => {
       return data
@@ -42,29 +63,6 @@ export const streamJsonFile = async (filePath: string) => {
 
   await new Promise((resolve) => pipeline.on('finish', resolve))
   return buildInfo
-}
-
-export const getBuildInfo = (
-  buildInfos: Array<{
-    buildInfo: BuildInfo
-    name: string
-  }>,
-  sourceName: string
-):
-  | {
-      buildInfo: BuildInfo
-      name: string
-    }
-  | false => {
-  // Find the correct build info file
-  for (const input of buildInfos) {
-    if (input?.buildInfo.output?.contracts[sourceName] !== undefined) {
-      validateBuildInfo(input.buildInfo, 'foundry')
-      return input
-    }
-  }
-
-  return false
 }
 
 export const messageArtifactNotFound = (fullyQualifiedName: string): string => {
@@ -218,7 +216,7 @@ export const makeGetConfigArtifacts = (
         ) {
           buildInfoCache[file.name].time = file.time
         } else {
-          const buildInfo = await streamJsonFile(
+          const outputContracts = await streamOutputContractNames(
             join(buildInfoFolder, file.name)
           )
 
@@ -226,7 +224,7 @@ export const makeGetConfigArtifacts = (
           buildInfoCache[file.name] = {
             name: file.name,
             time: file.time,
-            contracts: Object.keys(buildInfo.output.contracts),
+            contracts: outputContracts,
           }
         }
       }
@@ -291,7 +289,7 @@ export const makeGetConfigArtifacts = (
             `Build info cache is outdated, please run 'forge build --force' then try again.`
           )
         } else {
-          const buildInfo = await streamJsonFile(fullFilePath)
+          const buildInfo = await streamBuildInfo(fullFilePath)
           localBuildInfoCache[file] = buildInfo
         }
       })

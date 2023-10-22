@@ -2,7 +2,7 @@
 
 This guide will describe how to define deployments with Sphinx.
 
-Before continuing, please complete either the [quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md) to setup a project in a new repository, or the guide to [integrate Sphinx into an existing repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md).
+Before continuing, please complete either the [quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md) to setup a project in a new repository, or the guide to [integrate Sphinx into an existing repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md).
 
 ## Table of Contents
 

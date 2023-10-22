@@ -20,8 +20,8 @@ You'll need an EOA that exists on live networks.
 
 Also, make sure that you've already completed one of the following guides:
 
-* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
+* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
 ## 2. High-level overview
 
@@ -37,7 +37,7 @@ TODO(md): c/f and remove 'trustless'.
 
 ## 3. Get testnet ETH on OP Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. We currently only allow you to fund deployments in USDC on Optimism Goerli on testnets and Optimism Mainnet on production networks. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, we  only allow you to fund deployments in USDC on Optimism Goerli. Likewise, on production networks, we only allow you to fund deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
@@ -103,7 +103,7 @@ polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 
 ## 8. Propose the deployment
 
-For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for Foundry.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 
 Propose the deployment:
 
@@ -115,4 +115,4 @@ Follow the instructions in the terminal to complete the deployment.
 
 ## 9. Learn more
 
-[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
+[Setup Deployments in CI with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)

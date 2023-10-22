@@ -574,8 +574,8 @@ export const makeActionBundleFromConfig = (
     const actionInput = notSkipping[index]
     const { fullyQualifiedName, actionType } = actionInput
     if (isExtendedDeployContractActionInput(actionInput)) {
-      const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
-      const { sourceName, contractName } = artifact
+      const { artifact } = configArtifacts[fullyQualifiedName]
+      const { gasEstimates } = artifact
       const {
         initCode,
         constructorArgs,
@@ -590,9 +590,7 @@ export const makeActionBundleFromConfig = (
         decodedAction.variables
       )
 
-      const deployContractCost = getEstDeployContractCost(
-        buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-      )
+      const deployContractCost = getEstDeployContractCost(gasEstimates)
 
       // Add a DEPLOY_CONTRACT action.
       const create3Salt = getCreate3Salt(referenceName, userSalt)

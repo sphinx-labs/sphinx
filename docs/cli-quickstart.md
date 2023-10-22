@@ -1,7 +1,7 @@
 # Quickstart
 This guide will show you how to setup a fresh Sphinx project, run tests, and deploy locally. Once you've finished this guide, the next guide will describe how to write your own deployment scripts using Sphinx.
 
-> For a guide on adding Sphinx to an existing project, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md).
+> For a guide on adding Sphinx to an existing project, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md).
 
 ## Table of Contents
 
@@ -98,6 +98,8 @@ npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 You'll be shown a preview of your deployment and prompted to confirm. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
 Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+
+When deploying on a live network, you can verify your contracts using the `--verify` flag.
 
 ## 9. Next steps
 
