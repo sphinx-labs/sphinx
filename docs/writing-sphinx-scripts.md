@@ -8,7 +8,7 @@ Before continuing, please complete either the [quickstart guide](https://github.
 
 TODO(md-end): check table of contents everywhere
 
-## 1. Sample Sphinx Script
+## Sample Sphinx Script
 
 A Sphinx deployment script has the following format:
 
@@ -29,6 +29,7 @@ contract Sample is Script, SphinxClient {
 
         // Sphinx DevOps platform options:
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "<org id>";
     }
@@ -43,21 +44,21 @@ contract Sample is Script, SphinxClient {
 
 You'll notice some differences between the sample script above and a vanilla Forge script. There are three main differences:
 
-1. There are a few configuration options that you must specify in your `setUp()` function.
-2. The entry point for the deployment is the `deploy(Network _network)` function defined above instead of a `run()` function.
-3. In your `deploy(Network _network)` function, you interact with **clients** instead of interacting directly with your contracts.
+- There are a few configuration options that you must specify in your `setUp()` function.
+- The entry point for the deployment is the `deploy(Network _network)` function defined above instead of a `run()` function.
+- In your `deploy(Network _network)` function, you interact with **clients** instead of interacting directly with your contracts.
 
 We'll go into detail on each of these below.
 
-## 2. Required Configuration Options
-In the `setUp()` function, we assign values to a `sphinxConfig` struct. This contains the configuration options of your project. We'll go through these one by one.
+## Required Configuration Options
+In the `setUp()` function, you'll assign values to a `sphinxConfig` struct to configure your project's settings. We'll go through its fields one by one.
 
 ### Project Name
 ```
 sphinxConfig.projectName = "My Project";
 ```
 
-TODO(md): how are addresses generated with sphinx?
+TODO(md): answer the question: how are addresses generated with sphinx?
 
 The `projectName` is the name of your project, and it can be any name you choose. It's case-sensitive.
 
@@ -75,33 +76,12 @@ sphinxConfig.threshold = 1;
 
 The number of owner signatures required to approve a deployment. If you are deploying using the CLI, then this needs to be 1.
 
-## 3. DevOps Platform Options (optional)
+### DevOps Platform Options
 If you are using the Sphinx DevOps platform, there are several additional options you'll need to configure. You can learn more about them in the [Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md) guide.
 
-## 4. Generating Clients
-During your deployment, you'll interact with clients instead of interacting directly with your contracts. Sphinx uses clients to ensure that your deployment process is idempotent, which means that each transaction in your deployment will be executed exactly once, even if you run the script multiple times.
+## Sphinx Deploy Function
 
-TODO(md): do we recommend to turn the optimizer off anywhere?
-
-Sphinx generates a client for each contract in the `src` directory defined your `foundry.toml`, which defaults to `src/`. These clients _. This means that if you change the interface of a contract during development, you may need to re-generate your clients with the command above.
-
-You can generate your clients with the command:
-```
-npx sphinx generate
-```
-
-This command generates clients for each contract in your `src/` directory. It does not generate clients for any Forge tests or scripts (i.e. files ending in `.t.sol` or `.s.sol`).
-
-You can use clients for three purposes:
-1. Deploy a new instance of a contract
-2. Call functions on a contract
-3. Define a contract that already exists a given address
-
-We'll go through each of these three use cases below.
-
-## 5. Sphinx Deploy Function
-
-Sphinx deployments must be defined in inside the following function:
+The entry point for Sphinx deployments must always be:
 
 ```sol
 function deploy(Network _network) public override sphinx(_network) {
@@ -109,7 +89,7 @@ function deploy(Network _network) public override sphinx(_network) {
 }
 ```
 
-This is the entry point for your deployment. You must include the modifier `sphinx(_network)` for the deployment to work properly.
+You must include the modifier `sphinx(_network)` shown above for the deployment to work properly.
 
 You'll notice that the function has a `Network _network` argument. This is an enum that you can optionally use to customize your deployments on different networks. For example:
 
@@ -123,11 +103,33 @@ function deploy(Network _network) public override sphinx(_network) {
 }
 ```
 
-## 6. Deploying Contracts
+## Interacting with Clients
 
-To deploy a contract using Sphinx, you'll use slightly different syntax from a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
+During your deployment, you'll interact with clients instead of interacting directly with your contracts. Sphinx uses clients to ensure that your deployment process is idempotent, which means that each transaction in your deployment will be executed exactly once, even if you run the script multiple times.
 
-For example, say you have a contract `HelloSphinx` that you'd normally deploy via `new HelloSphinx("Hello!", 2)`. Using Sphinx, you'd deploy this contract by calling the function:
+You can generate your clients with the command:
+```
+npx sphinx generate
+```
+
+TODO(md): left off: converting the numbers to nested tags
+
+Sphinx generates a client for each contract in the `src` directory defined your `foundry.toml`, which defaults to `src/`. Sphinx skips generating clients for any files ending in `.t.sol` or `.s.sol`, which are meant to be test file and script files, respectively.
+
+The interface of a client is generated based on its corresponding contract. This means that if you change the interface of a contract during development, you may need to re-generate your clients using the command above.
+
+Clients serve three purposes:
+1. Deploy a new instance of a contract
+2. Call functions on a contract
+3. Define a contract that already exists a given address
+
+We'll explain each of these below.
+
+### Deploying Contracts
+
+To deploy a contract using Sphinx, you'll use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
+
+For example, say you have a contract called `HelloSphinx` that you'd normally deploy via `new HelloSphinx("Hello!", 2)`. Using Sphinx, you'd deploy this contract by calling the function:
 
 ```
 deployHelloSphinx("Hello!", 2);
@@ -139,7 +141,7 @@ We use this custom syntax because your contracts are deployed via `CREATE3`, whi
 
 Typically, the deployment function for a contract will follow the format: `deploy<ContractName>`. If your repository contains more than one contract with the same name, Sphinx will resolve this ambiguity by incorporating the full path to the contract with the format: `deploy<PathToContract>_<ContractName>`. For example, say your repository contains more than one contract with the name `ERC20`. If one of these contracts is located at `src/tokens/MyTokens.sol`, then its deployment function would be called: `deploySrcTokensMyTokens_ERC20`.
 
-### Contract Deployment Options (optional)
+### Contract Deployment Options
 
 Sometimes, it may be necessary to configure additional options when deploying contracts using Sphinx. For example, you may want to use a custom salt to determine your contract's `CREATE3` address, or you may want to deploy multiple instances of a contract. You can do this by entering a `DeployOptions` struct as the last argument of the appropriate deployment function. The structure of the `DeployOptions` struct is:
 
@@ -213,9 +215,10 @@ You can call any state-changing function or `pure` function on your contract cli
 
 ## 9. Owned Contracts
 
-When using contracts with an ownership scheme such as OpenZeppelin's `AccessControl` or `Ownable`, you must explicitly set the owner of your contract in its constructor. *Do not* use `msg.sender`. This is because the `msg.sender` of each contract is a minimal `CREATE3` proxy that has no logic to execute transactions. This means that if the `msg.sender` owns your contracts, you won't be able to execute any permissioned functions or transfer ownership to a new address.
+There are two things to keep in mind when deploying contracts that use an ownership mechanism such as OpenZeppelin's `AccessControl` or `Ownable`.
 
-If you need to call permissioned functions on your contract after it's deployed, you must grant the appropriate role to your `SphinxManager`, which is a contract you own that executes your deployment. See [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md) for instructions on how to do that.
+1. You must explicitly set the owner of your contract in its constructor. When doing this, you *must not* use `msg.sender`. This is because the `msg.sender` of each contract is a minimal `CREATE3` proxy that has no logic to execute transactions. This means that if the `msg.sender` owns your contracts, you won't be able to execute any permissioned functions or transfer ownership to a new address.
+2. If you need to call permissioned functions on your contract after it's deployed, you must grant the appropriate role to your `SphinxManager`, which is the contract that executes your deployment. See [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md) for instructions on how to do that.
 
 ## 10. Importing External Contracts
 If you need to deploy or interact with a contract that is not included in your contract source folder, you'll need to generate a contract client for it. You can do this by creating a file in your source folder that imports the contract you need.

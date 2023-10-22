@@ -3,6 +3,10 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
 
+// TODO(simple): check if any transactions have a value > 0, including contract deployments
+// TODO(simple): case: user triggers a low-level call, which doesn't have a function selector.
+// should we allow this?
+
 import yesno from 'yesno'
 import axios from 'axios'
 import ora from 'ora'

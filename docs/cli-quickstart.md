@@ -5,13 +5,7 @@ This guide will show you how to setup a fresh Sphinx project, run tests, and dep
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Update Foundry](#2-update-foundry)
-3. [Install Sphinx](#3-install-sphinx)
-4. [Initialize a project](#4-initialize-a-project)
-5. [Generate Sphinx clients](#5-generate-sphinx-clients)
-6. [Run the tests](#6-run-the-tests)
-TODO(md): step 7
+
 
 ## 1. Prerequisites
 
@@ -72,7 +66,7 @@ Generate the clients with the command:
 npx sphinx generate
 ```
 
-This command writes the clients into a new `client` folder. You'll learn more about clients in the [Writing Scripts with Sphinx](TODO(md)) guide.
+This command writes the clients into a new `client` folder. You'll learn more about clients in the next guide.
 
 ## 6. Run the tests
 

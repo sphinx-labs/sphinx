@@ -146,8 +146,7 @@ struct OptionalBytes32 {
  * @custom:field authAddress The address of the user's SphinxAuth contract.
  * @custom:field managerAddress The address of the user's SphinxManager contract.
  * @custom:field chainId The chain ID where the deployment will occur.
- * @custom:field actionInputs The actions that the user has defined in their deployment. For
- *               example, contract deployments or function calls.
+ * @custom:field deployments The contract deployments that the user has declared.
  * @custom:field newConfig The SphinxConfig that the user has defined in their script.
  * @custom:field isLiveNetwork Whether or not the deployment is occurring on a live network (e.g.
  *               Ethereum) as opposed to a local node (e.g. an Anvil or Hardhat node).
@@ -159,7 +158,7 @@ struct DeploymentInfo {
     address authAddress;
     address managerAddress;
     uint256 chainId;
-    SphinxActionInput[] actionInputs;
+    DeployContractActionInput[] deployments;
     SphinxConfig newConfig;
     bool isLiveNetwork;
     InitialChainState initialState;
@@ -264,10 +263,6 @@ struct DeployOptions {
     string referenceName;
 }
 
-struct DefineOptions {
-    string referenceName;
-}
-
 /**
  * @notice Represents an action that the user has defined in their deployment. These
  *         actions are collected during the deployment process and then executed
@@ -275,21 +270,17 @@ struct DefineOptions {
  *
  * @custom:field fullyQualifiedName The fully qualified name of the contract on which
  *               the action will be executed. For example, `contracts/MyContract.sol:MyContract`.
- * @custom:field actionType The type of action to execute. For example, `DEPLOY_CONTRACT`.
- * @custom:field data The ABI-encoded data of the action. The fields of this data are
- *               dependent on the action. For example, if the action type is `DEPLOY_CONTRACT`,
- *               then the data will contain the constructor arguments of the contract, as well
- *               as its reference name, in addition to other fields. If the action type is `CALL`
- *               (i.e. a function call), then the data will contain the function selector, function
- *               arguments, etc.
+ * TODO(docs)
  * @custom:field skip Whether or not to skip the action. An action will be skipped if it has
  *               already been executed on the current chain. This ensures that the deployment
  *               process is idempotent, which means that the same action will not be executed twice.
  */
-struct SphinxActionInput {
+struct DeployContractActionInput {
     string fullyQualifiedName;
-    SphinxActionType actionType;
-    bytes data;
+    bytes initCode;
+    bytes constructorArgs;
+    bytes32 userSalt;
+    string referenceName;
     bool skip;
 }
 

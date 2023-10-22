@@ -6,7 +6,7 @@ build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read-write", path = "./"}]
 allow_paths = ["../.."]
-# We recommend setting the optimizer to 'false' for development because
+# We highly recommend setting the optimizer to 'false' for development because
 # this makes compilation happen ~5x faster. See here for more details:
 # https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage
 optimizer = false

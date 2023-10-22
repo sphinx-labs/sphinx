@@ -1,27 +1,20 @@
 # Sphinx (formerly ChugSplash)
-Sphinx is a [Foundry](https://github.com/foundry-rs/foundry) plugin for easily writing Solidity deployment scripts that are transparent, predictable, and multi-chain. Sphinx scripts can also be executed using the Sphinx DevOps platform which is a CI platform designed to help teams deploy smart contracts at scale.
+Sphinx is a Foundry plugin for writing transparent, predictable, and multi-chain deployment scripts. Sphinx has an opt-in DevOps platform that automates the deployment process with features such as gasless deployments and deployments in CI.
 
-## Key features of the Sphinx Plugin
+Key features:
+* **Deployment preview**: Sphinx provides visibility into your deployments by generating a [preview](TODO(md): screenshot) before any transactions are executed.
+* **Idempotent & Deterministic**: Sphinx deploys your contracts to predictable addresses using `CREATE3`. It detects the parts of your script that were already executed and automatically skips them, simplifying the process of extending your scripts.
+* **Multi-chain**: Sphinx makes it easy to write chain-specific logic and replicate these configurations locally.
 
-### Deployment Preview
-Sphinx has a “planning” step where it generates a deployment plan. Sphinx then provides you with a detailed preview of every action Sphinx will take during the deployment. This helps you avoid any surprises when Sphinx deploys and interacts with your contracts.
+## Sphinx DevOps Platform
 
-### Idempotent & Deterministic
-Sphinx deploys your contracts to predictable addresses using create3. It intelligently detects which parts of your script have already been executed on a given network and automatically skips them, simplifying the process of extending your scripts.
+The Sphinx DevOps Platform is built on top of the Foundry plugin, and is entirely opt-in.
 
-### Multi-chain
-Sphinx provides an intuitive interface for customizing your scripts to suit different networks, and makes it easy to replicate those network-specific configurations locally.
-
-## key features of the Sphinx DevOps Platform
-
-### Automated Deployments
-With Sphinx, you can effortlessly trigger gasless deployments from your local machine or CI process. Approve deployments via the UI with a single meta transaction, and let the Sphinx Platform execute your deployment automatically on your behalf.
-
-### Payments in USDC
-Simplify the payment process by settling deployment costs on all networks in USDC on a single chain. Enjoy free deployments on testnets.
-
-### Multichain Deployments
-Sphinx empowers you to deploy and verify your contracts on up to 11 supported networks simultaneously, streamlining your deployment workflow.
+Key features:
+* Propose your deployments gaslessly from a CI process or your local machine.
+* Maintain a balance of USDC on a single chain to fund deployments across all chains. You don't need native gas tokens on any chain.
+* Approve your deployments via the Sphinx UI with a single meta transaction.
+* Automatic Etherscan verification.
 
 You can request access to the DevOps platform [here](https://sphinx.dev).
 
@@ -29,6 +22,7 @@ You can request access to the DevOps platform [here](https://sphinx.dev).
 
 ### Getting Started
 
+- Foundry Plugin:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 - DevOps Platform:
@@ -37,7 +31,7 @@ You can request access to the DevOps platform [here](https://sphinx.dev).
 
 ### References
 
-- [Writing Sphinx Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
+- [Writing Deployment Scripts with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
