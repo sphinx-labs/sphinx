@@ -83,20 +83,7 @@ const formatParameters = (
       const name = includeName ? nameAll : ''
 
       let type: string | undefined
-      if (input?.typeDescriptions?.typeString?.includes('contract')) {
-        // TODO - handle using the actual client here instead of just replacing with an address
-        const typeString =
-          input?.typeName?.nodeType === 'ArrayTypeName'
-            ? input.typeName.baseType.typeDescriptions.typeString
-            : input.typeName?.typeDescriptions.typeString
-
-        if (typeString) {
-          type = input.typeDescriptions.typeString.replace(
-            typeString,
-            'address'
-          )
-        }
-      } else if (
+      if (
         input.typeName?.nodeType === 'UserDefinedTypeName' ||
         (input.typeName?.nodeType === 'ArrayTypeName' &&
           input.typeName.baseType.nodeType === 'UserDefinedTypeName')
@@ -129,14 +116,12 @@ export const generateDeploymentFunctionFromASTDefinition = (
   definition: FunctionDefinition,
   uniqueClientName: string,
   artifactPath: string,
-  clientArtifactPath: string,
   fullyQualifiedName: string,
   sourceUnit: SourceUnit,
   sourceFilePath: string,
   remappings: Record<string, string>,
   allDeployFunctionImports: Record<string, string>,
-  src: string,
-  includeDeployFunctions: boolean
+  src: string
 ) => {
   const inputParams = definition?.parameters?.parameters
 
@@ -160,29 +145,7 @@ export const generateDeploymentFunctionFromASTDefinition = (
     ? formatParameters(inputParams, false, false, true, ',\n      ', duplicates)
     : ''
 
-  const defineFunctionDefinitions = `function define${contractName}(
-    address addr
-  ) internal returns (${uniqueClientName}) {
-    return define${contractName}(
-      addr, DefineOptions({ referenceName: "${contractName}" })
-    );
-  }
-
-  function define${contractName}(
-    address addr,
-    DefineOptions memory _defineOptions
-  ) internal returns (${uniqueClientName}) {
-    return ${uniqueClientName}(
-      _sphinxDefineContract(
-        _defineOptions.referenceName,
-        addr,
-        "${fullyQualifiedName}",
-        "${clientArtifactPath}"
-      )
-    );
-  }`
-
-  const deployFunctionDefinitions = `function deploy${contractName}(${
+  const deployFunctions = `function deploy${contractName}(${
     inputs !== '' ? `\n    ${inputs}\n  ` : ''
   }) internal returns (${uniqueClientName}) {
     return deploy${contractName}(
@@ -205,20 +168,12 @@ export const generateDeploymentFunctionFromASTDefinition = (
         _sphinxInternalDeployOptions.salt,
         sphinxInternalConstructorArgs,
         "${fullyQualifiedName}",
-        "${clientArtifactPath}",
         "${artifactPath}"
       )
     );
   }`
 
-  const functionDefinitions = includeDeployFunctions
-    ? `
-  ${defineFunctionDefinitions}
-
-  ${deployFunctionDefinitions}`
-    : defineFunctionDefinitions
-
-  return { imports, functionDefinitions }
+  return { imports, deployFunctions }
 }
 
 export const generateFunctionFromASTDefinition = (

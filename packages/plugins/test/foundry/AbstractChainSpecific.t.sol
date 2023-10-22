@@ -22,8 +22,6 @@ import { DeploymentState, DeploymentStatus } from "@sphinx-labs/contracts/contra
  *      - Deploying a contract that does not have a constructor (`OnlyOptimism`), a contract that
  *         has a constructor with arguments (`AllNetworks`), and a contract that has a
  *         constructorwith no arguments (OnlyArbitrum).
- *      - Defining a previously deployed contract on a specific network, with and without
- *        `DefineOptions`
  *      - Calling functions on specific networks and skipping them on others
  *
  *      Additionally, the broadcast test suite tests that the deployment was successfully broadcasted

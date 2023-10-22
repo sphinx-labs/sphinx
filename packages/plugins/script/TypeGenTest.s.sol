@@ -4,8 +4,7 @@ pragma solidity ^0.8.0;
 import {
     SphinxConfig,
     Network,
-    DeployOptions,
-    DefineOptions
+    DeployOptions
 } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
@@ -16,10 +15,8 @@ import {
     ConflictingNameContract as ConflictingNameContractSecond
 } from "../contracts/test/typegen/conflictingNameContracts/Second.sol";
 import { BasicInputTypes } from "../contracts/test/typegen/BasicInputTypes.sol";
-import { BasicInputTypesClient } from "../client/typegen/BasicInputTypes.c.sol";
 import { ImmutableInputTypes } from "../contracts/test/typegen/ImmutableInputTypes.sol";
 import { ArrayInputTypes } from "../contracts/test/typegen/ArrayInputTypes.sol";
-import { ArrayInputTypesClient } from "../client/typegen/ArrayInputTypes.c.sol";
 import {
     NoAliasImportsOne,
     NoAliasImportsTwo
@@ -52,12 +49,8 @@ import {
 import { FunctionContract } from "../contracts/test/typegen/contractInputs/FunctionContract.sol";
 import { MyImportContract } from "../contracts/test/typegen/contractInputs/ImportContract.sol";
 import { LocalContract } from "../contracts/test/typegen/contractInputs/FunctionContract.sol";
-import {
-    FunctionContractClient
-} from "../client/typegen/contractInputs/FunctionContract.c.sol";
 import { FunctionInputContract } from "../contracts/test/typegen/FunctionInputType.sol";
 import { ExternalContract } from "../testExternalContracts/ExternalContract.sol";
-import { ExternalContractClient } from "../client/SphinxExternal/ExternalContract.c.sol";
 import {
     ConflictingTypeNameContractFirst
 } from "../contracts/test/typegen/conflictingTypeNames/First.sol";
@@ -82,15 +75,8 @@ import {
 import {
     ConflictingTypeNameContractSecond
 } from "../contracts/test/typegen/conflictingTypeNames/Second.sol";
-import {
-    ConflictingTypeNameContractFirstClient
-} from "../client/typegen/conflictingTypeNames/First.c.sol";
 import { MsgSender } from "../contracts/test/MsgSender.sol";
-import { MsgSenderClient } from "../client/MsgSender.c.sol";
 import { UnnamedParameters } from "../contracts/test/typegen/UnnamedParameters.sol";
-import {
-    UnnamedParametersClient
-} from "../client/typegen/UnnamedParameters.c.sol";
 import { MyEnum, MyType, MyStruct } from "../contracts/test/typegen/ArrayInputTypes.sol";
 import { NoAliasArrayImportsOne, NoAliasArrayImportsTwo } from "../contracts/test/typegen/imports/NoAliasArray.sol";
 import { AliasImportsArray } from "../contracts/test/typegen/imports/AliasArray.sol";
@@ -101,24 +87,16 @@ import {
 } from "../contracts/test/typegen/imports/NoAliasArray.sol";
 import { Child } from "../contracts/test/typegen/inheritance/Child.sol";
 import { Grandchild } from "../contracts/test/typegen/inheritance/Alias.sol";
-import { ChildClient } from "../client/typegen/inheritance/Child.c.sol";
-import { GrandchildClient } from "../client/typegen/inheritance/Alias.c.sol";
 import { ChildInSameFile } from "../contracts/test/typegen/inheritance/SameFile.sol";
-import { ChildInSameFileClient } from "../client/typegen/inheritance/SameFile.c.sol";
 import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.sol";
 import { ConflictingQualifiedNames as ConflictingQualifiedNamesA } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
 import { ConflictingQualifiedNameChild } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingNameChild.sol";
-import { ConflictingQualifiedNameChildClient } from "../client/typegen/conflictingQualifiedNames/ConflictingNameChild.c.sol";
 import { ConflictingQualifiedNameChildInSameFile } from "../contracts/test/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.sol";
-import { ConflictingQualifiedNameChildInSameFileClient } from "../client/typegen/conflictingQualifiedNames/ConflictingQualifiedNames.c.sol";
-import { ChildParentImportsTypesClient } from "../client/typegen/imports/ChildParentImportsTypes.c.sol";
 import { ChildParentImportsTypes } from "../contracts/test/typegen/imports/ChildParentImportsTypes.sol";
 import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.sol";
-import { ChildOverridesClient } from "../client/typegen/inheritance/Overrides.c.sol";
 import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
-import { IExternalContractClient } from "../client/SphinxExternal/IExternalContract.c.sol";
 import { NestedImportChild } from "../contracts/test/typegen/nestedParentImport/C.sol";
-import { NestedImportChildClient } from "../client/typegen/nestedParentImport/C.c.sol";
+import { MyContractType } from "../contracts/test/typegen/ArrayInputTypes.sol";
 
 import "sphinx-forge-std/Test.sol";
 
@@ -144,11 +122,10 @@ contract TypeGenTestConfig is Test, SphinxClient {
     FunctionInputContract functionInputContract;
     ExternalContract externalContract;
     ExternalContract alreadyDeployedExternalContract;
-    ExternalContract alreadyDeployedExternalContractInterface;
+    IExternalContract alreadyDeployedExternalContractInterface;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirst;
     ConflictingTypeNameContractSecond conflictingTypeNameContractSecond;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirstTwo;
-    ConflictingTypeNameContractFirstClient conflictingTypeNameContractClient;
     MsgSender msgSender;
     UnnamedParameters unnamedParameters;
     Child child;
@@ -167,7 +144,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     address[3] public initialUintStaticArray;
     MyStruct[] public initialMyStructArray;
     MyType[] public initialMyTypeArray;
-    address[] public initialMyContractTypeArray;
+    MyContractType[] public initialMyContractTypeArray;
     MyEnum[] public initialMyEnumArray;
 
     uint8[] public updatedUintDynamicArray;
@@ -175,7 +152,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     address[3] public updatedUintStaticArray;
     MyStruct[] public updatedMyStructArray;
     MyType[] public updatedMyTypeArray;
-    address[] public updatedMyContractTypeArray;
+    MyContractType[] public updatedMyContractTypeArray;
     MyEnum[] public updatedMyEnumArray;
 
     MyTypeLibraryAlias.MyEnumInLibrary[] public libraryEnumArray;
@@ -219,9 +196,9 @@ contract TypeGenTestConfig is Test, SphinxClient {
         initialMyTypeArray = new MyType[](2);
         initialMyTypeArray[0] = MyType.wrap(12);
         initialMyTypeArray[1] = MyType.wrap(13);
-        initialMyContractTypeArray = new address[](2);
-        initialMyContractTypeArray[0] = address(14);
-        initialMyContractTypeArray[1] = address(15);
+        initialMyContractTypeArray = new MyContractType[](2);
+        initialMyContractTypeArray[0] = MyContractType(address(14));
+        initialMyContractTypeArray[1] = MyContractType(address(15));
         initialMyEnumArray = new MyEnum[](2);
         initialMyEnumArray[0] = MyEnum.A;
         initialMyEnumArray[1] = MyEnum.B;
@@ -242,9 +219,9 @@ contract TypeGenTestConfig is Test, SphinxClient {
         updatedMyTypeArray = new MyType[](2);
         updatedMyTypeArray[0] = MyType.wrap(21);
         updatedMyTypeArray[1] = MyType.wrap(22);
-        updatedMyContractTypeArray = new address[](2);
-        updatedMyContractTypeArray[0] = address(23);
-        updatedMyContractTypeArray[1] = address(24);
+        updatedMyContractTypeArray = new MyContractType[](2);
+        updatedMyContractTypeArray[0] = MyContractType(address(23));
+        updatedMyContractTypeArray[1] = MyContractType(address(24));
         updatedMyEnumArray = new MyEnum[](2);
         updatedMyEnumArray[0] = MyEnum.C;
         updatedMyEnumArray[1] = MyEnum.D;
@@ -286,32 +263,23 @@ contract TypeGenTestConfig is Test, SphinxClient {
         setupVariables();
 
         // Deploy two contracts with conflicting names
-        firstConflictingNameContract = ConflictingNameContractFirst(
-            address(deployConflictingNameContract(5))
-        );
-        secondConflictingNameContract = ConflictingNameContractSecond(
-            address(deployTypegenConflictingNameContractsSecond_ConflictingNameContract(address(5)))
-        );
-
+        firstConflictingNameContract = deployConflictingNameContract(5);
+        secondConflictingNameContract = deployTypegenConflictingNameContractsSecond_ConflictingNameContract(address(5));
         // Deploy contract testing basic types
-        basicInputTypes = BasicInputTypes(
-            address(
-                deployBasicInputTypes(
-                    1,
-                    2,
-                    3,
-                    4,
-                    address(5),
-                    keccak256("6"),
-                    bytes("hello"),
-                    true,
-                    "world"
-                )
-            )
+        basicInputTypes = deployBasicInputTypes(
+            1,
+            2,
+            3,
+            4,
+            address(5),
+            keccak256("6"),
+            bytes("hello"),
+            true,
+            "world"
         );
 
         // Deploy contract with basic types, then call a function to update those values
-        BasicInputTypesClient basicInputTypesTwoClient = deployBasicInputTypes(
+        basicInputTypesTwo = deployBasicInputTypes(
             1,
             2,
             3,
@@ -323,7 +291,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
             "world",
             DeployOptions({ salt: 0, referenceName: "basicInputTypesTwo" })
         );
-        basicInputTypesTwoClient.setValues(
+        basicInputTypesTwo.setValues(
             2,
             3,
             4,
@@ -334,30 +302,23 @@ contract TypeGenTestConfig is Test, SphinxClient {
             false,
             "world"
         );
-        basicInputTypesTwo = BasicInputTypes(address(basicInputTypesTwoClient));
 
         // Deploy contract with immutable input types
-        immutableInputTypes = ImmutableInputTypes(
-            address(deployImmutableInputTypes(1, 2, 3, 4, address(5), keccak256("6"), true))
-        );
+        immutableInputTypes = deployImmutableInputTypes(1, 2, 3, 4, address(5), keccak256("6"), true);
 
         // Deploy contract with array input types
-        arrayInputTypes = ArrayInputTypes(
-            address(
-                deployArrayInputTypes(
-                    intialUintDynamicArray,
-                    initialUintNestedDynamicArray,
-                    initialUintStaticArray,
-                    initialMyStructArray,
-                    initialMyTypeArray,
-                    initialMyContractTypeArray,
-                    initialMyEnumArray
-                )
-            )
+        arrayInputTypes = deployArrayInputTypes(
+            intialUintDynamicArray,
+            initialUintNestedDynamicArray,
+            initialUintStaticArray,
+            initialMyStructArray,
+            initialMyTypeArray,
+            initialMyContractTypeArray,
+            initialMyEnumArray
         );
 
         // Deploy contract with array input types, then call function to update those values
-        ArrayInputTypesClient arrayInputTypesTwoClient = deployArrayInputTypes(
+        arrayInputTypesTwo = deployArrayInputTypes(
             intialUintDynamicArray,
             initialUintNestedDynamicArray,
             initialUintStaticArray,
@@ -367,7 +328,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
             initialMyEnumArray,
             DeployOptions({ salt: 0, referenceName: "arrayInputTypesTwo" })
         );
-        arrayInputTypesTwoClient.setValues(
+        arrayInputTypesTwo.setValues(
             updatedUintDynamicArray,
             updatedUintNestedDynamicArray,
             updatedUintStaticArray,
@@ -376,275 +337,198 @@ contract TypeGenTestConfig is Test, SphinxClient {
             updatedMyContractTypeArray,
             updatedMyEnumArray
         );
-        arrayInputTypesTwo = ArrayInputTypes(address(arrayInputTypesTwoClient));
 
         // Deploy contracts which requires all types of imports without any aliasing
-        noAliasImportsOne = NoAliasImportsOne(
-            address(
-                deployNoAliasImportsOne(
-                    MyTypeLibrary.MyEnumInLibrary.Library,
-                    MyTypeLibrary.MyStructInLibrary({ a: 1 }),
-                    MyTypeLibrary.MyTypeInLibrary.wrap(2),
-                    MyTypeContract.MyEnumInContract.Contract,
-                    MyTypeContract.MyStructInContract({ a: keccak256("3") }),
-                    MyTypeContract.MyTypeInContract.wrap(keccak256("4"))
-                )
-            )
+        noAliasImportsOne = deployNoAliasImportsOne(
+            MyTypeLibrary.MyEnumInLibrary.Library,
+            MyTypeLibrary.MyStructInLibrary({ a: 1 }),
+            MyTypeLibrary.MyTypeInLibrary.wrap(2),
+            MyTypeContract.MyEnumInContract.Contract,
+            MyTypeContract.MyStructInContract({ a: keccak256("3") }),
+            MyTypeContract.MyTypeInContract.wrap(keccak256("4"))
         );
 
-        noAliasImportsTwo = NoAliasImportsTwo(
-            address(
-                deployNoAliasImportsTwo(
-                    MyTopLevelEnum.TopLevel,
-                    MyTopLevelStruct({ a: true }),
-                    MyTopLevelType.wrap(true),
-                    MyLocalEnum.Local,
-                    MyLocalStruct({ a: -1 }),
-                    MyLocalType.wrap(-2)
-                )
-            )
+        noAliasImportsTwo = deployNoAliasImportsTwo(
+            MyTopLevelEnum.TopLevel,
+            MyTopLevelStruct({ a: true }),
+            MyTopLevelType.wrap(true),
+            MyLocalEnum.Local,
+            MyLocalStruct({ a: -1 }),
+            MyLocalType.wrap(-2)
         );
 
         // Deploy contract which requires all types of imports with aliasing
-        aliasImports = AliasImports(
-            address(
-                deployAliasImports(
-                    MyTypeLibraryAlias.MyEnumInLibrary.Library,
-                    MyTypeLibraryAlias.MyStructInLibrary({ a: 1 }),
-                    MyTypeLibraryAlias.MyTypeInLibrary.wrap(2),
-                    MyTypeContractAlias.MyEnumInContract.Contract,
-                    MyTypeContractAlias.MyStructInContract({ a: keccak256("3") }),
-                    MyTypeContractAlias.MyTypeInContract.wrap(keccak256("4")),
-                    MyTopLevelEnumAlias.TopLevel,
-                    MyTopLevelStructAlias({ a: true }),
-                    MyTopLevelTypeAlias.wrap(true)
-                )
-            )
+        aliasImports = deployAliasImports(
+            MyTypeLibraryAlias.MyEnumInLibrary.Library,
+            MyTypeLibraryAlias.MyStructInLibrary({ a: 1 }),
+            MyTypeLibraryAlias.MyTypeInLibrary.wrap(2),
+            MyTypeContractAlias.MyEnumInContract.Contract,
+            MyTypeContractAlias.MyStructInContract({ a: keccak256("3") }),
+            MyTypeContractAlias.MyTypeInContract.wrap(keccak256("4")),
+            MyTopLevelEnumAlias.TopLevel,
+            MyTopLevelStructAlias({ a: true }),
+            MyTopLevelTypeAlias.wrap(true)
         );
 
         // Deploy contract which requires all types imported from a locally defined parent object
-        localParentTypes = LocalParentTypes(
-            address(
-                deployLocalParentTypes(
-                    MyLocalTypeLibrary.MyEnumInLibrary.Library,
-                    MyLocalTypeLibrary.MyStructInLibrary({ a: true }),
-                    MyLocalTypeLibrary.MyTypeInLibrary.wrap(true),
-                    MyLocalTypeContract.MyEnumInContract.Contract,
-                    MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
-                    MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
-                )
-            )
+        localParentTypes = deployLocalParentTypes(
+            MyLocalTypeLibrary.MyEnumInLibrary.Library,
+            MyLocalTypeLibrary.MyStructInLibrary({ a: true }),
+            MyLocalTypeLibrary.MyTypeInLibrary.wrap(true),
+            MyLocalTypeContract.MyEnumInContract.Contract,
+            MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
+            MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
         );
 
         // Deploy contract which requires types imported with aliasing and used in arrays
-        aliasImportsArray = AliasImportsArray(
-            address(
-                deployAliasImportsArray(
-                    libraryEnumArray,
-                    libraryStruct,
-                    libraryType,
-                    contractEnum,
-                    contractStruct,
-                    contractType,
-                    topLevelEnum,
-                    topLevelStruct,
-                    topLevelType
-                )
-            )
+        aliasImportsArray = deployAliasImportsArray(
+            libraryEnumArray,
+            libraryStruct,
+            libraryType,
+            contractEnum,
+            contractStruct,
+            contractType,
+            topLevelEnum,
+            topLevelStruct,
+            topLevelType
         );
 
         // Deploy contracts which requires types imported without aliasing and used in arrays
-        noAliasArrayImportsOne = NoAliasArrayImportsOne(
-            address(
-                deployNoAliasArrayImportsOne(
-                    noAliasLibraryEnumArray,
-                    noAliasLibraryStruct,
-                    noAliasLibraryType,
-                    noAliasContractEnum,
-                    noAliasContractStruct,
-                    noAliasContractType
-                )
-            )
+        noAliasArrayImportsOne = deployNoAliasArrayImportsOne(
+            noAliasLibraryEnumArray,
+            noAliasLibraryStruct,
+            noAliasLibraryType,
+            noAliasContractEnum,
+            noAliasContractStruct,
+            noAliasContractType
         );
-        noAliasArrayImportsTwo = NoAliasArrayImportsTwo(
-            address(
-                deployNoAliasArrayImportsTwo(
-                    noAliasTopLevelEnum,
-                    noAliasTopLevelStruct,
-                    noAliasTopLevelType,
-                    noAliasLocalEnum,
-                    noAliasLocalStruct,
-                    noAliasLocalType
-                )
-            )
+        noAliasArrayImportsTwo = deployNoAliasArrayImportsTwo(
+            noAliasTopLevelEnum,
+            noAliasTopLevelStruct,
+            noAliasTopLevelType,
+            noAliasLocalEnum,
+            noAliasLocalStruct,
+            noAliasLocalType
         );
 
         // Deploy contracts to be used as input
-        address myImportContractOne = address(deployMyImportContract(1));
-        address localContractOne = address(deployLocalContract(1));
+        MyImportContract myImportContractOne = deployMyImportContract(1);
+        LocalContract localContractOne = deployLocalContract(1);
 
-        address myImportContractTwo = address(
-            deployMyImportContract(
-                2,
-                DeployOptions({ salt: 0, referenceName: "myImportContractTwo" })
-            )
+        MyImportContract myImportContractTwo = deployMyImportContract(
+            2,
+            DeployOptions({ salt: 0, referenceName: "myImportContractTwo" })
         );
-        address localContractTwo = address(
-            deployLocalContract(2, DeployOptions({ salt: 0, referenceName: "localContractTwo" }))
-        );
+        LocalContract localContractTwo = deployLocalContract(2, DeployOptions({ salt: 0, referenceName: "localContractTwo" }));
 
         // Deploy contract which requires contract inputs
-        functionContract = FunctionContract(
-            address(deployFunctionContract(myImportContractOne, localContractOne))
-        );
+        functionContract = deployFunctionContract(myImportContractOne, localContractOne);
 
         // Deploy contract which requires contract inputs, then call functions to update those values
-        FunctionContractClient functionContractClient = deployFunctionContract(
+        functionContractTwo = deployFunctionContract(
             myImportContractOne,
             localContractOne,
             DeployOptions({ salt: 0, referenceName: "functionContractTwo" })
         );
-        functionContractClient.setImportContract(myImportContractTwo);
-        functionContractClient.setLocalContract(localContractTwo);
-        functionContractTwo = FunctionContract(address(functionContractClient));
+        functionContractTwo.setImportContract(myImportContractTwo);
+        functionContractTwo.setLocalContract(localContractTwo);
 
         // Deploy contract which has function inputs
-        functionInputContract = FunctionInputContract(address(deployFunctionInputContract()));
+        functionInputContract = deployFunctionInputContract();
 
         // Deploy external contract
-        ExternalContractClient externalContractClient = deployExternalContract(5);
-        externalContractClient.setNumber(6);
-        externalContract = ExternalContract(address(externalContractClient));
+        externalContract = deployExternalContract(5);
+        externalContract.setNumber(6);
 
         // Define external contract and interact with it
-        ExternalContractClient alreadyDeployedExternalContractClient = defineExternalContract(
-            alreadyDeployedContractAddress,
-            DefineOptions({ referenceName: "MyExternalContract" })
-        );
-        alreadyDeployedExternalContractClient.setNumber(7);
-        alreadyDeployedExternalContract = ExternalContract(
-            address(alreadyDeployedExternalContractClient)
-        );
+        alreadyDeployedExternalContract = ExternalContract(alreadyDeployedContractAddress);
+        alreadyDeployedExternalContract.setNumber(7);
 
         // Define external contract and interact with it using an interface
-        IExternalContractClient alreadyDeployedExternalContractInterfaceClient = defineIExternalContract(
-            alreadyDeployedContractAddressForInterface,
-            DefineOptions({ referenceName: "MyExternalContractInterface" })
-        );
-        alreadyDeployedExternalContractInterfaceClient.setNumber(5);
-        alreadyDeployedExternalContractInterface = ExternalContract(
-            address(alreadyDeployedExternalContractInterfaceClient)
-        );
+        alreadyDeployedExternalContractInterface = IExternalContract(alreadyDeployedContractAddressForInterface);
+        alreadyDeployedExternalContractInterface.setNumber(5);
 
         // Deploy contracts with conflicting type names
-        conflictingTypeNameContractFirst = ConflictingTypeNameContractFirst(
-            address(
-                deployConflictingTypeNameContractFirst(
-                    ConflictingType.wrap(true),
-                    ConflictingStruct({ a: true }),
-                    ConflictingEnum.Third
-                )
-            )
+        conflictingTypeNameContractFirst = deployConflictingTypeNameContractFirst(
+            ConflictingType.wrap(true),
+            ConflictingStruct({ a: true }),
+            ConflictingEnum.Third
         );
 
-        conflictingTypeNameContractSecond = ConflictingTypeNameContractSecond(
-            address(
-                deployConflictingTypeNameContractSecond(
-                    TypegenConflictingNameContractsSecond_ConflictingType.wrap(1),
-                    TypegenConflictingNameContractsSecond_ConflictingStruct({ a: 1 }),
-                    TypegenConflictingNameContractsSecond_ConflictingEnum.Second
-                )
-            )
+        conflictingTypeNameContractSecond = deployConflictingTypeNameContractSecond(
+            TypegenConflictingNameContractsSecond_ConflictingType.wrap(1),
+            TypegenConflictingNameContractsSecond_ConflictingStruct({ a: 1 }),
+            TypegenConflictingNameContractsSecond_ConflictingEnum.Second
         );
 
         // Deploy contract with conflicting type names, then call functions to update those values
-        conflictingTypeNameContractClient = deployConflictingTypeNameContractFirst(
+        conflictingTypeNameContractFirstTwo = deployConflictingTypeNameContractFirst(
             ConflictingType.wrap(true),
             ConflictingStruct({ a: true }),
             ConflictingEnum.Third,
             DeployOptions({ salt: 0, referenceName: "conflictingTypeNameContractFirstTwo" })
         );
-        conflictingTypeNameContractClient.setConflictingTypes(
+        conflictingTypeNameContractFirstTwo.setConflictingTypes(
             ConflictingType.wrap(false),
             ConflictingStruct({ a: false }),
             ConflictingEnum.Second
         );
-        conflictingTypeNameContractFirstTwo = ConflictingTypeNameContractFirst(
-            address(conflictingTypeNameContractClient)
-        );
 
         // Deploy contract that uses msg.sender
-        MsgSenderClient msgSenderClient = deployMsgSender();
-        msgSenderClient.setSender();
-        msgSender = MsgSender(address(msgSenderClient));
+        msgSender = deployMsgSender();
+        msgSender.setSender();
 
         // Deploy contract that has unnamed parameters
-        UnnamedParametersClient unnamedParametersClient = deployUnnamedParameters(1, 2);
-        unnamedParametersClient.increment(1, 3);
-        unnamedParameters = UnnamedParameters(address(unnamedParametersClient));
+        unnamedParameters = deployUnnamedParameters(1, 2);
+        unnamedParameters.increment(1, 3);
 
         // Deploy inherited contract and interact with it
-        ChildClient childClient = deployChild(1, false, address(2));
-        childClient.add(childClient.myPureB());
-        childClient.add(childClient.myPureB(), 2);
-        childClient.setMyAddress(address(3));
-        child = Child(address(childClient));
+        child = deployChild(1, false, address(2));
+        child.add(child.myPureB());
+        child.add(child.myPureB(), 2);
+        child.setMyAddress(address(3));
 
         // Deploy multi-inherited contract that uses an alias and interact with it
-        GrandchildClient grandchildClient = deployGrandchild(
+        grandchild = deployGrandchild(
             1,
             false,
             address(2),
             keccak256("3")
         );
-        grandchildClient.setMyBytes32(grandchildClient.myPureC());
-        grandchildClient.setMyAddress(address(4));
-        grandchildClient.add(grandchildClient.myPureB());
-        grandchild = Grandchild(address(grandchildClient));
+        grandchild.setMyBytes32(grandchild.myPureC());
+        grandchild.setMyAddress(address(4));
+        grandchild.add(grandchild.myPureB());
 
         // Deploy contract that inherits from a contract in the same file
-        ChildInSameFileClient childInSameFileClient = deployChildInSameFile(1, false);
-        childInSameFileClient.setBool(true);
-        childInSameFileClient.add(2);
-        childInSameFile = ChildInSameFile(address(childInSameFileClient));
+        childInSameFile = deployChildInSameFile(1, false);
+        childInSameFile.setBool(true);
+        childInSameFile.add(2);
 
         // Deploy two contracts with conflicting qualified names
-        conflictingQualifiedNames = ConflictingQualifiedNames(
-            address(deployTypegenConflictingQualifiedNamesConflictingQualifiedNames_ConflictingQualifiedNames(1))
-        );
-        conflictingQualifiedNamesA = ConflictingQualifiedNamesA(
-            address(
-                deployConflictingQualifiedNames(
-                    true,
-                    DeployOptions({ salt: 0, referenceName: "conflictingQualifiedNamesA" })
-                )
-            )
+        conflictingQualifiedNames = deployTypegenConflictingQualifiedNamesConflictingQualifiedNames_ConflictingQualifiedNames(1);
+        conflictingQualifiedNamesA = deployConflictingQualifiedNames(
+            true,
+            DeployOptions({ salt: 0, referenceName: "conflictingQualifiedNamesA" })
         );
 
         // Deploy contract that inherits from a contract with a conflicting qualified name
-        ConflictingQualifiedNameChildClient conflictingQualifiedNameChildClient = deployConflictingQualifiedNameChild(
+        conflictingQualifiedNameChild = deployConflictingQualifiedNameChild(
             1,
             true
         );
-        conflictingQualifiedNameChildClient.add(2);
-        conflictingQualifiedNameChildClient.set(false);
-        conflictingQualifiedNameChild = ConflictingQualifiedNameChild(
-            address(conflictingQualifiedNameChildClient)
-        );
+        conflictingQualifiedNameChild.add(2);
+        conflictingQualifiedNameChild.set(false);
 
         // Deploy contract that inherits from a contract in the same file which has a conflicting qualified name
-        ConflictingQualifiedNameChildInSameFileClient conflictingQualifiedNameChildInSameFileClient = deployConflictingQualifiedNameChildInSameFile(
+        conflictingQualifiedNameChildInSameFile = deployConflictingQualifiedNameChildInSameFile(
             1,
             2
         );
-        conflictingQualifiedNameChildInSameFileClient.addY(4);
-        conflictingQualifiedNameChildInSameFileClient.add(4);
-        conflictingQualifiedNameChildInSameFile = ConflictingQualifiedNameChildInSameFile(
-            address(conflictingQualifiedNameChildInSameFileClient)
-        );
+        conflictingQualifiedNameChildInSameFile.addY(4);
+        conflictingQualifiedNameChildInSameFile.add(4);
 
         // Deploy and interact with a contract that inherits from a contract that uses user defined types
-        ChildParentImportsTypesClient childParentImportsTypesClient = deployChildParentImportsTypes(
+        childParentImportsTypes = deployChildParentImportsTypes(
           MyLocalTypeLibrary.MyEnumInLibrary.Library,
           MyLocalTypeLibrary.MyStructInLibrary({ a: true }),
           MyLocalTypeLibrary.MyTypeInLibrary.wrap(true),
@@ -652,7 +536,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
           MyLocalTypeContract.MyStructInContract({ a: keccak256("1") }),
           MyLocalTypeContract.MyTypeInContract.wrap(keccak256("2"))
         );
-        childParentImportsTypesClient.updateValues(
+        childParentImportsTypes.updateValues(
           MyLocalTypeLibrary.MyEnumInLibrary.Local,
           MyLocalTypeLibrary.MyStructInLibrary({ a: false }),
           MyLocalTypeLibrary.MyTypeInLibrary.wrap(false),
@@ -660,19 +544,16 @@ contract TypeGenTestConfig is Test, SphinxClient {
           MyLocalTypeContract.MyStructInContract({ a: keccak256("3") }),
           MyLocalTypeContract.MyTypeInContract.wrap(keccak256("4"))
         );
-        childParentImportsTypes = ChildParentImportsTypes(address(childParentImportsTypesClient));
 
         // Deploy and interact with a contract that overrides a function from a parent contract
-        ChildOverridesClient childOverridesClient = deployChildOverrides(2);
-        childOverridesClient.add(2);
-        childOverrides = ChildOverrides(address(childOverridesClient));
+        childOverrides = deployChildOverrides(2);
+        childOverrides.add(2);
 
         // Deploy and interact with a contract that inherits from a parent contract which is
         // imported from a file that imports it from another file
-        NestedImportChildClient nestedImportChildClient = deployNestedImportChild("hello", 1, true);
-        nestedImportChildClient.increment();
-        nestedImportChildClient.setString("world");
-        nestedImportChildClient.toggle();
-        nestedImportChild = NestedImportChild(address(nestedImportChildClient));
+        nestedImportChild = deployNestedImportChild("hello", 1, true);
+        nestedImportChild.increment();
+        nestedImportChild.setString("world");
+        nestedImportChild.toggle();
     }
 }

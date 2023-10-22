@@ -175,29 +175,7 @@ A `bytes32` salt value. Along with the reference name, the `salt` determines a c
 deployMyContract(..., DeployOptions({ referenceName: "MyContract", salt: bytes32(123) }));
 ```
 
-## 7. Defining Existing Contracts
-
-Sometimes you may need to call functions on a contract that has already been deployed outside of the Sphinx system. To support this, Sphinx autogenerates functions that are prefixed with `define`, e.g. `defineMyContract`. Like the deployment functions, these functions exist in your `SphinxClient` contract, which is inherited by your script. The syntax is slightly different because you're defining a contract that already exists instead of deploying a new one.
-
-If a contract called `MyContract` already exists at address `0x123`, you can define it via:
-
-```
-MyContractClient myContractClient = defineMyContract(address(0x123));
-```
-
-Then, you can call functions on the contract like normal.
-
-> If your project includes any Solidity interfaces, we'll automatically generate clients for them along with the rest of your contracts. However, we will only generate a `define` function for interfaces.
-
-### Options for Defining Existing Contracts (optional)
-
-If you'd like to change the name that's displayed for contracts using the `define<contract>` syntax, you can pass in a `DefineOptions` struct. For example:
-
-```
-defineHelloSphinx(address(0x123), DefineOptions({ referenceName: "DifferentContractName" }));
-```
-
-## 8. Calling Contract Functions
+## Calling Contract Functions
 
 To call a function on one of your contracts, you'll need to use its associated client contract, which is returned whenever you deploy or define a contract using the syntax described above. For example, if you deploy a contract then call a function on it, your deployment would look something like:
 
@@ -213,23 +191,14 @@ function deploy(Network _network) public override sphinx(_network) {
 
 You can call any state-changing function or `pure` function on your contract client. However, you cannot call `view` functions, and you also cannot use the returned values of state-changing functions. We have restricted the interface of the contract clients to account for these limitations. If either of these limitations prevent you from using Sphinx, please let us know.
 
-## 9. Owned Contracts
+## Owned Contracts
 
 There are two things to keep in mind when deploying contracts that use an ownership mechanism such as OpenZeppelin's `AccessControl` or `Ownable`.
 
 1. You must explicitly set the owner of your contract in its constructor. When doing this, you *must not* use `msg.sender`. This is because the `msg.sender` of each contract is a minimal `CREATE3` proxy that has no logic to execute transactions. This means that if the `msg.sender` owns your contracts, you won't be able to execute any permissioned functions or transfer ownership to a new address.
 2. If you need to call permissioned functions on your contract after it's deployed, you must grant the appropriate role to your `SphinxManager`, which is the contract that executes your deployment. See [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md) for instructions on how to do that.
 
-## 10. Importing External Contracts
-If you need to deploy or interact with a contract that is not included in your contract source folder, you'll need to generate a contract client for it. You can do this by creating a file in your source folder that imports the contract you need.
-
-For example, say you need to interact with a LayerZero interface that's stored in their package, which is a dependency of your project. You can create a file called `SphinxExternals.sol` in your source directory that imports the interface you need:
-
-```sol
-import { ILayerZeroEndpoint } from "@layerzero/contracts/interfaces/ILayerZeroEndpoint.sol";
-```
-
-## 11. Learn more
+## Learn more
 You should now be able to write scripts to deploy and interact with your contracts using Sphinx. If you have questions, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np).
 
 If you'd like to try the Sphinx DevOps Platform, which includes features such as gasless and multichain deployments, see [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md).
