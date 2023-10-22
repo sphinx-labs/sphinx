@@ -2,6 +2,9 @@
 pragma solidity ^0.8.0;
 
 import { MyImportContract } from "./ImportContract.sol";
+import { ExternalContract } from "../../../../testExternalContracts/ExternalContract.sol";
+import { IExternalContract } from "../../../../testExternalContracts/IExternalContract.sol";
+import { ExternalContract as AliasedExternalContract } from "../../../../testExternalContracts/ExternalContract.sol";
 
 contract LocalContract {
     uint256 public number;
@@ -14,10 +17,22 @@ contract LocalContract {
 contract FunctionContract {
     MyImportContract public importContract;
     LocalContract public localContract;
+    ExternalContract public externalContract;
+    IExternalContract public iExternalContract;
+    AliasedExternalContract public conflictingExternalContract;
 
-    constructor(MyImportContract _importContract, LocalContract _localContract) {
+    constructor(
+        MyImportContract _importContract,
+        LocalContract _localContract,
+        ExternalContract _externalContract,
+        IExternalContract _iExternalContract,
+        AliasedExternalContract _conflictingExternalContract
+    ) {
         importContract = _importContract;
         localContract = _localContract;
+        externalContract = _externalContract;
+        iExternalContract = _iExternalContract;
+        conflictingExternalContract = _conflictingExternalContract;
     }
 
     function setImportContract(MyImportContract _importContract) public {

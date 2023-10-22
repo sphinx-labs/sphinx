@@ -449,66 +449,6 @@ export const generateClientsInFolder = async (
   }
 }
 
-export const generateClientsForExternalContracts = async (
-  src: string,
-  artifactFolder: string,
-  outputPath: string,
-  remappings: Record<string, string>
-): Promise<{
-  deployFunctionImports: Record<string, string>
-  deployFunctions: string[]
-}> => {
-  const allDeployFunctionImports: Record<string, string> = {}
-  const allDeployFunctions: string[] = []
-
-  const externalImpostsArtifactPath = path.join(
-    artifactFolder,
-    'SphinxExternal.sol',
-    'SphinxExternal.json'
-  )
-
-  if (!fs.existsSync(externalImpostsArtifactPath)) {
-    return { deployFunctionImports: {}, deployFunctions: [] }
-  }
-
-  const artifact = JSON.parse(
-    fs.readFileSync(externalImpostsArtifactPath, 'utf-8')
-  )
-
-  for (const importDirective of findAll('ImportDirective', artifact.ast)) {
-    // Skip script and test files (which aren't compiled during the generation process due to
-    // `--skip script` and `--skip test`)
-    if (
-      importDirective.absolutePath.endsWith('.s.sol') ||
-      importDirective.absolutePath.endsWith('.t.sol')
-    ) {
-      continue
-    }
-
-    const { deployFunctionImports, deployFunctions } =
-      await generateClientForFile(
-        importDirective.absolutePath,
-        artifactFolder,
-        remappings,
-        allDeployFunctionImports,
-        src
-      )
-
-    for (const [localName, importString] of Object.entries(
-      deployFunctionImports
-    )) {
-      allDeployFunctionImports[localName] = importString
-    }
-
-    allDeployFunctions.push(...deployFunctions)
-  }
-
-  return {
-    deployFunctionImports: allDeployFunctionImports,
-    deployFunctions: allDeployFunctions,
-  }
-}
-
 const generateSphinxClient = async (
   imports: Record<string, string>,
   deployFunctions: string[],
@@ -573,19 +513,14 @@ export const generateClient = async (
 
   const srcFolder = process.env.DEV_FILE_PATH ? 'contracts/test' : src
 
-  const { deployFunctionImports, deployFunctions } =
-    await generateClientsForExternalContracts(
-      srcFolder,
-      artifactFolder,
-      CLIENT_FOLDER_NAME,
-      remappings
-    )
-
   if (!fs.existsSync(src)) {
     throw new Error(
       `The src directory: '${src}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
     )
   }
+
+  const deployFunctionImports: Record<string, string> = {}
+  const deployFunctions: string[] = []
 
   await generateClientsInFolder(
     srcFolder,
