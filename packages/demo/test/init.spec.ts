@@ -47,7 +47,7 @@ describe('Init CLI command', () => {
     expect(fs.existsSync(contractPath)).to.be.false
     expect(fs.existsSync(testPath)).to.be.false
 
-    await execAsync('npx sphinx init')
+    await execAsync('npx sphinx init --quickstart')
 
     // Check that the files have been created
     expect(fs.existsSync(contractPath)).to.be.true

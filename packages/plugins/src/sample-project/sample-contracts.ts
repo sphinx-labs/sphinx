@@ -43,7 +43,6 @@ export const getSampleScriptFile = (
 pragma solidity ^${solcVersion};
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
-import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.c.sol";
 import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
 import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 
@@ -57,10 +56,8 @@ contract HelloSphinxScript is SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hi!", 2);
-        helloSphinxClient.add(8);
-
-        helloSphinx = HelloSphinx(address(helloSphinxClient));
+        helloSphinx = deployHelloSphinx("Hi!", 2);
+        helloSphinx.add(8);
     }
 }
 `
