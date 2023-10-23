@@ -24,8 +24,6 @@ import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 
-// TODO(md): known limitations: externally linked libraries
-
 /**
  * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
  *         `run-proposal-tests.sh`.

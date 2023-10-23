@@ -6,9 +6,6 @@ import { SphinxClient, SphinxConfig, Version } from "../client/SphinxClient.sol"
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 
-// TODO(md): consider changing the readme so that it focuses on the local deployment experience
-// first, then talks about the devops platform next.
-
 contract Sample is Script, SphinxClient {
 
     MyContract1 myContract;

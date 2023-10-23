@@ -14,7 +14,7 @@ import { createSphinxRuntime } from '../src/cre'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
-  throw new Error(`Pass in a path to a Sphinx config file.`)
+  throw new Error(`Pass in a path to a Sphinx deployment script file.`)
 }
 
 /**

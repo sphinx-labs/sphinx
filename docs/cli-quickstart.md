@@ -43,6 +43,11 @@ npm:
 npm install --save-dev @sphinx-labs/plugins
 ```
 
+pnpn:
+```
+pnpm add -D @sphinx-labs/plugins
+```
+
 ## 4. Initialize a project
 
 ```
@@ -53,7 +58,7 @@ This command created a few files:
 - `src/HelloSphinx.sol`: A sample contract to deploy.
 - `test/HelloSphinx.t.sol`: A test file for the deployment.
 - `script/HelloSphinx.s.sol`: A sample Sphinx deployment script.
-- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx. TODO(md): rm?: It also contains public RPC endpoints for several of the networks that Sphinx supports.
+- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
 ## 5. Generate Sphinx clients
