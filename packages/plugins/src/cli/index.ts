@@ -22,8 +22,6 @@ const dryRunOption = 'dry-run'
 const targetContractOption = 'target-contract'
 const verifyOption = 'verify'
 
-// TODO(md): should we call it a "Sphinx Config" anymore? if not, change the language everywhere
-
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
@@ -39,11 +37,12 @@ yargs(hideBin(process.argv))
           type: 'string',
         })
         .option('testnets', {
-          describe: 'Propose on the testnets specified in the Sphinx config',
+          describe:
+            'Propose on the testnets specified in the Sphinx deployment script',
           boolean: true,
         })
         .option('mainnets', {
-          describe: `Propose on the mainnets specified in the Sphinx config`,
+          describe: `Propose on the mainnets specified in the Sphinx deployment script`,
           boolean: true,
         })
         .option(confirmOption, {

@@ -1,9 +1,5 @@
 import { relative, resolve } from 'path'
 
-// TODO(md): the `init` task puts the files in the `src`, `test, and `script` directories specified
-// in your foundry.toml. if these aren't specified, then it puts them in the default directories.
-// this is probably only worth mentioning for the "integrating an existing project" guide.
-
 export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};

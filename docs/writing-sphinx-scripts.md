@@ -134,9 +134,7 @@ struct DeployOptions {
 }
 ```
 
-The fields of the `DeployOptions` struct are explained in detail below.
-
-TODO(md): mention that changing the reference name or salt will result in a different Create3 address.
+The fields of the `DeployOptions` struct are explained in detail below. Note that changing either of these fields will result in your contract having a different Create3 address.
 
 #### Reference Name
 

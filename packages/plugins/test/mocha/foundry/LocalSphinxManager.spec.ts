@@ -2,8 +2,6 @@ import chai from 'chai'
 
 // - TODO(ask): hai: what does the `yarn script:goerli:delegate` command do?
 
-// - TODO(md): add pnpm option in installation guide(s) since mean finance uses this
-
 import {
   buildInfo as sphinxContractsBuildInfo,
 } from '@sphinx-labs/contracts'

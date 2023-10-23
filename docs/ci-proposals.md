@@ -117,7 +117,7 @@ jobs:
 There's some additional configuration that may be necessary for the above workflows to work correctly.
 
 Here is a list of things to check before testing your integration:
-- [ ] Add the `PROPOSER_PRIVATE_KEY` [secret to your CI process](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository). This should be the private key of one of the proposer addresses in your Sphinx config file (under the `proposers` field).
+- [ ] Add the `PROPOSER_PRIVATE_KEY` [secret to your CI process](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository). This should be the private key of one of the proposer addresses in your Sphinx deployment script (the `proposers` field).
 - [ ] Add the `SPHINX_API_KEY` secret to your CI process. You can find this in the Sphinx UI after registering your organization.
 - [ ] Enter any node provider API keys or urls in the `env` section of the template and make sure they are also [configured as secrets in GitHub actions](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository).
 - [ ] If you want to trigger deployments when pushing to a branch other than `main`, update the `branches` section of the template.
