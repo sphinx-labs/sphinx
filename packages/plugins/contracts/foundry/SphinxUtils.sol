@@ -1278,14 +1278,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function validateProposal(
+        address _proposer,
         Network _network,
         SphinxConfig memory _config
-    ) external {
+    ) external view {
         require(
             _config.proposers.length > 0,
             "Sphinx: There must be at least one proposer in your 'sphinxConfig.proposers' array."
         );
-        address proposer = vm.addr(proposerPrivateKey);
         require(
             bytes(_config.orgId).length > 0,
             "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
@@ -1298,11 +1298,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         if (firstProposalOccurred) {
             require(
-                ISphinxAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), proposer),
+                ISphinxAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), _proposer),
                 string(
                     abi.encodePacked(
                         "Sphinx: The address ",
-                        vm.toString(proposer),
+                        vm.toString(_proposer),
                         " is not currently a proposer on ",
                         getNetworkInfo(_network).name,
                         "."
@@ -1311,11 +1311,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
         } else {
             require(
-                arrayContainsAddress(_config.proposers, proposer),
+                arrayContainsAddress(_config.proposers, _proposer),
                 string(
                     abi.encodePacked(
                         "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
-                        vm.toString(proposer)
+                        vm.toString(_proposer)
                     )
                 )
             );

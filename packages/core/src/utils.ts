@@ -48,7 +48,6 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  UserConfigVariable,
   ParsedConfig,
   DecodedFunctionCallActionInput,
   DeployContractActionInput,
@@ -1375,7 +1374,7 @@ export const isSupportedNetworkName = (
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
   functionName: string,
-  variables: ParsedVariable | Array<UserConfigVariable>,
+  variables: ParsedVariable,
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {

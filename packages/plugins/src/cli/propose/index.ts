@@ -16,6 +16,7 @@ import {
   isRawDeployContractActionInput,
   relayIPFSCommit,
   relayProposal,
+  signAuthRootMetaTxn,
   spawnAsync,
   userConfirmation,
 } from '@sphinx-labs/core'
@@ -23,7 +24,7 @@ import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
 
-import { makeParsedConfig } from '../../foundry/decode'
+import { getCollectedProposal, makeParsedConfig } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { generateClient } from '../typegen/client'
 import { getBundleInfoArray, makeGetConfigArtifacts } from '../../foundry/utils'
@@ -50,8 +51,16 @@ export const propose = async (
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
-    throw new Error("You must specify a 'SPHINX_API_KEY' environment variable.")
+    console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
+    process.exit(1)
   }
+  const proposerPrivateKey = process.env.PROPOSER_PRIVATE_KEY
+  if (!proposerPrivateKey) {
+    throw new Error(
+      `You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment.`
+    )
+  }
+  const proposer = new ethers.Wallet(proposerPrivateKey)
 
   // We run the `sphinx generate` command to make sure that the user's contracts and clients are
   // up-to-date. The Solidity compiler is run within this command via `forge build`.
@@ -75,10 +84,10 @@ export const propose = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectProposal(bool,string)',
+    'sphinxCollectProposal(address,bool,string)',
+    proposer.address,
     isTestnet.toString(),
     proposalNetworksPath,
-    '--rpc-url',
     '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
   ]
   if (targetContract) {
@@ -133,7 +142,7 @@ export const propose = async (
   )
 
   const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deplomentInfo, c.actionInputs, configArtifacts)
+    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts)
   )
   const { authRoot, bundleInfoArray } = await getBundleInfoArray(
     configArtifacts,
@@ -292,9 +301,10 @@ export const propose = async (
         throw new Error(`Invalid role type: ${roleType}. Should never happen.`)
       }
 
+      const metaTxnSignature = await signAuthRootMetaTxn(proposer, authRoot)
       const signers = signerAddresses.map((addr) => {
         const signature =
-          addr === proposerAddress ? metaTxnSignature : undefined
+          addr === proposer.address ? metaTxnSignature : undefined
         return {
           address: addr,
           signature,

@@ -137,7 +137,7 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(bool _testnets, string memory _proposalNetworksPath) external {
+    function sphinxCollectProposal(address _proposer, bool _testnets, string memory _proposalNetworksPath) external {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
         require(
             networks.length > 0,
@@ -161,19 +161,21 @@ abstract contract Sphinx {
             // the target chain (e.g. 1 for ethereum mainnet).
             vm.createSelectFork(rpcUrl);
 
-            sphinxUtils.validateProposal(network, sphinxConfig);
-            sphinxCollect(networkName);
+            sphinxUtils.validateProposal(_proposer, network, sphinxConfig);
+            sphinxCollect(networkName, sphinxUtils.isLiveNetworkFFI(rpcUrl));
 
-            allNetworkNames = string.concat(allNetworkNames, ",", networkName);
+            // Concatenate the network names, adding a comma except after the last name.
+            allNetworkNames = string(abi.encodePacked(allNetworkNames, networkName));
+            if (i < networks.length - 1) {
+                // If it's not the last network name, append a comma.
+                allNetworkNames = string(abi.encodePacked(allNetworkNames, ","));
+            }
         }
 
         vm.writeFile(_proposalNetworksPath, allNetworkNames);
     }
 
-    function sphinxCollect(string memory _networkName) public {
-        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
-
+    function sphinxCollectDeployment(string memory _networkName) private {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -210,12 +212,19 @@ abstract contract Sphinx {
             sphinxConfig.proposers.push(deployer);
         }
 
+        sphinxCollect(_networkName, isLiveNetwork);
+    }
+
+    function sphinxCollect(string memory _networkName, bool _isLiveNetwork) private {
+        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
+        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+
         deploymentInfo = DeploymentInfo({
             authAddress: address(auth),
             managerAddress: address(manager),
             chainId: block.chainid,
             newConfig: sphinxConfig,
-            isLiveNetwork: isLiveNetwork,
+            isLiveNetwork: _isLiveNetwork,
             initialState: sphinxUtils.getInitialChainState(auth, manager)
         });
 
@@ -524,15 +533,11 @@ abstract contract Sphinx {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
-        );
-        require(
-            callerMode != VmSafe.CallerMode.RecurrentBroadcast || sphinxMode == SphinxMode.Collect,
-            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
+            "Sphinx: Cannot deploy using vm.broadcast. Please use a recurrent broadcast (vm.startBroadcast) instead."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,
-            "Sphinx: Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
+            "Sphinx: Cannot deploy using vm.prank. Please use a recurrent prank (vm.startPrank) instead."
         );
 
         // We allow users to call `vm.startPrank` before calling their `deploy` function so that

@@ -22,7 +22,7 @@ import { ethers } from 'ethers'
 import { getBundleInfoArray, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import {
-  getDryRunOutput as getCollectedDeployment,
+  getCollectedSingleChainDeployment,
   makeParsedConfig,
 } from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
@@ -115,7 +115,7 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollect(string)',
+    'sphinxCollectDeployment(string)',
     network,
     '--rpc-url',
     forkUrl,
@@ -136,11 +136,12 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const { deploymentInfo, actionInputs } = getCollectedDeployment(
+  const { deploymentInfo, actionInputs } = getCollectedSingleChainDeployment(
     network,
     scriptPath,
     broadcastFolder,
-    sphinxCollectorABI
+    sphinxCollectorABI,
+    'sphinxCollectDeployment'
   )
 
   const fullyQualifiedNames = actionInputs

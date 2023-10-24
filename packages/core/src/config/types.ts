@@ -7,7 +7,6 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@sphinx-labs/contracts'
-import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 
 import {
   BuildInfo,
@@ -65,20 +64,6 @@ export enum ContractKindEnum {
 }
 
 /**
- * TODO: Remove?
- * Allowable types for Sphinx config variables defined by the user.
- */
-export type UserConfigVariable =
-  | boolean
-  | string
-  | number
-  | EthersV5BigNumber
-  | Array<UserConfigVariable>
-  | {
-      [name: string]: UserConfigVariable
-    }
-
-/**
  * Parsed Sphinx config variable.
  */
 export type ParsedVariable =
@@ -132,55 +117,6 @@ export type UnsafeAllow = {
   flexibleConstructor?: boolean
   renames?: boolean
   skipStorageCheck?: boolean
-}
-
-/**
- * TODO: Remove?
- * User-defined contract definition in a Sphinx config.
- */
-export type UserContractConfig = {
-  contract: string
-  address?: string
-  kind: UserContractKind
-  previousBuildInfo?: string
-  previousFullyQualifiedName?: string
-  variables?: UserConfigVariables
-  constructorArgs?: UserConfigVariables
-  overrides?: Array<UserConstructorArgOverride>
-  salt?: UserSalt
-  unsafeAllow?: UnsafeAllow
-}
-
-export type UserSalt = string | number
-
-export type UserContractConfigs = {
-  [referenceName: string]: UserContractConfig
-}
-
-export type UserConfigVariables = {
-  [name: string]: UserConfigVariable
-}
-
-export type UserArgOverride =
-  | UserConstructorArgOverride
-  | UserFunctionArgOverride
-
-export type UserConstructorArgOverride = {
-  chains: Array<SupportedNetworkName>
-  constructorArgs: {
-    [name: string]: UserConfigVariable
-  }
-}
-
-export type UserFunctionOptions = {
-  overrides: Array<UserFunctionArgOverride>
-}
-
-export type UserFunctionArgOverride = {
-  chains: Array<SupportedNetworkName>
-  args: {
-    [name: string]: UserConfigVariable
-  }
 }
 
 export type UserAddressOverrides = {

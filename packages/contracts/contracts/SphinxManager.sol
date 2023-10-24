@@ -421,8 +421,6 @@ contract SphinxManager is
         registry.announce("SphinxDeploymentCancelled");
     }
 
-    // TODO: bump manager version
-
     /**
      * @notice Allows a remote executor to claim the sole right to execute a deployment over a
                period of `executionLockTime`. Executors must finish executing the deployment within
