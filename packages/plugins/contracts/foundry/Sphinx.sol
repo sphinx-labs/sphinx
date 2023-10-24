@@ -28,7 +28,6 @@ import {
     BundleInfo,
     HumanReadableAction,
     Network,
-    DeployContractActionInput,
     ProposalOutput,
     SphinxConfig,
     BundleInfo,
@@ -40,8 +39,8 @@ import {
     OptionalAddress,
     Wallet
 } from "./SphinxPluginTypes.sol";
+import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
-import { LocalSphinxManager } from "./LocalSphinxManager.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
@@ -82,6 +81,8 @@ abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     DeploymentInfo private deploymentInfo;
+
+    string[] referenceNames;
 
     SphinxConstants private constants;
 
@@ -126,7 +127,7 @@ abstract contract Sphinx {
      */
     constructor() {
         // Set default values for the SphinxConfig
-        sphinxConfig.version = Version({ major: 0, minor: 2, patch: 5 });
+        sphinxConfig.version = Version({ major: 0, minor: 2, patch: 6 });
 
         sphinxUtils = new SphinxUtils();
         constants = new SphinxConstants();
@@ -136,26 +137,47 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollect(string memory _networkName, string memory _deploymentInfoPath) external {
+    function sphinxCollect(string memory _networkName) external {
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
 
-        InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
+        console.log('TODO manager', address(manager));
+
+        deploymentInfo = DeploymentInfo({
+            authAddress: address(auth),
+            managerAddress: address(manager),
+            chainId: block.chainid,
+            newConfig: sphinxConfig,
+            isLiveNetwork: sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName)),
+            initialState: sphinxUtils.getInitialChainState(auth, manager)
+        });
 
         // Set the LocalSphinxManager to the SphinxManager's address. We'll use this when
         // collecting the actions. This call will be undone when we revert the snapshot.
-        vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
+        vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
         Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
         sphinxMode = SphinxMode.Collect;
         vm.startBroadcast(address(manager));
+        console.log('code',  0x7A6028233C08E42aB5811F3F4f463D222C67bd50.code.length);
+        console.log('manager', address(manager));
+        SphinxCollector(address(manager)).collectDeploymentInfo(deploymentInfo);
         deploy(network);
         vm.stopBroadcast();
-
-        sphinxUpdateDeploymentInfo(manager, auth, sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName)), initialState, sphinxConfig, sphinxMode);
-
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
+
+// TODO: when adding support for initiating broadcasts within a forge script instead of the `sphinx
+// deploy` command:
+// The reason we didn't include this ability is because the user's `deploy`
+// function is erased due to `vm.revertTo(...)`. if the user assigns a contract state variable to a
+// value inside the deploy function, then their deploy function will be executed, but the state
+// variable will remain unassigned after the `deploy` function is executed. (to be clear, it's
+// assigned in the sphinx modifier, then undone when `vm.revertTo` is called). a solution is to run
+// the user's deploy function twice. on the second run, we'd need to be in "assign" mode, i.e. just
+// assign addresses when the user calls 'deploy' and 'define'. this is easy to implement, but
+// unfortunately, if a user console.logs in their `deploy` function, then the log will appear twice
+// due to the fact that we run the deploy function twice. this would be confusing to the user, so i
+// just decided to disable to the broadcasting feature and move on.
 
     /**
      * @notice Called within the `sphinx deploy` CLI command. This function is not meant to be
@@ -527,6 +549,7 @@ abstract contract Sphinx {
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
         delete deploymentInfo;
+        delete referenceNames;
 
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
@@ -536,30 +559,30 @@ abstract contract Sphinx {
         if (sphinxMode == SphinxMode.Collect) {
             _;
         } else if (sphinxMode == SphinxMode.Default) {
-            vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
+            vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
         } else if (sphinxMode == SphinxMode.Proposal) {
-            InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
             sphinxUtils.validateProposal(auth, msgSender, _network, sphinxConfig);
 
-            vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
+            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
+            deploymentInfo = DeploymentInfo({
+                authAddress: address(auth),
+                managerAddress: address(manager),
+                chainId: block.chainid,
+                newConfig: sphinxConfig,
+                isLiveNetwork: sphinxUtils.isLiveNetworkFFI(rpcUrl),
+                initialState: sphinxUtils.getInitialChainState(auth, manager)
+            });
+
+            vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
 
-            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            sphinxUpdateDeploymentInfo(
-                manager,
-                auth,
-                sphinxUtils.isLiveNetworkFFI(rpcUrl),
-                initialState,
-                sphinxConfig,
-                sphinxMode
-            );
         }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
@@ -793,9 +816,12 @@ abstract contract Sphinx {
         // users that they shouldn't do this.
 
         address manager = sphinxManager(sphinxConfig);
+        // TODO(docs): brackets to prevent stack too deep compiler error
+        {
+
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        // Check that we're currently pranking the SphinxManager. This should always be true
-        // unless the user deliberately pranks a different address within their `deploy`
+        // Check that we're currently pranking/broadcasting from the SphinxManager. This should
+        // always be true unless the user deliberately cancels the prank/broadcast in their 'deploy'
         // function.
         if (sphinxMode == SphinxMode.Collect) {
             require(
@@ -808,9 +834,10 @@ abstract contract Sphinx {
                 "Sphinx: TODO(docs)"
             );
         }
+        }
 
         require(
-            !sphinxUtils.isReferenceNameUsed(_referenceName, deploymentInfo.deployments),
+            !sphinxUtils.arrayContainsString(referenceNames, _referenceName),
             string(
                 abi.encodePacked(
                     "Sphinx: The reference name ",
@@ -820,26 +847,24 @@ abstract contract Sphinx {
             )
         );
 
-        bytes memory initCode = vm.getCode(artifactPath);
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _userSalt));
         address create3Address = sphinxUtils.computeCreate3Address(manager, create3Salt);
 
         require(create3Address.code.length == 0, "Sphinx: TODO(docs)");
 
-        deploymentInfo.deployments.push(
-            DeployContractActionInput({
-                fullyQualifiedName: fullyQualifiedName,
-                initCode: initCode,
-                constructorArgs: _constructorArgs,
-                userSalt: _userSalt,
-                referenceName: _referenceName,
-                skip: false
-            })
-        );
+        // TODO(refactor): c/f LocalSphinxManager
 
         // Deploy the user's contract to the CREATE3 address via the LocalSphinxManager. This
         // mirrors what happens on live networks.
-        LocalSphinxManager(manager).deploy(create3Salt, abi.encodePacked(initCode, _constructorArgs), 0);
+        SphinxCollector(manager).deploy({
+                fullyQualifiedName: fullyQualifiedName,
+                initCode: vm.getCode(artifactPath),
+                constructorArgs: _constructorArgs,
+                userSalt: _userSalt,
+                referenceName: _referenceName
+            });
+
+        referenceNames.push(_referenceName);
 
         return create3Address;
     }
@@ -868,46 +893,6 @@ abstract contract Sphinx {
         (bool success, bytes memory runtimeBytecode) = where.call("");
         require(success, "Sphinx: Failed to create runtime bytecode.");
         vm.etch(where, runtimeBytecode);
-    }
-
-    function sphinxUpdateDeploymentInfo(
-        ISphinxManager _manager,
-        ISphinxAuth _auth,
-        bool _isLiveNetwork,
-        InitialChainState memory _initialState,
-        SphinxConfig memory _newConfig,
-        SphinxMode _mode
-    ) private {
-        deploymentInfo.authAddress = address(_auth);
-        deploymentInfo.managerAddress = address(_manager);
-        deploymentInfo.chainId = block.chainid;
-        deploymentInfo.newConfig = _newConfig;
-        deploymentInfo.isLiveNetwork = _isLiveNetwork;
-        deploymentInfo.initialState = _initialState;
-        // Remote execution is always true for proposals and false for live network broadcasts. Local
-        // network broadcasts can be either one, but we set it to make it easier to share code with
-        // the proposal mode.
-        deploymentInfo.remoteExecution =
-            _mode == SphinxMode.Proposal ||
-            _mode == SphinxMode.LocalNetworkBroadcast;
-    }
-
-    function sphinxGetReferenceNameForAddress(
-        address _create3Address,
-        address _manager
-    ) external view returns (string memory) {
-        for (uint256 i = 0; i < deploymentInfo.deployments.length; i++) {
-            DeployContractActionInput memory action = deploymentInfo.deployments[i];
-                bytes32 sphinxCreate3Salt = keccak256(abi.encode(action.referenceName, action.userSalt));
-                address create3Address = sphinxUtils.computeCreate3Address(
-                    _manager,
-                    sphinxCreate3Salt
-                );
-                if (create3Address == _create3Address) {
-                    return action.referenceName;
-                }
-        }
-        revert("Sphinx: No reference name found for the given address. Should never happen.");
     }
 
     /**

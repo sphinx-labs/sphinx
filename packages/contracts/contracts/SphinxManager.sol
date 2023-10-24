@@ -33,7 +33,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 0.2.5
+ * @custom:version 0.2.6
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single
@@ -108,7 +108,11 @@ contract SphinxManager is
      */
     bytes32 public activeDeploymentId;
 
-    // TODO(test): see if openzeppelin catches the fact that you removed a storage variable.
+    /**
+     * @notice TODO(docs): deprecated. we keep it here to preserve the storage layout with
+     *         previous versions of this contract.
+     */
+    mapping(bytes32 => uint256) public callNonces;
 
     /**
      * @notice Reverts if the caller is not a remote executor.

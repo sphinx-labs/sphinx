@@ -3,6 +3,7 @@ import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import {
   displayDeploymentTable,
+  isRawDeployContractActionInput,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -19,10 +20,11 @@ import {
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
+import { ethers } from 'ethers'
 
-import { makeGetConfigArtifacts } from '../foundry/utils'
+import { getBundleInfo, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
+import { getDryRunOutput, makeParsedConfig } from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
 
@@ -34,10 +36,7 @@ export const deploy = async (
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
-): Promise<{
-  deploymentInfo: DeploymentInfo
-  parsedConfig: ParsedConfig
-}> => {
+): Promise<ParsedConfig> => {
   // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
   // are up-to-date. The Solidity compiler is run within this command via `forge build`.
 
@@ -82,13 +81,12 @@ export const deploy = async (
     }
   }
 
-  // We must load this ABI after running `forge build` to prevent a situation where the user
-  // clears their artifacts then calls this task, in which case the `SphinxPluginTypes` artifact
-  // won't exist yet.
-  const SphinxPluginTypesABI =
+  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxCollectorABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
-      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+      `${artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
     )).abi
 
   const getConfigArtifacts = makeGetConfigArtifacts(
@@ -107,57 +105,50 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
-
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
-
-  // Delete the deployment info if one already exists. This isn't strictly necessary, but it
-  // ensures that we don't accidentally use an outdated DeploymentInfo file later.
-  if (existsSync(deploymentInfoPath)) {
-    unlinkSync(deploymentInfoPath)
-  }
 
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollect(string,string)',
+    'sphinxCollect(string)',
     network,
-    deploymentInfoPath,
     '--rpc-url',
     forkUrl,
+    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const collectOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
-  if (collectOutput.code !== 0) {
+  if (spawnOutput.code !== 0) {
     spinner.stop()
     // The `stdout` contains the trace of the error.
-    console.log(collectOutput.stdout)
+    console.log(spawnOutput.stdout)
     // The `stderr` contains the error message.
-    console.log(collectOutput.stderr)
+    console.log(spawnOutput.stderr)
     process.exit(1)
   }
 
-  const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
-  const deploymentInfo = decodeDeploymentInfo(
-    encodedDeploymentInfo,
-    SphinxPluginTypesABI
+  const { deploymentInfo, actionInputs } = getDryRunOutput(
+    network,
+    scriptPath,
+    broadcastFolder,
+    sphinxCollectorABI
   )
-  const configArtifacts = await getConfigArtifacts(
-    deploymentInfo.deployments.map(
-      (actionInput) => actionInput.fullyQualifiedName
-    )
-  )
+
+  const fullyQualifiedNames = actionInputs
+    .filter(isRawDeployContractActionInput)
+    .map((a) => a.fullyQualifiedName)
+  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
-    configArtifacts,
-    broadcastFolder,
-    scriptPath
+    actionInputs,
+    configArtifacts
   )
 
   spinner.succeed(`Collected transactions.`)
@@ -177,20 +168,43 @@ export const deploy = async (
         const previewString = getPreviewString(preview, false)
         console.log(previewString)
       }
-      return { deploymentInfo, parsedConfig }
+      return parsedConfig
     } else {
       const previewString = getPreviewString(preview, true)
       await prompt(previewString)
     }
   }
 
+  const { authRoot, bundleInfoArray } = await getBundleInfo(configArtifacts, [
+    parsedConfig,
+  ])
+  if (bundleInfoArray.length !== 1) {
+    throw new Error(`TODO(docs): should never happen`)
+  }
+  const bundleInfo = bundleInfoArray[0]
+
+  const sphinxABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(`${artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
+  const sphinxIface = new ethers.Interface(sphinxABI)
+  const deployTaskFragment = sphinxIface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'sphinxDeployTask')
+  if (!deployTaskFragment) {
+    throw new Error(`'sphinxDeployTask' not found in ABI. Should never happen.`)
+  }
+
+  const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
+    network,
+    authRoot,
+    bundleInfo,
+  ])
+
   const forgeScriptDeployArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxDeployTask(string,bytes32,string)',
-    network,
-    deploymentInfoPath,
+    deployTaskData,
     '--fork-url',
     forkUrl,
     '--broadcast',
@@ -222,7 +236,7 @@ export const deploy = async (
 
   spinner.start(`Writing deployment artifacts...`)
 
-  const containsDeployment = deploymentInfo.deployments.some(
+  const containsDeployment = actionInputs.some(
     (action) =>
       action.actionType === SphinxActionType.DEPLOY_CONTRACT.toString() &&
       !action.skip
@@ -232,7 +246,7 @@ export const deploy = async (
     const provider = new SphinxJsonRpcProvider(forkUrl)
     const deploymentArtifactPath = await writeDeploymentArtifactsUsingEvents(
       provider,
-      deploymentInfo,
+      parsedConfig,
       configArtifacts,
       deploymentFolder
     )
@@ -242,11 +256,8 @@ export const deploy = async (
   }
 
   if (!silent) {
-    displayDeploymentTable(deploymentInfo)
+    displayDeploymentTable(parsedConfig)
   }
 
-  return {
-    deploymentInfo,
-    parsedConfig,
-  }
+  return parsedConfig
 }

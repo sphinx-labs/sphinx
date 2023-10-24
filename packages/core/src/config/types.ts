@@ -48,7 +48,7 @@ export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
 export const VALID_MANAGER_VERSION: SemVer = {
   major: '0',
   minor: '2',
-  patch: '5',
+  patch: '6',
 }
 
 export type Project = string | 'all'
@@ -91,11 +91,16 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
+export type ActionInput =
+  | DeployContractActionInput
+  | DecodedFunctionCallActionInput
+  | RawFunctionCallActionInput
+
 export type ParsedConfig = {
   authAddress: string
   managerAddress: string
   chainId: string
-  actionInputs: Array<DeployContractActionInput | FunctionCallActionInput>
+  actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -105,12 +110,10 @@ export type ParsedConfig = {
 export type DeploymentInfo = {
   authAddress: string
   managerAddress: string
-  chainId: bigint
-  deployments: Array<SolidityDeployContractActionInput>
-  newConfig: SphinxConfig<bigint>
+  chainId: string
+  newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
-  remoteExecution: boolean
 }
 
 export type InitialChainState = {
@@ -185,16 +188,6 @@ export type UserAddressOverrides = {
   address: string
 }
 
-export interface SolidityDeployContractActionInput {
-  fullyQualifiedName: string
-  actionType: string
-  skip: boolean
-  initCode: string
-  constructorArgs: string
-  userSalt: string
-  referenceName: string
-}
-
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
@@ -206,8 +199,18 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   version: SemVer
 }
 
+export interface RawDeployContractActionInput {
+  fullyQualifiedName: string
+  actionType: string
+  skip: boolean
+  initCode: string
+  constructorArgs: string
+  userSalt: string
+  referenceName: string
+}
+
 export interface DeployContractActionInput
-  extends SolidityDeployContractActionInput {
+  extends RawDeployContractActionInput {
   decodedAction: DecodedAction
   create3Address: string
 }
@@ -221,10 +224,6 @@ export type DecodedAction = {
 // TODO(test): include a test for a raw action in the preview.
 // TODO(test): see what the preview looks like when there's a raw action with a lot of data.
 
-export type FunctionCallActionInput =
-  | RawFunctionCallActionInput
-  | DecodedFunctionCallActionInput
-
 export type RawFunctionCallActionInput = {
   actionType: string
   skip: boolean
@@ -237,8 +236,7 @@ export type DecodedFunctionCallActionInput = {
   skip: boolean
   to: string
   fullyQualifiedName: string
-  selector: string
-  functionParams: string
+  data: string
   referenceName: string
   decodedAction: DecodedAction
 }

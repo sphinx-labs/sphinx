@@ -6,6 +6,9 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
+echo "Killing process on port 8545"
+kill $(lsof -t -i:8545)
+
 # Check if the first argument is "all"
 if [ "$1" == "all" ]; then
   all_chain_ids=(1 5 10 420 10200 42161 421613)

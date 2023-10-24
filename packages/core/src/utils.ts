@@ -50,14 +50,14 @@ import {
   ParsedVariable,
   UserConfigVariable,
   ParsedConfig,
-  FunctionCallActionInput,
+  DecodedFunctionCallActionInput,
   DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
-  DecodedFunctionCallActionInput,
   RawFunctionCallActionInput,
-  SolidityDeployContractActionInput,
+  RawDeployContractActionInput,
   DeploymentInfo,
+  ActionInput,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1471,15 +1471,14 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
 }
 
 export const isDecodedFunctionCallActionInput = (
-  actionInput: DeployContractActionInput | FunctionCallActionInput
+  actionInput: ActionInput
 ): actionInput is DecodedFunctionCallActionInput => {
   const callActionInput = actionInput as DecodedFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
     callActionInput.skip !== undefined &&
     callActionInput.fullyQualifiedName !== undefined &&
-    callActionInput.selector !== undefined &&
-    callActionInput.functionParams !== undefined &&
+    callActionInput.data !== undefined &&
     callActionInput.referenceName !== undefined &&
     callActionInput.decodedAction.functionName !== undefined &&
     callActionInput.decodedAction.referenceName !== undefined &&
@@ -1488,8 +1487,12 @@ export const isDecodedFunctionCallActionInput = (
 }
 
 export const isRawFunctionCallActionInput = (
-  actionInput: DeployContractActionInput | FunctionCallActionInput
+  actionInput: ActionInput
 ): actionInput is RawFunctionCallActionInput => {
+  if (isDecodedFunctionCallActionInput(actionInput)) {
+    return false
+  }
+
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
@@ -1500,8 +1503,14 @@ export const isRawFunctionCallActionInput = (
 }
 
 export const isDeployContractActionInput = (
-  actionInput: DeployContractActionInput | FunctionCallActionInput
+  actionInput: ActionInput
 ): actionInput is DeployContractActionInput => {
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+}
+
+export const isRawDeployContractActionInput = (
+  actionInput: RawDeployContractActionInput | RawFunctionCallActionInput
+): actionInput is RawDeployContractActionInput => {
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
@@ -1509,22 +1518,19 @@ export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
 
-export const displayDeploymentTable = (deploymentInfo: DeploymentInfo) => {
-  const deployed = {}
-  deploymentInfo.deployments
+export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
+  const deployments = {}
+  parsedConfig.actionInputs
+    .filter(isDeployContractActionInput)
     .filter((a) => !a.skip)
     .forEach((a, i) => {
-      const create3Address = getCreate3Address(
-        deploymentInfo.managerAddress,
-        getCreate3Salt(a.referenceName, a.userSalt)
-      )
-      deployed[i + 1] = {
+      deployments[i + 1] = {
         Contract: a.referenceName,
-        Address: create3Address,
+        Address: a.create3Address,
       }
     })
-  if (Object.keys(deployed).length > 0) {
-    console.table(deployed)
+  if (Object.keys(deployments).length > 0) {
+    console.table(deployments)
   }
 }
 

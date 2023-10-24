@@ -90,7 +90,7 @@ export const FUNDER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FUNDER_ROLE'))
 export const CURRENT_SPHINX_MANAGER_VERSION = {
   major: '0',
   minor: '2',
-  patch: '5',
+  patch: '6',
 }
 
 export const CURRENT_SPHINX_AUTH_VERSION = CURRENT_SPHINX_MANAGER_VERSION

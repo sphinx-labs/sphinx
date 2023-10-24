@@ -599,12 +599,11 @@ export const makeActionBundleFromConfig = (
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       })
     } else if (isDecodedFunctionCallActionInput(actionInput)) {
-      const { to, selector, functionParams, referenceName, decodedAction } =
-        actionInput
+      const { to, data, referenceName, decodedAction } = actionInput
       actions.push({
         to,
         index,
-        data: ethers.concat([selector, functionParams]),
+        data,
       })
 
       costs.push(250_000n)

@@ -19,12 +19,12 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 
 export const writeDeploymentArtifactsUsingEvents = async (
   provider: SphinxJsonRpcProvider,
-  deploymentInfo: DeploymentInfo,
+  parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   deploymentFolder: string
 ): Promise<string> => {
   const SphinxManager = getSphinxManagerReadOnly(
-    deploymentInfo.managerAddress,
+    parsedConfig.managerAddress,
     provider
   )
 
@@ -56,7 +56,7 @@ export const writeDeploymentArtifactsUsingEvents = async (
 
   await writeDeploymentArtifacts(
     provider,
-    deploymentInfo,
+    parsedConfig,
     await getDeploymentEvents(SphinxManager, deploymentId),
     networkDirName,
     deploymentFolder,

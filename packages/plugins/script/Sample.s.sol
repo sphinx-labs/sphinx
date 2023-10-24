@@ -32,15 +32,10 @@ contract Sample is Script, SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        myContract = deployMyContract1(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        myContract = MyContract1(0x533dc95B468b4A6a3B21f1b518cc47fe28b06762);
         MyContract1.MyStruct memory myStruct = myContract.myPureFunction();
         console.logInt(myStruct.a);
-        myContract.set(myStruct.a);
+        myContract.incrementUint();
         myContract.incrementUint();
         myContract.incrementUint();
         myContract.incrementUint();

@@ -32,7 +32,7 @@ import { ISphinxAuth } from "./interfaces/ISphinxAuth.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.5
+ * @custom:version 0.2.6
  */
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");

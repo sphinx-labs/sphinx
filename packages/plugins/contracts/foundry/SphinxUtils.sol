@@ -32,7 +32,6 @@ import {
     BundleInfo,
     DeploymentInfo,
     HumanReadableAction,
-    DeployContractActionInput,
     BundledAuthLeaf,
     NetworkInfo,
     NetworkType,
@@ -904,6 +903,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.decode(result.stdout, (bool));
     }
 
+    function arrayContainsString(
+        string[] memory _ary,
+        string memory _str
+    ) external pure returns (bool) {
+        for (uint i = 0; i < _ary.length; i++) {
+            if (keccak256(abi.encodePacked(_str)) == keccak256(abi.encodePacked(_ary[i]))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
@@ -1249,19 +1261,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     isExecuting: _manager.isExecuting()
                 });
         }
-    }
-
-    function isReferenceNameUsed(
-        string memory _referenceName,
-        DeployContractActionInput[] memory _inputs
-    ) external pure returns (bool) {
-        for (uint256 i = 0; i < _inputs.length; i++) {
-            DeployContractActionInput memory action = _inputs[i];
-                if (keccak256(abi.encode(action.referenceName)) == keccak256(abi.encode(_referenceName))) {
-                    return true;
-                }
-        }
-        return false;
     }
 
     /**

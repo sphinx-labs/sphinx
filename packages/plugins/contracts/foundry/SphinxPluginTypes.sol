@@ -146,23 +146,18 @@ struct OptionalBytes32 {
  * @custom:field authAddress The address of the user's SphinxAuth contract.
  * @custom:field managerAddress The address of the user's SphinxManager contract.
  * @custom:field chainId The chain ID where the deployment will occur.
- * @custom:field deployments The contract deployments that the user has declared.
  * @custom:field newConfig The SphinxConfig that the user has defined in their script.
  * @custom:field isLiveNetwork Whether or not the deployment is occurring on a live network (e.g.
  *               Ethereum) as opposed to a local node (e.g. an Anvil or Hardhat node).
  * @custom:field initialState The values of several state variables before the deployment occurs.
- * @custom:field remoteExecution Whether or not the deployment will be executed remotely, which
- *               occurs if the user is using the DevOps platform.
  */
 struct DeploymentInfo {
     address authAddress;
     address managerAddress;
     uint256 chainId;
-    DeployContractActionInput[] deployments;
     SphinxConfig newConfig;
     bool isLiveNetwork;
     InitialChainState initialState;
-    bool remoteExecution;
 }
 
 /**
@@ -258,27 +253,6 @@ enum Network {
 struct DeployOptions {
     bytes32 salt;
     string referenceName;
-}
-
-/**
- * @notice Represents an action that the user has defined in their deployment. These
- *         actions are collected during the deployment process and then executed
- *         in the order they were defined.
- *
- * @custom:field fullyQualifiedName The fully qualified name of the contract on which
- *               the action will be executed. For example, `contracts/MyContract.sol:MyContract`.
- * TODO(docs)
- * @custom:field skip Whether or not to skip the action. An action will be skipped if it has
- *               already been executed on the current chain. This ensures that the deployment
- *               process is idempotent, which means that the same action will not be executed twice.
- */
-struct DeployContractActionInput {
-    string fullyQualifiedName;
-    bytes initCode;
-    bytes constructorArgs;
-    bytes32 userSalt;
-    string referenceName;
-    bool skip;
 }
 
 enum NetworkType {
