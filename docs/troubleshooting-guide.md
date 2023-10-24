@@ -40,4 +40,4 @@ With Sphinx, contract deployments and function calls are idempotent. This means 
 
 If the deployment preview indicates that a transaction is being skipped, it's because the transaction was previously executed on this network.
 
-If you'd like to re-execute a contract deployment instead of skipping it, you must change its `CREATE3` address. You can do this by configuring the `DeployOptions` struct in your deployment function to use a new `salt` or `referenceName` field. [See here](TODO(md)) for more info.
+If you'd like to re-execute a contract deployment instead of skipping it, you must change its `CREATE3` address. You can do this by configuring the `DeployOptions` struct in your deployment function to use a new `salt` or `referenceName` field. [Learn more about contract deployment options](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md#contract-deployment-options).
