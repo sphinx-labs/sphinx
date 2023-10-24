@@ -46,15 +46,8 @@ import { SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
 // keep3r integration:
-// - TODO(md): clients are generated for interfaces too
-// - TODO(md): clients are generated in the same directory structure as your contracts file
 // - TODO(md): see the client spec in linear for things to include in client docs
 // - TODO(md): `computeCreateAddress` example
-// - TODO(md): strongly encourage users to turn the optimizer off for development. compilation times
-//   between modifying the deploy script took 3s without sphinx (optimizer on), then 26s with sphinx
-//   (optimizer on), then 5s with sphinx (optimizer off). unfortunately, it seems like turning the
-//   optimizer off causes some of their tests to fail, but i think it'd still be useful when you're
-//   just trying to get the deployment script to work.
 // - TODO(md): gas report results in higher values for all function calls in the `deploy` function.
 //   the reported contract deployment costs are identical to the actual deployment costs. the gas
 //   report for anything outside of the `deploy` function is unchanged, even when interacting with
@@ -99,8 +92,6 @@ abstract contract Sphinx {
     SphinxConfig internal sphinxConfig;
 
     SphinxUtils private sphinxUtils;
-
-    // TODO(md): forge-std does NOT need to be 1.6.1 since we use our own forge-std dependency
 
     // TODO(md): it may be surprising to the user if a previously deployed contract (with
     // different bytecode or a different abi) is returned from a "deploy<Contract>" call instead of

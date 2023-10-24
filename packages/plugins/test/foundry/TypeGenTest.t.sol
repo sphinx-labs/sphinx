@@ -491,12 +491,6 @@ contract TypeGenTest is Test, TypeGenTestConfig {
     }
 
     // Covers importing an externally defined contract via the SphinxExternal.sol file,
-    // deploying and interacting with it
-    function testDidDeployAndInteractWithExternalContract() public {
-        assertEq(externalContract.number(), 6);
-    }
-
-    // Covers importing an externally defined contract via the SphinxExternal.sol file,
     // defining that it exists at an address, and then interacting with it
     function testDidDefineAndInteractWithExternalContract() public {
         assertEq(alreadyDeployedExternalContract.number(), 7);
@@ -602,5 +596,10 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         assertEq(nestedImportChild.number(), 2);
         assertEq(nestedImportChild.boolean(), false);
         assertEq(nestedImportChild.str(), "world");
+    }
+
+    // Deploy and interact with contract that accepts conflicting contract input type
+    function testDidDeployContractWithConflictingContractInputType() public {
+        assertEq(conflictingContractInput.externalContract().myBool(), true);
     }
 }

@@ -3,36 +3,13 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
-import { SphinxConfig, DeployOptions, DefineOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { ExecutorTestClient } from "./ExecutorTest.c.sol";
+import { SphinxConfig, DeployOptions } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+import { ExecutorTest } from "contracts/ExecutorTest.sol";
 
 abstract contract SphinxClient is Sphinx {
-
-  function defineExecutorTest(
-    address addr
-  ) internal returns (ExecutorTestClient) {
-    return defineExecutorTest(
-      addr, DefineOptions({ referenceName: "ExecutorTest" })
-    );
-  }
-
-  function defineExecutorTest(
-    address addr,
-    DefineOptions memory _defineOptions
-  ) internal returns (ExecutorTestClient) {
-    return ExecutorTestClient(
-      _sphinxDefineContract(
-        _defineOptions.referenceName,
-        addr,
-        "contracts/ExecutorTest.sol:ExecutorTest",
-        "ExecutorTest.c.sol:ExecutorTestClient"
-      )
-    );
-  }
-
   function deployExecutorTest(
     uint8 _val
-  ) internal returns (ExecutorTestClient) {
+  ) internal returns (ExecutorTest) {
     return deployExecutorTest(
       _val,
       DeployOptions({ salt: bytes32(0), referenceName: "ExecutorTest" })
@@ -42,17 +19,16 @@ abstract contract SphinxClient is Sphinx {
   function deployExecutorTest(
     uint8 _val,
     DeployOptions memory _sphinxInternalDeployOptions
-  ) internal returns (ExecutorTestClient) {
+  ) internal returns (ExecutorTest) {
     bytes memory sphinxInternalConstructorArgs = abi.encode(
       _val
     );
-    return ExecutorTestClient(
+    return ExecutorTest(
       _sphinxDeployContract(
         _sphinxInternalDeployOptions.referenceName,
         _sphinxInternalDeployOptions.salt,
         sphinxInternalConstructorArgs,
         "contracts/ExecutorTest.sol:ExecutorTest",
-        "ExecutorTest.c.sol:ExecutorTestClient",
         "ExecutorTest.sol:ExecutorTest"
       )
     );

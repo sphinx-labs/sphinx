@@ -97,6 +97,10 @@ import { ChildOverrides } from "../contracts/test/typegen/inheritance/Overrides.
 import { IExternalContract } from "../testExternalContracts/IExternalContract.sol";
 import { NestedImportChild } from "../contracts/test/typegen/nestedParentImport/C.sol";
 import { MyContractType } from "../contracts/test/typegen/ArrayInputTypes.sol";
+import { ExternalContract as AliasedExternalContract } from "../testExternalContracts/ExternalContract.sol";
+import { ExternalContract as ConflictingExternalContract } from "../testExternalContracts/ConflictingExternalContract.sol";
+
+import { ConflictingContractInput } from "../contracts/test/typegen/contractInputs/ConflictingContractInput.sol";
 
 import "sphinx-forge-std/Test.sol";
 
@@ -120,7 +124,6 @@ contract TypeGenTestConfig is Test, SphinxClient {
     FunctionContract functionContract;
     FunctionContract functionContractTwo;
     FunctionInputContract functionInputContract;
-    ExternalContract externalContract;
     ExternalContract alreadyDeployedExternalContract;
     IExternalContract alreadyDeployedExternalContractInterface;
     ConflictingTypeNameContractFirst conflictingTypeNameContractFirst;
@@ -138,6 +141,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
     ChildParentImportsTypes childParentImportsTypes;
     ChildOverrides childOverrides;
     NestedImportChild nestedImportChild;
+    ConflictingContractInput conflictingContractInput;
 
     uint8[] public intialUintDynamicArray;
     bytes32[][] public initialUintNestedDynamicArray;
@@ -178,6 +182,11 @@ contract TypeGenTestConfig is Test, SphinxClient {
     MyLocalEnumArray[] public noAliasLocalEnum;
     MyLocalStructArray[] public noAliasLocalStruct;
     MyLocalTypeArray[] public noAliasLocalType;
+
+    ExternalContract externalContract;
+    IExternalContract iExternalContract;
+    AliasedExternalContract aliasedExternalContract;
+    ConflictingExternalContract conflictingExternalContract;
 
     function setupVariables() internal {
         intialUintDynamicArray = new uint8[](2);
@@ -249,6 +258,11 @@ contract TypeGenTestConfig is Test, SphinxClient {
         noAliasLocalEnum.push(MyLocalEnumArray.Local);
         noAliasLocalStruct.push(MyLocalStructArray({ a: -1 }));
         noAliasLocalType.push(MyLocalTypeArray.wrap(-2));
+
+        externalContract = new ExternalContract(1);
+        iExternalContract = IExternalContract(externalContract);
+        aliasedExternalContract = new AliasedExternalContract(2);
+        conflictingExternalContract = new ConflictingExternalContract(false);
     }
 
     constructor() {
@@ -422,12 +436,25 @@ contract TypeGenTestConfig is Test, SphinxClient {
         LocalContract localContractTwo = deployLocalContract(2, DeployOptions({ salt: 0, referenceName: "localContractTwo" }));
 
         // Deploy contract which requires contract inputs
-        functionContract = deployFunctionContract(myImportContractOne, localContractOne);
+        functionContract = deployFunctionContract(
+            myImportContractOne,
+            localContractOne,
+            externalContract,
+            iExternalContract,
+            aliasedExternalContract
+        );
+
+        // Deploy and interact with contract which has conflicting contract input
+        conflictingContractInput = deployConflictingContractInput(conflictingExternalContract);
+        conflictingContractInput.externalContract().setBool(true);
 
         // Deploy contract which requires contract inputs, then call functions to update those values
         functionContractTwo = deployFunctionContract(
             myImportContractOne,
             localContractOne,
+            externalContract,
+            iExternalContract,
+            aliasedExternalContract,
             DeployOptions({ salt: 0, referenceName: "functionContractTwo" })
         );
         functionContractTwo.setImportContract(myImportContractTwo);
@@ -435,10 +462,6 @@ contract TypeGenTestConfig is Test, SphinxClient {
 
         // Deploy contract which has function inputs
         functionInputContract = deployFunctionInputContract();
-
-        // Deploy external contract
-        externalContract = deployExternalContract(5);
-        externalContract.setNumber(6);
 
         // Define external contract and interact with it
         alreadyDeployedExternalContract = ExternalContract(alreadyDeployedContractAddress);

@@ -1,22 +1,22 @@
 # Sphinx (formerly ChugSplash)
-Sphinx is a Foundry plugin for writing transparent, predictable, and multi-chain deployment scripts. Sphinx has an opt-in DevOps platform that automates the deployment process with features such as gasless deployments and deployments in CI.
+Sphinx is a Foundry plugin for writing transparent, predictable, and multi-chain deployment scripts. Sphinx has an opt-in DevOps platform that automates the deployment process with features such as gasless deployments in CI and multichain deployments.
 
 Key features:
 * **Deployment preview**: Sphinx provides visibility into your deployments by generating a [preview](TODO(md): screenshot) before any transactions are executed.
-* **Idempotent & Deterministic**: Sphinx deploys your contracts to predictable addresses using `CREATE3`. It detects the parts of your script that were already executed and automatically skips them, simplifying the process of extending your scripts.
+* **Create3**: Sphinx deploys your contracts to predictable addresses using `CREATE3`.
 * **Multi-chain**: Sphinx makes it easy to write chain-specific logic and replicate these configurations locally.
 
 ## Sphinx DevOps Platform
-
 The Sphinx DevOps Platform is built on top of the Foundry plugin, and is entirely opt-in.
 
 Key features:
-* Propose your deployments gaslessly from a CI process or your local machine.
+* Propose your deployments gaslessly from a CI process or your local machine, approve deployments via the Sphinx UI with a single meta transaction, and have your deployment executed by the Sphinx Platform across up to 11 different networks.
 * Maintain a balance of USDC on a single chain to fund deployments across all chains. You don't need native gas tokens on any chain.
-* Approve your deployments via the Sphinx UI with a single meta transaction.
 * Automatic Etherscan verification.
 
-You can request access to the DevOps platform [here](https://sphinx.dev).
+[Request access to the DevOps platform.](https://sphinx.dev)
+
+> Sphinx is in active development and uses smart contracts which are not yet audited. You should **always** verify your contracts were deployed and configured properly after deploying with Sphinx.
 
 ## Documentation
 

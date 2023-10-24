@@ -65,6 +65,7 @@ export enum ContractKindEnum {
 }
 
 /**
+ * TODO: Remove?
  * Allowable types for Sphinx config variables defined by the user.
  */
 export type UserConfigVariable =
@@ -131,6 +132,7 @@ export type UnsafeAllow = {
 }
 
 /**
+ * TODO: Remove?
  * User-defined contract definition in a Sphinx config.
  */
 export type UserContractConfig = {

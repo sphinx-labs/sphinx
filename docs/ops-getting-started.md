@@ -67,8 +67,6 @@ sphinxConfig.testnets = [
 ];
 ```
 
-TODO(md): disclaimer about verifying your contracts were deployed correctly.
-
 We'll describe these fields briefly here:
 - `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
 - `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose aside from proposing.

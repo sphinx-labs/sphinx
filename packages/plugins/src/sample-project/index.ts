@@ -14,9 +14,6 @@ export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
-// TODO(md): clients don't need to be committed to version control. also, add a step to the Getting
-//   Started guides that puts `client/` in `.gitignore`.
-
 export const writeSampleProjectFiles = (
   contractDirPath: string,
   testDirPath: string,
@@ -24,7 +21,7 @@ export const writeSampleProjectFiles = (
   quickstart: boolean,
   solcVersion: string
 ) => {
-  // Create the Sphinx config folder if it doesn't exist
+  // Create the script folder if it doesn't exist
   if (!fs.existsSync(scriptDirPath)) {
     fs.mkdirSync(scriptDirPath)
   }
@@ -39,10 +36,10 @@ export const writeSampleProjectFiles = (
     fs.mkdirSync(testDirPath)
   }
 
-  // Check if the sample Sphinx config file already exists.
+  // Check if the sample Sphinx deployment script file already exists.
   const configPath = path.join(scriptDirPath, sampleScriptFileName)
   if (!fs.existsSync(configPath)) {
-    // Create the sample Sphinx config file.
+    // Create the sample Sphinx deployment script file.
     fs.writeFileSync(
       configPath,
       getSampleScriptFile(solcVersion, scriptDirPath, contractDirPath)

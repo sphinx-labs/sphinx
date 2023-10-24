@@ -1,9 +1,5 @@
 import { relative, resolve } from 'path'
 
-// TODO(md): the `init` task puts the files in the `src`, `test, and `script` directories specified
-// in your foundry.toml. if these aren't specified, then it puts them in the default directories.
-// this is probably only worth mentioning for the "integrating an existing project" guide.
-
 export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
@@ -43,7 +39,6 @@ export const getSampleScriptFile = (
 pragma solidity ^${solcVersion};
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
-import { HelloSphinxClient } from "${relativeSphinxClientPath}/HelloSphinx.c.sol";
 import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
 import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 
@@ -57,10 +52,8 @@ contract HelloSphinxScript is SphinxClient {
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        HelloSphinxClient helloSphinxClient = deployHelloSphinx("Hi!", 2);
-        helloSphinxClient.add(8);
-
-        helloSphinx = HelloSphinx(address(helloSphinxClient));
+        helloSphinx = deployHelloSphinx("Hi!", 2);
+        helloSphinx.add(8);
     }
 }
 `

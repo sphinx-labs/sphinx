@@ -193,9 +193,6 @@ struct InitialChainState {
     bool isExecuting;
 }
 
-// TODO(md): the 'mainnets' and 'testnets' arrays aren't used outside of the DevOps platform, since
-// deployments on the CLI occur on one network at a time.
-
 /**
  * @notice An object that contains all of the user's configuration settings for a deployment.
  *         The `projectName`, `owners`, and `threshold` determine the `CREATE3` address of
