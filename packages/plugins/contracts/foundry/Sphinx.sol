@@ -143,6 +143,46 @@ abstract contract Sphinx {
 
         console.log('TODO manager', address(manager));
 
+        string memory rpcUrl = vm.rpcUrl(_networkName);
+
+        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
+        uint256 privateKey;
+        if (isLiveNetwork) {
+            sphinxMode = SphinxMode.LiveNetworkBroadcast;
+
+            privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+            require(
+                privateKey != 0,
+                "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
+            );
+
+            address deployer = vm.addr(privateKey);
+
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
+
+            // Make the deployer a proposer. If we don't do this, the execution logic will fail
+            // because a proposer's meta transaction signature is required for the
+            // `SphinxAuth.propose` function.
+            sphinxConfig.proposers.push(deployer);
+        } else {
+            sphinxMode = SphinxMode.LocalNetworkBroadcast;
+
+            // We use an auto-generated private key when deploying to a local network so that anyone
+            // can deploy a project even if they aren't the sole owner. This is useful for
+            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
+            privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
+
+            address deployer = vm.addr(privateKey);
+            sphinxUtils.initializeFFI(
+                rpcUrl,
+                OptionalAddress({ exists: true, value: deployer })
+            );
+
+            // Make a pre-determined address a proposer. We'll use it later to sign a meta
+            // transaction, which allows us to propose the deployment.
+            sphinxConfig.proposers.push(deployer);
+        }
+
         deploymentInfo = DeploymentInfo({
             authAddress: address(auth),
             managerAddress: address(manager),
@@ -213,11 +253,6 @@ abstract contract Sphinx {
             address deployer = vm.addr(privateKey);
 
             sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
-
-            // Make the deployer a proposer. If we don't do this, the execution logic will fail
-            // because a proposer's meta transaction signature is required for the
-            // `SphinxAuth.propose` function.
-            sphinxConfig.proposers.push(deployer);
         } else {
             sphinxMode = SphinxMode.LocalNetworkBroadcast;
 
@@ -231,10 +266,6 @@ abstract contract Sphinx {
                 rpcUrl,
                 OptionalAddress({ exists: true, value: deployer })
             );
-
-            // Make a pre-determined address a proposer. We'll use it later to sign a meta
-            // transaction, which allows us to propose the deployment.
-            sphinxConfig.proposers.push(deployer);
         }
 
         // TODO: c/f broadcast
