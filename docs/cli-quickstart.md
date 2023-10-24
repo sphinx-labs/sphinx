@@ -5,7 +5,14 @@ This guide will show you how to setup a fresh Sphinx project, run tests, and dep
 
 ## Table of Contents
 
-
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Initialize Sphinx](#4-initialize-a-project)
+5. [Generate Clients](#5-generate-sphinx-clients)
+6. [Run the Tests](#6-run-the-tests)
+7. [Broadcast on Anvil](#7-broadcast-on-anvil-optional)
+8. [Next Steps](#8-next-steps)
 
 ## 1. Prerequisites
 
@@ -100,6 +107,6 @@ Once the deployment completes, you'll find the deployment artifacts written to `
 
 When deploying on a live network, you can verify your contracts using the `--verify` flag.
 
-## 9. Next steps
+## 8. Next steps
 
 Learn more about writing deployment scripts with Sphinx in [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md).
