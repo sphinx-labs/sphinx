@@ -79,8 +79,6 @@ jobs:
         run: npx sphinx propose ./script/HelloSphinx.c.sol --dry-run --testnets
 ```
 
-TODO(md-end): grammar check
-
 ## 6. Create the 'propose' workflow
 Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command. This allows the proposal command to be completed automatically. Your deployment will still require approval via the Sphinx UI before it will be executed on chain.
 
