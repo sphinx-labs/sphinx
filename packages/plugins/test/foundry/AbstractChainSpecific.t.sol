@@ -10,6 +10,7 @@ import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
 import { DeploymentState, DeploymentStatus } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
 
 /**
  * @dev An abstract contract to test multi-chain deployments that differ between networks (e.g.
@@ -44,17 +45,6 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
         assertGt(address(allNetworks).code.length, 0);
     }
 
-    function setUpBroadcastIdempotentTests(Network _network) internal {
-        NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(_network);
-        string memory rpcUrl = vm.rpcUrl(networkInfo.name);
-        vm.createSelectFork(rpcUrl);
-
-        // Sanity check that the chain ID is correct.
-        assertEq(block.chainid, sphinxUtils.getNetworkInfo(_network).chainId);
-
-        deploy(_network);
-    }
-
     function setUpBroadcastTests(Network _network) internal {
         setupVariables();
 
@@ -72,7 +62,16 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestU
      *                                         for the current network.
      */
     function assertBroadcastSuccess(uint256 _expectedNumChainSpecificActions) internal {
-        string memory broadcastFilePath = string.concat(vm.projectRoot(), "/broadcast/ChainSpecific.s.sol/", vm.toString(block.chainid), "/sphinxDeployTask-latest.json");
+        string memory broadcastFilePath = string.concat(
+            vm.projectRoot(),
+            "/broadcast/ChainSpecific.s.sol/",
+            vm.toString(block.chainid),
+            "/",
+            // We have to do this weird slice here b/c the `toString` function returns a packed 32 byte string when the
+            // input type is bytes4 which isn't what we need. We need the hex code for the selector with the `0x` removed.
+            string(this.sliceBytes(bytes(vm.toString(Sphinx.sphinxDeployTask.selector)), 2, 10)),
+            "-latest.json"
+        );
         AnvilBroadcastedTxn[] memory broadcastedTxns = readAnvilBroadcastedTxns(broadcastFilePath);
 
         vm.rollFork(broadcastedTxns[0].hash);

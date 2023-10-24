@@ -151,4 +151,11 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
                 opcode: opcode
             });
     }
+
+    // Workaround for converting bytes memory to bytes calldata which is necessary to use index slicing
+    // If we call this with this.sliceBytes(bytes memory) then the input is converted to bytes calldata
+    // and properly sliced
+    function sliceBytes(bytes calldata b, uint start, uint end) public pure returns (bytes memory) {
+        return b[start:end];
+    }
 }
