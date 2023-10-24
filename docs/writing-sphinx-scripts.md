@@ -6,7 +6,13 @@ Before continuing, please complete either the [quickstart guide](https://github.
 
 ## Table of Contents
 
-TODO(md-end): check table of contents everywhere
+- [Sample Sphinx Script](#sample-sphinx-script)
+- [Required Configuration Options](#required-configuration-options)
+- [Sphinx Deploy Function](#sphinx-deploy-function)
+- [Deploying Contracts](#deploying-contracts)
+- [Calling Contract Functions](#calling-contract-functions)
+- [Owned Contracts](#owned-contracts)
+- [Learn More](#learn-more)
 
 ## Sample Sphinx Script
 
@@ -103,7 +109,7 @@ function deploy(Network _network) public override sphinx(_network) {
 }
 ```
 
-### Deploying Contracts
+## Deploying Contracts
 To deploy a contract using Sphinx, you'll use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
 
 For example, say you have a contract called `HelloSphinx` that you'd normally deploy via `new HelloSphinx("Hello!", 2)`. Using Sphinx, you'd deploy this contract by calling the function:

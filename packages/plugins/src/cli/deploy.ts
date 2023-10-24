@@ -1,5 +1,4 @@
-import { join, resolve } from 'path'
-import { readFileSync, existsSync, unlinkSync } from 'fs'
+import { resolve } from 'path'
 
 import {
   displayDeploymentTable,
@@ -14,9 +13,7 @@ import {
   SphinxActionType,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
-  ConfigArtifacts,
   ParsedConfig,
-  DeploymentInfo,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -39,7 +36,10 @@ export const deploy = async (
   targetContract?: string,
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
-): Promise<ParsedConfig> => {
+): Promise<{
+  parsedConfig: ParsedConfig
+  preview?: ReturnType<typeof getPreview>
+}> => {
   // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
   // are up-to-date. The Solidity compiler is run within this command via `forge build`.
 
@@ -155,10 +155,11 @@ export const deploy = async (
 
   spinner.succeed(`Collected transactions.`)
 
+  let preview
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    const preview = getPreview([parsedConfig])
+    preview = getPreview([parsedConfig])
 
     const emptyDeployment = parsedConfig.actionInputs.every(
       (action) => action.skip
@@ -167,10 +168,11 @@ export const deploy = async (
     spinner.stop()
     if (emptyDeployment) {
       if (!silent) {
+        spinner.info(`Nothing to deploy exiting early.`)
         const previewString = getPreviewString(preview, false)
         console.log(previewString)
       }
-      return parsedConfig
+      return { parsedConfig, preview }
     } else {
       const previewString = getPreviewString(preview, true)
       await prompt(previewString)
@@ -262,5 +264,5 @@ export const deploy = async (
     displayDeploymentTable(parsedConfig)
   }
 
-  return parsedConfig
+  return { parsedConfig, preview }
 }

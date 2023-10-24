@@ -4,7 +4,15 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 ## Table of Contents
 
-
+1. [Prerequisites](#1-prerequisites)
+2. [High-level overview](#2-high-level-overview)
+3. [Get testnet ETH on OP Goerli](#3-get-testnet-eth-on-op-goerli)
+4. [Get your credentials](#4-get-your-credentials)
+5. [Set environment variables](#5-set-environment-variables)
+6. [Configure your script](#6-configure-your-script)
+7. [Add RPC endpoints](#7-add-rpc-endpoints)
+8. [Propose the deployment](#8-propose-the-deployment)
+9. [Learn more](#9-learn-more)
 
 ## 1. Prerequisites
 
@@ -35,7 +43,6 @@ You'll need a small amount of testnet ETH on Optimism Goerli, which you can get 
 
 You'll need a Sphinx API key and an organization ID. You can get these in the [Sphinx DevOps platform](https://www.sphinx.dev/).
 
-TODO(md-end): redo numbers
 ## 5. Set environment variables
 
 Navigate to the repository that contains the script you'd like to deploy.
@@ -70,8 +77,8 @@ sphinxConfig.testnets = [
 We'll describe these fields briefly here:
 - `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
 - `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose aside from proposing.
-- `mainnets`: (`Network[]`): The list of production networks to deploy on. See [here](TODO(md)) for a full list of supported production networks.
-- `testnets`: (`Network[]`): The list of testnets to deploy on. See [here](TODO(md)) for a full list of supported testnets.
+- `mainnets`: (`Network[]`): The list of production networks to deploy on. See the [full list of supported production networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#production-networks).
+- `testnets`: (`Network[]`): The list of testnets to deploy on. See the [full list of supported test networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#test-networks).
 
 Fill in these fields with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide.
 
