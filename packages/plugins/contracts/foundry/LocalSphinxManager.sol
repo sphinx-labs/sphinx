@@ -14,24 +14,7 @@ import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
  */
 contract LocalSphinxManager {
 
-    /**
-     * @dev Storage layout gap. Since this contract is used as a substitute for the actual SphinxManager
-     *      when collecting transactions, we need the storage layout position of the `callNonces`
-     *      mapping to be the same as the SphinxManager. This ensures that if a SphinxManager was
-     *      already deployed at a particular address, we can still access the `callNonces` mapping
-     *      so we know which `CALL` actions to skip.
-     */
-    uint256[154] private __gap;
-
-    /**
-     * @notice Mapping of call hashes to nonces. Same as the `callNonces` mapping in the
-     *         SphinxManager.
-     */
-    mapping(bytes32 => uint256) public callNonces;
-
-    function incrementCallNonce(bytes32 _callHash) external {
-        callNonces[_callHash] += 1;
-    }
+    // TODO: replace this contract with the SphinxDefaultCreate3 contract
 
     function deploy(
         bytes32 _salt,

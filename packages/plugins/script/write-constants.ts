@@ -43,19 +43,6 @@ import { ethers } from 'ethers'
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const writeConstants = async () => {
-  const fullyQualifiedName = 'contracts/SphinxManager.sol:SphinxManager'
-  const [sourceName, contractName] = fullyQualifiedName.split(':')
-  const storageLayout = getStorageLayout(
-    sphinxContractsBuildInfo.output,
-    sourceName,
-    contractName
-  )
-  const callNoncesSlotKey = getStorageSlotKey(
-    fullyQualifiedName,
-    storageLayout,
-    'callNonces'
-  )
-
   const fullyQualifiedNameAuth = 'contracts/SphinxAuth.sol:SphinxAuth'
   const [sourceNameAuth, contractNameAuth] = fullyQualifiedNameAuth.split(':')
   const storageLayoutAuth = getStorageLayout(
@@ -136,10 +123,6 @@ const writeConstants = async () => {
     managerImplementationAddressOptimismGoerli: {
       type: 'address',
       value: getSphinxManagerImplAddress(420n, CURRENT_SPHINX_MANAGER_VERSION),
-    },
-    callNoncesSlotKey: {
-      type: 'bytes32',
-      value: ethers.zeroPadValue(ethers.toBeHex(callNoncesSlotKey), 32),
     },
     authAccessControlRoleSlotKey: {
       type: 'bytes32',

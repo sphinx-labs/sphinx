@@ -108,14 +108,7 @@ contract SphinxManager is
      */
     bytes32 public activeDeploymentId;
 
-    /**
-     * @notice Mapping of call hashes to nonces. A call hash is the hash of the address and calldata
-       of a `CALL` action. The nonce is incremented each time the call is executed. This makes it
-       easy for off-chain code to keep track of which calls to skip if a deployment is re-executed.
-       Although this same functionality could be achieved using events, we opt for a mapping because
-       some chains make it difficult to query events that occurred past a certain block.
-     */
-    mapping(bytes32 => uint256) public callNonces;
+    // TODO(test): see if openzeppelin catches the fact that you removed a storage variable.
 
     /**
      * @notice Reverts if the caller is not a remote executor.
@@ -424,6 +417,8 @@ contract SphinxManager is
         registry.announce("SphinxDeploymentCancelled");
     }
 
+    // TODO: bump manager version
+
     /**
      * @notice Allows a remote executor to claim the sole right to execute a deployment over a
                period of `executionLockTime`. Executors must finish executing the deployment within
@@ -578,27 +573,19 @@ contract SphinxManager is
             deployment.actionsExecuted++;
 
             if (action.actionType == SphinxActionType.CALL) {
-                (uint256 nonce, address to, bytes memory data) = abi.decode(
+                (address to, bytes memory data) = abi.decode(
                     action.data,
-                    (uint256, address, bytes)
+                    (address, bytes)
                 );
-                bytes32 callHash = keccak256(abi.encode(to, data));
-                uint256 currentNonce = callNonces[callHash];
-                if (nonce != currentNonce) {
-                    emit CallSkipped(activeDeploymentId, action.index);
-                    registry.announce("CallSkipped");
+                (bool success, ) = to.call(data);
+                if (success) {
+                    emit CallExecuted(activeDeploymentId, action.index);
+                    registry.announce("CallExecuted");
                 } else {
-                    (bool success, ) = to.call(data);
-                    if (success) {
-                        callNonces[callHash] = currentNonce + 1;
-                        emit CallExecuted(activeDeploymentId, callHash, action.index);
-                        registry.announce("CallExecuted");
-                    } else {
-                        // External call failed. Could happen if insufficient gas is supplied
-                        // to this transaction or if the function has logic that causes the call to
-                        // fail.
-                        revert DeploymentFailed(action.index, activeDeploymentId);
-                    }
+                    // External call failed. Could happen if insufficient gas is supplied
+                    // to this transaction or if the function has logic that causes the call to
+                    // fail.
+                    revert DeploymentFailed(action.index, activeDeploymentId);
                 }
             } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(

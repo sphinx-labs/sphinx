@@ -56,7 +56,6 @@ struct BundleInfo {
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
-    string compilerConfigStr;
 }
 
 struct FoundryConfig {
@@ -76,6 +75,7 @@ struct FoundryContractConfig {
 
 enum SphinxMode {
     Default,
+    Collect,
     LiveNetworkBroadcast,
     LocalNetworkBroadcast,
     Proposal

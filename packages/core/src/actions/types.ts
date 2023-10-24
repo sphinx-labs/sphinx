@@ -63,7 +63,6 @@ export interface CallAction {
   index: number
   to: string
   data: string
-  nonce: number
 }
 
 export interface SphinxBundles {
@@ -83,13 +82,6 @@ export type HumanReadableAction = {
   reason: string
   actionType: bigint
   actionIndex: bigint
-}
-
-/**
- * Set of human-readable Sphinx actions.
- */
-export type HumanReadableActions = {
-  [index: number]: HumanReadableAction
 }
 
 /**

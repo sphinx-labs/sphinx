@@ -94,9 +94,7 @@ export type ParsedConfig = {
   authAddress: string
   managerAddress: string
   chainId: string
-  actionInputs: Array<
-    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
-  >
+  actionInputs: Array<DeployContractActionInput | FunctionCallActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -107,7 +105,7 @@ export type DeploymentInfo = {
   authAddress: string
   managerAddress: string
   chainId: bigint
-  actionInputs: Array<RawSphinxActionInput>
+  deployments: Array<SolidityDeployContractActionInput>
   newConfig: SphinxConfig<bigint>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -185,7 +183,7 @@ export type UserAddressOverrides = {
   address: string
 }
 
-export interface DeployContractActionInput {
+export interface SolidityDeployContractActionInput {
   fullyQualifiedName: string
   actionType: string
   skip: boolean
@@ -206,15 +204,10 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   version: SemVer
 }
 
-export interface ExtendedDeployContractActionInput
-  extends DeployContractActionInput {
+export interface DeployContractActionInput
+  extends SolidityDeployContractActionInput {
   decodedAction: DecodedAction
   create3Address: string
-}
-
-export interface ExtendedFunctionCallActionInput
-  extends FunctionCallActionInput {
-  decodedAction: DecodedAction
 }
 
 export type DecodedAction = {
@@ -223,22 +216,29 @@ export type DecodedAction = {
   variables: ParsedVariable
 }
 
-export interface FunctionCallActionInput {
-  fullyQualifiedName: string
+// TODO(test): include a test for a raw action in the preview.
+// TODO(test): see what the preview looks like when there's a raw action with a lot of data.
+
+export type FunctionCallActionInput =
+  | RawFunctionCallActionInput
+  | DecodedFunctionCallActionInput
+
+export type RawFunctionCallActionInput = {
   actionType: string
   skip: boolean
   to: string
-  selector: string
-  functionParams: string
-  nonce: string
-  referenceName: string
+  data: string
 }
 
-export type RawSphinxActionInput = {
-  fullyQualifiedName: string
-  actionType: bigint
+export type DecodedFunctionCallActionInput = {
+  actionType: string
   skip: boolean
-  data: string
+  to: string
+  fullyQualifiedName: string
+  selector: string
+  functionParams: string
+  referenceName: string
+  decodedAction: DecodedAction
 }
 
 /**

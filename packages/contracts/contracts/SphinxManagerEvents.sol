@@ -108,19 +108,9 @@ contract SphinxManagerEvents {
      * @notice Emitted when a `CALL` action is executed.
      *
      * @param deploymentId ID of the deployment in which the call was executed.
-     * @param callHash     The ABI-encoded hash of the `to` field and the `data` field in the `CALL`
-     *                     action.
      * @param actionIndex Index of the `CALL` action that was executed.
      */
-    event CallExecuted(bytes32 indexed deploymentId, bytes32 indexed callHash, uint256 actionIndex);
-
-    /**
-     * @notice Emitted when a `CALL` action is skipped, which occurs if its nonce is incorrect.
-     *
-     * @param deploymentId ID of the deployment in which the call was skipped.
-     * @param actionIndex Index of the `CALL` action that was skipped.
-     */
-    event CallSkipped(bytes32 indexed deploymentId, uint256 actionIndex);
+    event CallExecuted(bytes32 indexed deploymentId, uint256 actionIndex);
 
     /**
      * @notice Emitted when a contract deployment is skipped. This occurs when a contract already

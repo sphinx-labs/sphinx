@@ -13,6 +13,7 @@ import {
   ConfigArtifacts,
   GetConfigArtifacts,
   GetProviderForChainId,
+  ParsedConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -21,6 +22,14 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
+import {
+  AuthLeaf,
+  getAuthLeafsForChain,
+  getProjectBundleInfo,
+  makeAuthBundle,
+} from '@sphinx-labs/core'
+
+import { BundleInfo } from '../types'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -340,5 +349,51 @@ export const inferSolcVersion = async (): Promise<string> => {
     return parsed ? parsed.toString() : defaultSolcVersion
   } catch (err) {
     return defaultSolcVersion
+  }
+}
+
+export const getBundleInfo = async (
+  configArtifacts: ConfigArtifacts,
+  parsedConfigArray: Array<ParsedConfig>
+): Promise<{
+  authRoot: string
+  bundleInfoArray: Array<BundleInfo>
+}> => {
+  const allAuthLeafs: Array<AuthLeaf> = []
+  for (const parsedConfig of parsedConfigArray) {
+    const authLeafsForChain = await getAuthLeafsForChain(
+      parsedConfig,
+      configArtifacts
+    )
+    allAuthLeafs.push(...authLeafsForChain)
+  }
+
+  const authBundle = makeAuthBundle(allAuthLeafs)
+
+  const bundleInfoArray: Array<BundleInfo> = []
+  for (const parsedConfig of parsedConfigArray) {
+    const networkName = getNetworkNameForChainId(BigInt(parsedConfig.chainId))
+
+    const authLeafsForChain = authBundle.leafs.filter(
+      (l) => l.leaf.chainId === BigInt(parsedConfig.chainId)
+    )
+
+    const { configUri, bundles, compilerConfig, humanReadableActions } =
+      await getProjectBundleInfo(parsedConfig, configArtifacts)
+
+    bundleInfoArray.push({
+      configUri,
+      networkName,
+      authLeafs: authLeafsForChain,
+      actionBundle: bundles.actionBundle,
+      targetBundle: bundles.targetBundle,
+      humanReadableActions,
+      compilerConfig,
+    })
+  }
+
+  return {
+    bundleInfoArray,
+    authRoot: authBundle.root,
   }
 }

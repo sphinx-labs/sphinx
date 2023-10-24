@@ -1,6 +1,11 @@
 import { ConstructorFragment, ethers } from 'ethers'
 
-import { ConfigArtifacts, ParsedConfig } from '../config/types'
+import {
+  ConfigArtifacts,
+  DeploymentInfo,
+  ParsedConfig,
+  SolidityDeployContractActionInput,
+} from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -9,10 +14,11 @@ import {
   writeDeploymentFolderForNetwork,
   getFunctionArgValueArray,
   writeDeploymentArtifact,
-  isExtendedDeployContractActionInput,
+  isDeployContractActionInput,
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
+import { getCreate3Address, getCreate3Salt } from '../config'
 
 /**
  * Gets the storage layout for a contract. Still requires the build info compiler input
@@ -45,7 +51,7 @@ export const getDeployedBytecode = async (
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.Provider,
-  parsedConfig: ParsedConfig,
+  deploymentInfo: DeploymentInfo,
   deploymentEvents: ethers.EventLog[],
   networkDirName: string,
   deploymentFolderPath: string,
@@ -53,13 +59,16 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkDirName, deploymentFolderPath)
 
-  const deploymentActions = parsedConfig.actionInputs
-    .filter(isExtendedDeployContractActionInput)
-    .filter((a) => !a.skip)
+  const deploymentActions = deploymentInfo.deployments.filter((a) => !a.skip)
 
   for (const action of deploymentActions) {
+    const create3Address = getCreate3Address(
+      deploymentInfo.managerAddress,
+      getCreate3Salt(action.referenceName, action.userSalt)
+    )
+
     const deploymentEvent = deploymentEvents.find(
-      (e) => e.args.contractAddress === action.create3Address
+      (e) => e.args.contractAddress === create3Address
     )
 
     if (!deploymentEvent) {
@@ -120,10 +129,14 @@ export const writeDeploymentArtifacts = async (
     const { artifact, buildInfo } = configArtifacts[action.fullyQualifiedName]
     const { bytecode, abi, metadata } = artifact
     const iface = new ethers.Interface(abi)
-    const constructorArgValues = getFunctionArgValueArray(
-      action.decodedAction.variables,
-      iface.fragments.find(ConstructorFragment.isFragment)
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
     )
+    const constructorArgValues = constructorFragment
+      ? coder.decode(constructorFragment.inputs, action.constructorArgs)
+      : []
     const storageLayout = artifact.storageLayout ?? { storage: [], types: {} }
     const { devdoc, userdoc } =
       typeof metadata === 'string'
@@ -132,7 +145,7 @@ export const writeDeploymentArtifacts = async (
 
     // Define the deployment artifact for the deployed contract.
     const contractArtifact = {
-      address: action.create3Address,
+      address: create3Address,
       abi,
       transactionHash: deploymentEvent.transactionHash,
       solcInputHash: buildInfo.id,
@@ -150,7 +163,7 @@ export const writeDeploymentArtifacts = async (
         typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
       args: constructorArgValues,
       bytecode,
-      deployedBytecode: await provider.getCode(action.create3Address),
+      deployedBytecode: await provider.getCode(create3Address),
       devdoc,
       userdoc,
       storageLayout,

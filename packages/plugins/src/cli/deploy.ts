@@ -3,7 +3,6 @@ import { readFileSync, existsSync, unlinkSync } from 'fs'
 
 import {
   displayDeploymentTable,
-  makeParsedConfig,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -16,14 +15,14 @@ import {
   SUPPORTED_NETWORKS,
   ConfigArtifacts,
   ParsedConfig,
+  DeploymentInfo,
 } from '@sphinx-labs/core'
-import 'core-js/features/array/at'
 import { red } from 'chalk'
 import ora from 'ora'
 
 import { makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { decodeDeploymentInfo } from '../foundry/decode'
+import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
 
@@ -36,8 +35,8 @@ export const deploy = async (
   verify?: boolean,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
-  deployedParsedConfig?: ParsedConfig
-  previewParsedConfig?: ParsedConfig
+  deploymentInfo: DeploymentInfo
+  parsedConfig: ParsedConfig
 }> => {
   // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
   // are up-to-date. The Solidity compiler is run within this command via `forge build`.
@@ -56,12 +55,13 @@ export const deploy = async (
     rpcEndpoints,
     deploymentFolder,
     etherscan,
+    broadcastFolder,
   } = await getFoundryConfigOptions()
 
   const chainId = SUPPORTED_NETWORKS[network]
   if (chainId === undefined) {
     throw new Error(
-      `Network name ${network} is not supported, you must use a network name included in the Network enum: \n${Object.keys(
+      `Network name ${network} is not supported. You must use a supported network: \n${Object.keys(
         SUPPORTED_NETWORKS
       ).join('\n')}`
     )
@@ -110,65 +110,64 @@ export const deploy = async (
   const deploymentInfoPath = join(cachePath, 'sphinx-chain-info.txt')
 
   const spinner = ora({ isSilent: silent })
-  let previewParsedConfig: ParsedConfig | undefined
-  let previewConfigArtifacts: ConfigArtifacts | undefined
+  spinner.start(`Collecting transactions...`)
+
+  // Delete the deployment info if one already exists. This isn't strictly necessary, but it
+  // ensures that we don't accidentally use an outdated DeploymentInfo file later.
+  if (existsSync(deploymentInfoPath)) {
+    unlinkSync(deploymentInfoPath)
+  }
+
+  const forgeScriptCollectArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxCollect(string,string)',
+    network,
+    deploymentInfoPath,
+    '--rpc-url',
+    forkUrl,
+  ]
+  if (targetContract) {
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
+  }
+
+  const collectOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (collectOutput.code !== 0) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(collectOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(collectOutput.stderr)
+    process.exit(1)
+  }
+
+  const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
+  const deploymentInfo = decodeDeploymentInfo(
+    encodedDeploymentInfo,
+    SphinxPluginTypesABI
+  )
+  const configArtifacts = await getConfigArtifacts(
+    deploymentInfo.deployments.map(
+      (actionInput) => actionInput.fullyQualifiedName
+    )
+  )
+  const parsedConfig = makeParsedConfig(
+    deploymentInfo,
+    configArtifacts,
+    broadcastFolder,
+    scriptPath
+  )
+
+  spinner.succeed(`Collected transactions.`)
+
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    spinner.start(`Generating preview...`)
+    const preview = getPreview([parsedConfig])
 
-    // Delete the deployment info if one already exists. This isn't strictly necessary, but it
-    // ensures that we don't accidentally display an outdated preview to the user.
-    if (existsSync(deploymentInfoPath)) {
-      unlinkSync(deploymentInfoPath)
-    }
-
-    const forgeScriptPreviewArgs = [
-      'script',
-      scriptPath,
-      '--sig',
-      'sphinxDeployTask(string,string)',
-      network,
-      deploymentInfoPath,
-      '--rpc-url',
-      forkUrl,
-    ]
-    if (targetContract) {
-      forgeScriptPreviewArgs.push('--target-contract', targetContract)
-    }
-
-    const previewOutput = await spawnAsync('forge', forgeScriptPreviewArgs)
-
-    if (previewOutput.code !== 0) {
-      spinner.stop()
-      // The `stdout` contains the trace of the error.
-      console.log(previewOutput.stdout)
-      // The `stderr` contains the error message.
-      console.log(previewOutput.stderr)
-      process.exit(1)
-    }
-
-    const encodedPreviewDeploymentInfo = readFileSync(
-      deploymentInfoPath,
-      'utf8'
-    )
-    const previewDeploymentInfo = decodeDeploymentInfo(
-      encodedPreviewDeploymentInfo,
-      SphinxPluginTypesABI
-    )
-    previewConfigArtifacts = await getConfigArtifacts(
-      previewDeploymentInfo.actionInputs.map(
-        (actionInput) => actionInput.fullyQualifiedName
-      )
-    )
-    previewParsedConfig = makeParsedConfig(
-      previewDeploymentInfo,
-      previewConfigArtifacts
-    )
-
-    const preview = getPreview([previewParsedConfig])
-
-    const emptyDeployment = previewParsedConfig.actionInputs.every(
+    const emptyDeployment = parsedConfig.actionInputs.every(
       (action) => action.skip
     )
 
@@ -178,24 +177,18 @@ export const deploy = async (
         const previewString = getPreviewString(preview, false)
         console.log(previewString)
       }
-      return { previewParsedConfig }
+      return { deploymentInfo, parsedConfig }
     } else {
       const previewString = getPreviewString(preview, true)
       await prompt(previewString)
     }
   }
 
-  // Delete the deployment info if one already exists. This isn't strictly necessary, but it ensures
-  // that we use the most recent deployment info when writing the deployment artifacts.
-  if (existsSync(deploymentInfoPath)) {
-    unlinkSync(deploymentInfoPath)
-  }
-
   const forgeScriptDeployArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxDeployTask(string,string)',
+    'sphinxDeployTask(string,bytes32,string)',
     network,
     deploymentInfoPath,
     '--fork-url',
@@ -229,22 +222,7 @@ export const deploy = async (
 
   spinner.start(`Writing deployment artifacts...`)
 
-  const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
-  const deploymentInfo = decodeDeploymentInfo(
-    encodedDeploymentInfo,
-    SphinxPluginTypesABI
-  )
-  const configArtifacts = previewConfigArtifacts
-    ? previewConfigArtifacts
-    : await getConfigArtifacts(
-        deploymentInfo.actionInputs.map(
-          (actionInput) => actionInput.fullyQualifiedName
-        )
-      )
-
-  const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
-
-  const containsDeployment = parsedConfig.actionInputs.some(
+  const containsDeployment = deploymentInfo.deployments.some(
     (action) =>
       action.actionType === SphinxActionType.DEPLOY_CONTRACT.toString() &&
       !action.skip
@@ -254,7 +232,7 @@ export const deploy = async (
     const provider = new SphinxJsonRpcProvider(forkUrl)
     const deploymentArtifactPath = await writeDeploymentArtifactsUsingEvents(
       provider,
-      parsedConfig,
+      deploymentInfo,
       configArtifacts,
       deploymentFolder
     )
@@ -264,11 +242,11 @@ export const deploy = async (
   }
 
   if (!silent) {
-    displayDeploymentTable(parsedConfig)
+    displayDeploymentTable(deploymentInfo)
   }
 
   return {
-    deployedParsedConfig: parsedConfig,
-    previewParsedConfig,
+    deploymentInfo,
+    parsedConfig,
   }
 }

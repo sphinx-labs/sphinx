@@ -6,14 +6,25 @@ import {
   getNetworkNameForChainId,
   getNetworkTag,
   hyperlink,
+  isRawFunctionCallActionInput,
   prettyFunctionCall,
+  prettyRawFunctionCall,
 } from './utils'
+
+type PreviewElement = DecodedAction | { to: string; data: string }
 
 export type SphinxPreview = Array<{
   networkTags: Array<string>
-  executing: Array<DecodedAction>
-  skipping: Array<DecodedAction>
+  executing: Array<PreviewElement>
+  skipping: Array<PreviewElement>
 }>
+
+export const isDecodedAction = (
+  element: PreviewElement
+): element is DecodedAction =>
+  (element as DecodedAction).referenceName !== undefined &&
+  (element as DecodedAction).functionName !== undefined &&
+  (element as DecodedAction).variables !== undefined
 
 /**
  * @notice Returns a string that describes the changes that will be made to a set of contracts.
@@ -55,29 +66,34 @@ export const getPreviewString = (
     } else {
       executingArray.push(green.underline.bold(`Executing:`))
       for (let i = 0; i < executing.length; i++) {
-        const signature = executing[i]
-        const { referenceName, functionName, variables } = signature
+        const element = executing[i]
 
-        const functionCallStr = prettyFunctionCall(
-          referenceName,
-          functionName,
-          variables,
-          5,
-          3
-        )
+        if (isDecodedAction(element)) {
+          const { referenceName, functionName, variables } = element
+          const actionStr = prettyFunctionCall(
+            referenceName,
+            functionName,
+            variables,
+            5,
+            3
+          )
 
-        let executingStr: string
-        if (referenceName === 'SphinxManager') {
-          executingStr =
-            green(`${i + 1}. ${functionCallStr}`) +
-            ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
-              'for more info)'
-            )}`
+          let executingStr: string
+          if (referenceName === 'SphinxManager') {
+            executingStr =
+              green(`${i + 1}. ${actionStr}`) +
+              ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
+                'for more info)'
+              )}`
+          } else {
+            executingStr = green(`${i + 1}. ${actionStr}`)
+          }
+          executingArray.push(executingStr)
         } else {
-          executingStr = green(`${i + 1}. ${functionCallStr}`)
+          const { to, data } = element
+          const actionStr = prettyRawFunctionCall(to, data)
+          executingArray.push(green(`${i + 1}. ${actionStr}`))
         }
-
-        executingArray.push(executingStr)
       }
     }
     previewString += `${executingArray.join('\n')}\n`
@@ -88,16 +104,16 @@ export const getPreviewString = (
       skippingArray.push(yellow.underline.bold(`Skipping:`))
       skippingArray.push(skippingReason)
       for (let i = 0; i < skipping.length; i++) {
-        const signature = skipping[i]
-        const { referenceName, functionName, variables } = signature
-
-        const functionCallStr = prettyFunctionCall(
-          referenceName,
-          functionName,
-          variables,
-          5,
-          3
-        )
+        const element = skipping[i]
+        const functionCallStr = isDecodedAction(element)
+          ? prettyFunctionCall(
+              element.referenceName,
+              element.functionName,
+              element.variables,
+              5,
+              3
+            )
+          : prettyRawFunctionCall(element.to, element.data)
 
         const skippingStr = yellow(`${i + 1}. ${functionCallStr}`)
         skippingArray.push(skippingStr)
@@ -119,14 +135,14 @@ export const getPreview = (
 ): SphinxPreview => {
   const networks: {
     [networkTag: string]: {
-      executing: Array<DecodedAction>
-      skipping: Array<DecodedAction>
+      executing: Array<PreviewElement>
+      skipping: Array<PreviewElement>
     }
   } = {}
 
   for (const parsedConfig of parsedConfigs) {
-    const executing: Array<DecodedAction> = []
-    const skipping: Array<DecodedAction> = []
+    const executing: Array<PreviewElement> = []
+    const skipping: Array<PreviewElement> = []
 
     const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
 
@@ -139,12 +155,22 @@ export const getPreview = (
     }
 
     for (const action of actionInputs) {
-      const { decodedAction, skip } = action
+      if (isRawFunctionCallActionInput(action)) {
+        const { data, skip, to } = action
 
-      if (skip) {
-        skipping.push(decodedAction)
+        if (skip) {
+          skipping.push({ to, data })
+        } else {
+          executing.push({ to, data })
+        }
       } else {
-        executing.push(decodedAction)
+        const { decodedAction, skip } = action
+
+        if (skip) {
+          skipping.push(decodedAction)
+        } else {
+          executing.push(decodedAction)
+        }
       }
     }
 

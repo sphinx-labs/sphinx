@@ -7,6 +7,7 @@ export type FoundryToml = {
   test: string
   script: string
   solc: string
+  broadcastFolder: string
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
@@ -73,6 +74,7 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
   }
 
   const etherscan = forgeConfig.etherscan
+  const broadcastFolder = forgeConfig.broadcast
 
   return {
     ...resolvePaths(forgeConfig.out, buildInfoPath),
@@ -86,6 +88,7 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
     solc,
     remappings,
     etherscan,
+    broadcastFolder,
   }
 }
 

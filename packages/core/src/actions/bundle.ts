@@ -2,20 +2,18 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-import {
-  ConfigArtifacts,
-  DeployContractActionInput,
-  FunctionCallActionInput,
-  ParsedConfig,
-  RawSphinxActionInput,
-} from '../config/types'
+// TODO(test): test a low-level call
+
+import { ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   getDeploymentId,
   toHexString,
   fromHexString,
   prettyFunctionCall,
-  isExtendedDeployContractActionInput,
-  isExtendedFunctionCallActionInput,
+  isDeployContractActionInput,
+  isDecodedFunctionCallActionInput,
+  isRawFunctionCallActionInput,
+  prettyRawFunctionCall,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -37,11 +35,11 @@ import {
   ProposalRequestLeaf,
   ProjectDeployment,
   CallAction,
-  HumanReadableActions,
   AuthLeafFunctions,
   UpgradeAuthAndManagerImpl,
   CancelActiveDeployment,
   AuthLeafType,
+  HumanReadableAction,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
 import { getEstDeployContractCost } from '../estimate'
@@ -84,8 +82,7 @@ export const isDeployContractAction = (
 export const isCallAction = (action: SphinxAction): action is CallAction => {
   return (
     (action as CallAction).to !== undefined &&
-    (action as CallAction).data !== undefined &&
-    (action as CallAction).nonce !== undefined
+    (action as CallAction).data !== undefined
   )
 }
 
@@ -152,10 +149,7 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
     return {
       actionType: SphinxActionType.CALL,
       index: BigInt(action.index),
-      data: coder.encode(
-        ['uint256', 'address', 'bytes'],
-        [action.nonce, action.to, action.data]
-      ),
+      data: coder.encode(['address', 'bytes'], [action.to, action.data]),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -196,15 +190,11 @@ export const fromRawSphinxAction = (
       creationCodeWithConstructorArgs,
     }
   } else if (rawAction.actionType === SphinxActionType.CALL) {
-    const [nonce, to, data] = coder.decode(
-      ['uint256', 'address', 'bytes'],
-      rawAction.data
-    )
+    const [to, data] = coder.decode(['address', 'bytes'], rawAction.data)
     return {
       to,
       index: Number(rawAction.index),
       data,
-      nonce,
     }
   } else {
     throw new Error(`unknown action type`)
@@ -350,44 +340,44 @@ export const getAuthLeafSignerInfo = (
   }
 }
 
-export const fromRawSphinxActionInput = (
-  rawAction: RawSphinxActionInput
-): DeployContractActionInput | FunctionCallActionInput => {
-  const { skip, fullyQualifiedName } = rawAction
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
-    const [initCode, constructorArgs, userSalt, referenceName] = coder.decode(
-      ['bytes', 'bytes', 'bytes32', 'string'],
-      rawAction.data
-    )
-    return {
-      skip,
-      fullyQualifiedName,
-      actionType: SphinxActionType.DEPLOY_CONTRACT.toString(),
-      initCode,
-      constructorArgs,
-      userSalt,
-      referenceName,
-    }
-  } else if (rawAction.actionType === SphinxActionType.CALL) {
-    const [to, selector, functionParams, nonce, referenceName] = coder.decode(
-      ['address', 'bytes4', 'bytes', 'uint256', 'string'],
-      rawAction.data
-    )
-    return {
-      skip,
-      fullyQualifiedName,
-      actionType: SphinxActionType.CALL.toString(),
-      to,
-      selector,
-      functionParams,
-      nonce,
-      referenceName,
-    }
-  } else {
-    throw new Error(`Invalid action type. Should never happen.`)
-  }
-}
+// export const fromRawSphinxActionInput = (
+//   rawAction: RawSphinxActionInput
+// ): DeployContractActionInput | FunctionCallActionInput => {
+//   const { skip, fullyQualifiedName } = rawAction
+//   const coder = ethers.AbiCoder.defaultAbiCoder()
+//   if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
+//     const [initCode, constructorArgs, userSalt, referenceName] = coder.decode(
+//       ['bytes', 'bytes', 'bytes32', 'string'],
+//       rawAction.data
+//     )
+//     return {
+//       skip,
+//       fullyQualifiedName,
+//       actionType: SphinxActionType.DEPLOY_CONTRACT.toString(),
+//       initCode,
+//       constructorArgs,
+//       userSalt,
+//       referenceName,
+//     }
+//   } else if (rawAction.actionType === SphinxActionType.CALL) {
+//     const [to, selector, functionParams, nonce, referenceName] = coder.decode(
+//       ['address', 'bytes4', 'bytes', 'uint256', 'string'],
+//       rawAction.data
+//     )
+//     return {
+//       skip,
+//       fullyQualifiedName,
+//       actionType: SphinxActionType.CALL.toString(),
+//       to,
+//       selector,
+//       functionParams,
+//       nonce,
+//       referenceName,
+//     }
+//   } else {
+//     throw new Error(`Invalid action type. Should never happen.`)
+//   }
+// }
 
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
@@ -404,8 +394,7 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
 
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
- * SphinxAuth contract. Reverts if the list of leafs is empty, since the call to
- * `StandardMerkleTree` will fail.
+ * SphinxAuth contract.
  *
  * @param leafs Series of auth leafs.
  * @return Bundled leafs.
@@ -418,6 +407,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     }
   }
 
+  // TODO(refactor): sort them according to chain ID too, then update this doc string.
   // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
   // it easier to execute the auth leafs in order.
   const sorted = leafs.sort((a, b) => {
@@ -526,7 +516,7 @@ export const makeBundlesFromConfig = (
   configArtifacts: ConfigArtifacts
 ): {
   bundles: SphinxBundles
-  humanReadableActions: HumanReadableActions
+  humanReadableActions: Array<HumanReadableAction>
 } => {
   const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
     parsedConfig,
@@ -559,22 +549,21 @@ export const makeActionBundleFromConfig = (
   configArtifacts: ConfigArtifacts
 ): {
   actionBundle: SphinxActionBundle
-  humanReadableActions: HumanReadableActions
+  humanReadableActions: Array<HumanReadableAction>
 } => {
   const { actionInputs } = parsedConfig
 
   const actions: SphinxAction[] = []
   const costs: bigint[] = []
 
-  const humanReadableActions: HumanReadableActions = {}
+  const humanReadableActions: Array<HumanReadableAction> = []
 
   const notSkipping = actionInputs.filter((action) => !action.skip)
 
   for (let index = 0; index < notSkipping.length; index++) {
     const actionInput = notSkipping[index]
-    const { fullyQualifiedName, actionType } = actionInput
-    if (isExtendedDeployContractActionInput(actionInput)) {
-      const { artifact } = configArtifacts[fullyQualifiedName]
+    if (isDeployContractActionInput(actionInput)) {
+      const { artifact } = configArtifacts[actionInput.fullyQualifiedName]
       const { gasEstimates } = artifact
       const {
         initCode,
@@ -604,29 +593,22 @@ export const makeActionBundleFromConfig = (
       })
 
       costs.push(deployContractCost)
-      humanReadableActions[index] = {
+      humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
-      }
-    } else if (isExtendedFunctionCallActionInput(actionInput)) {
-      const {
-        to,
-        selector,
-        functionParams,
-        nonce,
-        referenceName,
-        decodedAction,
-      } = actionInput
+      })
+    } else if (isDecodedFunctionCallActionInput(actionInput)) {
+      const { to, selector, functionParams, referenceName, decodedAction } =
+        actionInput
       actions.push({
         to,
         index,
         data: ethers.concat([selector, functionParams]),
-        nonce: Number(nonce),
       })
 
       costs.push(250_000n)
-      humanReadableActions[index] = {
+      humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: prettyFunctionCall(
           referenceName,
@@ -634,9 +616,23 @@ export const makeActionBundleFromConfig = (
           decodedAction.variables
         ),
         actionType: SphinxActionType.CALL,
-      }
+      })
+    } else if (isRawFunctionCallActionInput(actionInput)) {
+      const { to, data } = actionInput
+      actions.push({
+        to,
+        index,
+        data,
+      })
+
+      costs.push(250_000n)
+      humanReadableActions.push({
+        actionIndex: BigInt(index),
+        reason: prettyRawFunctionCall(to, data),
+        actionType: SphinxActionType.CALL,
+      })
     } else {
-      throw new Error(`unknown action type: ${actionType}`)
+      throw new Error(`Unknown action type. Should never happen.`)
     }
   }
 

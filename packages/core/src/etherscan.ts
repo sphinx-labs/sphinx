@@ -30,10 +30,7 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import {
-  getFunctionArgValueArray,
-  isExtendedDeployContractActionInput,
-} from './utils'
+import { getFunctionArgValueArray, isDeployContractActionInput } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -94,7 +91,7 @@ export const verifySphinxConfig = async (
 
   const actionInputsToVerify = actionInputs
     .filter((a) => !a.skip)
-    .filter(isExtendedDeployContractActionInput)
+    .filter(isDeployContractActionInput)
 
   for (const action of actionInputsToVerify) {
     const { fullyQualifiedName, create3Address } = action

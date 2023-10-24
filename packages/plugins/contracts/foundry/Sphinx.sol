@@ -145,6 +145,27 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
+    function sphinxCollect(string memory _networkName, string memory _deploymentInfoPath) external {
+        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
+        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+
+        InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
+
+        // Set the LocalSphinxManager to the SphinxManager's address. We'll use this when
+        // collecting the actions. This call will be undone when we revert the snapshot.
+        vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
+
+        Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
+        sphinxMode = SphinxMode.Collect;
+        vm.startBroadcast(address(manager));
+        deploy(network);
+        vm.stopBroadcast();
+
+        sphinxUpdateDeploymentInfo(manager, auth, sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName)), initialState, sphinxConfig, sphinxMode);
+
+        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+    }
+
     /**
      * @notice Called within the `sphinx deploy` CLI command. This function is not meant to be
      *         called directly by the user. If a user wants to broadcast a deployment, they should
@@ -160,9 +181,9 @@ abstract contract Sphinx {
      */
     function sphinxDeployTask(
         string memory _networkName,
-        string memory _deploymentInfoPath
+        bytes32 _authRoot,
+        BundleInfo memory _bundleInfo
     ) external {
-        Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -175,21 +196,50 @@ abstract contract Sphinx {
                 privateKey != 0,
                 "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
             );
+
+            address deployer = vm.addr(privateKey);
+
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
+
+            // Make the deployer a proposer. If we don't do this, the execution logic will fail
+            // because a proposer's meta transaction signature is required for the
+            // `SphinxAuth.propose` function.
+            sphinxConfig.proposers.push(deployer);
         } else {
             sphinxMode = SphinxMode.LocalNetworkBroadcast;
 
             // We use an auto-generated private key when deploying to a local network so that anyone
-            // can deploy a project even if they don't own it.
+            // can deploy a project even if they aren't the sole owner. This is useful for
+            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
             privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
+
+            address deployer = vm.addr(privateKey);
+            sphinxUtils.initializeFFI(
+                rpcUrl,
+                OptionalAddress({ exists: true, value: deployer })
+            );
+
+            // Make a pre-determined address a proposer. We'll use it later to sign a meta
+            // transaction, which allows us to propose the deployment.
+            sphinxConfig.proposers.push(deployer);
         }
 
-        // Save the deployment info file path to an env variable. We'll use this in the `deploy`
-        // function. We do it this way because we can't pass it into the `deploy` function, which
-        // must keep a consistent interface since it's defined by the user.
-        vm.setEnv("SPHINX_INTERNAL__DEPLOYMENT_INFO_PATH", _deploymentInfoPath);
+        // TODO: c/f broadcast
+
+        // TODO(refactor): remove getBundleInfoFFI from sphinxutils?
+
+        // TODO(refactor): clean up this function. e.g. we query the private key twice.
+
+        uint256 deployerPrivateKey = isLiveNetwork
+            ? vm.envUint("PRIVATE_KEY")
+            : sphinxUtils.getSphinxDeployerPrivateKey(0);
+        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
+            deployerPrivateKey,
+           _authRoot
+        );
 
         vm.startBroadcast(privateKey);
-        deploy(network);
+        sphinxDeployOnNetwork(ISphinxManager(sphinxManager(sphinxConfig)), ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)), _authRoot, _bundleInfo, metaTxnSignature, rpcUrl);
         vm.stopBroadcast();
     }
 
@@ -469,9 +519,7 @@ abstract contract Sphinx {
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
-            callerMode != VmSafe.CallerMode.RecurrentBroadcast ||
-            sphinxMode == SphinxMode.LocalNetworkBroadcast ||
-                sphinxMode == SphinxMode.LiveNetworkBroadcast,
+            callerMode != VmSafe.CallerMode.RecurrentBroadcast || sphinxMode == SphinxMode.Collect,
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
@@ -494,7 +542,15 @@ abstract contract Sphinx {
 
         sphinxUtils.validate(sphinxConfig, _network);
 
-        if (sphinxMode == SphinxMode.Proposal) {
+        if (sphinxMode == SphinxMode.Collect) {
+            _;
+        } else if (sphinxMode == SphinxMode.Default) {
+            vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
+
+            vm.startPrank(address(manager));
+            _;
+            vm.stopPrank();
+        } else if (sphinxMode == SphinxMode.Proposal) {
             InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
             sphinxUtils.validateProposal(auth, msgSender, _network, sphinxConfig);
 
@@ -513,90 +569,6 @@ abstract contract Sphinx {
                 sphinxConfig,
                 sphinxMode
             );
-        } else if (sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.LiveNetworkBroadcast) {
-            vm.stopBroadcast();
-
-            bool isLiveNetwork = sphinxMode == SphinxMode.LiveNetworkBroadcast;
-            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            if (isLiveNetwork) {
-                sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, auth, msgSender);
-
-                // Make the owner a proposer. If we don't do this, the execution logic will fail
-                // because a proposer's meta transaction signature is required for the
-                // `SphinxAuth.propose` function.
-                sphinxConfig.proposers.push(sphinxConfig.owners[0]);
-            } else {
-                sphinxUtils.initializeFFI(
-                    rpcUrl,
-                    OptionalAddress({ exists: true, value: msgSender })
-                );
-
-                // Make a pre-determined address a proposer. We'll use it later to since a meta
-                // transaction, which allows us to propose the deployment.
-                sphinxConfig.proposers.push(vm.addr(sphinxUtils.getSphinxDeployerPrivateKey(0)));
-            }
-
-            InitialChainState memory initialState = sphinxUtils.getInitialChainState(auth, manager);
-
-            // Snapshot the current state. We need to do this because we essentially run the
-            // deployment twice: once when collecting the transactions, which occurs when we prank
-            // the SphinxManager below, and once when we actually broadcast the transactions, which
-            // occurs later, when we call `sphinxDeployOnNetwork`. If we don't reset the state, the
-            // Forge simulation for the second deployment will fail because it will seem like the
-            // user's contracts were already deployed. The purpose of the snapshot is to collect the
-            // `DeploymentInfo` struct, which contains the actions that we'll use to execute the
-            // rest of the deployment.
-            uint256 snapshotId = vm.snapshot();
-
-            // Set the LocalSphinxManager to the SphinxManager's address. We'll use this when
-            // collecting the actions. This call will be undone when we revert the snapshot.
-            vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
-
-            vm.startPrank(address(manager));
-            _;
-            vm.stopPrank();
-
-            sphinxUpdateDeploymentInfo(manager, auth, isLiveNetwork, initialState, sphinxConfig, sphinxMode);
-
-            vm.writeFile(vm.envString("SPHINX_INTERNAL__DEPLOYMENT_INFO_PATH"), vm.toString(abi.encode(deploymentInfo)));
-
-            DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](1);
-            deploymentInfoArray[0] = deploymentInfo;
-
-            // Revert to the snapshot ID. This undoes *everything* that happened after the snapshot,
-            // including any `vm.etch` calls, any assignments to contract state variables in this
-            // contract, and any assignments to contract state variables in the user's `deploy`
-            // function. Only local variables defined within this function are preserved. Particularly,
-            // this means that the `deploymentInfoArray` above is preserved, which we need to complete
-            // the rest of the deployment process.
-            vm.revertTo(snapshotId);
-
-            (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = sphinxUtils.getBundleInfoFFI(
-                deploymentInfoArray
-            );
-            // There's a single bundle info in the array because we only deploy to one network.
-            require(
-                bundleInfoArray.length == 1,
-                "Sphinx: Found more than one BundleInfo in array. Should never happen."
-            );
-            BundleInfo memory bundleInfo = bundleInfoArray[0];
-
-            uint256 deployerPrivateKey = isLiveNetwork
-                ? vm.envUint("PRIVATE_KEY")
-                : sphinxUtils.getSphinxDeployerPrivateKey(0);
-            bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-                deployerPrivateKey,
-                authRoot
-            );
-
-            vm.startBroadcast(msgSender);
-            sphinxDeployOnNetwork(manager, auth, authRoot, bundleInfo, metaTxnSignature, rpcUrl);
-        } else if (sphinxMode == SphinxMode.Default) {
-            vm.etch(address(manager), type(LocalSphinxManager).runtimeCode);
-
-            vm.startPrank(address(manager));
-            _;
-            vm.stopPrank();
         }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
@@ -816,14 +788,14 @@ abstract contract Sphinx {
         string memory fullyQualifiedName,
         string memory artifactPath
     ) internal returns (address) {
+        require(
+            sphinxModifierEnabled,
+            "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
+        );
 
         // TODO(docs): explain what the sphinx modifier does. particularly, it pranks/broadcasts
         // from the sphinx manager. explain why. (it's so that the msg.sender for function calls is
         // the same as it would be in a production deployment).
-
-        // TODO(ts): throw an error if the 'from' address is not the sphinx manager. the user must
-        // broadcast from the sphinx manager's address so that the msg.sender for function calls is
-        // the same as it would be in a production deployment.
 
         // TODO(md): in the testing mode, we can't detect if users stop pranking their sphinx
         // manager and start pranking another address during the deployment. so, we should tell
@@ -834,15 +806,18 @@ abstract contract Sphinx {
         // Check that we're currently pranking the SphinxManager. This should always be true
         // unless the user deliberately pranks a different address within their `deploy`
         // function.
-        require(
-            callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
-            "Sphinx: You must not use any prank or broadcast cheatcodes in your 'deploy' function."
-        );
+        if (sphinxMode == SphinxMode.Collect) {
+            require(
+                callerMode == VmSafe.CallerMode.RecurrentBroadcast && msgSender == manager,
+                "Sphinx: TODO(docs)"
+            );
+        } else {
+            require(
+                callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
+                "Sphinx: TODO(docs)"
+            );
+        }
 
-        require(
-            sphinxModifierEnabled,
-            "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
-        );
         require(
             !sphinxUtils.isReferenceNameUsed(_referenceName, deploymentInfo.deployments),
             string(

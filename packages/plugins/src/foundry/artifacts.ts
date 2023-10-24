@@ -3,6 +3,7 @@ import { join, sep } from 'path'
 import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
 import {
   ConfigArtifacts,
+  DeploymentInfo,
   ParsedConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import {
@@ -18,12 +19,12 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 
 export const writeDeploymentArtifactsUsingEvents = async (
   provider: SphinxJsonRpcProvider,
-  parsedConfig: ParsedConfig,
+  deploymentInfo: DeploymentInfo,
   configArtifacts: ConfigArtifacts,
   deploymentFolder: string
 ): Promise<string> => {
   const SphinxManager = getSphinxManagerReadOnly(
-    parsedConfig.managerAddress,
+    deploymentInfo.managerAddress,
     provider
   )
 
@@ -55,7 +56,7 @@ export const writeDeploymentArtifactsUsingEvents = async (
 
   await writeDeploymentArtifacts(
     provider,
-    parsedConfig,
+    deploymentInfo,
     await getDeploymentEvents(SphinxManager, deploymentId),
     networkDirName,
     deploymentFolder,

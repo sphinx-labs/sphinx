@@ -14,8 +14,9 @@ import { getMinimumCompilerInput } from '../languages'
 import {
   SphinxBundles,
   makeBundlesFromConfig,
-  HumanReadableActions,
+  HumanReadableAction,
 } from '../actions'
+import { isDeployContractActionInput } from '../utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -31,9 +32,11 @@ export const sphinxCommitAbstractSubtask = async (
 }> => {
   const sphinxInputs: Array<BuildInfoInputs> = []
 
-  const notSkipped = parsedConfig.actionInputs.filter((a) => !a.skip)
+  const unskippedContractDeployments = parsedConfig.actionInputs
+    .filter((a) => !a.skip)
+    .filter(isDeployContractActionInput)
 
-  for (const actionInput of notSkipped) {
+  for (const actionInput of unskippedContractDeployments) {
     const { fullyQualifiedName } = actionInput
     const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
 
@@ -119,7 +122,7 @@ export const getProjectBundleInfo = async (
   configUri: string
   compilerConfig: CompilerConfig
   bundles: SphinxBundles
-  humanReadableActions: HumanReadableActions
+  humanReadableActions: Array<HumanReadableAction>
 }> => {
   const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
     parsedConfig,

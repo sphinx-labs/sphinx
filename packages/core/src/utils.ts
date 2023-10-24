@@ -19,7 +19,6 @@ import {
   AbiCoder,
   Provider,
   JsonRpcSigner,
-  ConstructorFragment,
 } from 'ethers'
 import {
   ProxyArtifact,
@@ -49,18 +48,16 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  ConfigArtifacts,
   UserConfigVariable,
-  ExtendedDeployContractActionInput,
-  ExtendedFunctionCallActionInput,
-  DeploymentInfo,
   ParsedConfig,
   FunctionCallActionInput,
-  DecodedAction,
   DeployContractActionInput,
-  SphinxConfig,
   BuildInfoRemote,
   ConfigArtifactsRemote,
+  DecodedFunctionCallActionInput,
+  RawFunctionCallActionInput,
+  SolidityDeployContractActionInput,
+  DeploymentInfo,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -82,18 +79,16 @@ import {
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,
-  fromRawSphinxActionInput,
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
-import { getCreate3Address, getCreate3Salt } from './config/utils'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
   SupportedNetworkName,
-  networkEnumToName,
 } from './networks'
+import { getCreate3Address, getCreate3Salt } from './config'
 
 export const getDeploymentId = (
   actionBundle: SphinxActionBundle,
@@ -821,8 +816,10 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifactsRemote = {}
-  const notSkipping = compilerConfig.actionInputs.filter((e) => !e.skip)
-  for (const actionInput of notSkipping) {
+  const unskippedContractDeployments = compilerConfig.actionInputs
+    .filter((a) => !a.skip)
+    .filter(isDeployContractActionInput)
+  for (const actionInput of unskippedContractDeployments) {
     const { fullyQualifiedName } = actionInput
     // Split the contract's fully qualified name into its source name and contract name.
     const [sourceName, contractName] = actionInput.fullyQualifiedName.split(':')
@@ -1352,12 +1349,6 @@ export const isHttpNetworkConfig = (
   return 'url' in config
 }
 
-export const getCallHash = (to: string, data: string): string => {
-  return ethers.keccak256(
-    AbiCoder.defaultAbiCoder().encode(['address', 'bytes'], [to, data])
-  )
-}
-
 export const isSupportedChainId = (
   chainId: number | bigint
 ): chainId is SupportedChainId => {
@@ -1406,6 +1397,10 @@ export const prettyFunctionCall = (
     : referenceNameOrAddress
 
   return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
+}
+
+export const prettyRawFunctionCall = (to: string, data: string): string => {
+  return `(${to}).${data.length > 20 ? data.slice(0, 20) + '...' : data}`
 }
 
 /**
@@ -1475,20 +1470,33 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   }
 }
 
-export const isExtendedDeployContractActionInput = (
-  actionInput:
-    | ExtendedDeployContractActionInput
-    | ExtendedFunctionCallActionInput
-): actionInput is ExtendedDeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+export const isDecodedFunctionCallActionInput = (
+  actionInput: DeployContractActionInput | FunctionCallActionInput
+): actionInput is DecodedFunctionCallActionInput => {
+  const callActionInput = actionInput as DecodedFunctionCallActionInput
+  return (
+    callActionInput.actionType === SphinxActionType.CALL.toString() &&
+    callActionInput.skip !== undefined &&
+    callActionInput.fullyQualifiedName !== undefined &&
+    callActionInput.selector !== undefined &&
+    callActionInput.functionParams !== undefined &&
+    callActionInput.referenceName !== undefined &&
+    callActionInput.decodedAction.functionName !== undefined &&
+    callActionInput.decodedAction.referenceName !== undefined &&
+    callActionInput.decodedAction.variables !== undefined
+  )
 }
 
-export const isExtendedFunctionCallActionInput = (
-  actionInput:
-    | ExtendedDeployContractActionInput
-    | ExtendedFunctionCallActionInput
-): actionInput is ExtendedFunctionCallActionInput => {
-  return actionInput.actionType === SphinxActionType.CALL.toString()
+export const isRawFunctionCallActionInput = (
+  actionInput: DeployContractActionInput | FunctionCallActionInput
+): actionInput is RawFunctionCallActionInput => {
+  const callActionInput = actionInput as RawFunctionCallActionInput
+  return (
+    callActionInput.actionType === SphinxActionType.CALL.toString() &&
+    callActionInput.skip !== undefined &&
+    callActionInput.to !== undefined &&
+    callActionInput.data !== undefined
+  )
 }
 
 export const isDeployContractActionInput = (
@@ -1497,133 +1505,26 @@ export const isDeployContractActionInput = (
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
-export const makeParsedConfig = (
-  deploymentInfo: DeploymentInfo,
-  configArtifacts: ConfigArtifacts
-): ParsedConfig => {
-  const {
-    authAddress,
-    managerAddress,
-    chainId,
-    actionInputs,
-    newConfig,
-    isLiveNetwork: isLiveNetwork_,
-    initialState,
-    remoteExecution,
-  } = deploymentInfo
-
-  // Filter out any actions that are not `CALL` or `DEPLOY_CONTRACT`. This is necessary to
-  // remove `DEFINE_CONTRACT` actions, which are not used anywhere off-chain.
-  const actions = actionInputs
-    .filter(
-      (a) =>
-        a.actionType === SphinxActionType.CALL ||
-        a.actionType === SphinxActionType.DEPLOY_CONTRACT
-    )
-    // Decode the raw actions.
-    .map(fromRawSphinxActionInput)
-
-  const extendedActions: Array<
-    ExtendedDeployContractActionInput | ExtendedFunctionCallActionInput
-  > = []
-  for (const action of actions) {
-    const { referenceName, fullyQualifiedName } = action
-    const { abi } = configArtifacts[fullyQualifiedName].artifact
-    const iface = new ethers.Interface(abi)
-    const coder = ethers.AbiCoder.defaultAbiCoder()
-
-    if (isDeployContractActionInput(action)) {
-      const create3Salt = getCreate3Salt(referenceName, action.userSalt)
-      const create3Address = getCreate3Address(managerAddress, create3Salt)
-
-      const constructorFragment = iface.fragments.find(
-        ConstructorFragment.isFragment
-      )
-      let decodedConstructorArgs: ParsedVariable
-      if (constructorFragment) {
-        const decodedResult = coder.decode(
-          constructorFragment.inputs,
-          action.constructorArgs
-        )
-        // Convert from an Ethers `Result` into a plain object.
-        decodedConstructorArgs = recursivelyConvertResult(
-          constructorFragment.inputs,
-          decodedResult
-        ) as ParsedVariable
-      } else {
-        decodedConstructorArgs = {}
-      }
-
-      const decodedAction: DecodedAction = {
-        referenceName,
-        functionName: 'constructor',
-        variables: decodedConstructorArgs,
-      }
-      extendedActions.push({ create3Address, decodedAction, ...action })
-    } else {
-      const functionParamsResult = iface.decodeFunctionData(
-        action.selector,
-        ethers.concat([action.selector, action.functionParams])
-      )
-      const functionFragment = iface.getFunction(action.selector)
-      if (!functionFragment) {
-        throw new Error(
-          `Could not find function fragment for selector: ${action.selector}. Should never happen.`
-        )
-      }
-
-      // Convert the Ethers `Result` into a plain object.
-      const decodedFunctionParams = recursivelyConvertResult(
-        functionFragment.inputs,
-        functionParamsResult
-      ) as ParsedVariable
-
-      const functionName = iface.getFunctionName(action.selector)
-
-      const decodedAction: DecodedAction = {
-        referenceName,
-        functionName,
-        variables: decodedFunctionParams,
-      }
-      extendedActions.push({ decodedAction, ...action })
-    }
-  }
-
-  const parsedSphinxConfig: SphinxConfig<SupportedNetworkName> = {
-    ...newConfig,
-    testnets: newConfig.testnets.map(networkEnumToName),
-    mainnets: newConfig.mainnets.map(networkEnumToName),
-  }
-
-  return {
-    authAddress,
-    managerAddress,
-    chainId: chainId.toString(),
-    newConfig: parsedSphinxConfig,
-    isLiveNetwork: isLiveNetwork_,
-    initialState,
-    actionInputs: extendedActions,
-    remoteExecution,
-  }
-}
-
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
 
-export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
-  const deployments = {}
-  parsedConfig.actionInputs
-    .filter(isExtendedDeployContractActionInput)
+export const displayDeploymentTable = (deploymentInfo: DeploymentInfo) => {
+  const deployed = {}
+  deploymentInfo.deployments
     .filter((a) => !a.skip)
     .forEach((a, i) => {
-      deployments[i + 1] = {
+      const create3Address = getCreate3Address(
+        deploymentInfo.managerAddress,
+        getCreate3Salt(a.referenceName, a.userSalt)
+      )
+      deployed[i + 1] = {
         Contract: a.referenceName,
-        Address: a.create3Address,
+        Address: create3Address,
       }
     })
-  if (Object.keys(deployments).length > 0) {
-    console.table(deployments)
+  if (Object.keys(deployed).length > 0) {
+    console.table(deployed)
   }
 }
 

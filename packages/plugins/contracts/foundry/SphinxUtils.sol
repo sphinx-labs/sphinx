@@ -542,10 +542,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return size;
     }
 
-    function getCallHash(address _to, bytes memory _data) private pure returns (bytes32) {
-        return keccak256(abi.encode(_to, _data));
-    }
-
     /**
      * @notice Returns an array of unique addresses from a given array of addresses, which may
      *         contain duplicates.
@@ -607,13 +603,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 json,
                 string(abi.encodePacked(".chains.", networkName, ".configUri"))
             );
-            // Although the CompilerConfig is unused in Solidity, we load it here because
-            // it will be used
-            bytes memory compilerConfigBytes = vm.parseJsonBytes(
-                json,
-                string(abi.encodePacked(".chains.", networkName, ".compilerConfigStr"))
-            );
-            string memory compilerConfigStr = abi.decode(compilerConfigBytes, (string));
             HumanReadableAction[] memory humanReadableActions = abi.decode(
                 vm.parseJsonBytes(
                     json,
@@ -659,8 +648,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 humanReadableActions: humanReadableActions,
                 actionBundle: SphinxActionBundle({ root: actionRoot, actions: bundledActions }),
                 targetBundle: targetBundle,
-                authLeafs: authLeafs,
-                compilerConfigStr: compilerConfigStr
+                authLeafs: authLeafs
             });
         }
 
@@ -1151,7 +1139,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
-        ISphinxAuth _auth,
         address _msgSender
     ) external view {
         require(
@@ -1198,8 +1185,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: There must not be any addresses in your 'sphinxConfig.proposers' array when broadcasting on a network."
         );
 
-        if (address(_auth).code.length > 0) {
-            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(address(_auth));
+        address authAddress = getSphinxAuthAddress(_config);
+        if (authAddress.code.length > 0) {
+            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(authAddress);
             // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
             // by OpenZeppelin's AccessControl contract.
             require(
@@ -1211,7 +1199,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
             );
             require(
-                !_auth.firstProposalOccurred() || auth.hasRole(keccak256("ProposerRole"), deployer),
+                !ISphinxAuth(authAddress).firstProposalOccurred() || auth.hasRole(keccak256("ProposerRole"), deployer),
                 "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
             );
         }
@@ -1224,27 +1212,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_auth).code.length == 0) {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
 
-            ISphinxSemver currentManager = ISphinxSemver(registry.currentManagerImplementation());
+            // TODO(docs)
+            // Use the current default manager version (which may be different from the latest manager version)
+            Version memory version;
+            if (registryAddress.code.length > 0) {
+                address currentManager = registry.currentManagerImplementation();
+                version = ISphinxSemver(currentManager).version();
+            } else {
+                version = getCurrentSphinxManagerVersion();
+            }
 
             return
                 InitialChainState({
                     // We set these to default values.
                     proposers: new address[](0),
-                    // Use the current default manager version (which may be different from the latest manager version)
-                    version: currentManager.version(),
+                    version: version,
                     isManagerDeployed: false,
                     firstProposalOccurred: false,
                     isExecuting: false
                 });
         } else {
             ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(address(_auth));
-            uint256 numOwners = auth.getRoleMemberCount(0x00);
-            address[] memory owners = new address[](numOwners);
-            for (uint i = 0; i < numOwners; i++) {
-                owners[i] = auth.getRoleMember(0x00, i);
-            }
-
-            // Do the same for proposers.
+            // Get the list of proposers in the SphinxAuth contract.
             uint256 numProposers = auth.getRoleMemberCount(keccak256("ProposerRole"));
             address[] memory proposers = new address[](numProposers);
             for (uint i = 0; i < numProposers; i++) {
