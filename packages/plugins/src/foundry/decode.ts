@@ -163,18 +163,72 @@ export const decodeProposalOutput = (
   return output as ProposalOutput
 }
 
-export const getDryRunOutput = (
-  networkName: string,
+export const getCollectedProposal = (
+  networkNames: Array<string>,
   scriptPath: string,
   broadcastFolder: string,
   sphinxCollectorABI: Array<any>
+): Array<{
+  deploymentInfo: DeploymentInfo
+  actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
+}> => {
+  networkNames
+  scriptPath
+  broadcastFolder
+  sphinxCollectorABI
+
+  const collected: Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<
+      RawDeployContractActionInput | RawFunctionCallActionInput
+    >
+  }> = []
+
+  if (networkNames.length === 1) {
+    return [
+      getCollectedSingleChainDeployment(
+        networkNames[0],
+        scriptPath,
+        broadcastFolder,
+        sphinxCollectorABI,
+        'sphinxCollectProposal'
+      ),
+    ]
+  } else {
+    // TODO(docs): e.g. broadcast/multi/dry-run/Sample.s.sol-latest/sphinxCollectProposal.json
+    const dryRunPath = join(
+      broadcastFolder,
+      'multi',
+      'dry-run',
+      `${basename(scriptPath)}-latest`,
+      'sphinxCollectProposal.json'
+    )
+
+    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
+      readFileSync(dryRunPath, 'utf8')
+    ).deployments
+
+    for (const dryRun of multichainDryRun) {
+      collected.push(parseFoundryDryRun(dryRun, sphinxCollectorABI))
+    }
+  }
+
+  return collected
+}
+
+export const getCollectedSingleChainDeployment = (
+  networkName: string,
+  scriptPath: string,
+  broadcastFolder: string,
+  sphinxCollectorABI: Array<any>,
+  sphinxFunctionName: string
 ): {
   deploymentInfo: DeploymentInfo
   actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
 } => {
   const chainId = SUPPORTED_NETWORKS[networkName]
 
-  // TODO(docs): location: e.g. hello_foundry/broadcast/Counter.s.sol/31337/dry-run/run-latest.json
+  // TODO(docs): location: e.g. hello_foundry/broadcast/Counter.s.sol/31337/dry-run/sphinxCollectDeployment-latest.json
   // TODO(docs): Foundry uses only the script's file name when writing the dry run to the
   // filesystem, even if the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol).
   const dryRunPath = join(
@@ -182,15 +236,25 @@ export const getDryRunOutput = (
     basename(scriptPath),
     chainId.toString(),
     'dry-run',
-    `sphinxCollect-latest.json`
+    `${sphinxFunctionName}-latest.json`
   )
 
-  const dryRunJson = JSON.parse(readFileSync(dryRunPath, 'utf8'))
+  const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
+  return parseFoundryDryRun(dryRun, sphinxCollectorABI)
+}
+
+const parseFoundryDryRun = (
+  dryRun: FoundryDryRun,
+  sphinxCollectorABI: Array<any>
+): {
+  deploymentInfo: DeploymentInfo
+  actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
+} => {
   const deploymentInfo = decodeDeploymentInfo(
-    dryRunJson.transactions[0].transaction.data,
+    dryRun.transactions[0].transaction.data,
     sphinxCollectorABI
   )
-  const transactions: Array<AnvilTxn> = dryRunJson.transactions.slice(1)
+  const transactions = dryRun.transactions.slice(1)
 
   const notFromSphinxManager = transactions.filter(
     (t) =>
@@ -380,7 +444,7 @@ export const makeParsedConfig = (
 // TODO(docs): this doesn't include the "contractAddress", which is a field in the actual
 // foundry broadcast file. we don't include it here because it can be `null` for low-level calls, so
 // we prefer to always use the 'transactions.to' field instead.
-type AnvilTxn = {
+type FoundryDryRunTransaction = {
   hash: string | null
   transactionType: 'CREATE' | 'CALL'
   contractName: string | null // TODO(docs): if string, it'll be contractName if it's unique in repo, otherwise FQN
@@ -399,4 +463,16 @@ type AnvilTxn = {
   }
   additionalContracts: Array<any>
   isFixedGasLimit: boolean
+}
+
+type FoundryDryRun = {
+  transactions: Array<FoundryDryRunTransaction>
+  receipts: Array<any>
+  libraries: Array<any>
+  pending: Array<any>
+  returns: any
+  timestamp: number
+  chain: number
+  multi: boolean
+  commit: string
 }

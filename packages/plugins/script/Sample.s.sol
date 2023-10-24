@@ -12,36 +12,31 @@ contract Sample is Script, SphinxClient {
 
     function setUp() public {
         sphinxConfig.projectName = "My Project";
-        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
-        sphinxConfig.proposers = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
-        sphinxConfig.testnets = [
-            Network.optimism_goerli,
-            Network.goerli,
-            Network.arbitrum_goerli,
-            Network.bnb_testnet,
-            Network.linea_goerli,
-            Network.polygon_mumbai,
-            Network.polygon_zkevm_goerli,
-            Network.gnosis_chiado,
-            Network.base_goerli,
-            Network.avalanche_fuji,
-            Network.fantom_testnet
-        ];
-        sphinxConfig.orgId = "clo1oz1dl00009m6hcvop9wc1";
+        sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.testnets = [Network.goerli];
+        sphinxConfig.orgId = "asdf";
     }
 
     function deploy(Network _network) public override sphinx(_network) {
-        myContract = MyContract1(0x533dc95B468b4A6a3B21f1b518cc47fe28b06762);
-        MyContract1.MyStruct memory myStruct = myContract.myPureFunction();
-        console.logInt(myStruct.a);
-        myContract.incrementUint();
-        myContract.incrementUint();
-        myContract.incrementUint();
-        myContract.incrementUint();
+        MyContract1 myClient = deployMyContract1(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        MyContract1.MyStruct memory myStruct = myClient.myPureFunction();
+        myClient.set(myStruct.a);
+        myClient.incrementUint();
+        myClient.incrementUint();
+        myClient.incrementUint();
+
+        myContract = MyContract1(address(myClient));
     }
 
     function run() public {
+        vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         deploy(Network.anvil);
         console.logInt(myContract.intArg());
     }

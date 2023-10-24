@@ -16,10 +16,7 @@ import { console } from 'sphinx-forge-std/console.sol';
  */
 contract SphinxCollector {
 
-    function collectDeploymentInfo(DeploymentInfo memory) external {
-        console.log('this', address(this));
-        console.log('collecting');
-    }
+    function collectDeploymentInfo(DeploymentInfo memory) external {}
 
     // TODO(docs): replace this contract with the SphinxDefaultCreate3 contract
 

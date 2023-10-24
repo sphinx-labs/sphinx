@@ -137,19 +137,50 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollect(string memory _networkName) external {
-        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+    function sphinxCollectProposal(address _proposer, bool _testnets, string memory _proposalNetworksPath) external {
+        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
+        require(
+            networks.length > 0,
+            string(
+                abi.encodePacked(
+                    "Sphinx: There must be at least one network in your ",
+                    _testnets ? "'testnets'" : "'mainnets",
+                    " array."
+                )
+            )
+        );
 
-        console.log('TODO manager', address(manager));
+        string memory allNetworkNames;
+        for (uint256 i = 0; i < networks.length; i++) {
+            Network network = networks[i];
 
+            string memory networkName = sphinxUtils.getNetworkInfo(network).name;
+            string memory rpcUrl = vm.rpcUrl(networkName);
+
+            // Create a fork of the target network. This automatically sets the `block.chainid` to
+            // the target chain (e.g. 1 for ethereum mainnet).
+            vm.createSelectFork(rpcUrl);
+
+            sphinxUtils.validateProposal(_proposer, network, sphinxConfig);
+            sphinxCollect(networkName, sphinxUtils.isLiveNetworkFFI(rpcUrl));
+
+            // Concatenate the network names, adding a comma except after the last name.
+            allNetworkNames = string(abi.encodePacked(allNetworkNames, networkName));
+            if (i < networks.length - 1) {
+                // If it's not the last network name, append a comma.
+                allNetworkNames = string(abi.encodePacked(allNetworkNames, ","));
+            }
+        }
+
+        vm.writeFile(_proposalNetworksPath, allNetworkNames);
+    }
+
+    function sphinxCollectDeployment(string memory _networkName) private {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         uint256 privateKey;
         if (isLiveNetwork) {
-            sphinxMode = SphinxMode.LiveNetworkBroadcast;
-
             privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
             require(
                 privateKey != 0,
@@ -165,8 +196,6 @@ abstract contract Sphinx {
             // `SphinxAuth.propose` function.
             sphinxConfig.proposers.push(deployer);
         } else {
-            sphinxMode = SphinxMode.LocalNetworkBroadcast;
-
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
@@ -183,12 +212,19 @@ abstract contract Sphinx {
             sphinxConfig.proposers.push(deployer);
         }
 
+        sphinxCollect(_networkName, isLiveNetwork);
+    }
+
+    function sphinxCollect(string memory _networkName, bool _isLiveNetwork) private {
+        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
+        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+
         deploymentInfo = DeploymentInfo({
             authAddress: address(auth),
             managerAddress: address(manager),
             chainId: block.chainid,
             newConfig: sphinxConfig,
-            isLiveNetwork: sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName)),
+            isLiveNetwork: _isLiveNetwork,
             initialState: sphinxUtils.getInitialChainState(auth, manager)
         });
 
@@ -199,8 +235,6 @@ abstract contract Sphinx {
         Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
         sphinxMode = SphinxMode.Collect;
         vm.startBroadcast(address(manager));
-        console.log('code',  0x7A6028233C08E42aB5811F3F4f463D222C67bd50.code.length);
-        console.log('manager', address(manager));
         SphinxCollector(address(manager)).collectDeploymentInfo(deploymentInfo);
         deploy(network);
         vm.stopBroadcast();
@@ -239,6 +273,7 @@ abstract contract Sphinx {
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
+        // TODO(refactor): i think you can remove most/all of the stuff below
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         uint256 privateKey;
         if (isLiveNetwork) {
@@ -293,42 +328,24 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    function sphinxProposeTask(
+    function sphinxSimulateProposal(
         bool _testnets,
-        string memory _proposalOutputPath
-    ) external returns (bytes32, uint256[] memory) {
+        bytes32 _authRoot,
+        BundleInfo[] memory _bundleInfoArray
+    ) external returns (uint256[] memory) {
         setupPropose();
 
-        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
-
-        require(
-            sphinxConfig.proposers.length > 0,
-            "Sphinx: There must be at least one proposer in your 'sphinxConfig.proposers' array."
-        );
-        uint256 proposerPrivateKey = vm.envOr("PROPOSER_PRIVATE_KEY", uint256(0));
-        require(
-            proposerPrivateKey != 0,
-            "Sphinx: You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment."
-        );
+        uint256 proposerPrivateKey = vm.envUint("PROPOSER_PRIVATE_KEY");
         address proposer = vm.addr(proposerPrivateKey);
-        require(
-            networks.length > 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: There must be at least one network in your ",
-                    _testnets ? "'testnets'" : "'mainnets",
-                    " array."
-                )
-            )
-        );
-        require(
-            bytes(sphinxConfig.orgId).length > 0,
-            "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
+        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
+            proposerPrivateKey,
+            _authRoot
         );
 
         sphinxMode = SphinxMode.Proposal;
 
-        DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
+        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
+        uint256[] memory forkIds = new uint256[](networks.length);
         for (uint256 i = 0; i < networks.length; i++) {
             Network network = networks[i];
             NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
@@ -336,7 +353,8 @@ abstract contract Sphinx {
 
             // Create a fork of the target network. This automatically sets the `block.chainid` to
             // the target chain (e.g. 1 for ethereum mainnet).
-            vm.createSelectFork(rpcUrl);
+            uint256 forkId = vm.createSelectFork(rpcUrl);
+            forkIds[i] = forkId;
 
             // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
             // because we never broadcast the transactions onto the forked network. This is a
@@ -346,58 +364,13 @@ abstract contract Sphinx {
             );
 
             // We prank the proposer here so that the `msgSender` is the proposer's address, which
-            // we use in `validateProposal`.
+            // we use in TODO(docs).
             vm.startPrank(proposer);
-            deploy(network);
-            vm.stopPrank();
-
-            deploymentInfoArray[i] = deploymentInfo;
-        }
-
-        (bytes32 authRoot, BundleInfo[] memory bundleInfoArray) = sphinxUtils.getBundleInfoFFI(
-            deploymentInfoArray
-        );
-
-        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-            vm.envUint("PROPOSER_PRIVATE_KEY"),
-            authRoot
-        );
-
-        uint256[] memory forkIds = new uint256[](networks.length);
-        for (uint256 i = 0; i < networks.length; i++) {
-            Network network = networks[i];
-            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(network).name);
-            BundleInfo memory bundleInfo = bundleInfoArray[i];
-
-            uint256 forkId = vm.createSelectFork(rpcUrl);
-            forkIds[i] = forkId;
-
-            // Initialize the Sphinx contracts again on the new fork. Even though we did this in the
-            // for-loop above, we need to do it again because we're on a fresh fork.
-            sphinxUtils.initializeSphinxContracts(
-                OptionalAddress({ exists: true, value: proposer })
-            );
-
-            vm.startPrank(proposer);
-            sphinxDeployOnNetwork(ISphinxManager(sphinxManager(sphinxConfig)), ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)), authRoot, bundleInfo, metaTxnSignature, rpcUrl);
+            sphinxDeployOnNetwork(ISphinxManager(sphinxManager(sphinxConfig)), ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)), _authRoot, _bundleInfoArray[i], metaTxnSignature, rpcUrl);
             vm.stopPrank();
         }
 
-        vm.writeFile(
-            _proposalOutputPath,
-            vm.toString(
-                abi.encode(
-                    ProposalOutput({
-                        authRoot: authRoot,
-                        bundleInfoArray: bundleInfoArray,
-                        metaTxnSignature: metaTxnSignature,
-                        proposerAddress: proposer
-                    })
-                )
-            )
-        );
-
-        return (authRoot, forkIds);
+        return forkIds;
     }
 
     function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
@@ -560,15 +533,11 @@ abstract contract Sphinx {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
-        );
-        require(
-            callerMode != VmSafe.CallerMode.RecurrentBroadcast || sphinxMode == SphinxMode.Collect,
-            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
+            "Sphinx: Cannot deploy using vm.broadcast. Please use a recurrent broadcast (vm.startBroadcast) instead."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,
-            "Sphinx: Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
+            "Sphinx: Cannot deploy using vm.prank. Please use a recurrent prank (vm.startPrank) instead."
         );
 
         // We allow users to call `vm.startPrank` before calling their `deploy` function so that
@@ -595,25 +564,6 @@ abstract contract Sphinx {
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
-        } else if (sphinxMode == SphinxMode.Proposal) {
-            sphinxUtils.validateProposal(auth, msgSender, _network, sphinxConfig);
-
-            string memory rpcUrl = vm.rpcUrl(sphinxUtils.getNetworkInfo(_network).name);
-            deploymentInfo = DeploymentInfo({
-                authAddress: address(auth),
-                managerAddress: address(manager),
-                chainId: block.chainid,
-                newConfig: sphinxConfig,
-                isLiveNetwork: sphinxUtils.isLiveNetworkFFI(rpcUrl),
-                initialState: sphinxUtils.getInitialChainState(auth, manager)
-            });
-
-            vm.etch(address(manager), type(SphinxCollector).runtimeCode);
-
-            vm.startPrank(address(manager));
-            _;
-            vm.stopPrank();
-
         }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);

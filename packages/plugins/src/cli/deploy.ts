@@ -19,9 +19,12 @@ import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
 
-import { getBundleInfo, makeGetConfigArtifacts } from '../foundry/utils'
+import { getBundleInfoArray, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { getDryRunOutput, makeParsedConfig } from '../foundry/decode'
+import {
+  getCollectedSingleChainDeployment,
+  makeParsedConfig,
+} from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
 
@@ -112,7 +115,7 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollect(string)',
+    'sphinxCollectDeployment(string)',
     network,
     '--rpc-url',
     forkUrl,
@@ -133,11 +136,12 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const { deploymentInfo, actionInputs } = getDryRunOutput(
+  const { deploymentInfo, actionInputs } = getCollectedSingleChainDeployment(
     network,
     scriptPath,
     broadcastFolder,
-    sphinxCollectorABI
+    sphinxCollectorABI,
+    'sphinxCollectDeployment'
   )
 
   const fullyQualifiedNames = actionInputs
@@ -176,9 +180,10 @@ export const deploy = async (
     }
   }
 
-  const { authRoot, bundleInfoArray } = await getBundleInfo(configArtifacts, [
-    parsedConfig,
-  ])
+  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
+    configArtifacts,
+    [parsedConfig]
+  )
   if (bundleInfoArray.length !== 1) {
     throw new Error(`TODO(docs): should never happen`)
   }
