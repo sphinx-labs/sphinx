@@ -13,6 +13,7 @@ import {
   getPreviewString,
   getProjectDeploymentForChain,
   hyperlink,
+  isRawDeployContractActionInput,
   relayIPFSCommit,
   relayProposal,
   spawnAsync,
@@ -20,13 +21,12 @@ import {
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
+import { ethers } from 'ethers'
 
-import { decodeProposalOutput } from '../../foundry/decode'
+import { makeParsedConfig } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { generateClient } from '../typegen/client'
-
-const pluginRootPath =
-  process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
+import { getBundleInfoArray, makeGetConfigArtifacts } from '../../foundry/utils'
 
 /**
  * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
@@ -58,38 +58,123 @@ export const propose = async (
   await generateClient(silent, true)
 
   const spinner = ora({ isSilent: silent })
-  spinner.start(`Running simulation...`)
+  spinner.start(`Collecting transactions...`)
 
-  const sphinxArtifactDir = `${pluginRootPath}out/artifacts`
-  const SphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${sphinxArtifactDir}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-    )).abi
+  const { cachePath, broadcastFolder, artifactFolder, buildInfoFolder } =
+    await getFoundryConfigOptions()
+  const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
 
-  const { cachePath } = await getFoundryConfigOptions()
-  const proposalOutputPath = join(cachePath, 'sphinx-proposal-output.txt')
-
-  // Delete the ProposalOutput file if it already exists. This isn't strictly necessary, since an
+  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
   // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally display an outdated preview to the user.
-  if (existsSync(proposalOutputPath)) {
-    unlinkSync(proposalOutputPath)
+  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
+  if (existsSync(proposalNetworksPath)) {
+    unlinkSync(proposalNetworksPath)
   }
 
-  const forgeScriptArgs = [
+  const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxProposeTask(bool,string)',
+    'sphinxCollectProposal(bool,string)',
     isTestnet.toString(),
-    proposalOutputPath,
+    proposalNetworksPath,
+    '--rpc-url',
+    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
   ]
   if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const { stdout, stderr, code } = await spawnAsync('forge', forgeScriptArgs)
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (spawnOutput.code !== 0) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+
+  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
+  const networks = allNetworksStr.split(',')
+
+  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxCollectorABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+    )).abi
+
+  const collected = getCollectedProposal(
+    networks,
+    scriptPath,
+    broadcastFolder,
+    sphinxCollectorABI
+  )
+
+  const fullyQualifiedSet = new Set<string>()
+  for (const { actionInputs } of collected) {
+    for (const actionInput of actionInputs) {
+      if (isRawDeployContractActionInput(actionInput)) {
+        fullyQualifiedSet.add(actionInput.fullyQualifiedName)
+      }
+    }
+  }
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    artifactFolder,
+    buildInfoFolder,
+    cachePath
+  )
+
+  const configArtifacts = await getConfigArtifacts(
+    Array.from(fullyQualifiedSet)
+  )
+
+  const parsedConfigArray = collected.map((c) =>
+    makeParsedConfig(c.deplomentInfo, c.actionInputs, configArtifacts)
+  )
+  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
+    configArtifacts,
+    parsedConfigArray
+  )
+
+  spinner.succeed(`Collected transactions.`)
+  spinner.start(`Running simulation...`)
+
+  const sphinxABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(`${artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
+  const sphinxIface = new ethers.Interface(sphinxABI)
+  const deployTaskFragment = sphinxIface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'sphinxSimulateProposal')
+  if (!deployTaskFragment) {
+    throw new Error(
+      `'sphinxSimulateProposal' not found in ABI. Should never happen.`
+    )
+  }
+
+  const proposalSimulationData = sphinxIface.encodeFunctionData(
+    deployTaskFragment,
+    [isTestnet, authRoot, bundleInfoArray]
+  )
+
+  const proposalSimulationArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    proposalSimulationData,
+  ]
+  if (targetContract) {
+    proposalSimulationArgs.push('--target-contract', targetContract)
+  }
+
+  const { stdout, stderr, code } = await spawnAsync(
+    'forge',
+    proposalSimulationArgs
+  )
   if (code !== 0) {
     spinner.stop()
     // The `stdout` contains the trace of the error.
@@ -99,23 +184,19 @@ export const propose = async (
     process.exit(1)
   }
 
-  spinner.succeed(`Finished simulation.`)
-  spinner.start(`Parsing simulation results...`)
-
-  const abiEncodedProposalOutput = readFileSync(proposalOutputPath, 'utf8')
-  const { proposerAddress, metaTxnSignature, bundleInfoArray, authRoot } =
-    decodeProposalOutput(abiEncodedProposalOutput, SphinxPluginTypesABI)
+  spinner.succeed(`Simulation succeeded.`)
 
   const preview = getPreview(bundleInfoArray.map((b) => b.compilerConfig))
   if (confirm) {
-    spinner.succeed(`Parsed simulation results.`)
+    spinner.info(`Skipping preview.`)
   } else {
     const previewString = getPreviewString(preview, true)
-    spinner.stop()
     await prompt(previewString)
   }
 
-  spinner.start(`Running proposal...`)
+  dryRun
+    ? spinner.start('Dry running proposal...')
+    : spinner.start(`Proposing...`)
 
   const shouldBeEqual = bundleInfoArray.map(({ compilerConfig }) => {
     return {

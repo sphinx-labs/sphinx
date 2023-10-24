@@ -22,9 +22,12 @@ import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
 
-import { getBundleInfo, makeGetConfigArtifacts } from '../foundry/utils'
+import { getBundleInfoArray, makeGetConfigArtifacts } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { getDryRunOutput, makeParsedConfig } from '../foundry/decode'
+import {
+  getDryRunOutput as getCollectedDeployment,
+  makeParsedConfig,
+} from '../foundry/decode'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
 
@@ -117,7 +120,6 @@ export const deploy = async (
     '--rpc-url',
     forkUrl,
     '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
-
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -134,7 +136,7 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const { deploymentInfo, actionInputs } = getDryRunOutput(
+  const { deploymentInfo, actionInputs } = getCollectedDeployment(
     network,
     scriptPath,
     broadcastFolder,
@@ -175,9 +177,10 @@ export const deploy = async (
     }
   }
 
-  const { authRoot, bundleInfoArray } = await getBundleInfo(configArtifacts, [
-    parsedConfig,
-  ])
+  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
+    configArtifacts,
+    [parsedConfig]
+  )
   if (bundleInfoArray.length !== 1) {
     throw new Error(`TODO(docs): should never happen`)
   }

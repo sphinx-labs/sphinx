@@ -352,7 +352,7 @@ export const inferSolcVersion = async (): Promise<string> => {
   }
 }
 
-export const getBundleInfo = async (
+export const getBundleInfoArray = async (
   configArtifacts: ConfigArtifacts,
   parsedConfigArray: Array<ParsedConfig>
 ): Promise<{
