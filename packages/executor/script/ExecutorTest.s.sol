@@ -10,6 +10,9 @@ contract ExecutorTest_Script is Script, SphinxClient {
         sphinxConfig.projectName = "Executor Test";
         sphinxConfig.owners = [0x70997970C51812dc3A010C7d01b50e0d17dc79C8];
         sphinxConfig.threshold = 1;
+        sphinxConfig.testnets = [Network.optimism_goerli];
+        sphinxConfig.proposers = [0x70997970C51812dc3A010C7d01b50e0d17dc79C8];
+        sphinxConfig.orgId = '12345';
     }
 
     function deploy(Network _network) public override sphinx(_network) {

@@ -1,6 +1,5 @@
-import path from 'path'
+import path, { join } from 'path'
 import '@sphinx-labs/plugins'
-import { readFileSync } from 'fs'
 
 // TODO(md): we should probably tell users to add `npx sphinx generate` to their build command,
 // particularly for CI.
@@ -14,16 +13,19 @@ import {
   sphinxCommitAbstractSubtask,
   SphinxJsonRpcProvider,
   signAuthRootMetaTxn,
-  spawnAsync,
-  makeParsedConfig,
   Setup,
+  AUTH_FACTORY_ADDRESS,
+  getAuthData,
 } from '@sphinx-labs/core'
-import { AuthABI, SphinxManagerABI } from '@sphinx-labs/contracts'
+import {
+  AuthABI,
+  AuthFactoryABI,
+  SphinxManagerABI,
+} from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { Contract, ethers } from 'ethers'
 import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/options'
-import { makeGetConfigArtifacts } from '@sphinx-labs/plugins/src/foundry/utils'
-import { decodeDeploymentInfo } from '@sphinx-labs/plugins/src/foundry/decode'
+import { buildParsedConfigArray } from '@sphinx-labs/plugins/src/cli/propose'
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
@@ -33,6 +35,7 @@ const ownerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 const relayerPrivateKey =
   '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a'
+const projectName = 'Executor Test'
 
 if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
   throw new Error(
@@ -40,7 +43,7 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
   )
 }
 
-const rpcUrl = 'http://127.0.0.1:8545'
+const rpcUrl = 'http://127.0.0.1:42420'
 const provider = new SphinxJsonRpcProvider(rpcUrl)
 const contractAddress = '0xE6855aF7ac9b8Eb0ad1ddB6f57527bfcED0E7Bf6'
 
@@ -50,51 +53,18 @@ describe('Remote executor', () => {
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-    const { artifactFolder, buildInfoFolder, cachePath } =
-      await getFoundryConfigOptions()
+    const { cachePath } = await getFoundryConfigOptions()
+    const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
+    const scriptPath = 'script/ExecutorTest.s.sol'
 
-    const deploymentInfoPath = path.join(cachePath, 'sphinx-chain-info.txt')
+    const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
+      scriptPath,
+      owner.address,
+      true, // Is testnet
+      proposalNetworksPath
+    )
 
-    const { code, stdout, stderr } = await spawnAsync('forge', [
-      'script',
-      'script/ExecutorTest.s.sol',
-      '--sig',
-      'sphinxDeployTask(string,string)',
-      'anvil',
-      deploymentInfoPath,
-      '--rpc-url',
-      rpcUrl,
-    ])
-    if (code !== 0) {
-      console.log(stdout)
-      console.log(stderr)
-      throw new Error(`Failed to dry run deployment`)
-    }
-    const encodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf8')
-    const SphinxPluginTypesABI =
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require(path.resolve(
-        `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-      )).abi
-    const deploymentInfo = decodeDeploymentInfo(
-      encodedDeploymentInfo,
-      SphinxPluginTypesABI
-    )
-    const getConfigArtifacts = makeGetConfigArtifacts(
-      artifactFolder,
-      buildInfoFolder,
-      cachePath
-    )
-    const configArtifacts = await getConfigArtifacts(
-      deploymentInfo.actionInputs.map(
-        (actionInput) => actionInput.fullyQualifiedName
-      )
-    )
-    const parsedConfig = makeParsedConfig(deploymentInfo, configArtifacts)
-
-    if (!parsedConfig) {
-      throw new Error(`Failed to retrieve parsed config`)
-    }
+    const parsedConfig = parsedConfigArray[0]
 
     const Manager = new ethers.Contract(
       parsedConfig.managerAddress,
@@ -134,6 +104,16 @@ describe('Remote executor', () => {
 
     // Commit the project to IPFS.
     await sphinxCommitAbstractSubtask(parsedConfig, true, configArtifacts)
+
+    const AuthFactory = new ethers.Contract(
+      AUTH_FACTORY_ADDRESS,
+      AuthFactoryABI,
+      relayer
+    )
+
+    // We set the `registryData` to `0x` since this version of the SphinxManager doesn't use it.
+    const authData = getAuthData([owner.address], 1)
+    await AuthFactory.deploy(authData, '0x', projectName)
 
     await Auth.setup(authBundle.root, setupLeaf, [signature], setupProof)
 

@@ -29,63 +29,23 @@ import { getFoundryConfigOptions } from '../../foundry/options'
 import { generateClient } from '../typegen/client'
 import { getBundleInfoArray, makeGetConfigArtifacts } from '../../foundry/utils'
 
-/**
- * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
- * that can be sent to the back-end.
- *
- * @param dryRun If true, the proposal will not be relayed to the back-end.
- * @param targetContract The name of the contract within the script file. Necessary when there are
- * multiple contracts in the specified script.
- */
-export const propose = async (
-  confirm: boolean,
-  isTestnet: boolean,
-  dryRun: boolean,
-  silent: boolean,
+export const buildParsedConfigArray = async (
   scriptPath: string,
+  proposerAddress: string,
+  isTestnet: boolean,
+  proposalNetworksPath: string,
   targetContract?: string,
-  prompt: (q: string) => Promise<void> = userConfirmation
-): Promise<{
-  proposalRequest: ProposalRequest | undefined
-  ipfsData: string[] | undefined
-}> => {
-  const apiKey = process.env.SPHINX_API_KEY
-  if (!apiKey) {
-    console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
-    process.exit(1)
-  }
-  const proposerPrivateKey = process.env.PROPOSER_PRIVATE_KEY
-  if (!proposerPrivateKey) {
-    throw new Error(
-      `You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment.`
-    )
-  }
-  const proposer = new ethers.Wallet(proposerPrivateKey)
-
-  // We run the `sphinx generate` command to make sure that the user's contracts and clients are
-  // up-to-date. The Solidity compiler is run within this command via `forge build`.
-  await generateClient(silent, true)
-
-  const spinner = ora({ isSilent: silent })
-  spinner.start(`Collecting transactions...`)
-
+  spinner?: ora.Ora
+) => {
   const { cachePath, broadcastFolder, artifactFolder, buildInfoFolder } =
     await getFoundryConfigOptions()
-  const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
 
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
     'sphinxCollectProposal(address,bool,string)',
-    proposer.address,
+    proposerAddress,
     isTestnet.toString(),
     proposalNetworksPath,
     '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
@@ -97,7 +57,7 @@ export const propose = async (
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
   if (spawnOutput.code !== 0) {
-    spinner.stop()
+    spinner?.stop()
     // The `stdout` contains the trace of the error.
     console.log(spawnOutput.stdout)
     // The `stderr` contains the error message.
@@ -144,6 +104,69 @@ export const propose = async (
   const parsedConfigArray = collected.map((c) =>
     makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts)
   )
+
+  return { parsedConfigArray, configArtifacts }
+}
+
+/**
+ * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
+ * that can be sent to the back-end.
+ *
+ * @param dryRun If true, the proposal will not be relayed to the back-end.
+ * @param targetContract The name of the contract within the script file. Necessary when there are
+ * multiple contracts in the specified script.
+ */
+export const propose = async (
+  confirm: boolean,
+  isTestnet: boolean,
+  dryRun: boolean,
+  silent: boolean,
+  scriptPath: string,
+  targetContract?: string,
+  prompt: (q: string) => Promise<void> = userConfirmation
+): Promise<{
+  proposalRequest: ProposalRequest | undefined
+  ipfsData: string[] | undefined
+}> => {
+  const apiKey = process.env.SPHINX_API_KEY
+  if (!apiKey) {
+    console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
+    process.exit(1)
+  }
+  const proposerPrivateKey = process.env.PROPOSER_PRIVATE_KEY
+  if (!proposerPrivateKey) {
+    throw new Error(
+      `You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment.`
+    )
+  }
+  const proposer = new ethers.Wallet(proposerPrivateKey)
+
+  // We run the `sphinx generate` command to make sure that the user's contracts and clients are
+  // up-to-date. The Solidity compiler is run within this command via `forge build`.
+  await generateClient(silent, true)
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(`Collecting transactions...`)
+
+  const { cachePath, artifactFolder } = await getFoundryConfigOptions()
+  const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
+
+  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
+  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
+  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
+  if (existsSync(proposalNetworksPath)) {
+    unlinkSync(proposalNetworksPath)
+  }
+
+  const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
+    scriptPath,
+    proposer.address,
+    isTestnet,
+    proposalNetworksPath,
+    targetContract,
+    spinner
+  )
+
   const { authRoot, bundleInfoArray } = await getBundleInfoArray(
     configArtifacts,
     parsedConfigArray
