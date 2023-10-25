@@ -17,4 +17,4 @@ remappings=[
 ]
 
 [rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
+optimism_goerli = "http://127.0.0.1:42420"
