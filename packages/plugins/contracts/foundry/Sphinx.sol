@@ -162,7 +162,7 @@ abstract contract Sphinx {
             vm.createSelectFork(rpcUrl);
 
             sphinxUtils.validateProposal(_proposer, network, sphinxConfig);
-            sphinxCollect(networkName, sphinxUtils.isLiveNetworkFFI(rpcUrl));
+            sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
 
             // Concatenate the network names, adding a comma except after the last name.
             allNetworkNames = string(abi.encodePacked(allNetworkNames, networkName));
@@ -175,13 +175,12 @@ abstract contract Sphinx {
         vm.writeFile(_proposalNetworksPath, allNetworkNames);
     }
 
-    function sphinxCollectDeployment(string memory _networkName) private {
+    function sphinxCollectDeployment(string memory _networkName) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
-        uint256 privateKey;
         if (isLiveNetwork) {
-            privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+            uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
             require(
                 privateKey != 0,
                 "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
@@ -199,23 +198,18 @@ abstract contract Sphinx {
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
-
+            uint256 privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
             address deployer = vm.addr(privateKey);
-            sphinxUtils.initializeFFI(
-                rpcUrl,
-                OptionalAddress({ exists: true, value: deployer })
-            );
 
             // Make a pre-determined address a proposer. We'll use it later to sign a meta
             // transaction, which allows us to propose the deployment.
             sphinxConfig.proposers.push(deployer);
         }
 
-        sphinxCollect(_networkName, isLiveNetwork);
+        sphinxCollect(isLiveNetwork);
     }
 
-    function sphinxCollect(string memory _networkName, bool _isLiveNetwork) private {
+    function sphinxCollect(bool _isLiveNetwork) private {
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
 
@@ -228,30 +222,16 @@ abstract contract Sphinx {
             initialState: sphinxUtils.getInitialChainState(auth, manager)
         });
 
-        // Set the LocalSphinxManager to the SphinxManager's address. We'll use this when
-        // collecting the actions. This call will be undone when we revert the snapshot.
+        // Set the SphinxCollector to the SphinxManager's address. We'll use this when
+        // collecting the actions.
         vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
-        Network network = sphinxUtils.findNetworkInfoByName(_networkName).network;
         sphinxMode = SphinxMode.Collect;
         vm.startBroadcast(address(manager));
         SphinxCollector(address(manager)).collectDeploymentInfo(deploymentInfo);
-        deploy(network);
+        run();
         vm.stopBroadcast();
     }
-
-// TODO: when adding support for initiating broadcasts within a forge script instead of the `sphinx
-// deploy` command:
-// The reason we didn't include this ability is because the user's `deploy`
-// function is erased due to `vm.revertTo(...)`. if the user assigns a contract state variable to a
-// value inside the deploy function, then their deploy function will be executed, but the state
-// variable will remain unassigned after the `deploy` function is executed. (to be clear, it's
-// assigned in the sphinx modifier, then undone when `vm.revertTo` is called). a solution is to run
-// the user's deploy function twice. on the second run, we'd need to be in "assign" mode, i.e. just
-// assign addresses when the user calls 'deploy' and 'define'. this is easy to implement, but
-// unfortunately, if a user console.logs in their `deploy` function, then the log will appear twice
-// due to the fact that we run the deploy function twice. this would be confusing to the user, so i
-// just decided to disable to the broadcasting feature and move on.
 
     /**
      * @notice Called within the `sphinx deploy` CLI command. This function is not meant to be
@@ -273,17 +253,12 @@ abstract contract Sphinx {
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
-        // TODO(refactor): i think you can remove most/all of the stuff below
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         uint256 privateKey;
         if (isLiveNetwork) {
             sphinxMode = SphinxMode.LiveNetworkBroadcast;
 
             privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
-            require(
-                privateKey != 0,
-                "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
-            );
 
             address deployer = vm.addr(privateKey);
 
@@ -303,17 +278,8 @@ abstract contract Sphinx {
             );
         }
 
-        // TODO: c/f broadcast
-
-        // TODO(refactor): remove getBundleInfoFFI from sphinxutils?
-
-        // TODO(refactor): clean up this function. e.g. we query the private key twice.
-
-        uint256 deployerPrivateKey = isLiveNetwork
-            ? vm.envUint("PRIVATE_KEY")
-            : sphinxUtils.getSphinxDeployerPrivateKey(0);
         bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-            deployerPrivateKey,
+            privateKey,
            _authRoot
         );
 
@@ -527,17 +493,21 @@ abstract contract Sphinx {
         return (true, emptyAction);
     }
 
-    modifier sphinx(Network _network) {
+    modifier sphinx() {
         sphinxModifierEnabled = true;
 
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
-            "Sphinx: Cannot deploy using vm.broadcast. Please use a recurrent broadcast (vm.startBroadcast) instead."
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
+        );
+        require(
+            callerMode != VmSafe.CallerMode.RecurrentBroadcast || sphinxMode == SphinxMode.Collect,
+            "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
             callerMode != VmSafe.CallerMode.Prank,
-            "Sphinx: Cannot deploy using vm.prank. Please use a recurrent prank (vm.startPrank) instead."
+            "Sphinx: Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
         );
 
         // We allow users to call `vm.startPrank` before calling their `deploy` function so that
@@ -551,14 +521,12 @@ abstract contract Sphinx {
         delete deploymentInfo;
         delete referenceNames;
 
-        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
-
-        sphinxUtils.validate(sphinxConfig, _network);
+        sphinxUtils.validate(sphinxConfig);
 
         if (sphinxMode == SphinxMode.Collect) {
             _;
         } else if (sphinxMode == SphinxMode.Default) {
+            ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
             vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
             vm.startPrank(address(manager));
@@ -750,7 +718,7 @@ abstract contract Sphinx {
         }
     }
 
-    function deploy(Network _network) public virtual;
+    function run() public virtual;
 
 // TODO(docs): everywhere in this contract
 
@@ -833,10 +801,8 @@ abstract contract Sphinx {
 
         require(create3Address.code.length == 0, "Sphinx: TODO(docs)");
 
-        // TODO(refactor): c/f LocalSphinxManager
-
-        // Deploy the user's contract to the CREATE3 address via the LocalSphinxManager. This
-        // mirrors what happens on live networks.
+        // Deploy the user's contract to the CREATE3 address via the SphinxCollector, which exists
+        // at the SphinxManager's address. This mirrors what happens on live networks.
         SphinxCollector(manager).deploy({
                 fullyQualifiedName: fullyQualifiedName,
                 initCode: vm.getCode(artifactPath),

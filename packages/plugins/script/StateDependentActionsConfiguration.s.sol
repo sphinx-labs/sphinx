@@ -32,7 +32,7 @@ contract StateDependentActionsConfiguration is SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         Box box = deployBox(2);
         box.addValue(3);
         stateDependentActions = deployStateDependentActions(box, 1);

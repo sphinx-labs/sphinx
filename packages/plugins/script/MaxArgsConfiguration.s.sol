@@ -37,7 +37,7 @@ contract MaxArgsConfiguration is SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         maxArgs = deployMaxArgs(
             1,
             2,

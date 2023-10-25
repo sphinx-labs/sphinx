@@ -12,7 +12,7 @@ contract ExecutorTest_Script is Script, SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         deployExecutorTest(42);
     }
 }

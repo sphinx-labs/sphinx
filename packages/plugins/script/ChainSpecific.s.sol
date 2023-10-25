@@ -13,12 +13,13 @@ import {
 import { SphinxUtils } from "@sphinx-labs/plugins/SphinxUtils.sol";
 import { SphinxClient } from "../client/SphinxClient.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../contracts/test/ChainSpecific.sol";
+import { SphinxTestUtils } from "../contracts/test/SphinxTestUtils.sol";
 
 /**
  * @dev A script meant to be inherited by test contracts in order to test multi-chain deployments
  *      that differ between networks. See AbstractChainSpecific.t.sol for corresponding tests.
  */
-contract ChainSpecific is SphinxClient {
+contract ChainSpecific is SphinxClient, SphinxTestUtils {
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -88,31 +89,31 @@ contract ChainSpecific is SphinxClient {
         manager = ISphinxManager(sphinxManager(sphinxConfig));
     }
 
-    function deploy(Network _network) public override virtual sphinx(_network) {
+    function run() public override virtual sphinx {
         setupVariables();
 
-        allNetworks = deployAllNetworks(chainSpecificConstructorArgs[_network], address(manager));
-        allNetworks.setFee(chainSpecificFee[_network]);
+        allNetworks = deployAllNetworks(chainSpecificConstructorArgs[getNetwork(block.chainid)], address(manager));
+        allNetworks.setFee(chainSpecificFee[getNetwork(block.chainid)]);
         uint256 fee = allNetworks.feeToAdd();
         allNetworks.incrementFee(fee);
         allNetworks.transferOwnership(finalOwner);
 
-        if (_network == Network.arbitrum) {
+        if (getNetwork(block.chainid) == Network.arbitrum) {
             onlyArbitrum = deployOnlyArbitrum();
             onlyArbitrum.increment();
             onlyArbitrum.increment();
-        } else if (_network == Network.arbitrum_goerli) {
+        } else if (getNetwork(block.chainid) == Network.arbitrum_goerli) {
             onlyArbitrumGoerliOne = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
             onlyArbitrumGoerliOne.decrement();
             onlyArbitrumGoerliOne.decrement();
             onlyArbitrumGoerliTwo = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
         }
 
-        if (_network == Network.optimism_goerli) {
+        if (getNetwork(block.chainid) == Network.optimism_goerli) {
             onlyOptimismGoerli = OnlyOptimism(onlyOptimismGoerli);
             onlyOptimismGoerli.incrementTwice();
             onlyOptimismGoerli.incrementTwice();
-        } else if (_network == Network.optimism) {
+        } else if (getNetwork(block.chainid) == Network.optimism) {
             onlyOptimism = OnlyOptimism(onlyOptimism);
             onlyOptimism.decrementTwice();
             onlyOptimism.decrementTwice();

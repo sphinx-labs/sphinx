@@ -188,23 +188,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return _data[_start:_end];
     }
 
-    function getBundleInfoFFI(
-        DeploymentInfo[] memory _deploymentInfoArray
-    ) external returns (bytes32, BundleInfo[] memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = string(abi.encodePacked(rootFfiPath, "get-bundle-info.js"));
-        cmds[3] = vm.toString(abi.encode(_deploymentInfoArray));
-
-        Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exitCode != 0) {
-            bytes memory revertMessage = abi.encodePacked("Sphinx: ", result.stderr);
-            revert(string(revertMessage));
-        }
-        return decodeBundleInfo(_deploymentInfoArray, result.stdout);
-    }
-
     function ffiDeployOnAnvil(string memory _rpcUrl, OptionalAddress memory _address) public {
         string[] memory cmds = new string[](6);
         cmds[0] = "npx";
@@ -581,81 +564,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return trimmedUniqueAddresses;
     }
 
-    /**
-     * @notice Decodes the bundle info data which is returned from the `get-bundle-info.ts` script that we call via FFI.
-     *         The BundleInfo[] data structure is too large to decode all at once and causes a "stack too deep" error. So
-     *         we have to loop through the deploymentInfo array and decode each bundle info struct individually. We also must
-     *         decode each field of the bundle info struct individually.
-     */
-    function decodeBundleInfo(
-        DeploymentInfo[] memory _deploymentInfoArray,
-        bytes memory _encodedData
-    ) private pure returns (bytes32, BundleInfo[] memory) {
-        string memory json = string(_encodedData);
-
-        BundleInfo[] memory bundleInfoArray = new BundleInfo[](_deploymentInfoArray.length);
-        for (uint256 i = 0; i < _deploymentInfoArray.length; i++) {
-            string memory networkName = findNetworkInfoByChainId(_deploymentInfoArray[i].chainId)
-                .name;
-
-            string memory configUri = vm.parseJsonString(
-                json,
-                string(abi.encodePacked(".chains.", networkName, ".configUri"))
-            );
-            HumanReadableAction[] memory humanReadableActions = abi.decode(
-                vm.parseJsonBytes(
-                    json,
-                    string(
-                        abi.encodePacked(".chains.", networkName, ".humanReadableActionsAbiEncoded")
-                    )
-                ),
-                (HumanReadableAction[])
-            );
-            bytes32 actionRoot = vm.parseJsonBytes32(
-                json,
-                string(abi.encodePacked(".chains.", networkName, ".actionBundle.root"))
-            );
-            BundledSphinxAction[] memory bundledActions = abi.decode(
-                vm.parseJsonBytes(
-                    json,
-                    string(
-                        abi.encodePacked(".chains.", networkName, ".actionBundle.actionsAbiEncoded")
-                    )
-                ),
-                (BundledSphinxAction[])
-            );
-            SphinxTargetBundle memory targetBundle = abi.decode(
-                vm.parseJsonBytes(
-                    json,
-                    string(abi.encodePacked(".chains.", networkName, ".targetBundleAbiEncoded"))
-                ),
-                (SphinxTargetBundle)
-            );
-            BundledAuthLeaf[] memory authLeafs = abi.decode(
-                vm.parseJsonBytes(
-                    json,
-                    string(
-                        abi.encodePacked(".chains.", networkName, ".authBundle.authLeafsAbiEncoded")
-                    )
-                ),
-                (BundledAuthLeaf[])
-            );
-
-            bundleInfoArray[i] = BundleInfo({
-                networkName: networkName,
-                configUri: configUri,
-                humanReadableActions: humanReadableActions,
-                actionBundle: SphinxActionBundle({ root: actionRoot, actions: bundledActions }),
-                targetBundle: targetBundle,
-                authLeafs: authLeafs
-            });
-        }
-
-        bytes32 authRoot = vm.parseJsonBytes32(json, ".authRoot");
-
-        return (authRoot, bundleInfoArray);
-    }
-
     function findNetworkInfoByName(
         string memory _networkName
     ) public pure returns (NetworkInfo memory) {
@@ -670,24 +578,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function findNetworkInfoByChainId(uint256 _chainId) public pure returns (NetworkInfo memory) {
-        NetworkInfo[] memory all = getNetworkInfoArray();
-        for (uint256 i = 0; i < all.length; i++) {
-            if (all[i].chainId == _chainId) {
-                return all[i];
-            }
-        }
-        revert(
-            string(
-                abi.encodePacked(
-                    "Sphinx: No network found with the chain ID: ",
-                    vm.toString(_chainId)
-                )
-            )
-        );
-    }
-
-    function getNetworkInfoArray() private pure returns (NetworkInfo[] memory) {
+    function getNetworkInfoArray() internal pure returns (NetworkInfo[] memory) {
         NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
         all[0] = NetworkInfo({
             network: Network.anvil,
@@ -1032,7 +923,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(SphinxConfig memory _config, Network _network) external view {
+    function validate(SphinxConfig memory _config) external view {
         require(
             bytes(_config.projectName).length > 0,
             "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
@@ -1126,20 +1017,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 abi.encodePacked(
                     "Sphinx: Your 'testnets' array contains invalid test networks: ",
                     toString(invalidTestnets)
-                )
-            )
-        );
-
-        require(
-            block.chainid == getNetworkInfo(_network).chainId,
-            string(
-                abi.encodePacked(
-                    "Sphinx: The 'block.chainid' does not match the chain ID of the network: ",
-                    getNetworkInfo(_network).name,
-                    "\nCurrent chain ID: ",
-                    vm.toString(block.chainid),
-                    "\nExpected chain ID: ",
-                    vm.toString(getNetworkInfo(_network).chainId)
                 )
             )
         );

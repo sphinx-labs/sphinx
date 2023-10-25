@@ -407,10 +407,19 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     }
   }
 
-  // TODO(refactor): sort them according to chain ID too, then update this doc string.
+  // TODO(docs): update this:
   // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
   // it easier to execute the auth leafs in order.
   const sorted = leafs.sort((a, b) => {
+    // First compare the chainId fields
+    if (a.chainId < b.chainId) {
+      return -1
+    }
+    if (a.chainId > b.chainId) {
+      return 1
+    }
+
+    // Chain ID is the same, now compare the index fields
     return a.index - b.index
   })
 

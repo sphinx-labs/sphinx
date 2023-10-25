@@ -70,7 +70,7 @@ contract TypeGenTest is Test, TypeGenTestConfig {
         myPredeployedExternalContractForInterface = new ExternalContract(1);
         alreadyDeployedContractAddress = address(myPredeployedExternalContract);
         alreadyDeployedContractAddressForInterface = address(myPredeployedExternalContractForInterface);
-        deploy(Network.anvil);
+        run();
     }
 
     // Covers deploying contracts with conflicting names

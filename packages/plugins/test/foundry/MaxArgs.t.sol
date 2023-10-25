@@ -7,7 +7,7 @@ import { MaxArgsConfiguration } from "../../script/MaxArgsConfiguration.s.sol";
 
 contract MaxArgsTest is Test, MaxArgsConfiguration {
     function setUp() public {
-        deploy(Network.anvil);
+        run();
     }
 
     function testValuesSetCorrectly() public {

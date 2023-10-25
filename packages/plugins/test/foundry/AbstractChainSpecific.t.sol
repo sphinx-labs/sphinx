@@ -6,7 +6,6 @@ import "sphinx-forge-std/Test.sol";
 import { AllNetworks, OnlyArbitrum, OnlyOptimism } from "../../contracts/test/ChainSpecific.sol";
 import { ChainSpecific } from "../../script/ChainSpecific.s.sol";
 import { Network, NetworkInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
 import { DeploymentState, DeploymentStatus } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
@@ -28,7 +27,7 @@ import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
  *      Additionally, the broadcast test suite tests that the deployment was successfully broadcasted
  *      onto the target network.
  */
-abstract contract AbstractChainSpecific_Test is Test, ChainSpecific, SphinxTestUtils {
+abstract contract AbstractChainSpecific_Test is Test, ChainSpecific {
 
     function testChainSpecificActionsExecuted() external virtual;
 

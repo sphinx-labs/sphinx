@@ -18,7 +18,7 @@ contract Create3_Script is Script, SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         noSalt = deployStateless(1, address(1), Version(0, 0, 0));
         withSalt = deployStateless(
             2,
@@ -30,24 +30,21 @@ contract Create3_Script is Script, SphinxClient {
 }
 
 contract Create3_Test is Create3_Script, Test {
-    Stateless statelessNoSalt;
-    Stateless statelessWithSalt;
-
     function setUp() external {
-        deploy(Network.anvil);
+        run();
     }
 
     function test_deploy_success() external {
-        assertGt(address(statelessNoSalt).code.length, 0);
-        assertEq(statelessNoSalt.immutableUint(), 1);
-        assertEq(statelessNoSalt.immutableAddress(), address(1));
+        assertGt(address(noSalt).code.length, 0);
+        assertEq(noSalt.immutableUint(), 1);
+        assertEq(noSalt.immutableAddress(), address(1));
 
-        assertGt(address(statelessWithSalt).code.length, 0);
-        assertEq(statelessWithSalt.immutableUint(), 2);
-        assertEq(statelessWithSalt.immutableAddress(), address(2));
+        assertGt(address(withSalt).code.length, 0);
+        assertEq(withSalt.immutableUint(), 2);
+        assertEq(withSalt.immutableAddress(), address(2));
     }
 
     function test_has_different_create3_address() external {
-        assertTrue(address(statelessNoSalt) != address(statelessWithSalt));
+        assertTrue(address(noSalt) != address(withSalt));
     }
 }

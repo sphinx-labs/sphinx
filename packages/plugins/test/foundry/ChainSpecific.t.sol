@@ -16,7 +16,7 @@ contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
 
         deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimism));
 
-        deploy(network);
+        run();
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -45,7 +45,7 @@ contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
 
         deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimismGoerli));
 
-        deploy(network);
+        run();
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -72,7 +72,7 @@ contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
         // Sanity check that the chain ID is correct.
         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-        deploy(network);
+        run();
     }
 
     // Nothing network-specific on this chain.
@@ -101,7 +101,7 @@ contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
         // Sanity check that the chain ID is correct.
         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-        deploy(network);
+        run();
     }
 
     // Nothing network-specific on this chain.
@@ -130,7 +130,7 @@ contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
         // Sanity check that the chain ID is correct.
         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-        deploy(network);
+        run();
     }
 
     function testChainSpecificActionsExecuted() external override {
@@ -159,7 +159,7 @@ contract ChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
         // Sanity check that the chain ID is correct.
         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-        deploy(network);
+        run();
     }
 
     function testChainSpecificActionsExecuted() external override {

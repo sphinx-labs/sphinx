@@ -1,6 +1,8 @@
 // // SPDX-License-Identifier: MIT
 // pragma solidity ^0.8.0;
 
+// TODO(test): uncomment this file
+
 // import { Vm } from "sphinx-forge-std/Vm.sol";
 // import { Script } from "sphinx-forge-std/Script.sol";
 // import { Test } from "sphinx-forge-std/Test.sol";
@@ -116,7 +118,7 @@
 //  */
 // contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants {
 
-//     function deploy(Network _network) public override virtual sphinx(_network) {
+//     function run() public override virtual sphinx {
 //         initialDeployment();
 //     }
 
@@ -165,7 +167,7 @@
 
 //     MyContract1 myNewContract;
 
-//     function deploy(Network _network) public override sphinx(_network) {
+//     function run() public override sphinx {
 //         initialDeployment();
 //         myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
 //     }
@@ -219,7 +221,7 @@
 //         sphinxConfig.testnets.push(newNetworks[1]);
 //     }
 
-//     function deploy(Network _network) public override virtual sphinx(_network) {
+//     function run() public override virtual sphinx {
 //         initialDeployment();
 //     }
 
@@ -286,7 +288,7 @@
 //         sphinxConfig.version = newVersion;
 //     }
 
-//     function deploy(Network _network) public override virtual sphinx(_network) {
+//     function run() public override virtual sphinx {
 //         initialDeployment();
 //         myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
 //     }
@@ -374,7 +376,7 @@
 
 //     MyContract1 myNewContract;
 
-//     function deploy(Network _network) public override virtual sphinx(_network) {
+//     function run() public override virtual sphinx {
 //         initialDeployment();
 //         myNewContract = deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
 //     }

@@ -18,12 +18,8 @@ contract Simple is Script, SphinxClient {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         MyContract1 myContract1 = deployMyContract1(-1, 2, address(1), address(2));
         myContract1.incrementUint();
-    }
-
-    function run() public {
-        deploy(Network.anvil);
     }
 }

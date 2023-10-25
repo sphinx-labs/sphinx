@@ -9,7 +9,7 @@ import {
 
 contract StateDependentActionsTest is Test, StateDependentActionsConfiguration {
     function setUp() public {
-        deploy(Network.anvil);
+        run();
     }
 
     function testConstructorBoxValue() public {

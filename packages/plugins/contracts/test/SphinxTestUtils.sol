@@ -2,17 +2,18 @@
 pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
-import { Network } from "../foundry/SphinxPluginTypes.sol";
+import { Network, NetworkInfo } from "../foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
-import { SphinxConstants, SphinxContractInfo } from "../../contracts/foundry/SphinxConstants.sol";
+import { SphinxConstants, SphinxContractInfo } from "../foundry/SphinxConstants.sol";
+import { SphinxUtils } from '../foundry/SphinxUtils.sol';
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
  *         because this file only contains helper functions for tests, whereas `SphinxUtils`
  *         contains helper functions for the plugin itself.
  */
-contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
+contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
     // Same as the `RawTx1559` struct defined in StdCheats.sol, except this struct has two
     // addditional fields: `additionalContracts` and `isFixedGasLimit`.
     struct AnvilBroadcastedTxn {
@@ -50,6 +51,24 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe {
         }
         return txns;
     }
+
+    function getNetwork(uint256 _chainId) public pure returns (Network) {
+        NetworkInfo[] memory all = getNetworkInfoArray();
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].chainId == _chainId) {
+                return all[i].network;
+            }
+        }
+        revert(
+            string(
+                abi.encodePacked(
+                    "No network found with the chain ID: ",
+                    vm.toString(_chainId)
+                )
+            )
+        );
+    }
+
 
     function createSelectAlchemyFork(Network _network) internal {
         string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");

@@ -273,7 +273,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         setupVariables();
 
         // Deploy two contracts with conflicting names

@@ -18,9 +18,5 @@ contract Empty is Script, SphinxClient {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function deploy(Network _network) public override sphinx(_network) {}
-
-    function run() public {
-        deploy(Network.anvil);
-    }
+    function run() public override sphinx {}
 }

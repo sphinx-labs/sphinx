@@ -51,7 +51,7 @@ contract HelloSphinxScript is SphinxClient {
         sphinxConfig.threshold = 1;
     }
 
-    function deploy(Network _network) public override sphinx(_network) {
+    function run() public override sphinx {
         helloSphinx = deployHelloSphinx("Hi!", 2);
         helloSphinx.add(8);
     }
@@ -83,7 +83,7 @@ import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 contract HelloSphinxTest is Test, HelloSphinxScript {
     function setUp() public override {
         HelloSphinxScript.setUp();
-        deploy(Network.anvil);
+        run();
     }
 
     function testDidDeploy() public {
