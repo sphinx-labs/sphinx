@@ -17,7 +17,7 @@ import {
   estimateExecutionCost,
   getManagedServiceAddress,
   SphinxJsonRpcProvider,
-  HumanReadableActions,
+  HumanReadableAction,
 } from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -194,7 +194,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   let bundles: SphinxBundles
   let compilerConfig: CompilerConfig
   let configArtifacts: ConfigArtifacts
-  let humanReadableActions: HumanReadableActions
+  let humanReadableActions: Array<HumanReadableAction>
 
   // Handle if the config cannot be fetched
   try {

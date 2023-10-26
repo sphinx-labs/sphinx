@@ -1,9 +1,13 @@
-import { resolve } from 'path'
+import { basename, join, resolve } from 'path'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 import {
+  DeploymentInfo,
   ProjectDeployment,
   ProposalRequest,
   ProposalRequestLeaf,
+  RawDeployContractActionInput,
+  RawFunctionCallActionInput,
   RoleType,
   WEBSITE_URL,
   elementsEqual,
@@ -22,14 +26,79 @@ import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
 
-import { collectProposal, makeParsedConfig } from '../../foundry/decode'
-import { getFoundryConfigOptions } from '../../foundry/options'
+import {
+  getCollectedSingleChainDeployment,
+  makeParsedConfig,
+  parseFoundryDryRun,
+} from '../../foundry/decode'
+import { FoundryToml, getFoundryConfigOptions } from '../../foundry/options'
 import { generateClient } from '../typegen/client'
 import {
   getBundleInfoArray,
   getUniqueFullyQualifiedNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
+import { FoundryDryRun } from '../../foundry/types'
+
+export const buildParsedConfigArray = async (
+  scriptPath: string,
+  proposerAddress: string,
+  isTestnet: boolean,
+  proposalNetworksPath: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+) => {
+  const foundryToml = await getFoundryConfigOptions()
+
+  const forgeScriptCollectArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxCollectProposal(address,bool,string)',
+    proposerAddress,
+    isTestnet.toString(),
+    proposalNetworksPath,
+    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+  ]
+  if (targetContract) {
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
+  }
+
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (spawnOutput.code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+
+  const collected = await collectProposal(
+    isTestnet,
+    proposerAddress,
+    scriptPath,
+    foundryToml,
+    targetContract,
+    spinner
+  )
+
+  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
+
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    foundryToml.artifactFolder,
+    foundryToml.buildInfoFolder,
+    foundryToml.cachePath
+  )
+  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
+
+  const parsedConfigArray = collected.map((c) =>
+    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts)
+  )
+
+  return { parsedConfigArray, configArtifacts }
+}
 
 /**
  * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
@@ -72,28 +141,27 @@ export const propose = async (
   spinner.start(`Collecting transactions...`)
 
   const foundryToml = await getFoundryConfigOptions()
+  const proposalNetworksPath = join(
+    foundryToml.cachePath,
+    'sphinx-proposal-networks.txt'
+  )
 
-  const collected = await collectProposal(
-    isTestnet,
-    proposer.address,
+  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
+  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
+  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
+  if (existsSync(proposalNetworksPath)) {
+    unlinkSync(proposalNetworksPath)
+  }
+
+  const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
-    foundryToml,
+    proposer.address,
+    isTestnet,
+    proposalNetworksPath,
     targetContract,
     spinner
   )
 
-  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    foundryToml.cachePath
-  )
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
-
-  const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts)
-  )
   const { authRoot, bundleInfoArray } = await getBundleInfoArray(
     configArtifacts,
     parsedConfigArray
@@ -313,4 +381,97 @@ export const propose = async (
     )
   }
   return { proposalRequest, ipfsData: compilerConfigArray }
+}
+
+export const collectProposal = async (
+  isTestnet: boolean,
+  proposerAddress: string,
+  scriptPath: string,
+  foundryToml: FoundryToml,
+  targetContract?: string,
+  spinner = ora({ isSilent: true })
+): Promise<
+  Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<
+      RawDeployContractActionInput | RawFunctionCallActionInput
+    >
+  }>
+> => {
+  const proposalNetworksPath = join(
+    foundryToml.cachePath,
+    'sphinx-proposal-networks.txt'
+  )
+
+  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
+  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
+  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
+  if (existsSync(proposalNetworksPath)) {
+    unlinkSync(proposalNetworksPath)
+  }
+
+  const forgeScriptCollectArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxCollectProposal(address,bool,string)',
+    proposerAddress,
+    isTestnet.toString(),
+    proposalNetworksPath,
+    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+  ]
+  if (targetContract) {
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
+  }
+
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (spawnOutput.code !== 0) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+
+  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
+  const networkNames = allNetworksStr.split(',')
+
+  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxCollectorABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${foundryToml.artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+    )).abi
+
+  if (networkNames.length === 1) {
+    return [
+      getCollectedSingleChainDeployment(
+        networkNames[0],
+        scriptPath,
+        foundryToml.broadcastFolder,
+        sphinxCollectorABI,
+        'sphinxCollectProposal'
+      ),
+    ]
+  } else {
+    // TODO(docs): e.g. broadcast/multi/dry-run/Sample.s.sol-latest/sphinxCollectProposal.json
+    const dryRunPath = join(
+      foundryToml.broadcastFolder,
+      'multi',
+      'dry-run',
+      `${basename(scriptPath)}-latest`,
+      'sphinxCollectProposal.json'
+    )
+
+    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
+      readFileSync(dryRunPath, 'utf8')
+    ).deployments
+
+    return multichainDryRun.map((dryRun) =>
+      parseFoundryDryRun(dryRun, sphinxCollectorABI)
+    )
+  }
 }

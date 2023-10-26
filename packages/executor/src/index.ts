@@ -28,7 +28,7 @@ import {
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
-const defaultURL = 'http://127.0.0.1:8545'
+const defaultURL = 'http://127.0.0.1:42420'
 export class SphinxExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,

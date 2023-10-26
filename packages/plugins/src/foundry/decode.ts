@@ -162,59 +162,6 @@ export const decodeProposalOutput = (
   return output as ProposalOutput
 }
 
-export const readCollectedProposal = (
-  networkNames: Array<string>,
-  scriptPath: string,
-  broadcastFolder: string,
-  sphinxCollectorABI: Array<any>
-): Array<{
-  deploymentInfo: DeploymentInfo
-  actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
-}> => {
-  networkNames
-  scriptPath
-  broadcastFolder
-  sphinxCollectorABI
-
-  const collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
-  }> = []
-
-  if (networkNames.length === 1) {
-    return [
-      getCollectedSingleChainDeployment(
-        networkNames[0],
-        scriptPath,
-        broadcastFolder,
-        sphinxCollectorABI,
-        'sphinxCollectProposal'
-      ),
-    ]
-  } else {
-    // TODO(docs): e.g. broadcast/multi/dry-run/Sample.s.sol-latest/sphinxCollectProposal.json
-    const dryRunPath = join(
-      broadcastFolder,
-      'multi',
-      'dry-run',
-      `${basename(scriptPath)}-latest`,
-      'sphinxCollectProposal.json'
-    )
-
-    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
-      readFileSync(dryRunPath, 'utf8')
-    ).deployments
-
-    for (const dryRun of multichainDryRun) {
-      collected.push(parseFoundryDryRun(dryRun, sphinxCollectorABI))
-    }
-  }
-
-  return collected
-}
-
 export const getCollectedSingleChainDeployment = (
   networkName: string,
   scriptPath: string,
@@ -242,7 +189,7 @@ export const getCollectedSingleChainDeployment = (
   return parseFoundryDryRun(dryRun, sphinxCollectorABI)
 }
 
-const parseFoundryDryRun = (
+export const parseFoundryDryRun = (
   dryRun: FoundryDryRun,
   sphinxCollectorABI: Array<any>
 ): {
@@ -443,75 +390,4 @@ export const makeParsedConfig = (
     actionInputs,
     remoteExecution: !isLiveNetwork, // TODO(docs)
   }
-}
-
-export const collectProposal = async (
-  isTestnet: boolean,
-  proposerAddress: string,
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  targetContract?: string,
-  spinner = ora({ isSilent: true })
-): Promise<
-  Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
-  }>
-> => {
-  const proposalNetworksPath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-networks.txt'
-  )
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
-    proposerAddress,
-    isTestnet.toString(),
-    proposalNetworksPath,
-    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
-
-  if (spawnOutput.code !== 0) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
-
-  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
-  const networks = allNetworksStr.split(',')
-
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${foundryToml.artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
-    )).abi
-
-  return readCollectedProposal(
-    networks,
-    scriptPath,
-    foundryToml.broadcastFolder,
-    sphinxCollectorABI
-  )
 }
