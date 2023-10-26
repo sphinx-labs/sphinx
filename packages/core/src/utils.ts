@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import { promisify } from 'util'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
@@ -15,24 +15,17 @@ import {
   AbiCoder,
   Provider,
   JsonRpcSigner,
-  ConstructorFragment,
 } from 'ethers'
 import {
   ProxyArtifact,
   SphinxRegistryABI,
   SphinxManagerABI,
   ProxyABI,
-  AuthABI,
   AuthFactoryABI,
 } from '@sphinx-labs/contracts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
-import {
-  ProxyDeployment,
-  UpgradeableContract,
-  ValidationOptions,
-  withValidationDefaults,
-} from '@openzeppelin/upgrades-core'
+import { ProxyDeployment } from '@openzeppelin/upgrades-core'
 import {
   ParsedTypeDetailed,
   StorageItem,
@@ -42,99 +35,65 @@ import {
   StorageLayoutComparator,
   stripContractSubstrings,
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
-import {
-  CompilerInput,
-  HttpNetworkConfig,
-  NetworkConfig,
-  SolcBuild,
-} from 'hardhat/types'
+import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CompilerConfig,
   UserContractKind,
   userContractKinds,
-  ParsedContractConfig,
   ContractKind,
-  ParsedConfigVariables,
-  ParsedConfigVariable,
-  ConfigArtifacts,
-  GetCanonicalConfig,
-  UserConfigWithOptions,
-  CanonicalConfig,
+  ParsedVariable,
   ParsedConfig,
-  ParsedConfigWithOptions,
-  NetworkType,
-  ParsedContractConfigs,
-  UserConstructorArgOverride,
-  UserArgOverride,
-  UserFunctionArgOverride,
-  UserConfigVariable,
-  UserCallAction,
-  ValidManagerVersion,
-  UserFunctionOptions,
-  ConfigCache,
+  DecodedFunctionCallActionInput,
+  DeployContractActionInput,
+  BuildInfoRemote,
+  ConfigArtifactsRemote,
+  RawFunctionCallActionInput,
+  RawDeployContractActionInput,
+  ActionInput,
 } from './config/types'
 import {
   SphinxActionBundle,
   SphinxActionType,
-  SphinxBundles,
   DeploymentState,
   IPFSCommitResponse,
   ProposalRequest,
+  SphinxTargetBundle,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import {
-  AUTH_FACTORY_ADDRESS,
-  getAuthAddress,
-  getSphinxManagerAddress,
-  getSphinxRegistryAddress,
-} from './addresses'
+import { AUTH_FACTORY_ADDRESS, getSphinxRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
   CompilerOutput,
   ContractArtifact,
 } from './languages/solidity/types'
-import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   fromRawSphinxAction,
   getDeployContractActions,
   isSetStorageAction,
 } from './actions/bundle'
-import { getCreate3Address } from './config/utils'
-import { assertValidConfigOptions, parseConfigOptions } from './config/parse'
-import { SphinxRuntimeEnvironment, FailureAction } from './types'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
+  SupportedNetworkName,
 } from './networks'
 
-export const parseSemverVersion = (version: ValidManagerVersion) => {
-  const numbers = version
-    .replace('v', '')
-    .split('.')
-    .map((n) => parseInt(n, 10))
-  return {
-    major: numbers[0],
-    minor: numbers[1],
-    patch: numbers[2],
-  }
-}
-
 export const getDeploymentId = (
-  bundles: SphinxBundles,
+  actionBundle: SphinxActionBundle,
+  targetBundle: SphinxTargetBundle,
   configUri: string
 ): string => {
-  const actionRoot = bundles.actionBundle.root
-  const targetRoot = bundles.targetBundle.root
-  const numTargets = bundles.targetBundle.targets.length
+  const actionRoot = actionBundle.root
+  const targetRoot = targetBundle.root
+  const numTargets = targetBundle.targets.length
 
-  const numTotalActions = bundles.actionBundle.actions.length
-  const numSetStorageActions = bundles.actionBundle.actions
+  const numTotalActions = actionBundle.actions.length
+  const numSetStorageActions = actionBundle.actions
     .map((action) => fromRawSphinxAction(action.action))
     .filter(isSetStorageAction).length
   const numInitialActions = numTotalActions - numSetStorageActions
@@ -201,20 +160,6 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
   )
 
   return initCode
-}
-
-export const checkIsUpgrade = async (
-  provider: ethers.Provider,
-  parsedConfig: ParsedConfig
-): Promise<boolean | string> => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if (await isContractDeployed(contractConfig.address, provider)) {
-      return referenceName
-    }
-  }
-  return false
 }
 
 /**
@@ -309,24 +254,6 @@ export const createSphinxLog = (
   return parts.join('\n') + '\n'
 }
 
-export const displayDeploymentTable = (
-  parsedConfig: ParsedConfig,
-  silent: boolean
-) => {
-  if (!silent) {
-    const deployments = {}
-    Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) => {
-        deployments[i + 1] = {
-          Contract: referenceName,
-          Address: contractConfig.address,
-        }
-      }
-    )
-    console.table(deployments)
-  }
-}
-
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
   return new Contract(proxyAddress, ProxyABI, signer)
 }
@@ -334,7 +261,7 @@ export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
 export const getCurrentSphinxActionType = (
   bundle: SphinxActionBundle,
   actionsExecuted: bigint
-): SphinxActionType => {
+): bigint => {
   return bundle.actions[Number(actionsExecuted)].action.actionType
 }
 
@@ -347,41 +274,6 @@ export const isContractDeployed = async (
 
 export const formatEther = (amount: bigint, decimals: number): string => {
   return parseFloat(ethers.formatEther(amount)).toFixed(decimals)
-}
-
-export const readCompilerConfig = async (
-  compilerConfigFolderPath: string,
-  configUri: string
-): Promise<CompilerConfig | undefined> => {
-  const ipfsHash = configUri.replace('ipfs://', '')
-
-  // Check that the file containing the canonical config exists.
-  const configFilePath = path.join(compilerConfigFolderPath, `${ipfsHash}.json`)
-  if (!fs.existsSync(configFilePath)) {
-    return undefined
-  }
-
-  return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
-}
-
-export const writeCompilerConfig = (
-  compilerConfigDirPath: string,
-  configUri: string,
-  compilerConfig: CompilerConfig
-) => {
-  const ipfsHash = configUri.replace('ipfs://', '')
-
-  // Create the canonical config network folder if it doesn't already exist.
-  if (!fs.existsSync(compilerConfigDirPath)) {
-    fs.mkdirSync(compilerConfigDirPath, { recursive: true })
-  }
-
-  // Write the canonical config to the local file system. It will exist in a JSON file that has the
-  // config URI as its name.
-  fs.writeFileSync(
-    path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-    JSON.stringify(compilerConfig, null, 2)
-  )
 }
 
 export const getEIP1967ProxyImplementationAddress = async (
@@ -655,8 +547,19 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const compilationTarget = artifact.metadata.settings.compilationTarget
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
+  const metadata = artifact.metadata
 
-  return { abi, bytecode, sourceName, contractName, deployedBytecode }
+  return {
+    abi,
+    bytecode,
+    sourceName,
+    contractName,
+    deployedBytecode,
+    metadata,
+    methodIdentifiers: artifact.methodIdentifiers,
+    gasEstimates: artifact.gasEstimates,
+    storageLayout: artifact.storageLayout,
+  }
 }
 
 export const isEqualType = (
@@ -693,10 +596,10 @@ export const isEqualType = (
  * which can be used by ethers.js and Etherscan.
  */
 export const getFunctionArgValueArray = (
-  args: ParsedConfigVariables,
+  args: ParsedVariable,
   fragment?: Fragment
-): Array<ParsedConfigVariable> => {
-  const argValues: Array<ParsedConfigVariable> = []
+): Array<ParsedVariable> => {
+  const argValues: Array<ParsedVariable> = []
 
   if (fragment === undefined) {
     return argValues
@@ -707,24 +610,6 @@ export const getFunctionArgValueArray = (
   })
 
   return argValues
-}
-
-export const getCreationCodeWithConstructorArgs = (
-  bytecode: string,
-  constructorArgs: ParsedConfigVariables,
-  abi: ContractArtifact['abi']
-): string => {
-  const iface = new ethers.Interface(abi)
-  const constructorArgValues = getFunctionArgValueArray(
-    constructorArgs,
-    iface.fragments.find(ConstructorFragment.isFragment)
-  )
-
-  const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(iface.encodeDeploy(constructorArgValues))
-  )
-
-  return creationCodeWithConstructorArgs
 }
 
 /**
@@ -771,72 +656,73 @@ export const toOpenZeppelinContractKind = (
   }
 }
 
-export const getOpenZeppelinValidationOpts = (
-  contractConfig: ParsedContractConfig
-): Required<ValidationOptions> => {
-  type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
+// export const getOpenZeppelinValidationOpts = (
+//   contractConfig: ParsedContractConfig
+// ): Required<ValidationOptions> => {
+//   type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
 
-  const unsafeAllow: UnsafeAllow = [
-    'state-variable-assignment',
-    'constructor',
-    'state-variable-immutable',
-  ]
-  if (contractConfig.unsafeAllow?.delegatecall) {
-    unsafeAllow.push('delegatecall')
-  }
-  if (contractConfig.unsafeAllow?.selfdestruct) {
-    unsafeAllow.push('selfdestruct')
-  }
-  if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
-    unsafeAllow.push('missing-public-upgradeto')
-  }
+//   const unsafeAllow: UnsafeAllow = [
+//     'state-variable-assignment',
+//     'constructor',
+//     'state-variable-immutable',
+//   ]
+//   if (contractConfig.unsafeAllow?.delegatecall) {
+//     unsafeAllow.push('delegatecall')
+//   }
+//   if (contractConfig.unsafeAllow?.selfdestruct) {
+//     unsafeAllow.push('selfdestruct')
+//   }
+//   if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+//     unsafeAllow.push('missing-public-upgradeto')
+//   }
 
-  const { renames, skipStorageCheck } = contractConfig.unsafeAllow
+//   const { renames, skipStorageCheck } = contractConfig.unsafeAllow
 
-  const options = {
-    kind: toOpenZeppelinContractKind(contractConfig.kind),
-    unsafeAllow,
-    unsafeAllowRenames: renames,
-    unsafeSkipStorageCheck: skipStorageCheck,
-  }
+//   const options = {
+//     kind: toOpenZeppelinContractKind(contractConfig.kind),
+//     unsafeAllow,
+//     unsafeAllowRenames: renames,
+//     unsafeSkipStorageCheck: skipStorageCheck,
+//   }
 
-  return withValidationDefaults(options)
-}
+//   return withValidationDefaults(options)
+// }
 
-export const getOpenZeppelinUpgradableContract = (
-  fullyQualifiedName: string,
-  compilerInput: CompilerInput,
-  compilerOutput: CompilerOutput,
-  contractConfig: ParsedContractConfig
-): UpgradeableContract => {
-  const options = getOpenZeppelinValidationOpts(contractConfig)
+// TODO(upgrades)
+// export const getOpenZeppelinUpgradableContract = (
+//   fullyQualifiedName: string,
+//   compilerInput: CompilerInput,
+//   compilerOutput: CompilerOutput,
+//   contractConfig: ParsedContractConfig
+// ): UpgradeableContract => {
+//   const options = getOpenZeppelinValidationOpts(contractConfig)
 
-  // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
-  // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
-  const tmp = console.error
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  console.error = () => {}
+//   // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+//   // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+//   const tmp = console.error
+//   // eslint-disable-next-line @typescript-eslint/no-empty-function
+//   console.error = () => {}
 
-  // fetch the contract and validate
-  // We use a try catch and then rethrow any errors because we temporarily disabled console.error
-  try {
-    const contract = new UpgradeableContract(
-      fullyQualifiedName,
-      compilerInput,
-      // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
-      // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
-      // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
-      // `CompilerOutput`, which is what OpenZeppelin expects.
-      compilerOutput as any,
-      options
-    )
-    // revert to standard console.error
-    console.error = tmp
-    return contract
-  } catch (e) {
-    throw e
-  }
-}
+//   // fetch the contract and validate
+//   // We use a try catch and then rethrow any errors because we temporarily disabled console.error
+//   try {
+//     const contract = new UpgradeableContract(
+//       fullyQualifiedName,
+//       compilerInput,
+//       // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
+//       // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
+//       // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
+//       // `CompilerOutput`, which is what OpenZeppelin expects.
+//       compilerOutput as any,
+//       options
+//     )
+//     // revert to standard console.error
+//     console.error = tmp
+//     return contract
+//   } catch (e) {
+//     throw e
+//   }
+// }
 
 export const getPreviousConfigUri = async (
   provider: Provider,
@@ -880,37 +766,10 @@ export const getPreviousConfigUri = async (
   return deploymentState.configUri
 }
 
-export const fetchAndCacheCompilerConfig = async (
-  configUri: string,
-  compilerConfigFolderPath: string
-): Promise<CompilerConfig> => {
-  const localCompilerConfig = await readCompilerConfig(
-    compilerConfigFolderPath,
-    configUri
-  )
-  if (localCompilerConfig) {
-    return localCompilerConfig
-  } else {
-    const remoteCompilerConfig = await callWithTimeout<CompilerConfig>(
-      sphinxFetchSubtask({ configUri }),
-      30000,
-      'Failed to fetch config file from IPFS'
-    )
-
-    // Cache the canonical config by saving it to the local filesystem.
-    writeCompilerConfig(
-      compilerConfigFolderPath,
-      configUri,
-      remoteCompilerConfig
-    )
-    return remoteCompilerConfig
-  }
-}
-
 export const getConfigArtifactsRemote = async (
   compilerConfig: CompilerConfig
-): Promise<ConfigArtifacts> => {
-  const solcArray: BuildInfo[] = []
+): Promise<ConfigArtifactsRemote> => {
+  const solcArray: BuildInfoRemote[] = []
   // Get the compiler output for each compiler input.
   for (const sphinxInput of compilerConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
@@ -949,30 +808,41 @@ export const getConfigArtifactsRemote = async (
     })
   }
 
-  const artifacts: ConfigArtifacts = {}
-  // Generate an artifact for each contract in the Sphinx config.
-  for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
-  )) {
+  const artifacts: ConfigArtifactsRemote = {}
+  const unskippedContractDeployments = compilerConfig.actionInputs
+    .filter((a) => !a.skip)
+    .filter(isDeployContractActionInput)
+  for (const actionInput of unskippedContractDeployments) {
+    const { fullyQualifiedName } = actionInput
     // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = contractConfig.contract.split(':')
+    const [sourceName, contractName] = actionInput.fullyQualifiedName.split(':')
 
-    for (const buildInfo of solcArray) {
-      const contractOutput =
-        buildInfo.output.contracts[sourceName][contractName]
+    const buildInfo = solcArray.find(
+      (e) => e.output.contracts[sourceName][contractName]
+    )
+    if (!buildInfo) {
+      throw new Error(
+        `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+      )
+    }
+    const contractOutput = buildInfo.output.contracts[sourceName][contractName]
 
-      if (contractOutput !== undefined) {
-        artifacts[referenceName] = {
-          buildInfo,
-          artifact: {
-            abi: contractOutput.abi,
-            sourceName,
-            contractName,
-            bytecode: add0x(contractOutput.evm.bytecode.object),
-            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-          },
-        }
-      }
+    const metadata =
+      typeof contractOutput.metadata === 'string'
+        ? JSON.parse(contractOutput.metadata)
+        : contractOutput.metadata
+    artifacts[fullyQualifiedName] = {
+      buildInfo,
+      artifact: {
+        abi: contractOutput.abi,
+        sourceName,
+        contractName,
+        bytecode: add0x(contractOutput.evm.bytecode.object),
+        deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+        gasEstimates: contractOutput.evm.gasEstimates,
+        methodIdentifiers: contractOutput.evm.methodIdentifiers,
+        metadata,
+      },
     }
   }
   return artifacts
@@ -1029,9 +899,9 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.isHexString(variable) && variable.length % 2 === 0
 }
 
-export const getNetworkType = async (
+export const isLiveNetwork = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<NetworkType> => {
+): Promise<boolean> => {
   try {
     // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
     // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
@@ -1039,16 +909,9 @@ export const getNetworkType = async (
     // https://book.getfoundry.sh/reference/anvil/#custom-methods
     await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
   } catch (err) {
-    return NetworkType.LIVE_NETWORK
+    return true
   }
-
-  try {
-    // This RPC method will throw an error on Hardhat but not Anvil. This includes forked networks.
-    await provider.send('anvil_impersonateAccount', [ethers.ZeroAddress])
-    return NetworkType.ANVIL
-  } catch (err) {
-    return NetworkType.HARDHAT
-  }
+  return false
 }
 
 export const getImpersonatedSigner = async (
@@ -1137,29 +1000,6 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
 }
 
 /**
- * Returns the address of a proxy's implementation contract that would be deployed by Sphinx via
- * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
- * includes constructor arguments. This essentially mimics the behavior of Create2 in the sense that
- * the implementation's address has a one-to-one mapping with its init code. This makes it easy to
- * detect if an implementation contract with the exact same bytecode is already deployed, which
- * allows us to skip deploying unnecessary implementations.
- */
-export const getImplAddress = (
-  managerAddress: string,
-  bytecode: string,
-  constructorArgs: ParsedConfigVariables,
-  abi: ContractArtifact['abi']
-): string => {
-  const implInitCode = getCreationCodeWithConstructorArgs(
-    bytecode,
-    constructorArgs,
-    abi
-  )
-  const implSalt = ethers.keccak256(implInitCode)
-  return getCreate3Address(managerAddress, implSalt)
-}
-
-/**
  * @notice Stderr and stdout can be retrieved from the `stderr` and `stdout` properties of the
  * returned object. Error can be caught by wrapping the function in a try/catch block.
  */
@@ -1169,79 +1009,6 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
   return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
 }
 
-/**
- * @notice Gets various fields related to the Sphinx config from the back-end if it exists.
- * If it doesn't exist, it returns a new canonicalConfigFolderPath with default parameters for the config
- * options.
- *
- * @returns {chainIds, prevConfig, isNewConfig} where the `chainIds` array contains the chain IDs
- * in the current config. The `prevConfig` variable is the most recent CanonicalConfig,
- * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevConfig` is a new
- * config, i.e. it has not been used to setup the project on any chain.
- */
-export const getProjectConfigInfo = async (
-  getCanonicalConfig: GetCanonicalConfig,
-  userConfig: UserConfigWithOptions,
-  isTestnet: boolean,
-  apiKey: string,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction
-): Promise<{
-  chainIds: Array<number>
-  prevConfig: CanonicalConfig
-  isNewConfig: boolean
-}> => {
-  assertValidConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
-
-  const { projectName } = userConfig
-
-  const prevConfig = await getCanonicalConfig(
-    parsedConfigOptions.orgId,
-    isTestnet,
-    apiKey,
-    userConfig.projectName
-  )
-
-  if (prevConfig) {
-    return {
-      prevConfig,
-      isNewConfig: false,
-      chainIds: parsedConfigOptions.chainIds,
-    }
-  } else {
-    const { owners, ownerThreshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(owners, ownerThreshold, projectName)
-    const manager = getSphinxManagerAddress(auth, projectName)
-    const emptyConfig = getEmptyCanonicalConfig(
-      chainIds,
-      manager,
-      orgId,
-      projectName
-    )
-    return { prevConfig: emptyConfig, isNewConfig: true, chainIds }
-  }
-}
-
-export const fetchCanonicalConfig = async (
-  orgId: string,
-  isTestnet: boolean,
-  apiKey: string,
-  projectName: string
-): Promise<CanonicalConfig | undefined> => {
-  const response = await axios.post(
-    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
-    {
-      apiKey,
-      isTestnet,
-      orgId,
-      projectName,
-    }
-  )
-  const config: CanonicalConfig | undefined = response.data
-  return config
-}
-
 export const fetchSphinxManagedBaseUrl = () => {
   return process.env.SPHINX_MANAGED_BASE_URL
     ? process.env.SPHINX_MANAGED_BASE_URL
@@ -1249,7 +1016,6 @@ export const fetchSphinxManagedBaseUrl = () => {
 }
 
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
-  // TODO: return undefined if the request returns an empty object.
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,
@@ -1308,92 +1074,6 @@ export const relayIPFSCommit = async (
   }
 }
 
-/**
- * @notice Returns a new CanonicalConfig with default parameters for the config options.
- * This is useful when the user is attempting to propose a completely new config, since
- * there is no previous config to use as a starting point yet.
- */
-export const getEmptyCanonicalConfig = (
-  chainIds: Array<number>,
-  manager: string,
-  orgId: string,
-  projectName: string
-): CanonicalConfig => {
-  if (chainIds.length === 0) {
-    throw new Error(`Must provide at least one chain ID.`)
-  }
-
-  const chainStates = {}
-
-  chainIds.forEach((chainId) => {
-    chainStates[chainId] = {
-      firstProposalOccurred: false,
-      projectCreated: false,
-    }
-  })
-
-  return {
-    projectName,
-    manager,
-    options: {
-      orgId,
-      owners: [],
-      ownerThreshold: 0,
-      proposers: [],
-      managerVersion: 'v0.2.4',
-    },
-    chainStates,
-  }
-}
-
-/**
- * Converts a parsed config into a canonical config. Assumes that the `SphinxAuth`
- * contract has been created on each chain.
- *
- * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
- * for each chain ID in the parsed config.
- */
-export const toCanonicalConfig = async (
-  parsedConfig: ParsedConfigWithOptions,
-  managerAddress: string,
-  authAddress: string,
-  rpcProviders: Record<string, SphinxJsonRpcProvider>
-): Promise<CanonicalConfig> => {
-  const { projectName } = parsedConfig
-  const chainStates = {}
-
-  for (const chainId of parsedConfig.options.chainIds) {
-    const network = findNetwork(chainId)
-
-    if (!network) {
-      throw new Error(`Unsupported chain ID: ${chainId}`)
-    }
-    const provider = rpcProviders[network]
-    if (!parsedConfig.options.chainIds.includes(chainId)) {
-      throw new Error(
-        `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
-      )
-    }
-
-    const Auth = new ethers.Contract(authAddress, AuthABI, provider)
-    const firstProposalOccurred = await Auth.firstProposalOccurred()
-
-    const projectCreated = await isProjectCreated(provider, authAddress)
-
-    chainStates[chainId] = {
-      firstProposalOccurred,
-      projectCreated,
-    }
-  }
-
-  return {
-    projectName,
-    manager: managerAddress,
-    options: parsedConfig.options,
-    chainStates,
-  }
-}
-
 export const isProjectCreated = async (
   provider: Provider,
   authAddress: string
@@ -1420,8 +1100,8 @@ export const findNetwork = (chainId: number): string => {
 }
 
 export const arraysEqual = (
-  a: Array<string | ParsedConfigVariable>,
-  b: Array<string | ParsedConfigVariable>
+  a: Array<ParsedVariable>,
+  b: Array<ParsedVariable>
 ): boolean => {
   if (a.length !== b.length) {
     return false
@@ -1458,7 +1138,7 @@ export const resolveNetwork = async (
     chainId: number | bigint
     name: string
   },
-  networkType: NetworkType
+  isLiveNetwork_: boolean
 ): Promise<{
   networkName: string
   chainId: number
@@ -1475,10 +1155,8 @@ export const resolveNetwork = async (
     )
     if (supportedNetwork) {
       return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
-    } else if (networkType === NetworkType.ANVIL) {
-      return { chainId: chainIdNumber, networkName: 'anvil' }
-    } else if (networkType === NetworkType.HARDHAT) {
-      return { chainId: chainIdNumber, networkName: 'hardhat' }
+    } else if (!isLiveNetwork_) {
+      return { chainId: chainIdNumber, networkName: 'local' }
     } else {
       // The network is an unsupported live network.
       throw new Error(`Unsupported network: ${chainIdNumber}`)
@@ -1503,10 +1181,10 @@ export const resolveNetwork = async (
  */
 export const getNetworkDirName = (
   networkName: string,
-  networkType: NetworkType,
+  isLiveNetwork_: boolean,
   chainId: number
 ): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
+  if (isLiveNetwork_) {
     return networkName
   } else if (networkName === 'anvil' || networkName === 'hardhat') {
     return `${networkName}-${chainId}`
@@ -1516,7 +1194,7 @@ export const getNetworkDirName = (
 }
 
 /**
- * @notice Returns a string that describes a network, which is used in the diff. A network tag can
+ * @notice Returns a string that describes a network, which is used in the preview. A network tag can
  * take three forms (in order of precedence):
  *
  * 1. `networkName` if the network is a live network. For example, 'ethereum'.
@@ -1527,15 +1205,15 @@ export const getNetworkDirName = (
  * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
  * `anvil --chain-id 5`.
  *
- * 3. `<hardhat/anvil> (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
- * example, 'hardhat-31337'.
+ * 3. `local (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
+ * example, 'local (chain ID: 31337)'.
  */
 export const getNetworkTag = (
   networkName: string,
-  networkType: NetworkType,
-  chainId: number
+  isLiveNetwork_: boolean,
+  chainId: bigint
 ): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
+  if (isLiveNetwork_) {
     return networkName
   } else if (
     Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
@@ -1543,19 +1221,17 @@ export const getNetworkTag = (
   ) {
     return `${networkName} (local)`
   } else {
-    const localNetworkType =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkType} (chain ID: ${chainId})`
+    return `local (chain ID: ${chainId})`
   }
 }
 
-export const getNetworkNameForChainId = (chainId: number): string => {
+export const getNetworkNameForChainId = (chainId: bigint): string => {
   const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === chainId
+    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
   )
 
   if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
+    return 'unknown'
   }
 
   return network
@@ -1666,78 +1342,19 @@ export const isHttpNetworkConfig = (
   return 'url' in config
 }
 
-export const getCallHash = (to: string, data: string): string => {
-  return ethers.keccak256(
-    AbiCoder.defaultAbiCoder().encode(['address', 'bytes'], [to, data])
-  )
-}
-
-export const findReferenceNameForAddress = (
-  address: string,
-  contractConfigs: ParsedContractConfigs
-): string | undefined => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    if (
-      ethers.getAddress(contractConfig.address) === ethers.getAddress(address)
-    ) {
-      return referenceName
-    }
-  }
-  return undefined
-}
-
 export const isSupportedChainId = (
-  chainId: number
+  chainId: number | bigint
 ): chainId is SupportedChainId => {
   return Object.values(SUPPORTED_NETWORKS).some(
-    (supportedChainId) => supportedChainId === chainId
+    (supportedChainId) => supportedChainId === Number(chainId)
   )
 }
 
-export const isUserConstructorArgOverride = (
-  arg: UserArgOverride
-): arg is UserConstructorArgOverride => {
-  return (arg as UserConstructorArgOverride).constructorArgs !== undefined
-}
-
-export const isUserFunctionOptions = (
-  arg: UserConfigVariable | UserFunctionOptions | undefined
-): arg is UserFunctionOptions => {
-  return (
-    arg !== undefined &&
-    isUserFunctionArgOverrideArray((arg as UserFunctionOptions).overrides)
-  )
-}
-
-export const isUserFunctionArgOverrideArray = (
-  arg: Array<UserArgOverride> | UserConfigVariable | undefined
-): arg is Array<UserFunctionArgOverride> => {
-  return (
-    Array.isArray(arg) &&
-    arg.every((e) => {
-      return (e as UserFunctionArgOverride).args !== undefined
-    })
-  )
-}
-
-export const getCallActionAddressForNetwork = (
-  networkName: string,
-  callAction: UserCallAction
-): string => {
-  const { address: defaultAddress, addressOverrides } = callAction
-  if (addressOverrides === undefined) {
-    return defaultAddress
-  }
-
-  for (const override of addressOverrides) {
-    if (override.chains.includes(networkName)) {
-      return override.address
-    }
-  }
-
-  return defaultAddress
+export const isSupportedNetworkName = (
+  networkName: string
+): networkName is SupportedNetworkName => {
+  const chainId = SUPPORTED_NETWORKS[networkName]
+  return chainId !== undefined
 }
 
 /**
@@ -1751,7 +1368,7 @@ export const getCallActionAddressForNetwork = (
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
   functionName: string,
-  variables: ParsedConfigVariables | Array<UserConfigVariable>,
+  variables: ParsedVariable,
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
@@ -1775,6 +1392,10 @@ export const prettyFunctionCall = (
   return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
 }
 
+export const prettyRawFunctionCall = (to: string, data: string): string => {
+  return `(${to}).${data}`
+}
+
 /**
  * @notice Encodes the data that initializes a SphinxManager contract via the SphinxRegistry.
  *
@@ -1793,24 +1414,10 @@ export const getRegistryData = (owner: string, projectName: string): string => {
   )
 }
 
-export const skipCallAction = (
-  to: string,
-  data: string,
-  nonce: number,
-  callNonces: ConfigCache['callNonces']
-): boolean => {
-  const callHash = getCallHash(to, data)
-  const currentNonce = callNonces[callHash]
-  return currentNonce > nonce
-}
-
 /**
  * @notice Returns true if and only if the two inputs are equal.
  */
-export const equal = (
-  a: ParsedConfigVariable,
-  b: ParsedConfigVariable
-): boolean => {
+export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   if (
     (Array.isArray(a) && !Array.isArray(b)) ||
     (!Array.isArray(a) && Array.isArray(b)) ||
@@ -1839,7 +1446,199 @@ export const equal = (
       }
       return true
     }
-  } else {
+  } else if (
+    // We just check for the type of `a` here because we already checked that the type of `a` is
+    // equal to the type of `b` above.
+    typeof a === 'number' ||
+    typeof a === 'boolean' ||
+    typeof a === 'number' ||
+    typeof a === 'string' ||
+    typeof a === 'bigint'
+  ) {
     return a === b
+  } else {
+    // We know that the types of `a` and `b` match due to the check at the beginning of this
+    // function, so we just return the type of `a`.
+    throw new Error(`Unsupported type: ${typeof a}`)
   }
+}
+
+export const isDecodedFunctionCallActionInput = (
+  actionInput: ActionInput
+): actionInput is DecodedFunctionCallActionInput => {
+  const callActionInput = actionInput as DecodedFunctionCallActionInput
+  return (
+    callActionInput.actionType === SphinxActionType.CALL.toString() &&
+    callActionInput.skip !== undefined &&
+    callActionInput.fullyQualifiedName !== undefined &&
+    callActionInput.data !== undefined &&
+    callActionInput.referenceName !== undefined &&
+    callActionInput.decodedAction.functionName !== undefined &&
+    callActionInput.decodedAction.referenceName !== undefined &&
+    callActionInput.decodedAction.variables !== undefined
+  )
+}
+
+export const isRawFunctionCallActionInput = (
+  actionInput: ActionInput
+): actionInput is RawFunctionCallActionInput => {
+  if (isDecodedFunctionCallActionInput(actionInput)) {
+    return false
+  }
+
+  const callActionInput = actionInput as RawFunctionCallActionInput
+  return (
+    callActionInput.actionType === SphinxActionType.CALL.toString() &&
+    callActionInput.skip !== undefined &&
+    callActionInput.to !== undefined &&
+    callActionInput.data !== undefined
+  )
+}
+
+export const isDeployContractActionInput = (
+  actionInput: ActionInput
+): actionInput is DeployContractActionInput => {
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+}
+
+export const isRawDeployContractActionInput = (
+  actionInput: RawDeployContractActionInput | RawFunctionCallActionInput
+): actionInput is RawDeployContractActionInput => {
+  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+}
+
+export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
+  return ary.every((e) => equal(e, ary[0]))
+}
+
+export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
+  const deployments = {}
+  parsedConfig.actionInputs
+    .filter(isDeployContractActionInput)
+    .filter((a) => !a.skip)
+    .forEach((a, i) => {
+      deployments[i + 1] = {
+        Contract: a.referenceName,
+        Address: a.create3Address,
+      }
+    })
+  if (Object.keys(deployments).length > 0) {
+    console.table(deployments)
+  }
+}
+
+/**
+ * @notice This function recursively converts an `ethers.Result` into a plain object. We do this
+ * because `ethers.Result`s are essentially arrays, which makes it difficult to work with them
+ * because we can't access the fields by name. Converting these into objects also allows us to
+ * display function arguments in a more readable format in the deployment preview.
+ *
+ * If the `Result` contains any unnamed variables, then the returned value will be an array instead
+ * of an object. For example, if `values = [1, true]`, then the returned value will also be `[1,
+ * true]`. However, if one of the elements is a complex data type, like a struct, then it will
+ * convert its fields into an object. For example, if `value = [1, true, [2, 3]]`, where `[2, 3]`
+ * are the fields of a struct, then the result would look something like: `[1, true, { myField: 2,
+ * myOtherField: 3}]`.
+ *
+ * @param types The types of the variables in the `Result`. This can be retrieved from an
+ * `ethers.Interface` object.
+ * @param values The `Result` to convert.
+ */
+export const recursivelyConvertResult = (
+  types: readonly ethers.ParamType[],
+  values: ethers.Result
+): unknown => {
+  const containsUnnamedValue = types.some((t) => t.name === '')
+
+  // If the `Result` contains any unnamed variables, then we return an array. Otherwise, we return
+  // an object.
+  const converted: Array<any> | { [key: string]: any } = containsUnnamedValue
+    ? []
+    : {}
+
+  for (let i = 0; i < types.length; i++) {
+    const paramType = types[i]
+    const value = values[i]
+    // Structs are represented as tuples.
+    if (paramType.isTuple()) {
+      const convertedTuple = recursivelyConvertResult(
+        paramType.components,
+        value
+      )
+      // Add the converted tuple to the array or object.
+      if (containsUnnamedValue) {
+        converted.push(convertedTuple)
+      } else {
+        converted[paramType.name] = convertedTuple
+      }
+    } else if (paramType.isArray()) {
+      // Recursively convert the elements of the array.
+      const convertedElements = value.map((e) => {
+        if (paramType.arrayChildren.isTuple()) {
+          const elementResult = ethers.Result.fromItems(e)
+          return recursivelyConvertResult(
+            paramType.arrayChildren.components,
+            elementResult
+          )
+        } else if (paramType.arrayChildren.isArray()) {
+          // The element is itself an array.
+          const elementResult = ethers.Result.fromItems(e)
+          return recursivelyConvertResult(
+            // Create an array of `ParamType` objects of the same length as the element array.
+            Array(e.length).fill(paramType.arrayChildren.arrayChildren),
+            elementResult
+          )
+        } else {
+          return e
+        }
+      })
+      if (containsUnnamedValue) {
+        converted.push(convertedElements)
+      } else {
+        converted[paramType.name] = convertedElements
+      }
+    } else if (containsUnnamedValue) {
+      converted.push(value)
+    } else {
+      converted[paramType.name] = value
+    }
+  }
+  return converted
+}
+
+/**
+ * @notice Spawns a child process and returns a promise that resolves when the process exits. Use
+ * this function instead of `execAsync` if the command generates a lot of output, since `execAsync`
+ * will run out of memory if the output is too large.
+ */
+export const spawnAsync = (
+  cmd: string,
+  args: string[],
+  env?: NodeJS.ProcessEnv
+): Promise<{ stdout: string; stderr: string; code: number | null }> => {
+  return new Promise((resolve) => {
+    const output: Buffer[] = []
+    const error: Buffer[] = []
+
+    const envVars = env ? { ...process.env, ...env } : process.env
+
+    // Include the environment variables in the options for the spawn function
+    const child = spawn(cmd, args, { env: envVars })
+
+    child.stdout.on('data', (data: Buffer) => {
+      output.push(data)
+    })
+
+    child.stderr.on('data', (data: Buffer) => {
+      error.push(data)
+    })
+
+    child.on('close', (code) => {
+      return resolve({
+        stdout: Buffer.concat(output).toString(),
+        stderr: Buffer.concat(error).toString(),
+        code,
+      })
+    })
+  })
 }

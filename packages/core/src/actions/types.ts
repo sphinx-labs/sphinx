@@ -1,13 +1,12 @@
-import { ValidManagerVersion } from '../config'
-import { SphinxDiff } from '../diff'
+import { SphinxPreview } from '../preview'
 
 /**
  * Possible action types.
  */
-export enum SphinxActionType {
-  SET_STORAGE,
-  DEPLOY_CONTRACT,
-  CALL,
+export const SphinxActionType = {
+  SET_STORAGE: 0n,
+  DEPLOY_CONTRACT: 1n,
+  CALL: 2n,
 }
 
 /**
@@ -28,8 +27,8 @@ export const DeploymentStatus = {
  * Raw action data (encoded for use on-chain).
  */
 export interface RawSphinxAction {
-  actionType: SphinxActionType
-  index: number
+  actionType: bigint
+  index: bigint
   data: string
 }
 
@@ -64,7 +63,6 @@ export interface CallAction {
   index: number
   to: string
   data: string
-  nonce: number
 }
 
 export interface SphinxBundles {
@@ -82,15 +80,8 @@ export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
  */
 export type HumanReadableAction = {
   reason: string
-  actionType: SphinxActionType
-  actionIndex: number
-}
-
-/**
- * Set of human-readable Sphinx actions.
- */
-export type HumanReadableActions = {
-  [index: number]: HumanReadableAction
+  actionType: bigint
+  actionIndex: bigint
 }
 
 /**
@@ -118,13 +109,15 @@ export interface SphinxActionBundle {
   actions: BundledSphinxAction[]
 }
 
-/**
- * Auth leaf that is part of a bundle.
- */
-export type BundledAuthLeaf = {
+export interface BundledAuthLeaf {
   leaf: RawAuthLeaf
-  prettyLeaf: AuthLeaf
+  leafTypeEnum: bigint
+  leafFunctionName: AuthLeafFunctions
   proof: string[]
+}
+
+export interface BundledAuthLeafWithPrettyLeaf extends BundledAuthLeaf {
+  prettyLeaf: AuthLeaf
 }
 
 /**
@@ -161,15 +154,15 @@ export type DeploymentState = {
 }
 
 export interface BaseAuthLeaf {
-  chainId: number
+  chainId: bigint
   to: string
   index: number
 }
 
 export interface RawAuthLeaf {
-  chainId: number
+  chainId: bigint
   to: string
-  index: number
+  index: bigint
   data: string
 }
 
@@ -185,6 +178,7 @@ export type DeploymentApproval = {
   numSetStorageActions: number
   numTargets: number
   configUri: string
+  remoteExecution: boolean
 }
 
 export type ContractInfo = {
@@ -210,19 +204,19 @@ export enum AuthLeafFunctions {
 /**
  * @notice This is in the exact same order as the `AuthLeafType` enum defined in Solidity.
  */
-export enum AuthLeafType {
-  SETUP,
-  PROPOSE,
-  EXPORT_PROXY,
-  SET_OWNER,
-  SET_THRESHOLD,
-  TRANSFER_MANAGER_OWNERSHIP,
-  UPGRADE_MANAGER_IMPLEMENTATION,
-  UPGRADE_AUTH_IMPLEMENTATION,
-  UPGRADE_MANAGER_AND_AUTH_IMPL,
-  SET_PROPOSER,
-  APPROVE_DEPLOYMENT,
-  CANCEL_ACTIVE_DEPLOYMENT,
+export const AuthLeafType = {
+  SETUP: 0n,
+  PROPOSE: 1n,
+  EXPORT_PROXY: 2n,
+  SET_OWNER: 3n,
+  SET_THRESHOLD: 4n,
+  TRANSFER_MANAGER_OWNERSHIP: 5n,
+  UPGRADE_MANAGER_IMPLEMENTATION: 6n,
+  UPGRADE_AUTH_IMPLEMENTATION: 7n,
+  UPGRADE_MANAGER_AND_AUTH_IMPL: 8n,
+  SET_PROPOSER: 9n,
+  APPROVE_DEPLOYMENT: 10n,
+  CANCEL_ACTIVE_DEPLOYMENT: 11n,
 }
 
 export const AuthStatus = {
@@ -238,49 +232,57 @@ export type AuthState = {
   numLeafs: bigint
 }
 
-interface Setup extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SETUP
+export interface Setup extends BaseAuthLeaf {
+  functionName: AuthLeafFunctions.SETUP
+  leafTypeEnum: bigint
   proposers: Array<SetRoleMember>
   numLeafs: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.EXPORT_PROXY
+  functionName: AuthLeafFunctions.EXPORT_PROXY
+  leafTypeEnum: bigint
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
 interface SetOwner extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_OWNER
+  functionName: AuthLeafFunctions.SET_OWNER
+  leafTypeEnum: bigint
   owner: string
   add: boolean
 }
 
 interface SetThreshold extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_THRESHOLD
+  functionName: AuthLeafFunctions.SET_THRESHOLD
+  leafTypeEnum: bigint
   newThreshold: number
 }
 
 interface TransferManagerOwnership extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
+  functionName: AuthLeafFunctions.TRANSFER_MANAGER_OWNERSHIP
+  leafTypeEnum: bigint
   newOwner: string
 }
 
 interface UpgradeManagerImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
+  functionName: AuthLeafFunctions.UPGRADE_MANAGER_IMPLEMENTATION
+  leafTypeEnum: bigint
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
+  functionName: AuthLeafFunctions.UPGRADE_AUTH_IMPLEMENTATION
+  leafTypeEnum: bigint
   impl: string
   data: string
 }
 
 export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
+  functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL
+  leafTypeEnum: bigint
   managerImpl: string
   managerInitCallData: string
   authImpl: string
@@ -288,22 +290,26 @@ export interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
 }
 
 interface SetProposer extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.SET_PROPOSER
+  functionName: AuthLeafFunctions.SET_PROPOSER
+  leafTypeEnum: bigint
   proposer: string
   add: boolean
 }
 
 export interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.APPROVE_DEPLOYMENT
+  functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT
+  leafTypeEnum: bigint
   approval: DeploymentApproval
 }
 
 export interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
+  functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT
+  leafTypeEnum: bigint
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: AuthLeafFunctions.PROPOSE
+  functionName: AuthLeafFunctions.PROPOSE
+  leafTypeEnum: bigint
   numLeafs: number
 }
 
@@ -330,8 +336,7 @@ type IPFSHash = string
 export type IPFSCommitResponse = IPFSHash[]
 
 /**
- * @param canonicalConfig The stringified CanonicalConfig that would be generated if this proposal
- * is completely executed.
+ * @param canonicalConfig Deprecated field.
  * @param gasEstimates The estimated amount of gas required to the entire auth tree on each chain,
  * including a buffer.
  */
@@ -343,13 +348,13 @@ export type ProposalRequest = {
   threshold: number
   authAddress: string
   managerAddress: string
-  managerVersion: ValidManagerVersion
+  managerVersion: string
   deploymentName: string
   chainIds: Array<number>
   canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
-  diff: SphinxDiff
+  diff: SphinxPreview
   tree: {
     root: string
     chainStatus: Array<{
@@ -381,6 +386,7 @@ export type ProposalRequestLeaf = {
   signers: Array<{
     address: string
     signature: string | undefined
+    isProposer: boolean
   }>
   threshold: number
   leafType: string

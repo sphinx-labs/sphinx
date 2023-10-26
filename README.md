@@ -1,54 +1,37 @@
-# Sphinx (formerly ChugSplash)
+# Sphinx: DevOps for Deployments
 
-Sphinx is an open-core DevOps platform for smart contract deployments.
+Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
 
-## Key Features
+## Key features:
 
-Here is the deployment process with the DevOps platform:
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
-1. Define your project in a single declarative config file instead of writing deployment scripts. Sphinx has a Hardhat and Foundry plugin.
-2. Propose your deployment gaslessly from a CI process or the command line.
-3. Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
-4. Approve your deployment with a single meta transaction signed by your project owners. You'll always sign a single meta transaction regardless of the number of chains or the size of the deployment.
-5. Sphinx trustlessly executes your deployment on every chain and verifies your contracts on Etherscan. Your contracts will have consistent addresses across networks because Sphinx uses `CREATE3` by default.
-6. Generate deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
-You can request access for the DevOps platform [here](https://sphinx.dev). We are working out pricing with teams on a case-by-case basis.
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd prefer not to use a CI process, you can propose deployments from your local machine instead.
 
-### Standalone CLI tool
+* **Automatic Etherscan verification**.
 
-You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
+> Important: Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
 
-The standalone CLI tool is free to use and fully open-source. All of the code is in this repository. You can use it without using the DevOps platform.
+[Request access to the DevOps platform.](https://sphinx.dev)
 
 ## Documentation
 
-### Getting Started
+TODO(md-end): check that we include all of the docs. we're missing permissioned functions at least
 
-- Foundry:
-  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
-- Hardhat:
-  - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
-  - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
+### Getting started
 
-### DevOps Platform
+If you're setting up a project in a fresh repository, begin with the [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md) guide. Otherwise, begin with the [Integrating Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md) guide.
 
-- Foundry:
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
-- Hardhat:
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-hardhat-proposals.md)
+After you've finished one of these guides, your next step is to follow the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
 
 ### References
 
-- [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Post-Deployment Actions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/post-deployment-actions.md): How to call arbitrary functions after your contracts are deployed.
-- [Constructor Argument Overrides](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-arg-overrides.md): How to set constructor arguments on a chain-by-chain basis.
-- [Contract Variables](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Shows how to define every type of contract variable in your Sphinx config file (structs, arrays, etc.).
-- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
+- [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
+- [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md): A proposing deployments
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
+- [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
 ## Supported Networks
 
@@ -97,4 +80,5 @@ If you have any questions or feature requests, send us a message in our [Discord
 
 ## License
 
-MIT © 2022
+MIT © 2023
+

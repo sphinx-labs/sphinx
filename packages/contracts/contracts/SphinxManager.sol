@@ -21,7 +21,10 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { ICreate3 } from "./interfaces/ICreate3.sol";
+import {
+    IAccessControlEnumerable
+} from "@openzeppelin/contracts/access/IAccessControlEnumerable.sol";
+import { ISphinxCreate3 } from "./interfaces/ISphinxCreate3.sol";
 import { Semver, Version } from "./Semver.sol";
 import {
     ContextUpgradeable
@@ -30,7 +33,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
 
 /**
  * @title SphinxManager
- * @custom:version 0.2.4
+ * @custom:version 0.2.6
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
  *         deployments. It contains the functionality for approving and executing deployments and
  *         exporting proxies out of the Sphinx system if desired. It exists as a single
@@ -77,17 +80,17 @@ contract SphinxManager is
      */
     ISphinxRegistry public immutable registry;
 
+    /**
+     * @notice Address of the ManagedService contract.
+     */
+    address public immutable managedService;
+
     string public projectName;
 
     /**
      * @notice Address of the Create3 contract.
      */
     address internal immutable create3;
-
-    /**
-     * @notice Address of the ManagedService contract.
-     */
-    IAccessControl internal immutable managedService;
 
     /**
      * @notice Amount of time for a remote executor to finish executing a deployment once they have
@@ -106,11 +109,8 @@ contract SphinxManager is
     bytes32 public activeDeploymentId;
 
     /**
-     * @notice Mapping of call hashes to nonces. A call hash is the hash of the address and calldata
-       of a `CALL` action. The nonce is incremented each time the call is executed. This makes it
-       easy for off-chain code to keep track of which calls to skip if a deployment is re-executed.
-       Although this same functionality could be achieved using events, we opt for a mapping because
-       some chains make it difficult to query events that occurred past a certain block.
+     * @notice Deprecated. we keep it here to preserve the storage layout with
+     *         previous versions of this contract.
      */
     mapping(bytes32 => uint256) public callNonces;
 
@@ -252,7 +252,7 @@ contract SphinxManager is
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
-        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
+        if (!IAccessControl(managedService).hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
             revert CallerIsNotRemoteExecutor();
         }
         _;
@@ -269,7 +269,7 @@ contract SphinxManager is
     constructor(
         ISphinxRegistry _registry,
         address _create3,
-        IAccessControl _managedService,
+        address _managedService,
         uint256 _executionLockTime,
         Version memory _version
     ) Semver(_version.major, _version.minor, _version.patch) {
@@ -575,35 +575,23 @@ contract SphinxManager is
             deployment.actionsExecuted++;
 
             if (action.actionType == SphinxActionType.CALL) {
-                (uint256 nonce, address to, bytes memory data) = abi.decode(
-                    action.data,
-                    (uint256, address, bytes)
-                );
-                bytes32 callHash = keccak256(abi.encode(to, data));
-                uint256 currentNonce = callNonces[callHash];
-                if (nonce != currentNonce) {
-                    emit CallSkipped(activeDeploymentId, action.index);
-                    registry.announce("CallSkipped");
+                (address to, bytes memory data) = abi.decode(action.data, (address, bytes));
+                (bool success, ) = to.call(data);
+                if (success) {
+                    emit CallExecuted(activeDeploymentId, action.index);
+                    registry.announce("CallExecuted");
                 } else {
-                    (bool success, ) = to.call(data);
-                    if (success) {
-                        callNonces[callHash] = currentNonce + 1;
-                        emit CallExecuted(activeDeploymentId, callHash, action.index);
-                        registry.announce("CallExecuted");
-                    } else {
-                        // External call failed. Could happen if insufficient gas is supplied
-                        // to this transaction or if the function has logic that causes the call to
-                        // fail.
-                        revert DeploymentFailed(action.index, activeDeploymentId);
-                    }
+                    // External call failed. Could happen if insufficient gas is supplied
+                    // to this transaction or if the function has logic that causes the call to
+                    // fail.
+                    revert DeploymentFailed(action.index, activeDeploymentId);
                 }
             } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
                     action.data,
                     (bytes32, bytes)
                 );
-
-                address expectedAddress = ICreate3(create3).getAddressFromDeployer(
+                address expectedAddress = ISphinxCreate3(create3).getAddressFromDeployer(
                     salt,
                     address(this)
                 );
@@ -626,7 +614,10 @@ contract SphinxManager is
                     // attacker to deploy a malicious contract at the expected address by calling
                     // the `deploy` function on the Create3 contract directly.
                     (bool deploySuccess, ) = create3.delegatecall(
-                        abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
+                        abi.encodeCall(
+                            ISphinxCreate3.deploy,
+                            (salt, creationCodeWithConstructorArgs, 0)
+                        )
                     );
 
                     if (deploySuccess) {
@@ -934,10 +925,15 @@ contract SphinxManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
+        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != msg.sender) {
             revert CallerIsNotSelectedExecutor();
-        } else if (_remoteExecution == false && owner() != msg.sender) {
-            revert CallerIsNotOwner();
+        } else if (!_remoteExecution) {
+            // Non-remote deployments can only be executed if there is a single owner of the
+            // SphinxAuth contract, which owns this contract. In other words, we don't currently
+            // support non-remote deployments that have multiple owners.
+            IAccessControlEnumerable auth = IAccessControlEnumerable(owner());
+            if (!auth.hasRole(bytes32(0), msg.sender) || auth.getRoleMemberCount(bytes32(0)) != 1)
+                revert CallerIsNotOwner();
         }
     }
 }
