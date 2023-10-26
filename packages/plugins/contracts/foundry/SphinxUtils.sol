@@ -573,7 +573,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function getNetworkInfoArray() internal pure returns (NetworkInfo[] memory) {
+    function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
         NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
         all[0] = NetworkInfo({
             network: Network.anvil,

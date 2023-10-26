@@ -92,28 +92,28 @@ contract ChainSpecific is SphinxClient, SphinxTestUtils {
     function run() public override virtual sphinx {
         setupVariables();
 
-        allNetworks = deployAllNetworks(chainSpecificConstructorArgs[getNetwork(block.chainid)], address(manager));
-        allNetworks.setFee(chainSpecificFee[getNetwork(block.chainid)]);
+        allNetworks = deployAllNetworks(chainSpecificConstructorArgs[getSphinxNetwork(block.chainid)], address(manager));
+        allNetworks.setFee(chainSpecificFee[getSphinxNetwork(block.chainid)]);
         uint256 fee = allNetworks.feeToAdd();
         allNetworks.incrementFee(fee);
         allNetworks.transferOwnership(finalOwner);
 
-        if (getNetwork(block.chainid) == Network.arbitrum) {
+        if (getSphinxNetwork(block.chainid) == Network.arbitrum) {
             onlyArbitrum = deployOnlyArbitrum();
             onlyArbitrum.increment();
             onlyArbitrum.increment();
-        } else if (getNetwork(block.chainid) == Network.arbitrum_goerli) {
+        } else if (getSphinxNetwork(block.chainid) == Network.arbitrum_goerli) {
             onlyArbitrumGoerliOne = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(1)), referenceName: "OnlyArbitrumGoerliOne"}));
             onlyArbitrumGoerliOne.decrement();
             onlyArbitrumGoerliOne.decrement();
             onlyArbitrumGoerliTwo = deployOnlyArbitrum(DeployOptions({salt: bytes32(uint(2)), referenceName: "OnlyArbitrumGoerliTwo"}));
         }
 
-        if (getNetwork(block.chainid) == Network.optimism_goerli) {
+        if (getSphinxNetwork(block.chainid) == Network.optimism_goerli) {
             onlyOptimismGoerli = OnlyOptimism(onlyOptimismGoerli);
             onlyOptimismGoerli.incrementTwice();
             onlyOptimismGoerli.incrementTwice();
-        } else if (getNetwork(block.chainid) == Network.optimism) {
+        } else if (getSphinxNetwork(block.chainid) == Network.optimism) {
             onlyOptimism = OnlyOptimism(onlyOptimism);
             onlyOptimism.decrementTwice();
             onlyOptimism.decrementTwice();

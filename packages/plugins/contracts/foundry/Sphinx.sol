@@ -870,4 +870,16 @@ abstract contract Sphinx {
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
         return sphinxUtils.computeCreate3Address(managerAddress, create3Salt);
     }
+
+    function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
+        NetworkInfo[] memory all = sphinxUtils.getNetworkInfoArray();
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].chainId == _chainId) {
+                return all[i].network;
+            }
+        }
+        revert(
+            string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId)))
+        );
+    }
 }
