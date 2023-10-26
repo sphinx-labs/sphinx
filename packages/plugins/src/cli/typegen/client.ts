@@ -22,7 +22,7 @@ type ClientNotGeneratedReason =
   | 'no contract definition'
   | 'mismatching path'
 
-const searchAllPossibleParentArtifactPaths = async (
+export const searchAllPossibleParentArtifactPaths = async (
   absolutePath: string,
   artifactFolder: string,
   expectedContractName: string,

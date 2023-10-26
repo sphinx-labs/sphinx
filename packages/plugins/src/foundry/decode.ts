@@ -1,23 +1,21 @@
-import { basename, join } from 'path'
-import { readFileSync } from 'fs'
+import { basename, join, resolve } from 'path'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 import {
   ActionInput,
   ConfigArtifacts,
   DecodedAction,
   DecodedFunctionCallActionInput,
-  DeployContractActionInput,
   DeploymentInfo,
   ParsedConfig,
   ParsedVariable,
   RawDeployContractActionInput,
   RawFunctionCallActionInput,
-  SphinxConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import {
-  isDeployContractActionInput,
   isRawDeployContractActionInput,
   recursivelyConvertResult,
+  spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import {
   AbiCoder,
@@ -29,13 +27,14 @@ import {
 import {
   SUPPORTED_NETWORKS,
   SphinxActionType,
-  SupportedNetworkName,
   getCreate3Address,
   getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
+import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
+import { FoundryToml } from './options'
 
 export const decodeDeploymentInfo = (
   calldata: string,
@@ -163,7 +162,7 @@ export const decodeProposalOutput = (
   return output as ProposalOutput
 }
 
-export const getCollectedProposal = (
+export const readCollectedProposal = (
   networkNames: Array<string>,
   scriptPath: string,
   broadcastFolder: string,
@@ -267,10 +266,18 @@ const parseFoundryDryRun = (
     throw new Error(`TODO`)
   }
 
+  // TODO(md): current limitations: cannot send eth as part of deployment.
+
   const actionInputs: Array<
     RawDeployContractActionInput | RawFunctionCallActionInput
   > = []
   for (const { transaction } of transactions) {
+    if (transaction.value !== '0x0') {
+      throw new Error(
+        `Sphinx does not support sending ETH during deployments. Let us know if you need this feature!`
+      )
+    }
+
     if (
       transaction.to !== undefined &&
       ethers.getAddress(transaction.to) === deploymentInfo.managerAddress
@@ -438,4 +445,73 @@ export const makeParsedConfig = (
   }
 }
 
-// TODO(test): add a view function and a state-changing function to your tests
+export const collectProposal = async (
+  isTestnet: boolean,
+  proposerAddress: string,
+  scriptPath: string,
+  foundryToml: FoundryToml,
+  targetContract?: string,
+  spinner = ora({ isSilent: true })
+): Promise<
+  Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<
+      RawDeployContractActionInput | RawFunctionCallActionInput
+    >
+  }>
+> => {
+  const proposalNetworksPath = join(
+    foundryToml.cachePath,
+    'sphinx-proposal-networks.txt'
+  )
+
+  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
+  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
+  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
+  if (existsSync(proposalNetworksPath)) {
+    unlinkSync(proposalNetworksPath)
+  }
+
+  const forgeScriptCollectArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxCollectProposal(address,bool,string)',
+    proposerAddress,
+    isTestnet.toString(),
+    proposalNetworksPath,
+    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+  ]
+  if (targetContract) {
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
+  }
+
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (spawnOutput.code !== 0) {
+    spinner.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+
+  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
+  const networks = allNetworksStr.split(',')
+
+  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxCollectorABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${foundryToml.artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+    )).abi
+
+  return readCollectedProposal(
+    networks,
+    scriptPath,
+    foundryToml.broadcastFolder,
+    sphinxCollectorABI
+  )
+}

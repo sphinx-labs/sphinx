@@ -286,9 +286,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         revert("Sphinx: Unable to find SphinxManager initcode. Should never happen.");
     }
 
-    function getSphinxAuthAddress(
-        SphinxConfig memory _config
-    ) public pure returns (address) {
+    function getSphinxAuthAddress(SphinxConfig memory _config) public pure returns (address) {
         require(
             bytes(_config.projectName).length > 0,
             "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
@@ -313,9 +311,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getSphinxManagerAddress(SphinxConfig memory _config) public pure returns (address) {
-        address authAddress = getSphinxAuthAddress(
-            _config
-        );
+        address authAddress = getSphinxAuthAddress(_config);
         bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _config.projectName, hex""));
         return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
     }
@@ -806,7 +802,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
@@ -1088,7 +1083,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
             );
             require(
-                !ISphinxAuth(authAddress).firstProposalOccurred() || auth.hasRole(keccak256("ProposerRole"), deployer),
+                !ISphinxAuth(authAddress).firstProposalOccurred() ||
+                    auth.hasRole(keccak256("ProposerRole"), deployer),
                 "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
             );
         }

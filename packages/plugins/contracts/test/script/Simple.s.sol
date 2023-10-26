@@ -14,7 +14,7 @@ contract Simple is Script, SphinxClient {
 
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-        sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli];
+        sphinxConfig.testnets = [Network.goerli];
         sphinxConfig.orgId = "test-org-id";
     }
 

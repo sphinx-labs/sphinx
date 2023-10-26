@@ -280,6 +280,8 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
+    function bundleInfoArrayType() external pure returns (BundleInfo[] memory bundleInfoArray) {}
+
     function bundledActionsType()
         external
         pure

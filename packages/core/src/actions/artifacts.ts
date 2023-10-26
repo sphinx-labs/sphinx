@@ -1,6 +1,6 @@
 import { ConstructorFragment, ethers } from 'ethers'
 
-import { ConfigArtifacts, DeploymentInfo, ParsedConfig } from '../config/types'
+import { ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -12,8 +12,6 @@ import {
 } from '../utils'
 import 'core-js/features/array/at'
 import { SphinxJsonRpcProvider } from '../provider'
-import { getCreate3Address, getCreate3Salt } from '../config'
-import { isDeployContractAction } from '.'
 
 /**
  * Gets the storage layout for a contract. Still requires the build info compiler input

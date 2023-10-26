@@ -6,7 +6,7 @@ import { B } from "./D.sol";
 contract A is B {
     uint public number;
 
-    constructor (uint _number, bool _boolean) B(_boolean) {
+    constructor(uint _number, bool _boolean) B(_boolean) {
         number = _number;
     }
 

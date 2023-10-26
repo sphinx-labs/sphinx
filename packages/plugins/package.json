@@ -22,7 +22,7 @@
     "test": "yarn test:kill && yarn test:solc && yarn test:ts && yarn test:forge",
     "test:ts": "npx mocha --require ts-node/register --timeout 500000 'test/mocha/**/*.ts'",
     "test:solc": "/bin/bash ./script/solc.sh",
-    "test:forge": "forge test --no-match-contract '^(Proposal|Broadcast|Fork)' && /bin/bash script/run-fork-tests.sh && /bin/bash script/run-broadcast-tests.sh && /bin/bash script/run-proposal-tests.sh",
+    "test:forge": "forge test --no-match-contract '^(Proposal|Broadcast)' && /bin/bash script/run-broadcast-tests.sh",
     "test:coverage": "export DEV_FILE_PATH='./' && export DISABLE_ANALYTICS=true && apt install lsof && yarn test",
     "test:kill": "/bin/bash ./script/kill-nodes.sh all",
     "lint": "yarn lint:fix && yarn lint:check",

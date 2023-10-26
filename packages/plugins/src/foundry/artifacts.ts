@@ -3,7 +3,6 @@ import { join, sep } from 'path'
 import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
 import {
   ConfigArtifacts,
-  DeploymentInfo,
   ParsedConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import {

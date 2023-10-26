@@ -6,7 +6,7 @@ import { Network, NetworkInfo } from "../foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
 import { SphinxConstants, SphinxContractInfo } from "../foundry/SphinxConstants.sol";
-import { SphinxUtils } from '../foundry/SphinxUtils.sol';
+import { SphinxUtils } from "../foundry/SphinxUtils.sol";
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
@@ -60,15 +60,9 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
             }
         }
         revert(
-            string(
-                abi.encodePacked(
-                    "No network found with the chain ID: ",
-                    vm.toString(_chainId)
-                )
-            )
+            string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId)))
         );
     }
-
 
     function createSelectAlchemyFork(Network _network) internal {
         string memory alchemyAPIKey = vm.envString("ALCHEMY_API_KEY");

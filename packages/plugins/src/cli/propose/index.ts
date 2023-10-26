@@ -1,5 +1,4 @@
-import { join, resolve } from 'path'
-import { readFileSync, existsSync, unlinkSync } from 'fs'
+import { resolve } from 'path'
 
 import {
   ProjectDeployment,
@@ -13,7 +12,6 @@ import {
   getPreviewString,
   getProjectDeploymentForChain,
   hyperlink,
-  isRawDeployContractActionInput,
   relayIPFSCommit,
   relayProposal,
   signAuthRootMetaTxn,
@@ -24,10 +22,14 @@ import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
 
-import { getCollectedProposal, makeParsedConfig } from '../../foundry/decode'
+import { collectProposal, makeParsedConfig } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import { generateClient } from '../typegen/client'
-import { getBundleInfoArray, makeGetConfigArtifacts } from '../../foundry/utils'
+import {
+  getBundleInfoArray,
+  getUniqueFullyQualifiedNames,
+  makeGetConfigArtifacts,
+} from '../../foundry/utils'
 
 /**
  * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
@@ -69,77 +71,25 @@ export const propose = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
-  const { cachePath, broadcastFolder, artifactFolder, buildInfoFolder } =
-    await getFoundryConfigOptions()
-  const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
+  const foundryToml = await getFoundryConfigOptions()
 
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
+  const collected = await collectProposal(
+    isTestnet,
     proposer.address,
-    isTestnet.toString(),
-    proposalNetworksPath,
-    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
-
-  if (spawnOutput.code !== 0) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
-
-  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
-  const networks = allNetworksStr.split(',')
-
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
-    )).abi
-
-  const collected = getCollectedProposal(
-    networks,
     scriptPath,
-    broadcastFolder,
-    sphinxCollectorABI
+    foundryToml,
+    targetContract,
+    spinner
   )
 
-  const fullyQualifiedSet = new Set<string>()
-  for (const { actionInputs } of collected) {
-    for (const actionInput of actionInputs) {
-      if (isRawDeployContractActionInput(actionInput)) {
-        fullyQualifiedSet.add(actionInput.fullyQualifiedName)
-      }
-    }
-  }
+  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
+
   const getConfigArtifacts = makeGetConfigArtifacts(
-    artifactFolder,
-    buildInfoFolder,
-    cachePath
+    foundryToml.artifactFolder,
+    foundryToml.buildInfoFolder,
+    foundryToml.cachePath
   )
-
-  const configArtifacts = await getConfigArtifacts(
-    Array.from(fullyQualifiedSet)
-  )
+  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
 
   const parsedConfigArray = collected.map((c) =>
     makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts)
@@ -154,19 +104,19 @@ export const propose = async (
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(`${artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
+    require(resolve(`${foundryToml.artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
   const sphinxIface = new ethers.Interface(sphinxABI)
-  const deployTaskFragment = sphinxIface.fragments
+  const simulateProposalFragment = sphinxIface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxSimulateProposal')
-  if (!deployTaskFragment) {
+  if (!simulateProposalFragment) {
     throw new Error(
       `'sphinxSimulateProposal' not found in ABI. Should never happen.`
     )
   }
 
   const proposalSimulationData = sphinxIface.encodeFunctionData(
-    deployTaskFragment,
+    simulateProposalFragment,
     [isTestnet, authRoot, bundleInfoArray]
   )
 

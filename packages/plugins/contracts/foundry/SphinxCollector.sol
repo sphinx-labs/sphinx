@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
 import { DeploymentInfo } from "./SphinxPluginTypes.sol";
-import { console } from 'sphinx-forge-std/console.sol';
+import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @title SphinxCollector
@@ -15,7 +15,6 @@ import { console } from 'sphinx-forge-std/console.sol';
  *         then run the full execution flow if the user is broadcasting or proposing a deployment.
  */
 contract SphinxCollector {
-
     function collectDeploymentInfo(DeploymentInfo memory) external {}
 
     // TODO(docs): replace this contract with the SphinxDefaultCreate3 contract

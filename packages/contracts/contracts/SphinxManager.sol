@@ -109,7 +109,7 @@ contract SphinxManager is
     bytes32 public activeDeploymentId;
 
     /**
-     * @notice TODO(docs): deprecated. we keep it here to preserve the storage layout with
+     * @notice Deprecated. we keep it here to preserve the storage layout with
      *         previous versions of this contract.
      */
     mapping(bytes32 => uint256) public callNonces;
@@ -575,10 +575,7 @@ contract SphinxManager is
             deployment.actionsExecuted++;
 
             if (action.actionType == SphinxActionType.CALL) {
-                (address to, bytes memory data) = abi.decode(
-                    action.data,
-                    (address, bytes)
-                );
+                (address to, bytes memory data) = abi.decode(action.data, (address, bytes));
                 (bool success, ) = to.call(data);
                 if (success) {
                     emit CallExecuted(activeDeploymentId, action.index);

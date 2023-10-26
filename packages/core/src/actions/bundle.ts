@@ -2,8 +2,6 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-// TODO(test): test a low-level call
-
 import { ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   getDeploymentId,
@@ -407,9 +405,10 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     }
   }
 
-  // TODO(docs): update this:
-  // Sort the leafs according to their 'index' field. This isn't strictly necessary, but it makes
-  // it easier to execute the auth leafs in order.
+  // Sort the leafs in ascending order, prioritizing the `chainId` field first and then the `index`
+  // field. Specifically, it sorts the array in ascending order based on chainId; if two elements
+  // have the same chainId, it further sorts them based on the ascending order of their `index`
+  // value.
   const sorted = leafs.sort((a, b) => {
     // First compare the chainId fields
     if (a.chainId < b.chainId) {

@@ -4,7 +4,9 @@ pragma solidity ^0.8.0;
 import { MyImportContract } from "./ImportContract.sol";
 import { ExternalContract } from "../../../../testExternalContracts/ExternalContract.sol";
 import { IExternalContract } from "../../../../testExternalContracts/IExternalContract.sol";
-import { ExternalContract as AliasedExternalContract } from "../../../../testExternalContracts/ExternalContract.sol";
+import {
+    ExternalContract as AliasedExternalContract
+} from "../../../../testExternalContracts/ExternalContract.sol";
 
 contract LocalContract {
     uint256 public number;

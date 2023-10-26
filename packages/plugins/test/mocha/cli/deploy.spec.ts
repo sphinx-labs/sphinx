@@ -4,12 +4,7 @@ import { exec } from 'child_process'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import {
-  SphinxJsonRpcProvider,
-  execAsync,
-  getPreview,
-  sleep,
-} from '@sphinx-labs/core'
+import { SphinxJsonRpcProvider, execAsync, sleep } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
 import { deploy } from '../../../src/cli/deploy'
@@ -24,6 +19,7 @@ const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
 const contractAddress = '0xa736B2394965D6b796c6D3F2766D96D19d8b2CFB'
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
 
 describe('Deploy CLI command', () => {
@@ -125,7 +121,7 @@ describe('Deploy CLI command', () => {
         mockPrompt
       )
 
-      const { parsedConfig: deployedParsedConfig, preview } = await deploy(
+      const { parsedConfig: preview } = await deploy(
         emptyScriptPath,
         'goerli',
         false, // Run preview
@@ -155,7 +151,7 @@ describe('Deploy CLI command', () => {
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactFilePath)).to.be.false
 
-      const { parsedConfig: deployedParsedConfig, preview }  = await deploy(
+      const { parsedConfig: deployedParsedConfig, preview } = await deploy(
         forgeScriptPath,
         'goerli',
         true, // Skip preview
@@ -180,15 +176,9 @@ describe('Deploy CLI command', () => {
 
 const getContract = (): ethers.Contract => {
   const abi =
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require(resolve(
-    './out/artifacts/MyContracts.sol/MyContract1.json'
-  )).abi
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve('./out/artifacts/MyContracts.sol/MyContract1.json')).abi
 
-  const contract = new ethers.Contract(
-    contractAddress,
-    abi,
-    provider
-  )
+  const contract = new ethers.Contract(contractAddress, abi, provider)
   return contract
 }

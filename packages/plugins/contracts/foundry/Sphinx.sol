@@ -137,7 +137,11 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(address _proposer, bool _testnets, string memory _proposalNetworksPath) external {
+    function sphinxCollectProposal(
+        address _proposer,
+        bool _testnets,
+        string memory _proposalNetworksPath
+    ) external {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
         require(
             networks.length > 0,
@@ -272,19 +276,20 @@ abstract contract Sphinx {
             privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
 
             address deployer = vm.addr(privateKey);
-            sphinxUtils.initializeFFI(
-                rpcUrl,
-                OptionalAddress({ exists: true, value: deployer })
-            );
+            sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({ exists: true, value: deployer }));
         }
 
-        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-            privateKey,
-           _authRoot
-        );
+        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _authRoot);
 
         vm.startBroadcast(privateKey);
-        sphinxDeployOnNetwork(ISphinxManager(sphinxManager(sphinxConfig)), ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)), _authRoot, _bundleInfo, metaTxnSignature, rpcUrl);
+        sphinxDeployOnNetwork(
+            ISphinxManager(sphinxManager(sphinxConfig)),
+            ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
+            _authRoot,
+            _bundleInfo,
+            metaTxnSignature,
+            rpcUrl
+        );
         vm.stopBroadcast();
     }
 
@@ -329,10 +334,16 @@ abstract contract Sphinx {
                 OptionalAddress({ exists: true, value: proposer })
             );
 
-            // We prank the proposer here so that the `msgSender` is the proposer's address, which
-            // we use in TODO(docs).
+            // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
             vm.startPrank(proposer);
-            sphinxDeployOnNetwork(ISphinxManager(sphinxManager(sphinxConfig)), ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)), _authRoot, _bundleInfoArray[i], metaTxnSignature, rpcUrl);
+            sphinxDeployOnNetwork(
+                ISphinxManager(sphinxManager(sphinxConfig)),
+                ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
+                _authRoot,
+                _bundleInfoArray[i],
+                metaTxnSignature,
+                rpcUrl
+            );
             vm.stopPrank();
         }
 
@@ -411,9 +422,9 @@ abstract contract Sphinx {
                 (bool success, bytes memory result) = address(_manager).call{
                     gas: bufferedGasLimit
                 }(
-                // `abi.encodeCall` provides better type support than `abi.encodeWithSelector`, but
-                // we can't use it here because it isn't supported in Solidity v0.8.0, which is the
-                // earliest version we support.
+                    // `abi.encodeCall` provides better type support than `abi.encodeWithSelector`, but
+                    // we can't use it here because it isn't supported in Solidity v0.8.0, which is the
+                    // earliest version we support.
                     abi.encodeWithSelector(
                         ISphinxManager.executeInitialActions.selector,
                         rawActions,
@@ -720,7 +731,7 @@ abstract contract Sphinx {
 
     function run() public virtual;
 
-// TODO(docs): everywhere in this contract
+    // TODO(docs): everywhere in this contract
 
     /**
      * @notice Deploys a contract at the expected Sphinx address. Called from the auto generated Sphinx Client.
@@ -767,22 +778,21 @@ abstract contract Sphinx {
         address manager = sphinxManager(sphinxConfig);
         // TODO(docs): brackets to prevent stack too deep compiler error
         {
-
-        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        // Check that we're currently pranking/broadcasting from the SphinxManager. This should
-        // always be true unless the user deliberately cancels the prank/broadcast in their 'deploy'
-        // function.
-        if (sphinxMode == SphinxMode.Collect) {
-            require(
-                callerMode == VmSafe.CallerMode.RecurrentBroadcast && msgSender == manager,
-                "Sphinx: TODO(docs)"
-            );
-        } else {
-            require(
-                callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
-                "Sphinx: TODO(docs)"
-            );
-        }
+            (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+            // Check that we're currently pranking/broadcasting from the SphinxManager. This should
+            // always be true unless the user deliberately cancels the prank/broadcast in their 'deploy'
+            // function.
+            if (sphinxMode == SphinxMode.Collect) {
+                require(
+                    callerMode == VmSafe.CallerMode.RecurrentBroadcast && msgSender == manager,
+                    "Sphinx: TODO(docs)"
+                );
+            } else {
+                require(
+                    callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
+                    "Sphinx: TODO(docs)"
+                );
+            }
         }
 
         require(
@@ -804,12 +814,12 @@ abstract contract Sphinx {
         // Deploy the user's contract to the CREATE3 address via the SphinxCollector, which exists
         // at the SphinxManager's address. This mirrors what happens on live networks.
         SphinxCollector(manager).deploy({
-                fullyQualifiedName: fullyQualifiedName,
-                initCode: vm.getCode(artifactPath),
-                constructorArgs: _constructorArgs,
-                userSalt: _userSalt,
-                referenceName: _referenceName
-            });
+            fullyQualifiedName: fullyQualifiedName,
+            initCode: vm.getCode(artifactPath),
+            constructorArgs: _constructorArgs,
+            userSalt: _userSalt,
+            referenceName: _referenceName
+        });
 
         referenceNames.push(_referenceName);
 

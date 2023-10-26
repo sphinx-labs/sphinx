@@ -7,13 +7,17 @@ import {
   parseFoundryArtifact,
   execAsync,
   getNetworkNameForChainId,
+  isRawDeployContractActionInput,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   ConfigArtifacts,
+  DeploymentInfo,
   GetConfigArtifacts,
   GetProviderForChainId,
   ParsedConfig,
+  RawDeployContractActionInput,
+  RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -146,6 +150,25 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
 
     return new SphinxJsonRpcProvider(network.url)
   }
+}
+
+export const getUniqueFullyQualifiedNames = (
+  collected: Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<
+      RawDeployContractActionInput | RawFunctionCallActionInput
+    >
+  }>
+): Array<string> => {
+  const fullyQualifiedSet = new Set<string>()
+  for (const { actionInputs } of collected) {
+    for (const actionInput of actionInputs) {
+      if (isRawDeployContractActionInput(actionInput)) {
+        fullyQualifiedSet.add(actionInput.fullyQualifiedName)
+      }
+    }
+  }
+  return Array.from(fullyQualifiedSet)
 }
 
 /**

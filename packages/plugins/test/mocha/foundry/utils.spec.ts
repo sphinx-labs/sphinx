@@ -15,7 +15,8 @@ describe('Utils', async () => {
     it('Errors if artifact is not found', async () => {
       const { artifactFolder } = await getFoundryConfigOptions()
 
-      const fullyQualifiedName = 'contracts/DoesNotExist.sol:NonExistentContract'
+      const fullyQualifiedName =
+        'contracts/DoesNotExist.sol:NonExistentContract'
       await expect(
         getContractArtifact(fullyQualifiedName, artifactFolder)
       ).to.be.rejectedWith(messageArtifactNotFound(fullyQualifiedName))
@@ -27,7 +28,7 @@ describe('Utils', async () => {
       const fullyQualifiedName = 'script/BridgeFunds.s.sol:SphinxScript'
       const artifact = await getContractArtifact(
         fullyQualifiedName,
-        artifactFolder,
+        artifactFolder
       )
       expect(artifact.contractName).equals('SphinxScript')
     })

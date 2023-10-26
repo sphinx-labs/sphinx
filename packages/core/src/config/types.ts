@@ -157,9 +157,6 @@ export type DecodedAction = {
   variables: ParsedVariable
 }
 
-// TODO(test): include a test for a raw action in the preview.
-// TODO(test): see what the preview looks like when there's a raw action with a lot of data.
-
 export type RawFunctionCallActionInput = {
   actionType: string
   skip: boolean

@@ -6,8 +6,13 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
-echo "Killing process on port 8545"
-kill $(lsof -t -i:8545)
+if [ ! -z "8545" ]
+then
+  echo "Killing process on port 8545"
+  kill $pid
+else
+  echo "No process running on port 8545"
+fi
 
 # Check if the first argument is "all"
 if [ "$1" == "all" ]; then

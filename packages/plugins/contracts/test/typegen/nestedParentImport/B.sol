@@ -7,7 +7,7 @@ import "./A.sol";
 contract B {
     bool public boolean;
 
-    constructor (bool _boolean) {
+    constructor(bool _boolean) {
         boolean = _boolean;
     }
 

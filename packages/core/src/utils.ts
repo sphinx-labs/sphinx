@@ -3,10 +3,6 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
 
-// TODO(simple): check if any transactions have a value > 0, including contract deployments
-// TODO(simple): case: user triggers a low-level call, which doesn't have a function selector.
-// should we allow this?
-
 import yesno from 'yesno'
 import axios from 'axios'
 import ora from 'ora'
@@ -55,7 +51,6 @@ import {
   ConfigArtifactsRemote,
   RawFunctionCallActionInput,
   RawDeployContractActionInput,
-  DeploymentInfo,
   ActionInput,
 } from './config/types'
 import {
@@ -87,7 +82,6 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
-import { getCreate3Address, getCreate3Salt } from './config'
 
 export const getDeploymentId = (
   actionBundle: SphinxActionBundle,
@@ -1399,7 +1393,7 @@ export const prettyFunctionCall = (
 }
 
 export const prettyRawFunctionCall = (to: string, data: string): string => {
-  return `(${to}).${data.length > 20 ? data.slice(0, 20) + '...' : data}`
+  return `(${to}).${data}`
 }
 
 /**
@@ -1619,13 +1613,17 @@ export const recursivelyConvertResult = (
  */
 export const spawnAsync = (
   cmd: string,
-  args: string[]
+  args: string[],
+  env?: NodeJS.ProcessEnv
 ): Promise<{ stdout: string; stderr: string; code: number | null }> => {
   return new Promise((resolve) => {
     const output: Buffer[] = []
     const error: Buffer[] = []
 
-    const child = spawn(cmd, args)
+    const envVars = env ? { ...process.env, ...env } : process.env
+
+    // Include the environment variables in the options for the spawn function
+    const child = spawn(cmd, args, { env: envVars })
 
     child.stdout.on('data', (data: Buffer) => {
       output.push(data)
