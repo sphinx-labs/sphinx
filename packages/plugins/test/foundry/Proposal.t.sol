@@ -18,7 +18,7 @@ import {
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
 
 import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
-import { Network, DeployOptions, SphinxMode, NetworkInfo, OptionalAddress, BundleInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, DeployOptions, NetworkInfo, OptionalAddress, BundleInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
@@ -75,8 +75,9 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
         auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         manager = ISphinxManager(sphinxManager(sphinxConfig));
 
-        // TODO(docs): we do this here because the `run` function is called during the collection
-        // phase, which occurs in a separate process that's invoked by typescript
+        // We must set the address here because the `run` function is not called in this process.
+        // Instead, it's called during the collection phase, which occurs in a separate process
+        // that's invoked by TypeScript before this process is executed.
         ownable = MyOwnable(sphinxAddress(
             sphinxConfig, "MyOwnable"
         ));
@@ -120,7 +121,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
  */
 contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants {
 
-    // TODO(docs): this is called off-chain, not in the forge test below.
+    // This is called by our TypeScript logic. It's not called in the Forge test.
     function run() public override virtual sphinx {
         initialDeployment();
     }

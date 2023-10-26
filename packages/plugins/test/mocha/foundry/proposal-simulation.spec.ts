@@ -37,11 +37,12 @@ import {
 import { ethers } from 'ethers'
 
 import { deploy } from '../../../src/cli/deploy'
+import { collectProposal } from '../../../src/cli/propose'
 import {
   FoundryToml,
   getFoundryConfigOptions,
 } from '../../../src/foundry/options'
-import { collectProposal, makeParsedConfig } from '../../../src/foundry/decode'
+import { makeParsedConfig } from '../../../src/foundry/decode'
 import {
   getBundleInfoArray,
   getUniqueFullyQualifiedNames,

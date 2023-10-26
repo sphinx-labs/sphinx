@@ -1,5 +1,5 @@
-import { basename, join, resolve } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { basename, join } from 'path'
+import { readFileSync } from 'fs'
 
 import {
   ActionInput,
@@ -15,7 +15,6 @@ import {
 import {
   isRawDeployContractActionInput,
   recursivelyConvertResult,
-  spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import {
   AbiCoder,
@@ -31,10 +30,8 @@ import {
   getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
-import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
-import { FoundryToml } from './options'
 
 export const decodeDeploymentInfo = (
   calldata: string,
@@ -174,9 +171,10 @@ export const getCollectedSingleChainDeployment = (
 } => {
   const chainId = SUPPORTED_NETWORKS[networkName]
 
-  // TODO(docs): location: e.g. hello_foundry/broadcast/Counter.s.sol/31337/dry-run/sphinxCollectDeployment-latest.json
-  // TODO(docs): Foundry uses only the script's file name when writing the dry run to the
-  // filesystem, even if the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol).
+  // The location for a single chain dry run is in the format:
+  // <broadcastFolder>/<scriptFileName>/<chainId>/dry-run/<functionName>-latest.json
+  // If the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol), Foundry still only
+  // uses only the script's file name, not its entire path.
   const dryRunPath = join(
     broadcastFolder,
     basename(scriptPath),
@@ -204,13 +202,16 @@ export const parseFoundryDryRun = (
 
   const notFromSphinxManager = transactions.filter(
     (t) =>
-      // TODO(docs): `getAddress` returns the checksummed addresses
+      // Convert the 'from' field to a checksum address.
       ethers.getAddress(t.transaction.from) !== deploymentInfo.managerAddress
   )
   if (notFromSphinxManager.length > 0) {
-    // TODO(docs): the user must broadcast from the sphinx manager's address so that the msg.sender
-    // for function calls is the same as it would be in a production deployment.
-    throw new Error(`TODO`)
+    // The user must broadcast/prank from the SphinxManager so that the msg.sender for function
+    // calls is the same as it would be in a production deployment.
+    throw new Error(
+      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the SphinxManager.\n` +
+        `Your 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
+    )
   }
 
   // TODO(md): current limitations: cannot send eth as part of deployment.
@@ -218,11 +219,12 @@ export const parseFoundryDryRun = (
   const actionInputs: Array<
     RawDeployContractActionInput | RawFunctionCallActionInput
   > = []
-  for (const { transaction } of transactions) {
+  for (const { transaction, contractName } of transactions) {
     if (transaction.value !== '0x0') {
-      throw new Error(
-        `Sphinx does not support sending ETH during deployments. Let us know if you need this feature!`
+      console.error(
+        `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
       )
+      process.exit(1)
     }
 
     if (
@@ -240,7 +242,11 @@ export const parseFoundryDryRun = (
         data: transaction.data,
       })
     } else {
-      throw new Error(`TODO(docs): should never happen`)
+      console.error(
+        `Detected a non-CREATE3 deployment, which is currently unsupported by Sphinx.` +
+          `${contractName ? `\nContract name: ${contractName}` : ``}`
+      )
+      process.exit(1)
     }
   }
 
@@ -388,6 +394,8 @@ export const makeParsedConfig = (
     isLiveNetwork,
     initialState,
     actionInputs,
-    remoteExecution: !isLiveNetwork, // TODO(docs)
+    // On Anvil nodes, we must set `remoteExecution` to `true` because we use the remote execution
+    // flow in this case (e.g. we call `manager.claimDeployment` in Solidity).
+    remoteExecution: !isLiveNetwork,
   }
 }

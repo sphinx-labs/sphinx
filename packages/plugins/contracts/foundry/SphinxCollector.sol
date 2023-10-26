@@ -7,18 +7,22 @@ import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @title SphinxCollector
- * @notice This contract is used as a substitute for an actual SphinxManager when collecting actions
- *         in `Sphinx.sol`. We substite the SphinxManager as a performance optimization. Using
- *         the actual SphinxManager would require us to run the full execution flow anytime the
- *         user runs a test that calls `Sphinx.deploy`. This would slow down tests by ~20-30
- *         seconds, which is unacceptable. Instead, we use this contract to collect the actions,
- *         then run the full execution flow if the user is broadcasting or proposing a deployment.
+ * @notice Collects CREATE3 contract deployments, as well as the `DeploymentInfo` struct. This
+ *         contract is meant to be called internally by Sphinx and not by the user. All
+ *         transactions executed on this contract will be collected during the dry run, which occurs
+ *         in the `sphinx deploy` CLI task and in proposals. This contract exists at the
+ *         SphinxManager's address during the collection phase, which ensures that the deployed
+ *         contracts have the same CREATE3 addresses as they would in production.
  */
 contract SphinxCollector {
+    /**
+     * @notice Collects the DeploymentInfo struct, which is needed in Sphinx's TypeScript logic.
+     */
     function collectDeploymentInfo(DeploymentInfo memory) external {}
 
-    // TODO(docs): replace this contract with the SphinxDefaultCreate3 contract
-
+    /**
+     * @notice Deploys via CREATE3 and returns the deployed address.
+     */
     function deploy(
         string memory fullyQualifiedName,
         bytes memory initCode,
@@ -26,6 +30,8 @@ contract SphinxCollector {
         bytes32 userSalt,
         string memory referenceName
     ) public returns (address deployed) {
+        // Removes a Solidity compiler warning. We use the fully qualified name off-chain, which is
+        // why we define the function parameter name even though it's unused here.
         fullyQualifiedName;
 
         bytes32 create3Salt = keccak256(abi.encode(referenceName, userSalt));

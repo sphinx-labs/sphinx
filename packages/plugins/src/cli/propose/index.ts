@@ -58,7 +58,9 @@ export const buildParsedConfigArray = async (
     proposerAddress,
     isTestnet.toString(),
     proposalNetworksPath,
-    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+    // Skip the on-chain simulation. This is necessary because it will always fail if a
+    // SphinxManager already exists on the target network.
+    '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -418,7 +420,9 @@ export const collectProposal = async (
     proposerAddress,
     isTestnet.toString(),
     proposalNetworksPath,
-    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+    // Skip the on-chain simulation. This is necessary because it will always fail if a
+    // SphinxManager already exists on the target network.
+    '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -457,7 +461,8 @@ export const collectProposal = async (
       ),
     ]
   } else {
-    // TODO(docs): e.g. broadcast/multi/dry-run/Sample.s.sol-latest/sphinxCollectProposal.json
+    // For multi-chain deployments, the format of the dry run file is:
+    // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
     const dryRunPath = join(
       foundryToml.broadcastFolder,
       'multi',

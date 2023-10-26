@@ -121,7 +121,7 @@ describe('Deploy CLI command', () => {
         mockPrompt
       )
 
-      const { parsedConfig: preview } = await deploy(
+      const { preview } = await deploy(
         emptyScriptPath,
         'goerli',
         false, // Run preview

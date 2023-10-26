@@ -39,7 +39,6 @@ import {
     SphinxConfig,
     InitialChainState,
     OptionalAddress,
-    SphinxMode,
     Wallet
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
@@ -1097,8 +1096,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_auth).code.length == 0) {
             ISphinxRegistry registry = ISphinxRegistry(registryAddress);
 
-            // TODO(docs)
-            // Use the current default manager version (which may be different from the latest manager version)
+            // Get the current SphinxManager version. The SphinxRegistry may not be deployed if
+            // we're on a non-forked Anvil node.
             Version memory version;
             if (registryAddress.code.length > 0) {
                 address currentManager = registry.currentManagerImplementation();

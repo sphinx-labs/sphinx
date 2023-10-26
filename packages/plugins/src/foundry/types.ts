@@ -23,14 +23,22 @@ export type ProposalOutput = {
   authRoot: string
 }
 
-// TODO(docs): this doesn't include the "contractAddress", which is a field in the actual
-// foundry broadcast file. we don't include it here because it can be `null` for low-level calls, so
-// we prefer to always use the 'transactions.to' field instead.
+/**
+ * This is the format of the JSON file that is output in a Forge dry run. This type doesn't include
+ * the "contractAddress" field that exists in the actual broadcast file because it can be `null` for
+ * low-level calls, so we prefer to always use the 'transactions.to' field instead.
+ *
+ * @param contractName The name of the contract that the transaction is calling. If this is a
+ * string, it'll be the contract's name if it's unique in the repo. Otherwise, it'll be the fully
+ * qualified name.
+ * @param function The name of the function that the transaction is calling. For example,
+ * "myFunction(uint256)".
+ */
 export type FoundryDryRunTransaction = {
   hash: string | null
   transactionType: 'CREATE' | 'CALL'
-  contractName: string | null // TODO(docs): if string, it'll be contractName if it's unique in repo, otherwise FQN
-  function: string | null // TODO(docs): e.g. "myFunction(uint256)"
+  contractName: string | null
+  function: string | null
   arguments: Array<any> | null
   transaction: {
     type: string

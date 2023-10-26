@@ -44,21 +44,12 @@ import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
-// keep3r integration:
-// - TODO(md): see the client spec in linear for things to include in client docs
-// - TODO(md): `computeCreateAddress` example
-// - TODO(md): gas report results in higher values for all function calls in the `deploy` function.
-//   the reported contract deployment costs are identical to the actual deployment costs. the gas
-//   report for anything outside of the `deploy` function is unchanged, even when interacting with
-//   contracts deployed by sphinx.
-
-// - TODO(ask): ask keep3r if it matters that the gas report breaks
-
 /**
- * @notice An abstract contract that the user must inherit in order to execute deployments using
- *         Sphinx. This contract handle the process of collecting the user's actions (i.e. contract
- *         deployments and function calls), then converts these into a format that can be executed
- *         on-chain, and, lastly, it executes the deployment on the user's contracts.
+ * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
+ *         The main user-facing element of this contract is the `sphinx` modifier, which
+ *         the user must include in their `run()` function. The rest of the logic is used
+ *         internally by Sphinx to handle the process of collecting the user's contract
+ *         deployments and function calls, as well as simulating and executing the deployment.
  *
  *         Functions in this contract are prefixed with "sphinx" to avoid name collisions with
  *         functions that the user defines in derived contracts. This applies to private functions
@@ -66,67 +57,30 @@ import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphi
  *         signature in a parent contract and a child contract. This also applies to any state
  *         variables that aren't private. Private variables of the same name can be defined in a
  *         parent and child contract.
- *
- *         If you examine the function calls in this contract that execute the deployment process,
- *         you'll notice that there's a hard-coded `gas` value for each one. This does not impact
- *         the amount of gas actually used in these transactions. We need to hard-code these values
- *         to avoid an edge case that occurs when deploying against an Anvil node. In particular,
- *         Foundry will fail to detect that the pre-deployed Sphinx contracts are already deployed
- *         on the network, which occurs because we deploy them via FFI (in
- *         `SphinxUtils.initializeFFI`). Since it doesn't detect that these contracts exist, it will
- *         use a very low gas amount for the deployment transactions, since it expects them to fail.
- *         This causes the entire deployment to fail.
  */
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    DeploymentInfo private deploymentInfo;
-
-    string[] referenceNames;
-
-    SphinxConstants private constants;
-
     /**
      * @dev The configuration options for the user's project. This variable must have `internal`
-     *         visibility so that the user can set fields on it in their constructor.
+     *      visibility so that the user can set fields on it.
      */
     SphinxConfig internal sphinxConfig;
 
+    DeploymentInfo private deploymentInfo;
+
+    string[] private referenceNames;
+
+    SphinxConstants private constants;
+
     SphinxUtils private sphinxUtils;
 
-    // TODO(md): it may be surprising to the user if a previously deployed contract (with
-    // different bytecode or a different abi) is returned from a "deploy<Contract>" call instead of
-    // their new contract. consider changing the name of the deploy function to "ensureDeployed" or
-    // something, or just explain that this is how the tool works.
+    SphinxMode private sphinxMode;
 
-    // TODO(md): perhaps add to faq that users can use `computeCreateAddress` from `StdUtils.sol`.
-    // if you include this, say that the initial nonce is *1*, not 0. see eip-161:
-    // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-161.md#specification
+    bool private sphinxModifierEnabled;
 
-    SphinxMode public sphinxMode;
-    bool public sphinxModifierEnabled;
-
-    // TODO(md): This is outdated. We don't require the user to call the constructor of Sphinx.sol
-    // anymore, so I don't think it doesn't make much sense to include this here. I think we should
-    // move everything in @notice to our docs.
-    /**
-     * @notice We expect that the user will inherit from this contract in their Sphinx script. When they do so, they'll
-     *         also be required to call this constructor with their configuration options.
-     *
-     *         Required for every deployment:
-     *          - string projectName:  The name of the project, e.g. "My Project". One of the fields contract addresses.
-     *          - address[] owners:    The addresses of the owners of the project, e.g. [0x123..., 0x456...], impacts contract addresses.
-     *          - uint256 threshold:   The number of owners required to approve a deployment, e.g. 1.
-     *
-     *         Required when using the DevOps platform:
-     *          - string orgId:        The ID of the organization, e.g. "12345", required to interact with the DevOps platform.
-     *          - address[] proposers: The addresses of the proposers of the project, e.g. [0x123..., 0x456...], required to propose deployments.
-     *                                 If there is no proposer defined and only one owner, then we use the owner as the proposer.
-     *          - Network[] mainnets:  The mainnet networks to deploy to, e.g. [Network.ethereum, Network.optimism, Network.arbitrum].
-     *          - Network[] testnets:  The testnet networks to deploy to, e.g. [Network.goerli, Network.optimism_goerli, Network.arbitrum_goerli].
-     */
     constructor() {
-        // Set default values for the SphinxConfig
+        // Set the default SphinxManager version
         sphinxConfig.version = Version({ major: 0, minor: 2, patch: 6 });
 
         sphinxUtils = new SphinxUtils();
@@ -238,17 +192,7 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Called within the `sphinx deploy` CLI command. This function is not meant to be
-     *         called directly by the user. If a user wants to broadcast a deployment, they should
-     *         use the `sphinx deploy` CLI command instead of calling this function.
-     *
-     *         This function serves two purposes:
-     *         1. When it's called without the `--broadcast` flag, it simulates a deployment and
-     *            writes the `DeploymentInfo` struct to the filesystem, which the `sphinx deploy`
-     *            command uses to display a preview of the deployment to the user.
-     *         2. When it's called with the `--broadcast` flag, it deploys the user's contracts to
-     *            the specified network. It also writes the `DeploymentInfo` struct to the
-     *            filesystem, which is used to write deployment artifacts to the filesystem.
+     * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
      */
     function sphinxDeployTask(
         string memory _networkName,
@@ -375,7 +319,7 @@ abstract contract Sphinx {
     }
 
     /**
-     * Helper function for executing a list of actions in batches.
+     * @notice Helper function for executing a list of actions in batches.
      */
     function sphinxExecuteBatchActions(
         ISphinxManager _manager,
@@ -504,6 +448,10 @@ abstract contract Sphinx {
         return (true, emptyAction);
     }
 
+    /**
+     * @notice A modifier that the user must include on their `run()` function when using Sphinx.
+     *         This modifier mainly performs validation on the user's configuration and environment.
+     */
     modifier sphinx() {
         sphinxModifierEnabled = true;
 
@@ -529,17 +477,22 @@ abstract contract Sphinx {
         // `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
+        // Delete deployment related variables, which may be leftover from a deployment that was
+        // previously executed in this process.
         delete deploymentInfo;
         delete referenceNames;
 
         sphinxUtils.validate(sphinxConfig);
 
         if (sphinxMode == SphinxMode.Collect) {
+            // Execute the user's 'run()' function.
             _;
         } else if (sphinxMode == SphinxMode.Default) {
             ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
             vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
+            // Prank the SphinxManager then execute the user's `run()` function. We prank
+            // the SphinxManager to replicate the deployment process on live networks.
             vm.startPrank(address(manager));
             _;
             vm.stopPrank();
@@ -550,6 +503,22 @@ abstract contract Sphinx {
         sphinxModifierEnabled = false;
     }
 
+    /**
+     * @notice Runs the production deployment process. We use this to broadcast transactions
+     *         when the user is deploying with the CLI, and we use this when simulating the
+     *         deployment before submitting a proposal.
+     *
+     *         If you examine the function calls in this contract that execute the deployment
+     *         process, you'll notice that there's a hard-coded `gas` value for each one. This does
+     *         not impact the amount of gas actually used in these transactions. We need to
+     *         hard-code these values to avoid an edge case that occurs when deploying against an
+     *         Anvil node. In particular, Foundry will fail to detect that the pre-deployed Sphinx
+     *         contracts are already deployed on the network. This weird behavior happens because we
+     *         deploy the Sphinx predeploys via FFI (in `SphinxUtils.initializeFFI`). Since it
+     *         doesn't detect that these contracts exist, it will use a very low gas amount for the
+     *         deployment transactions, since it expects them to fail. This causes the entire
+     *         deployment to fail.
+     */
     function sphinxDeployOnNetwork(
         ISphinxManager _manager,
         ISphinxAuth _auth,
@@ -731,25 +700,12 @@ abstract contract Sphinx {
 
     function run() public virtual;
 
-    // TODO(docs): everywhere in this contract
-
     /**
-     * @notice Deploys a contract at the expected Sphinx address. Called from the auto generated Sphinx Client.
-     *         To deploy contracts during the simulation phase.
+     * @notice Deploys a contract at the expected CREATE3 address. Called from the auto generated
+     *         Sphinx Client.
      *
-     *         We use a proxy pattern to allow the user to interact with their Client contracts while still accurately simulating
-     *         the real functionality of their underlying contracts including their constructor logic and storage layout.
-     *
-     *         This function performs a three step process to setup this proxy pattern.
-     *         1. Generate the CREATE3 address for the contract and deploy the contract to that address.
-     *            This ensures the contract is deployed exactly as it would be on a live network.
-     *         2. Etch the contract code to a separate implementation address which is the CREATE3 address minus one.
-     *         3. Deploy the client code to the CREATE3 address with the implementation address as a constructor argument.
-     *
-     *         After this process is complete, the user can interact with their contract by calling functions on the client, and the
-     *         client will delegate those calls to the implementation.
-     *
-     * @param _referenceName     The reference name of the contract to deploy. Used to generate the contracts address.
+     * @param _referenceName     The reference name of the contract to deploy. Used to generate the
+       contracts address.
      * @param _userSalt          The user's salt. Used to generate the contracts address.
      * @param _constructorArgs   The constructor arguments for the contract.
      * @param fullyQualifiedName The fully qualified name of the contract to deploy.
@@ -767,16 +723,12 @@ abstract contract Sphinx {
             "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
         );
 
-        // TODO(docs): explain what the sphinx modifier does. particularly, it pranks/broadcasts
-        // from the sphinx manager. explain why. (it's so that the msg.sender for function calls is
-        // the same as it would be in a production deployment).
-
         // TODO(md): in the testing mode, we can't detect if users stop pranking their sphinx
         // manager and start pranking another address during the deployment. so, we should tell
         // users that they shouldn't do this.
 
         address manager = sphinxManager(sphinxConfig);
-        // TODO(docs): brackets to prevent stack too deep compiler error
+        // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
         {
             (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
             // Check that we're currently pranking/broadcasting from the SphinxManager. This should
@@ -785,12 +737,12 @@ abstract contract Sphinx {
             if (sphinxMode == SphinxMode.Collect) {
                 require(
                     callerMode == VmSafe.CallerMode.RecurrentBroadcast && msgSender == manager,
-                    "Sphinx: TODO(docs)"
+                    "Sphinx: You must not use any prank or broadcast cheatcodes in your deployment."
                 );
             } else {
                 require(
                     callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
-                    "Sphinx: TODO(docs)"
+                    "Sphinx: You must not use any prank or broadcast cheatcodes in your deployment."
                 );
             }
         }
@@ -809,7 +761,16 @@ abstract contract Sphinx {
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _userSalt));
         address create3Address = sphinxUtils.computeCreate3Address(manager, create3Salt);
 
-        require(create3Address.code.length == 0, "Sphinx: TODO(docs)");
+        require(
+            create3Address.code.length == 0,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Contract already exists at the CREATE3 address. Please use a different salt or reference name to deploy ",
+                    fullyQualifiedName,
+                    " at a different address."
+                )
+            )
+        );
 
         // Deploy the user's contract to the CREATE3 address via the SphinxCollector, which exists
         // at the SphinxManager's address. This mirrors what happens on live networks.
@@ -824,32 +785,6 @@ abstract contract Sphinx {
         referenceNames.push(_referenceName);
 
         return create3Address;
-    }
-
-    // TODO(md): the msg.sender in the constructor of the user's contract is *not* the sphinxmanager.
-    // it's actually a minimal create3 proxy that's deployed by the sphinxmanager in the same transaction
-    // as the deployment. This is how create3 works.
-
-    /**
-     * @notice Deploys a contract to a specified address. This function is copied from
-     *         StdCheats.sol. We do this instead of importing StdCheats to limit the number of
-     *         functions that are exposed to the user when they inherit this contract.
-     *
-     *         Note that this function does not set the nonce at the address. If using this function
-     *         to deploy a contract at an address where no contract currently exists, consider
-     *         calling `vm.setNonce(addr, 1)` before calling this function. This ensures that the
-     *         initial nonce is 1, which matches EVM behavior (see EIP-161 part A:
-     *         https://github.com/ethereum/EIPs/blob/master/EIPS/eip-161.md#specification)
-     *
-     * @param initCode  The creation code of the contract to deploy.
-     * @param args  The ABI-encoded constructor arguments for the contract.
-     * @param where The address to deploy the contract to.
-     */
-    function _sphinxDeployCodeTo(bytes memory initCode, bytes memory args, address where) private {
-        vm.etch(where, abi.encodePacked(initCode, args));
-        (bool success, bytes memory runtimeBytecode) = where.call("");
-        require(success, "Sphinx: Failed to create runtime bytecode.");
-        vm.etch(where, runtimeBytecode);
     }
 
     /**
@@ -908,8 +843,8 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Get an address of a contract to be deployed by Sphinx. This function assumes that a
-     *         user-defined salt is not being used to deploy the contract. If it is, use the
+     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
+     *         that a user-defined salt is not being used to deploy the contract. If it is, use the
      *         overloaded function of the same name. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
@@ -921,8 +856,8 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Get an address of a contract to be deployed by Sphinx. This function assumes that a
-     *         user-defined salt is being used to deploy the contract. If it's not, use the
+     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
+     *         that a user-defined salt is being used to deploy the contract. If it's not, use the
      *         overloaded function of the same name. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */

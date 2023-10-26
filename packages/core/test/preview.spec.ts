@@ -4,7 +4,7 @@ import { ethers } from 'ethers'
 import { ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
-import { ParsedVariable, getPreviewString } from '../dist'
+import { ParsedVariable } from '../dist'
 import { isRawFunctionCallActionInput } from '../src'
 
 const firstContractConstructorArgs: ParsedVariable = {
@@ -127,7 +127,6 @@ describe('Preview', () => {
   describe('getPreview', () => {
     it('returns preview for single network that is executing everything, including SphinxManager', () => {
       const preview = getPreview([originalParsedConfig])
-      console.log(getPreviewString(preview, false))
 
       expect(preview.length).to.equal(1)
       const { networkTags, executing, skipping } = preview[0]

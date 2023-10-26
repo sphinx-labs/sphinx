@@ -119,7 +119,9 @@ export const deploy = async (
     network,
     '--rpc-url',
     forkUrl,
-    '--skip-simulation', // TODO(docs): this is necessary in the case that a deployment has already occurred on the network. explain why. also, this skips the on-chain simulation, not the in-process simulation (i.e. step 2 in forge docs, not step 1)
+    // Skip the on-chain simulation. This is necessary because it will always fail if a
+    // SphinxManager already exists on the target network.
+    '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -185,7 +187,9 @@ export const deploy = async (
     [parsedConfig]
   )
   if (bundleInfoArray.length !== 1) {
-    throw new Error(`TODO(docs): should never happen`)
+    throw new Error(
+      `Bundle info array has incorrect length. Should never happen`
+    )
   }
   const bundleInfo = bundleInfoArray[0]
 
