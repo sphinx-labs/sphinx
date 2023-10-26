@@ -29,5 +29,5 @@ A clear and concise description of how you think this feature should integrate i
 
 ## Context
 <!--
-Add any other context, screenshots, or an example Sphinx config to help describe the feature request here.
+Add any other context, screenshots, or an example Sphinx deployment script to help describe the feature request here.
 -->

@@ -1,0 +1,112 @@
+# Quickstart
+This guide will show you how to setup a fresh Sphinx project, run tests, and deploy locally.
+
+> For a guide on adding Sphinx to an existing project, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md).
+
+## Table of Contents
+
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Initialize Sphinx](#4-initialize-a-project)
+5. [Generate Clients](#5-generate-sphinx-clients)
+6. [Run the Tests](#6-run-the-tests)
+7. [Broadcast on Anvil](#7-broadcast-on-anvil-optional)
+8. [Next Steps](#8-next-steps)
+
+## 1. Prerequisites
+
+The following must be installed on your machine:
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+
+You must also have a basic understanding of Foundry and Forge scripts. See [here](https://book.getfoundry.sh/getting-started/first-steps) for a brief introduction.
+
+## 2. Update Foundry
+
+Make sure you're using the latest version of Foundry.
+
+```
+foundryup
+```
+
+## 3. Install Sphinx
+
+First, navigate to a fresh directory.
+
+```
+mkdir hello_sphinx && cd hello_sphinx
+```
+
+You can install Sphinx using Yarn, npm, or pnpm.
+
+Yarn:
+```
+yarn add --dev @sphinx-labs/plugins
+```
+
+npm:
+```
+npm install --save-dev @sphinx-labs/plugins
+```
+
+pnpm:
+```
+pnpm add -D @sphinx-labs/plugins
+```
+
+## 4. Initialize a project
+
+```
+npx sphinx init --quickstart
+```
+
+This command created a few files:
+- `src/HelloSphinx.sol`: A sample contract to deploy.
+- `test/HelloSphinx.t.sol`: A test file for the deployment.
+- `script/HelloSphinx.s.sol`: A sample Sphinx deployment script.
+- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
+- `.env`: A sample `.env` file that contains a valid private key on Anvil.
+
+## 5. Generate Sphinx clients
+
+To improve the UX of CREATE3 deployments, Sphinx autogenerates **clients**, which are thin wrappers over your contracts that provide type safety for your constructor arguments. You'll need to use clients when deploying your contracts.
+
+Generate the clients with the command:
+
+```
+npx sphinx generate
+```
+
+This command writes the clients into a new `client` folder. TODO(md): this and the quickstart guide. You'll learn more about clients in the next guide.
+
+## 6. Run the tests
+
+Run the test file at `test/HelloSphinx.t.sol`:
+
+```
+forge test
+```
+
+## 7. Broadcast on Anvil (optional)
+
+First, start an Anvil node:
+```
+anvil
+```
+
+Then, navigate to a new terminal window. Deploy using the `deploy` command:
+
+```
+npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
+```
+
+You'll be shown a preview of your deployment and prompted to confirm.
+
+Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+
+When deploying on a live network, you can verify your contracts on block explorers using the `--verify` flag.
+
+## 8. Next steps
+
+Learn more about writing deployment scripts with Sphinx in [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md).

@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.4 <0.9.0;
+pragma solidity ^0.8.0;
 
 import {
     SphinxTarget,
     RawSphinxAction,
     SphinxActionType,
-    Version
+    Version,
+    AuthLeaf,
+    AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
-struct SphinxBundles {
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
+struct SphinxAuthBundle {
+    bytes32 root;
+    BundledAuthLeaf[] leafs;
+}
+
+struct BundledAuthLeaf {
+    AuthLeaf leaf;
+    AuthLeafType leafTypeEnum;
+    string leafFunctionName;
+    bytes32[] proof;
 }
 
 struct SphinxActionBundle {
@@ -25,8 +34,8 @@ struct SphinxTargetBundle {
 
 struct BundledSphinxAction {
     RawSphinxAction action;
-    bytes32[] siblings;
     uint256 gas;
+    bytes32[] siblings;
 }
 
 struct BundledSphinxTarget {
@@ -40,13 +49,10 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-struct Configs {
-    FoundryConfig minimalConfig;
-    string parsedConfigStr;
-}
-
 struct BundleInfo {
+    string networkName;
     string configUri;
+    BundledAuthLeaf[] authLeafs;
     SphinxActionBundle actionBundle;
     SphinxTargetBundle targetBundle;
     HumanReadableAction[] humanReadableActions;
@@ -67,44 +73,31 @@ struct FoundryContractConfig {
     bytes32 userSaltHash;
 }
 
+enum SphinxMode {
+    Default,
+    Collect,
+    LiveNetworkBroadcast,
+    LocalNetworkBroadcast,
+    Proposal
+}
+
+/**
+ * @custom:field currentversion The current version of the SphinxManager.
+ *               If the SphinxManager has not been deployed, then this defaults to
+ *               the latest SphinxManager version.
+ */
 struct ConfigCache {
+    address manager;
     bool isManagerDeployed;
     bool isExecuting;
-    Version managerVersion;
-    uint256 blockGasLimit;
+    Version currentversion;
     uint256 chainId;
-    ContractConfigCache[] contractConfigCache;
-    CallNonces[] callNonces;
-    address[] undeployedExternalContracts;
-}
-
-struct ContractConfigCache {
-    string referenceName;
-    bool isTargetDeployed;
-    DeploymentRevert deploymentRevert;
-    ImportCache importCache;
-    OptionalString previousConfigUri;
-}
-
-struct CallNonces {
-    bytes32 callHash;
-    uint256 nonce;
-}
-
-struct DeploymentRevert {
-    bool deploymentReverted;
-    OptionalString revertString;
 }
 
 struct ParsedCallAction {
     address to;
     bytes data;
     uint256 nonce;
-}
-
-struct ImportCache {
-    bool requiresImport;
-    OptionalAddress currProxyAdmin;
 }
 
 enum ContractKindEnum {
@@ -145,4 +138,182 @@ struct OptionalString {
 struct OptionalBytes32 {
     bytes32 value;
     bool exists;
+}
+
+/**
+ * @notice Contains all of the information that's collected in a deployment on a single chain.
+ *
+ * @custom:field authAddress The address of the user's SphinxAuth contract.
+ * @custom:field managerAddress The address of the user's SphinxManager contract.
+ * @custom:field chainId The chain ID where the deployment will occur.
+ * @custom:field newConfig The SphinxConfig that the user has defined in their script.
+ * @custom:field isLiveNetwork Whether or not the deployment is occurring on a live network (e.g.
+ *               Ethereum) as opposed to a local node (e.g. an Anvil or Hardhat node).
+ * @custom:field initialState The values of several state variables before the deployment occurs.
+ */
+struct DeploymentInfo {
+    address authAddress;
+    address managerAddress;
+    uint256 chainId;
+    SphinxConfig newConfig;
+    bool isLiveNetwork;
+    InitialChainState initialState;
+}
+
+/**
+ * @notice Contains the values of a few state variables which are retrieved on-chain *before* the
+ *         deployment occurs. These determine various aspects of the deployment.
+ *
+ * @custom:field proposers The existing list of proposers in the SphinxAuth contract. This is
+ *               empty if the SphinxAuth contract does not exist yet. Determines which proposers
+ *               must be added in this deployment.
+ * @custom:field version The existing version of the user's SphinxManager and SphinxAuth contract.
+ *               Determines whether we need to upgrae these contracts to the latest vesion during
+ *               the deployment.
+ * @custom:field isManagerDeployed True if the user's SphinxManager has been deployed. If false,
+ *               we'll need to register this contract before the deployment occurs.
+ * @custom:field firstProposalOccurred True if a proposal has previously been executed on the user's
+ *               SphinxAuth contract. If false, then we won't call `SphinxAuth.setup` at the
+ *               beginning of the deployment.
+ * @custom:field isExecuting True if there's currently an active deployment in the user's
+ *               SphinxManager. If so, we cancel the existing deployment, since an existing active
+ *               deployment implies that an error occurred in one of the user's contracts during
+ *               that deployment.
+ */
+struct InitialChainState {
+    address[] proposers;
+    Version version;
+    bool isManagerDeployed;
+    bool firstProposalOccurred;
+    bool isExecuting;
+}
+
+/**
+ * @notice An object that contains all of the user's configuration settings for a deployment.
+ *         The `projectName`, `owners`, and `threshold` determine the `CREATE3` address of
+ *         the user's contracts. The other parameters are only used if the user's deploying
+ *         with the DevOps platform.
+ *
+ * @custom:field projectName The name of the user's project.
+ * @custom:field owners The list of owners of the user's contracts. There must only be
+ *               one owner if the user is not deploying with the DevOps platform.
+ * @custom:field threshold The number of owners that must approve the deployment. This
+ *               must be less than or equal to the number of owners.
+ * @custom:field orgId The ID of the user's organization on the DevOps platform. This can
+ *               be retrieved from the Sphinx UI.
+ * @custom:field proposers The list of addresses that are allowed to propose deployments,
+ *               which will be approved by the owners in Sphinx's UI.
+ * @custom:field mainnets The list of production networks that the user's contracts will
+ *               be deployed on using the DevOps platform.
+ * @custom:field testnets The list of test networks that the user's contracts will be
+ *               deployed on using the DevOps platform.
+ * @custom:field version The version of the SphinxManager and SphinxAuth contracts that
+ *               deploy the user's contracts. Currently, this defaults to the latest
+ *               version, so it doesn't need to be specified by the user.
+ */
+struct SphinxConfig {
+    string projectName;
+    address[] owners;
+    uint256 threshold;
+    string orgId;
+    address[] proposers;
+    Network[] mainnets;
+    Network[] testnets;
+    Version version;
+}
+
+enum Network {
+    anvil,
+    // production networks (i.e. mainnets)
+    ethereum,
+    optimism,
+    arbitrum,
+    polygon,
+    bnb,
+    gnosis,
+    linea,
+    polygon_zkevm,
+    avalanche,
+    fantom,
+    base,
+    // testnets
+    goerli,
+    optimism_goerli,
+    arbitrum_goerli,
+    polygon_mumbai,
+    bnb_testnet,
+    gnosis_chiado,
+    linea_goerli,
+    polygon_zkevm_goerli,
+    avalanche_fuji,
+    fantom_testnet,
+    base_goerli
+}
+
+struct DeployOptions {
+    bytes32 salt;
+    string referenceName;
+}
+
+enum NetworkType {
+    Mainnet,
+    Testnet,
+    Local
+}
+
+struct NetworkInfo {
+    Network network;
+    string name;
+    uint chainId;
+    NetworkType networkType;
+}
+
+struct ProposalOutput {
+    address proposerAddress;
+    bytes metaTxnSignature;
+    BundleInfo[] bundleInfoArray;
+    bytes32 authRoot;
+}
+
+/**
+ * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
+ *         needing to hard-code them.
+ */
+contract SphinxPluginTypes {
+    function bundleInfoArrayType() external pure returns (BundleInfo[] memory bundleInfoArray) {}
+
+    function bundledActionsType()
+        external
+        pure
+        returns (BundledSphinxAction[] memory bundledActions)
+    {}
+
+    function bundledAuthLeafsType()
+        external
+        pure
+        returns (BundledAuthLeaf[] memory bundledAuthLeafs)
+    {}
+
+    function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) {}
+
+    function humanReadableActionsType()
+        external
+        pure
+        returns (HumanReadableAction[] memory humanReadableActions)
+    {}
+
+    function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
+
+    function getDeploymentInfoArray()
+        external
+        view
+        returns (DeploymentInfo[] memory deploymentInfoArray)
+    {}
+
+    function proposalOutput() external pure returns (ProposalOutput memory output) {}
+}
+
+struct Wallet {
+    uint256 privateKey;
+    address addr;
 }

@@ -8,7 +8,6 @@ import {
   DeploymentState,
   DeploymentStatus,
   HumanReadableAction,
-  HumanReadableActions,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
@@ -17,7 +16,7 @@ import { SphinxJsonRpcProvider } from '../provider'
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
-  humanReadableActions: HumanReadableActions,
+  humanReadableActions: Array<HumanReadableAction>,
   blockGasLimit: bigint,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
@@ -157,7 +156,7 @@ const executeBatchActions = async (
   isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
-  humanReadableActions: HumanReadableActions,
+  humanReadableActions: Array<HumanReadableAction>,
   signer: ethers.Signer,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   logger?: Logger | undefined

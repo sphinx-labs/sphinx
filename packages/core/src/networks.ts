@@ -4,35 +4,123 @@
 
 export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
 
+// TODO(md): update these
 export type SupportedMainnetNetworkName =
   | 'ethereum'
   | 'optimism'
   | 'arbitrum'
-  | 'matic' // Polygon
+  | 'polygon'
   | 'bnb'
-  | 'xdai' // Gnosis
+  | 'gnosis'
   | 'linea'
-  | 'polygon-zkevm'
+  | 'polygon_zkevm'
   | 'avalanche'
   | 'fantom'
   | 'base'
 export type SupportedTestnetNetworkName =
   | 'goerli'
-  | 'optimism-goerli'
-  | 'arbitrum-goerli'
-  | 'maticmum' // Polygon Mumbai
-  | 'bnbt' // BNB Smart Chain testnet
-  | 'gnosis-chiado'
-  | 'linea-goerli'
-  | 'polygon-zkevm-goerli'
-  | 'avalanche-fuji'
-  | 'fantom-testnet'
-  | 'base-goerli'
+  | 'optimism_goerli'
+  | 'arbitrum_goerli'
+  | 'polygon_mumbai'
+  | 'bnb_testnet'
+  | 'gnosis_chiado'
+  | 'linea_goerli'
+  | 'polygon_zkevm_goerli'
+  | 'avalanche_fuji'
+  | 'fantom_testnet'
+  | 'base_goerli'
 
 export type SupportedNetworkName =
   | SupportedMainnetNetworkName
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
+
+// TODO(md): ryan's dogfooding notion
+
+// This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
+// The fields in the two enums must be kept in sync, and the order of the fields must be the same.
+export const NetworkEnum = {
+  anvil: 0n,
+  // production networks (i.e. mainnets)
+  ethereum: 1n,
+  optimism: 2n,
+  arbitrum: 3n,
+  polygon: 4n,
+  bnb: 5n,
+  gnosis: 6n,
+  linea: 7n,
+  polygon_zkevm: 8n,
+  avalanche: 9n,
+  fantom: 10n,
+  base: 11n,
+  // testnets
+  goerli: 12n,
+  optimism_goerli: 13n,
+  arbitrum_goerli: 14n,
+  polygon_mumbai: 15n,
+  bnb_testnet: 16n,
+  gnosis_chiado: 17n,
+  linea_goerli: 18n,
+  polygon_zkevm_goerli: 19n,
+  avalanche_fuji: 20n,
+  fantom_testnet: 21n,
+  base_goerli: 22n,
+}
+
+export const networkEnumToName = (
+  networkEnum: bigint
+): SupportedNetworkName => {
+  switch (networkEnum) {
+    case NetworkEnum.anvil:
+      return 'anvil'
+    case NetworkEnum.ethereum:
+      return 'ethereum'
+    case NetworkEnum.optimism:
+      return 'optimism'
+    case NetworkEnum.arbitrum:
+      return 'arbitrum'
+    case NetworkEnum.polygon:
+      return 'polygon'
+    case NetworkEnum.bnb:
+      return 'bnb'
+    case NetworkEnum.gnosis:
+      return 'gnosis'
+    case NetworkEnum.linea:
+      return 'linea'
+    case NetworkEnum.polygon_zkevm:
+      return 'polygon_zkevm'
+    case NetworkEnum.avalanche:
+      return 'avalanche'
+    case NetworkEnum.fantom:
+      return 'fantom'
+    case NetworkEnum.base:
+      return 'base'
+    case NetworkEnum.goerli:
+      return 'goerli'
+    case NetworkEnum.optimism_goerli:
+      return 'optimism_goerli'
+    case NetworkEnum.arbitrum_goerli:
+      return 'arbitrum_goerli'
+    case NetworkEnum.polygon_mumbai:
+      return 'polygon_mumbai'
+    case NetworkEnum.bnb_testnet:
+      return 'bnb_testnet'
+    case NetworkEnum.gnosis_chiado:
+      return 'gnosis_chiado'
+    case NetworkEnum.linea_goerli:
+      return 'linea_goerli'
+    case NetworkEnum.polygon_zkevm_goerli:
+      return 'polygon_zkevm_goerli'
+    case NetworkEnum.avalanche_fuji:
+      return 'avalanche_fuji'
+    case NetworkEnum.fantom_testnet:
+      return 'fantom_testnet'
+    case NetworkEnum.base_goerli:
+      return 'base_goerli'
+    default:
+      throw new Error(`Unsupported network enum ${networkEnum}`)
+  }
+}
 
 // Maps a live network name to its chain ID. Does not include testnets.
 export const SUPPORTED_MAINNETS: Record<
@@ -42,11 +130,11 @@ export const SUPPORTED_MAINNETS: Record<
   ethereum: 1,
   optimism: 10,
   arbitrum: 42161,
-  matic: 137,
+  polygon: 137,
   bnb: 56,
-  xdai: 100,
+  gnosis: 100,
   linea: 59144,
-  'polygon-zkevm': 1101,
+  polygon_zkevm: 1101,
   avalanche: 43114,
   fantom: 250,
   base: 8453,
@@ -65,16 +153,16 @@ export const SUPPORTED_TESTNETS: Record<
   SupportedTestnetChainId
 > = {
   goerli: 5,
-  'optimism-goerli': 420,
-  'arbitrum-goerli': 421613,
-  maticmum: 80001,
-  bnbt: 97,
-  'gnosis-chiado': 10200,
-  'linea-goerli': 59140,
-  'polygon-zkevm-goerli': 1442,
-  'avalanche-fuji': 43113,
-  'fantom-testnet': 4002,
-  'base-goerli': 84531,
+  optimism_goerli: 420,
+  arbitrum_goerli: 421613,
+  polygon_mumbai: 80001,
+  bnb_testnet: 97,
+  gnosis_chiado: 10200,
+  linea_goerli: 59140,
+  polygon_zkevm_goerli: 1442,
+  avalanche_fuji: 43113,
+  fantom_testnet: 4002,
+  base_goerli: 84531,
 }
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,
@@ -119,33 +207,36 @@ export type SupportedChainId =
 
 export const MinimumWalletBalanceTestnets = {
   goerli: '0.15',
-  'optimism-goerli': '0.15',
-  'arbitrum-goerli': '0.15',
-  bnbt: '0.15',
-  maticmum: '0.15',
-  'gnosis-chiado': '0.15',
-  'linea-goerli': '0.15',
-  'polygon-zkevm-goerli': '0.15',
-  'avalanche-fuji': '1',
-  'fantom-testnet': '1',
-  'base-goerli': '0.15',
+  optimism_goerli: '0.15',
+  arbitrum_goerli: '0.15',
+  bnb_testnet: '0.15',
+  polygon_mumbai: '0.15',
+  gnosis_chiado: '0.15',
+  linea_goerli: '0.15',
+  polygon_zkevm_goerli: '0.15',
+  avalanche_fuji: '1',
+  fantom_testnet: '1',
+  base_goerli: '0.15',
 }
 
 export const MinimumWalletBalanceMainnets = {
   ethereum: '.05',
   optimism: '.025',
   arbitrum: '.025',
-  matic: '1',
+  polygon: '1',
   bnb: '.05',
-  xdai: '1',
+  gnosis: '1',
   linea: '0.025',
-  'polygon-zkevm': '0.025',
+  polygon_zkevm: '0.025',
   avalanche: '1',
   fantom: '1',
   base: '0.025',
 }
 
-export const MinimumWalletBalance = {
+export const MinimumWalletBalance: Record<
+  SupportedMainnetNetworkName | SupportedTestnetNetworkName,
+  string
+> = {
   ...MinimumWalletBalanceTestnets,
   ...MinimumWalletBalanceMainnets,
 }

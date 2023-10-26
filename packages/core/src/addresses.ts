@@ -34,7 +34,7 @@ import {
 
 import { REFERENCE_ORG_ID } from './constants'
 import { USDC_ADDRESSES } from './networks'
-import { SemverVersion } from './types'
+import { SemVer } from './types'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -61,9 +61,16 @@ export const getSphinxRegistryAddress = () =>
     )
   )
 
-export const getManagedServiceAddress = (chainId: number) => {
+export const getManagedServiceConstructorArgs = (chainId: bigint) => {
   const usdcAddress =
-    chainId === 10 || chainId === 420 ? USDC_ADDRESSES[chainId] : ZeroAddress
+    chainId === 10n || chainId === 420n
+      ? USDC_ADDRESSES[Number(chainId)]
+      : ZeroAddress
+
+  return [getOwnerAddress(), usdcAddress]
+}
+
+export const getManagedServiceAddress = (chainId: bigint) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -73,7 +80,7 @@ export const getManagedServiceAddress = (chainId: number) => {
         ManagedServiceArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
-          [getOwnerAddress(), usdcAddress]
+          getManagedServiceConstructorArgs(chainId)
         ),
       ]
     )
@@ -191,7 +198,7 @@ export const AUTH_FACTORY_ADDRESS = getCreate2Address(
   )
 )
 
-export const getAuthImplAddress = (version: SemverVersion) => {
+export const getAuthImplAddress = (version: SemVer) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -209,8 +216,8 @@ export const getAuthImplAddress = (version: SemverVersion) => {
 }
 
 export const getManagerConstructorValues = (
-  chainId: number,
-  version: SemverVersion
+  chainId: bigint,
+  version: SemVer
 ) => [
   getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
@@ -223,9 +230,19 @@ const [managerConstructorFragment] = SphinxManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 
+export const getEncodedSphinxManagerConstructorArgs = (
+  chainId: bigint,
+  version: SemVer
+): string => {
+  return AbiCoder.defaultAbiCoder().encode(
+    managerConstructorFragment.inputs,
+    getManagerConstructorValues(chainId, version)
+  )
+}
+
 export const getSphinxManagerImplAddress = (
-  chainId: number,
-  version: SemverVersion
+  chainId: bigint,
+  version: SemVer
 ) => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -234,10 +251,7 @@ export const getSphinxManagerImplAddress = (
       ['bytes', 'bytes'],
       [
         SphinxManagerArtifact.bytecode,
-        AbiCoder.defaultAbiCoder().encode(
-          managerConstructorFragment.inputs,
-          getManagerConstructorValues(chainId, version)
-        ),
+        getEncodedSphinxManagerConstructorArgs(chainId, version),
       ]
     )
   )
@@ -319,7 +333,18 @@ export const getManagerProxyInitCodeHash = (): string => {
   )
 }
 
-export const getBalanceFactoryAddress = (chainId: number): string => {
+export const AUTH_PROXY_INIT_CODE_HASH = solidityPackedKeccak256(
+  ['bytes', 'bytes'],
+  [
+    AuthProxyArtifact.bytecode,
+    AbiCoder.defaultAbiCoder().encode(
+      ['address', 'address'],
+      [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
+    ),
+  ]
+)
+
+export const getBalanceFactoryAddress = (chainId: bigint): string => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -329,14 +354,14 @@ export const getBalanceFactoryAddress = (chainId: number): string => {
         BalanceFactoryArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
-          [USDC_ADDRESSES[chainId], getManagedServiceAddress(chainId)]
+          [USDC_ADDRESSES[Number(chainId)], getManagedServiceAddress(chainId)]
         ),
       ]
     )
   )
 }
 
-export const getReferenceEscrowContractAddress = (chainId: number): string => {
+export const getReferenceEscrowContractAddress = (chainId: bigint): string => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -354,25 +379,25 @@ export const getReferenceEscrowContractAddress = (chainId: number): string => {
 }
 
 export const getReferenceBalanceConstructorArgs = (
-  chainId: number
+  chainId: bigint
 ): Array<string> => {
   const balanceFactoryAddress = getBalanceFactoryAddress(chainId)
-  const usdcAddress = USDC_ADDRESSES[chainId]
+  const usdcAddress = USDC_ADDRESSES[Number(chainId)]
   const escrowAddress = getReferenceEscrowContractAddress(chainId)
   return [REFERENCE_ORG_ID, balanceFactoryAddress, usdcAddress, escrowAddress]
 }
 
 export const getReferenceEscrowConstructorArgs = (
-  chainId: number
+  chainId: bigint
 ): Array<string> => {
   return [
     REFERENCE_ORG_ID,
-    USDC_ADDRESSES[chainId],
+    USDC_ADDRESSES[Number(chainId)],
     getManagedServiceAddress(chainId),
   ]
 }
 
-export const getReferenceBalanceContractAddress = (chainId: number): string => {
+export const getReferenceBalanceContractAddress = (chainId: bigint): string => {
   const constructorArgs = getReferenceBalanceConstructorArgs(chainId)
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,

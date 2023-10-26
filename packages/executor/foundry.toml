@@ -1,0 +1,20 @@
+[profile.default]
+src = 'contracts'
+ffi = true
+build_info = true
+extra_output = ['storageLayout', 'evm.gasEstimates']
+fs_permissions = [{ access = "read-write", path = "/"}]
+allow_paths = ["../.."]
+optimizer = false
+
+remappings=[
+  '@sphinx-labs/plugins=../../node_modules/@sphinx-labs/plugins/contracts/foundry',
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/',
+  'forge-std/=node_modules/forge-std/src/',
+  'ds-test/=node_modules/ds-test/src/',
+  'sphinx-forge-std=../../node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/',
+  'sphinx-solmate/=../../node_modules/@sphinx-labs/plugins/node_modules/sphinx-solmate/src/'
+]
+
+[rpc_endpoints]
+optimism_goerli = "http://127.0.0.1:42420"
