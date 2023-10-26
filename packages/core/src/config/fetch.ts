@@ -57,7 +57,8 @@ export const sphinxFetchSubtask = async (args: {
  * @returns Compiled SphinxBundle.
  */
 export const compileRemoteBundles = async (
-  configUri: string
+  configUri: string,
+  ipfsUrl?: string
 ): Promise<{
   bundles: SphinxBundles
   compilerConfig: CompilerConfig
@@ -65,7 +66,7 @@ export const compileRemoteBundles = async (
   humanReadableActions: Array<HumanReadableAction>
 }> => {
   const compilerConfig = await callWithTimeout<CompilerConfig>(
-    sphinxFetchSubtask({ configUri }),
+    sphinxFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
