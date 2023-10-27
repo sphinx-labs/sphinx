@@ -1,4 +1,4 @@
-# Integrate Sphinx into an Existing Foundry Project
+# Getting Started in an Existing Repository
 
 This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
 

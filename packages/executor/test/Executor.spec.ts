@@ -1,9 +1,6 @@
 import path, { join } from 'path'
 import '@sphinx-labs/plugins'
 
-// TODO(md): we should probably tell users to add `npx sphinx generate` to their build command,
-// particularly for CI.
-
 import {
   makeAuthBundle,
   getProjectBundleInfo,

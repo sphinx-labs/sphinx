@@ -724,10 +724,6 @@ abstract contract Sphinx {
             "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
         );
 
-        // TODO(md): in the testing mode, we can't detect if users stop pranking their sphinx
-        // manager and start pranking another address during the deployment. so, we should tell
-        // users that they shouldn't do this.
-
         address manager = sphinxManager(sphinxConfig);
         // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
         {
