@@ -1,5 +1,6 @@
 # Troubleshooting Guide
-This guide covers some common issues you might encounter using Sphinx. If you do not see your problem listed or our suggested solution does not resolve the problem, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np) or open an issue.
+
+This guide covers some common issues you might encounter using Sphinx. If your question isn't answered here, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np).
 
 ## Table of Contents
 
@@ -13,12 +14,12 @@ This guide covers some common issues you might encounter using Sphinx. If you do
 The `sphinx generate` command automatically skips compiling any script and test files to avoid compilation failures like this. If you do encounter this, it is likely because you have a Foundry script or test file that imports clients but does not use the standard `.s.sol` or `.t.sol` suffixes. You should check that all of your test and script files are using the proper suffix.
 
 ## 'Ineffective mark-compacts near heap limit allocation failed' error
-This bug can sometimes occur in projects that have a very large number of contracts in them. This leads to your build info files being extremely large, which can cause memory issues when using Sphinx. You can resolve this issue by running `forge clean`. This should fix the issue, but if it doesn't, please report it to the developers.
+This bug can sometimes occur in projects that have a very large number of contracts in them. This causes your build info files to be extremely large, which can cause memory issues when using Sphinx. You can resolve this issue by running `forge clean`, which clears the artifacts directory, including the build info files.
 
 ## 'No bytecode for contract. Is it abstract or unlinked?' error
-This error occurs because you are using a contract that requires an externally linked library. Externally linked libraries are not currently supported by Sphinx. If you can, you should switch to using an internal library instead. If this is a blocking issue for you, please let us know. We have not added support for externally linked libraries yet as they are relatively uncommon.
+This error occurs because you are using a contract that requires an externally linked library, which is a library that contains at least one function with `public` or `external` visibility. These types of libraries are not currently supported by Sphinx. If you can change the functions in your library to have `internal` or `private` visibility, we recommend that you do so. If this is a blocking issue for you, please let us know.
 
-To learn more about the difference between external and internal libraries, [see here](https://eip2535diamonds.substack.com/p/the-difference-between-solidity-libraries).
+To learn more about the difference between external and internal libraries, [see this blog post explaining the difference](https://eip2535diamonds.substack.com/p/the-difference-between-solidity-libraries).
 
 ## Cannot find the deployment function for a contract
 If your repository contains more than one contract with the same name, we resolve this ambiguity by using the fully qualified name as the function name.
@@ -33,11 +34,3 @@ The deployment function for the second contract would be:
 ```
 function deployOtherPathToFile_MyContract(...) external returns (...)
 ```
-
-### Contract deployment is being skipped in the deployment preview
-
-With Sphinx, contract deployments and function calls are idempotent. This means that each transaction in your deployment will be executed exactly once, even if you run the script multiple times. This makes your deployment process more robust, predictable, and easier to understand and maintain.
-
-If the deployment preview indicates that a transaction is being skipped, it's because the transaction was previously executed on this network.
-
-If you'd like to re-execute a contract deployment instead of skipping it, you must change its `CREATE3` address. You can do this by configuring the `DeployOptions` struct in your deployment function to use a new `salt` or `referenceName` field. [Learn more about contract deployment options](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md#contract-deployment-options).

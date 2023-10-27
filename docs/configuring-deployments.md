@@ -1,26 +1,24 @@
-# Configuring Sphinx Deployments
-
-TODO(md-end): change file name and main readme. also change the last section of the getting started guides.
+# Configuring Deployments
 
 There are a few minor differences between deployments with Sphinx and deployments with vanilla Forge scripts. This guide will cover these differences.
 
 ## Table of Contents
 
-TODO(md-end): table of contents in every doc
-
 - [Sample Sphinx Script](#sample-sphinx-script)
 - [Required Configuration Options](#required-configuration-options)
-- [Sphinx Deploy Function](#sphinx-deploy-function)
+  - [Project Name](#project-name)
+  - [Owners](#owners)
+  - [Threshold](#threshold)
+  - [DevOps Platform Options](#devops-platform-options)
+- [The `run()` function](#the-run-function)
 - [Deploying Contracts](#deploying-contracts)
-- [Calling Contract Functions](#calling-contract-functions)
-- [Owned Contracts](#owned-contracts)
-- [Learn More](#learn-more)
+  - [Contract Deployment Options](#contract-deployment-options)
+    - [Reference Name](#reference-name)
+    - [Salt](#salt)
 
 ## Sample Sphinx Script
 
 A Sphinx deployment script has the following format:
-
-TODO(md-end): run all of the sample code in every guide.
 
 ```
 import { Script } from "forge-std/Script.sol";
@@ -58,23 +56,21 @@ There are three main differences between this script and a vanilla Forge script:
 We'll go into detail on each of these below.
 
 ## Required Configuration Options
-In the `setUp()` function, you'll assign values to a `sphinxConfig` struct to configure your project's settings. We'll go through its fields one by one.
+In the `setUp()` function, you'll configure your project's settings by setting fields on a `sphinxConfig` struct. We'll go through its fields one by one.
 
 ### Project Name
 ```
 sphinxConfig.projectName = "My Project";
 ```
 
-TODO(md): answer the question: how are addresses generated with sphinx?
-
-The `projectName` is the name of your project, and it can be any name you choose. It's case-sensitive.
+The name of your project, which can be any name you choose. It's case-sensitive.
 
 ### Owners
 ```
 sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
 ```
 
-The list of addresses that own this project. Owners must approve deployments before they can be executed. We recommend that the owner accounts are hardware wallets.
+The list of addresses that own this project. Owners must approve deployments before they can be executed.
 
 ### Threshold
 ```
@@ -84,9 +80,9 @@ sphinxConfig.threshold = 1;
 The number of owners required to approve a deployment.
 
 ### DevOps Platform Options
-If you are using the Sphinx DevOps platform, there are several additional options you'll need to configure. You can learn more about them in the [Sphinx DevOps Platform](TODO(md)) guide.
+If you are using the Sphinx DevOps platform, there are several additional options you'll need to configure. You can learn more about them in the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
 
-## Sphinx Deploy Function
+## The `run()` function
 
 The entry point for Sphinx deployments must always be:
 
@@ -96,10 +92,10 @@ function run() public sphinx override {
 }
 ```
 
-You must include the `sphinx` modifier shown above for the deployment to work properly.
+You must include the `sphinx` modifier for the deployment to work properly.
 
 ## Deploying Contracts
-To deploy a contract using Sphinx, you'll use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
+To deploy a contract using Sphinx, you'll need to use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
 
 For example, say you have a contract called `HelloSphinx` that you'd normally deploy via `new HelloSphinx("Hello!", 2)`. Using Sphinx, you'd deploy this contract by calling the function:
 
@@ -147,10 +143,3 @@ A `bytes32` salt value. Along with the reference name, the `salt` determines a c
 ```sol
 deployMyContract(..., DeployOptions({ referenceName: "MyContract", salt: bytes32(123) }));
 ```
-
-## Learn more
-You should now be able to write scripts to deploy and interact with your contracts using Sphinx. If you have questions, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np).
-
-If you'd like to try the Sphinx DevOps Platform, which includes features such as gasless and multichain deployments, see [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md).
-
-TODO(md-end): broken links, like the one above
