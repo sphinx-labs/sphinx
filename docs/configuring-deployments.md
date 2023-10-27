@@ -1,4 +1,4 @@
-# Configuring Sphinx Deployments
+# Configuring Deployments
 
 There are a few minor differences between deployments with Sphinx and deployments with vanilla Forge scripts. This guide will cover these differences.
 

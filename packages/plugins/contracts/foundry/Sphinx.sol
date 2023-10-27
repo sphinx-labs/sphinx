@@ -49,7 +49,8 @@ import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphi
  *         The main user-facing element of this contract is the `sphinx` modifier, which
  *         the user must include in their `run()` function. The rest of the logic is used
  *         internally by Sphinx to handle the process of collecting the user's contract
- *         deployments and function calls, as well as simulating and executing the deployment.
+ *         deployments and function calls, as well as simulating and executing the deployment
+ *         locally.
  *
  *         Functions in this contract are prefixed with "sphinx" to avoid name collisions with
  *         functions that the user defines in derived contracts. This applies to private functions
@@ -753,7 +754,7 @@ abstract contract Sphinx {
                 abi.encodePacked(
                     "Sphinx: The reference name ",
                     _referenceName,
-                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md"
+                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md"
                 )
             )
         );

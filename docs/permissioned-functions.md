@@ -4,7 +4,7 @@ TODO(md): intro.
 
 TODO(md-end): change file name
 
-TODO: copied from writing-sphinx-scripts
+TODO: copied from configuring-deployments
 
 ## Owned Contracts
 

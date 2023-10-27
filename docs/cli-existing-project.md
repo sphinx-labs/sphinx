@@ -121,6 +121,8 @@ To improve the UX of CREATE3 deployments, Sphinx autogenerates **clients**, whic
 npx sphinx generate
 ```
 
+This command writes the clients into a new `client` folder.
+
 If you change the interface of one of your contract's constructors, you'll also need to re-run the `generate` command.
 
 ## 9. Update your build command (optional)
@@ -149,6 +151,8 @@ forge test --match-contract HelloSphinxTest
 
 ## 11. Broadcast a deployment on Anvil (optional)
 
+Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful for situations where you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
+
 First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
 ```
 [rpc_endpoints]
@@ -171,7 +175,7 @@ Then, navigate to a new terminal window. Broadcast the deployment with the follo
 npx sphinx deploy ./scripts/HelloSphinx.s.sol --network anvil
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm.
+You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included.
 
 Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
