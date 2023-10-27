@@ -166,7 +166,7 @@ function run() public sphinx override {
 You must include the `sphinx` modifier for the deployment to work properly.
 
 ## Deploying Contracts
-To deploy a contract using Sphinx, you'll need to use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function.
+To deploy a contract using Sphinx, you'll need to use slightly different syntax compared to a standard deployment. Instead of using the `new` keyword (e.g. `new MyContract(...)`), you'll need to call a deployment function provided by Sphinx.
 
 For example, say you have a contract called `HelloSphinx` that you'd normally deploy via `new HelloSphinx("Hello!", 2)`. Using Sphinx, you'd deploy this contract by calling the function:
 

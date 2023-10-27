@@ -4,7 +4,7 @@ It's a best practice to propose deployments from a CI process instead of using t
 
 This guide will show you how to integrate proposals into your CI process using GitHub Actions. You can still follow this guide if you're using a different CI platform, but the exact configuration may be slightly different.
 
-> Important: Sphinx will propose all transactions that are broadcasted by Foundry. By default, this is **not idempotent**. This means that if you open a PR after a deployment has completed, Sphinx will attempt to re-propose your script if there are any transactions in it that can be broadcasted. In most cases, this is not desirable behavior. To resolve this, we highly recommend adjusting your deployment script so that it's idempotent. If you plan to stop all activity in your repository after you've completed your deployment, then you can disregard this warning.
+> Important: Sphinx will propose all transactions that are broadcasted by Foundry. By default, this is **not idempotent**. This means that if you open a PR after completing a deployment, Sphinx will attempt to re-propose any transactions from your script that can be broadcasted again. In most cases, this is not desirable behavior. To resolve this, we highly recommend adjusting your deployment script so that it's idempotent. If you plan to stop all activity in your repository after you've completed your deployment, then you can disregard this warning.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Also, make sure that your `foundry.toml` has an `rpc_endpoints` section that con
 ## 2. Create a new branch in your repo
 
 ```
-git checkout -B sphinx/integrate-ci
+git checkout -b sphinx/integrate-ci
 ```
 
 ## 3. Create a GitHub Actions folder
@@ -51,7 +51,7 @@ touch .github/workflows/sphinx.deploy.yml
 
 ## 5. Create the dry run workflow
 
-First, we'll create a workflow that dry runs the proposal whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if it can't be executed. This prevents a situation where you merge a PR for a deployment that is bound to fail.
+First, we'll create a workflow that dry runs the proposal whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if it can't be executed. This prevents you from merging pull requests for deployments that are bound to fail.
 
 Copy and paste the following into your `sphinx.dry-run.yml` file:
 

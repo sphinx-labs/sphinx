@@ -6,7 +6,7 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 1. [Prerequisites](#1-prerequisites)
 2. [High-level overview](#2-high-level-overview)
-3. [Get testnet ETH on OP Goerli](#3-get-testnet-eth-on-op-goerli)
+3. [Get testnet ETH on Optimism Goerli](#3-get-testnet-eth-on-optimism-goerli)
 4. [Get your credentials](#4-get-your-credentials)
 5. [Set environment variables](#5-set-environment-variables)
 6. [Configure your script](#6-configure-your-script)
@@ -20,7 +20,7 @@ Make sure that you've already completed one of the following guides:
 - [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
 - [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
-Also, you'll need an EOA that exists on live networks.
+Also, you'll need an Externally Owned Account (EOA) that exists on live networks.
 
 ## 2. High-level overview
 
@@ -32,9 +32,9 @@ Deployments are a three-step process with the DevOps platform.
 2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
 3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit both the meta transaction signed by the proposer and the owners.
 
-## 3. Get testnet ETH on OP Goerli
+## 3. Get testnet ETH on Optimism Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, you must fund your deployments in USDC on Optimism Goerli. Likewise, on production networks, you must fund your deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll cover the cost of your deployments by depositing USDC into this contract before execution. On testnets, you must fund your deployments in USDC on Optimism Goerli. Likewise, on production networks, you must fund your deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
@@ -66,7 +66,7 @@ sphinxConfig.testnets = [
   Network.optimism_goerli,
   Network.arbitrum_goerli,
   Network.polygon_mumbai,
-  Network.bnbt,
+  Network.bnb_testnet,
   Network.gnosis_chiado
 ];
 ```
