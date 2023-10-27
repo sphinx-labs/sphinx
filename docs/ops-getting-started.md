@@ -1,6 +1,6 @@
 # Getting Started with the Sphinx DevOps Platform
 
-This guide will walk you through a sample multi-chain deployment using the Sphinx Foundry plugin and DevOps platform.
+This guide will walk you through a sample multi-chain deployment using the Sphinx DevOps platform.
 
 ## Table of Contents
 
@@ -12,16 +12,15 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 6. [Configure your script](#6-configure-your-script)
 7. [Add RPC endpoints](#7-add-rpc-endpoints)
 8. [Propose the deployment](#8-propose-the-deployment)
-9. [Learn more](#9-learn-more)
 
 ## 1. Prerequisites
 
-You'll need an EOA that exists on live networks.
-
-Also, make sure that you've already completed one of the following guides:
+Make sure that you've already completed one of the following guides:
 
 * [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
 * [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
+
+Also, you'll need an EOA that exists on live networks.
 
 ## 2. High-level overview
 
@@ -31,13 +30,11 @@ Deployments are a three-step process with the DevOps platform.
 
 1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. For simplicity, we'll propose the deployment on the command line in this guide.
 2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
-3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit **both** the meta transaction signed by the proposer and the owners.
-
-> Note: Although it's not strictly necessary to have both a proposal and approval step, we include both to improve the security of the deployment process. Having both steps prevents a scenario where one of the steps is a single point of failure. In other words, if a proposer's private key is leaked, an attacker would also need to trick the project owners into approving a malicious deployment. Likewise, if the project owners are tricked into approving a malicious deployment in a phishing attack on the Sphinx UI, the attacker would also need access to the proposer's private key, since its signature is also required to execute the deployment.
+3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit both the meta transaction signed by the proposer and the owners.
 
 ## 3. Get testnet ETH on OP Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, we only allow you to fund deployments in USDC on Optimism Goerli. Likewise, on production networks, we only allow you to fund deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, you must fund your deployments in USDC on Optimism Goerli. Likewise, on production networks, you must fund your deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
@@ -55,7 +52,7 @@ PROPOSER_PRIVATE_KEY=<proposer private key>
 
 ## 6. Configure your script
 
-Open the Sphinx script you'd like to deploy.
+Open your deployment script.
 
 In your `setUp` function, update the `owners` array to include the address of your EOA.
 
@@ -76,7 +73,7 @@ sphinxConfig.testnets = [
 
 We'll describe these fields briefly here:
 - `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
-- `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose aside from proposing.
+- `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
 - `mainnets`: (`Network[]`): The list of production networks to deploy on. See the [full list of supported production networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#production-networks).
 - `testnets`: (`Network[]`): The list of testnets to deploy on. See the [full list of supported test networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#test-networks).
 
@@ -84,32 +81,28 @@ Fill in these fields with your values. You can leave the `mainnets` array empty 
 
 ## 7. Add RPC endpoints
 
-If you don't already have an RPC endpoint for each testnet, you'll need to add them to your `foundry.toml` under `[rpc_endpoints]`. You can either use private RPC endpoints such as [Ankr](https://www.ankr.com/) or [Chainstack](https://chainstack.com/), or you can use these public RPC endpoints:
-
-TODO(md): replace the alchemy nodes. they're down rn.
+If you don't already have an RPC endpoint for each testnet, you'll need to add them to your `foundry.toml` under `[rpc_endpoints]`. You can use private RPC endpoints such as [Ankr](https://www.ankr.com/) or [Chainstack](https://chainstack.com/), or you can use these public RPC endpoints:
 
 ```toml
 [rpc_endpoints]
-goerli = "https://eth-goerli.g.alchemy.com/v2/demo"
-optimism_goerli = "https://opt-goerli.g.alchemy.com/v2/demo"
-arbitrum_goerli = "https://arb-goerli.g.alchemy.com/v2/demo"
+goerli = "https://rpc.ankr.com/eth_goerli"
+optimism_goerli = "https://goerli.optimism.io"
+arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
 bnb_smart_chain_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
-polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
+polygon_mumbai = "https://rpc.ankr.com/polygon_mumbai"
 ```
 
 ## 8. Propose the deployment
 
-For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments.
-
-Propose the deployment:
+To propose the deployment, copy and paste the following command, replacing `<path/to/your-script.s.sol>` with the actual path to your deployment script:
 
 ```
-npx sphinx propose ./path/to/Script.s.sol --testnets
+npx sphinx propose <path/to/your-script.s.sol> --testnets
 ```
 
-Follow the instructions in the terminal to complete the deployment.
+Sphinx will propose all transactions that are broadcasted by Foundry.
 
-## 9. Learn more
+You can see a full list of the CLI options by running `npx sphinx propose --help`.
 
-We recommend deploying from a CI process in production. See [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md) to setup proposals in CI.
+Follow the instructions in the terminal to finish the rest of the deployment.

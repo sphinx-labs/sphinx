@@ -3,7 +3,11 @@ export * from './sample-contracts'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { forgeConfig, sampleDotEnvFile } from './sample-foundry-config'
+import {
+  forgeConfig,
+  sampleDotEnvFile,
+  sampleGitIgnoreFile,
+} from './sample-foundry-config'
 import {
   getSampleContractFile,
   getSampleFoundryTestFile,
@@ -55,10 +59,11 @@ export const writeSampleProjectFiles = (
     fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
   }
 
-  // Lastly, we'll create the sample test file.
+  // Lastly, we'll create the config and environment related files.
   if (quickstart) {
     fs.writeFileSync('foundry.toml', forgeConfig)
     fs.writeFileSync('.env', sampleDotEnvFile)
+    fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
   }
 
   // Check if the sample test file exists.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { console } from 'sphinx-forge-std/console.sol';
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
@@ -114,7 +115,8 @@ contract ChainSpecific is SphinxClient, SphinxTestUtils {
             onlyOptimismGoerli.incrementTwice();
             onlyOptimismGoerli.incrementTwice();
         } else if (getSphinxNetwork(block.chainid) == Network.optimism) {
-            onlyOptimism = OnlyOptimism(onlyOptimism);
+            console.log(address(onlyOptimism));
+            console.log(address(onlyOptimism).code.length);
             onlyOptimism.decrementTwice();
             onlyOptimism.decrementTwice();
         }

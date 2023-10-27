@@ -36,3 +36,25 @@ export const sampleDotEnvFile = `PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944
 GOERLI_RPC_URL=
 ETHERSCAN_API_KEY=
 `
+
+export const sampleGitIgnoreFile = `# Compiler files
+cache/
+out/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+# Docs
+docs/
+
+# Dotenv file
+.env
+
+# Yarn
+node_modules/
+
+# Sphinx
+client/
+`

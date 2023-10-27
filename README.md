@@ -2,6 +2,8 @@
 
 Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
 
+> Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
+
 ## Key features:
 
 * **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
@@ -12,13 +14,17 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 * **Automatic Etherscan verification**.
 
-> Important: Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
+TODO(md-end): chatgpt spell/grammar check
+TODO(md-end): c/f all links to docs in the repo to see if there are any dead links
 
-[Request access to the DevOps platform.](https://sphinx.dev)
+## Request access
+
+Sphinx is currently invite-only. [Request access on our website.](https://sphinx.dev)
 
 ## Documentation
 
 TODO(md-end): check that we include all of the docs. we're missing permissioned functions at least
+
 
 ### Getting started
 
@@ -26,10 +32,10 @@ If you're setting up a project in a fresh repository, begin with the [Quickstart
 
 After you've finished one of these guides, your next step is to follow the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
 
-### References
+### Reference guides
 
-- [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
-- [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md): A proposing deployments
+- [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md)
+- [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
