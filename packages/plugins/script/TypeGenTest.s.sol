@@ -278,7 +278,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
 
         // Deploy two contracts with conflicting names
         firstConflictingNameContract = deployConflictingNameContract(5);
-        secondConflictingNameContract = deployTypegenConflictingNameContractsSecond_ConflictingNameContract(address(5));
+        secondConflictingNameContract = deployTestTypegenConflictingNameContractsSecond_ConflictingNameContract(address(5));
         // Deploy contract testing basic types
         basicInputTypes = deployBasicInputTypes(
             1,
@@ -528,7 +528,7 @@ contract TypeGenTestConfig is Test, SphinxClient {
         childInSameFile.add(2);
 
         // Deploy two contracts with conflicting qualified names
-        conflictingQualifiedNames = deployTypegenConflictingQualifiedNamesConflictingQualifiedNames_ConflictingQualifiedNames(1);
+        conflictingQualifiedNames = deployTestTypegenConflictingQualifiedNamesConflictingQualifiedNames_ConflictingQualifiedNames(1);
         conflictingQualifiedNamesA = deployConflictingQualifiedNames(
             true,
             DeployOptions({ salt: 0, referenceName: "conflictingQualifiedNamesA" })
