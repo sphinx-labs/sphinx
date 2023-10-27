@@ -70,10 +70,6 @@ This command created a few files:
 - `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
-I'm updating the docs on clients and had a few questions:
-1. Should we tell users that the `generate` command is a drop-in replacement for `forge build`? Or should we tell them
-that they'll need to re-run it whenever the interface of one of their contract's constructors changes?
-
 ## 5. Generate Sphinx clients
 
 Sphinx currently only supports CREATE3 deployments.
