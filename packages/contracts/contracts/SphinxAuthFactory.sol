@@ -7,8 +7,9 @@ import { ISphinxRegistry } from "./interfaces/ISphinxRegistry.sol";
 import { SphinxAuth } from "./SphinxAuth.sol";
 import { SphinxAuthProxy } from "./SphinxAuthProxy.sol";
 import { Version, Semver } from "./Semver.sol";
+import { ISphinxAuthFactory } from "./interfaces/ISphinxAuthFactory.sol";
 
-contract SphinxAuthFactory is Ownable {
+contract SphinxAuthFactory is Ownable, ISphinxAuthFactory {
     /**
      * @notice Emitted whenever a SphinxAuthProxy is deployed.
      *
@@ -80,9 +81,7 @@ contract SphinxAuthFactory is Ownable {
     }
 
     /**
-     * @notice Deploys a new SphinxAuthProxy and initializes it with the given `_authData`.
-     *
-     * @param _authData Encoded data used to initialize the SphinxAuth contract.
+     * @inheritdoc ISphinxAuthFactory
      */
     function deploy(
         bytes memory _authData,

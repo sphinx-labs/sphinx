@@ -19,3 +19,8 @@ node_modules/@sphinx-labs
 .openzeppelin/*
 
 broadcast/
+
+client/
+
+# test
+test-proposal-output.json

@@ -1,72 +1,93 @@
 # Sphinx (formerly ChugSplash)
+Sphinx is a [Foundry](https://github.com/foundry-rs/foundry) plugin for easily writing Solidity deployment scripts that are transparent, predictable, and multi-chain. Sphinx scripts can also be executed using the Sphinx DevOps platform which is a CI platform designed to help teams deploy smart contracts at scale.
 
-Sphinx is a DevOps platform for smart contract deployments.
+## Key features of the Sphinx Plugin
 
-## Key Features
+### Deployment Preview
+Sphinx has a “planning” step where it generates a deployment plan. Sphinx then provides you with a detailed preview of every action Sphinx will take during the deployment. This helps you avoid any surprises when Sphinx deploys and interacts with your contracts.
 
-Sphinx can either be used as a standalone CLI tool for simple deployments, or as a DevOps platform that extends the CLI tool with additional functionality.
+### Idempotent & Deterministic
+Sphinx deploys your contracts to predictable addresses using create3. It intelligently detects which parts of your script have already been executed on a given network and automatically skips them, simplifying the process of extending your scripts.
 
-### Standalone CLI
-- Define deployments in a declarative config file instead of writing deployment scripts
-- Consistent addresses across networks via `CREATE3`
-- Deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy)
-- Available as a Foundry and Hardhat plugin
+### Multi-chain
+Sphinx provides an intuitive interface for customizing your scripts to suit different networks, and makes it easy to replicate those network-specific configurations locally.
 
-### DevOps Platform
-- Approve multi-chain deployments with a single meta transaction
-- Maintain a balance of USDC on a single chain to fund deployments
-- Automatic Etherscan verification
-- Support for multisigs (coming soon)
+## key features of the Sphinx DevOps Platform
+
+### Automated Deployments
+With Sphinx, you can effortlessly trigger gasless deployments from your local machine or CI process. Approve deployments via the UI with a single meta transaction, and let the Sphinx Platform execute your deployment automatically on your behalf.
+
+### Payments in USDC
+Simplify the payment process by settling deployment costs on all networks in USDC on a single chain. Enjoy free deployments on testnets.
+
+### Multichain Deployments
+Sphinx empowers you to deploy and verify your contracts on up to 11 supported networks simultaneously, streamlining your deployment workflow.
+
+You can request access to the DevOps platform [here](https://sphinx.dev).
 
 ## Documentation
 
-### Getting Started:
-- Foundry:
-  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
-  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-- Hardhat:
-  - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
-  - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
+### Getting Started
 
-### References:
-- [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Shows how every constructor argument type can be defined in a Sphinx config file.
-- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
+  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
+- DevOps Platform:
+  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
+  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
+
+### References
+
+- [Writing Sphinx Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
+- [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
+- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 
 ## Supported Networks
 
-* Ethereum
-* Optimism
-* Arbitrum
-* Polygon
-* BNB Smart Chain (aka BSC)
-* Gnosis Chain
+- Ethereum
+- Optimism
+- Arbitrum
+- Polygon
+- Polygon zkEVM
+- BNB Smart Chain (aka BSC)
+- Gnosis Chain
+- Avalanche C-Chain
+- Linea
+- Fantom
+- Base
 
 Test networks:
-* Ethereum Goerli
-* Optimism Goerli
-* Arbitrum Goerli
-* Polygon Mumbai
-* BNB Smart Chain Testnet
-* Gnosis Chiado
 
-## Reach Out
+- Ethereum Goerli
+- Optimism Goerli
+- Arbitrum Goerli
+- Polygon Mumbai
+- Polygon zkEVM Testnet
+- BNB Smart Chain Testnet
+- Gnosis Chiado
+- Avalanche Fuji
+- Linea Goerli
+- Fantom Testnet
+- Base Goerli
 
-If you have any questions, feature requests, or want us to add a new network, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
+More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
-## Maintainers
+## Contributors
 
 [@smartcontracts](https://github.com/smartcontracts)\
-[@sam-goldman](https://github.com/sam-goldman)\
-[@rpate97](https://github.com/RPate97)
+[Wonderland](https://defi.sucks/)\
+[@rpate97](https://github.com/RPate97)\
+[@sam-goldman](https://github.com/sam-goldman)
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and send us a message!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
+
+## Reach Out
+
+If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
 
-MIT © 2022
+MIT © 2023
+

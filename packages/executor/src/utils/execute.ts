@@ -17,14 +17,13 @@ import {
   estimateExecutionCost,
   getManagedServiceAddress,
   SphinxJsonRpcProvider,
-  HumanReadableActions,
+  HumanReadableAction,
 } from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorEvent, ExecutorKey } from '../types'
-import { updateDeployment } from '../gql'
 
 /**
  *
@@ -112,38 +111,6 @@ const tryVerification = async (
       }, 10000)
     }
   }
-
-  // Update status in the Sphinx managed database
-  if (graphQLClient) {
-    const contracts: {
-      referenceName: string
-      contractName: string
-      address: string
-    }[] = []
-    Object.entries(compilerConfig.contracts).forEach(
-      ([referenceName, contractConfig]) => {
-        contracts.push({
-          referenceName,
-          contractName: contractConfig.contract,
-          address: contractConfig.address,
-        })
-      }
-    )
-
-    try {
-      const { chainId } = await rpcProvider.getNetwork()
-      await updateDeployment(
-        graphQLClient,
-        activeDeploymentId,
-        Number(chainId),
-        'verified',
-        contracts,
-        []
-      )
-    } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
-    }
-  }
 }
 
 export type ExecutorMessage = {
@@ -227,19 +194,19 @@ export const handleExecution = async (data: ExecutorMessage) => {
   let bundles: SphinxBundles
   let compilerConfig: CompilerConfig
   let configArtifacts: ConfigArtifacts
-  let humanReadableActions: HumanReadableActions
+  let humanReadableActions: Array<HumanReadableAction>
 
   // Handle if the config cannot be fetched
   try {
     ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
-      await compileRemoteBundles(rpcProvider, deploymentState.configUri))
+      await compileRemoteBundles(deploymentState.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName } = compilerConfig
+  const { projectName } = compilerConfig.newConfig
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
   const estimatedCost =
@@ -253,7 +220,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     )
     // check if managed service has funds
     const { chainId } = await rpcProvider.getNetwork()
-    const managedServiceAddress = getManagedServiceAddress(Number(chainId))
+    const managedServiceAddress = getManagedServiceAddress(chainId)
     const withdraw = (estimatedCost * 200n) / 100n
     // Log an error if not
     if ((await rpcProvider.getBalance(managedServiceAddress)) < withdraw) {
@@ -280,7 +247,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
 
   const expectedDeploymentId = getDeploymentId(
-    bundles,
+    bundles.actionBundle,
+    bundles.targetBundle,
     deploymentState.configUri
   )
 
@@ -403,29 +371,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
     return
-  }
-
-  // Update status in the Sphinx managed database
-  if (graphQLClient) {
-    try {
-      const { chainId } = await rpcProvider.getNetwork()
-      await updateDeployment(
-        graphQLClient,
-        activeDeploymentId,
-        Number(chainId),
-        'executed',
-        [],
-        deploymentTransactionReceipts.map((receipt) => {
-          return {
-            txHash: receipt.hash,
-            cost: (receipt.gasUsed * receipt.gasPrice).toString(),
-            chainId: Number(chainId),
-          }
-        })
-      )
-    } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
-    }
   }
 
   // verify on etherscan 10s later

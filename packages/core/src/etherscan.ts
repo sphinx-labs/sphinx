@@ -2,7 +2,11 @@ import assert from 'assert'
 
 import { ConstructorFragment, ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+import {
+  CustomChain,
+  EtherscanNetworkEntry,
+  EtherscanURLs,
+} from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
   verifyContract,
@@ -13,10 +17,8 @@ import {
   toVerifyRequest,
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
-import {
-  retrieveContractBytecode,
-  getEtherscanEndpoints,
-} from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/errors'
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
@@ -28,10 +30,11 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, getImplAddress } from './utils'
+import { getFunctionArgValueArray, isDeployContractActionInput } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
+import { CompilerOutputMetadata } from './languages'
 
 export interface EtherscanResponseBody {
   status: string
@@ -41,80 +44,84 @@ export interface EtherscanResponseBody {
 
 export const RESPONSE_OK = '1'
 
+export const getEtherscanEndpointForNetwork = (
+  chainId: number
+): EtherscanNetworkEntry | CustomChain => {
+  const chainIdsToNames = new Map(
+    Object.entries(chainConfig).map(([chainName, config]) => [
+      config.chainId,
+      chainName,
+    ])
+  )
+
+  const networkInCustomChains = [...customChains]
+    .reverse() // the last entry wins
+    .find((customChain) => customChain.chainId === chainId)
+
+  // if there is a custom chain with the given chain id, that one is preferred
+  // over the built-in ones
+  if (networkInCustomChains !== undefined) {
+    return networkInCustomChains
+  }
+
+  const network = networkInCustomChains ?? chainIdsToNames.get(chainId)
+
+  if (network === undefined) {
+    // The network name isn't actually used by this function
+    throwUnsupportedNetwork('', chainId)
+  }
+
+  const chainConfigEntry = chainConfig[network]
+
+  return { network, urls: chainConfigEntry.urls }
+}
+
 export const verifySphinxConfig = async (
   compilerConfig: CompilerConfig,
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
-  apiKey: string,
-  deployedContractReferenceNames: string[] = []
+  apiKey: string
 ) => {
-  // Default to verifying all contracts if the caller does not specify a subset
-  if (deployedContractReferenceNames.length === 0) {
-    deployedContractReferenceNames = Object.keys(compilerConfig.contracts)
-  }
+  const { actionInputs } = compilerConfig
 
-  const managerAddress = compilerConfig.manager
-
-  const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
-    provider as any,
-    networkName,
-    chainConfig,
-    customChains
+  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
+    Number((await provider.getNetwork()).chainId)
   )
 
-  const chainId = (await provider.getNetwork()).chainId
+  const actionInputsToVerify = actionInputs
+    .filter((a) => !a.skip)
+    .filter(isDeployContractActionInput)
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
-  )) {
-    // Skip contracts that are not listed as deployed
-    if (!deployedContractReferenceNames.includes(referenceName)) {
-      continue
-    }
+  for (const action of actionInputsToVerify) {
+    const { fullyQualifiedName, create3Address } = action
 
-    const { artifact, buildInfo } = configArtifacts[referenceName]
-    const { abi, contractName, sourceName, bytecode } = artifact
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const { abi, contractName, sourceName, metadata } = artifact
     const iface = new ethers.Interface(abi)
     const constructorArgValues = getFunctionArgValueArray(
-      compilerConfig.contracts[referenceName].constructorArgs[Number(chainId)],
+      action.decodedAction.variables,
       iface.fragments.find(ConstructorFragment.isFragment)
     )
-
-    const implementationAddress =
-      contractConfig.kind !== 'immutable'
-        ? getImplAddress(
-            managerAddress,
-            bytecode,
-            contractConfig.constructorArgs[Number(chainId)],
-            abi
-          )
-        : contractConfig.address
 
     const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
       Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
     if (!sphinxInput) {
-      // Should not happen. We'll continue to the next contract.
-      continue
+      throw new Error(
+        `Could not find compiler input for ${sourceName}. Should never happen.`
+      )
     }
     const { input, solcVersion } = sphinxInput
 
-    const minimumCompilerInput = getMinimumCompilerInput(
-      input,
-      buildInfo.output.contracts,
-      sourceName,
-      contractName
-    )
+    const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
 
-    // Verify the implementation
     await attemptVerification(
       provider,
       networkName,
       etherscanApiEndpoints.urls,
-      implementationAddress,
+      create3Address,
       sourceName,
       contractName,
       abi,
@@ -124,16 +131,17 @@ export const verifySphinxConfig = async (
       constructorArgValues
     )
 
-    if (contractConfig.kind !== 'immutable') {
-      // Link the proxy with its implementation
-      await linkProxyWithImplementation(
-        etherscanApiEndpoints.urls,
-        apiKey,
-        contractConfig.address,
-        implementationAddress,
-        contractName
-      )
-    }
+    // TODO(upgrades):
+    // if (contractConfig.kind !== 'immutable') {
+    //   // Link the proxy with its implementation
+    //   await linkProxyWithImplementation(
+    //     etherscanApiEndpoints.urls,
+    //     apiKey,
+    //     contractConfig.address,
+    //     implementationAddress,
+    //     contractName
+    //   )
+    // }
   }
 }
 
@@ -142,12 +150,8 @@ export const verifySphinx = async (
   networkName: string,
   apiKey: string
 ) => {
-  const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
-    provider as any,
-    networkName,
-    chainConfig,
-    customChains
+  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
+    Number((await provider.getNetwork()).chainId)
   )
 
   for (const {
@@ -157,11 +161,16 @@ export const verifySphinx = async (
   } of await getSphinxConstants(provider)) {
     const { sourceName, contractName, abi } = artifact
 
+    const contractOutput =
+      sphinxBuildInfo.output.contracts[sourceName][contractName]
+    const metadata: CompilerOutputMetadata =
+      typeof contractOutput.metadata === 'string'
+        ? JSON.parse(contractOutput.metadata)
+        : contractOutput.metadata
+
     const minimumCompilerInput = getMinimumCompilerInput(
       sphinxBuildInfo.input,
-      sphinxBuildInfo.output.contracts,
-      sourceName,
-      contractName
+      metadata
     )
 
     await attemptVerification(

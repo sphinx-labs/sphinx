@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+
+struct TopLevelStruct {
+    int a;
+}
 
 contract MyContract1 {
     int public intArg;
@@ -35,9 +39,8 @@ contract MyContract1 {
         uintArg += 1;
     }
 
-    function set(int _int, int _secondInt) external {
+    function set(int _int) external {
         intArg = _int;
-        secondIntArg = _secondInt;
     }
 
     function set(address _addr, address _otherAddr) external {
@@ -57,6 +60,10 @@ contract MyContract1 {
         addressArg = _myStruct.c.d;
     }
 
+    function myPureFunction() external pure returns (MyStruct memory) {
+        return MyStruct({ a: 42, b: 123, c: MyNestedStruct({ d: address(256) }) });
+    }
+
     function reverter() external pure {
         revert("reverter");
     }
@@ -70,19 +77,24 @@ contract MyContract2 {
     }
 }
 
-contract MyOwnableContract is Ownable {
+contract MyOwnable is Ownable {
     uint256 public value;
 
-    constructor(address _sphinxManager) {
+    constructor(address _sphinxManager, uint256 _initialValue) {
+        value = _initialValue;
         _transferOwnership(_sphinxManager);
     }
 
-    function myOwnableFunction(uint256 _value) external onlyOwner {
+    function increment() external {
+        value += 1;
+    }
+
+    function set(uint256 _value) external onlyOwner {
         value = _value;
     }
 }
 
-contract MyAccessControlContract is AccessControl {
+contract MyAccessControl is AccessControl {
     uint256 public value;
 
     constructor(address _sphinxManager) {

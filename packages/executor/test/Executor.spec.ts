@@ -1,58 +1,41 @@
-import hre from 'hardhat'
+import path, { join } from 'path'
 import '@sphinx-labs/plugins'
+
+// TODO(md): we should probably tell users to add `npx sphinx generate` to their build command,
+// particularly for CI.
+
 import {
-  AUTH_FACTORY_ADDRESS,
-  UserSphinxConfig as UserConfigWithOptions,
-  ensureSphinxInitialized,
-  getAuthAddress,
-  getAuthData,
-  getSphinxManagerAddress,
   makeAuthBundle,
-  getParsedConfigWithOptions,
-  signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
-  SUPPORTED_NETWORKS,
-  getEmptyCanonicalConfig,
-  findBundledLeaf,
   getAuthLeafsForChain,
-  getTargetAddress,
   monitorExecution,
   sphinxCommitAbstractSubtask,
   SphinxJsonRpcProvider,
+  signAuthRootMetaTxn,
+  Setup,
+  AUTH_FACTORY_ADDRESS,
+  getAuthData,
 } from '@sphinx-labs/core'
 import {
-  AuthFactoryABI,
   AuthABI,
+  AuthFactoryABI,
   SphinxManagerABI,
 } from '@sphinx-labs/contracts'
-import { createSphinxRuntime } from '@sphinx-labs/plugins/src/cre'
-import { makeGetConfigArtifacts } from '@sphinx-labs/plugins/src/hardhat/artifacts'
 import { expect } from 'chai'
 import { Contract, ethers } from 'ethers'
-
-const DUMMY_ORG_ID = '1111'
-
-const cre = createSphinxRuntime(
-  'hardhat',
-  true,
-  hre.config.networks.hardhat.allowUnlimitedContractSize,
-  true,
-  hre.config.paths.compilerConfigs,
-  hre,
-  false
-)
-
-const ownerThreshold = 1
+import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/options'
+import { buildParsedConfigArray } from '@sphinx-labs/plugins/src/cli/propose'
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
-// executes the transactions on the SphinxAuth contract, but does not execute the contract
-// deployment on the SphinxManager.
+// executes the transactions on the SphinxAuth contract, but does not execute the deployment on the
+// SphinxManager, since the executor does that.
 const ownerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 const relayerPrivateKey =
   '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a'
+const projectName = 'Executor Test'
 
 if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
   throw new Error(
@@ -60,174 +43,121 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
   )
 }
 
-// The name of the network is Goerli because we must supply a live network that's supported by
-// Sphinx. We're not actually running the test on Goerli though; the RPC URL is localhost.
-const network = 'goerli'
-
-const isTestnet = true
+const rpcUrl = 'http://127.0.0.1:42420'
+const provider = new SphinxJsonRpcProvider(rpcUrl)
+const contractAddress = '0xE6855aF7ac9b8Eb0ad1ddB6f57527bfcED0E7Bf6'
 
 describe('Remote executor', () => {
-  let Proxy: Contract
-  let Immutable: Contract
+  let contract: Contract
   before(async () => {
-    const provider = new SphinxJsonRpcProvider('http://127.0.0.1:8545')
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-    const projectName = 'RemoteExecutorTest'
-    const proxyReferenceName = 'Proxy'
-    const proxyContractName = 'ExecutorProxyTest'
-    const immutableReferenceName = 'Immutable'
-    const immutableContractName = 'ExecutorImmutableTest'
+    const { cachePath } = await getFoundryConfigOptions()
+    const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
+    const scriptPath = 'script/ExecutorTest.s.sol'
 
-    const owners = [owner.address]
-    const userConfig: UserConfigWithOptions = {
-      projectName,
-      options: {
-        orgId: DUMMY_ORG_ID,
-        owners,
-        ownerThreshold,
-        testnets: [network],
-        mainnets: [],
-        proposers: [owner.address],
-        managerVersion: 'v0.2.4',
-      },
-      contracts: {
-        [proxyReferenceName]: {
-          contract: proxyContractName,
-          kind: 'proxy',
-          variables: {
-            number: 1,
-            stored: true,
-            storageName: 'First',
-            otherStorage: '0x1111111111111111111111111111111111111111',
-          },
-        },
-        [immutableReferenceName]: {
-          contract: immutableContractName,
-          kind: 'immutable',
-          constructorArgs: {
-            _val: 1,
-          },
-        },
-      },
+    const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
+      scriptPath,
+      owner.address,
+      true, // Is testnet
+      proposalNetworksPath
+    )
+
+    const parsedConfig = parsedConfigArray[0]
+
+    const Manager = new ethers.Contract(
+      parsedConfig.managerAddress,
+      SphinxManagerABI,
+      provider
+    )
+    const Auth = new ethers.Contract(parsedConfig.authAddress, AuthABI, relayer)
+
+    const { configUri, bundles } = await getProjectBundleInfo(
+      parsedConfig,
+      configArtifacts
+    )
+
+    const leafs = await getAuthLeafsForChain(parsedConfig, configArtifacts)
+
+    // Set the proposer to be the owner. Currently, the proposer is the address that corresponds to
+    // the private key returned by `SphinxUtils.getSphinxDeployerPrivateKey(0)`. This is default
+    // behavior in the Solidity `sphinxDeployTask`, which we called above. If we don't replace this
+    // private key, we won't be able to propose the deployment.
+    ;(leafs.find((l) => l.index === 0) as Setup).proposers[0].member =
+      owner.address
+
+    const authBundle = makeAuthBundle(leafs)
+
+    const signature = await signAuthRootMetaTxn(owner, authBundle.root)
+    if (!signature) {
+      throw new Error(`Meta transaction signature not found`)
     }
 
-    const authData = getAuthData(owners, ownerThreshold)
-    const authAddress = getAuthAddress(owners, ownerThreshold, projectName)
-    const managerAddress = getSphinxManagerAddress(authAddress, projectName)
+    const { leaf: setupLeaf, proof: setupProof } = authBundle.leafs[0]
+    const { leaf: proposalLeaf, proof: proposalProof } = authBundle.leafs[1]
+    const { leaf: approvalLeaf, proof: approvalProof } = authBundle.leafs[2]
 
-    await ensureSphinxInitialized(provider, relayer)
+    // Check that the contract hasn't been deployed yet.
+    contract = getContract()
+    expect(await provider.getCode(contractAddress)).equals('0x')
 
-    const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfigWithOptions(
-        userConfig,
-        managerAddress,
-        isTestnet,
-        provider,
-        cre,
-        makeGetConfigArtifacts(hre)
-      )
-
-    const chainId = SUPPORTED_NETWORKS[network]
-    const prevConfig = getEmptyCanonicalConfig(
-      [chainId],
-      managerAddress,
-      DUMMY_ORG_ID,
-      projectName
-    )
-    const leafs = await getAuthLeafsForChain(
-      chainId,
-      parsedConfig,
-      configArtifacts,
-      configCache,
-      prevConfig
-    )
-
-    const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+    // Commit the project to IPFS.
+    await sphinxCommitAbstractSubtask(parsedConfig, true, configArtifacts)
 
     const AuthFactory = new ethers.Contract(
       AUTH_FACTORY_ADDRESS,
       AuthFactoryABI,
       relayer
     )
-    const Manager = new ethers.Contract(
-      managerAddress,
-      SphinxManagerABI,
-      relayer
-    )
-    const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
     // We set the `registryData` to `0x` since this version of the SphinxManager doesn't use it.
+    const authData = getAuthData([owner.address], 1)
     await AuthFactory.deploy(authData, '0x', projectName)
 
-    const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
-      bundledLeafs,
-      0,
-      chainId
-    )
-    const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
-      bundledLeafs,
-      1,
-      chainId
-    )
-    const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
-      bundledLeafs,
-      2,
-      chainId
+    await Auth.setup(authBundle.root, setupLeaf, [signature], setupProof)
+
+    await Auth.propose(
+      authBundle.root,
+      proposalLeaf,
+      [signature],
+      proposalProof
     )
 
-    // Commit the project to IPFS.
-    await sphinxCommitAbstractSubtask(parsedConfig, true, configArtifacts)
-
-    const signature = await signAuthRootMetaTxn(owner, root)
-
-    await Auth.setup(root, setupLeaf, [signature], setupProof)
-
-    await Auth.propose(root, proposalLeaf, [signature], proposalProof)
-
-    await Auth.approveDeployment(root, approvalLeaf, [signature], approvalProof)
+    await Auth.approveDeployment(
+      authBundle.root,
+      approvalLeaf,
+      [signature],
+      approvalProof
+    )
 
     // Sanity check that the deployment has been approved.
-    const { configUri, bundles } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
+    const deploymentId = getDeploymentId(
+      bundles.actionBundle,
+      bundles.targetBundle,
+      configUri
     )
-    const deploymentId = getDeploymentId(bundles, configUri)
-
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
 
     await monitorExecution(
-      provider,
       owner,
       parsedConfig,
       bundles,
       deploymentId,
       true // Flip to false to see the status of the remote execution.
     )
-
-    Proxy = await hre.ethers.getContractAt(
-      proxyContractName,
-      getTargetAddress(managerAddress, proxyReferenceName)
-    )
-
-    Immutable = await hre.ethers.getContractAt(
-      immutableContractName,
-      getTargetAddress(managerAddress, immutableReferenceName)
-    )
   })
 
-  it('does deploy proxied contract remotely', async () => {
-    expect(await Proxy.number()).to.equal(1n)
-    expect(await Proxy.stored()).to.equal(true)
-    expect(await Proxy.storageName()).to.equal('First')
-    expect(await Proxy.otherStorage()).to.equal(
-      '0x1111111111111111111111111111111111111111'
-    )
-  })
-
-  it('does deploy non-proxy contract remotely', async () => {
-    expect(await Immutable.val()).equals(1n)
+  it('does execute remote deployment', async () => {
+    expect(await contract.val()).equals(42n)
   })
 })
+
+const getContract = (): ethers.Contract => {
+  const abi =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(path.resolve('./out/ExecutorTest.sol/ExecutorTest.json')).abi
+
+  const contract = new ethers.Contract(contractAddress, abi, provider)
+  return contract
+}

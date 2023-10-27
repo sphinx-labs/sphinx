@@ -28,12 +28,13 @@ import {
 } from "./SphinxDataTypes.sol";
 import { SphinxManagerProxy } from "./SphinxManagerProxy.sol";
 import { Semver, Version } from "./Semver.sol";
+import { ISphinxAuth } from "./interfaces/ISphinxAuth.sol";
 
 /**
  * @title SphinxAuth
- * @custom:version 0.2.4
+ * @custom:version 0.2.6
  */
-contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
+contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver, ISphinxAuth {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
 
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
@@ -158,23 +159,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     /********************************** OWNER FUNCTIONS **********************************/
 
     /**
-     * @notice Sets initial proposers. The number of owner signatures must be greater than
-     *         or equal to the threshold.
-
-               This is the only permissioned function in this contract that doesn't require
-               that the auth Merkle root has been proposed in a separate transaction.
-
-               This function is callable until the first proposal occurs. This allows for the
-               possibility that the owners mistakenly enter invalid initial proposers. For
-               example, they may enter proposers addresses that don't exist on this chain. If this
-               function was only callable once, then this contract would be unusable in this
-               scenario, since every other public function requires that a proposal has occurred.
-     *
-     * @param _authRoot Auth Merkle root for the Merkle tree that the owners approved.
-     * @param _leaf AuthLeaf struct. This is the decoded leaf of the auth tree.
-     * @param _signatures List of meta transaction signatures. Must correspond to signer addresses
-     *                    in ascending order (see `_verifySignatures` for more info).
-     * @param _proof    Merkle proof of the leaf in the auth tree.
+     * @inheritdoc ISphinxAuth
      */
     function setup(
         bytes32 _authRoot,
@@ -529,7 +514,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             approval.numSetStorageActions,
             approval.numTargets,
             approval.configUri,
-            true
+            approval.remoteExecution
         );
 
         emit AuthLeafExecuted(_authRoot, _leaf.index, AuthLeafType.APPROVE_DEPLOYMENT);
@@ -559,13 +544,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     /****************************** PROPOSER FUNCTIONS ******************************/
 
     /**
-     * @notice Allows a proposer to propose a new auth Merkle root. This function may
-     * be called as the first leaf of a new auth Merkle tree, or as the second leaf
-     * after the `setup` function has been called.
-     *
-     * @param _authRoot The auth Merkle root to propose.
-     * @param _leaf The leaf that contains the proposal info.
-     * @param _signatures The meta transaction signature of the proposer that proves the
+     * @inheritdoc ISphinxAuth
      */
     function propose(
         bytes32 _authRoot,
