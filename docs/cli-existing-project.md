@@ -21,7 +21,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
@@ -56,7 +56,7 @@ pnpm:
 pnpm add -D @sphinx-labs/plugins
 ```
 
-## 4. Update `gitignore`
+## 4. Update `.gitignore`
 
 Add the following to your `.gitignore` file:
 ```
@@ -129,7 +129,7 @@ If you change the interface of one of your contract's constructors, you'll also 
 
 Follow this step if you use a build command to compile your contracts (e.g. `yarn build`). Otherwise, skip to the next step.
 
-You'll need to generate the Sphinx clients in your build command or else the compilation process will fail.
+You'll need to generate the Sphinx clients in your build command, or else the compilation process will fail.
 
 Open your `package.json`, then navigate to the `"build"` field, which is located in the following location:
 ```json
@@ -151,7 +151,7 @@ forge test --match-contract HelloSphinxTest
 
 ## 11. Broadcast a deployment on Anvil (optional)
 
-Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful for situations where you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
+Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful when you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
 
 First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
 ```

@@ -10,9 +10,9 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
-* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd prefer not to use a CI process, you can propose deployments from your local machine instead.
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd rather not use a CI process, you can propose deployments from your local machine instead.
 
-* **Automatic Etherscan verification**.
+* **Automatic Etherscan verification**
 
 ## Request access
 
@@ -40,7 +40,7 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - You cannot send ETH as part of a deployment.
 - Your deployment cannot contain externally linked libraries (i.e. libraries with `public`/`external` functions).
 
-Please reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if any of these limtations are blocking you!
+Please reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if any of these limitations are blocking you!
 
 ## Supported Networks
 

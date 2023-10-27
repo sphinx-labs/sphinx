@@ -18,7 +18,7 @@ This guide will show you how to setup Sphinx's Foundry CLI plugin in a fresh rep
 
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
