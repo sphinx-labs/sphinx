@@ -1,6 +1,6 @@
 # Integrate Sphinx into an Existing Foundry Project
 
-This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project to show you how to deploy and test contracts using Sphinx.
+This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
 
 ## Table of Contents
 
@@ -11,10 +11,11 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 5. [Update `foundry.toml`](#5-update-foundrytoml)
 6. [Add remappings](#6-add-remappings)
 7. [Initialize a project](#7-initialize-a-project)
-8. [Generate Sphinx Clients](#8-generate-the-sphinx-clients)
-9. [Test the deployment](#9-test-the-deployment)
-10. [Broadcast deployment on Anvil (optional)](#10-broadcast-deployment-on-anvil-optional)
-11. [Learn more](#11-learn-more)
+8. [Generate Clients](#8-generate-clients)
+9. [Update your build command (optional)](#9-update-your-build-command-optional)
+10. [Test the deployment](#10-test-the-deployment)
+11. [Broadcast a deployment on Anvil (optional)](#11-broadcast-a-deployment-on-anvil-optional)
+12. [Next steps](#12-next-steps)
 
 ## 1. Prerequisites
 
@@ -120,16 +121,33 @@ To improve the UX of CREATE3 deployments, Sphinx autogenerates **clients**, whic
 npx sphinx generate
 ```
 
+If you change the interface of one of your contract's constructors, you'll also need to re-run the `generate` command.
 
+## 9. Update your build command (optional)
 
-## 9. Test the deployment
+Follow this step if you use a build command to compile your contracts (e.g. `yarn build`). Otherwise, skip to the next step.
+
+You'll need to generate the Sphinx clients in your build command or else the compilation process will fail.
+
+Open your `package.json`, then navigate to the `"build"` field, which is located in the following location:
+```json
+{
+  "scripts": {
+    "build": ...
+  }
+}
+```
+
+Then, copy and paste `npx sphinx generate` into your build command. You can use this as a drop-in replacement for `forge build`, since it runs this command under the hood.
+
+## 10. Test the deployment
 
 Run the test in `HelloSphinx.t.sol`:
 ```
 forge test --match-contract HelloSphinxTest
 ```
 
-## 10. Broadcast deployment on Anvil (optional)
+## 11. Broadcast a deployment on Anvil (optional)
 
 First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
 ```
@@ -153,12 +171,12 @@ Then, navigate to a new terminal window. Broadcast the deployment with the follo
 npx sphinx deploy ./scripts/HelloSphinx.s.sol --network anvil
 ```
 
-When deploying on a live network, you can verify your contracts using the `--verify` flag.
-
 You'll be shown a preview of your deployment and prompted to confirm.
 
 Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
-## 11. Learn more
+When deploying on a live network, you can verify your contracts using the `--verify` flag.
 
-Learn more about writing deployment scripts with Sphinx in [this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md).
+## 12. Next steps
+
+Your next step is to follow the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
