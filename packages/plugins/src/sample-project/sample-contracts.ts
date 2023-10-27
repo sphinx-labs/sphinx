@@ -1,5 +1,7 @@
 import { relative, resolve } from 'path'
 
+// TODO: update the sample contracts to not use clients.
+
 export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};

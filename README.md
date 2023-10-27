@@ -6,7 +6,7 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 ## Key features:
 
-* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
+* **Fully compatible with Forge Scripts**: You integrate Sphinx with minimal changes to your existing Forge scripts.
 
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
@@ -24,23 +24,20 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 - [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
 - [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
-- [Using the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
+- [Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
 
 ### Reference guides
 
-- [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md)
-- [Calling Permissioned Functions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md)
+- [Writing Deployment Scripts with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md)
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
-- [The `SphinxManager` contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
-### Current limitations
+## Current limitations
 
 - You cannot send ETH as part of a deployment.
-- Your deployment cannot contain externally linked libraries (i.e. libraries with `public`/`external` functions).
 
-Please reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if any of these limitations are blocking you!
+Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if this is blocking you!
 
 ## Supported Networks
 

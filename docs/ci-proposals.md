@@ -2,14 +2,16 @@
 
 It's a best practice to propose deployments from a CI process instead of using the command line. This ensures that your deployments are reproducible and that they don't depend on a single developer's machine, which can be a source of bugs.
 
-This guide will show you how to integrate proposals into your CI process using GitHub Actions. You can still follow this guide if you're using a different CI platform, but the exact configuration may be slightly different.
+This guide will show you how to integrate proposals into your CI process. We'll create two workflows: one that dry runs the proposal when a pull request is opened or updated, and another that proposes the deployment when the pull request is merged.
 
-> Important: Sphinx will propose all transactions that are broadcasted by Foundry. By default, this is **not idempotent**. This means that if you open a PR after completing a deployment, Sphinx will attempt to re-propose any transactions from your script that can be broadcasted again. In most cases, this is not desirable behavior. To resolve this, we highly recommend adjusting your deployment script so that it's idempotent. If you plan to stop all activity in your repository after you've completed your deployment, then you can disregard this warning.
+We'll use GitHub Actions as the CI platform in this guide. You can still follow this guide if you're using a different CI platform, but the exact configuration may be slightly different.
+
+> Important: Sphinx will propose all transactions that are broadcasted by Foundry. By default, this is **not idempotent**. This means that if you open a PR after completing a deployment, Sphinx will attempt to re-propose any transactions from your script that can be broadcasted again. In most cases, this is not desirable behavior. To resolve this, we highly recommend adjusting your deployment script so that it's idempotent.
 
 ## Table of Contents
 
 1. [Prerequisites](#1-prerequisites)
-2. [Create a new branch in your repo](#2-create-a-new-branch-in-your-repo)
+2. [Create a new branch](#2-create-a-new-branch)
 3. [Create a GitHub Actions folder](#3-create-a-github-actions-folder)
 4. [Create new workflow files](#4-create-new-workflow-files)
 5. [Create the dry run workflow](#5-create-the-dry-run-workflow)
@@ -20,11 +22,13 @@ This guide will show you how to integrate proposals into your CI process using G
 
 ## 1. Prerequisites
 
-Make sure that you've already completed the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide for the project you're going to deploy in this guide.
+The Sphinx DevOps Platform is currently invite-only, so you need an invite link to follow along with this guide. You can [request access on our website](https://sphinx.dev) if you haven't already.
+
+Make sure that you've already completed the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) for the project you're going to deploy in this guide.
 
 Also, make sure that your `foundry.toml` has an `rpc_endpoints` section that contains an RPC endpoint for each network you want to support in your project.
 
-## 2. Create a new branch in your repo
+## 2. Create a new branch
 
 ```
 git checkout -b sphinx/integrate-ci
@@ -129,7 +133,7 @@ Here is a list of things you may need to change in the template:
 
 ## 7. Configure secret variables
 
-You'll need to add a few variables as secrets in your CI process. [See here for a guide by GitHub on storing secrets in GitHub Actions](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
+You'll need to add a few variables as secrets in your CI process. If you're not sure how to add secrets, [see here for a guide by GitHub on storing secrets in GitHub Actions](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
 
 Here is the list of secrets to add:
 - `PROPOSER_PRIVATE_KEY`: The private key of one of the proposer addresses, which are located inside your deployment script in the `sphinxConfig.proposers` array. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
