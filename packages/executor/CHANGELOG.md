@@ -1,5 +1,18 @@
 # @sphinx-labs/executor
 
+## 0.18.0
+
+### Minor Changes
+
+- 330dcc28: First-class support of Forge scripts
+
+### Patch Changes
+
+- Updated dependencies [330dcc28]
+- Updated dependencies [b15ad66c]
+  - @sphinx-labs/plugins@0.23.0
+  - @sphinx-labs/core@0.18.0
+
 ## 0.17.0
 
 ### Minor Changes
