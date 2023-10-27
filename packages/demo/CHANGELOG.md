@@ -1,5 +1,29 @@
 # @sphinx-labs/demo
 
+## 0.10.0
+
+### Minor Changes
+
+- 330dcc28: First-class support of Forge scripts
+
+### Patch Changes
+
+- Updated dependencies [330dcc28]
+- Updated dependencies [b15ad66c]
+  - @sphinx-labs/contracts@0.13.0
+  - @sphinx-labs/plugins@0.23.0
+  - @sphinx-labs/core@0.18.0
+
+## 0.9.2
+
+### Patch Changes
+
+- Updated dependencies [767b7c0f]
+- Updated dependencies [275ca040]
+  - @sphinx-labs/plugins@0.22.0
+  - @sphinx-labs/core@0.17.0
+  - @sphinx-labs/contracts@0.12.0
+
 ## 0.9.1
 
 ### Patch Changes

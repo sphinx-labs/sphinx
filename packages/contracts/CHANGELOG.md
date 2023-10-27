@@ -1,5 +1,17 @@
 # @sphinx-labs/contracts
 
+## 0.13.0
+
+### Minor Changes
+
+- 330dcc28: First-class support of Forge scripts
+
+## 0.12.0
+
+### Minor Changes
+
+- 275ca040: Remove silent failure on external call revert and/or contract deployment failure
+
 ## 0.11.1
 
 ### Patch Changes

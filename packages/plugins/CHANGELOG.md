@@ -1,5 +1,32 @@
 # @sphinx-labs/plugins
 
+## 0.23.0
+
+### Minor Changes
+
+- 330dcc28: First-class support of Forge scripts
+
+### Patch Changes
+
+- b15ad66c: Add .gitignore to config files generated in the `sphinx init` task
+- Updated dependencies [330dcc28]
+  - @sphinx-labs/contracts@0.13.0
+  - @sphinx-labs/core@0.18.0
+
+## 0.22.0
+
+### Minor Changes
+
+- 275ca040: Remove silent failure on external call revert and/or contract deployment failure
+
+### Patch Changes
+
+- 767b7c0f: Cancel active deployments via proposals
+- Updated dependencies [767b7c0f]
+- Updated dependencies [275ca040]
+  - @sphinx-labs/core@0.17.0
+  - @sphinx-labs/contracts@0.12.0
+
 ## 0.21.2
 
 ### Patch Changes
