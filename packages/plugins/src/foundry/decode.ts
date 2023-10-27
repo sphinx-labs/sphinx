@@ -214,8 +214,6 @@ export const parseFoundryDryRun = (
     )
   }
 
-  // TODO(md): current limitations: cannot send eth as part of deployment.
-
   const actionInputs: Array<
     RawDeployContractActionInput | RawFunctionCallActionInput
   > = []

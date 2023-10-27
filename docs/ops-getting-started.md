@@ -17,8 +17,8 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 Make sure that you've already completed one of the following guides:
 
-* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
-* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
+- [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+- [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
 Also, you'll need an EOA that exists on live networks.
 
@@ -58,7 +58,7 @@ In your `setUp` function, update the `owners` array to include the address of yo
 
 Then, copy and paste the following config options into your `setUp` function:
 ```
-sphinxConfig.orgId = <org ID>;
+sphinxConfig.orgId = "<org ID>";
 sphinxConfig.proposers = [<your address>];
 sphinxConfig.mainnets = [];
 sphinxConfig.testnets = [
@@ -71,13 +71,7 @@ sphinxConfig.testnets = [
 ];
 ```
 
-We'll describe these fields briefly here:
-- `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
-- `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
-- `mainnets`: (`Network[]`): The list of production networks to deploy on. See the [full list of supported production networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#production-networks).
-- `testnets`: (`Network[]`): The list of testnets to deploy on. See the [full list of supported test networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#test-networks).
-
-Fill in these fields with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide.
+Fill in the org ID and proposer with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide. You can learn more about these options in the [DevOps Platform Options section of the Configuring Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md).
 
 ## 7. Add RPC endpoints
 

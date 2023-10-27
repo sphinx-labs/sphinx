@@ -1,4 +1,4 @@
-# Quickstart
+# Getting Started in a New Repository
 
 This guide will show you how to setup Sphinx's Foundry CLI plugin in a fresh repository. We'll create a sample project, then test and deploy it locally.
 

@@ -5,11 +5,16 @@ There are a few minor differences between deployments with Sphinx and deployment
 ## Table of Contents
 
 - [Sample Sphinx Script](#sample-sphinx-script)
-- [Required Configuration Options](#required-configuration-options)
-  - [Project Name](#project-name)
-  - [Owners](#owners)
-  - [Threshold](#threshold)
+- [Configuration Options](#configuration-options)
+  - [Required Configuration Options](#required-configuration-options)
+    - [Project Name (`string`)](#project-name-string)
+    - [Owners (`address[]`)](#owners-address)
+    - [Threshold (`uint256`)](#threshold-uint256)
   - [DevOps Platform Options](#devops-platform-options)
+    - [Proposers (`address[]`)](#proposers-address)
+    - [Production networks (`Network[]`)](#production-networks-network)
+    - [Test networks (`Network[]`)](#test-networks-network)
+    - [Organization ID (`string`)](#organization-id-string)
 - [The `run()` function](#the-run-function)
 - [Deploying Contracts](#deploying-contracts)
   - [Contract Deployment Options](#contract-deployment-options)
@@ -36,7 +41,7 @@ contract Sample is Script, SphinxClient {
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
-        sphinxConfig.orgId = "<org id>";
+        sphinxConfig.orgId = "abcd-1234";
     }
 
     // Your deployment goes here:
@@ -55,24 +60,27 @@ There are three main differences between this script and a vanilla Forge script:
 
 We'll go into detail on each of these below.
 
-## Required Configuration Options
+## Configuration Options
+
 In the `setUp()` function, you'll configure your project's settings by setting fields on a `sphinxConfig` struct. We'll go through its fields one by one.
 
-### Project Name
+### Required Configuration Options
+
+#### Project Name (`string`)
 ```
 sphinxConfig.projectName = "My Project";
 ```
 
 The name of your project, which can be any name you choose. It's case-sensitive.
 
-### Owners
+#### Owners (`address[]`)
 ```
 sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
 ```
 
 The list of addresses that own this project. Owners must approve deployments before they can be executed.
 
-### Threshold
+#### Threshold (`uint256`)
 ```
 sphinxConfig.threshold = 1;
 ```
@@ -80,7 +88,70 @@ sphinxConfig.threshold = 1;
 The number of owners required to approve a deployment.
 
 ### DevOps Platform Options
-If you are using the Sphinx DevOps platform, there are several additional options you'll need to configure. You can learn more about them in the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
+There are a few additional options that you'll need to configure before you can use the Sphinx DevOps Platform.
+
+#### Proposers (`address[]`)
+
+```
+sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+```
+
+An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
+
+#### Production networks (`Network[]`)
+
+```
+sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
+```
+
+The list of production networks to deploy on.
+
+Valid values:
+
+| Network | `Network` enum |
+| ----------- | ----------- |
+| Ethereum | `Network.ethereum` |
+| Optimism | `Network.optimism` |
+| Arbitrum | `Network.arbitrum` |
+| Polygon POS | `Network.polygon` |
+| Binance Smart Chain | `Network.bnb` |
+| Gnosis Chain | `Network.gnosis` |
+| Linea | `Network.linea` |
+| Polygon ZKEVM | `Network.polygon_zkevm` |
+| Avalanche C Chain | `Network.avalanche` |
+| Fantom | `Network.fantom` |
+| Base | `Network.base` |
+
+#### Test networks (`Network[]`)
+```
+sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+```
+
+The list of testnets to deploy on.
+
+Valid values:
+
+| Network | `Network` enum |
+| ----------- | ----------- |
+| Ethereum Goerli | `Network.goerli` |
+| Optimism Goerli | `Network.optimism_goerli` |
+| Arbitrum Goerli | `Network.arbitrum_goerli` |
+| Polygon Mumbai | `Network.polygon_mumbai` |
+| Binance Smart Chain Testnet | `Network.bnb_testnet` |
+| Gnosis Chiado | `Network.gnosis_chiado` |
+| Linea Goerli | `Network.linea_goerli` |
+| Polygon ZKEVM Goerli | `Network.polygon_zkevm_goerli` |
+| Avalanche Fuji | `Network.avalanche_fuji` |
+| Fantom Testnet | `Network.fantom_testnet` |
+| Base Goerli | `Network.base_goerli` |
+
+#### Organization ID (`string`)
+
+```
+sphinxConfig.orgId = "abcd-1234";
+```
+
+Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
 
 ## The `run()` function
 
