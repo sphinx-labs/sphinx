@@ -511,8 +511,6 @@ export const generateClient = async (
   const { src, artifactFolder, remappings, script, test } =
     await getFoundryConfigOptions()
 
-  const srcFolder = process.env.DEV_FILE_PATH ? 'contracts/test' : src
-
   if (!fs.existsSync(src)) {
     throw new Error(
       `The src directory: '${src}' was not found. Please check that you've defined the correct src directory in your foundry.toml file.`
@@ -523,13 +521,13 @@ export const generateClient = async (
   const deployFunctions: string[] = []
 
   await generateClientsInFolder(
-    srcFolder,
+    src,
     script,
     test,
     artifactFolder,
     CLIENT_FOLDER_NAME,
     remappings,
-    srcFolder,
+    src,
     deployFunctionImports,
     deployFunctions
   )
