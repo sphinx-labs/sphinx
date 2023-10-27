@@ -1,5 +1,18 @@
 # @sphinx-labs/plugins
 
+## 0.23.0
+
+### Minor Changes
+
+- 330dcc28: First-class support of Forge scripts
+
+### Patch Changes
+
+- b15ad66c: Add .gitignore to config files generated in the `sphinx init` task
+- Updated dependencies [330dcc28]
+  - @sphinx-labs/contracts@0.13.0
+  - @sphinx-labs/core@0.18.0
+
 ## 0.22.0
 
 ### Minor Changes
