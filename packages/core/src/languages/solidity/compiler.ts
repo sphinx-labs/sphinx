@@ -5,11 +5,7 @@ import {
   CompilerPlatform,
 } from 'hardhat/internal/solidity/compiler/downloader'
 
-import {
-  CompilerOutput,
-  CompilerOutputContracts,
-  CompilerOutputMetadata,
-} from './types'
+import { CompilerOutputMetadata } from './types'
 
 // Credit: NomicFoundation
 // https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
@@ -69,16 +65,8 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
  */
 export const getMinimumCompilerInput = (
   fullCompilerInput: CompilerInput,
-  fullOutputContracts: CompilerOutputContracts,
-  sourceName: string,
-  contractName: string
+  metadata: CompilerOutputMetadata
 ): CompilerInput => {
-  const contractOutput = fullOutputContracts[sourceName][contractName]
-  const metadata: CompilerOutputMetadata =
-    typeof contractOutput.metadata === 'string'
-      ? JSON.parse(contractOutput.metadata)
-      : contractOutput.metadata
-
   const minimumSources: CompilerInput['sources'] = {}
   for (const newSourceName of Object.keys(metadata.sources)) {
     minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
@@ -92,40 +80,4 @@ export const getMinimumCompilerInput = (
   }
 
   return minimumCompilerInput
-}
-
-/**
- * Returns the minimum compiler output for a given source name.
- *
- * @param fullCompilerOutput The full compiler output object.
- * @param fullOutputContracts The full compiler output contract object.
- * @param sourceName The source name.
- * @returns Minimum compiler input necessary to compile the source name.
- */
-export const getMinimumCompilerOutput = (
-  fullCompilerOutput: CompilerOutput,
-  fullOutputContracts: CompilerOutputContracts,
-  sourceName: string,
-  contractName: string
-): CompilerOutput => {
-  const contractOutput = fullOutputContracts[sourceName][contractName]
-  const metadata: CompilerOutputMetadata =
-    typeof contractOutput.metadata === 'string'
-      ? JSON.parse(contractOutput.metadata)
-      : contractOutput.metadata
-
-  const minimumSources: CompilerOutput['sources'] = {}
-  const minimumContracts: CompilerOutput['contracts'] = {}
-  for (const newSourceName of Object.keys(metadata.sources)) {
-    minimumSources[newSourceName] = fullCompilerOutput.sources[newSourceName]
-    minimumContracts[newSourceName] =
-      fullCompilerOutput.contracts[newSourceName]
-  }
-
-  const minimumCompilerOutput: CompilerOutput = {
-    contracts: minimumContracts,
-    sources: minimumSources,
-  }
-
-  return minimumCompilerOutput
 }

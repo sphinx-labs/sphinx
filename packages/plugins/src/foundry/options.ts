@@ -1,8 +1,13 @@
-import { exec } from 'child_process'
 import { join, resolve } from 'path'
-import { promisify } from 'util'
+
+import { spawnAsync } from '@sphinx-labs/core'
 
 export type FoundryToml = {
+  src: string
+  test: string
+  script: string
+  solc: string
+  broadcastFolder: string
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
@@ -10,7 +15,13 @@ export type FoundryToml = {
   cachePath: string
   storageLayout: boolean
   gasEstimates: boolean
-  rpcEndpoints: { [chainAlias: string]: string }
+  rpcEndpoints: { [networkName: string]: string | undefined }
+  remappings: Record<string, string>
+  etherscan: {
+    [networkName: string]: {
+      key: string
+    }
+  }
 }
 
 export const cleanPath = (dirtyPath: string) => {
@@ -42,15 +53,13 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
  * parsing needed to support them.
  */
 export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
-  const execAsync = promisify(exec)
-
-  const forgeConfigOutput = await execAsync('forge config --json')
-  const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
+  const { stdout } = await spawnAsync('forge', ['config', '--json'])
+  const forgeConfig = JSON.parse(stdout)
 
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
 
-  const cachePath = forgeConfig.cache_path
+  const { cache_path: cachePath, src, test, script, solc } = forgeConfig
   const rpcEndpoints = parseRpcEndpoints(forgeConfig.rpc_endpoints)
 
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
@@ -58,12 +67,28 @@ export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
   const storageLayout = forgeConfig.extra_output.includes('storageLayout')
   const gasEstimates = forgeConfig.extra_output.includes('evm.gasEstimates')
 
+  const remappings: Record<string, string> = {}
+  for (const remapping of forgeConfig.remappings) {
+    const [from, to] = remapping.split('=')
+    remappings[from] = to
+  }
+
+  const etherscan = forgeConfig.etherscan
+  const broadcastFolder = forgeConfig.broadcast
+
   return {
     ...resolvePaths(forgeConfig.out, buildInfoPath),
     storageLayout,
     gasEstimates,
     cachePath,
     rpcEndpoints,
+    src,
+    test,
+    script,
+    solc,
+    remappings,
+    etherscan,
+    broadcastFolder,
   }
 }
 

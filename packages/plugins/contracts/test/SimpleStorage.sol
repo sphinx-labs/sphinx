@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 import { Storage } from "./ContainsStorage.sol";
 import { Stateless } from "./Stateless.sol";
@@ -11,10 +11,10 @@ contract SimpleStorage {
     Stateless public immutable immutableStatelessReference;
 
     constructor(
-        Storage _immutableContractReference,
+        Storage[] memory _immutableContractReference,
         Stateless _statelessImmutableContractReference
     ) {
-        immutableContractReference = _immutableContractReference;
+        immutableContractReference = _immutableContractReference[0];
         immutableStatelessReference = _statelessImmutableContractReference;
     }
 

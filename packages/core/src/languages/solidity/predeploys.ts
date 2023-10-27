@@ -25,8 +25,7 @@ import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  getNetworkType,
-  resolveNetwork,
+  isLiveNetwork,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
@@ -49,9 +48,7 @@ import {
   RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
-import { assertValidBlockGasLimit } from '../../config/parse'
 import { getSphinxConstants } from '../../contract-info'
-import { NetworkType } from '../../config'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -97,10 +94,9 @@ export const initializeAndVerifySphinx = async (
   const { name: networkName } = await provider.getNetwork()
   try {
     // Verify the Sphinx contracts if the current network is supported.
-    const networkType = await getNetworkType(provider)
     if (
       (await isSupportedNetworkOnEtherscan(provider)) &&
-      networkType === NetworkType.LIVE_NETWORK
+      (await isLiveNetwork(provider))
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
@@ -141,9 +137,7 @@ export const ensureSphinxInitialized = async (
   funders: string[] = [],
   logger?: Logger
 ) => {
-  if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
-    return
-  } else if ((await getNetworkType(provider)) !== NetworkType.LIVE_NETWORK) {
+  if (!(await isLiveNetwork(provider))) {
     await initializeSphinx(
       provider,
       signer,
@@ -152,15 +146,10 @@ export const ensureSphinxInitialized = async (
       funders,
       logger
     )
+  } else if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
+    return
   } else {
-    const networkType = await getNetworkType(provider)
-    const { networkName } = await resolveNetwork(
-      await provider.getNetwork(),
-      networkType
-    )
-    throw new Error(
-      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it! If you are seeing this error on a network we support, try using a different provider and then file an issue on Github if the problem persists.`
-    )
+    throw new Error(`Sphinx is not supported on this network.`)
   }
 }
 
@@ -176,29 +165,11 @@ export const initializeSphinx = async (
   if (!block) {
     throw new Error('Failed to get latest block.')
   }
-  assertValidBlockGasLimit(block.gasLimit)
 
   // Check that the previous storage layout of these contracts is compatible with the current
   // one.
   assertStorageLayoutCompatible('contracts/SphinxManager.sol:SphinxManager')
   assertStorageLayoutCompatible('contracts/SphinxAuth.sol:SphinxAuth')
-
-  // Do the same thing for the SphinxAuth contract.
-  const previousSphinxAuth = new UpgradeableContract(
-    'contracts/SphinxAuth.sol:SphinxAuth',
-    prevBuildInfo.input,
-    prevBuildInfo.output
-  )
-  const upgradedSphinxAuth = new UpgradeableContract(
-    'contracts/SphinxAuth.sol:SphinxAuth',
-    buildInfo.input,
-    buildInfo.output
-  )
-  const authUpgradeReport =
-    previousSphinxAuth.getStorageUpgradeReport(upgradedSphinxAuth)
-  if (!authUpgradeReport.ok) {
-    throw new Error(authUpgradeReport.explain())
-  }
 
   for (const {
     artifact,
@@ -239,11 +210,8 @@ export const initializeSphinx = async (
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  const networkType = await getNetworkType(provider)
-  if (
-    networkType === NetworkType.LIVE_NETWORK &&
-    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
-  ) {
+  const isLiveNetwork_ = await isLiveNetwork(provider)
+  if (isLiveNetwork_ && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
     if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
       throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
     }
@@ -265,12 +233,12 @@ export const initializeSphinx = async (
       )
     }
 
-    if (networkType !== NetworkType.LIVE_NETWORK) {
+    if (!isLiveNetwork_) {
       // Fund the signer
       await (
         await signer.sendTransaction({
           to: await owner.getAddress(),
-          value: ethers.parseEther('0.1'),
+          value: ethers.parseEther('1'),
         })
       ).wait()
     }
@@ -278,7 +246,7 @@ export const initializeSphinx = async (
 
   const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(Number(chainId)),
+    getManagedServiceAddress(chainId),
     ManagedServiceArtifact.abi,
     owner
   )
@@ -335,25 +303,19 @@ export const initializeSphinx = async (
     owner
   )
   const sphinxManagerAddress = getSphinxManagerImplAddress(
-    Number(chainId),
+    chainId,
     CURRENT_SPHINX_MANAGER_VERSION
   )
   if (
     (await SphinxRegistry.managerImplementations(sphinxManagerAddress)) ===
     false
   ) {
-    try {
-      await (
-        await SphinxRegistry.addVersion(
-          sphinxManagerAddress,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    } catch (e) {
-      if (!e.message.includes('version already set')) {
-        throw e
-      }
-    }
+    await (
+      await SphinxRegistry.addVersion(
+        sphinxManagerAddress,
+        await getGasPriceOverrides(owner)
+      )
+    ).wait()
   }
 
   logger?.info('[Sphinx]: added the initial SphinxManager version')
@@ -361,8 +323,7 @@ export const initializeSphinx = async (
   logger?.info('[Sphinx]: setting the default SphinxManager version')
 
   if (
-    (await SphinxRegistry.currentManagerImplementation()) !==
-    sphinxManagerAddress
+    (await SphinxRegistry.currentManagerImplementation()) === ethers.ZeroAddress
   ) {
     await (
       await SphinxRegistry.setCurrentManagerImplementation(
@@ -392,7 +353,7 @@ export const initializeSphinx = async (
     ).wait()
   }
 
-  if ((await AuthFactory.currentAuthImplementation()) !== authAddress) {
+  if ((await AuthFactory.currentAuthImplementation()) === ethers.ZeroAddress) {
     await (
       await AuthFactory.setCurrentAuthImplementation(
         authAddress,

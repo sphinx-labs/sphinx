@@ -176,6 +176,7 @@ struct DeploymentApproval {
     uint256 numSetStorageActions;
     uint256 numTargets;
     string configUri;
+    bool remoteExecution;
 }
 
 enum AuthLeafType {

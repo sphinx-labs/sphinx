@@ -26,4 +26,10 @@ interface ISphinxRegistry {
     function adapters(bytes32) external view returns (address);
 
     function setCurrentManagerImplementation(address _manager) external;
+
+    function managerImplementations(address) external view returns (bool);
+
+    function currentManagerImplementation() external view returns (address);
+
+    function versions(uint256, uint256, uint256) external view returns (address);
 }

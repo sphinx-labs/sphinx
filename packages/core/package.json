@@ -13,7 +13,7 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "yarn test",
-    "test": "npx mocha --require ts-node/register test/**/*.ts",
+    "test": "npx mocha --require ts-node/register 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
@@ -32,7 +32,7 @@
   "dependencies": {
     "@amplitude/node": "^1.10.2",
     "@eth-optimism/common-ts": "^0.7.1",
-    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
+    "@eth-optimism/contracts-bedrock": "0.0.0-20230522161230",
     "@ethersproject/bignumber": "^5.7.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
