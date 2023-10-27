@@ -9,6 +9,8 @@ This guide will explain each of these in detail.
 
 ## Table of Contents
 
+TODO(md-end)
+
 ## 1. The `SphinxManager` contract
 
 The `SphinxManager` contract executes your deployment. It's owned by your project owners. Your project owners must approve a deployment before it can be executed by your `SphinxManager`.
@@ -58,21 +60,21 @@ We'll go into detail on each of these below.
 
 ### Required Configuration Options
 
-#### Project Name (`string`)
+#### `string projectName`
 ```
 sphinxConfig.projectName = "My Project";
 ```
 
 The name of your project, which can be any name you choose. It's case-sensitive.
 
-#### Owners (`address[]`)
+#### `address[] owners`
 ```
 sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
 ```
 
 The list of addresses that own this project. Owners must approve deployments before they can be executed.
 
-#### Threshold (`uint256`)
+#### `uint256 threshold`
 ```
 sphinxConfig.threshold = 1;
 ```
@@ -82,7 +84,7 @@ The number of owners required to approve a deployment.
 ### DevOps Platform Options
 There are a few additional options that you'll need to configure before you can use the Sphinx DevOps Platform.
 
-#### Proposers (`address[]`)
+#### `address[] proposers`
 
 ```
 sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
@@ -90,7 +92,7 @@ sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
 
 An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
 
-#### Production networks (`Network[]`)
+#### `Network[] mainnets`
 
 ```
 sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
@@ -114,7 +116,7 @@ Valid values:
 | Fantom | `Network.fantom` |
 | Base | `Network.base` |
 
-#### Test networks (`Network[]`)
+#### `Network[] testnets`
 ```
 sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
 ```
@@ -137,7 +139,7 @@ Valid values:
 | Fantom Testnet | `Network.fantom_testnet` |
 | Base Goerli | `Network.base_goerli` |
 
-#### Organization ID (`string`)
+#### `string orgId`
 
 ```
 sphinxConfig.orgId = "abcd-1234";
