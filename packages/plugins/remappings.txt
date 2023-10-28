@@ -6,7 +6,6 @@ sphinx-forge-std/=node_modules/sphinx-forge-std/src/
 sphinx-solmate/=node_modules/sphinx-solmate/src/
 ds-test/=node_modules/ds-test/src/
 solidity-stringutils=node_modules/solidity-stringutils/src/
-@eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 @sphinx-labs/plugins=contracts/foundry/
 @layerzerolabs/solidity-examples/contracts/=node_modules/@layerzerolabs/solidity-examples/contracts/

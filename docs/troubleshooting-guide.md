@@ -4,6 +4,8 @@ This guide covers some common issues you might encounter using Sphinx. If your q
 
 ## Table of Contents
 
+TODO(md-end)
+
 ## General
 
 ### `Ineffective mark-compacts near heap limit allocation failed` error

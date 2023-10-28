@@ -82,7 +82,7 @@ If you don't already have an RPC endpoint for each testnet, you'll need to add t
 goerli = "https://rpc.ankr.com/eth_goerli"
 optimism_goerli = "https://goerli.optimism.io"
 arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
-bnb_smart_chain_testnet = "https://bsc-testnet.publicnode.com"
+bnb_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
 polygon_mumbai = "https://rpc.ankr.com/polygon_mumbai"
 ```

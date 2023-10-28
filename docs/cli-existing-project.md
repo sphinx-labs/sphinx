@@ -30,7 +30,7 @@ foundryup
 
 First, navigate to the root of your repository.
 
-You can install Sphinx using Yarn, npm, or pnpm.
+Then, install Sphinx using your preferred package manager.
 
 Yarn:
 ```

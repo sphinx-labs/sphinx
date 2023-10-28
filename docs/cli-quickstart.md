@@ -26,32 +26,36 @@ Make sure you're using the latest version of Foundry.
 foundryup
 ```
 
-## 3. Install Sphinx
+## 3. Create a new directory
 
 First, navigate to a fresh directory.
+
+Then, run:
 
 ```
 mkdir hello_sphinx && cd hello_sphinx
 ```
 
-You can install Sphinx using Yarn, npm, or pnpm.
+## 4. Install dependencies
+
+Install Sphinx, forge-std, and ds-test using your preferred package manager.
 
 Yarn:
 ```
-yarn add --dev @sphinx-labs/plugins
+yarn add --dev @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
 npm:
 ```
-npm install --save-dev @sphinx-labs/plugins
+npm install --save-dev @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
 pnpm:
 ```
-pnpm add -D @sphinx-labs/plugins
+pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
-## 4. Initialize a project
+## 5. Initialize a project
 
 ```
 npx sphinx init --quickstart
@@ -73,7 +77,7 @@ Run the test file at `test/HelloSphinx.t.sol`:
 forge test
 ```
 
-## 8. Broadcast a deployment on Anvil (optional)
+## 9. Broadcast a deployment on Anvil (optional)
 
 Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful for situations where you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
 
@@ -94,7 +98,7 @@ Whenever a deployment is broadcasted with this command, Sphinx will automaticall
 
 If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 
-## 9. Next steps
+## 10. Next steps
 
 If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md).
 

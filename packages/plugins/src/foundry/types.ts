@@ -55,6 +55,34 @@ export type FoundryDryRunTransaction = {
   isFixedGasLimit: boolean
 }
 
+export type FoundryBroadcastReceipt = {
+  transactionHash: string
+  transactionIndex: string
+  blockHash: string
+  blockNumber: string
+  from: string
+  cumulativeGasUsed: string
+  gasUsed: string
+  to?: string
+  contractAddress: string | null
+  logs: Array<{
+    address: string
+    topics: Array<string>
+    data: string
+    blockHash: string
+    blockNumber: string
+    transactionHash: string
+    transactionIndex: string
+    logIndex: string
+    transactionLogIndex: string
+    removed: boolean
+  }>
+  status: string
+  logsBloom: string
+  type: string
+  effectiveGasPrice: string
+}
+
 export type FoundryDryRun = {
   transactions: Array<FoundryDryRunTransaction>
   receipts: Array<any>

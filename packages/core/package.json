@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/core",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Sphinx core library",
   "main": "dist/index",
   "types": "dist/index",
@@ -32,14 +32,13 @@
   "dependencies": {
     "@amplitude/node": "^1.10.2",
     "@eth-optimism/common-ts": "^0.7.1",
-    "@eth-optimism/contracts-bedrock": "0.0.0-20230522161230",
     "@ethersproject/bignumber": "^5.7.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/merkle-tree": "^1.0.5",
     "@openzeppelin/upgrades-core": "^1.20.6",
-    "@sphinx-labs/contracts": "^0.13.0",
+    "@sphinx-labs/contracts": "^0.13.1",
     "axios": "^1.4.0",
     "chalk": "^4.1.2",
     "core-js": "^3.27.1",

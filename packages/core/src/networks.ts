@@ -2,7 +2,7 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 
-export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
+export type SupportedLocalNetworkName = 'anvil'
 
 export type SupportedMainnetNetworkName =
   | 'ethereum'
@@ -142,7 +142,6 @@ export const SUPPORTED_LOCAL_NETWORKS: Record<
   SupportedLocalChainId
 > = {
   anvil: 31337,
-  hardhat: 31337,
 }
 
 export const SUPPORTED_TESTNETS: Record<

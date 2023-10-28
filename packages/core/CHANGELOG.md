@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.18.1
+
+### Patch Changes
+
+- 431d6ef0: Use broadcast file instead of events to get transaction receipts for deployment artifacts
+- f2c5d280: Remove @eth-optimism/contracts-bedrock dependency due to a breaking change in a minor version update in their package
+- Updated dependencies [f2c5d280]
+  - @sphinx-labs/contracts@0.13.1
+
 ## 0.18.0
 
 ### Minor Changes

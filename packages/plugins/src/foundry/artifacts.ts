@@ -1,67 +1,123 @@
 import { join, sep } from 'path'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
 
-import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
+import { ConstructorFragment, ethers } from 'ethers'
 import {
   ConfigArtifacts,
   ParsedConfig,
-} from '@sphinx-labs/core/dist/config/types'
-import {
-  getDeploymentEvents,
   getNetworkDirName,
-  getSphinxManagerReadOnly,
-  isEventLog,
-  isLiveNetwork,
-  resolveNetwork,
-} from '@sphinx-labs/core/dist/utils'
-import 'core-js/features/array/at'
-import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
+  getNetworkNameForChainId,
+  isDeployContractActionInput,
+} from '@sphinx-labs/core'
+import { SphinxManagerABI } from '@sphinx-labs/contracts'
 
-export const writeDeploymentArtifactsUsingEvents = async (
-  provider: SphinxJsonRpcProvider,
+import { FoundryBroadcastReceipt } from './types'
+
+export const writeDeploymentArtifacts = async (
+  provider: ethers.Provider,
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts,
-  deploymentFolder: string
+  receipts: Array<FoundryBroadcastReceipt>,
+  deploymentFolderPath: string,
+  configArtifacts: ConfigArtifacts
 ): Promise<string> => {
-  const SphinxManager = getSphinxManagerReadOnly(
-    parsedConfig.managerAddress,
-    provider
-  )
-
-  const eventFilter = SphinxManager.filters.SphinxDeploymentCompleted()
-  const latestBlock = await provider.getBlockNumber()
-  const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
-  const deploymentCompletedEvent = (
-    await SphinxManager.queryFilter(eventFilter, startingBlock, latestBlock)
-  ).at(-1)
-
-  if (!deploymentCompletedEvent) {
-    console.error(`No deployment found. Should never happen.`)
-    process.exit(1)
+  const managerInterface = new ethers.Interface(SphinxManagerABI)
+  const eventFragment = managerInterface.getEvent('ContractDeployed')
+  if (!eventFragment) {
+    throw new Error(
+      `Could not find the ContractDeployed fragment in the SphinxManager. Should never happen.`
+    )
   }
 
-  if (!isEventLog(deploymentCompletedEvent)) {
-    console.error(`No event args. Should never happen.`)
-    process.exit(1)
+  const networkName = getNetworkNameForChainId(BigInt(parsedConfig.chainId))
+  const networkDirName = getNetworkDirName(
+    networkName,
+    parsedConfig.isLiveNetwork,
+    Number(parsedConfig.chainId)
+  )
+
+  const networkPath = join(deploymentFolderPath, networkDirName)
+  if (!existsSync(networkPath)) {
+    mkdirSync(networkPath, { recursive: true })
   }
 
-  const deploymentId = deploymentCompletedEvent.args.deploymentId
+  const deploymentActions = parsedConfig.actionInputs
+    .filter((a) => !a.skip)
+    .filter(isDeployContractActionInput)
 
-  const isLiveNetwork_ = await isLiveNetwork(provider)
-  const { networkName, chainId } = await resolveNetwork(
-    await provider.getNetwork(),
-    isLiveNetwork_
-  )
-  const networkDirName = getNetworkDirName(networkName, isLiveNetwork_, chainId)
+  for (const action of deploymentActions) {
+    const receipt = receipts.find((r) =>
+      r.logs.some(
+        (l) =>
+          l.address === parsedConfig.managerAddress &&
+          l.topics.length > 0 &&
+          l.topics[0] === eventFragment.topicHash &&
+          managerInterface.decodeEventLog(eventFragment, l.data, l.topics)
+            .contractAddress === action.create3Address
+      )
+    )
 
-  await writeDeploymentArtifacts(
-    provider,
-    parsedConfig,
-    await getDeploymentEvents(SphinxManager, deploymentId),
+    if (!receipt) {
+      throw new Error(
+        `Could not find transaction receipt for the deployment of ${action.referenceName} at ${action.create3Address}`
+      )
+    }
+
+    const { artifact, buildInfo } = configArtifacts[action.fullyQualifiedName]
+    const { bytecode, abi, metadata } = artifact
+    const iface = new ethers.Interface(abi)
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
+    )
+    const constructorArgValues = constructorFragment
+      ? coder.decode(constructorFragment.inputs, action.constructorArgs)
+      : []
+    const storageLayout = artifact.storageLayout ?? { storage: [], types: {} }
+    const { devdoc, userdoc } =
+      typeof metadata === 'string'
+        ? JSON.parse(metadata).output
+        : metadata.output
+
+    // Define the deployment artifact for the deployed contract.
+    const contractArtifact = {
+      address: action.create3Address,
+      abi,
+      transactionHash: receipt.transactionHash,
+      solcInputHash: buildInfo.id,
+      receipt: {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+        // Exclude the `gasPrice` if it's undefined
+        ...(receipt.effectiveGasPrice && {
+          gasPrice: receipt.effectiveGasPrice.toString(),
+        }),
+      },
+      numDeployments: 1,
+      metadata:
+        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+      args: constructorArgValues,
+      bytecode,
+      deployedBytecode: await provider.getCode(action.create3Address),
+      devdoc,
+      userdoc,
+      storageLayout,
+    }
+
+    // Write the deployment artifact for the deployed contract.
+    const artifactPath = join(
+      deploymentFolderPath,
+      networkDirName,
+      `${action.referenceName}.json`
+    )
+    writeFileSync(artifactPath, JSON.stringify(contractArtifact, null, '\t'))
+  }
+
+  const deploymentArtifactsPath = join(
+    deploymentFolderPath,
     networkDirName,
-    deploymentFolder,
-    configArtifacts
+    sep
   )
-
-  const deploymentArtifactsPath = join(deploymentFolder, networkDirName, sep)
   return deploymentArtifactsPath
 }
