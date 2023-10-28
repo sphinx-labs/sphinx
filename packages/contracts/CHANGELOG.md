@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.13.1
+
+### Patch Changes
+
+- f2c5d280: Remove @eth-optimism/contracts-bedrock dependency due to a breaking change in a minor version update in their package
+
 ## 0.13.0
 
 ### Minor Changes
