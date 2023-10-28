@@ -35,14 +35,12 @@ export const getSampleScriptFile = (
   const relativeSphinxClientPath = relative(scriptDirPath, resolve('client/'))
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
-  const sphinxImport = '@sphinx-labs/plugins'
-
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
-import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
+import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 
 contract HelloSphinxScript is SphinxClient {
     HelloSphinx helloSphinx;
@@ -60,6 +58,9 @@ contract HelloSphinxScript is SphinxClient {
 }
 `
 }
+
+// TODO: it'd be nice if we could redo the non-standard `setUp` function below. a little weird how
+// we call `HelloSphinxScript.setUp()`.
 
 export const getSampleFoundryTestFile = (
   solcVersion: string,
