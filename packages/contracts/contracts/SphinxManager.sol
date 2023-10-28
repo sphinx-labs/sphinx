@@ -586,6 +586,20 @@ contract SphinxManager is
                     // fail.
                     revert DeploymentFailed(action.index, activeDeploymentId);
                 }
+            } else if (action.actionType == SphinxActionType.CREATE) {
+                bytes memory initCode = action.data;
+                address addr;
+                assembly {
+                    addr := create(0, add(initCode, 0x20), mload(initCode))
+                }
+                if (addr.code.length > 0) revert DeploymentFailed(action.index, activeDeploymentId);
+
+                emit ContractDeployed(
+                    addr,
+                    activeDeploymentId,
+                    keccak256(initCode)
+                );
+                registry.announce("ContractDeployed");
             } else if (action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
                 (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
                     action.data,
