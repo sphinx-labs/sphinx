@@ -8,7 +8,6 @@
     "dist/*",
     "contracts/*",
     "artifacts/contracts/**/*.json",
-    "artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/*.json",
     "artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/*.json",
     "artifacts/build-info/**/*.json"
   ],
@@ -50,7 +49,6 @@
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.40",
-    "@eth-optimism/contracts-bedrock": "0.0.0-20230522161230",
     "ethers": "^6.7.0"
   }
 }

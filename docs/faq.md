@@ -10,11 +10,13 @@ The address of each contract is determined by the following inputs:
   - `owners`: The list of addresses that own your project.
   - `threshold`: The threshold of owners that must approve the deployment.
   - `projectName`: The project name.
-Contract deployment optoins:
-- `referenceName`: The string label of your contract.
-- `salt`: The 32-byte salt that you input
+- Contract deployment options:
+  - `referenceName`: The string label of your contract.
+  - `salt`: The 32-byte salt that you input.
 
-If any of these fields change, the addresses of your contracts will also change when you execute a new deployment.
+The project settings determine the address of your [`SphinxManager` contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md), which is the contract that executes your deployment. The contract deployment options are specific to each contract deployed by the `SphinxManager`.
+
+If one of these fields changes, the addresses of your contracts will also change when you execute a new deployment.
 
 You can learn more about these settings in the "Configuring Deployments" reference:
 - [Project settings](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md#required-configuration-options)

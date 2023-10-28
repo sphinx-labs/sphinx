@@ -2,9 +2,8 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 
-export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
+export type SupportedLocalNetworkName = 'anvil'
 
-// TODO(md): update these
 export type SupportedMainnetNetworkName =
   | 'ethereum'
   | 'optimism'
@@ -34,8 +33,6 @@ export type SupportedNetworkName =
   | SupportedMainnetNetworkName
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
-
-// TODO(md): ryan's dogfooding notion
 
 // This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
 // The fields in the two enums must be kept in sync, and the order of the fields must be the same.
@@ -145,7 +142,6 @@ export const SUPPORTED_LOCAL_NETWORKS: Record<
   SupportedLocalChainId
 > = {
   anvil: 31337,
-  hardhat: 31337,
 }
 
 export const SUPPORTED_TESTNETS: Record<

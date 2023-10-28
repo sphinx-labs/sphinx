@@ -724,10 +724,6 @@ abstract contract Sphinx {
             "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
         );
 
-        // TODO(md): in the testing mode, we can't detect if users stop pranking their sphinx
-        // manager and start pranking another address during the deployment. so, we should tell
-        // users that they shouldn't do this.
-
         address manager = sphinxManager(sphinxConfig);
         // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
         {
@@ -754,7 +750,7 @@ abstract contract Sphinx {
                 abi.encodePacked(
                     "Sphinx: The reference name ",
                     _referenceName,
-                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md"
+                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md#reference-name"
                 )
             )
         );

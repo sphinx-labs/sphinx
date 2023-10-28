@@ -19,7 +19,6 @@
       "@sphinx-labs/{contracts,plugins,executor,demo}/ds-test",
       "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts",
       "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
-      "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts",
       "@sphinx-labs/{plugins,demo,executor}/@sphinx-labs/contracts",
       "@sphinx-labs/plugins/sphinx-forge-std",

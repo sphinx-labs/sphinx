@@ -10,12 +10,9 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
-* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd prefer not to use a CI process, you can propose deployments from your local machine instead.
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd rather not use a CI process, you can propose deployments from your local machine instead.
 
-* **Automatic Etherscan verification**.
-
-TODO(md-end): chatgpt spell/grammar check
-TODO(md-end): c/f all links to docs in the repo to see if there are any dead links
+* **Automatic Etherscan verification**
 
 ## Request access
 
@@ -23,21 +20,27 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 ## Documentation
 
-TODO(md-end): check that we include all of the docs. we're missing permissioned functions at least
-
-
 ### Getting started
 
-If you're setting up a project in a fresh repository, begin with the [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md) guide. Otherwise, begin with the [Integrating Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md) guide.
-
-After you've finished one of these guides, your next step is to follow the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
+- [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+- [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
+- [Using the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
 
 ### Reference guides
 
 - [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md)
+- [Calling Permissioned Functions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md)
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
+- [The `SphinxManager` contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
+
+### Current limitations
+
+- You cannot send ETH as part of a deployment.
+- Your deployment cannot contain externally linked libraries (i.e. libraries with `public`/`external` functions).
+
+Please reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if any of these limitations are blocking you!
 
 ## Supported Networks
 

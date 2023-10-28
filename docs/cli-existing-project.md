@@ -1,4 +1,4 @@
-# Integrate Sphinx into an Existing Foundry Project
+# Getting Started in an Existing Repository
 
 This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
 
@@ -11,7 +11,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 5. [Update `foundry.toml`](#5-update-foundrytoml)
 6. [Add remappings](#6-add-remappings)
 7. [Initialize a project](#7-initialize-a-project)
-8. [Generate Clients](#8-generate-clients)
+8. [Generate clients](#8-generate-clients)
 9. [Update your build command (optional)](#9-update-your-build-command-optional)
 10. [Test the deployment](#10-test-the-deployment)
 11. [Broadcast a deployment on Anvil (optional)](#11-broadcast-a-deployment-on-anvil-optional)
@@ -21,7 +21,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
@@ -39,7 +39,7 @@ foundryup
 
 First, navigate to the root of your repository.
 
-You can install Sphinx using Yarn, npm, or pnpm.
+Then, install Sphinx using your preferred package manager.
 
 Yarn:
 ```
@@ -56,7 +56,7 @@ pnpm:
 pnpm add -D @sphinx-labs/plugins
 ```
 
-## 4. Update `gitignore`
+## 4. Update `.gitignore`
 
 Add the following to your `.gitignore` file:
 ```
@@ -111,7 +111,7 @@ This created a few files:
 - `HelloSphinx.s.sol`: A Sphinx deployment script. This script is located in your existing script folder or `script/` if one doesn't exist. It will deploy a `HelloSphinx` contract then call a function on it.
 - `HelloSphinx.t.sol`: A test file for the deployment. This is located in your existing test folder, or `test/` if one doesn't exist.
 
-## 8. Generate the Sphinx clients
+## 8. Generate clients
 
 Sphinx currently only supports CREATE3 deployments.
 
@@ -129,7 +129,7 @@ If you change the interface of one of your contract's constructors, you'll also 
 
 Follow this step if you use a build command to compile your contracts (e.g. `yarn build`). Otherwise, skip to the next step.
 
-You'll need to generate the Sphinx clients in your build command or else the compilation process will fail.
+You'll need to generate the Sphinx clients in your build command, or else the compilation process will fail.
 
 Open your `package.json`, then navigate to the `"build"` field, which is located in the following location:
 ```json
@@ -151,7 +151,7 @@ forge test --match-contract HelloSphinxTest
 
 ## 11. Broadcast a deployment on Anvil (optional)
 
-Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful for situations where you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
+Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful when you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
 
 First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
 ```
@@ -175,7 +175,7 @@ Then, navigate to a new terminal window. Broadcast the deployment with the follo
 npx sphinx deploy ./scripts/HelloSphinx.s.sol --network anvil
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included.
+You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
 Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
+import { Proxy } from "./Proxy.sol";
 import { SphinxAuthFactory } from "./SphinxAuthFactory.sol";
 
 /**

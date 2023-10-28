@@ -6,7 +6,7 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 1. [Prerequisites](#1-prerequisites)
 2. [High-level overview](#2-high-level-overview)
-3. [Get testnet ETH on OP Goerli](#3-get-testnet-eth-on-op-goerli)
+3. [Get testnet ETH on Optimism Goerli](#3-get-testnet-eth-on-optimism-goerli)
 4. [Get your credentials](#4-get-your-credentials)
 5. [Set environment variables](#5-set-environment-variables)
 6. [Configure your script](#6-configure-your-script)
@@ -17,10 +17,10 @@ This guide will walk you through a sample multi-chain deployment using the Sphin
 
 Make sure that you've already completed one of the following guides:
 
-* [Quickstart with Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
-* [Integrate Sphinx into an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
+- [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
+- [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
 
-Also, you'll need an EOA that exists on live networks.
+Also, you'll need an Externally Owned Account (EOA) that exists on live networks.
 
 ## 2. High-level overview
 
@@ -32,9 +32,9 @@ Deployments are a three-step process with the DevOps platform.
 2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
 3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit both the meta transaction signed by the proposer and the owners.
 
-## 3. Get testnet ETH on OP Goerli
+## 3. Get testnet ETH on Optimism Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll pay for the cost of your deployments by depositing USDC into this contract before it's executed. On testnets, you must fund your deployments in USDC on Optimism Goerli. Likewise, on production networks, you must fund your deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. You'll cover the cost of your deployments by depositing USDC into this contract before execution. On testnets, you must fund your deployments in USDC on Optimism Goerli. Likewise, on production networks, you must fund your deployments in USDC on Optimism Mainnet. We'll provide you with free USDC on Optimism Goerli to fund your deployments on testnets.
 
 ## 4. Get your credentials
 
@@ -58,7 +58,7 @@ In your `setUp` function, update the `owners` array to include the address of yo
 
 Then, copy and paste the following config options into your `setUp` function:
 ```
-sphinxConfig.orgId = <org ID>;
+sphinxConfig.orgId = "<org ID>";
 sphinxConfig.proposers = [<your address>];
 sphinxConfig.mainnets = [];
 sphinxConfig.testnets = [
@@ -66,18 +66,12 @@ sphinxConfig.testnets = [
   Network.optimism_goerli,
   Network.arbitrum_goerli,
   Network.polygon_mumbai,
-  Network.bnbt,
+  Network.bnb_testnet,
   Network.gnosis_chiado
 ];
 ```
 
-We'll describe these fields briefly here:
-- `orgId` (`string`): Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
-- `proposers` (`address[]`): An array of proposer addresses. We recommend that you use a dedicated EOA for your proposer that does not store any funds and is not used for any other purpose besides proposing.
-- `mainnets`: (`Network[]`): The list of production networks to deploy on. See the [full list of supported production networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#production-networks).
-- `testnets`: (`Network[]`): The list of testnets to deploy on. See the [full list of supported test networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/supported-networks.md#test-networks).
-
-Fill in these fields with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide.
+Fill in the org ID and proposer with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide. You can learn more about these options in the [DevOps Platform Options section of the Configuring Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md).
 
 ## 7. Add RPC endpoints
 
@@ -88,7 +82,7 @@ If you don't already have an RPC endpoint for each testnet, you'll need to add t
 goerli = "https://rpc.ankr.com/eth_goerli"
 optimism_goerli = "https://goerli.optimism.io"
 arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
-bnb_smart_chain_testnet = "https://bsc-testnet.publicnode.com"
+bnb_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
 polygon_mumbai = "https://rpc.ankr.com/polygon_mumbai"
 ```

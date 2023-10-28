@@ -26,8 +26,15 @@ sleep 3
 # Deploy the `OnlyOptimism` contract to Optimism and Optimism Goerli. This is meant to be an
 # external contract, i.e. a contract that was previously deployed outside of Sphinx.
 onlyOptimismDeployedBytecode=$(forge inspect contracts/test/ChainSpecific.sol:OnlyOptimism deployedBytecode)
-cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode > /dev/null
-cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode > /dev/null
+echo "Setting OnlyOptimism code..."
+cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
+cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
+# Bump the block number on both networks. Necessary to make the two `anvil_setCode` RPC methods take effect.
+cast rpc --rpc-url http://127.0.0.1:42010 anvil_mine
+cast rpc --rpc-url http://127.0.0.1:42420 anvil_mine
+echo "Finished setting code"
+echo $onlyOptimismDeployedBytecode # TODO: rm
+
 
 # We use ts-node instead of the `sphinx deploy` task because the latter fails in CI for an unknown reason.
 npx ts-node src/cli/index.ts deploy script/ChainSpecific.s.sol --network optimism --confirm --silent
