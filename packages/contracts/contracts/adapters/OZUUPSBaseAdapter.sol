@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { OZUUPSUpdater } from "../updaters/OZUUPSUpdater.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
+import { Proxy } from "../Proxy.sol";
 
 /**
  * @title OZUUPSBaseAdapter
