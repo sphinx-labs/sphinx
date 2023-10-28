@@ -35,7 +35,7 @@
     "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "devDependencies": {
-    "@eth-optimism/common-ts": "^0.7.1",
+    "@eth-optimism/common-ts": "^0.8.6",
     "@sphinx-labs/contracts": "^0.13.0",
     "dotenv": "^16.0.3",
     "ethers": "^6.7.0",
