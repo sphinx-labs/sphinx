@@ -56,7 +56,6 @@ import {
 import {
   SphinxActionBundle,
   SphinxActionType,
-  DeploymentState,
   IPFSCommitResponse,
   ProposalRequest,
   SphinxTargetBundle,
@@ -125,30 +124,6 @@ export const writeSnapshotId = async (
   }
   const snapshotIdPath = path.join(networkPath, '.snapshotId')
   fs.writeFileSync(snapshotIdPath, snapshotId)
-}
-
-export const writeDeploymentFolderForNetwork = (
-  networkDirName: string,
-  deploymentFolderPath: string
-) => {
-  const networkPath = path.join(deploymentFolderPath, networkDirName)
-  if (!fs.existsSync(networkPath)) {
-    fs.mkdirSync(networkPath, { recursive: true })
-  }
-}
-
-export const writeDeploymentArtifact = (
-  networkDirName: string,
-  deploymentFolderPath: string,
-  artifact: any,
-  referenceName: string
-) => {
-  const artifactPath = path.join(
-    deploymentFolderPath,
-    networkDirName,
-    `${referenceName}.json`
-  )
-  fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
 }
 
 export const getDefaultProxyInitCode = (managerAddress: string): string => {
@@ -377,26 +352,28 @@ export const getGasPriceOverrides = async (
   }
 }
 
-export const isInternalDefaultProxy = async (
-  provider: Provider,
-  proxyAddress: string
-): Promise<boolean> => {
-  const SphinxRegistry = new Contract(
-    getSphinxRegistryAddress(),
-    SphinxRegistryABI,
-    provider
-  )
+// export const isInternalDefaultProxy = async (
+//   provider: Provider,
+//   proxyAddress: string
+// ): Promise<boolean> => {
+//   const SphinxRegistry = new Contract(
+//     getSphinxRegistryAddress(),
+//     SphinxRegistryABI,
+//     provider
+//   )
 
-  const actionExecutedEvents = await SphinxRegistry.queryFilter(
-    SphinxRegistry.filters.EventAnnouncedWithData(
-      'DefaultProxyDeployed',
-      null,
-      proxyAddress
-    )
-  )
+// TODO(upgrades): A lot of public rpc endpoints / networks don't allow
+// querying events past a certain block number, so this call would likely fail.
+//   const actionExecutedEvents = await SphinxRegistry.queryFilter(
+//     SphinxRegistry.filters.EventAnnouncedWithData(
+//       'DefaultProxyDeployed',
+//       null,
+//       proxyAddress
+//     )
+//   )
 
-  return actionExecutedEvents.length === 1
-}
+//   return actionExecutedEvents.length === 1
+// }
 
 /**
  * Since both UUPS and Transparent proxies use the same interface we use a helper function to check that. This wrapper is intended to
@@ -723,48 +700,6 @@ export const toOpenZeppelinContractKind = (
 //     throw e
 //   }
 // }
-
-export const getPreviousConfigUri = async (
-  provider: Provider,
-  registry: ethers.Contract,
-  proxyAddress: string
-): Promise<string | undefined> => {
-  const proxyUpgradedRegistryEvents = await registry.queryFilter(
-    registry.filters.EventAnnouncedWithData('ProxyUpgraded', null, proxyAddress)
-  )
-
-  const latestRegistryEvent = proxyUpgradedRegistryEvents.at(-1)
-
-  if (latestRegistryEvent === undefined) {
-    return undefined
-  } else if (!isEventLog(latestRegistryEvent)) {
-    throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
-  }
-
-  const manager = new Contract(
-    latestRegistryEvent.args.manager,
-    SphinxManagerABI,
-    provider
-  )
-
-  const latestExecutionEvent = (
-    await manager.queryFilter(manager.filters.ProxyUpgraded(null, proxyAddress))
-  ).at(-1)
-
-  if (latestExecutionEvent === undefined) {
-    throw new Error(
-      `ProxyUpgraded event detected in registry but not in manager contract. Should never happen.`
-    )
-  } else if (!isEventLog(latestExecutionEvent)) {
-    throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
-  }
-
-  const deploymentState: DeploymentState = await manager.deployments(
-    latestExecutionEvent.args.deploymentId
-  )
-
-  return deploymentState.configUri
-}
 
 export const getConfigArtifactsRemote = async (
   compilerConfig: CompilerConfig

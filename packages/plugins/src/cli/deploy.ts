@@ -1,8 +1,10 @@
-import { resolve } from 'path'
+import { basename, join, resolve } from 'path'
+import { readFileSync } from 'fs'
 
 import {
   displayDeploymentTable,
   isRawDeployContractActionInput,
+  remove0x,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -25,8 +27,9 @@ import {
   getCollectedSingleChainDeployment,
   makeParsedConfig,
 } from '../foundry/decode'
-import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
 import { generateClient } from './typegen/client'
+import { FoundryBroadcastReceipt } from '../foundry/types'
+import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
@@ -256,12 +259,24 @@ export const deploy = async (
   )
 
   if (containsDeployment) {
+    const broadcastFilePath = join(
+      broadcastFolder,
+      basename(scriptPath),
+      chainId.toString(),
+      `${remove0x(deployTaskFragment.selector)}-latest.json`
+    )
+
+    const receipts: Array<FoundryBroadcastReceipt> = JSON.parse(
+      readFileSync(broadcastFilePath, 'utf-8')
+    ).receipts
+
     const provider = new SphinxJsonRpcProvider(forkUrl)
-    const deploymentArtifactPath = await writeDeploymentArtifactsUsingEvents(
+    const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      configArtifacts,
-      deploymentFolder
+      receipts,
+      deploymentFolder,
+      configArtifacts
     )
     spinner.succeed(`Wrote deployment artifacts to: ${deploymentArtifactPath}`)
   } else {

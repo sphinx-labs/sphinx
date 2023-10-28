@@ -15,17 +15,12 @@ remappings=[
   'ds-test/=node_modules/ds-test/src/',
   '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
   '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
-  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
-  'sphinx-solmate/=node_modules//sphinx-solmate/src/'
+  'sphinx-forge-std/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/',
+  'sphinx-solmate/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-solmate/src/'
 ]
 
 [rpc_endpoints]
-goerli = "https://rpc.ankr.com/eth_goerli"
-optimism_goerli = "https://goerli.optimism.io"
-arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
-bnb_testnet = "https://bsc-testnet.publicnode.com"
-gnosis_chiado = "https://rpc.chiadochain.net"
-polygon_mumbai = "https://rpc.ankr.com/polygon_mumbai"
+anvil = "http://127.0.0.1:8545"
 `
 
 export const sampleDotEnvFile = `PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
