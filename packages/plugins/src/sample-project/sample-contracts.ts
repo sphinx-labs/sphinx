@@ -33,14 +33,11 @@ export const getSampleScriptFile = (
   const relativeSphinxClientPath = relative(scriptDirPath, resolve('client/'))
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
-  const sphinxImport = '@sphinx-labs/plugins'
-
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
-import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 
 contract HelloSphinxScript is SphinxClient {
     HelloSphinx helloSphinx;
@@ -71,14 +68,11 @@ export const getSampleFoundryTestFile = (
   // include the trailing slash, which is what we want.
   const relativeScriptPath = relative(testDirPath, scriptDirPath)
 
-  const sphinxImport = '@sphinx-labs/plugins'
-
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
 import "forge-std/Test.sol";
 import { HelloSphinxScript } from "${relativeScriptPath}/HelloSphinx.s.sol";
-import { Network } from "${sphinxImport}/SphinxPluginTypes.sol";
 
 contract HelloSphinxTest is Test, HelloSphinxScript {
     function setUp() public override {

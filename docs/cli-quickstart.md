@@ -8,7 +8,7 @@ This guide will show you how to setup Sphinx's Foundry CLI plugin in a fresh rep
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
 4. [Initialize a project](#4-initialize-a-project)
-5. [Generate Clients](#5-generate-clients)
+5. [Generate clients](#5-generate-clients)
 6. [Update your build command (optional)](#6-update-your-build-command-optional)
 7. [Run the tests](#7-run-the-tests)
 8. [Broadcast a deployment on Anvil (optional)](#8-broadcast-a-deployment-on-anvil-optional)
@@ -40,21 +40,21 @@ First, navigate to a fresh directory.
 mkdir hello_sphinx && cd hello_sphinx
 ```
 
-You can install Sphinx using Yarn, npm, or pnpm.
+Install Sphinx, forge-std, and ds-test using Yarn, npm, or pnpm.
 
 Yarn:
 ```
-yarn add --dev @sphinx-labs/plugins
+yarn add --dev @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
 npm:
 ```
-npm install --save-dev @sphinx-labs/plugins
+npm install --save-dev @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
 pnpm:
 ```
-pnpm add -D @sphinx-labs/plugins
+pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
 ## 4. Initialize a project
@@ -70,7 +70,7 @@ This command created a few files:
 - `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
-## 5. Generate Sphinx clients
+## 5. Generate clients
 
 Sphinx currently only supports CREATE3 deployments.
 

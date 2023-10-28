@@ -11,7 +11,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 5. [Update `foundry.toml`](#5-update-foundrytoml)
 6. [Add remappings](#6-add-remappings)
 7. [Initialize a project](#7-initialize-a-project)
-8. [Generate Clients](#8-generate-clients)
+8. [Generate clients](#8-generate-clients)
 9. [Update your build command (optional)](#9-update-your-build-command-optional)
 10. [Test the deployment](#10-test-the-deployment)
 11. [Broadcast a deployment on Anvil (optional)](#11-broadcast-a-deployment-on-anvil-optional)
@@ -111,7 +111,7 @@ This created a few files:
 - `HelloSphinx.s.sol`: A Sphinx deployment script. This script is located in your existing script folder or `script/` if one doesn't exist. It will deploy a `HelloSphinx` contract then call a function on it.
 - `HelloSphinx.t.sol`: A test file for the deployment. This is located in your existing test folder, or `test/` if one doesn't exist.
 
-## 8. Generate the Sphinx clients
+## 8. Generate clients
 
 Sphinx currently only supports CREATE3 deployments.
 
@@ -175,7 +175,7 @@ Then, navigate to a new terminal window. Broadcast the deployment with the follo
 npx sphinx deploy ./scripts/HelloSphinx.s.sol --network anvil
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included.
+You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
 Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
