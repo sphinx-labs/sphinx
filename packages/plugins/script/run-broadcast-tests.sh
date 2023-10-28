@@ -29,6 +29,9 @@ onlyOptimismDeployedBytecode=$(forge inspect contracts/test/ChainSpecific.sol:On
 echo "Setting OnlyOptimism code..."
 cast rpc --rpc-url http://127.0.0.1:42010 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
 cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000000000000000000100 $onlyOptimismDeployedBytecode
+# Bump the block number on both networks. Necessary to make the two `anvil_setCode` RPC methods take effect.
+cast rpc --rpc-url http://127.0.0.1:42010 anvil_mine
+cast rpc --rpc-url http://127.0.0.1:42420 anvil_mine
 echo "Finished setting code"
 echo $onlyOptimismDeployedBytecode # TODO: rm
 
