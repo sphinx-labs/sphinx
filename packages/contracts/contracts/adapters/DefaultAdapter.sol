@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
+import { Proxy } from "../Proxy.sol";
 
 /**
  * @title DefaultAdapter
