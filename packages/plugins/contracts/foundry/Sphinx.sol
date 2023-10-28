@@ -750,7 +750,7 @@ abstract contract Sphinx {
                 abi.encodePacked(
                     "Sphinx: The reference name ",
                     _referenceName,
-                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md"
+                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md#reference-name"
                 )
             )
         );
