@@ -60,10 +60,15 @@ export const writeSampleProjectFiles = (
   }
 
   // Lastly, we'll create the config and environment related files.
+  // We'll also delete the existing files if the quickstart flag is set.
   if (quickstart) {
     fs.writeFileSync('foundry.toml', forgeConfig)
     fs.writeFileSync('.env', sampleDotEnvFile)
     fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
+
+    fs.unlinkSync(path.join(contractDirPath, 'Counter.sol'))
+    fs.unlinkSync(path.join(scriptDirPath, 'Counter.s.sol'))
+    fs.unlinkSync(path.join(testDirPath, 'Counter.t.sol'))
   }
 
   // Check if the sample test file exists.

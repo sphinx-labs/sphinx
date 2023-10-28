@@ -11,12 +11,10 @@ allow_paths = ["../.."]
 # https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage
 optimizer = false
 remappings=[
-  'forge-std/=node_modules/forge-std/src/',
-  'ds-test/=node_modules/ds-test/src/',
   '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
   '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
   'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
-  'sphinx-solmate/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-solmate/src/'
+  'sphinx-solmate/=node_modules/sphinx-solmate/src/'
 ]
 
 [rpc_endpoints]
