@@ -40,15 +40,21 @@ You'll need a small amount of testnet ETH on Optimism Goerli, which you can get 
 
 You'll need a Sphinx API key and an organization ID. You can get these in the [Sphinx DevOps platform](https://www.sphinx.dev/).
 
-## 5. Set environment variables
-
-Navigate to the repository that contains the script you'd like to deploy.
-
-In your `.env` file, enter the following fields:
+In your `.env` file, add the API key:
 ```
 SPHINX_API_KEY=<your API key>
+```
+
+The Sphinx organization ID will be used later.
+
+## 5. Create a new Proposer wallet
+When deploying using the DevOps platform, we recommend using a proposer. The proposer is a wallet used to sign your deployment from your local machine or CI process and ensures that your deployment cannot be tampered with. You should generate a fresh wallet EOA using your wallet of choice and add it's private key to your `.env` file:
+
+```
 PROPOSER_PRIVATE_KEY=<proposer private key>
 ```
+
+If you wish, you can use a single EOA as both your proposer and owner but this is less secure.
 
 ## 6. Configure your script
 
@@ -56,10 +62,15 @@ Open your deployment script.
 
 In your `setUp` function, update the `owners` array to include the address of your EOA.
 
+Import the Networks enum:
+```
+import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
+```
+
 Then, copy and paste the following config options into your `setUp` function:
 ```
 sphinxConfig.orgId = "<org ID>";
-sphinxConfig.proposers = [<your address>];
+sphinxConfig.proposers = [<your proposer address>];
 sphinxConfig.mainnets = [];
 sphinxConfig.testnets = [
   Network.goerli,
@@ -80,7 +91,7 @@ If you don't already have an RPC endpoint for each testnet, you'll need to add t
 ```toml
 [rpc_endpoints]
 goerli = "https://rpc.ankr.com/eth_goerli"
-optimism_goerli = "https://goerli.optimism.io"
+optimism_goerli = "https://rpc.ankr.com/optimism_testnet/"
 arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
 bnb_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
@@ -100,3 +111,17 @@ Sphinx will propose all transactions that are broadcasted by Foundry.
 You can see a full list of the CLI options by running `npx sphinx propose --help`.
 
 Follow the instructions in the terminal to finish the rest of the deployment.
+
+## 9. Propose on mainnet
+
+To propose a deployment on mainnet, you simply need to add a `mainnets` option to your `setup` function and define the networks you'd like to deploy on:
+```
+mainnets = [
+  Network.ethereum
+]
+```
+
+Then propose using the `--mainnets` option:
+```
+npx sphinx propose <path/to/your-script.s.sol> --mainnets
+```
