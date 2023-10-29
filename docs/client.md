@@ -1,3 +1,6 @@
+TODO(md-client): current limitation: doesn't work with externally linked libraries. (right?)
+
+
 TODO(md-client): COPIED FROM `cli-quickstart.md`:
 
 TODO(md-client): this guide says "clients" a lot, but there's only one client now, right?

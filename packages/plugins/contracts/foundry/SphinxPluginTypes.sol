@@ -220,6 +220,12 @@ struct SphinxConfig {
     Network[] mainnets;
     Network[] testnets;
     Version version;
+    Label[] labels;
+}
+
+struct Label {
+    address addr;
+    string artifactPath;
 }
 
 enum Network {

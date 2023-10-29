@@ -33,6 +33,7 @@ import {
   getAuthLeafsForChain,
   getProjectBundleInfo,
   makeAuthBundle,
+  Label,
 } from '@sphinx-labs/core'
 
 import { BundleInfo } from '../types'
@@ -193,7 +194,8 @@ export const makeGetConfigArtifacts = (
 ): GetConfigArtifacts => {
   return async (
     fullyQualifiedNames: Array<string>,
-    contractNames: Array<string>
+    contractNames: Array<string>,
+    labels: Array<Label>
   ) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {

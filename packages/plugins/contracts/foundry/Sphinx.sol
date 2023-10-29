@@ -172,14 +172,13 @@ abstract contract Sphinx {
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
 
-        deploymentInfo = DeploymentInfo({
-            authAddress: address(auth),
-            managerAddress: address(manager),
-            chainId: block.chainid,
-            newConfig: sphinxConfig,
-            isLiveNetwork: _isLiveNetwork,
-            initialState: sphinxUtils.getInitialChainState(auth, manager)
-        });
+        // Assign values to all of the DeploymentInfo fields.
+        deploymentInfo.authAddress = address(auth);
+        deploymentInfo.managerAddress = address(manager);
+        deploymentInfo.chainId = block.chainid;
+        deploymentInfo.newConfig = sphinxConfig;
+        deploymentInfo.isLiveNetwork = _isLiveNetwork;
+        deploymentInfo.initialState = sphinxUtils.getInitialChainState(auth, manager);
 
         // Set the SphinxCollector to the SphinxManager's address. We'll use this when
         // collecting the actions.

@@ -9,7 +9,6 @@ import {
   fromHexString,
   prettyFunctionCall,
   isDeployContractActionInput,
-  isDecodedFunctionCallActionInput,
   isRawFunctionCallActionInput,
   prettyRawFunctionCall,
   isDecodedCreateActionInput,
@@ -673,24 +672,6 @@ export const makeActionBundleFromConfig = (
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
-        actionType: SphinxActionType.CALL,
-      })
-    } else if (isDecodedFunctionCallActionInput(actionInput)) {
-      const { to, data, referenceName, decodedAction } = actionInput
-      actions.push({
-        to,
-        index,
-        data,
-      })
-
-      costs.push(250_000n)
-      humanReadableActions.push({
-        actionIndex: BigInt(index),
-        reason: prettyFunctionCall(
-          referenceName,
-          decodedAction.functionName,
-          decodedAction.variables
-        ),
         actionType: SphinxActionType.CALL,
       })
     } else if (isRawFunctionCallActionInput(actionInput)) {

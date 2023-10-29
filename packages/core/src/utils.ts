@@ -45,7 +45,6 @@ import {
   ContractKind,
   ParsedVariable,
   ParsedConfig,
-  DecodedFunctionCallActionInput,
   DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
@@ -1350,29 +1349,9 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   }
 }
 
-export const isDecodedFunctionCallActionInput = (
-  actionInput: ActionInput
-): actionInput is DecodedFunctionCallActionInput => {
-  const callActionInput = actionInput as DecodedFunctionCallActionInput
-  return (
-    callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.skip !== undefined &&
-    callActionInput.fullyQualifiedName !== undefined &&
-    callActionInput.data !== undefined &&
-    callActionInput.referenceName !== undefined &&
-    callActionInput.decodedAction.functionName !== undefined &&
-    callActionInput.decodedAction.referenceName !== undefined &&
-    callActionInput.decodedAction.variables !== undefined
-  )
-}
-
 export const isRawFunctionCallActionInput = (
-  actionInput: ActionInput
+  actionInput: ActionInput | RawActionInput
 ): actionInput is RawFunctionCallActionInput => {
-  if (isDecodedFunctionCallActionInput(actionInput)) {
-    return false
-  }
-
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
@@ -1556,4 +1535,8 @@ export const spawnAsync = (
       })
     })
   })
+}
+
+export const isString = (str: string | null): str is string => {
+  return typeof str === 'string'
 }

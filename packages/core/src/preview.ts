@@ -139,8 +139,6 @@ export const getPreviewString = (
 
 // TODO: undo changes to CREATE3 lib
 
-// TODO: if you delete the preview, you may be able to remove the 'DecodedFunctionCallActionInput' type.
-
 // TODO: we need to be able to verify standard create3 deployments, which are inside a `call`.
 
 // TODO: Update preview. We should display which deployments are CREATE2.

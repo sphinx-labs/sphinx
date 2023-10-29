@@ -39,7 +39,8 @@ import {
     SphinxConfig,
     InitialChainState,
     OptionalAddress,
-    Wallet
+    Wallet,
+    Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
@@ -825,11 +826,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Filters out the duplicate networks and returns an array of unique networks.
-     * @param _networks The networks to filter.
-     * @return trimmed The unique networks.
+     * @notice Returns an array of Networks that appear more than once in the given array.
+     * @param _networks The unfiltered elements.
+     * @return duplicates The duplicated elements.
      */
-    function deduplicateElements(
+    function getDuplicatedElements(
         Network[] memory _networks
     ) public pure returns (Network[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the array is empty.
@@ -852,11 +853,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Filters out the duplicate addresses and returns an array of unique addresses.
-     * @param _ary The addresses to filter.
-     * @return trimmed The unique addresses.
+     * @notice Returns an array of addresses that appear more than once in the given array.
+     * @param _ary The unfiltered elements.
+     * @return duplicates The duplicated elements.
      */
-    function deduplicateElements(address[] memory _ary) public pure returns (address[] memory) {
+    function getDuplicatedElements(address[] memory _ary) public pure returns (address[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the array is empty.
         if (_ary.length == 0) return new address[](0);
 
@@ -955,10 +956,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."
         );
 
-        address[] memory duplicateOwners = deduplicateElements(_config.owners);
-        address[] memory duplicateProposers = deduplicateElements(_config.proposers);
-        Network[] memory duplicateMainnets = deduplicateElements(_config.mainnets);
-        Network[] memory duplicateTestnets = deduplicateElements(_config.testnets);
+        address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
+        address[] memory duplicateProposers = getDuplicatedElements(_config.proposers);
+        Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
+        Network[] memory duplicateTestnets = getDuplicatedElements(_config.testnets);
         require(
             duplicateOwners.length == 0,
             string(
@@ -1013,6 +1014,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 abi.encodePacked(
                     "Sphinx: Your 'testnets' array contains invalid test networks: ",
                     toString(invalidTestnets)
+                )
+            )
+        );
+
+        address[] memory labeledAddresses = new address[](_config.labels.length);
+        for (uint256 i = 0; i < _config.labels.length; i++) {
+            labeledAddresses[i] = _config.labels[i].addr;
+        }
+        address[] memory duplicatedLabeledAddresses = getDuplicatedElements(labeledAddresses);
+        require(
+            duplicatedLabeledAddresses.length == 0,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Your 'sphinxConfig.labels' array contains duplicate addresses: ",
+                    toString(duplicatedLabeledAddresses)
                 )
             )
         );

@@ -84,7 +84,6 @@ export type RawActionInput =
 
 export type ActionInput =
   | DeployContractActionInput
-  | DecodedFunctionCallActionInput
   | RawFunctionCallActionInput
   | DecodedCreate2ActionInput
   | RawCreate2ActionInput
@@ -140,6 +139,11 @@ export type UserAddressOverrides = {
   address: string
 }
 
+export type Label = {
+  addr: string
+  artifactPath: string
+}
+
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
@@ -149,6 +153,7 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   testnets: Array<N>
   threshold: string
   version: SemVer
+  labels: Array<Label>
 }
 
 export interface RawDeployContractActionInput {
@@ -159,6 +164,7 @@ export interface RawDeployContractActionInput {
   constructorArgs: string
   userSalt: string
   referenceName: string
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
 export interface DeployContractActionInput
@@ -186,6 +192,7 @@ export interface RawCreate2ActionInput {
   data: string
   actionType: string
   gas: bigint
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
 export interface RawCreateActionInput {
@@ -194,6 +201,7 @@ export interface RawCreateActionInput {
   skip: boolean
   data: string
   gas: bigint
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
 export interface DecodedCreateActionInput {
@@ -225,16 +233,6 @@ export type RawFunctionCallActionInput = {
     address: string
     initCode: string
   }>
-}
-
-export type DecodedFunctionCallActionInput = {
-  actionType: string
-  skip: boolean
-  to: string
-  fullyQualifiedName: string
-  data: string
-  referenceName: string
-  decodedAction: DecodedAction
 }
 
 /**
@@ -305,7 +303,45 @@ export type FoundryContractConfig = {
 
 export type GetConfigArtifacts = (
   fullyQualifiedNames: Array<string>,
-  contractNames: Array<string>
+  contractNames: Array<string>,
+  labels: Array<Label>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
+
+/**
+ * This is the format of the JSON file that is output in a Forge dry run. This type doesn't include
+ * the "contractAddress" field that exists in the actual broadcast file because it can be `null` for
+ * low-level calls, so we prefer to always use the 'transactions.to' field instead.
+ *
+ * @param contractName The name of the target contract. This is null if Foundry can't infer the
+ * contract's name. If this is a string and the contract's name is unique in the repo, then it'll be
+ * the contract's name. If the contract isn't unique in the repo, then it will either be the fully
+ * qualified name or null, depending on whether or not Foundry can infer its name.
+ * @param function The name of the function that the transaction is calling. For example,
+ * "myFunction(uint256)".
+ */
+export type FoundryDryRunTransaction = {
+  hash: string | null
+  transactionType: 'CREATE' | 'CALL' | 'CREATE2'
+  contractName: string | null
+  function: string | null
+  arguments: Array<any> | null
+  transaction: {
+    type: string
+    from: string
+    gas: string
+    value: string
+    data: string
+    nonce: string
+    accessList: string
+    // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
+    to?: string
+  }
+  additionalContracts: Array<{
+    transactionType: string
+    address: string
+    initCode: string
+  }>
+  isFixedGasLimit: boolean
+}

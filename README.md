@@ -1,5 +1,7 @@
 # Sphinx: DevOps for Deployments
 
+TODO(md): document the label
+
 Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
 
 > Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.

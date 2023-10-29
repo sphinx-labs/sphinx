@@ -1,4 +1,4 @@
-import { CompilerConfig } from '@sphinx-labs/core'
+import { CompilerConfig, FoundryDryRunTransaction } from '@sphinx-labs/core'
 import {
   BundledAuthLeaf,
   HumanReadableAction,
@@ -21,43 +21,6 @@ export type ProposalOutput = {
   metaTxnSignature: string
   bundleInfoArray: Array<BundleInfo>
   authRoot: string
-}
-
-/**
- * This is the format of the JSON file that is output in a Forge dry run. This type doesn't include
- * the "contractAddress" field that exists in the actual broadcast file because it can be `null` for
- * low-level calls, so we prefer to always use the 'transactions.to' field instead.
- *
- * @param contractName The name of the target contract. This is null if Foundry can't infer the
- * contract's name. If this is a string and the contract's name is unique in the repo, then it'll be
- * the contract's name. If the contract isn't unique in the repo, then it will either be the fully
- * qualified name or null, depending on whether or not Foundry can infer its name.
- * @param function The name of the function that the transaction is calling. For example,
- * "myFunction(uint256)".
- */
-export type FoundryDryRunTransaction = {
-  hash: string | null
-  transactionType: 'CREATE' | 'CALL' | 'CREATE2'
-  contractName: string | null
-  function: string | null
-  arguments: Array<any> | null
-  transaction: {
-    type: string
-    from: string
-    gas: string
-    value: string
-    data: string
-    nonce: string
-    accessList: string
-    // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
-    to?: string
-  }
-  additionalContracts: Array<{
-    transactionType: string
-    address: string
-    initCode: string
-  }>
-  isFixedGasLimit: boolean
 }
 
 export type FoundryBroadcastReceipt = {
