@@ -8,8 +8,8 @@ contract SphinxManagerEvents {
      * @param deploymentId   ID of the deployment that was approved.
      * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
-     * @param numInitialActions   Number of initial `CALL` or `DEPLOY_CONTRACT` actions in the
-       deployment, which must occur before an upgrade is initiated (if applicable).
+     * @param numInitialActions   Number of initial actions in the deployment, which must occur
+       before an upgrade is initiated (if applicable).
      * @param numSetStorageActions   Number of `SET_STORAGE` actions in the deployment.
      * @param numTargets   Number of targets in the deployment.
      * @param configUri  URI of the config file that can be used to fetch the deployment.

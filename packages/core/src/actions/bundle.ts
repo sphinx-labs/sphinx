@@ -12,6 +12,7 @@ import {
   isDecodedFunctionCallActionInput,
   isRawFunctionCallActionInput,
   prettyRawFunctionCall,
+  isDecodedCreateActionInput,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -38,6 +39,7 @@ import {
   CancelActiveDeployment,
   AuthLeafType,
   HumanReadableAction,
+  CreateAction,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
 import { getEstDeployContractCost } from '../estimate'
@@ -82,6 +84,12 @@ export const isCallAction = (action: SphinxAction): action is CallAction => {
     (action as CallAction).to !== undefined &&
     (action as CallAction).data !== undefined
   )
+}
+
+export const isCreateAction = (
+  action: SphinxAction
+): action is CreateAction => {
+  return (action as CreateAction).initCode !== undefined
 }
 
 export const getDeployContractActions = (
@@ -149,6 +157,12 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
       index: BigInt(action.index),
       data: coder.encode(['address', 'bytes'], [action.to, action.data]),
     }
+  } else if (isCreateAction(action)) {
+    return {
+      actionType: SphinxActionType.CREATE,
+      index: BigInt(action.index),
+      data: action.initCode,
+    }
   } else {
     throw new Error(`unknown action type`)
   }
@@ -193,6 +207,11 @@ export const fromRawSphinxAction = (
       to,
       index: Number(rawAction.index),
       data,
+    }
+  } else if (rawAction.actionType === SphinxActionType.CREATE) {
+    return {
+      initCode: rawAction.data,
+      index: Number(rawAction.index),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -605,6 +624,28 @@ export const makeActionBundleFromConfig = (
         actionIndex: BigInt(index),
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
+      })
+    } else if (isDecodedCreateActionInput(actionInput)) {
+      const { fullyQualifiedName, decodedAction, data, gas } = actionInput
+
+      const contractName = fullyQualifiedName.split(':')[1]
+      const readableSignature = prettyFunctionCall(
+        contractName,
+        decodedAction.functionName,
+        decodedAction.variables
+      )
+
+      // Add a CREATE action.
+      actions.push({
+        index,
+        initCode: data,
+      })
+
+      costs.push(gas)
+      humanReadableActions.push({
+        actionIndex: BigInt(index),
+        reason: readableSignature,
+        actionType: SphinxActionType.CREATE,
       })
     } else if (isDecodedFunctionCallActionInput(actionInput)) {
       const { to, data, referenceName, decodedAction } = actionInput

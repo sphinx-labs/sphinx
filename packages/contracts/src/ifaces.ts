@@ -1,6 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 
+// TODO: bump manager version
+
+// TODO: we need to verify contracts deployed via create2. if we treat them exactly like a call
+// action, then i don't think we'll include them in the CompilerConfig, which means we won't attempt
+// to verify them by default.
+
 /* eslint-disable @typescript-eslint/no-var-requires */
 export const SphinxRegistryArtifact = require('../artifacts/contracts/SphinxRegistry.sol/SphinxRegistry.json')
 export const SphinxManagerArtifact = require('../artifacts/contracts/SphinxManager.sol/SphinxManager.json')

@@ -52,6 +52,11 @@ import {
   RawFunctionCallActionInput,
   RawDeployContractActionInput,
   ActionInput,
+  RawCreate2ActionInput,
+  RawActionInput,
+  RawCreateActionInput,
+  DecodedCreateActionInput,
+  DecodedCreate2ActionInput,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -70,11 +75,7 @@ import {
   ContractArtifact,
 } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import {
-  fromRawSphinxAction,
-  getDeployContractActions,
-  isSetStorageAction,
-} from './actions/bundle'
+import { fromRawSphinxAction, isSetStorageAction } from './actions/bundle'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
@@ -863,38 +864,6 @@ export const getImpersonatedSigner = async (
   }
 }
 
-/**
- * Checks if one of the `DEPLOY_CONTRACT` actions reverts. This does not guarantee that the
- * deployment will or will not revert, but it will return the correct result in most cases.
- */
-export const deploymentDoesRevert = async (
-  provider: SphinxJsonRpcProvider,
-  managerAddress: string,
-  actionBundle: SphinxActionBundle,
-  actionsExecuted: number
-): Promise<boolean> => {
-  // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
-  const deployContractActions =
-    getDeployContractActions(actionBundle).slice(actionsExecuted)
-
-  try {
-    // Attempt to estimate the gas of the deployment transactions. This will throw an error if
-    // gas estimation fails, which should only occur if a constructor reverts.
-    await Promise.all(
-      deployContractActions.map(async (action) =>
-        provider.estimateGas({
-          from: managerAddress,
-          data: action.creationCodeWithConstructorArgs,
-        })
-      )
-    )
-  } catch (e) {
-    // At least one of the constructors reverted.
-    return true
-  }
-  return false
-}
-
 // Transfer ownership of the SphinxManager if a new project owner has been specified.
 export const transferProjectOwnership = async (
   manager: ethers.Contract,
@@ -1437,9 +1406,55 @@ export const isDeployContractActionInput = (
 }
 
 export const isRawDeployContractActionInput = (
-  actionInput: RawDeployContractActionInput | RawFunctionCallActionInput
+  actionInput: RawActionInput
 ): actionInput is RawDeployContractActionInput => {
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+}
+
+// TODO: you need to differentiate this from the raw version
+export const isDecodedCreateActionInput = (
+  actionInput: ActionInput
+): actionInput is DecodedCreateActionInput => {
+  return actionInput.actionType === SphinxActionType.CREATE.toString()
+}
+
+// TODO: Differentiate this from the decoded version
+export const isRawCreateActionInput = (
+  actionInput: RawActionInput
+): actionInput is RawCreateActionInput => {
+  return actionInput.actionType === SphinxActionType.CREATE.toString()
+}
+
+export const isDecodedCreate2ActionInput = (
+  actionInput: ActionInput
+): actionInput is DecodedCreate2ActionInput => {
+  const create2Input = actionInput as DecodedCreate2ActionInput
+
+  return (
+    create2Input.actionType === SphinxActionType.CALL.toString() &&
+    create2Input.fullyQualifiedName !== undefined &&
+    create2Input.decodedAction !== undefined &&
+    create2Input.create2Address !== undefined &&
+    create2Input.skip !== undefined &&
+    create2Input.initCodeWithArgs !== undefined &&
+    create2Input.salt !== undefined &&
+    create2Input.gas !== undefined
+  )
+}
+
+export const isRawCreate2ActionInput = (
+  actionInput: ActionInput
+): actionInput is RawCreate2ActionInput => {
+  const rawCreate2 = actionInput as RawCreate2ActionInput
+  return (
+    rawCreate2.actionType === SphinxActionType.CALL.toString() &&
+    rawCreate2.contractName !== undefined &&
+    rawCreate2.create2Address !== undefined &&
+    rawCreate2.skip !== undefined &&
+    rawCreate2.initCodeWithArgs !== undefined &&
+    rawCreate2.salt !== undefined &&
+    rawCreate2.gas !== undefined
+  )
 }
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
@@ -1448,15 +1463,31 @@ export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
 
 export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
-  parsedConfig.actionInputs
-    .filter(isDeployContractActionInput)
-    .filter((a) => !a.skip)
-    .forEach((a, i) => {
+  const inputs = parsedConfig.actionInputs.filter((a) => !a.skip)
+
+  for (let i = 0; i < inputs.length; i++) {
+    const input = inputs[i]
+    if (isDeployContractActionInput(input)) {
       deployments[i + 1] = {
-        Contract: a.referenceName,
-        Address: a.create3Address,
+        Contract: input.referenceName,
+        Address: input.create3Address,
       }
-    })
+    } else if (isRawCreate2ActionInput(input)) {
+      const contractName = input.contractName ?? 'N/A'
+
+      deployments[i + 1] = {
+        Contract: contractName,
+        Address: input.create2Address,
+      }
+    } else if (isDecodedCreate2ActionInput(input)) {
+      const contractName = input.fullyQualifiedName.split(':')[1]
+      deployments[i + 1] = {
+        Contract: contractName,
+        Address: input.create2Address,
+      }
+    }
+  }
+
   if (Object.keys(deployments).length > 0) {
     console.table(deployments)
   }

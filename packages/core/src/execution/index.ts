@@ -1,26 +1,9 @@
 import { ethers } from 'ethers'
 import ora from 'ora'
 
-import {
-  SphinxActionBundle,
-  SphinxActionType,
-  SphinxBundles,
-  DeploymentState,
-  DeploymentStatus,
-} from '../actions'
+import { SphinxBundles, DeploymentState, DeploymentStatus } from '../actions'
 import { getSphinxManager, getDeploymentEvents, sleep } from '../utils'
 import { ParsedConfig } from '../config'
-
-export const getNumDeployedContracts = (
-  bundle: SphinxActionBundle,
-  actionsExecuted: bigint
-): number => {
-  return bundle.actions
-    .slice(0, Number(actionsExecuted))
-    .filter(
-      (action) => action.action.actionType === SphinxActionType.DEPLOY_CONTRACT
-    ).length
-}
 
 export const monitorExecution = async (
   signer: ethers.Signer,

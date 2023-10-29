@@ -11,7 +11,6 @@ import {
   SphinxBundles,
   isSupportedNetworkOnEtherscan,
   verifySphinxConfig,
-  deploymentDoesRevert,
   CompilerConfig,
   ConfigArtifacts,
   estimateExecutionCost,
@@ -271,20 +270,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
   const deploymentTransactionReceipts: ethers.TransactionReceipt[] = []
 
   if (deploymentState.selectedExecutor === ethers.ZeroAddress) {
-    logger.info(`[Sphinx]: checking if any of the constructors revert...`)
-
-    if (
-      await deploymentDoesRevert(
-        rpcProvider,
-        managerAddress,
-        bundles.actionBundle,
-        Number(deploymentState.actionsExecuted)
-      )
-    ) {
-      process.send({ action: 'discard', payload: executorEvent })
-      return
-    }
-
     try {
       deploymentTransactionReceipts.push(
         await (

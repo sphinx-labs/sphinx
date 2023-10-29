@@ -42,8 +42,8 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
  *
  *         After a deployment is approved, it is executed in the following steps, which must occur
  *         in order:
- *         1. The `executeInitialActions` function: `DEPLOY_CONTRACT` and `CALL` actions are
- *            executed in ascending order according to their index.
+ *         1. The `executeInitialActions` function: `DEPLOY_CONTRACT`, `CALL`, and `CREATE` actions
+ *            are executed in ascending order according to their index.
  *         The next steps only occur if the deployment is upgrading proxies.
  *         2. The `initiateProxies` function: sets the implementation of each proxy to a contract
  *            that can only be called by the user's SphinxManager. This ensures that the upgrade is
@@ -175,7 +175,7 @@ contract SphinxManager is
     error InvalidMerkleProof();
 
     /**
-     * @notice Reverts if the action type is not `DEPLOY_CONTRACT` or `SET_STORAGE`.
+     * @notice Reverts if the action type is invalid.
      */
     error InvalidActionType();
 
@@ -309,7 +309,7 @@ contract SphinxManager is
      * This may be `bytes32(0)` if there are no actions in the deployment.
      * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
      * This may be `bytes32(0)` if there are no targets in the deployment.
-     * @param _numInitialActions Number of `DEPLOY_CONTRACT` and `CALL` actions in the deployment.
+     * @param _numInitialActions Number of initial actions in the deployment.
      * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
      * @param _remoteExecution Whether or not to allow remote execution of the deployment.
@@ -378,7 +378,7 @@ contract SphinxManager is
     /**
      * @notice Helper function that executes an entire upgrade in a single transaction. This allows
        the proxies in smaller upgrades to have zero downtime. This must occur after all of the
-       initial `DEPLOY_CONTRACT` and `CALL` actions have been executed.
+       initial actions have been executed.
      */
     function executeEntireUpgrade(
         SphinxTarget[] memory _targets,
@@ -529,7 +529,7 @@ contract SphinxManager is
      *         already exists at its CREATE3 address. If a contract deployment or call fails, the
      *         entire deployment will be marked as `FAILED` and no further actions will be executed.
      *
-     * @param _actions The `DEPLOY_CONTRACT` and `CALL` actions to execute.
+     * @param _actions The actions to execute.
      * @param _proofs The Merkle proofs for the actions.
      */
     function executeInitialActions(

@@ -76,10 +76,20 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
+export type RawActionInput =
+  | RawDeployContractActionInput // TODO(docs): anywhere you mention "DeployContractAction", say CREATE3
+  | RawFunctionCallActionInput
+  | RawCreateActionInput
+  | RawCreate2ActionInput
+
 export type ActionInput =
   | DeployContractActionInput
   | DecodedFunctionCallActionInput
   | RawFunctionCallActionInput
+  | DecodedCreate2ActionInput
+  | RawCreate2ActionInput
+  | DecodedCreateActionInput
+  | RawCreateActionInput
 
 export type ParsedConfig = {
   authAddress: string
@@ -150,6 +160,47 @@ export interface DeployContractActionInput
   decodedAction: DecodedAction
   create3Address: string
 }
+
+export interface DecodedCreate2ActionInput {
+  fullyQualifiedName: string
+  decodedAction: DecodedAction
+  create2Address: string
+  skip: boolean
+  initCodeWithArgs: string
+  salt: string
+  actionType: string
+  gas: bigint
+}
+
+export interface RawCreate2ActionInput {
+  contractName: string | null
+  create2Address: string
+  skip: boolean
+  initCodeWithArgs: string
+  salt: string
+  actionType: string
+  gas: bigint
+}
+
+export interface RawCreateActionInput {
+  contractName: string | null
+  actionType: string
+  skip: boolean
+  data: string
+  gas: bigint
+}
+
+export interface DecodedCreateActionInput {
+  fullyQualifiedName: string
+  actionType: string
+  skip: boolean
+  data: string
+  gas: bigint
+  decodedAction: DecodedAction
+  addr: string
+}
+
+// TODO: we don't assume that reference names are unique anymore. is that okay?
 
 export type DecodedAction = {
   referenceName: string

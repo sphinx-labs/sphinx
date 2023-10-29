@@ -39,6 +39,7 @@ import {
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
 import { FoundryDryRun } from '../../foundry/types'
+import { RawActionInput } from '@sphinx-labs/core/dist/config/types'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
@@ -395,9 +396,7 @@ export const collectProposal = async (
 ): Promise<
   Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
+    actionInputs: Array<RawActionInput>
   }>
 > => {
   const proposalNetworksPath = join(

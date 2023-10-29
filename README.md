@@ -33,6 +33,8 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
+TODO(md): we support create2 and create3, but not create.
+
 ## Current limitations
 
 - You cannot send ETH as part of a deployment.

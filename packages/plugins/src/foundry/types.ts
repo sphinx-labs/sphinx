@@ -28,15 +28,16 @@ export type ProposalOutput = {
  * the "contractAddress" field that exists in the actual broadcast file because it can be `null` for
  * low-level calls, so we prefer to always use the 'transactions.to' field instead.
  *
- * @param contractName The name of the contract that the transaction is calling. If this is a
- * string, it'll be the contract's name if it's unique in the repo. Otherwise, it'll be the fully
- * qualified name.
+ * @param contractName The name of the target contract. This is null if Foundry can't infer the
+ * contract's name. If this is a string and the contract's name is unique in the repo, then it'll be
+ * the contract's name. If the contract isn't unique in the repo, then it will either be the fully
+ * qualified name or null, depending on whether or not Foundry can infer its name.
  * @param function The name of the function that the transaction is calling. For example,
  * "myFunction(uint256)".
  */
 export type FoundryDryRunTransaction = {
   hash: string | null
-  transactionType: 'CREATE' | 'CALL'
+  transactionType: 'CREATE' | 'CALL' | 'CREATE2'
   contractName: string | null
   function: string | null
   arguments: Array<any> | null

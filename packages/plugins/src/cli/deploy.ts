@@ -1,8 +1,13 @@
 import { basename, join, resolve } from 'path'
 import { readFileSync } from 'fs'
 
+// TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
+// generate` in the repo to see if there's anywhere else you can remove it.
+
 import {
   displayDeploymentTable,
+  isRawCreate2ActionInput,
+  isRawCreateActionInput,
   isRawDeployContractActionInput,
   remove0x,
   spawnAsync,
@@ -51,7 +56,7 @@ export const deploy = async (
   // we compile the contracts. If we didn't do this, then it'd be possible for the user to see
   // "Compiling..." three times in a row when they run the deploy command with the preview skipped.
   // This isn't a big deal, but it may be puzzling to the user.
-  await generateClient(silent, true)
+  // await generateClient(silent, true) // TODO: undo
 
   const {
     artifactFolder,
@@ -252,11 +257,13 @@ export const deploy = async (
 
   spinner.start(`Writing deployment artifacts...`)
 
-  const containsDeployment = actionInputs.some(
-    (action) =>
-      action.actionType === SphinxActionType.DEPLOY_CONTRACT.toString() &&
-      !action.skip
-  )
+  const containsDeployment = actionInputs.some((a) => {
+    const isDeployment =
+      isRawDeployContractActionInput(a) ||
+      isRawCreate2ActionInput(a) ||
+      isRawCreateActionInput(a)
+    return isDeployment && !a.skip
+  })
 
   if (containsDeployment) {
     const broadcastFilePath = join(
@@ -271,6 +278,7 @@ export const deploy = async (
     ).receipts
 
     const provider = new SphinxJsonRpcProvider(forkUrl)
+    // TODO: write deployment artifacts for create and create2
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,

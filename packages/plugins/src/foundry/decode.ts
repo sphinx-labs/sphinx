@@ -9,11 +9,15 @@ import {
   DeploymentInfo,
   ParsedConfig,
   ParsedVariable,
+  RawActionInput,
   RawDeployContractActionInput,
   RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
+  isRawCreate2ActionInput,
+  isRawCreateActionInput,
   isRawDeployContractActionInput,
+  isRawFunctionCallActionInput,
   recursivelyConvertResult,
 } from '@sphinx-labs/core/dist/utils'
 import {
@@ -30,8 +34,10 @@ import {
   getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import { FoundryDryRun, ProposalOutput } from './types'
+import { getConfigArtifactForContractName } from './utils'
 
 export const decodeDeploymentInfo = (
   calldata: string,
@@ -167,7 +173,7 @@ export const getCollectedSingleChainDeployment = (
   sphinxFunctionName: string
 ): {
   deploymentInfo: DeploymentInfo
-  actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
+  actionInputs: Array<RawActionInput>
 } => {
   const chainId = SUPPORTED_NETWORKS[networkName]
 
@@ -192,7 +198,7 @@ export const parseFoundryDryRun = (
   sphinxCollectorABI: Array<any>
 ): {
   deploymentInfo: DeploymentInfo
-  actionInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>
+  actionInputs: Array<RawActionInput>
 } => {
   const deploymentInfo = decodeDeploymentInfo(
     dryRun.transactions[0].transaction.data,
@@ -214,10 +220,8 @@ export const parseFoundryDryRun = (
     )
   }
 
-  const actionInputs: Array<
-    RawDeployContractActionInput | RawFunctionCallActionInput
-  > = []
-  for (const { transaction, contractName } of transactions) {
+  const actionInputs: Array<RawActionInput> = []
+  for (const { transaction, contractName, transactionType } of transactions) {
     if (transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -225,26 +229,57 @@ export const parseFoundryDryRun = (
       process.exit(1)
     }
 
-    if (
-      transaction.to !== undefined &&
-      ethers.getAddress(transaction.to) === deploymentInfo.managerAddress
-    ) {
-      actionInputs.push(
-        decodeDeployContractActionInput(transaction.data, sphinxCollectorABI)
-      )
-    } else if (transaction.to) {
+    if (transactionType === 'CREATE') {
       actionInputs.push({
-        actionType: SphinxActionType.CALL.toString(),
+        contractName,
+        gas: BigInt(transaction.gas),
+        actionType: SphinxActionType.CREATE.toString(),
         skip: false,
-        to: ethers.getAddress(transaction.to),
         data: transaction.data,
       })
     } else {
-      console.error(
-        `Detected a non-CREATE3 deployment, which is currently unsupported by Sphinx.` +
-          `${contractName ? `\nContract name: ${contractName}` : ``}`
-      )
-      process.exit(1)
+      if (!transaction.to) {
+        throw new Error(`TODO(docs): should never happen.`)
+      }
+
+      const to = ethers.getAddress(transaction.to)
+      // Foundry sometimes uses 'CALL' instead of 'CREATE2', so we also check if the 'to'
+      // address is the 'DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS'.
+      if (
+        transactionType === 'CREATE2' ||
+        to === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS
+      ) {
+        const salt = ethers.dataSlice(transaction.data, 0, 32)
+        const initCodeWithArgs = ethers.dataSlice(transaction.data, 32)
+        const create2Address = ethers.getCreate2Address(
+          DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          salt,
+          ethers.keccak256(initCodeWithArgs)
+        )
+
+        actionInputs.push({
+          create2Address,
+          contractName,
+          skip: false,
+          initCodeWithArgs,
+          salt,
+          actionType: SphinxActionType.CALL.toString(),
+          gas: BigInt(transaction.gas),
+        })
+      } else if (to === deploymentInfo.managerAddress) {
+        actionInputs.push(
+          decodeDeployContractActionInput(transaction.data, sphinxCollectorABI)
+        )
+      } else if (transactionType === 'CALL') {
+        actionInputs.push({
+          actionType: SphinxActionType.CALL.toString(),
+          skip: false,
+          to: ethers.getAddress(transaction.to),
+          data: transaction.data,
+        })
+      } else {
+        throw new Error(`Unknown transaction type: ${transactionType}.`)
+      }
     }
   }
 
@@ -282,9 +317,17 @@ export const decodeDeployContractActionInput = (
   }
 }
 
+// TODO: Sometimes, the 'contractName' in the Foundry artifact is null for a contract
+// deployment, which means we can't get its fully qualified name. This can happen for CREATE or
+// CREATE2. There are two reasons this can happen:
+// 1. The user is deploying bytecode which belongs to a contract that doesn't exist in their repo.
+//    This probably also applies to contracts that only exist in a dependency, but I haven't tested
+//    that.
+// 2. The user is deploying a contract whose name isn't unique in their repo.
+
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
-  rawInputs: Array<RawDeployContractActionInput | RawFunctionCallActionInput>,
+  rawInputs: Array<RawActionInput>,
   configArtifacts: ConfigArtifacts,
   remoteExecution: boolean
 ): ParsedConfig => {
@@ -330,7 +373,59 @@ export const makeParsedConfig = (
         variables: decodedConstructorArgs,
       }
       actionInputs.push({ create3Address, decodedAction, ...input })
-    } else {
+    } else if (isRawCreate2ActionInput(input)) {
+      if (input.contractName) {
+        // Check if the `contractName` is a fully qualified name or a contract name.
+        if (input.contractName.includes(':')) {
+          // It's a fully qualified name.
+
+          const fullyQualifiedName = input.contractName
+          const contractName = fullyQualifiedName.split(':')[1]
+
+          actionInputs.push({
+            fullyQualifiedName: input.contractName,
+            decodedAction: {
+              referenceName: contractName,
+              functionName: 'deploy',
+              variables: 'TODO',
+            },
+            create2Address: input.create2Address,
+            skip: input.skip,
+            initCodeWithArgs: input.initCodeWithArgs,
+            salt: input.salt,
+            actionType: input.actionType,
+            gas: input.gas,
+          })
+        } else {
+          // It's a contract name.
+
+          const { fullyQualifiedName } = getConfigArtifactForContractName(
+            input.contractName,
+            configArtifacts
+          )
+          actionInputs.push({
+            fullyQualifiedName,
+            decodedAction: {
+              referenceName: input.contractName,
+              functionName: 'deploy',
+              variables: 'TODO',
+            },
+            create2Address: input.create2Address,
+            skip: input.skip,
+            initCodeWithArgs: input.initCodeWithArgs,
+            salt: input.salt,
+            actionType: input.actionType,
+            gas: input.gas,
+          })
+        }
+      } else {
+        throw new Error(`TODO: see note above this function`)
+      }
+    } else if (isRawCreateActionInput(input)) {
+      throw new Error(
+        `TODO(docs): unsupported, pls use create2 or create3 instead.`
+      )
+    } else if (isRawFunctionCallActionInput(input)) {
       const targetContractActionInput = rawInputs
         .filter(isRawDeployContractActionInput)
         .find(
@@ -382,6 +477,8 @@ export const makeParsedConfig = (
       } else {
         actionInputs.push(input)
       }
+    } else {
+      throw new Error(`Unknown action input type. Should never happen.`)
     }
   }
 

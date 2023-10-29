@@ -2,7 +2,10 @@ import * as fs from 'fs'
 import path, { join } from 'path'
 import { promisify } from 'util'
 
-import { ContractArtifact } from '@sphinx-labs/core/dist/languages/solidity/types'
+import {
+  BuildInfo,
+  ContractArtifact,
+} from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   parseFoundryArtifact,
   execAsync,
@@ -16,8 +19,7 @@ import {
   GetConfigArtifacts,
   GetProviderForChainId,
   ParsedConfig,
-  RawDeployContractActionInput,
-  RawFunctionCallActionInput,
+  RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -155,9 +157,7 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
 export const getUniqueFullyQualifiedNames = (
   collected: Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
+    actionInputs: Array<RawActionInput>
   }>
 ): Array<string> => {
   const fullyQualifiedSet = new Set<string>()
@@ -275,8 +275,9 @@ export const makeGetConfigArtifacts = (
     // footprint of this function significantly in large projects.
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
-    const resolved = await Promise.all(
-      fullyQualifiedNames.map(async (fullyQualifiedName) => {
+
+    const fullyQualifiedNamePromises = fullyQualifiedNames.map(
+      async (fullyQualifiedName) => {
         const artifact = await getContractArtifact(
           fullyQualifiedName,
           artifactFolder
@@ -306,7 +307,47 @@ export const makeGetConfigArtifacts = (
         throw new Error(
           `Build info cache is outdated, please run 'forge build --force' then try again.`
         )
-      })
+      }
+    )
+
+    // TODO
+    const contractNamePromises = []
+    // const contractNamePromises = contractNames.map(
+    //   async (contractName) => {
+    //     const artifact = await getContractArtifact(
+    //       fullyQualifiedName,
+    //       artifactFolder
+    //     )
+
+    //     // Look through the cache for the first build info file that contains the contract
+    //     for (const file of sortedCachedFiles) {
+    //       if (file.contracts?.includes(artifact.sourceName)) {
+    //         // Keep track of if we need to read the file or not
+    //         if (!toReadFiles.includes(file.name)) {
+    //           toReadFiles.push(file.name)
+    //         }
+
+    //         return {
+    //           fullyQualifiedName,
+    //           artifact,
+    //           buildInfoName: file.name,
+    //         }
+    //       }
+    //     }
+
+    //     // Throw an error if no build info file is found in the cache for this contract
+    //     // This should only happen if the user manually deletes a build info file
+    //     if (fs.existsSync(buildInfoCacheFilePath)) {
+    //       fs.unlinkSync(buildInfoCacheFilePath)
+    //     }
+    //     throw new Error(
+    //       `Build info cache is outdated, please run 'forge build --force' then try again.`
+    //     )
+    //   }
+    // )
+
+    const resolved = await Promise.all(
+      fullyQualifiedNamePromises.concat(contractNamePromises)
     )
 
     // Read any build info files that we didn't already have in memory
@@ -419,4 +460,27 @@ export const getBundleInfoArray = async (
     bundleInfoArray,
     authRoot: authBundle.root,
   }
+}
+
+export const getConfigArtifactForContractName = (
+  targetContractName: string,
+  configArtifacts: ConfigArtifacts
+): {
+  fullyQualifiedName: string
+  buildInfo: BuildInfo
+  artifact: ContractArtifact
+} => {
+  for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
+    configArtifacts
+  )) {
+    const contractName = fullyQualifiedName.split(':')[1]
+    if (contractName === targetContractName) {
+      return {
+        fullyQualifiedName,
+        buildInfo,
+        artifact,
+      }
+    }
+  }
+  throw new Error(`TODO: should never happen.`)
 }

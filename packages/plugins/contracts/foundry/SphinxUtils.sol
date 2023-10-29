@@ -288,15 +288,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getSphinxAuthAddress(SphinxConfig memory _config) public pure returns (address) {
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
         );
         require(
             _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
         );
         require(
             _config.threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
         );
 
         // Sort the owners in ascending order. This is required to calculate the address of the
@@ -448,7 +448,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             SphinxActionType actionType = _actions[i].action.actionType;
             if (
                 actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                actionType == SphinxActionType.CALL
+                actionType == SphinxActionType.CALL ||
+                actionType == SphinxActionType.CREATE
             ) {
                 numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
@@ -499,7 +500,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             BundledSphinxAction memory action = _actions[i];
             if (
                 action.action.actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                action.action.actionType == SphinxActionType.CALL
+                action.action.actionType == SphinxActionType.CALL ||
+                action.action.actionType == SphinxActionType.CREATE
             ) {
                 initialActions[initialActionArrayIndex] = action;
                 initialActionArrayIndex += 1;
@@ -920,15 +922,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function validate(SphinxConfig memory _config) external view {
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
         );
         require(
             _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
         );
         require(
             _config.threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
         );
         if (!SPHINX_INTERNAL__TEST_VERSION_UPGRADE) {
             require(

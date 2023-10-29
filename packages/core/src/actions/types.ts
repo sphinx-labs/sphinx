@@ -7,6 +7,7 @@ export const SphinxActionType = {
   SET_STORAGE: 0n,
   DEPLOY_CONTRACT: 1n,
   CALL: 2n,
+  CREATE: 3n,
 }
 
 /**
@@ -65,6 +66,11 @@ export interface CallAction {
   data: string
 }
 
+export interface CreateAction {
+  index: number
+  initCode: string
+}
+
 export interface SphinxBundles {
   actionBundle: SphinxActionBundle
   targetBundle: SphinxTargetBundle
@@ -73,7 +79,11 @@ export interface SphinxBundles {
 /**
  * Sphinx action.
  */
-export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
+export type SphinxAction =
+  | SetStorageAction
+  | DeployContractAction
+  | CallAction
+  | CreateAction
 
 /**
  * Human-readable Sphinx action.

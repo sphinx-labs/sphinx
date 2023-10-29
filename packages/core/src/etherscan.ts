@@ -1,5 +1,7 @@
 import assert from 'assert'
 
+// TODO: put a create2 deployment in the sample project. maybe create3 too.
+
 import { ConstructorFragment, ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
@@ -89,6 +91,8 @@ export const verifySphinxConfig = async (
     Number((await provider.getNetwork()).chainId)
   )
 
+  // TODO:  which actions should you filter out now?
+  // TODO: c/f DeployContract, .CALL, CallAction, fullyqualifiedname, create3
   const actionInputsToVerify = actionInputs
     .filter((a) => !a.skip)
     .filter(isDeployContractActionInput)
