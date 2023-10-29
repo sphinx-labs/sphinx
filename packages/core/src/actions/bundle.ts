@@ -13,6 +13,8 @@ import {
   isRawFunctionCallActionInput,
   prettyRawFunctionCall,
   isDecodedCreateActionInput,
+  isDecodedCreate2ActionInput,
+  isRawCreate2ActionInput,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -625,27 +627,53 @@ export const makeActionBundleFromConfig = (
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       })
-    } else if (isDecodedCreateActionInput(actionInput)) {
-      const { fullyQualifiedName, decodedAction, data, gas } = actionInput
+    } else if (isDecodedCreate2ActionInput(actionInput)) {
+      const { data, gas, to } = actionInput
 
-      const contractName = fullyQualifiedName.split(':')[1]
-      const readableSignature = prettyFunctionCall(
-        contractName,
-        decodedAction.functionName,
-        decodedAction.variables
-      )
+      const readableSignature = 'TODO'
+      // const contractName = fullyQualifiedName.split(':')[1]
+      // const readableSignature = prettyFunctionCall(
+      //   contractName,
+      //   decodedAction.functionName,
+      //   decodedAction.variables
+      // )
 
-      // Add a CREATE action.
+      // Add a CALL action.
       actions.push({
         index,
-        initCode: data,
+        data,
+        to,
       })
 
       costs.push(gas)
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
-        actionType: SphinxActionType.CREATE,
+        actionType: SphinxActionType.CALL,
+      })
+    } else if (isRawCreate2ActionInput(actionInput)) {
+      const { data, gas, to } = actionInput
+
+      const readableSignature = 'TODO'
+      // const contractName = fullyQualifiedName.split(':')[1]
+      // const readableSignature = prettyFunctionCall(
+      //   contractName,
+      //   decodedAction.functionName,
+      //   decodedAction.variables
+      // )
+
+      // Add a CALL action.
+      actions.push({
+        index,
+        data,
+        to,
+      })
+
+      costs.push(gas)
+      humanReadableActions.push({
+        actionIndex: BigInt(index),
+        reason: readableSignature,
+        actionType: SphinxActionType.CALL,
       })
     } else if (isDecodedFunctionCallActionInput(actionInput)) {
       const { to, data, referenceName, decodedAction } = actionInput

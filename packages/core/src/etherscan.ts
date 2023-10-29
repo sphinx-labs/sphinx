@@ -32,7 +32,6 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, isDeployContractActionInput } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -91,21 +90,20 @@ export const verifySphinxConfig = async (
     Number((await provider.getNetwork()).chainId)
   )
 
-  // TODO:  which actions should you filter out now?
   // TODO: c/f DeployContract, .CALL, CallAction, fullyqualifiedname, create3
-  const actionInputsToVerify = actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
 
-  for (const action of actionInputsToVerify) {
-    const { fullyQualifiedName, create3Address } = action
+  for (const address of Object.keys(compilerConfig.verify)) {
+    const { fullyQualifiedName, initCodeWithArgs } =
+      compilerConfig.verify[address]
 
     const { artifact } = configArtifacts[fullyQualifiedName]
-    const { abi, contractName, sourceName, metadata } = artifact
-    const iface = new ethers.Interface(abi)
-    const constructorArgValues = getFunctionArgValueArray(
-      action.decodedAction.variables,
-      iface.fragments.find(ConstructorFragment.isFragment)
+    const { abi, contractName, sourceName, metadata, bytecode } = artifact
+
+    // TODO: handle externally linked library placeholders and immutables. the latter may not
+    // require any extra logic.
+    const encodedConstructorArgs = ethers.dataSlice(
+      initCodeWithArgs,
+      ethers.dataLength(bytecode)
     )
 
     const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
@@ -125,14 +123,14 @@ export const verifySphinxConfig = async (
       provider,
       networkName,
       etherscanApiEndpoints.urls,
-      create3Address,
+      address,
       sourceName,
       contractName,
       abi,
       apiKey,
       minimumCompilerInput,
       solcVersion,
-      constructorArgValues
+      encodedConstructorArgs
     )
 
     // TODO(upgrades):
@@ -177,6 +175,13 @@ export const verifySphinx = async (
       metadata
     )
 
+    const encodedConstructorArgs = await encodeArguments(
+      abi,
+      sourceName,
+      contractName,
+      constructorArgs
+    )
+
     await attemptVerification(
       provider,
       networkName,
@@ -188,7 +193,7 @@ export const verifySphinx = async (
       apiKey,
       minimumCompilerInput,
       sphinxBuildInfo.solcVersion,
-      constructorArgs
+      encodedConstructorArgs
     )
   }
 }
@@ -204,7 +209,7 @@ export const attemptVerification = async (
   etherscanApiKey: string,
   compilerInput: CompilerInput,
   solcVersion: string,
-  constructorArgValues: any[]
+  encodedConstructorArgs: string
 ) => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
@@ -221,13 +226,6 @@ export const attemptVerification = async (
 
   const solcFullVersion = await getLongVersion(solcVersion)
 
-  const constructorArgsAbiEncoded = await encodeArguments(
-    abi,
-    sourceName,
-    contractName,
-    constructorArgValues
-  )
-
   const verifyRequest = toVerifyRequest({
     apiKey: etherscanApiKey,
     contractAddress,
@@ -235,7 +233,7 @@ export const attemptVerification = async (
     sourceName,
     contractName,
     compilerVersion: solcFullVersion,
-    constructorArguments: constructorArgsAbiEncoded,
+    constructorArguments: encodedConstructorArgs,
   })
 
   let response

@@ -10,6 +10,7 @@ import {
   ParsedConfig,
   ParsedVariable,
   RawActionInput,
+  RawCreate2ActionInput,
   RawDeployContractActionInput,
   RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
@@ -221,7 +222,12 @@ export const parseFoundryDryRun = (
   }
 
   const actionInputs: Array<RawActionInput> = []
-  for (const { transaction, contractName, transactionType } of transactions) {
+  for (const {
+    transaction,
+    contractName,
+    transactionType,
+    additionalContracts,
+  } of transactions) {
     if (transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -243,40 +249,44 @@ export const parseFoundryDryRun = (
       }
 
       const to = ethers.getAddress(transaction.to)
-      // Foundry sometimes uses 'CALL' instead of 'CREATE2', so we also check if the 'to'
-      // address is the 'DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS'.
-      if (
-        transactionType === 'CREATE2' ||
-        to === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS
-      ) {
+      if (transactionType === 'CREATE2') {
+        if (to !== DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS) {
+          throw new Error(`TODO: unsupported`)
+        }
+
         const salt = ethers.dataSlice(transaction.data, 0, 32)
         const initCodeWithArgs = ethers.dataSlice(transaction.data, 32)
         const create2Address = ethers.getCreate2Address(
-          DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          to,
           salt,
           ethers.keccak256(initCodeWithArgs)
         )
 
-        actionInputs.push({
+        const rawCreate2: RawCreate2ActionInput = {
+          to,
           create2Address,
           contractName,
           skip: false,
-          initCodeWithArgs,
-          salt,
+          data: transaction.data,
           actionType: SphinxActionType.CALL.toString(),
           gas: BigInt(transaction.gas),
-        })
+        }
+        actionInputs.push(rawCreate2)
       } else if (to === deploymentInfo.managerAddress) {
         actionInputs.push(
           decodeDeployContractActionInput(transaction.data, sphinxCollectorABI)
         )
       } else if (transactionType === 'CALL') {
-        actionInputs.push({
+        const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
           skip: false,
           to: ethers.getAddress(transaction.to),
           data: transaction.data,
-        })
+          contractName,
+          additionalContracts,
+        }
+
+        actionInputs.push(rawCall)
       } else {
         throw new Error(`Unknown transaction type: ${transactionType}.`)
       }
@@ -317,11 +327,11 @@ export const decodeDeployContractActionInput = (
   }
 }
 
-// TODO: Sometimes, the 'contractName' in the Foundry artifact is null for a contract
+// TODO(end): Sometimes, the 'contractName' in the Foundry artifact is null for a contract
 // deployment, which means we can't get its fully qualified name. This can happen for CREATE or
 // CREATE2. There are two reasons this can happen:
 // 1. The user is deploying bytecode which belongs to a contract that doesn't exist in their repo.
-//    This probably also applies to contracts that only exist in a dependency, but I haven't tested
+//    This probably also applies to contracts that only exist in a dependency, but I haven't checked
 //    that.
 // 2. The user is deploying a contract whose name isn't unique in their repo.
 
@@ -342,6 +352,7 @@ export const makeParsedConfig = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const actionInputs: Array<ActionInput> = []
+  const verify: ParsedConfig['verify'] = {}
   for (const input of rawInputs) {
     if (isRawDeployContractActionInput(input)) {
       const create3Salt = getCreate3Salt(input.referenceName, input.userSalt)
@@ -372,6 +383,13 @@ export const makeParsedConfig = (
         functionName: 'constructor',
         variables: decodedConstructorArgs,
       }
+      verify[create3Address] = {
+        fullyQualifiedName: input.fullyQualifiedName,
+        initCodeWithArgs: ethers.concat([
+          input.initCode,
+          input.constructorArgs,
+        ]),
+      }
       actionInputs.push({ create3Address, decodedAction, ...input })
     } else if (isRawCreate2ActionInput(input)) {
       if (input.contractName) {
@@ -382,6 +400,10 @@ export const makeParsedConfig = (
           const fullyQualifiedName = input.contractName
           const contractName = fullyQualifiedName.split(':')[1]
 
+          verify[input.create2Address] = {
+            fullyQualifiedName,
+            initCodeWithArgs: input.data,
+          }
           actionInputs.push({
             fullyQualifiedName: input.contractName,
             decodedAction: {
@@ -391,8 +413,8 @@ export const makeParsedConfig = (
             },
             create2Address: input.create2Address,
             skip: input.skip,
-            initCodeWithArgs: input.initCodeWithArgs,
-            salt: input.salt,
+            data: input.data,
+            to: input.to,
             actionType: input.actionType,
             gas: input.gas,
           })
@@ -403,6 +425,11 @@ export const makeParsedConfig = (
             input.contractName,
             configArtifacts
           )
+
+          verify[input.create2Address] = {
+            fullyQualifiedName,
+            initCodeWithArgs: input.data,
+          }
           actionInputs.push({
             fullyQualifiedName,
             decodedAction: {
@@ -412,77 +439,128 @@ export const makeParsedConfig = (
             },
             create2Address: input.create2Address,
             skip: input.skip,
-            initCodeWithArgs: input.initCodeWithArgs,
-            salt: input.salt,
+            data: input.data,
+            to: input.to,
             actionType: input.actionType,
             gas: input.gas,
           })
         }
       } else {
-        throw new Error(`TODO: see note above this function`)
+        // There's no contract name associated with this CREATE2 action, so
+        // we use the raw action.
+        actionInputs.push(input)
       }
     } else if (isRawCreateActionInput(input)) {
       throw new Error(
         `TODO(docs): unsupported, pls use create2 or create3 instead.`
       )
     } else if (isRawFunctionCallActionInput(input)) {
-      const targetContractActionInput = rawInputs
-        .filter(isRawDeployContractActionInput)
-        .find(
-          (a) =>
-            input.to ===
-            getCreate3Address(
-              managerAddress,
-              getCreate3Salt(a.referenceName, a.userSalt)
-            )
-        )
+      actionInputs.push(input)
 
-      if (targetContractActionInput) {
-        const { fullyQualifiedName, referenceName } = targetContractActionInput
-        const { abi } = configArtifacts[fullyQualifiedName].artifact
-        const iface = new ethers.Interface(abi)
+      // TODO
+      // if (input.additionalContracts.length > 0) {
+      //   const create3 = input.additionalContracts.find(
+      //     (e) => e.initCode === input.data
+      //   )
+      //   if (create3) {
+      //     verify[create3.address] = {
+      //       fullyQualifiedName,
+      //       initCodeWithArgs: create3.initCode,
+      //     }
+      //   }
+      // }
 
-        const selector = ethers.dataSlice(input.data, 0, 4)
-        const functionParamsResult = iface.decodeFunctionData(
-          selector,
-          input.data
-        )
-        const functionFragment = iface.getFunction(selector)
-        if (!functionFragment) {
-          throw new Error(
-            `Could not find function fragment for selector: ${selector}. Should never happen.`
-          )
+      // Some context for the following if-statement: If a contract name is not unique in the repo and it's
+      // deployed via CREATE2, Foundry will make its 'contractName' null in the corresponding
+      // transaction. This is likely a bug in Foundry. This limitation prevents us from recovering
+      // the contract's fully qualified name, which means we won't be able to verify it on
+      // Etherscan. However, if a function is called on such a contract, its fully qualified name
+      // will appear in the function call's transaction. This allows us to recover the fully
+      // qualified name of the contract. The following code covers this scenario.
+      if (
+        typeof input.contractName === 'string' &&
+        input.contractName.includes(':')
+      ) {
+        const fullyQualifiedName = input.contractName
+        const create2Input = rawInputs
+          .filter(isRawCreate2ActionInput)
+          .find((a) => a.create2Address === input.to)
+
+        // This could happen if the function call corresponds to a CREATE action instead of a
+        // CREATE2 action, but we don't currently support CREATE.
+        if (!create2Input) {
+          throw new Error(`TODO: should never happen.`)
         }
 
-        // Convert the Ethers `Result` into a plain object.
-        const decodedFunctionParams = recursivelyConvertResult(
-          functionFragment.inputs,
-          functionParamsResult
-        ) as ParsedVariable
+        // Get the creation code of the CREATE2 deployment by removing the salt,
+        // which is the first 32 bytes of the data.
+        const initCodeWithArgs = ethers.dataSlice(create2Input.to, 32)
 
-        const functionName = iface.getFunctionName(selector)
-
-        const decodedAction: DecodedAction = {
-          referenceName,
-          functionName,
-          variables: decodedFunctionParams,
-        }
-        const decodedCall: DecodedFunctionCallActionInput = {
-          decodedAction,
+        verify[input.to] = {
           fullyQualifiedName,
-          referenceName,
-          ...input,
+          initCodeWithArgs,
         }
-        actionInputs.push(decodedCall)
-      } else {
-        actionInputs.push(input)
       }
+
+      // TODO: remove this if you remove preview.
+      // const targetContractActionInput = rawInputs
+      //   .filter(isRawDeployContractActionInput)
+      //   .find(
+      //     (a) =>
+      //       input.to ===
+      //       getCreate3Address(
+      //         managerAddress,
+      //         getCreate3Salt(a.referenceName, a.userSalt)
+      //       )
+      //   )
+
+      // if (targetContractActionInput) {
+      //   const { fullyQualifiedName, referenceName } = targetContractActionInput
+      //   const { abi } = configArtifacts[fullyQualifiedName].artifact
+      //   const iface = new ethers.Interface(abi)
+
+      //   const selector = ethers.dataSlice(input.data, 0, 4)
+      //   const functionParamsResult = iface.decodeFunctionData(
+      //     selector,
+      //     input.data
+      //   )
+      //   const functionFragment = iface.getFunction(selector)
+      //   if (!functionFragment) {
+      //     throw new Error(
+      //       `Could not find function fragment for selector: ${selector}. Should never happen.`
+      //     )
+      //   }
+
+      //   // Convert the Ethers `Result` into a plain object.
+      //   const decodedFunctionParams = recursivelyConvertResult(
+      //     functionFragment.inputs,
+      //     functionParamsResult
+      //   ) as ParsedVariable
+
+      //   const functionName = iface.getFunctionName(selector)
+
+      //   const decodedAction: DecodedAction = {
+      //     referenceName,
+      //     functionName,
+      //     variables: decodedFunctionParams,
+      //   }
+      //   const decodedCall: DecodedFunctionCallActionInput = {
+      //     decodedAction,
+      //     fullyQualifiedName,
+      //     referenceName,
+      //     ...input,
+      //   }
+      //   actionInputs.push(decodedCall)
+      // } else {
+      //   actionInputs.push(input)
+      // }
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
   }
 
   return {
+    verify,
     authAddress,
     managerAddress,
     chainId,

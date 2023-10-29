@@ -94,7 +94,9 @@ export const buildParsedConfigArray = async (
     foundryToml.buildInfoFolder,
     foundryToml.cachePath
   )
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
+
+  // TODO: empty array
+  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames, [])
 
   const parsedConfigArray = collected.map((c) =>
     makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)

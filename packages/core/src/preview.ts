@@ -133,7 +133,20 @@ export const getPreviewString = (
   return previewString
 }
 
+// TODO(test): externally linked library. check that we support manual linking, i.e. telling foundry
+// to link an existing library. also check that implicit linking works (i.e. deploying a library in
+// a forge script then using it later in the script).
+
+// TODO: undo changes to CREATE3 lib
+
+// TODO: if you delete the preview, you may be able to remove the 'DecodedFunctionCallActionInput' type.
+
+// TODO: we need to be able to verify standard create3 deployments, which are inside a `call`.
+
 // TODO: Update preview. We should display which deployments are CREATE2.
+
+// TODO: when displaying a raw create2 action, add an info line saying that we won't attempt to
+// verify it.
 
 export const getPreview = (
   parsedConfigs: Array<ParsedConfig>

@@ -1,3 +1,7 @@
+// TODO: is the optimizer = false recommendation worth mentioning anymore? if not,
+// remove it from this file and the guides, if applicable. probably keep it as a
+// TODO in the client guide though.
+
 export const forgeConfig = `[profile.default]
 script = 'script'
 test = 'test'

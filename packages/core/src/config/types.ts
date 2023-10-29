@@ -92,6 +92,12 @@ export type ActionInput =
   | RawCreateActionInput
 
 export type ParsedConfig = {
+  verify: {
+    [address: string]: {
+      fullyQualifiedName: string
+      initCodeWithArgs: string
+    }
+  }
   authAddress: string
   managerAddress: string
   chainId: string
@@ -164,10 +170,10 @@ export interface DeployContractActionInput
 export interface DecodedCreate2ActionInput {
   fullyQualifiedName: string
   decodedAction: DecodedAction
+  to: string
   create2Address: string
   skip: boolean
-  initCodeWithArgs: string
-  salt: string
+  data: string
   actionType: string
   gas: bigint
 }
@@ -175,9 +181,9 @@ export interface DecodedCreate2ActionInput {
 export interface RawCreate2ActionInput {
   contractName: string | null
   create2Address: string
+  to: string
   skip: boolean
-  initCodeWithArgs: string
-  salt: string
+  data: string
   actionType: string
   gas: bigint
 }
@@ -213,6 +219,12 @@ export type RawFunctionCallActionInput = {
   skip: boolean
   to: string
   data: string
+  contractName: string | null
+  additionalContracts: Array<{
+    transactionType: string
+    address: string
+    initCode: string
+  }>
 }
 
 export type DecodedFunctionCallActionInput = {
@@ -292,7 +304,8 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  fullyQualifiedNames: Array<string>
+  fullyQualifiedNames: Array<string>,
+  contractNames: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

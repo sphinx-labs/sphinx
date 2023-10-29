@@ -52,7 +52,11 @@ export type FoundryDryRunTransaction = {
     // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
     to?: string
   }
-  additionalContracts: Array<any>
+  additionalContracts: Array<{
+    transactionType: string
+    address: string
+    initCode: string
+  }>
   isFixedGasLimit: boolean
 }
 

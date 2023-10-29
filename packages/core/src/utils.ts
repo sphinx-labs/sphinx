@@ -511,6 +511,10 @@ export const validateBuildInfo = (
   }
 }
 
+// TODO(ryan): Say we have contracts/MyContracts.sol:MyContract1.sol and
+// contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
+// out/artifacts/test/.
+
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
  *
@@ -567,27 +571,6 @@ export const isEqualType = (
     })
 
   return isEqual
-}
-
-/**
- * @notice Converts the variables from the object format used by Sphinx into an ordered array
- * which can be used by ethers.js and Etherscan.
- */
-export const getFunctionArgValueArray = (
-  args: ParsedVariable,
-  fragment?: Fragment
-): Array<ParsedVariable> => {
-  const argValues: Array<ParsedVariable> = []
-
-  if (fragment === undefined) {
-    return argValues
-  }
-
-  fragment.inputs.forEach((input) => {
-    argValues.push(args[input.name])
-  })
-
-  return argValues
 }
 
 /**
@@ -1436,14 +1419,13 @@ export const isDecodedCreate2ActionInput = (
     create2Input.decodedAction !== undefined &&
     create2Input.create2Address !== undefined &&
     create2Input.skip !== undefined &&
-    create2Input.initCodeWithArgs !== undefined &&
-    create2Input.salt !== undefined &&
+    create2Input.data !== undefined &&
     create2Input.gas !== undefined
   )
 }
 
 export const isRawCreate2ActionInput = (
-  actionInput: ActionInput
+  actionInput: RawActionInput | ActionInput
 ): actionInput is RawCreate2ActionInput => {
   const rawCreate2 = actionInput as RawCreate2ActionInput
   return (
@@ -1451,46 +1433,13 @@ export const isRawCreate2ActionInput = (
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
     rawCreate2.skip !== undefined &&
-    rawCreate2.initCodeWithArgs !== undefined &&
-    rawCreate2.salt !== undefined &&
+    rawCreate2.data !== undefined &&
     rawCreate2.gas !== undefined
   )
 }
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
-}
-
-export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
-  const deployments = {}
-  const inputs = parsedConfig.actionInputs.filter((a) => !a.skip)
-
-  for (let i = 0; i < inputs.length; i++) {
-    const input = inputs[i]
-    if (isDeployContractActionInput(input)) {
-      deployments[i + 1] = {
-        Contract: input.referenceName,
-        Address: input.create3Address,
-      }
-    } else if (isRawCreate2ActionInput(input)) {
-      const contractName = input.contractName ?? 'N/A'
-
-      deployments[i + 1] = {
-        Contract: contractName,
-        Address: input.create2Address,
-      }
-    } else if (isDecodedCreate2ActionInput(input)) {
-      const contractName = input.fullyQualifiedName.split(':')[1]
-      deployments[i + 1] = {
-        Contract: contractName,
-        Address: input.create2Address,
-      }
-    }
-  }
-
-  if (Object.keys(deployments).length > 0) {
-    console.table(deployments)
-  }
 }
 
 /**

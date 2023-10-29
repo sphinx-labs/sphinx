@@ -5,7 +5,6 @@ import { readFileSync } from 'fs'
 // generate` in the repo to see if there's anywhere else you can remove it.
 
 import {
-  displayDeploymentTable,
   isRawCreate2ActionInput,
   isRawCreateActionInput,
   isRawDeployContractActionInput,
@@ -17,7 +16,6 @@ import {
   getPreview,
   getPreviewString,
   userConfirmation,
-  SphinxActionType,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
   ParsedConfig,
@@ -56,7 +54,7 @@ export const deploy = async (
   // we compile the contracts. If we didn't do this, then it'd be possible for the user to see
   // "Compiling..." three times in a row when they run the deploy command with the preview skipped.
   // This isn't a big deal, but it may be puzzling to the user.
-  // await generateClient(silent, true) // TODO: undo
+  await generateClient(silent, true)
 
   const {
     artifactFolder,
@@ -119,6 +117,11 @@ export const deploy = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
+  // TODO: We need to remove --skip-simulation everywhere that we collect txns. you'll need to
+  // account for the note above '--skip-simulation' in the next call.
+
+  // TODO(docs): it may be tempting to use --skip-simulation since it's not strictly necessary,
+  // but you can't because <explanation>. put this disclaimer everywhere you collect txns.
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
@@ -129,7 +132,7 @@ export const deploy = async (
     forkUrl,
     // Skip the on-chain simulation. This is necessary because it will always fail if a
     // SphinxManager already exists on the target network.
-    '--skip-simulation',
+    // '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -154,10 +157,22 @@ export const deploy = async (
     'sphinxCollectDeployment'
   )
 
-  const fullyQualifiedNames = actionInputs
-    .filter(isRawDeployContractActionInput)
-    .map((a) => a.fullyQualifiedName)
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
+  const contractNames: Array<string> = []
+  const fullyQualifiedNames: Array<string> = []
+  for (const rawInput of actionInputs) {
+    if (isRawDeployContractActionInput(rawInput)) {
+      fullyQualifiedNames.push(rawInput.fullyQualifiedName)
+    } else if (typeof rawInput.contractName === 'string') {
+      rawInput.contractName.includes(':')
+        ? fullyQualifiedNames.push(rawInput.contractName)
+        : contractNames.push(rawInput.contractName)
+    }
+  }
+
+  const configArtifacts = await getConfigArtifacts(
+    fullyQualifiedNames,
+    contractNames
+  )
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
@@ -278,7 +293,7 @@ export const deploy = async (
     ).receipts
 
     const provider = new SphinxJsonRpcProvider(forkUrl)
-    // TODO: write deployment artifacts for create and create2
+    // TODO: write deployment artifacts for create2 and create3
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
@@ -289,10 +304,6 @@ export const deploy = async (
     spinner.succeed(`Wrote deployment artifacts to: ${deploymentArtifactPath}`)
   } else {
     spinner.succeed(`No deployment artifacts to write.`)
-  }
-
-  if (!silent) {
-    displayDeploymentTable(parsedConfig)
   }
 
   return { parsedConfig, preview }
