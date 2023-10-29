@@ -93,8 +93,8 @@ If your remappings are in `foundry.toml`, update your `remappings` array to incl
 ```
 remappings=[
   '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
-  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
-  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/'
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/',
+  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
   'sphinx-solmate/=node_modules/sphinx-solmate/src/'
 ]
 ```
@@ -172,7 +172,7 @@ PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 Then, navigate to a new terminal window. Broadcast the deployment with the following command. You may need to change the path to the script depending on the location of your script directory.
 
 ```
-npx sphinx deploy ./scripts/HelloSphinx.s.sol --network anvil
+npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 ```
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
