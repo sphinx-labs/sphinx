@@ -465,7 +465,7 @@ export const makeParsedConfig = (
           .map((e) => e.contractName)
           .find(isString)
         if (!contractName) {
-          throw new Error(`TODO: user must specify FQN or null`)
+          unlabeled.push(input.create2Address)
         }
 
         const fullyQualifiedName = contractName.includes(':')
