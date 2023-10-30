@@ -38,6 +38,7 @@ import {
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
 import { FoundryDryRun } from '../../foundry/types'
+import { spawnSync } from 'child_process'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
@@ -142,9 +143,15 @@ export const propose = async (
   }
   const proposer = new ethers.Wallet(proposerPrivateKey)
 
-  // We run the `sphinx generate` command to make sure that the user's contracts and clients are
-  // up-to-date. The Solidity compiler is run within this command via `forge build`.
-  await generateClient(silent, true)
+  // First, we compile to make sure the user's contracts are up to date.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatus !== 0) {
+    process.exit(1)
+  }
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)

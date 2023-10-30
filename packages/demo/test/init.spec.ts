@@ -53,8 +53,6 @@ describe('Init CLI command', () => {
     expect(fs.existsSync(contractPath)).to.be.true
     expect(fs.existsSync(testPath)).to.be.true
 
-    await execAsync(`npx sphinx generate`)
-
     // Next, we'll run the tests, then deploy it to anvil. If either of these commands fail, this
     // test case will also fail.
     await execAsync(`forge test`)

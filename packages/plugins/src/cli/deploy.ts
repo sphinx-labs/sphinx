@@ -4,8 +4,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 // TODO: if you stick with Label.fqn, it'd be nice if you could validate that it's a well-formed
 // fqn. i.e. at least check for a semicolon.
 
-// TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
-// generate` in the repo to see if there's anywhere else you can remove it.
+import { spawnSync } from 'child_process'
 
 import {
   isRawCreate2ActionInput,
@@ -34,7 +33,6 @@ import {
   getCollectedSingleChainDeployment,
   makeParsedConfig,
 } from '../foundry/decode'
-import { generateClient } from './typegen/client'
 import { FoundryBroadcastReceipt } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
@@ -50,15 +48,15 @@ export const deploy = async (
   parsedConfig: ParsedConfig
   preview?: ReturnType<typeof getPreview>
 }> => {
-  // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
-  // are up-to-date. The Solidity compiler is run within this command via `forge build`.
-
-  // Generate the clients to make sure that the user's contracts and clients are up-to-date. We skip
-  // the last compilation step in the generate command to reduce the number of times in a row that
-  // we compile the contracts. If we didn't do this, then it'd be possible for the user to see
-  // "Compiling..." three times in a row when they run the deploy command with the preview skipped.
-  // This isn't a big deal, but it may be puzzling to the user.
-  await generateClient(silent, true)
+  // First, we compile to make sure the user's contracts are up to date.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatus !== 0) {
+    process.exit(1)
+  }
 
   const {
     artifactFolder,

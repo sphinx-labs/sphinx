@@ -95,8 +95,8 @@ export const verifySphinxConfig = async (
     const { artifact } = configArtifacts[fullyQualifiedName]
     const { abi, contractName, sourceName, metadata, bytecode } = artifact
 
-    // TODO: handle externally linked library placeholders and immutables. the latter may not
-    // require any extra logic.
+    // TODO: handle externally linked library placeholders, which are a different length, and
+    // immutables. the latter may not require any extra logic.
     const encodedConstructorArgs = ethers.dataSlice(
       initCodeWithArgs,
       ethers.dataLength(bytecode)
