@@ -403,11 +403,13 @@ export const makeParsedConfig = (
 
         const label = labels.find((l) => l.addr === input.create2Address)
         if (isLabel(label)) {
-          const { sourceName, contractName } =
-            configArtifacts[label.fullyQualifiedName].artifact
-          verify[input.create2Address] = {
-            fullyQualifiedName: `${sourceName}:${contractName}`,
-            initCodeWithArgs,
+          if (label.fullyQualifiedName !== '') {
+            const { sourceName, contractName } =
+              configArtifacts[label.fullyQualifiedName].artifact
+            verify[input.create2Address] = {
+              fullyQualifiedName: `${sourceName}:${contractName}`,
+              initCodeWithArgs,
+            }
           }
         } else {
           // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
@@ -478,11 +480,13 @@ const getAdditionalContractsToVerify = (
 
     const label = labels.find((l) => l.addr === address)
     if (isLabel(label)) {
-      const { sourceName, contractName } =
-        configArtifacts[label.fullyQualifiedName].artifact
-      verify[address] = {
-        fullyQualifiedName: `${sourceName}:${contractName}`,
-        initCodeWithArgs: additionalContract.initCode,
+      if (label.fullyQualifiedName !== '') {
+        const { sourceName, contractName } =
+          configArtifacts[label.fullyQualifiedName].artifact
+        verify[address] = {
+          fullyQualifiedName: `${sourceName}:${contractName}`,
+          initCodeWithArgs: additionalContract.initCode,
+        }
       }
     } else if (
       // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3

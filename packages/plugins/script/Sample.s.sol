@@ -37,7 +37,7 @@ contract Sample is Script, Sphinx {
         // );
 
         ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(uint(1)) }(true);
-        sphinxLabel(address(myContract), "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames");
+        sphinxLabel(address(myContract), "");
 
         // bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
         // address deployed = CREATE3.deploy(bytes32(0), initCode, 0);

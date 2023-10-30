@@ -4,15 +4,8 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 // TODO: if you stick with Label.fqn, it'd be nice if you could validate that it's a well-formed
 // fqn. i.e. at least check for a semicolon.
 
-// TODO: support adding labels within the user's script (instead of requiring that it's in the setup
-// function). this way, they don't need to hard-code the addresses.
-
-// TODO: add a helper function for labels: sphinxLabel(address(myContract), ‘path/to/contract.sol:Contract’)
-
 // TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
 // generate` in the repo to see if there's anywhere else you can remove it.
-
-// TODO: handle a label that has an empty string instead of an artifact path. (we shouldn't error).
 
 import {
   isRawCreate2ActionInput,
@@ -192,7 +185,11 @@ export const deploy = async (
   }
 
   for (const label of deploymentInfo.labels) {
-    fullyQualifiedNamesSet.add(label.fullyQualifiedName)
+    // Only add the fully qualified name if it's not an empty string. The user can specify an empty
+    // string when they want a contract to remain unlabeled.
+    if (label.fullyQualifiedName !== '') {
+      fullyQualifiedNamesSet.add(label.fullyQualifiedName)
+    }
   }
 
   const configArtifacts = await getConfigArtifacts(
