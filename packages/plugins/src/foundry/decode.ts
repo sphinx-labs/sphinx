@@ -464,22 +464,22 @@ export const makeParsedConfig = (
           .filter((e) => e.to === input.create2Address)
           .map((e) => e.contractName)
           .find(isString)
-        if (!contractName) {
+        if (contractName) {
+          const fullyQualifiedName = contractName.includes(':')
+            ? contractName
+            : getConfigArtifactForContractName(contractName, configArtifacts)
+                .fullyQualifiedName
+
+          // Get the creation code of the CREATE2 deployment by removing the salt,
+          // which is the first 32 bytes of the data.
+          const initCodeWithArgs = ethers.dataSlice(input.data, 32)
+
+          verify[input.create2Address] = {
+            fullyQualifiedName,
+            initCodeWithArgs,
+          }
+        } else {
           unlabeled.push(input.create2Address)
-        }
-
-        const fullyQualifiedName = contractName.includes(':')
-          ? contractName
-          : getConfigArtifactForContractName(contractName, configArtifacts)
-              .fullyQualifiedName
-
-        // Get the creation code of the CREATE2 deployment by removing the salt,
-        // which is the first 32 bytes of the data.
-        const initCodeWithArgs = ethers.dataSlice(input.data, 32)
-
-        verify[input.create2Address] = {
-          fullyQualifiedName,
-          initCodeWithArgs,
         }
       }
     } else if (isRawFunctionCallActionInput(input)) {
@@ -487,6 +487,15 @@ export const makeParsedConfig = (
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
+  }
+
+  if (unlabeled.length > 0) {
+    // TODO: make this error better. it'd be nice to incorporate whether or not it was from a
+    // create2 deloyment.
+    console.error(
+      `The following addresses are unlabeled:\n` + unlabeled.join(' ')
+    )
+    process.exit(1)
   }
 
   return {

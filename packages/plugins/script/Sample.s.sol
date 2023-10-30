@@ -7,6 +7,7 @@ import { SphinxConfig, Version } from "../client/SphinxClient.sol";
 import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
+import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
 
 // contract Sample is Script {
 contract Sample is Script, Sphinx {
@@ -27,12 +28,14 @@ contract Sample is Script, Sphinx {
     function run() public override sphinx {
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
 
-        new MyContract1{ salt: bytes32(uint(1)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        // new MyContract1{ salt: bytes32(uint(1)) }(
+        //     -1,
+        //     2,
+        //     address(1),
+        //     address(2)
+        // );
+
+        ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(0) }(true);
 
         // int a = -1;
         // uint b = 2;
