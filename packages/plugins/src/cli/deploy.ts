@@ -6,6 +6,8 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 // TODO: handle a label that has an empty string instead of an artifact path. (we shouldn't error).
 
+import { spawnSync } from 'child_process'
+
 import {
   isRawCreate2ActionInput,
   isRawDeployContractActionInput,

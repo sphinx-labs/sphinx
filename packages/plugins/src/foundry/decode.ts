@@ -232,7 +232,7 @@ export const parseFoundryDryRun = (
     additionalContracts,
     arguments: callArguments,
     function: functionName,
-  } of transactions) {
+  } of dryRun.transactions) {
     const contractNameWithoutPath = contractName?.includes(':')
       ? contractName.split(':')[1]
       : contractName
