@@ -790,18 +790,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.decode(result.stdout, (bool));
     }
 
-    function arrayContainsString(
-        string[] memory _ary,
-        string memory _str
-    ) external pure returns (bool) {
-        for (uint i = 0; i < _ary.length; i++) {
-            if (keccak256(abi.encodePacked(_str)) == keccak256(abi.encodePacked(_ary[i]))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
@@ -1017,7 +1005,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    // TODO: update this function with a better error message that displays the fqn.
+    // TODO(end): update this function with a better error message that displays the fqn.
     function validateLabels(Label[] memory _labels) external pure {
         address[] memory labeledAddresses = new address[](_labels.length);
         for (uint256 i = 0; i < _labels.length; i++) {

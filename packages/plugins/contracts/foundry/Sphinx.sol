@@ -69,8 +69,6 @@ abstract contract Sphinx {
      */
     SphinxConfig internal sphinxConfig;
 
-    string[] private referenceNames;
-
     Label[] private labels;
 
     SphinxConstants private constants;
@@ -481,10 +479,6 @@ abstract contract Sphinx {
         // `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
-        // Delete deployment related variables, which may be leftover from a deployment that was
-        // previously executed in this process.
-        delete referenceNames;
-
         sphinxUtils.validate(sphinxConfig);
 
         if (sphinxMode == SphinxMode.Collect) {
@@ -745,17 +739,6 @@ abstract contract Sphinx {
             }
         }
 
-        require(
-            !sphinxUtils.arrayContainsString(referenceNames, _referenceName),
-            string(
-                abi.encodePacked(
-                    "Sphinx: The reference name ",
-                    _referenceName,
-                    " was used more than once in this deployment. Reference names must be unique. If you are not using reference names already, this error may be due to deploying multiple instances of the same contract. You can resolve this issue by specifying a unique reference name for each contract using the `DeployOptions` input parameter. See the docs for more info: https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md#reference-name"
-                )
-            )
-        );
-
         bytes32 create3Salt = keccak256(abi.encode(_referenceName, _userSalt));
         address create3Address = sphinxUtils.computeCreate3Address(manager, create3Salt);
 
@@ -779,8 +762,6 @@ abstract contract Sphinx {
             userSalt: _userSalt,
             referenceName: _referenceName
         });
-
-        referenceNames.push(_referenceName);
 
         return create3Address;
     }

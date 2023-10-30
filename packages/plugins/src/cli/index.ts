@@ -149,6 +149,19 @@ yargs(hideBin(process.argv))
     }
   )
   .command(
+    'generate',
+    'Generate Sphinx Client contracts for a project',
+    (y) =>
+      y
+        .usage(`Usage: npx sphinx generate [--silent]`)
+        .option('silent', {
+          describe: 'Silence the output except for error messages.',
+          boolean: true,
+        })
+        .hide('version'),
+    async (argv) => generateClient(argv.silent)
+  )
+  .command(
     'deploy',
     `Executes the user's 'deploy' function on the given network. Displays a preview before the deployment, and writes artifacts after.`,
     (y) =>

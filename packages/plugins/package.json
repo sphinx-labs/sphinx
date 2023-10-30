@@ -16,7 +16,7 @@
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "forge clean && yarn write-constants && forge build --skip script --skip test",
+    "build:contracts": "forge clean && yarn write-constants && npx ts-node script/generate.ts",
     "write-constants": "npx ts-node script/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "clean": "rimraf out/ dist/ ./tsconfig.tsbuildinfo ./forge-cache ./client",
     "test": "yarn test:kill && yarn test:solc && yarn test:ts && yarn test:forge",

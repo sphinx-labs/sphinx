@@ -201,9 +201,6 @@ export interface DecodedCreateActionInput {
   addr: string
 }
 
-// TODO: we don't assume that reference names are unique anymore. is that okay? if so, remove the
-// 'unique reference names' check in sphinx.sol
-
 export type DecodedAction = {
   referenceName: string
   functionName: string

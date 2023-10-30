@@ -95,8 +95,10 @@ export const verifySphinxConfig = async (
     const { artifact } = configArtifacts[fullyQualifiedName]
     const { abi, contractName, sourceName, metadata, bytecode } = artifact
 
-    // TODO: handle externally linked library placeholders, which are a different length, and
-    // immutables. the latter may not require any extra logic.
+    // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
+    // determine where the contract's creation code ends and the constructor arguments begin. This
+    // method works even if the `artifact.bytecode` contains externally linked library placeholders
+    // or immutable variable placeholders, which are always the same length as the real values.
     const encodedConstructorArgs = ethers.dataSlice(
       initCodeWithArgs,
       ethers.dataLength(bytecode)
