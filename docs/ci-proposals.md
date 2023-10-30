@@ -87,7 +87,6 @@ jobs:
 
 Here is a list of things you may need to change in the template:
 - Enter any RPC node provider API keys in the `env` section of the template.
-- If you want to your target branch to be something other than `main`, update the `branches` section of the template.
 - If your repository doesn't use `yarn`, update the `yarn --frozen-lockfile` step under `jobs`.
 - Make sure the path to your Sphinx deployment script in the `npx sphinx propose` command is correct.
 

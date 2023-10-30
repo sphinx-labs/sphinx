@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.23.2
+
+### Patch Changes
+
+- e726efbb: Fix quickstart Sphinx dependency remappings
+
 ## 0.23.1
 
 ### Patch Changes

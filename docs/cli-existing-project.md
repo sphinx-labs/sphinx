@@ -81,10 +81,12 @@ sphinx-solmate/=node_modules/sphinx-solmate/src/
 
 If your remappings are in `foundry.toml`, update your `remappings` array to include:
 ```
-'@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
-'@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
-'sphinx-forge-std/=node_modules/sphinx-forge-std/src/'
-'sphinx-solmate/=node_modules/sphinx-solmate/src/'
+remappings=[
+  '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/',
+  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
+  'sphinx-solmate/=node_modules/sphinx-solmate/src/'
+]
 ```
 
 ## 7. Initialize a project
@@ -126,10 +128,10 @@ Add a private key to your .env file. We'll use the first valid one on Anvil:
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-Then, navigate to a new terminal window. Broadcast the deployment with the following command, replacing `<path/to/your-script.s.sol>` with the path to your deployment script.
+Then, navigate to a new terminal window. Broadcast the deployment with the following command, replacing `<script/path/>` with the path to your deployment script.
 
 ```
-npx sphinx deploy <path/to/your-script.s.sol> --network anvil
+npx sphinx deploy <script/path>/HelloSphinx.s.sol --network anvil
 ```
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
