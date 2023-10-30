@@ -11,7 +11,6 @@ import {
   Signer,
   Contract,
   ethers,
-  Fragment,
   AbiCoder,
   Provider,
   JsonRpcSigner,
@@ -44,7 +43,6 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  ParsedConfig,
   DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
@@ -54,8 +52,6 @@ import {
   RawCreate2ActionInput,
   RawActionInput,
   RawCreateActionInput,
-  DecodedCreateActionInput,
-  DecodedCreate2ActionInput,
   Label,
 } from './config/types'
 import {
@@ -1376,34 +1372,10 @@ export const isRawDeployContractActionInput = (
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
-// TODO: you need to differentiate this from the raw version
-export const isDecodedCreateActionInput = (
-  actionInput: ActionInput
-): actionInput is DecodedCreateActionInput => {
-  return actionInput.actionType === SphinxActionType.CREATE.toString()
-}
-
-// TODO: Differentiate this from the decoded version
 export const isRawCreateActionInput = (
   actionInput: RawActionInput
 ): actionInput is RawCreateActionInput => {
   return actionInput.actionType === SphinxActionType.CREATE.toString()
-}
-
-export const isDecodedCreate2ActionInput = (
-  actionInput: ActionInput
-): actionInput is DecodedCreate2ActionInput => {
-  const create2Input = actionInput as DecodedCreate2ActionInput
-
-  return (
-    create2Input.actionType === SphinxActionType.CALL.toString() &&
-    create2Input.fullyQualifiedName !== undefined &&
-    create2Input.decodedAction !== undefined &&
-    create2Input.create2Address !== undefined &&
-    create2Input.skip !== undefined &&
-    create2Input.data !== undefined &&
-    create2Input.gas !== undefined
-  )
 }
 
 export const isRawCreate2ActionInput = (

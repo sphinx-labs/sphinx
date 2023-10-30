@@ -6,8 +6,9 @@ import { Sphinx } from "../contracts/foundry/Sphinx.sol";
 import { SphinxConfig, Version } from "../client/SphinxClient.sol";
 import { Network, Label } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
-import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
+// import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
 import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
+import { CREATE3 } from "solady/utils/CREATE3.sol";
 
 // contract Sample is Script {
 contract Sample is Script, Sphinx {
@@ -22,6 +23,7 @@ contract Sample is Script, Sphinx {
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "asdf";
         // sphinxConfig.labels.push(Label(0x0454762b54a5FdFA82F37805fE39891297490Dc2, "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames"));
+        // sphinxConfig.labels.push(Label(0x1AA1cC4266F66FdDa4997D573f07C242Af963482, "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames"));
     }
 
     // TODO(refactor): clean up
@@ -36,12 +38,10 @@ contract Sample is Script, Sphinx {
         //     address(2)
         // );
 
-        ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(0) }(true);
+        // ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(0) }(true);
 
-        // int a = -1;
-        // uint b = 2;
-        // bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(a, b, address(1), address(2)));
-        // address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
         // MyContract1(deployed).set(1);
 
 

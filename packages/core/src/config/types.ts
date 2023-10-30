@@ -85,9 +85,7 @@ export type RawActionInput =
 export type ActionInput =
   | DeployContractActionInput
   | RawFunctionCallActionInput
-  | DecodedCreate2ActionInput
   | RawCreate2ActionInput
-  | DecodedCreateActionInput
   | RawCreateActionInput
 
 export type ParsedConfig = {
@@ -171,17 +169,6 @@ export interface DeployContractActionInput
   extends RawDeployContractActionInput {
   decodedAction: DecodedAction
   create3Address: string
-}
-
-export interface DecodedCreate2ActionInput {
-  fullyQualifiedName: string
-  decodedAction: DecodedAction
-  to: string
-  create2Address: string
-  skip: boolean
-  data: string
-  actionType: string
-  gas: bigint
 }
 
 export interface RawCreate2ActionInput {

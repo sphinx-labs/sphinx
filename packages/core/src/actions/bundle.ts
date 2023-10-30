@@ -11,8 +11,6 @@ import {
   isDeployContractActionInput,
   isRawFunctionCallActionInput,
   prettyRawFunctionCall,
-  isDecodedCreateActionInput,
-  isDecodedCreate2ActionInput,
   isRawCreate2ActionInput,
 } from '../utils'
 import {
@@ -625,30 +623,6 @@ export const makeActionBundleFromConfig = (
         actionIndex: BigInt(index),
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
-      })
-    } else if (isDecodedCreate2ActionInput(actionInput)) {
-      const { data, gas, to } = actionInput
-
-      const readableSignature = 'TODO'
-      // const contractName = fullyQualifiedName.split(':')[1]
-      // const readableSignature = prettyFunctionCall(
-      //   contractName,
-      //   decodedAction.functionName,
-      //   decodedAction.variables
-      // )
-
-      // Add a CALL action.
-      actions.push({
-        index,
-        data,
-        to,
-      })
-
-      costs.push(gas)
-      humanReadableActions.push({
-        actionIndex: BigInt(index),
-        reason: readableSignature,
-        actionType: SphinxActionType.CALL,
       })
     } else if (isRawCreate2ActionInput(actionInput)) {
       const { data, gas, to } = actionInput

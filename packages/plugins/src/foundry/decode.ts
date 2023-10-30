@@ -36,7 +36,7 @@ import {
   getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
-import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
+import { CREATE3_PROXY_INITCODE, DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import { FoundryDryRun, ProposalOutput } from './types'
 import { getConfigArtifactForContractName } from './utils'
@@ -399,32 +399,27 @@ export const makeParsedConfig = (
       }
       actionInputs.push({ create3Address, decodedAction, ...input })
     } else if (isRawCreate2ActionInput(input)) {
-      if (input.contractName) {
+      actionInputs.push(input)
+
+      // Get the creation code of the CREATE2 deployment by removing the salt,
+      // which is the first 32 bytes of the data.
+      const initCodeWithArgs = ethers.dataSlice(input.data, 32)
+
+      // Check if the contract is a CREATE3 proxy. If it is, we won't attempt to verify it because
+      // it doesn't have its own source file in any commonly used CREATE3 library.
+      if (initCodeWithArgs === CREATE3_PROXY_INITCODE) {
+        continue
+      } else if (input.contractName) {
         // Check if the `contractName` is a fully qualified name or a contract name.
         if (input.contractName.includes(':')) {
           // It's a fully qualified name.
 
           const fullyQualifiedName = input.contractName
-          const contractName = fullyQualifiedName.split(':')[1]
 
           verify[input.create2Address] = {
             fullyQualifiedName,
             initCodeWithArgs: input.data,
           }
-          actionInputs.push({
-            fullyQualifiedName: input.contractName,
-            decodedAction: {
-              referenceName: contractName,
-              functionName: 'deploy',
-              variables: 'TODO',
-            },
-            create2Address: input.create2Address,
-            skip: input.skip,
-            data: input.data,
-            to: input.to,
-            actionType: input.actionType,
-            gas: input.gas,
-          })
         } else {
           // It's a contract name.
 
@@ -437,30 +432,9 @@ export const makeParsedConfig = (
             fullyQualifiedName,
             initCodeWithArgs: input.data,
           }
-          actionInputs.push({
-            fullyQualifiedName,
-            decodedAction: {
-              referenceName: input.contractName,
-              functionName: 'deploy',
-              variables: 'TODO',
-            },
-            create2Address: input.create2Address,
-            skip: input.skip,
-            data: input.data,
-            to: input.to,
-            actionType: input.actionType,
-            gas: input.gas,
-          })
         }
       } else {
         // There's no contract name in this CREATE2 transaction.
-
-        // Use the raw action.
-        actionInputs.push(input)
-
-        // Get the creation code of the CREATE2 deployment by removing the salt,
-        // which is the first 32 bytes of the data.
-        const initCodeWithArgs = ethers.dataSlice(input.data, 32)
 
         const label = labels.find((l) => l.addr === input.create2Address)
         if (isLabel(label)) {
