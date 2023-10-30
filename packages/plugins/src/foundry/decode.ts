@@ -200,14 +200,15 @@ export const getCollectedSingleChainDeployment = (
     sphinxPluginTypesABI
   )
   const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
-  const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun)
+  const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun, dryRunPath)
 
   return { deploymentInfo, actionInputs }
 }
 
 export const parseFoundryDryRun = (
   deploymentInfo: DeploymentInfo,
-  dryRun: FoundryDryRun
+  dryRun: FoundryDryRun,
+  dryRunPath: string
 ): Array<RawActionInput> => {
   const notFromSphinxManager = dryRun.transactions.filter(
     (t) =>
@@ -286,6 +287,12 @@ export const parseFoundryDryRun = (
         }
         actionInputs.push(rawCreate2)
       } else if (transactionType === 'CALL') {
+        const variables = callArguments ?? [
+          transaction.data.length > 1000
+            ? `Very large calldata, see broadcast file: ${dryRunPath} for more information`
+            : transaction.data,
+        ]
+
         const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
           skip: false,
@@ -297,7 +304,7 @@ export const parseFoundryDryRun = (
             referenceName:
               contractNameWithoutPath ?? ethers.getAddress(transaction.to),
             functionName: functionName?.split('(')[0] ?? 'call',
-            variables: callArguments ?? [transaction.data],
+            variables,
             address: contractNameWithoutPath !== null ? to : '',
           },
         }
