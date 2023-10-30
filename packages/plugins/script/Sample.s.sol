@@ -34,11 +34,11 @@ contract Sample is Script, Sphinx {
             address(2)
         );
 
-        int a = -1;
-        uint b = 2;
-        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(a, b, address(1), address(2)));
-        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
-        MyContract1(deployed).set(1);
+        // int a = -1;
+        // uint b = 2;
+        // bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(a, b, address(1), address(2)));
+        // address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
+        // MyContract1(deployed).set(1);
 
 
         // TODO: rm

@@ -1,6 +1,8 @@
 import { basename, join } from 'path'
 import { readFileSync } from 'fs'
 
+// TODO: undo changes to CREATE3 lib
+
 import {
   ActionInput,
   ConfigArtifacts,
@@ -330,7 +332,6 @@ export const parseFoundryDryRun = (
 }
 
 // TODO: use labeled contracts as inputs to `getConfigArtifacts` in all places.
-// TODO(test): make sure a nice error is thrown if the user misspells a label.
 
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
