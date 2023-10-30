@@ -11,7 +11,6 @@ import {
   ParsedVariable,
   RawActionInput,
   RawCreate2ActionInput,
-  RawDeployContractActionInput,
   RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
@@ -230,7 +229,13 @@ export const parseFoundryDryRun = (
     contractName,
     transactionType,
     additionalContracts,
+    arguments: callArguments,
+    function: functionName,
   } of dryRun.transactions) {
+    const contractNameWithoutPath = contractName?.includes(':')
+      ? contractName.split(':')[1]
+      : contractName
+
     if (transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -272,6 +277,12 @@ export const parseFoundryDryRun = (
           actionType: SphinxActionType.CALL.toString(),
           gas: BigInt(transaction.gas),
           additionalContracts,
+          decodedAction: {
+            referenceName: contractNameWithoutPath ?? create2Address,
+            functionName: 'deploy',
+            variables: callArguments ?? [],
+            address: '',
+          },
         }
         actionInputs.push(rawCreate2)
       } else if (transactionType === 'CALL') {
@@ -282,6 +293,13 @@ export const parseFoundryDryRun = (
           data: transaction.data,
           contractName,
           additionalContracts,
+          decodedAction: {
+            referenceName:
+              contractNameWithoutPath ?? ethers.getAddress(transaction.to),
+            functionName: functionName?.split('(')[0] ?? 'call',
+            variables: callArguments ?? [transaction.data],
+            address: contractNameWithoutPath !== null ? to : '',
+          },
         }
 
         actionInputs.push(rawCall)
@@ -352,8 +370,9 @@ export const makeParsedConfig = (
 
       const decodedAction: DecodedAction = {
         referenceName: input.referenceName,
-        functionName: 'constructor',
+        functionName: 'deploy',
         variables: decodedConstructorArgs,
+        address: '',
       }
       verify[create3Address] = {
         fullyQualifiedName: input.fullyQualifiedName,
@@ -364,8 +383,6 @@ export const makeParsedConfig = (
       }
       actionInputs.push({ create3Address, decodedAction, ...input })
     } else if (isRawCreate2ActionInput(input)) {
-      actionInputs.push(input)
-
       // Get the creation code of the CREATE2 deployment by removing the salt,
       // which is the first 32 bytes of the data.
       const initCodeWithArgs = ethers.dataSlice(input.data, 32)
@@ -403,13 +420,22 @@ export const makeParsedConfig = (
 
         const label = labels.find((l) => l.addr === input.create2Address)
         if (isLabel(label)) {
-          if (label.fullyQualifiedName !== '') {
-            const { sourceName, contractName } =
-              configArtifacts[label.fullyQualifiedName].artifact
-            verify[input.create2Address] = {
-              fullyQualifiedName: `${sourceName}:${contractName}`,
-              initCodeWithArgs,
-            }
+          const { sourceName, contractName } =
+            configArtifacts[label.fullyQualifiedName].artifact
+          const fullyQualifiedName = `${sourceName}:${contractName}`
+          verify[input.create2Address] = {
+            fullyQualifiedName,
+            initCodeWithArgs,
+          }
+
+          input.decodedAction = {
+            referenceName: contractName,
+            functionName: 'deploy',
+            // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
+            variables: {
+              initCode: initCodeWithArgs,
+            },
+            address: '',
           }
         } else {
           // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
@@ -429,11 +455,25 @@ export const makeParsedConfig = (
               fullyQualifiedName,
               initCodeWithArgs,
             }
+
+            input.decodedAction = {
+              referenceName: fullyQualifiedName.split(':')[1],
+              functionName: 'deploy',
+              // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
+              variables: [
+                {
+                  initCode: initCodeWithArgs,
+                },
+              ],
+              address: '',
+            }
           } else {
             unlabeled.push(input.create2Address)
           }
         }
       }
+
+      actionInputs.push(input)
     } else if (isRawFunctionCallActionInput(input)) {
       actionInputs.push(input)
     } else {

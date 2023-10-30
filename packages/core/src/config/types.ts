@@ -79,14 +79,12 @@ export type ParsedVariable =
 export type RawActionInput =
   | RawDeployContractActionInput // TODO(docs): anywhere you mention "DeployContractAction", say CREATE3
   | RawFunctionCallActionInput
-  | RawCreateActionInput
   | RawCreate2ActionInput
 
 export type ActionInput =
   | DeployContractActionInput
   | RawFunctionCallActionInput
   | RawCreate2ActionInput
-  | RawCreateActionInput
 
 export type ParsedConfig = {
   verify: {
@@ -180,31 +178,14 @@ export interface RawCreate2ActionInput {
   actionType: string
   gas: bigint
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
-}
-
-export interface RawCreateActionInput {
-  contractName: string | null
-  actionType: string
-  skip: boolean
-  data: string
-  gas: bigint
-  additionalContracts: FoundryDryRunTransaction['additionalContracts']
-}
-
-export interface DecodedCreateActionInput {
-  fullyQualifiedName: string
-  actionType: string
-  skip: boolean
-  data: string
-  gas: bigint
   decodedAction: DecodedAction
-  addr: string
 }
 
 export type DecodedAction = {
   referenceName: string
   functionName: string
   variables: ParsedVariable
+  address: string
 }
 
 export type RawFunctionCallActionInput = {
@@ -218,6 +199,7 @@ export type RawFunctionCallActionInput = {
     address: string
     initCode: string
   }>
+  decodedAction: DecodedAction
 }
 
 /**
