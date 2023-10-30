@@ -6,8 +6,6 @@ import {
   ProjectDeployment,
   ProposalRequest,
   ProposalRequestLeaf,
-  RawDeployContractActionInput,
-  RawFunctionCallActionInput,
   RoleType,
   WEBSITE_URL,
   elementsEqual,
@@ -25,6 +23,7 @@ import {
 import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
+import { RawActionInput } from '@sphinx-labs/core/dist/config/types'
 
 import {
   getCollectedSingleChainDeployment,
@@ -39,7 +38,6 @@ import {
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
 import { FoundryDryRun } from '../../foundry/types'
-import { RawActionInput } from '@sphinx-labs/core/dist/config/types'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
@@ -95,8 +93,8 @@ export const buildParsedConfigArray = async (
     foundryToml.cachePath
   )
 
-  // TODO: empty array
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames, [])
+  // TODO: empty arrays
+  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames, [], [])
 
   const parsedConfigArray = collected.map((c) =>
     makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)

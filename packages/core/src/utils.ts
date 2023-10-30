@@ -510,9 +510,11 @@ export const validateBuildInfo = (
   }
 }
 
-// TODO(ryan): Say we have contracts/MyContracts.sol:MyContract1.sol and
-// contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
-// out/artifacts/test/.
+// TODO(ryan): (This is the `getConfigArtifact` bug we discussed on the call. You already have this
+// in your notes, so feel free to disregard). Say we have contracts/MyContracts.sol:MyContract1.sol
+// and contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
+// out/artifacts/test/, but it seems we assume that the artifact directory structure is "flat" in
+// `getConfigArtifact`.
 
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.

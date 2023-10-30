@@ -1,8 +1,8 @@
 import assert from 'assert'
 
-// TODO: put a create2 deployment in the sample project. maybe create3 too.
+// TODO: put a create2 deployment in the sample project used in the getting started guide.
 
-import { ConstructorFragment, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
   CustomChain,
@@ -84,8 +84,6 @@ export const verifySphinxConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const { actionInputs } = compilerConfig
-
   const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
     Number((await provider.getNetwork()).chainId)
   )

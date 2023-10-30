@@ -304,7 +304,7 @@ export type FoundryContractConfig = {
 export type GetConfigArtifacts = (
   fullyQualifiedNames: Array<string>,
   contractNames: Array<string>,
-  labels: Array<Label>
+  artifactPaths: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

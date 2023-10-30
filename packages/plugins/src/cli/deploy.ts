@@ -171,7 +171,8 @@ export const deploy = async (
 
   const configArtifacts = await getConfigArtifacts(
     fullyQualifiedNames,
-    contractNames
+    contractNames,
+    deploymentInfo.newConfig.labels.map((l) => l.addr)
   )
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
