@@ -40,21 +40,20 @@ export const writeDeploymentArtifacts = async (
     mkdirSync(networkPath, { recursive: true })
   }
 
-  const deploymentActions = parsedConfig.actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
+  for (const address of Object.keys(parsedConfig.verify)) {
+    const { fullyQualifiedName, initCodeWithArgs } =
+      parsedConfig.verify[address]
 
-  for (const action of deploymentActions) {
-    const receipt = receipts.find((r) =>
-      r.logs.some(
-        (l) =>
-          l.address === parsedConfig.managerAddress &&
-          l.topics.length > 0 &&
-          l.topics[0] === eventFragment.topicHash &&
-          managerInterface.decodeEventLog(eventFragment, l.data, l.topics)
-            .contractAddress === action.create3Address
-      )
-    )
+    // const receipt = receipts.find((r) =>
+    //   r.logs.some(
+    //     (l) =>
+    //       l.address === parsedConfig.managerAddress &&
+    //       l.topics.length > 0 &&
+    //       l.topics[0] === eventFragment.topicHash &&
+    //       managerInterface.decodeEventLog(eventFragment, l.data, l.topics)
+    //         .contractAddress === action.create3Address
+    //   )
+    // )
 
     if (!receipt) {
       throw new Error(
@@ -62,16 +61,25 @@ export const writeDeploymentArtifacts = async (
       )
     }
 
-    const { artifact, buildInfo } = configArtifacts[action.fullyQualifiedName]
-    const { bytecode, abi, metadata } = artifact
+    const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+    const { bytecode, abi, metadata, contractName } = artifact
     const iface = new ethers.Interface(abi)
     const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
+    // determine where the contract's creation code ends and the constructor arguments begin. This
+    // method works even if the `artifact.bytecode` contains externally linked library placeholders
+    // or immutable variable placeholders, which are always the same length as the real values.
+    const encodedConstructorArgs = ethers.dataSlice(
+      initCodeWithArgs,
+      ethers.dataLength(bytecode)
+    )
 
     const constructorFragment = iface.fragments.find(
       ConstructorFragment.isFragment
     )
     const constructorArgValues = constructorFragment
-      ? coder.decode(constructorFragment.inputs, action.constructorArgs)
+      ? coder.decode(constructorFragment.inputs, encodedConstructorArgs)
       : []
     const storageLayout = artifact.storageLayout ?? { storage: [], types: {} }
     const { devdoc, userdoc } =
@@ -81,7 +89,7 @@ export const writeDeploymentArtifacts = async (
 
     // Define the deployment artifact for the deployed contract.
     const contractArtifact = {
-      address: action.create3Address,
+      address,
       abi,
       transactionHash: receipt.transactionHash,
       solcInputHash: buildInfo.id,
@@ -99,7 +107,7 @@ export const writeDeploymentArtifacts = async (
         typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
       args: constructorArgValues,
       bytecode,
-      deployedBytecode: await provider.getCode(action.create3Address),
+      deployedBytecode: await provider.getCode(address),
       devdoc,
       userdoc,
       storageLayout,
@@ -109,7 +117,7 @@ export const writeDeploymentArtifacts = async (
     const artifactPath = join(
       deploymentFolderPath,
       networkDirName,
-      `${action.referenceName}.json`
+      `${contractName}.json`
     )
     writeFileSync(artifactPath, JSON.stringify(contractArtifact, null, '\t'))
   }

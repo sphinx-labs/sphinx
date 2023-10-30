@@ -294,15 +294,7 @@ export const deploy = async (
 
   spinner.start(`Writing deployment artifacts...`)
 
-  const containsDeployment = actionInputs.some((a) => {
-    const isDeployment =
-      isRawDeployContractActionInput(a) ||
-      isRawCreate2ActionInput(a) ||
-      isRawCreateActionInput(a)
-    return isDeployment && !a.skip
-  })
-
-  if (containsDeployment) {
+  if (Object.values(parsedConfig.verify).length > 0) {
     const broadcastFilePath = join(
       broadcastFolder,
       basename(scriptPath),
@@ -315,7 +307,7 @@ export const deploy = async (
     ).receipts
 
     const provider = new SphinxJsonRpcProvider(forkUrl)
-    // TODO: write deployment artifacts for create2 and create3
+    // TODO: write deployment artifacts
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
