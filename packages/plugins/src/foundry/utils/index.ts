@@ -193,8 +193,7 @@ export const makeGetConfigArtifacts = (
 ): GetConfigArtifacts => {
   return async (
     fullyQualifiedNames: Array<string>,
-    contractNames: Array<string>,
-    artifactPaths: Array<string>
+    contractNames: Array<string>
   ) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {
@@ -287,38 +286,6 @@ export const makeGetConfigArtifacts = (
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
 
-    const artifactPathPromises = artifactPaths.map(async (artifactPath) => {
-      const artifact = parseFoundryArtifact(
-        JSON.parse(await readFileAsync(artifactPath, 'utf8'))
-      )
-
-      const fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`
-      // Look through the cache for the first build info file that contains the contract
-      for (const file of sortedCachedFiles) {
-        if (file.contracts?.includes(fullyQualifiedName)) {
-          // Keep track of if we need to read the file or not
-          if (!toReadFiles.includes(file.name)) {
-            toReadFiles.push(file.name)
-          }
-
-          return {
-            fullyQualifiedName,
-            artifact,
-            buildInfoName: file.name,
-          }
-        }
-      }
-
-      // Throw an error if no build info file is found in the cache for this contract
-      // This should only happen if the user manually deletes a build info file
-      if (fs.existsSync(buildInfoCacheFilePath)) {
-        fs.unlinkSync(buildInfoCacheFilePath)
-      }
-      throw new Error(
-        `Build info cache is outdated, please run 'forge build --force' then try again.`
-      )
-    })
-
     const fullyQualifiedNamePromises = fullyQualifiedNames.map(
       async (fullyQualifiedName) => {
         const artifact = await getContractArtifact(
@@ -390,9 +357,7 @@ export const makeGetConfigArtifacts = (
     )
 
     const resolved = await Promise.all(
-      fullyQualifiedNamePromises
-        .concat(contractNamePromises)
-        .concat(artifactPathPromises)
+      fullyQualifiedNamePromises.concat(contractNamePromises)
     )
 
     // Read any build info files that we didn't already have in memory. This sometimes means we read

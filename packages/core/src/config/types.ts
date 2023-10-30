@@ -141,7 +141,7 @@ export type UserAddressOverrides = {
 
 export type Label = {
   addr: string
-  artifactPath: string
+  fullyQualifiedName: string
 }
 
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
@@ -303,8 +303,7 @@ export type FoundryContractConfig = {
 
 export type GetConfigArtifacts = (
   fullyQualifiedNames: Array<string>,
-  contractNames: Array<string>,
-  artifactPaths: Array<string>
+  contractNames: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

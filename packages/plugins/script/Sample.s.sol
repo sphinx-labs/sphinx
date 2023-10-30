@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { Script, console } from "sphinx-forge-std/Script.sol";
 import { Sphinx } from "../contracts/foundry/Sphinx.sol";
 import { SphinxConfig, Version } from "../client/SphinxClient.sol";
-import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, Label } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
 import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
@@ -21,6 +21,7 @@ contract Sample is Script, Sphinx {
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "asdf";
+        // sphinxConfig.labels.push(Label(0x0454762b54a5FdFA82F37805fE39891297490Dc2, "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames"));
     }
 
     // TODO(refactor): clean up

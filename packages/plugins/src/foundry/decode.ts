@@ -15,6 +15,7 @@ import {
   RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
+  isLabel,
   isRawCreate2ActionInput,
   isRawDeployContractActionInput,
   isRawFunctionCallActionInput,
@@ -457,29 +458,39 @@ export const makeParsedConfig = (
         // Use the raw action.
         actionInputs.push(input)
 
-        // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
-        // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
-        const contractName = rawInputs
-          .filter(isRawFunctionCallActionInput)
-          .filter((e) => e.to === input.create2Address)
-          .map((e) => e.contractName)
-          .find(isString)
-        if (contractName) {
-          const fullyQualifiedName = contractName.includes(':')
-            ? contractName
-            : getConfigArtifactForContractName(contractName, configArtifacts)
-                .fullyQualifiedName
+        // Get the creation code of the CREATE2 deployment by removing the salt,
+        // which is the first 32 bytes of the data.
+        const initCodeWithArgs = ethers.dataSlice(input.data, 32)
 
-          // Get the creation code of the CREATE2 deployment by removing the salt,
-          // which is the first 32 bytes of the data.
-          const initCodeWithArgs = ethers.dataSlice(input.data, 32)
-
+        const label = labels.find((l) => l.addr === input.create2Address)
+        if (isLabel(label)) {
+          const { sourceName, contractName } =
+            configArtifacts[label.fullyQualifiedName].artifact
           verify[input.create2Address] = {
-            fullyQualifiedName,
+            fullyQualifiedName: `${sourceName}:${contractName}`,
             initCodeWithArgs,
           }
         } else {
-          unlabeled.push(input.create2Address)
+          // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
+          // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
+          const contractName = rawInputs
+            .filter(isRawFunctionCallActionInput)
+            .filter((e) => e.to === input.create2Address)
+            .map((e) => e.contractName)
+            .find(isString)
+          if (contractName) {
+            const fullyQualifiedName = contractName.includes(':')
+              ? contractName
+              : getConfigArtifactForContractName(contractName, configArtifacts)
+                  .fullyQualifiedName
+
+            verify[input.create2Address] = {
+              fullyQualifiedName,
+              initCodeWithArgs,
+            }
+          } else {
+            unlabeled.push(input.create2Address)
+          }
         }
       }
     } else if (isRawFunctionCallActionInput(input)) {
@@ -520,15 +531,17 @@ const getAdditionalContractsToVerify = (
   additionalContractsToVerify: ParsedConfig['verify']
   unlabeledAdditionalContracts: Array<string>
 } => {
-  const verify = {}
-  const unlabeled = []
+  const verify: ParsedConfig['verify'] = {}
+  const unlabeled: Array<string> = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
 
     const label = labels.find((l) => l.addr === address)
-    if (typeof label === 'string') {
+    if (isLabel(label)) {
+      const { sourceName, contractName } =
+        configArtifacts[label.fullyQualifiedName].artifact
       verify[address] = {
-        fullyQualifiedName: label,
+        fullyQualifiedName: `${sourceName}:${contractName}`,
         initCodeWithArgs: additionalContract.initCode,
       }
     } else if (
@@ -545,21 +558,21 @@ const getAdditionalContractsToVerify = (
         .map((e) => e.contractName)
         .find(isString)
 
-      if (!contractName) {
-        throw new Error(`TODO: user needs to specify FQN or null somewhere.`)
-      }
+      if (contractName) {
+        const fullyQualifiedName = contractName.includes(':')
+          ? contractName
+          : getConfigArtifactForContractName(contractName, configArtifacts)
+              .fullyQualifiedName
 
-      const fullyQualifiedName = contractName.includes(':')
-        ? contractName
-        : getConfigArtifactForContractName(contractName, configArtifacts)
-            .fullyQualifiedName
-
-      verify[address] = {
-        fullyQualifiedName,
-        initCodeWithArgs: additionalContract.initCode,
+        verify[address] = {
+          fullyQualifiedName,
+          initCodeWithArgs: additionalContract.initCode,
+        }
+      } else {
+        unlabeled.push(address)
       }
     } else {
-      throw new Error(`TODO: user needs to specify FQN or null somewhere.`)
+      unlabeled.push(address)
     }
   }
 

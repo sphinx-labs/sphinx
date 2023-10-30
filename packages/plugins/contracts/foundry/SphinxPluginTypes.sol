@@ -225,7 +225,7 @@ struct SphinxConfig {
 
 struct Label {
     address addr;
-    string artifactPath;
+    string fullyQualifiedName;
 }
 
 enum Network {

@@ -1,6 +1,9 @@
 import { basename, join, resolve } from 'path'
 import { readFileSync } from 'fs'
 
+// TODO: if you stick with Label.fqn, it'd be nice if you could validate that it's a well-formed
+// fqn. i.e. at least check for a semicolon.
+
 // TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
 // generate` in the repo to see if there's anywhere else you can remove it.
 
@@ -119,6 +122,10 @@ export const deploy = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
+  // TODO: force recompile when deploying on a live network and when proposing. for the former,
+  // you may need to do an early `isLiveNetwork` check b/c e.g. `--network optimism` may actually
+  // be an anvil node.
+
   // TODO: We need to remove --skip-simulation everywhere that we collect txns. you'll need to
   // account for the note above '--skip-simulation' in the next call.
 
@@ -159,22 +166,25 @@ export const deploy = async (
     'sphinxCollectDeployment'
   )
 
-  const contractNames: Array<string> = []
-  const fullyQualifiedNames: Array<string> = []
+  const contractNamesSet = new Set<string>()
+  const fullyQualifiedNamesSet = new Set<string>()
   for (const rawInput of actionInputs) {
     if (isRawDeployContractActionInput(rawInput)) {
-      fullyQualifiedNames.push(rawInput.fullyQualifiedName)
+      fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
     } else if (typeof rawInput.contractName === 'string') {
       rawInput.contractName.includes(':')
-        ? fullyQualifiedNames.push(rawInput.contractName)
-        : contractNames.push(rawInput.contractName)
+        ? fullyQualifiedNamesSet.add(rawInput.contractName)
+        : contractNamesSet.add(rawInput.contractName)
     }
   }
 
+  for (const label of deploymentInfo.newConfig.labels) {
+    fullyQualifiedNamesSet.add(label.fullyQualifiedName)
+  }
+
   const configArtifacts = await getConfigArtifacts(
-    fullyQualifiedNames,
-    contractNames,
-    deploymentInfo.newConfig.labels.map((l) => l.artifactPath)
+    Array.from(fullyQualifiedNamesSet),
+    Array.from(contractNamesSet)
   )
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
