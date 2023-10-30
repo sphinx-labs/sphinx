@@ -37,7 +37,8 @@ import {
     SphinxMode,
     NetworkInfo,
     OptionalAddress,
-    Wallet
+    Wallet,
+    Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
@@ -68,9 +69,9 @@ abstract contract Sphinx {
      */
     SphinxConfig internal sphinxConfig;
 
-    DeploymentInfo private deploymentInfo;
-
     string[] private referenceNames;
+
+    Label[] private labels;
 
     SphinxConstants private constants;
 
@@ -134,7 +135,7 @@ abstract contract Sphinx {
         vm.writeFile(_proposalNetworksPath, allNetworkNames);
     }
 
-    function sphinxCollectDeployment(string memory _networkName) external {
+    function sphinxCollectDeployment(string memory _networkName, string memory _deploymentInfoPath) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -165,14 +166,15 @@ abstract contract Sphinx {
             sphinxConfig.proposers.push(deployer);
         }
 
-        sphinxCollect(isLiveNetwork);
+        DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork);
+        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxCollect(bool _isLiveNetwork) private {
+    function sphinxCollect(bool _isLiveNetwork) private returns (DeploymentInfo memory) {
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
 
-        // Assign values to all of the DeploymentInfo fields.
+        DeploymentInfo memory deploymentInfo;
         deploymentInfo.authAddress = address(auth);
         deploymentInfo.managerAddress = address(manager);
         deploymentInfo.chainId = block.chainid;
@@ -180,15 +182,17 @@ abstract contract Sphinx {
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(auth, manager);
 
-        // Set the SphinxCollector to the SphinxManager's address. We'll use this when
-        // collecting the actions.
-        vm.etch(address(manager), type(SphinxCollector).runtimeCode);
-
         sphinxMode = SphinxMode.Collect;
         vm.startBroadcast(address(manager));
-        SphinxCollector(address(manager)).collectDeploymentInfo(deploymentInfo);
         run();
         vm.stopBroadcast();
+
+        // Validate then set the labels. We do this after running the user's script because the user
+        // may assign labels in their deployment.
+        sphinxUtils.validateLabels(labels);
+        deploymentInfo.labels = labels;
+
+        return deploymentInfo;
     }
 
     /**
@@ -479,7 +483,6 @@ abstract contract Sphinx {
 
         // Delete deployment related variables, which may be leftover from a deployment that was
         // previously executed in this process.
-        delete deploymentInfo;
         delete referenceNames;
 
         sphinxUtils.validate(sphinxConfig);
@@ -489,7 +492,6 @@ abstract contract Sphinx {
             _;
         } else if (sphinxMode == SphinxMode.Default) {
             ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
-            vm.etch(address(manager), type(SphinxCollector).runtimeCode);
 
             // Prank the SphinxManager then execute the user's `run()` function. We prank
             // the SphinxManager to replicate the deployment process on live networks.
@@ -701,8 +703,8 @@ abstract contract Sphinx {
     function run() public virtual;
 
     /**
-     * @notice Deploys a contract at the expected CREATE3 address. Called from the auto generated
-     *         Sphinx Client.
+     * @notice Deploys a contract at the expected CREATE3 address. Only called through the
+     *         SphinxClient, which is currently unused.
      *
      * @param _referenceName     The reference name of the contract to deploy. Used to generate the
        contracts address.
@@ -877,5 +879,9 @@ abstract contract Sphinx {
         revert(
             string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId)))
         );
+    }
+
+    function sphinxLabel(address _addr, string memory _fullyQualifiedName) internal {
+        labels.push(Label(_addr, _fullyQualifiedName));
     }
 }

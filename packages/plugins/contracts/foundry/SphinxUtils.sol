@@ -1017,10 +1017,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             )
         );
+    }
 
-        address[] memory labeledAddresses = new address[](_config.labels.length);
-        for (uint256 i = 0; i < _config.labels.length; i++) {
-            labeledAddresses[i] = _config.labels[i].addr;
+    // TODO: update this function with a better error message that displays the fqn.
+    function validateLabels(Label[] memory _labels) external pure {
+        address[] memory labeledAddresses = new address[](_labels.length);
+        for (uint256 i = 0; i < _labels.length; i++) {
+            labeledAddresses[i] = _labels[i].addr;
         }
         address[] memory duplicatedLabeledAddresses = getDuplicatedElements(labeledAddresses);
         require(

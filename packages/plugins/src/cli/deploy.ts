@@ -1,8 +1,13 @@
 import { basename, join, resolve } from 'path'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 // TODO: if you stick with Label.fqn, it'd be nice if you could validate that it's a well-formed
 // fqn. i.e. at least check for a semicolon.
+
+// TODO: support adding labels within the user's script (instead of requiring that it's in the setup
+// function). this way, they don't need to hard-code the addresses.
+
+// TODO: add a helper function for labels: sphinxLabel(address(myContract), ‘path/to/contract.sol:Contract’)
 
 // TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
 // generate` in the repo to see if there's anywhere else you can remove it.
@@ -24,6 +29,7 @@ import {
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
   ParsedConfig,
+  SphinxPreview,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -95,12 +101,12 @@ export const deploy = async (
     }
   }
 
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
+  const sphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
-      `${artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
 
   const getConfigArtifacts = makeGetConfigArtifacts(
@@ -129,19 +135,25 @@ export const deploy = async (
   // TODO: We need to remove --skip-simulation everywhere that we collect txns. you'll need to
   // account for the note above '--skip-simulation' in the next call.
 
-  // TODO(docs): it may be tempting to use --skip-simulation since it's not strictly necessary,
-  // but you can't because <explanation>. put this disclaimer everywhere you collect txns.
+  // TODO(propose): put --silent in proposal args too
+
+  const deploymentInfoPath = join(cachePath, 'deployment-info.txt')
+
+  // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
+  // use an outdated file.
+  if (existsSync(deploymentInfoPath)) {
+    unlinkSync(deploymentInfoPath)
+  }
+
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(string)',
+    'sphinxCollectDeployment(string,string)',
     network,
+    deploymentInfoPath,
     '--rpc-url',
     forkUrl,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    // '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -162,8 +174,9 @@ export const deploy = async (
     network,
     scriptPath,
     broadcastFolder,
-    sphinxCollectorABI,
-    'sphinxCollectDeployment'
+    sphinxPluginTypesABI,
+    'sphinxCollectDeployment',
+    deploymentInfoPath
   )
 
   const contractNamesSet = new Set<string>()
@@ -178,7 +191,7 @@ export const deploy = async (
     }
   }
 
-  for (const label of deploymentInfo.newConfig.labels) {
+  for (const label of deploymentInfo.labels) {
     fullyQualifiedNamesSet.add(label.fullyQualifiedName)
   }
 
@@ -192,12 +205,13 @@ export const deploy = async (
     configArtifacts,
     // On Anvil nodes, we must set `remoteExecution` to `true` because we use the remote execution
     // flow in this case (e.g. we call `manager.claimDeployment` in Solidity).
-    !deploymentInfo.isLiveNetwork
+    !deploymentInfo.isLiveNetwork,
+    spinner
   )
 
   spinner.succeed(`Collected transactions.`)
 
-  let preview
+  let preview: SphinxPreview | undefined
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {

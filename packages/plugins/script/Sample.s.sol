@@ -22,8 +22,6 @@ contract Sample is Script, Sphinx {
         sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "asdf";
-        // sphinxConfig.labels.push(Label(0x0454762b54a5FdFA82F37805fE39891297490Dc2, "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames"));
-        // sphinxConfig.labels.push(Label(0x1AA1cC4266F66FdDa4997D573f07C242Af963482, "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames"));
     }
 
     // TODO(refactor): clean up
@@ -38,11 +36,15 @@ contract Sample is Script, Sphinx {
         //     address(2)
         // );
 
-        // ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(0) }(true);
+        ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(uint(1)) }(true);
+        sphinxLabel(address(myContract), "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames");
 
-        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
+        // bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        // address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
         // MyContract1(deployed).set(1);
+
+
+
 
 
         // TODO: rm

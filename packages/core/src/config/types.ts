@@ -112,6 +112,7 @@ export type DeploymentInfo = {
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
+  labels: Array<Label>
 }
 
 export type InitialChainState = {
@@ -151,7 +152,6 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   testnets: Array<N>
   threshold: string
   version: SemVer
-  labels: Array<Label>
 }
 
 export interface RawDeployContractActionInput {
@@ -201,7 +201,8 @@ export interface DecodedCreateActionInput {
   addr: string
 }
 
-// TODO: we don't assume that reference names are unique anymore. is that okay?
+// TODO: we don't assume that reference names are unique anymore. is that okay? if so, remove the
+// 'unique reference names' check in sphinx.sol
 
 export type DecodedAction = {
   referenceName: string

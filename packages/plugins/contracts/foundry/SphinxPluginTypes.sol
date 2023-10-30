@@ -158,6 +158,7 @@ struct DeploymentInfo {
     SphinxConfig newConfig;
     bool isLiveNetwork;
     InitialChainState initialState;
+    Label[] labels;
 }
 
 /**
@@ -220,7 +221,6 @@ struct SphinxConfig {
     Network[] mainnets;
     Network[] testnets;
     Version version;
-    Label[] labels;
 }
 
 struct Label {

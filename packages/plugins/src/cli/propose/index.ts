@@ -97,7 +97,13 @@ export const buildParsedConfigArray = async (
   const configArtifacts = await getConfigArtifacts(fullyQualifiedNames, [])
 
   const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)
+    makeParsedConfig(
+      c.deploymentInfo,
+      c.actionInputs,
+      configArtifacts,
+      true,
+      spinner
+    )
   )
 
   return { parsedConfigArray, configArtifacts }
@@ -441,41 +447,44 @@ export const collectProposal = async (
   const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
   const networkNames = allNetworksStr.split(',')
 
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
+  const sphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
-      `${foundryToml.artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+      `${foundryToml.artifactFolder}/SphinxPluginTypesABI.sol/SphinxPluginTypesABI.json`
     )).abi
 
-  if (networkNames.length === 1) {
-    return [
-      getCollectedSingleChainDeployment(
-        networkNames[0],
-        scriptPath,
-        foundryToml.broadcastFolder,
-        sphinxCollectorABI,
-        'sphinxCollectProposal'
-      ),
-    ]
-  } else {
-    // For multi-chain deployments, the format of the dry run file is:
-    // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
-    const dryRunPath = join(
-      foundryToml.broadcastFolder,
-      'multi',
-      'dry-run',
-      `${basename(scriptPath)}-latest`,
-      'sphinxCollectProposal.json'
-    )
+    // TODO
+    return {} as any
 
-    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
-      readFileSync(dryRunPath, 'utf8')
-    ).deployments
+  // if (networkNames.length === 1) {
+  //   return [
+  //     getCollectedSingleChainDeployment(
+  //       networkNames[0],
+  //       scriptPath,
+  //       foundryToml.broadcastFolder,
+  //       sphinxPluginTypesABI,
+  //       'sphinxCollectProposal'
+  //     ),
+  //   ]
+  // } else {
+  //   // For multi-chain deployments, the format of the dry run file is:
+  //   // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
+  //   const dryRunPath = join(
+  //     foundryToml.broadcastFolder,
+  //     'multi',
+  //     'dry-run',
+  //     `${basename(scriptPath)}-latest`,
+  //     'sphinxCollectProposal.json'
+  //   )
 
-    return multichainDryRun.map((dryRun) =>
-      parseFoundryDryRun(dryRun, sphinxCollectorABI)
-    )
-  }
+  //   const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
+  //     readFileSync(dryRunPath, 'utf8')
+  //   ).deployments
+
+  //   return multichainDryRun.map((dryRun) =>
+  //     parseFoundryDryRun(dryRun, sphinxCollectorABI)
+  //   )
+  // }
 }

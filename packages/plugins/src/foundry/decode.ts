@@ -36,37 +36,37 @@ import {
   getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
-import { CREATE3_PROXY_INITCODE, DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
+import {
+  CREATE3_PROXY_INITCODE,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+} from '@sphinx-labs/contracts'
+import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
 import { getConfigArtifactForContractName } from './utils'
 
 export const decodeDeploymentInfo = (
-  calldata: string,
-  sphinxCollectorABI: Array<any>
+  abiEncodedDeploymentInfo: string,
+  sphinxPluginTypesABI: Array<any>
 ): DeploymentInfo => {
-  const iface = new Interface(sphinxCollectorABI)
+  const iface = new ethers.Interface(sphinxPluginTypesABI)
   const deploymentInfoFragment = iface.fragments
     .filter(Fragment.isFunction)
-    .find((fragment) => fragment.name === 'collectDeploymentInfo')
+    .find((fragment) => fragment.name === 'getDeploymentInfo')
 
   if (!deploymentInfoFragment) {
     throw new Error(
-      `'collectDeploymentInfo' not found in ABI. Should never happen.`
+      `'getDeploymentInfo' not found in the SphinxPluginTypes ABI. Should never happen.`
     )
   }
 
-  const abiEncodedDeploymentInfo = ethers.dataSlice(calldata, 4)
-
-  const coder = AbiCoder.defaultAbiCoder()
-
-  const deploymentInfoResult = coder.decode(
-    deploymentInfoFragment.inputs,
+  const deploymentInfoResult = AbiCoder.defaultAbiCoder().decode(
+    deploymentInfoFragment.outputs,
     abiEncodedDeploymentInfo
   )
 
-  const [deploymentInfoBigInt] = recursivelyConvertResult(
-    deploymentInfoFragment.inputs,
+  const { deploymentInfo: deploymentInfoBigInt } = recursivelyConvertResult(
+    deploymentInfoFragment.outputs,
     deploymentInfoResult
   ) as any
 
@@ -77,9 +77,11 @@ export const decodeDeploymentInfo = (
     initialState,
     isLiveNetwork,
     newConfig,
+    labels,
   } = deploymentInfoBigInt
 
   return {
+    labels,
     authAddress,
     managerAddress,
     chainId: chainId.toString(),
@@ -106,6 +108,7 @@ export const decodeDeploymentInfo = (
   }
 }
 
+// TODO: it seems `decodeDeploymentInfo` removes BigInts, but it doesn't look like this does.
 export const decodeDeploymentInfoArray = (
   abiEncodedDeploymentInfoArray: string,
   abi: Array<any>
@@ -171,8 +174,9 @@ export const getCollectedSingleChainDeployment = (
   networkName: string,
   scriptPath: string,
   broadcastFolder: string,
-  sphinxCollectorABI: Array<any>,
-  sphinxFunctionName: string
+  sphinxPluginTypesABI: Array<any>,
+  sphinxFunctionName: string,
+  deploymentInfoPath: string
 ): {
   deploymentInfo: DeploymentInfo
   actionInputs: Array<RawActionInput>
@@ -191,24 +195,22 @@ export const getCollectedSingleChainDeployment = (
     `${sphinxFunctionName}-latest.json`
   )
 
+  const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+  const deploymentInfo = decodeDeploymentInfo(
+    abiEncodedDeploymentInfo,
+    sphinxPluginTypesABI
+  )
   const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
-  return parseFoundryDryRun(dryRun, sphinxCollectorABI)
+  const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun)
+
+  return { deploymentInfo, actionInputs }
 }
 
 export const parseFoundryDryRun = (
-  dryRun: FoundryDryRun,
-  sphinxCollectorABI: Array<any>
-): {
-  deploymentInfo: DeploymentInfo
-  actionInputs: Array<RawActionInput>
-} => {
-  const deploymentInfo = decodeDeploymentInfo(
-    dryRun.transactions[0].transaction.data,
-    sphinxCollectorABI
-  )
-  const transactions = dryRun.transactions.slice(1)
-
-  const notFromSphinxManager = transactions.filter(
+  deploymentInfo: DeploymentInfo,
+  dryRun: FoundryDryRun
+): Array<RawActionInput> => {
+  const notFromSphinxManager = dryRun.transactions.filter(
     (t) =>
       // Convert the 'from' field to a checksum address.
       ethers.getAddress(t.transaction.from) !== deploymentInfo.managerAddress
@@ -228,7 +230,7 @@ export const parseFoundryDryRun = (
     contractName,
     transactionType,
     additionalContracts,
-  } of transactions) {
+  } of dryRun.transactions) {
     if (transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -272,49 +274,11 @@ export const parseFoundryDryRun = (
           additionalContracts,
         }
         actionInputs.push(rawCreate2)
-      } else if (to === deploymentInfo.managerAddress) {
-        const iface = new Interface(sphinxCollectorABI)
-        const deployFragment = iface.fragments
-          .filter(Fragment.isFunction)
-          .find((fragment) => fragment.name === 'deploy')
-
-        if (!deployFragment) {
-          throw new Error(
-            `'deploy' function not found in ABI. Should never happen.`
-          )
-        }
-
-        const abiEncodedAction = ethers.dataSlice(transaction.data, 4)
-
-        const coder = AbiCoder.defaultAbiCoder()
-
-        const actionResult = coder.decode(
-          deployFragment.inputs,
-          abiEncodedAction
-        )
-
-        const action = recursivelyConvertResult(
-          deployFragment.inputs,
-          actionResult
-        ) as any
-
-        const rawInput: RawDeployContractActionInput = {
-          skip: false,
-          actionType: SphinxActionType.DEPLOY_CONTRACT.toString(),
-          fullyQualifiedName: action.fullyQualifiedName,
-          initCode: action.initCode,
-          constructorArgs: action.constructorArgs,
-          userSalt: action.userSalt,
-          referenceName: action.referenceName,
-          additionalContracts,
-        }
-
-        actionInputs.push(rawInput)
       } else if (transactionType === 'CALL') {
         const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
           skip: false,
-          to: ethers.getAddress(transaction.to),
+          to,
           data: transaction.data,
           contractName,
           additionalContracts,
@@ -327,7 +291,7 @@ export const parseFoundryDryRun = (
     }
   }
 
-  return { deploymentInfo, actionInputs }
+  return actionInputs
 }
 
 // TODO: use labeled contracts as inputs to `getConfigArtifacts` in all places.
@@ -336,7 +300,8 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
   configArtifacts: ConfigArtifacts,
-  remoteExecution: boolean
+  remoteExecution: boolean,
+  spinner?: ora.Ora
 ): ParsedConfig => {
   const {
     authAddress,
@@ -345,8 +310,8 @@ export const makeParsedConfig = (
     newConfig,
     isLiveNetwork,
     initialState,
+    labels,
   } = deploymentInfo
-  const labels = newConfig.labels
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const actionInputs: Array<ActionInput> = []
@@ -475,6 +440,7 @@ export const makeParsedConfig = (
   }
 
   if (unlabeled.length > 0) {
+    spinner?.stop()
     // TODO: make this error better. it'd be nice to incorporate whether it was from a
     // create2 deployment, create3 deployment, or a nested contract deployment.
     console.error(
