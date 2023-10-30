@@ -1,8 +1,6 @@
 import { basename, join } from 'path'
 import { readFileSync } from 'fs'
 
-// TODO: undo changes to CREATE3 lib
-
 import {
   ActionInput,
   ConfigArtifacts,
@@ -527,8 +525,7 @@ const getAdditionalContractsToVerify = (
     } else if (
       // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3
       // transactions are 'CALL' types where the 'data' field of the transaction is equal to the
-      // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy,
-      // which is a standard contract defined in any CREATE3.sol library.
+      // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy.
       isRawFunctionCallActionInput(currentInput) &&
       currentInput.data === additionalContract.initCode
     ) {

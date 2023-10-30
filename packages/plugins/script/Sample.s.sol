@@ -27,7 +27,7 @@ contract Sample is Script, Sphinx {
     function run() public override sphinx {
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
 
-        new MyContract1{ salt: bytes32(0) }(
+        new MyContract1{ salt: bytes32(uint(1)) }(
             -1,
             2,
             address(1),

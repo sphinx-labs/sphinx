@@ -1,8 +1,5 @@
 import { yellow, green, blue, bold } from 'chalk'
 
-// TODO: the preview should mention if there are any create or create2 actions that won't be
-// verified on etherscan.
-
 import { DecodedAction, ParsedConfig } from './config/types'
 import {
   arraysEqual,

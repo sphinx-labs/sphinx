@@ -4,6 +4,8 @@ import { readFileSync } from 'fs'
 // TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
 // generate` in the repo to see if there's anywhere else you can remove it.
 
+// TODO: handle a label that has an empty string instead of an artifact path. (we shouldn't error).
+
 import {
   isRawCreate2ActionInput,
   isRawCreateActionInput,
@@ -132,7 +134,7 @@ export const deploy = async (
     forkUrl,
     // Skip the on-chain simulation. This is necessary because it will always fail if a
     // SphinxManager already exists on the target network.
-    // '--skip-simulation',
+    '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)

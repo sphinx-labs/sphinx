@@ -1,7 +1,5 @@
 import assert from 'assert'
 
-// TODO: put a create2 deployment in the sample project used in the getting started guide.
-
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {

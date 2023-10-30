@@ -115,7 +115,8 @@ contract ChainSpecific is SphinxClient, SphinxTestUtils {
             onlyOptimismGoerli.incrementTwice();
             onlyOptimismGoerli.incrementTwice();
         } else if (getSphinxNetwork(block.chainid) == Network.optimism) {
-            // TODO: Remove these
+            // TODO: Remove these when we're confident that the random CI failure
+            // isn't occurring anymore.
             console.log(address(onlyOptimism));
             console.log(address(onlyOptimism).code.length);
             onlyOptimism.decrementTwice();

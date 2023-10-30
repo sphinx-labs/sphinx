@@ -8,6 +8,7 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 ## Key features:
 
+TODO(md): update this bullet point and related language in the docs.
 * **Fully compatible with Forge Scripts**: You integrate Sphinx with minimal changes to your existing Forge scripts.
 
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.

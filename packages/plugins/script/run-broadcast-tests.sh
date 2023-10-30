@@ -33,7 +33,7 @@ cast rpc --rpc-url http://127.0.0.1:42420 anvil_setCode 0x0000000000000000000000
 cast rpc --rpc-url http://127.0.0.1:42010 anvil_mine
 cast rpc --rpc-url http://127.0.0.1:42420 anvil_mine
 echo "Finished setting code"
-echo $onlyOptimismDeployedBytecode # TODO: rm
+echo $onlyOptimismDeployedBytecode # TODO: Remove when we're confident that the random CI failure is gone.
 
 
 # We use ts-node instead of the `sphinx deploy` task because the latter fails in CI for an unknown reason.

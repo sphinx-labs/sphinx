@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import { AbstractChainSpecific_Test } from "./AbstractChainSpecific.t.sol";
 import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 
+// TODO: rm this file
+
 contract BroadcastChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
 
     Network network = Network.optimism;
