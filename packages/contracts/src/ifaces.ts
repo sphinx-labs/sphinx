@@ -1,8 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 
-// TODO: bump manager version
-
 /* eslint-disable @typescript-eslint/no-var-requires */
 export const SphinxRegistryArtifact = require('../artifacts/contracts/SphinxRegistry.sol/SphinxRegistry.json')
 export const SphinxManagerArtifact = require('../artifacts/contracts/SphinxManager.sol/SphinxManager.json')

@@ -449,8 +449,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             SphinxActionType actionType = _actions[i].action.actionType;
             if (
                 actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                actionType == SphinxActionType.CALL ||
-                actionType == SphinxActionType.CREATE
+                actionType == SphinxActionType.CALL
             ) {
                 numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
@@ -501,8 +500,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             BundledSphinxAction memory action = _actions[i];
             if (
                 action.action.actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                action.action.actionType == SphinxActionType.CALL ||
-                action.action.actionType == SphinxActionType.CREATE
+                action.action.actionType == SphinxActionType.CALL
             ) {
                 initialActions[initialActionArrayIndex] = action;
                 initialActionArrayIndex += 1;
