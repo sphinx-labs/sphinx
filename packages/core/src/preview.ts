@@ -6,7 +6,6 @@ import {
   getNetworkNameForChainId,
   getNetworkTag,
   hyperlink,
-  isRawFunctionCallActionInput,
   prettyFunctionCall,
   prettyRawFunctionCall,
 } from './utils'
@@ -69,9 +68,10 @@ export const getPreviewString = (
         const element = executing[i]
 
         if (isDecodedAction(element)) {
-          const { referenceName, functionName, variables } = element
+          const { referenceName, functionName, variables, address } = element
           const actionStr = prettyFunctionCall(
             referenceName,
+            address,
             functionName,
             variables,
             5,
@@ -108,6 +108,7 @@ export const getPreviewString = (
         const functionCallStr = isDecodedAction(element)
           ? prettyFunctionCall(
               element.referenceName,
+              element.address,
               element.functionName,
               element.variables,
               5,
@@ -133,86 +134,68 @@ export const getPreviewString = (
 export const getPreview = (
   parsedConfigs: Array<ParsedConfig>
 ): SphinxPreview => {
-  // TODO: Remove this when you update the preview. I put it here temporarily to prevent a type
-  // error.
-  parsedConfigs
-  return {
-    networkTags: [],
-    executing: [],
-    skipping: [],
-  } as any
+  const networks: {
+    [networkTag: string]: {
+      executing: Array<PreviewElement>
+      skipping: Array<PreviewElement>
+    }
+  } = {}
 
-  // const networks: {
-  //   [networkTag: string]: {
-  //     executing: Array<PreviewElement>
-  //     skipping: Array<PreviewElement>
-  //   }
-  // } = {}
+  for (const parsedConfig of parsedConfigs) {
+    const executing: Array<PreviewElement> = []
+    const skipping: Array<PreviewElement> = []
 
-  // for (const parsedConfig of parsedConfigs) {
-  //   const executing: Array<PreviewElement> = []
-  //   const skipping: Array<PreviewElement> = []
+    const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
 
-  //   const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
+    if (!initialState.isManagerDeployed) {
+      executing.push({
+        referenceName: 'SphinxManager',
+        functionName: 'deploy',
+        variables: {},
+        address: '',
+      })
+    }
 
-  //   if (!initialState.isManagerDeployed) {
-  //     executing.push({
-  //       referenceName: 'SphinxManager',
-  //       functionName: 'constructor',
-  //       variables: {},
-  //     })
-  //   }
+    for (const action of actionInputs) {
+      const { decodedAction, skip } = action
 
-  //   for (const action of actionInputs) {
-  //     if (isRawFunctionCallActionInput(action)) {
-  //       const { data, skip, to } = action
+      if (skip) {
+        skipping.push(decodedAction)
+      } else {
+        executing.push(decodedAction)
+      }
+    }
 
-  //       if (skip) {
-  //         skipping.push({ to, data })
-  //       } else {
-  //         executing.push({ to, data })
-  //       }
-  //     } else {
-  //       const { decodedAction, skip } = action
+    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    const networkTag = getNetworkTag(
+      networkName,
+      isLiveNetwork,
+      BigInt(chainId)
+    )
 
-  //       if (skip) {
-  //         skipping.push(decodedAction)
-  //       } else {
-  //         executing.push(decodedAction)
-  //       }
-  //     }
-  //   }
+    networks[networkTag] = { executing, skipping }
+  }
 
-  //   const networkName = getNetworkNameForChainId(BigInt(chainId))
-  //   const networkTag = getNetworkTag(
-  //     networkName,
-  //     isLiveNetwork,
-  //     BigInt(chainId)
-  //   )
+  // Next, we group networks that have the same executing and skipping arrays.
+  const preview: SphinxPreview = []
+  for (const [networkTag, { executing, skipping }] of Object.entries(
+    networks
+  )) {
+    const existingNetwork = preview.find(
+      (e) =>
+        arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
+    )
 
-  //   networks[networkTag] = { executing, skipping }
-  // }
+    if (existingNetwork) {
+      existingNetwork.networkTags.push(networkTag)
+    } else {
+      preview.push({
+        networkTags: [networkTag],
+        executing,
+        skipping,
+      })
+    }
+  }
 
-  // // Next, we group networks that have the same executing and skipping arrays.
-  // const preview: SphinxPreview = []
-  // for (const [networkTag, { executing, skipping }] of Object.entries(
-  //   networks
-  // )) {
-  //   const existingNetwork = preview.find(
-  //     (e) =>
-  //       arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
-  //   )
-
-  //   if (existingNetwork) {
-  //     existingNetwork.networkTags.push(networkTag)
-  //   } else {
-  //     preview.push({
-  //       networkTags: [networkTag],
-  //       executing,
-  //       skipping,
-  //     })
-  //   }
-  // }
-
-  // return preview
+  return preview
 }
