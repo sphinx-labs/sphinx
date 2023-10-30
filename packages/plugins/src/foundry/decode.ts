@@ -490,8 +490,8 @@ export const makeParsedConfig = (
   }
 
   if (unlabeled.length > 0) {
-    // TODO: make this error better. it'd be nice to incorporate whether or not it was from a
-    // create2 deloyment.
+    // TODO: make this error better. it'd be nice to incorporate whether it was from a
+    // create2 deployment, create3 deployment, or a nested contract deployment.
     console.error(
       `The following addresses are unlabeled:\n` + unlabeled.join(' ')
     )

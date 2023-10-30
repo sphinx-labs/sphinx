@@ -81,7 +81,8 @@
     "chai": "^4.3.7",
     "chai-as-promised": "^7.1.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "hardhat": "^2.17.1"
+    "hardhat": "^2.17.1",
+    "solady": "^0.0.132"
   },
   "peerDependencies": {
     "hardhat": "^2"

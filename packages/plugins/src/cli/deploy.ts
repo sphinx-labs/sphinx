@@ -134,7 +134,7 @@ export const deploy = async (
     forkUrl,
     // Skip the on-chain simulation. This is necessary because it will always fail if a
     // SphinxManager already exists on the target network.
-    '--skip-simulation',
+    // '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
