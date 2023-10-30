@@ -601,6 +601,7 @@ export const makeActionBundleFromConfig = (
 
       const readableSignature = prettyFunctionCall(
         referenceName,
+        decodedAction.address,
         decodedAction.functionName,
         decodedAction.variables
       )
@@ -627,13 +628,39 @@ export const makeActionBundleFromConfig = (
     } else if (isRawCreate2ActionInput(actionInput)) {
       const { data, gas, to } = actionInput
 
-      const readableSignature = 'TODO'
-      // const contractName = fullyQualifiedName.split(':')[1]
-      // const readableSignature = prettyFunctionCall(
-      //   contractName,
-      //   decodedAction.functionName,
-      //   decodedAction.variables
-      // )
+      const { referenceName, functionName, variables } =
+        actionInput.decodedAction
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        to,
+        functionName,
+        variables
+      )
+
+      // Add a CALL action.
+      actions.push({
+        index,
+        data,
+        to,
+      })
+
+      costs.push(gas)
+      humanReadableActions.push({
+        actionIndex: BigInt(index),
+        reason: readableSignature,
+        actionType: SphinxActionType.CALL,
+      })
+    } else if (isRawCreate2ActionInput(actionInput)) {
+      const { data, gas, to } = actionInput
+
+      const { referenceName, functionName, variables, address } =
+        actionInput.decodedAction
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        address,
+        functionName,
+        variables
+      )
 
       // Add a CALL action.
       actions.push({

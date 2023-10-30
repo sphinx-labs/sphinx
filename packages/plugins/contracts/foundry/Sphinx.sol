@@ -722,7 +722,7 @@ abstract contract Sphinx {
     ) internal returns (address) {
         require(
             sphinxModifierEnabled,
-            "Sphinx: You must include the 'sphinx(Network)' modifier in your deploy function."
+            "Sphinx: You must include the 'sphinx' modifier on your run function."
         );
 
         address manager = sphinxManager(sphinxConfig);

@@ -9,9 +9,10 @@ import { MyContract1 } from "../contracts/test/MyContracts.sol";
 // import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
 import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
+import { SphinxClient } from "../client/SphinxClient.sol";
 
 // contract Sample is Script {
-contract Sample is Script, Sphinx {
+contract Sample is Script, SphinxClient {
 
     MyContract1 myContract;
 
@@ -29,36 +30,39 @@ contract Sample is Script, Sphinx {
     function run() public override sphinx {
         // vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
 
-        // new MyContract1{ salt: bytes32(uint(1)) }(
-        //     -1,
-        //     2,
-        //     address(1),
-        //     address(2)
-        // );
+        MyContract1 myContract1 = new MyContract1{ salt: bytes32(uint(1)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        MyContract1.MyStruct memory myStruct = myContract1.myPureFunction();
+        myContract1.set(myStruct.a);
+        myContract1.incrementUint();
+        myContract1.incrementUint();
+        myContract1.incrementUint();
 
-        ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(uint(1)) }(true);
-        sphinxLabel(address(myContract), "");
+        ConflictingQualifiedNames conflictingNameContract = new ConflictingQualifiedNames{ salt: bytes32(0) }(true);
+        conflictingNameContract.set(false);
 
-        // bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        // address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
-        // MyContract1(deployed).set(1);
-
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
+        MyContract1(deployed).set(1);
 
 
 
 
         // TODO: rm
-        // MyContract1 myClient = deployMyContract1(
-        //     -1,
-        //     2,
-        //     address(1),
-        //     address(2)
-        // );
-        // MyContract1.MyStruct memory myStruct = myClient.myPureFunction();
-        // myClient.set(myStruct.a);
-        // myClient.incrementUint();
-        // myClient.incrementUint();
-        // myClient.incrementUint();
+        MyContract1 myClient = deployMyContract1(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        myClient.set(myStruct.a);
+        myClient.incrementUint();
+        myClient.incrementUint();
+        myClient.incrementUint();
 
         // myContract = MyContract1(address(myClient));
         // console.logInt(myContract.intArg());

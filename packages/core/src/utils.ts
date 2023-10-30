@@ -51,7 +51,6 @@ import {
   ActionInput,
   RawCreate2ActionInput,
   RawActionInput,
-  RawCreateActionInput,
   Label,
 } from './config/types'
 import {
@@ -1252,6 +1251,7 @@ export const isSupportedNetworkName = (
  */
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
+  address: string,
   functionName: string,
   variables: ParsedVariable,
   spaceToIndentVariables: number = 2,
@@ -1270,9 +1270,10 @@ export const prettyFunctionCall = (
   const addedSpaceToClosingParenthesis =
     removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
 
+  const addressTag = address !== '' ? `<${address}>` : ''
   const target = ethers.isAddress(referenceNameOrAddress)
     ? `(${referenceNameOrAddress})`
-    : referenceNameOrAddress
+    : `${referenceNameOrAddress}${addressTag}`
 
   return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
 }
@@ -1370,12 +1371,6 @@ export const isRawDeployContractActionInput = (
   actionInput: RawActionInput
 ): actionInput is RawDeployContractActionInput => {
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
-}
-
-export const isRawCreateActionInput = (
-  actionInput: RawActionInput
-): actionInput is RawCreateActionInput => {
-  return actionInput.actionType === SphinxActionType.CREATE.toString()
 }
 
 export const isRawCreate2ActionInput = (
