@@ -1,14 +1,15 @@
 import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 
-// TODO(end): if you stick with Label.fqn, it'd be nice if you could validate that it's a well-formed
-// fqn. i.e. at least check for a semicolon.
+// TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
+// generate` in the repo to see if there's anywhere else you can remove it.
+
+// TODO: handle a label that has an empty string instead of an artifact path. (we shouldn't error).
 
 import { spawnSync } from 'child_process'
 
 import {
   isRawCreate2ActionInput,
-  isRawCreateActionInput,
   isRawDeployContractActionInput,
   remove0x,
   spawnAsync,
@@ -118,10 +119,6 @@ export const deploy = async (
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
-
-  // TODO(end): force recompile when deploying on a live network and when proposing. for the former,
-  // you may need to do an early `isLiveNetwork` check b/c e.g. `--network optimism` may actually
-  // be an anvil node.
 
   // TODO: We need to remove --skip-simulation everywhere that we collect txns. you'll need to
   // account for the note above '--skip-simulation' in the next call.
@@ -296,9 +293,7 @@ export const deploy = async (
 
   const containsDeployment = actionInputs.some((a) => {
     const isDeployment =
-      isRawDeployContractActionInput(a) ||
-      isRawCreate2ActionInput(a) ||
-      isRawCreateActionInput(a)
+      isRawDeployContractActionInput(a) || isRawCreate2ActionInput(a)
     return isDeployment && !a.skip
   })
 
