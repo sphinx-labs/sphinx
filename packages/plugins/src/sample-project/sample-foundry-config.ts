@@ -7,7 +7,7 @@ script = 'script'
 test = 'test'
 ffi = true
 build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
+extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 allow_paths = ["../.."]
 # We highly recommend setting the optimizer to 'false' for development because

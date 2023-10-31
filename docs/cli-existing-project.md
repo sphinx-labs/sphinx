@@ -61,7 +61,7 @@ Update your `foundry.toml` file to include a few settings that are needed to run
 ```
 ffi = true
 build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
+extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 

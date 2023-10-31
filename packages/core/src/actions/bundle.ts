@@ -41,7 +41,6 @@ import {
   CreateAction,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
-import { getEstDeployContractCost } from '../estimate'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 import { getCreate3Salt } from '../config/utils'
 
@@ -477,7 +476,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
  * provided to the SphinxManager contract.
  *
- * @param actions Series of DeployContract and SetStorage actions to bundle.
+ * @param actions Series of actions to bundle.
  * @return Bundled actions.
  */
 export const makeActionBundle = (
@@ -508,7 +507,9 @@ export const makeActionBundle = (
         })
       return {
         action,
-        gas: actionInputs[idx].gas,
+        // Use a 20% buffer to account for potential difference between
+        // the estimated gas and the actual gas used by the action.
+        gas: (actionInputs[idx].gas * 120n) / 100n,
         siblings,
         contracts: actionInputs[idx].contracts,
       }
@@ -545,10 +546,8 @@ export const makeBundlesFromConfig = (
   bundles: SphinxBundles
   humanReadableActions: Array<HumanReadableAction>
 } => {
-  const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
-    parsedConfig,
-    configArtifacts
-  )
+  const { actionBundle, humanReadableActions } =
+    makeActionBundleFromConfig(parsedConfig)
 
   // TODO(upgrades): This is unused for now because we don't support upgrades.
   const targetBundle = {
@@ -572,8 +571,7 @@ export const makeBundlesFromConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  parsedConfig: ParsedConfig
 ): {
   actionBundle: SphinxActionBundle
   humanReadableActions: Array<HumanReadableAction>
@@ -589,8 +587,6 @@ export const makeActionBundleFromConfig = (
   for (let index = 0; index < notSkipping.length; index++) {
     const actionInput = notSkipping[index]
     if (isDeployContractActionInput(actionInput)) {
-      const { artifact } = configArtifacts[actionInput.fullyQualifiedName]
-      const { gasEstimates } = artifact
       const {
         initCode,
         constructorArgs,
@@ -605,8 +601,6 @@ export const makeActionBundleFromConfig = (
         decodedAction.functionName,
         decodedAction.variables
       )
-
-      const deployContractCost = getEstDeployContractCost(gasEstimates)
 
       // Add a DEPLOY_CONTRACT action.
       const create3Salt = getCreate3Salt(referenceName, userSalt)
@@ -625,7 +619,7 @@ export const makeActionBundleFromConfig = (
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       })
     } else if (isRawCreate2ActionInput(actionInput)) {
-      const { data, gas, to } = actionInput
+      const { data, to } = actionInput
 
       const { referenceName, functionName, variables, address } =
         actionInput.decodedAction

@@ -3,7 +3,7 @@ src = 'contracts'
 out = 'out/artifacts'
 build_info_path = 'out/artifacts/build-info'
 build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
+extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 optimizer = false
 ffi = true

@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
     settings: {
       outputSelection: {
         '*': {
-          '*': ['storageLayout', 'evm.gasEstimates'],
+          '*': ['storageLayout'],
         },
       },
       optimizer: {

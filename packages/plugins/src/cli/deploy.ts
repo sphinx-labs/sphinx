@@ -1,6 +1,5 @@
 import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
-
 import { spawnSync } from 'child_process'
 
 import {
@@ -25,6 +24,7 @@ import { ethers } from 'ethers'
 
 import {
   getBundleInfoArray,
+  getSphinxManagerAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
@@ -142,7 +142,23 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+  const managerAddress = await getSphinxManagerAddressFromScript(
+    scriptPath,
+    forkUrl,
+    targetContract,
+    spinner
+  )
+
+  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
+  // SphinxManager as the `msg.sender` to ensure that it's the caller for all transactions. We need
+  // to do this even though we also broadcast from the SphinxManager's address in the script.
+  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
+  // linked library. In this scenario, the caller that deploys the library would be Foundry's
+  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
+  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
+    FOUNDRY_SENDER: managerAddress,
+  })
 
   if (spawnOutput.code !== 0) {
     spinner.stop()

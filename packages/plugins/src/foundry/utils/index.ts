@@ -11,6 +11,7 @@ import {
   execAsync,
   getNetworkNameForChainId,
   isRawDeployContractActionInput,
+  spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
@@ -34,6 +35,7 @@ import {
   getProjectBundleInfo,
   makeAuthBundle,
 } from '@sphinx-labs/core'
+import ora from 'ora'
 
 import { BundleInfo } from '../types'
 
@@ -517,4 +519,43 @@ export const getConfigArtifactForContractName = (
   throw new Error(
     `Could not find artifact for ${targetContractName}. Should never happen.`
   )
+}
+
+export const getSphinxManagerAddressFromScript = async (
+  scriptPath: string,
+  forkUrl?: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<string> => {
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxManager()',
+    '--silent',
+    '--json',
+  ]
+  if (forkUrl) {
+    forgeScriptArgs.push('--rpc-url', forkUrl)
+  }
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const json = JSON.parse(stdout)
+
+  const managerAddress = json.returns[0].value
+
+  return managerAddress
 }

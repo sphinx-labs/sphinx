@@ -86,8 +86,6 @@ export const verifySphinxConfig = async (
     Number((await provider.getNetwork()).chainId)
   )
 
-  // TODO: c/f DeployContract, .CALL, CallAction, fullyqualifiedname, create3
-
   for (const actionInput of compilerConfig.actionInputs) {
     for (const address of Object.keys(actionInput.contracts)) {
       const { fullyQualifiedName, initCodeWithArgs } =

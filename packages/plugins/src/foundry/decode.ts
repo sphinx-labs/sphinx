@@ -1,9 +1,6 @@
 import { basename, join } from 'path'
 import { readFileSync } from 'fs'
 
-// TODO: the tx to deploy the library is coming from foundry's default sender instead of the
-// manager. there's an easy fix: we specify --sender <managerAddress> when we call the forge script
-
 import {
   ActionInput,
   ConfigArtifacts,
@@ -119,7 +116,6 @@ const convertDeploymentInfoBigIntToString = (
   }
 }
 
-// TODO: it seems `decodeDeploymentInfo` removes BigInts, but it doesn't look like this does.
 export const decodeDeploymentInfoArray = (
   abiEncodedDeploymentInfoArray: string,
   sphinxPluginTypesABI: Array<any>
@@ -213,11 +209,14 @@ export const parseFoundryDryRun = (
   dryRun: FoundryDryRun,
   dryRunPath: string
 ): Array<RawActionInput> => {
-  const notFromSphinxManager = dryRun.transactions.filter(
-    (t) =>
-      // Convert the 'from' field to a checksum address.
-      ethers.getAddress(t.transaction.from) !== deploymentInfo.managerAddress
-  )
+  const notFromSphinxManager = dryRun.transactions
+    .map((t) => t.transaction.from)
+    .filter(isString)
+    .filter(
+      (from) =>
+        // Convert the 'from' field to a checksum address.
+        ethers.getAddress(from) !== deploymentInfo.managerAddress
+    )
   if (notFromSphinxManager.length > 0) {
     // The user must broadcast/prank from the SphinxManager so that the msg.sender for function
     // calls is the same as it would be in a production deployment.
@@ -240,7 +239,7 @@ export const parseFoundryDryRun = (
       ? contractName.split(':')[1]
       : contractName
 
-    if (transaction.value !== '0x0') {
+    if (transaction.value !== undefined && transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
       )
@@ -261,6 +260,12 @@ export const parseFoundryDryRun = (
         if (to !== DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS) {
           throw new Error(
             `Detected unsupported CREATE2 factory. Please use the standard factory at: 0x4e59b44847b379578588920cA78FbF26c0B4956C`
+          )
+        }
+
+        if (!transaction.data || !transaction.gas) {
+          throw new Error(
+            `CREATE2 transaction is missing field(s). Should never happen.`
           )
         }
 
@@ -290,6 +295,12 @@ export const parseFoundryDryRun = (
         }
         actionInputs.push(rawCreate2)
       } else if (transactionType === 'CALL') {
+        if (!transaction.data || !transaction.gas) {
+          throw new Error(
+            `CALL transaction is missing field(s). Should never happen.`
+          )
+        }
+
         const variables = callArguments ?? [
           transaction.data.length > 1000
             ? `Very large calldata, see broadcast file: ${dryRunPath} for more information`

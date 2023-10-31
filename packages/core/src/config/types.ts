@@ -299,15 +299,16 @@ interface AbstractFoundryTransaction {
   function: string | null
   arguments: Array<any> | null
   transaction: {
-    type: string
-    from: string
-    gas: string
-    value: string
-    data: string
-    nonce: string
-    accessList: string
+    type: string | null
+    from: string | null
+    gas: string | null
+    data: string | null
+    nonce: string | null
+    accessList: string | null
+    // Undefined if deployed a library.
+    value?: string | null
     // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
-    to?: string
+    to?: string | null
   }
   additionalContracts: Array<{
     transactionType: string

@@ -493,16 +493,6 @@ export const validateBuildInfo = (
         `Did you forget to set the "storageLayout" compiler option in your Hardhat config file?`
       )
     }
-
-    if (
-      !buildInfo.input.settings.outputSelection['*']['*'].includes(
-        'evm.gasEstimates'
-      )
-    ) {
-      throw new Error(
-        `Did you forget to set the "evm.gasEstimates" compiler option in your Hardhat config file?`
-      )
-    }
   }
 }
 
@@ -536,7 +526,6 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
     deployedBytecode,
     metadata,
     methodIdentifiers: artifact.methodIdentifiers,
-    gasEstimates: artifact.gasEstimates,
     storageLayout: artifact.storageLayout,
   }
 }
@@ -725,40 +714,41 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifactsRemote = {}
-  const unskippedContractDeployments = compilerConfig.actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
-  for (const actionInput of unskippedContractDeployments) {
-    const { fullyQualifiedName } = actionInput
-    // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = actionInput.fullyQualifiedName.split(':')
+  const unskipped = compilerConfig.actionInputs.filter((a) => !a.skip)
+  for (const actionInput of unskipped) {
+    for (const address of Object.keys(actionInput.contracts)) {
+      const { fullyQualifiedName } = actionInput.contracts[address]
 
-    const buildInfo = solcArray.find(
-      (e) => e.output.contracts[sourceName][contractName]
-    )
-    if (!buildInfo) {
-      throw new Error(
-        `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+      // Split the contract's fully qualified name into its source name and contract name.
+      const [sourceName, contractName] = fullyQualifiedName.split(':')
+
+      const buildInfo = solcArray.find(
+        (e) => e.output.contracts[sourceName][contractName]
       )
-    }
-    const contractOutput = buildInfo.output.contracts[sourceName][contractName]
+      if (!buildInfo) {
+        throw new Error(
+          `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+        )
+      }
+      const contractOutput =
+        buildInfo.output.contracts[sourceName][contractName]
 
-    const metadata =
-      typeof contractOutput.metadata === 'string'
-        ? JSON.parse(contractOutput.metadata)
-        : contractOutput.metadata
-    artifacts[fullyQualifiedName] = {
-      buildInfo,
-      artifact: {
-        abi: contractOutput.abi,
-        sourceName,
-        contractName,
-        bytecode: add0x(contractOutput.evm.bytecode.object),
-        deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-        gasEstimates: contractOutput.evm.gasEstimates,
-        methodIdentifiers: contractOutput.evm.methodIdentifiers,
-        metadata,
-      },
+      const metadata =
+        typeof contractOutput.metadata === 'string'
+          ? JSON.parse(contractOutput.metadata)
+          : contractOutput.metadata
+      artifacts[fullyQualifiedName] = {
+        buildInfo,
+        artifact: {
+          abi: contractOutput.abi,
+          sourceName,
+          contractName,
+          bytecode: add0x(contractOutput.evm.bytecode.object),
+          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+          methodIdentifiers: contractOutput.evm.methodIdentifiers,
+          metadata,
+        },
+      }
     }
   }
   return artifacts
@@ -1507,7 +1497,7 @@ export const spawnAsync = (
   })
 }
 
-export const isString = (str: string | null): str is string => {
+export const isString = (str: string | null | undefined): str is string => {
   return typeof str === 'string'
 }
 

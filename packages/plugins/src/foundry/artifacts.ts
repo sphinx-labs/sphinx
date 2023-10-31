@@ -58,13 +58,15 @@ export const writeDeploymentArtifacts = async (
         }
 
         const to = ethers.getAddress(t.transaction.to)
+        const data = t.transaction.data
         if (
           to === parsedConfig.managerAddress &&
-          t.transaction.data.startsWith(executeActionsFragment.selector)
+          typeof data === 'string' &&
+          data.startsWith(executeActionsFragment.selector)
         ) {
           const decodedResult = managerInterface.decodeFunctionData(
             executeActionsFragment,
-            t.transaction.data
+            data
           )
           const { _actions } = recursivelyConvertResult(
             executeActionsFragment.inputs,

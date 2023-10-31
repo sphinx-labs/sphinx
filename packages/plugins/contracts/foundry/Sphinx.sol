@@ -813,7 +813,7 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxManager. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxManager() internal view returns (address) {
+    function sphinxManager() public view returns (address) {
         return sphinxUtils.getSphinxManagerAddress(sphinxConfig);
     }
 
