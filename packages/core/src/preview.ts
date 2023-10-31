@@ -129,17 +129,19 @@ export const getPreviewString = (
   }
 
   // Warn about unlabeled addresses
-  previewString += `${yellow.bold(
-    'Warning: Unable to locate contract artifacts for some contracts\n'
-  )}`
-  previewString += yellow(
-    'If you chose deploy anyway these contracts may not be verified on Etherscan, displayed in the Sphinx UI, or included in deployment artifacts. To resolve this, you must label the contracts in your deployment script. This can occur for contracts that are deployed in non-standard way or that do not have unique names in your project. See the Sphinx contract labeling guide for more information:\n'
-  )
-  previewString += yellow.underline('TODO(md)\n\n')
-  previewString += `${yellow.bold('Affected contract addresses: \n')}`
-  previewString += `${Array.from(preview.unlabeledAddresses)
-    .map((e) => yellow(e))
-    .join('\n')}\n\n`
+  if (preview.unlabeledAddresses.size > 0) {
+    previewString += `${yellow.bold(
+      'Warning: Unable to locate contract artifacts for some contracts\n'
+    )}`
+    previewString += yellow(
+      'If you chose deploy anyway these contracts may not be verified on Etherscan, displayed in the Sphinx UI, or included in deployment artifacts. To resolve this, you must label the contracts in your deployment script. This can occur for contracts that are deployed in non-standard way or that do not have unique names in your project. See the Sphinx contract labeling guide for more information:\n'
+    )
+    previewString += yellow.underline('TODO(md)\n\n')
+    previewString += `${yellow.bold('Affected contract addresses: \n')}`
+    previewString += `${Array.from(preview.unlabeledAddresses)
+      .map((e) => yellow(e))
+      .join('\n')}\n\n`
+  }
 
   if (includeConfirmQuestion) {
     previewString += `Confirm? [y/n]`
