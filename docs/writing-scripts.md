@@ -20,7 +20,7 @@ If you're curious how the address of your `SphinxManager` is calculated, see [ou
 If you need to use the address of your `SphinxManager` for any reason, you can retrieve it using a helper function that's inherited from the `Sphinx.sol` contract:
 
 ```sol
-address manager = sphinxManager(sphinxConfig);
+address manager = sphinxManager();
 ```
 
 You may need to use the address of your `SphinxManager` to grant it ownership over your contracts in order to execute permissioned actions. If you're doing this, please make sure to transfer ownership of your contracts away from your `SphinxManager` after calling the permissioned functions. This is because the `SphinxManager` is not audited yet. If your contracts currently control any kind of asset, please do not deploy with Sphinx until we get an audit.

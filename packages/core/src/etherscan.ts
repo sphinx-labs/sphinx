@@ -88,60 +88,62 @@ export const verifySphinxConfig = async (
 
   // TODO: c/f DeployContract, .CALL, CallAction, fullyqualifiedname, create3
 
-  for (const address of Object.keys(compilerConfig.verify)) {
-    const { fullyQualifiedName, initCodeWithArgs } =
-      compilerConfig.verify[address]
+  for (const actionInput of compilerConfig.actionInputs) {
+    for (const address of Object.keys(actionInput.contracts)) {
+      const { fullyQualifiedName, initCodeWithArgs } =
+        actionInput.contracts[address]
 
-    const { artifact } = configArtifacts[fullyQualifiedName]
-    const { abi, contractName, sourceName, metadata, bytecode } = artifact
+      const { artifact } = configArtifacts[fullyQualifiedName]
+      const { abi, contractName, sourceName, metadata, bytecode } = artifact
 
-    // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
-    // determine where the contract's creation code ends and the constructor arguments begin. This
-    // method works even if the `artifact.bytecode` contains externally linked library placeholders
-    // or immutable variable placeholders, which are always the same length as the real values.
-    const encodedConstructorArgs = ethers.dataSlice(
-      initCodeWithArgs,
-      ethers.dataLength(bytecode)
-    )
-
-    const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
-      Object.keys(compilerInput.input.sources).includes(sourceName)
-    )
-
-    if (!sphinxInput) {
-      throw new Error(
-        `Could not find compiler input for ${sourceName}. Should never happen.`
+      // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
+      // determine where the contract's creation code ends and the constructor arguments begin. This
+      // method works even if the `artifact.bytecode` contains externally linked library placeholders
+      // or immutable variable placeholders, which are always the same length as the real values.
+      const encodedConstructorArgs = ethers.dataSlice(
+        initCodeWithArgs,
+        ethers.dataLength(bytecode)
       )
+
+      const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
+        Object.keys(compilerInput.input.sources).includes(sourceName)
+      )
+
+      if (!sphinxInput) {
+        throw new Error(
+          `Could not find compiler input for ${sourceName}. Should never happen.`
+        )
+      }
+      const { input, solcVersion } = sphinxInput
+
+      const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
+
+      await attemptVerification(
+        provider,
+        networkName,
+        etherscanApiEndpoints.urls,
+        address,
+        sourceName,
+        contractName,
+        abi,
+        apiKey,
+        minimumCompilerInput,
+        solcVersion,
+        encodedConstructorArgs
+      )
+
+      // TODO(upgrades):
+      // if (contractConfig.kind !== 'immutable') {
+      //   // Link the proxy with its implementation
+      //   await linkProxyWithImplementation(
+      //     etherscanApiEndpoints.urls,
+      //     apiKey,
+      //     contractConfig.address,
+      //     implementationAddress,
+      //     contractName
+      //   )
+      // }
     }
-    const { input, solcVersion } = sphinxInput
-
-    const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
-
-    await attemptVerification(
-      provider,
-      networkName,
-      etherscanApiEndpoints.urls,
-      address,
-      sourceName,
-      contractName,
-      abi,
-      apiKey,
-      minimumCompilerInput,
-      solcVersion,
-      encodedConstructorArgs
-    )
-
-    // TODO(upgrades):
-    // if (contractConfig.kind !== 'immutable') {
-    //   // Link the proxy with its implementation
-    //   await linkProxyWithImplementation(
-    //     etherscanApiEndpoints.urls,
-    //     apiKey,
-    //     contractConfig.address,
-    //     implementationAddress,
-    //     contractName
-    //   )
-    // }
   }
 }
 

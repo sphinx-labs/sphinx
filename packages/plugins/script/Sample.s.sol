@@ -7,7 +7,7 @@ import { SphinxConfig, Version } from "../client/SphinxClient.sol";
 import { Network, Label } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 // import { CREATE3 } from "sphinx-solmate/utils/CREATE3.sol";
-import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
+// import { ConflictingQualifiedNames } from "../contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 
 // contract Sample is Script {
@@ -29,15 +29,27 @@ contract Sample is Script, Sphinx {
     function run() public override sphinx {
         // vm.startBroadcast(address(0x1234));
 
-        // new MyContract1{ salt: bytes32(uint(1)) }(
-        //     -1,
-        //     2,
-        //     address(1),
-        //     address(2)
-        // );
+        new MyContract1{ salt: bytes32(uint(1)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        new MyContract1{ salt: bytes32(uint(2)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        new MyContract1{ salt: bytes32(uint(3)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
 
-        ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(uint(1)) }(true);
-        sphinxLabel(address(myContract), "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames");
+        // ConflictingQualifiedNames myContract = new ConflictingQualifiedNames{ salt: bytes32(uint(1)) }(true);
+        // sphinxLabel(address(myContract), "contracts/test/typegen/conflictingQualifiedNames/A/ConflictingQualifiedNames.sol:ConflictingQualifiedNames");
 
         bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
         address deployed = CREATE3.deploy(bytes32(0), initCode, 0);

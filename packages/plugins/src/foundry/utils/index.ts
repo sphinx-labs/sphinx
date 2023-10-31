@@ -158,21 +158,41 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   }
 }
 
-export const getUniqueFullyQualifiedNames = (
-  collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-  }>
-): Array<string> => {
-  const fullyQualifiedSet = new Set<string>()
-  for (const { actionInputs } of collected) {
-    for (const actionInput of actionInputs) {
-      if (isRawDeployContractActionInput(actionInput)) {
-        fullyQualifiedSet.add(actionInput.fullyQualifiedName)
+export const getUniqueNames = (
+  actionInputArray: Array<Array<RawActionInput>>,
+  deploymentInfoArray: Array<DeploymentInfo>
+): {
+  uniqueFullyQualifiedNames: Array<string>
+  uniqueContractNames: Array<string>
+} => {
+  const contractNamesSet = new Set<string>()
+  const fullyQualifiedNamesSet = new Set<string>()
+  for (const actionInputs of actionInputArray) {
+    for (const rawInput of actionInputs) {
+      if (isRawDeployContractActionInput(rawInput)) {
+        fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
+      } else if (typeof rawInput.contractName === 'string') {
+        rawInput.contractName.includes(':')
+          ? fullyQualifiedNamesSet.add(rawInput.contractName)
+          : contractNamesSet.add(rawInput.contractName)
       }
     }
   }
-  return Array.from(fullyQualifiedSet)
+
+  for (const deploymentInfo of deploymentInfoArray) {
+    for (const label of deploymentInfo.labels) {
+      // Only add the fully qualified name if it's not an empty string. The user can specify an empty
+      // string when they want a contract to remain unlabeled.
+      if (label.fullyQualifiedName !== '') {
+        fullyQualifiedNamesSet.add(label.fullyQualifiedName)
+      }
+    }
+  }
+
+  return {
+    uniqueFullyQualifiedNames: Array.from(fullyQualifiedNamesSet),
+    uniqueContractNames: Array.from(contractNamesSet),
+  }
 }
 
 /**
@@ -494,5 +514,7 @@ export const getConfigArtifactForContractName = (
       }
     }
   }
-  throw new Error(`TODO: should never happen.`)
+  throw new Error(
+    `Could not find artifact for ${targetContractName}. Should never happen.`
+  )
 }

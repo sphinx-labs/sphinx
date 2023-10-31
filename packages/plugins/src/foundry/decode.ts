@@ -1,11 +1,16 @@
 import { basename, join } from 'path'
 import { readFileSync } from 'fs'
 
+// TODO: the tx to deploy the library is coming from foundry's default sender instead of the
+// manager. there's an easy fix: we specify --sender <managerAddress> when we call the forge script
+
 import {
   ActionInput,
   ConfigArtifacts,
   DecodedAction,
+  DeployContractActionInput,
   DeploymentInfo,
+  FunctionCallActionInput,
   Label,
   ParsedConfig,
   ParsedVariable,
@@ -29,6 +34,7 @@ import {
   ethers,
 } from 'ethers'
 import {
+  ParsedContractDeployments,
   SUPPORTED_NETWORKS,
   SphinxActionType,
   getCreate3Address,
@@ -43,7 +49,6 @@ import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
 import { getConfigArtifactForContractName } from './utils'
-import ora from 'ora'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
@@ -70,6 +75,12 @@ export const decodeDeploymentInfo = (
     deploymentInfoResult
   ) as any
 
+  return convertDeploymentInfoBigIntToString(deploymentInfoBigInt)
+}
+
+const convertDeploymentInfoBigIntToString = (
+  deploymentInfoBigInt: any
+): DeploymentInfo => {
   const {
     authAddress,
     managerAddress,
@@ -111,9 +122,9 @@ export const decodeDeploymentInfo = (
 // TODO: it seems `decodeDeploymentInfo` removes BigInts, but it doesn't look like this does.
 export const decodeDeploymentInfoArray = (
   abiEncodedDeploymentInfoArray: string,
-  abi: Array<any>
+  sphinxPluginTypesABI: Array<any>
 ): Array<DeploymentInfo> => {
-  const iface = new Interface(abi)
+  const iface = new Interface(sphinxPluginTypesABI)
   const deploymentInfoFragment = iface.fragments
     .filter(Fragment.isFunction)
     .find((fragment) => fragment.name === 'getDeploymentInfoArray')
@@ -129,12 +140,15 @@ export const decodeDeploymentInfoArray = (
     abiEncodedDeploymentInfoArray
   )
 
-  const { deploymentInfoArray } = recursivelyConvertResult(
-    deploymentInfoFragment.outputs,
-    deploymentInfoResultArray
-  ) as any
+  const { deploymentInfoArray: deploymentInfoArrayBigInt } =
+    recursivelyConvertResult(
+      deploymentInfoFragment.outputs,
+      deploymentInfoResultArray
+    ) as any
 
-  return deploymentInfoArray as Array<DeploymentInfo>
+  return deploymentInfoArrayBigInt.map((e) =>
+    convertDeploymentInfoBigIntToString(e)
+  )
 }
 
 export const decodeProposalOutput = (
@@ -170,19 +184,12 @@ export const decodeProposalOutput = (
   return output as ProposalOutput
 }
 
-export const getCollectedSingleChainDeployment = (
-  networkName: string,
+export const readActionInputsOnSingleChain = (
+  deploymentInfo: DeploymentInfo,
   scriptPath: string,
   broadcastFolder: string,
-  sphinxPluginTypesABI: Array<any>,
-  sphinxFunctionName: string,
-  deploymentInfoPath: string
-): {
-  deploymentInfo: DeploymentInfo
-  actionInputs: Array<RawActionInput>
-} => {
-  const chainId = SUPPORTED_NETWORKS[networkName]
-
+  sphinxFunctionName: string
+): Array<RawActionInput> => {
   // The location for a single chain dry run is in the format:
   // <broadcastFolder>/<scriptFileName>/<chainId>/dry-run/<functionName>-latest.json
   // If the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol), Foundry still only
@@ -190,20 +197,15 @@ export const getCollectedSingleChainDeployment = (
   const dryRunPath = join(
     broadcastFolder,
     basename(scriptPath),
-    chainId.toString(),
+    deploymentInfo.chainId,
     'dry-run',
     `${sphinxFunctionName}-latest.json`
   )
 
-  const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
-  const deploymentInfo = decodeDeploymentInfo(
-    abiEncodedDeploymentInfo,
-    sphinxPluginTypesABI
-  )
   const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
   const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun)
 
-  return { deploymentInfo, actionInputs }
+  return actionInputs
 }
 
 export const parseFoundryDryRun = (
@@ -292,6 +294,7 @@ export const parseFoundryDryRun = (
           skip: false,
           to,
           data: transaction.data,
+          gas: BigInt(transaction.gas),
           contractName,
           additionalContracts,
           decodedAction: {
@@ -313,8 +316,6 @@ export const parseFoundryDryRun = (
   return actionInputs
 }
 
-// TODO: use labeled contracts as inputs to `getConfigArtifacts` in all places.
-
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
@@ -334,15 +335,10 @@ export const makeParsedConfig = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const actionInputs: Array<ActionInput> = []
-  let verify: ParsedConfig['verify'] = {}
   const unlabeled: Array<string> = []
   for (const input of rawInputs) {
-    const { additionalContractsToVerify, unlabeledAdditionalContracts } =
-      getAdditionalContractsToVerify(input, rawInputs, labels, configArtifacts)
-    verify = {
-      ...verify,
-      ...additionalContractsToVerify,
-    }
+    const { parsedContracts, unlabeledAdditionalContracts } =
+      parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
     unlabeled.push(...unlabeledAdditionalContracts)
 
     if (isRawDeployContractActionInput(input)) {
@@ -375,14 +371,22 @@ export const makeParsedConfig = (
         variables: decodedConstructorArgs,
         address: '',
       }
-      verify[create3Address] = {
+
+      parsedContracts[create3Address] = {
         fullyQualifiedName: input.fullyQualifiedName,
         initCodeWithArgs: ethers.concat([
           input.initCode,
           input.constructorArgs,
         ]),
       }
-      actionInputs.push({ create3Address, decodedAction, ...input })
+
+      const deployContractInput: DeployContractActionInput = {
+        contracts: parsedContracts,
+        create3Address,
+        decodedAction,
+        ...input,
+      }
+      actionInputs.push(deployContractInput)
     } else if (isRawCreate2ActionInput(input)) {
       // Get the creation code of the CREATE2 deployment by removing the salt,
       // which is the first 32 bytes of the data.
@@ -399,9 +403,9 @@ export const makeParsedConfig = (
 
           const fullyQualifiedName = input.contractName
 
-          verify[input.create2Address] = {
+          parsedContracts[input.create2Address] = {
             fullyQualifiedName,
-            initCodeWithArgs: input.data,
+            initCodeWithArgs,
           }
         } else {
           // It's a contract name.
@@ -411,9 +415,9 @@ export const makeParsedConfig = (
             configArtifacts
           )
 
-          verify[input.create2Address] = {
+          parsedContracts[input.create2Address] = {
             fullyQualifiedName,
-            initCodeWithArgs: input.data,
+            initCodeWithArgs,
           }
         }
       } else {
@@ -421,14 +425,12 @@ export const makeParsedConfig = (
 
         const label = labels.find((l) => l.addr === input.create2Address)
         if (isLabel(label)) {
-          const { sourceName, contractName } =
-            configArtifacts[label.fullyQualifiedName].artifact
-          const fullyQualifiedName = `${sourceName}:${contractName}`
-          verify[input.create2Address] = {
-            fullyQualifiedName,
+          parsedContracts[input.create2Address] = {
+            fullyQualifiedName: label.fullyQualifiedName,
             initCodeWithArgs,
           }
 
+          const contractName = label.fullyQualifiedName.split(':')[1]
           input.decodedAction = {
             referenceName: contractName,
             functionName: 'deploy',
@@ -452,7 +454,7 @@ export const makeParsedConfig = (
               : getConfigArtifactForContractName(contractName, configArtifacts)
                   .fullyQualifiedName
 
-            verify[input.create2Address] = {
+            parsedContracts[input.create2Address] = {
               fullyQualifiedName,
               initCodeWithArgs,
             }
@@ -474,9 +476,17 @@ export const makeParsedConfig = (
         }
       }
 
-      actionInputs.push(input)
+      actionInputs.push({
+        contracts: parsedContracts,
+        ...input,
+      })
     } else if (isRawFunctionCallActionInput(input)) {
-      actionInputs.push(input)
+      const callInput: FunctionCallActionInput = {
+        contracts: parsedContracts,
+        ...input,
+      }
+
+      actionInputs.push(callInput)
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
@@ -493,7 +503,6 @@ export const makeParsedConfig = (
   }
 
   return {
-    verify,
     authAddress,
     managerAddress,
     chainId,
@@ -505,16 +514,16 @@ export const makeParsedConfig = (
   }
 }
 
-const getAdditionalContractsToVerify = (
+const parseAdditionalContracts = (
   currentInput: RawActionInput,
   allInputs: Array<RawActionInput>,
   labels: Array<Label>,
   configArtifacts: ConfigArtifacts
 ): {
-  additionalContractsToVerify: ParsedConfig['verify']
+  parsedContracts: ParsedContractDeployments
   unlabeledAdditionalContracts: Array<string>
 } => {
-  const verify: ParsedConfig['verify'] = {}
+  const parsed: ParsedContractDeployments = {}
   const unlabeled: Array<string> = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
@@ -522,10 +531,8 @@ const getAdditionalContractsToVerify = (
     const label = labels.find((l) => l.addr === address)
     if (isLabel(label)) {
       if (label.fullyQualifiedName !== '') {
-        const { sourceName, contractName } =
-          configArtifacts[label.fullyQualifiedName].artifact
-        verify[address] = {
-          fullyQualifiedName: `${sourceName}:${contractName}`,
+        parsed[address] = {
+          fullyQualifiedName: label.fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
         }
       }
@@ -549,7 +556,7 @@ const getAdditionalContractsToVerify = (
           : getConfigArtifactForContractName(contractName, configArtifacts)
               .fullyQualifiedName
 
-        verify[address] = {
+        parsed[address] = {
           fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
         }
@@ -562,7 +569,7 @@ const getAdditionalContractsToVerify = (
   }
 
   return {
-    additionalContractsToVerify: verify,
+    parsedContracts: parsed,
     unlabeledAdditionalContracts: unlabeled,
   }
 }

@@ -333,6 +333,8 @@ const testProposalSimulation = async (
   foundryToml: FoundryToml,
   envVars?: NodeJS.ProcessEnv
 ) => {
+  // TODO(test): Change this to `buildParsedConfigArray`. Merged the two functions
+  // because there was redundancy. (We were collecting the actions twice)
   const collected = await collectProposal(
     isTestnet,
     proposerAddress,

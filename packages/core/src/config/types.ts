@@ -16,7 +16,7 @@ import {
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
-import { ContractDeployments } from '../actions'
+import { ParsedContractDeployments } from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -78,22 +78,16 @@ export type ParsedVariable =
     }
 
 export type RawActionInput =
-  | RawDeployContractActionInput // TODO(docs): anywhere you mention "DeployContractAction", say CREATE3
+  | RawDeployContractActionInput
   | RawFunctionCallActionInput
   | RawCreate2ActionInput
 
 export type ActionInput =
   | DeployContractActionInput
-  | RawFunctionCallActionInput
-  | RawCreate2ActionInput
+  | FunctionCallActionInput
+  | Create2ActionInput
 
 export type ParsedConfig = {
-  verify: {
-    [address: string]: {
-      fullyQualifiedName: string
-      initCodeWithArgs: string
-    }
-  }
   authAddress: string
   managerAddress: string
   chainId: string
@@ -168,8 +162,8 @@ export interface RawDeployContractActionInput {
 export interface DeployContractActionInput
   extends RawDeployContractActionInput {
   decodedAction: DecodedAction
+  contracts: ParsedContractDeployments
   create3Address: string
-  contracts: ContractDeployments
 }
 
 export interface RawCreate2ActionInput {
@@ -184,6 +178,10 @@ export interface RawCreate2ActionInput {
   decodedAction: DecodedAction
 }
 
+export interface Create2ActionInput extends RawCreate2ActionInput {
+  contracts: ParsedContractDeployments
+}
+
 export type DecodedAction = {
   referenceName: string
   functionName: string
@@ -191,7 +189,7 @@ export type DecodedAction = {
   address: string
 }
 
-export type RawFunctionCallActionInput = {
+export interface RawFunctionCallActionInput {
   actionType: string
   skip: boolean
   to: string
@@ -204,6 +202,10 @@ export type RawFunctionCallActionInput = {
   }>
   gas: bigint
   decodedAction: DecodedAction
+}
+
+export interface FunctionCallActionInput extends RawFunctionCallActionInput {
+  contracts: ParsedContractDeployments
 }
 
 /**
