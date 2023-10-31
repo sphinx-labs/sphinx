@@ -35,7 +35,7 @@ contract Simple is Script, Sphinx {
         // Deploy with Create3
         bytes memory deploymentCasesInitCode = abi.encodePacked(type(DeploymentCases).creationCode, abi.encode(-1));
         DeploymentCases deploymentCases = DeploymentCases(CREATE3.deploy(bytes32(0), deploymentCasesInitCode, 0));
-        // deploymentCases.set(1);
+        deploymentCases.set(1);
 
         // Deploys contract that deploys another contract in its constructor using create2
         // The contract deployed in the constructor requires a label
