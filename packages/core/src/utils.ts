@@ -52,6 +52,7 @@ import {
   RawCreate2ActionInput,
   RawActionInput,
   Label,
+  ParsedConfig,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1372,6 +1373,25 @@ export const isRawCreate2ActionInput = (
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
+}
+
+export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
+  const deployments = {}
+  let idx = 0
+  for (const input of parsedConfig.actionInputs) {
+    for (const address of Object.keys(input.contracts)) {
+      const fullyQualifiedName = input.contracts[address].fullyQualifiedName
+      const contractName = fullyQualifiedName.split(':')[1]
+      deployments[idx + 1] = {
+        Contract: contractName,
+        Address: address,
+      }
+      idx += 1
+    }
+  }
+  if (Object.keys(deployments).length > 0) {
+    console.table(deployments)
+  }
 }
 
 /**

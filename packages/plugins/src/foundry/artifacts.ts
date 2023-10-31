@@ -52,6 +52,13 @@ export const writeDeploymentArtifacts = async (
       const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
       const { bytecode, abi, metadata, contractName } = artifact
 
+      const deployedBytecode = await provider.getCode(address)
+      if (deployedBytecode === '0x') {
+        throw new Error(
+          `No bytecode found for ${contractName} at ${address}. Should never happen.`
+        )
+      }
+
       const tx = broadcast.transactions.find((t) => {
         if (!t.transaction.to) {
           return false
@@ -135,7 +142,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: constructorArgValues,
         bytecode,
-        deployedBytecode: await provider.getCode(address),
+        deployedBytecode,
         devdoc,
         userdoc,
         storageLayout,

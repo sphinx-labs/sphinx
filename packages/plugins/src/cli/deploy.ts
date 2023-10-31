@@ -3,6 +3,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
+  displayDeploymentTable,
   isLiveNetwork,
   remove0x,
   spawnAsync,
@@ -335,6 +336,10 @@ export const deploy = async (
     )
   } else {
     spinner.succeed(`No contract deployment artifacts to write.`)
+  }
+
+  if (!silent) {
+    displayDeploymentTable(parsedConfig)
   }
 
   return { parsedConfig, preview }
