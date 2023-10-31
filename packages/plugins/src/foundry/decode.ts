@@ -1,5 +1,5 @@
 import { basename, join } from 'path'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 
 import {
   ActionInput,
@@ -32,7 +32,6 @@ import {
 } from 'ethers'
 import {
   ParsedContractDeployments,
-  SUPPORTED_NETWORKS,
   SphinxActionType,
   getCreate3Address,
   getCreate3Salt,
@@ -42,7 +41,6 @@ import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from '@sphinx-labs/contracts'
-import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
 import { getConfigArtifactForContractName } from './utils'
@@ -198,6 +196,10 @@ export const readActionInputsOnSingleChain = (
     `${sphinxFunctionName}-latest.json`
   )
 
+  if (!existsSync(dryRunPath)) {
+    return []
+  }
+
   const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
   const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun, dryRunPath)
 
@@ -338,8 +340,7 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
   configArtifacts: ConfigArtifacts,
-  remoteExecution: boolean,
-  spinner?: ora.Ora
+  remoteExecution: boolean
 ): ParsedConfig => {
   const {
     authAddress,
@@ -353,11 +354,11 @@ export const makeParsedConfig = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const actionInputs: Array<ActionInput> = []
-  const unlabeled: Array<string> = []
+  const unlabeledAddresses: Array<string> = []
   for (const input of rawInputs) {
     const { parsedContracts, unlabeledAdditionalContracts } =
       parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
-    unlabeled.push(...unlabeledAdditionalContracts)
+    unlabeledAddresses.push(...unlabeledAdditionalContracts)
 
     if (isRawDeployContractActionInput(input)) {
       const create3Salt = getCreate3Salt(input.referenceName, input.userSalt)
@@ -489,7 +490,7 @@ export const makeParsedConfig = (
               address: '',
             }
           } else {
-            unlabeled.push(input.create2Address)
+            unlabeledAddresses.push(input.create2Address)
           }
         }
       }
@@ -510,16 +511,6 @@ export const makeParsedConfig = (
     }
   }
 
-  if (unlabeled.length > 0) {
-    spinner?.stop()
-    // TODO: make this error better. it'd be nice to incorporate whether it was from a
-    // create2 deployment, create3 deployment, or a nested contract deployment.
-    console.error(
-      `The following addresses are unlabeled:\n` + unlabeled.join(' ')
-    )
-    process.exit(1)
-  }
-
   return {
     authAddress,
     managerAddress,
@@ -529,6 +520,7 @@ export const makeParsedConfig = (
     initialState,
     actionInputs,
     remoteExecution,
+    unlabeledAddresses,
   }
 }
 

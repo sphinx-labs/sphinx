@@ -2,12 +2,7 @@ import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
-import {
-  isRawCreate2ActionInput,
-  isRawDeployContractActionInput,
-  remove0x,
-  spawnAsync,
-} from '@sphinx-labs/core/dist/utils'
+import { remove0x, spawnAsync } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
@@ -34,7 +29,7 @@ import {
   readActionInputsOnSingleChain,
   makeParsedConfig,
 } from '../foundry/decode'
-import { FoundryBroadcast, FoundryBroadcastReceipt } from '../foundry/types'
+import { FoundryBroadcast } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
@@ -197,8 +192,7 @@ export const deploy = async (
     configArtifacts,
     // On Anvil nodes, we must set `remoteExecution` to `true` because we use the remote execution
     // flow in this case (e.g. we call `manager.claimDeployment` in Solidity).
-    !deploymentInfo.isLiveNetwork,
-    spinner
+    !deploymentInfo.isLiveNetwork
   )
 
   spinner.succeed(`Collected transactions.`)
