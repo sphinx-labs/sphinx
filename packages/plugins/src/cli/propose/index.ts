@@ -231,7 +231,7 @@ export const propose = async (
     }
   }
 
-  // First, we compile to make sure the user's contracts are up to date.
+  // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
   const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',

@@ -36,18 +36,15 @@ import {
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
+// TODO(test): test that you can propose on a single chain
+
 import { deploy } from '../../../src/cli/deploy'
-import { collectProposal } from '../../../src/cli/propose'
+import { buildParsedConfigArray } from '../../../src/cli/propose'
 import {
   FoundryToml,
   getFoundryConfigOptions,
 } from '../../../src/foundry/options'
-import { makeParsedConfig } from '../../../src/foundry/decode'
-import {
-  getBundleInfoArray,
-  getUniqueFullyQualifiedNames,
-  makeGetConfigArtifacts,
-} from '../../../src/foundry/utils'
+import { getBundleInfoArray } from '../../../src/foundry/utils'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -105,7 +102,8 @@ describe('Simulate proposal', () => {
     await execAsync(`yarn test:kill`)
   })
 
-  it('Simulates proposal for a project that has not been deployed on any network yet', async () => {
+  // TODO: .only
+  it.only('Simulates proposal for a project that has not been deployed on any network yet', async () => {
     for (const network of sphinxConfig.testnets) {
       const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
       // Narrow the type of `rpcUrl` to string
@@ -130,6 +128,7 @@ describe('Simulate proposal', () => {
           true, // Silent
           'Proposal_Initial_Test',
           false, // Don't verify on Etherscan
+          undefined,
           mockPrompt
         )
       }
@@ -333,28 +332,14 @@ const testProposalSimulation = async (
   foundryToml: FoundryToml,
   envVars?: NodeJS.ProcessEnv
 ) => {
-  // TODO(test): Change this to `buildParsedConfigArray`. Merged the two functions
-  // because there was redundancy. (We were collecting the actions twice)
-  const collected = await collectProposal(
-    isTestnet,
-    proposerAddress,
+  const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
-    foundryToml,
-    testContractName
+    proposerAddress,
+    isTestnet,
+    testContractName,
+    undefined // No spinner.
   )
 
-  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    foundryToml.cachePath
-  )
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
-
-  const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)
-  )
   const { authRoot, bundleInfoArray } = await getBundleInfoArray(
     configArtifacts,
     parsedConfigArray

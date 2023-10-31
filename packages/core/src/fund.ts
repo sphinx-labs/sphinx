@@ -1,14 +1,5 @@
-import { isContractDeployed } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
-import {
-  SphinxBundles,
-  DeployContractAction,
-  fromRawSphinxAction,
-  isDeployContractAction,
-  isSetStorageAction,
-  isCallAction,
-} from './actions'
-import { getCreate3Address } from './config'
+import { SphinxBundles } from './actions'
 
 export const estimateExecutionGas = async (
   managerAddress: string,

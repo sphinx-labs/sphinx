@@ -540,8 +540,7 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 }
 
 export const makeBundlesFromConfig = (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  parsedConfig: ParsedConfig
 ): {
   bundles: SphinxBundles
   humanReadableActions: Array<HumanReadableAction>

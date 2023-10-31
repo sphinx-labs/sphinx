@@ -17,18 +17,18 @@ import {
     ISphinxAccessControlEnumerable
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
 
-import { SphinxClient, SphinxConfig, Version } from "../../client/SphinxClient.sol";
-import { Network, DeployOptions, NetworkInfo, OptionalAddress, BundleInfo } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, DeployOptions, NetworkInfo, OptionalAddress, BundleInfo, SphinxConfig, Version } from "../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
+import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
 
 /**
  * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
  *         `run-proposal-tests.sh`.
  */
-abstract contract AbstractProposal_Test is SphinxClient, Test {
+abstract contract AbstractProposal_Test is Sphinx, Test {
 
     address finalOwner = address(0x200);
 
@@ -108,7 +108,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
     }
 
     function initialDeployment() internal {
-        deployMyOwnable(address(manager), 500);
+        new MyOwnable{ salt: bytes32(0) }(address(manager), 500);
         ownable.set(8);
         ownable.increment();
         ownable.increment();
@@ -174,7 +174,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
     }
 
     function run() public override sphinx {
-        deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
+        new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));
     }
 
     function test_add_contract_between_proposals() external {
@@ -228,7 +228,7 @@ contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxCo
     }
 
     function run() public override virtual sphinx {
-        deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
+        new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));
     }
 
     function test_version_upgrade_proposal() external {
@@ -300,7 +300,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
 
 
     function run() public override virtual sphinx {
-        deployMyContract1(5, 6, address(7), address(8), DeployOptions({salt: bytes32(0), referenceName: "MyNewContract"}));
+        new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));
     }
 
     function test_cancel_existing_deployment_proposal() external {

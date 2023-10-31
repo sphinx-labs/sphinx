@@ -249,9 +249,10 @@ export const parseFoundryDryRun = (
     }
 
     if (transactionType === 'CREATE') {
-      throw new Error(
+      console.error(
         `Sphinx does not support the 'CREATE' opcode, i.e. 'new MyContract(...)'. Please use CREATE2 or CREATE3 instead.`
       )
+      process.exit(1)
     } else {
       if (!transaction.to) {
         throw new Error(
@@ -262,9 +263,10 @@ export const parseFoundryDryRun = (
       const to = ethers.getAddress(transaction.to)
       if (transactionType === 'CREATE2') {
         if (to !== DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS) {
-          throw new Error(
+          console.error(
             `Detected unsupported CREATE2 factory. Please use the standard factory at: 0x4e59b44847b379578588920cA78FbF26c0B4956C`
           )
+          process.exit(1)
         }
 
         if (!transaction.data || !transaction.gas) {

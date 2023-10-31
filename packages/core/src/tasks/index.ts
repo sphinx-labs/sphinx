@@ -16,7 +16,6 @@ import {
   makeBundlesFromConfig,
   HumanReadableAction,
 } from '../actions'
-import { isDeployContractActionInput } from '../utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -130,10 +129,7 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const { bundles, humanReadableActions } = makeBundlesFromConfig(
-    parsedConfig,
-    configArtifacts
-  )
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(parsedConfig)
 
   return { configUri, compilerConfig, bundles, humanReadableActions }
 }

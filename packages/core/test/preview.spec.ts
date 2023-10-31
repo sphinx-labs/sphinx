@@ -4,13 +4,17 @@ import { ethers } from 'ethers'
 import { ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
-import { ParsedVariable } from '../dist'
+import { FunctionCallActionInput, ParsedVariable } from '../dist'
 import { isRawFunctionCallActionInput } from '../src'
 
 const firstContractConstructorArgs: ParsedVariable = {
   myVar: 'myVal',
   myOtherVar: 'myOtherVal',
 }
+const firstContractName = 'MyFirstReferenceName'
+const firstContractAddress = '0x' + 'aa'.repeat(20)
+const firstToAddress = '0x' + 'bb'.repeat(20)
+const firstData = '0x' + 'cc'.repeat(10)
 const secondContractConstructorArgs: ParsedVariable = {
   myVar2: 'myVal2',
   myOtherVar2: 'myOtherVal2',
@@ -36,26 +40,29 @@ const expectedRawCallTwo = {
   data: '0x',
 }
 
+const firstActionInput: FunctionCallActionInput = {
+  actionType: SphinxActionType.CALL.toString(),
+  decodedAction: {
+    referenceName: firstContractName,
+    functionName: 'constructor',
+    variables: firstContractConstructorArgs,
+    address: firstContractAddress,
+  },
+  skip: false,
+  // These fields are unused:
+  to: '',
+  data: '',
+  contractName: '',
+  contracts: {},
+  gas: 0n,
+  additionalContracts: [],
+}
+
 const originalParsedConfig: ParsedConfig = {
   chainId: '10',
   isLiveNetwork: true,
   actionInputs: [
-    {
-      actionType: SphinxActionType.DEPLOY_CONTRACT.toString(),
-      decodedAction: {
-        referenceName: 'MyFirstReferenceName',
-        functionName: 'constructor',
-        variables: firstContractConstructorArgs,
-      },
-      skip: false,
-      // These fields are unused:
-      fullyQualifiedName: 'contracts/MyFile.sol:MyContract',
-      initCode: '',
-      constructorArgs: abiEncodedConstructorArgs,
-      userSalt: ethers.ZeroHash,
-      referenceName: 'MyFirstReferenceName',
-      create3Address: ethers.ZeroAddress,
-    },
+    firstActionInput,
     {
       actionType: SphinxActionType.CALL.toString(),
       decodedAction: {
@@ -123,6 +130,7 @@ const originalParsedConfig: ParsedConfig = {
   },
 }
 
+// TODO: .only
 describe('Preview', () => {
   describe('getPreview', () => {
     it('returns preview for single network that is executing everything, including SphinxManager', () => {

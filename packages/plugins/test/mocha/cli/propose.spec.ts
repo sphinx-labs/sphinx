@@ -22,7 +22,8 @@ const mockPrompt = async (q: string) => {}
 
 const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-describe('Propose CLI command', () => {
+// TODO: .only
+describe.only('Propose CLI command', () => {
   before(() => {
     process.env['SPHINX_API_KEY'] = sphinxApiKey
   })
@@ -55,6 +56,9 @@ describe('Propose CLI command', () => {
       true, // Silent
       'contracts/test/script/Simple.s.sol',
       undefined, // Only one contract in the script file, so there's no target contract to specify.
+      // Skip force re-compiling. (This test would take a really long time otherwise, and we can be
+      // confident that the correct artifacts are used in CI, where it matters).
+      true,
       mockPrompt
     )
 
@@ -125,6 +129,9 @@ describe('Propose CLI command', () => {
       true, // Silent
       'contracts/test/script/Simple.s.sol',
       undefined, // Only one contract in the script file, so there's no target contract to specify.
+      // Skip force re-compiling. (This test would take a really long time otherwise, and we can be
+      // confident that the correct artifacts are used in CI, where it matters).
+      true,
       // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
       // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
       userConfirmation

@@ -49,16 +49,6 @@ export const deploy = async (
   parsedConfig: ParsedConfig
   preview?: ReturnType<typeof getPreview>
 }> => {
-  // First, we compile to make sure the user's contracts are up to date.
-  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatus !== 0) {
-    process.exit(1)
-  }
-
   const {
     artifactFolder,
     buildInfoFolder,
@@ -68,6 +58,16 @@ export const deploy = async (
     etherscan,
     broadcastFolder,
   } = await getFoundryConfigOptions()
+
+  const forkUrl = rpcEndpoints[network]
+  if (!forkUrl) {
+    console.error(
+      red(
+        `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+      )
+    )
+    process.exit(1)
+  }
 
   const chainId = SUPPORTED_NETWORKS[network]
   if (chainId === undefined) {
@@ -93,30 +93,6 @@ export const deploy = async (
     }
   }
 
-  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-    )).abi
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    artifactFolder,
-    buildInfoFolder,
-    cachePath
-  )
-
-  const forkUrl = rpcEndpoints[network]
-  if (!forkUrl) {
-    console.error(
-      red(
-        `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
-      )
-    )
-    process.exit(1)
-  }
-
   const provider = new SphinxJsonRpcProvider(forkUrl)
   // Force re-compile the contracts if this step hasn't been disabled and if we're on a live
   // network. This ensures that we're using the correct artifacts for the deployment. This is mostly
@@ -132,6 +108,30 @@ export const deploy = async (
       process.exit(1)
     }
   }
+
+  // Compile to make sure the user's contracts are up to date.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatus !== 0) {
+    process.exit(1)
+  }
+
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxPluginTypesABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
+
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    artifactFolder,
+    buildInfoFolder,
+    cachePath
+  )
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
