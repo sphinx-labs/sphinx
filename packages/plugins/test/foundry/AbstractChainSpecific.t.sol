@@ -67,7 +67,7 @@ abstract contract AbstractChainSpecific_Test is Test, ChainSpecific {
             "/",
             // We have to do this weird slice here b/c the `toString` function returns a packed 32 byte string when the
             // input type is bytes4 which isn't what we need. We need the hex code for the selector with the `0x` removed.
-            string(this.sliceBytes(bytes("TODO: undo"), 2, 10)),
+            string(this.sliceBytes(bytes(vm.toString(Sphinx.sphinxDeployTask.selector)), 2, 10)),
             "-latest.json"
         );
         AnvilBroadcastedTxn[] memory broadcastedTxns = readAnvilBroadcastedTxns(broadcastFilePath);

@@ -13,7 +13,6 @@ import {
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
-  hyperlink,
   relayIPFSCommit,
   relayProposal,
   signAuthRootMetaTxn,
@@ -190,6 +189,10 @@ export const buildParsedConfigArray = async (
  * @param dryRun If true, the proposal will not be relayed to the back-end.
  * @param targetContract The name of the contract within the script file. Necessary when there are
  * multiple contracts in the specified script.
+ * @param skipForceRecompile Force re-compile the contracts. By default, we force re-compile. This
+ * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
+ * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
+ * the contract on Etherscan and providing a deployment artifact for the contract.
  */
 export const propose = async (
   confirm: boolean,
@@ -198,6 +201,7 @@ export const propose = async (
   silent: boolean,
   scriptPath: string,
   targetContract?: string,
+  skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
@@ -215,6 +219,17 @@ export const propose = async (
     )
   }
   const proposer = new ethers.Wallet(proposerPrivateKey)
+
+  if (!skipForceRecompile) {
+    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
+    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
+      stdio: 'inherit',
+    })
+    // Exit the process if the clean fails.
+    if (cleanStatus !== 0) {
+      process.exit(1)
+    }
+  }
 
   // First, we compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
@@ -450,11 +465,12 @@ export const propose = async (
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
-    const websiteLink = blue(hyperlink('website', WEBSITE_URL))
     await relayProposal(proposalRequest)
     await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
     spinner.succeed(
-      `Proposal succeeded! Go to ${websiteLink} to approve the deployment.`
+      `Proposal succeeded! Go to ${blue.underline(
+        WEBSITE_URL
+      )} to approve the deployment.`
     )
   }
   return { proposalRequest, ipfsData: compilerConfigArray }

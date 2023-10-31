@@ -250,11 +250,13 @@ export const parseFoundryDryRun = (
 
     if (transactionType === 'CREATE') {
       throw new Error(
-        `TODO(docs): unsupported, pls use create2 or create3 instead.`
+        `Sphinx does not support the 'CREATE' opcode, i.e. 'new MyContract(...)'. Please use CREATE2 or CREATE3 instead.`
       )
     } else {
       if (!transaction.to) {
-        throw new Error(`TODO(docs): should never happen.`)
+        throw new Error(
+          `Transaction does not have the 'to' field. Should never happen.`
+        )
       }
 
       const to = ethers.getAddress(transaction.to)
@@ -305,7 +307,7 @@ export const parseFoundryDryRun = (
 
         const variables = callArguments ?? [
           transaction.data.length > 1000
-            ? `Very large calldata, see broadcast file: ${dryRunPath} for more information`
+            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}.`
             : transaction.data,
         ]
 

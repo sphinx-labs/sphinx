@@ -990,13 +990,6 @@ export const arraysEqual = (
   return true
 }
 
-/**
- * @notice Returns a hyperlinked string that can be printed to the console.
- */
-export const hyperlink = (text: string, url: string): string => {
-  return `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
-}
-
 export const userConfirmation = async (question: string) => {
   const confirmed = await yesno({
     question,

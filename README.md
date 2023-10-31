@@ -1,15 +1,12 @@
 # Sphinx: DevOps for Deployments
 
-TODO(md): document the label?
-
 Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
 
 > Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
 
 ## Key features:
 
-TODO(md): update this bullet point and related language in the docs.
-* **Fully compatible with Forge Scripts**: You integrate Sphinx with minimal changes to your existing Forge scripts.
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
@@ -31,15 +28,15 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 ### Reference guides
 
-- [Writing Deployment Scripts with Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md)
+- [Writing Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md)
+- [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuration-options.md)
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
-TODO(md): we support create2 and create3, but not create.
-
 ## Current limitations
 
+- Sphinx supports `CREATE2` and `CREATE3`, but not the `CREATE` opcode, i.e. `new MyContract(...)`.
 - You cannot send ETH as part of a deployment.
 
 Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if this is blocking you!

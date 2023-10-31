@@ -1,6 +1,4 @@
-import { relative, resolve } from 'path'
-
-// TODO: update the sample contracts to not use clients.
+import { relative } from 'path'
 
 export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
@@ -32,16 +30,15 @@ export const getSampleScriptFile = (
   // is necessary to avoid a trailing double slash in the import path for the HelloSphinx contract.
   // In other words, if the script directory path is 'scripts/', then the relative path won't
   // include the trailing slash, which is what we want.
-  const relativeSphinxClientPath = relative(scriptDirPath, resolve('client/'))
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
-import { SphinxClient } from "${relativeSphinxClientPath}/SphinxClient.sol";
+import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 
-contract HelloSphinxScript is SphinxClient {
+contract HelloSphinxScript is Sphinx {
     HelloSphinx helloSphinx;
 
     function setUp() public virtual {
@@ -51,15 +48,12 @@ contract HelloSphinxScript is SphinxClient {
     }
 
     function run() public override sphinx {
-        helloSphinx = deployHelloSphinx("Hi!", 2);
+        helloSphinx = new HelloSphinx{ salt: bytes32(0) }("Hi!", 2);
         helloSphinx.add(8);
     }
 }
 `
 }
-
-// TODO: it'd be nice if we could redo the non-standard `setUp` function below. a little weird how
-// we call `HelloSphinxScript.setUp()`.
 
 export const getSampleFoundryTestFile = (
   solcVersion: string,

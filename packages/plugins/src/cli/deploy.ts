@@ -2,7 +2,11 @@ import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
-import { remove0x, spawnAsync } from '@sphinx-labs/core/dist/utils'
+import {
+  isLiveNetwork,
+  remove0x,
+  spawnAsync,
+} from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
@@ -39,6 +43,7 @@ export const deploy = async (
   silent: boolean,
   targetContract?: string,
   verify?: boolean,
+  skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   parsedConfig: ParsedConfig
@@ -110,6 +115,22 @@ export const deploy = async (
       )
     )
     process.exit(1)
+  }
+
+  const provider = new SphinxJsonRpcProvider(forkUrl)
+  // Force re-compile the contracts if this step hasn't been disabled and if we're on a live
+  // network. This ensures that we're using the correct artifacts for the deployment. This is mostly
+  // out of an abundance of caution, since using the incorrect contract artifact will prevent us
+  // from writing the deployment artifact.
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
+    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
+    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
+      stdio: 'inherit',
+    })
+    // Exit the process if the clean fails.
+    if (cleanStatus !== 0) {
+      process.exit(1)
+    }
   }
 
   const spinner = ora({ isSilent: silent })
@@ -301,7 +322,6 @@ export const deploy = async (
       readFileSync(broadcastFilePath, 'utf-8')
     )
 
-    const provider = new SphinxJsonRpcProvider(forkUrl)
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,

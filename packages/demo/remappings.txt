@@ -2,6 +2,7 @@
 @sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/
 forge-std/=node_modules/forge-std/src/
 sphinx-forge-std/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-forge-std/src/
+sphinx-solmate/=node_modules/@sphinx-labs/plugins/node_modules/sphinx-solmate/src/
 ds-test/=node_modules/ds-test/src/
 
 @openzeppelin/contracts-upgradeable/=../../node_modules/@openzeppelin/contracts-upgradeable/

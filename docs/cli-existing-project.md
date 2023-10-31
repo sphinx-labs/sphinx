@@ -1,12 +1,19 @@
 # Getting Started in an Existing Repository
 
-TODO(md-end): header numbers are out of order
-
 This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
 
 ## Table of Contents
 
-TODO(md-end)
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Update `.gitignore`](#4-update-gitignore)
+5. [Update `foundry.toml`](#5-update-foundrytoml)
+6. [Add remappings](#6-add-remappings)
+7. [Initialize a project](#7-initialize-a-project)
+8. [Test the deployment](#8-test-the-deployment)
+9. [Broadcast a deployment on Anvil (optional)](#9-broadcast-a-deployment-on-anvil-optional)
+10. [Next steps](#10-next-steps)
 
 ## 1. Prerequisites
 
@@ -101,14 +108,14 @@ This created a few files:
 - `HelloSphinx.s.sol`: A sample deployment script. This file is written to your existing script folder, which defaults to `script/`.
 - `HelloSphinx.t.sol`: A sample test file. This file is written to your existing test folder, which defaults to `test/`.
 
-## 10. Test the deployment
+## 8. Test the deployment
 
 Run the test in `HelloSphinx.t.sol`:
 ```
 forge test --match-contract HelloSphinxTest
 ```
 
-## 11. Broadcast a deployment on Anvil (optional)
+## 9. Broadcast a deployment on Anvil (optional)
 
 Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful when you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
 
@@ -140,7 +147,7 @@ Whenever a deployment is broadcasted with this command, Sphinx will automaticall
 
 If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 
-## 12. Next steps
+## 10. Next steps
 
 If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md).
 

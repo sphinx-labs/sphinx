@@ -5,7 +5,6 @@ import {
   arraysEqual,
   getNetworkNameForChainId,
   getNetworkTag,
-  hyperlink,
   prettyFunctionCall,
   prettyRawFunctionCall,
 } from './utils'
@@ -37,17 +36,12 @@ export const getPreviewString = (
 ): string => {
   let previewString = ''
 
-  const sphinxManagerLink = hyperlink(
-    'here',
+  const sphinxManagerLink =
     'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
-  )
-  const skippingLink = hyperlink(
-    'here',
-    'https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md#why-is-sphinx-skipping-a-contract-deployment-or-function-call'
-  )
+
   const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
-    `Already executed. See`
-  )} ${blue(skippingLink)} ${yellow('for more info.')}`
+    `Already executed.`
+  )}`
 
   for (const { networkTags, executing, skipping } of preview.networks) {
     // Get the preview string for the networks.
@@ -84,10 +78,8 @@ export const getPreviewString = (
           let executingStr: string
           if (referenceName === 'SphinxManager') {
             executingStr =
-              green(`${i + 1}. ${actionStr}`) +
-              ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
-                'for more info)'
-              )}`
+              green(`${i + 1}. ${actionStr}. Learn more: `) +
+              blue.underline(sphinxManagerLink)
           } else {
             executingStr = green(`${i + 1}. ${actionStr}`)
           }
@@ -131,16 +123,16 @@ export const getPreviewString = (
   // Warn about unlabeled addresses
   if (preview.unlabeledAddresses.size > 0) {
     previewString += `${yellow.bold(
-      'Warning: Unable to locate contract artifacts for some contracts\n'
+      `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`
     )}`
-    previewString += yellow(
-      'If you chose deploy anyway these contracts may not be verified on Etherscan, displayed in the Sphinx UI, or included in deployment artifacts. To resolve this, you must label the contracts in your deployment script. This can occur for contracts that are deployed in non-standard way or that do not have unique names in your project. See the Sphinx contract labeling guide for more information:\n'
-    )
-    previewString += yellow.underline('TODO(md)\n\n')
-    previewString += `${yellow.bold('Affected contract addresses: \n')}`
     previewString += `${Array.from(preview.unlabeledAddresses)
-      .map((e) => yellow(e))
-      .join('\n')}\n\n`
+      .map((e) => yellow(`- ${e}`))
+      .join('\n')}\n`
+    previewString += yellow(
+      `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
+        `please label them in your script. See the troubleshooting guide for more information:\n` +
+        `https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md#labeling-contracts\n\n`
+    )
   }
 
   if (includeConfirmQuestion) {
