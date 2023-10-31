@@ -1,5 +1,6 @@
 import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { spawnSync } from 'child_process'
 
 import {
   DeploymentInfo,
@@ -23,32 +24,47 @@ import {
 import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
-import { RawActionInput } from '@sphinx-labs/core/dist/config/types'
+import {
+  ConfigArtifacts,
+  ParsedConfig,
+  RawActionInput,
+} from '@sphinx-labs/core/dist/config/types'
 
 import {
-  getCollectedSingleChainDeployment,
+  decodeDeploymentInfoArray,
+  readActionInputsOnSingleChain,
   makeParsedConfig,
   parseFoundryDryRun,
 } from '../../foundry/decode'
 import { FoundryToml, getFoundryConfigOptions } from '../../foundry/options'
-import { generateClient } from '../typegen/client'
 import {
   getBundleInfoArray,
-  getUniqueFullyQualifiedNames,
+  getUniqueNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
 import { FoundryDryRun } from '../../foundry/types'
-import { spawnSync } from 'child_process'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   proposerAddress: string,
   isTestnet: boolean,
-  proposalNetworksPath: string,
   targetContract?: string,
   spinner?: ora.Ora
-) => {
+): Promise<{
+  parsedConfigArray: Array<ParsedConfig>
+  configArtifacts: ConfigArtifacts
+}> => {
   const foundryToml = await getFoundryConfigOptions()
+
+  const deploymentInfoArrayPath = join(
+    foundryToml.cachePath,
+    'deployment-info-array.txt'
+  )
+
+  // Remove the file if it exists. This ensures that we don't accidentally use an outdated file.
+  if (existsSync(deploymentInfoArrayPath)) {
+    unlinkSync(deploymentInfoArrayPath)
+  }
 
   const forgeScriptCollectArgs = [
     'script',
@@ -57,10 +73,7 @@ export const buildParsedConfigArray = async (
     'sphinxCollectProposal(address,bool,string)',
     proposerAddress,
     isTestnet.toString(),
-    proposalNetworksPath,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    '--skip-simulation',
+    deploymentInfoArrayPath,
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
@@ -77,16 +90,62 @@ export const buildParsedConfigArray = async (
     process.exit(1)
   }
 
-  const collected = await collectProposal(
-    isTestnet,
-    proposerAddress,
-    scriptPath,
-    foundryToml,
-    targetContract,
-    spinner
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxPluginTypesABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
+
+  const abiEncodedDeploymentInfo = readFileSync(
+    deploymentInfoArrayPath,
+    'utf-8'
+  )
+  const deploymentInfoArray = decodeDeploymentInfoArray(
+    abiEncodedDeploymentInfo,
+    sphinxPluginTypesABI
   )
 
-  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
+  const actionInputArray: Array<Array<RawActionInput>> = []
+  if (deploymentInfoArray.length === 1) {
+    const actionInputs = readActionInputsOnSingleChain(
+      deploymentInfoArray[0],
+      scriptPath,
+      foundryToml.broadcastFolder,
+      'sphinxCollectProposal'
+    )
+    actionInputArray.push(actionInputs)
+  } else {
+    // For multi-chain deployments, the format of the dry run file is:
+    // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
+    const dryRunPath = join(
+      foundryToml.broadcastFolder,
+      'multi',
+      'dry-run',
+      `${basename(scriptPath)}-latest`,
+      'sphinxCollectProposal.json'
+    )
+
+    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
+      readFileSync(dryRunPath, 'utf8')
+    ).deployments
+
+    if (multichainDryRun.length !== deploymentInfoArray.length) {
+      throw new Error(
+        `Length mismatch between the DeploymentInfo array and the Foundry dry run. Should never happen.`
+      )
+    }
+
+    multichainDryRun.forEach((dryRun, i) =>
+      actionInputArray.push(parseFoundryDryRun(deploymentInfoArray[i], dryRun))
+    )
+  }
+
+  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
+    actionInputArray,
+    deploymentInfoArray
+  )
 
   const getConfigArtifacts = makeGetConfigArtifacts(
     foundryToml.artifactFolder,
@@ -94,13 +153,15 @@ export const buildParsedConfigArray = async (
     foundryToml.cachePath
   )
 
-  // TODO: empty array
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames, [])
+  const configArtifacts = await getConfigArtifacts(
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
+  )
 
-  const parsedConfigArray = collected.map((c) =>
+  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
     makeParsedConfig(
-      c.deploymentInfo,
-      c.actionInputs,
+      deploymentInfo,
+      actionInputArray[i],
       configArtifacts,
       true,
       spinner
@@ -157,23 +218,11 @@ export const propose = async (
   spinner.start(`Collecting transactions...`)
 
   const foundryToml = await getFoundryConfigOptions()
-  const proposalNetworksPath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-networks.txt'
-  )
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
 
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
     proposer.address,
     isTestnet,
-    proposalNetworksPath,
     targetContract,
     spinner
   )
@@ -397,101 +446,4 @@ export const propose = async (
     )
   }
   return { proposalRequest, ipfsData: compilerConfigArray }
-}
-
-export const collectProposal = async (
-  isTestnet: boolean,
-  proposerAddress: string,
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  targetContract?: string,
-  spinner = ora({ isSilent: true })
-): Promise<
-  Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-  }>
-> => {
-  const proposalNetworksPath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-networks.txt'
-  )
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
-    proposerAddress,
-    isTestnet.toString(),
-    proposalNetworksPath,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    '--skip-simulation',
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
-
-  if (spawnOutput.code !== 0) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
-
-  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
-  const networkNames = allNetworksStr.split(',')
-
-  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${foundryToml.artifactFolder}/SphinxPluginTypesABI.sol/SphinxPluginTypesABI.json`
-    )).abi
-
-    // TODO
-    return {} as any
-
-  // if (networkNames.length === 1) {
-  //   return [
-  //     getCollectedSingleChainDeployment(
-  //       networkNames[0],
-  //       scriptPath,
-  //       foundryToml.broadcastFolder,
-  //       sphinxPluginTypesABI,
-  //       'sphinxCollectProposal'
-  //     ),
-  //   ]
-  // } else {
-  //   // For multi-chain deployments, the format of the dry run file is:
-  //   // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
-  //   const dryRunPath = join(
-  //     foundryToml.broadcastFolder,
-  //     'multi',
-  //     'dry-run',
-  //     `${basename(scriptPath)}-latest`,
-  //     'sphinxCollectProposal.json'
-  //   )
-
-  //   const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
-  //     readFileSync(dryRunPath, 'utf8')
-  //   ).deployments
-
-  //   return multichainDryRun.map((dryRun) =>
-  //     parseFoundryDryRun(dryRun, sphinxCollectorABI)
-  //   )
-  // }
 }

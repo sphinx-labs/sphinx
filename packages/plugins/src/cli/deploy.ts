@@ -1,11 +1,6 @@
 import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 
-// TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
-// generate` in the repo to see if there's anywhere else you can remove it.
-
-// TODO: handle a label that has an empty string instead of an artifact path. (we shouldn't error).
-
 import { spawnSync } from 'child_process'
 
 import {
@@ -28,13 +23,18 @@ import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
 
-import { getBundleInfoArray, makeGetConfigArtifacts } from '../foundry/utils'
+import {
+  getBundleInfoArray,
+  getUniqueNames,
+  makeGetConfigArtifacts,
+} from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import {
-  getCollectedSingleChainDeployment,
+  decodeDeploymentInfo,
+  readActionInputsOnSingleChain,
   makeParsedConfig,
 } from '../foundry/decode'
-import { FoundryBroadcastReceipt } from '../foundry/types'
+import { FoundryBroadcast, FoundryBroadcastReceipt } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
@@ -120,11 +120,6 @@ export const deploy = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
-  // TODO: We need to remove --skip-simulation everywhere that we collect txns. you'll need to
-  // account for the note above '--skip-simulation' in the next call.
-
-  // TODO(propose): put --silent in proposal args too
-
   const deploymentInfoPath = join(cachePath, 'deployment-info.txt')
 
   // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
@@ -158,38 +153,27 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const { deploymentInfo, actionInputs } = getCollectedSingleChainDeployment(
-    network,
-    scriptPath,
-    broadcastFolder,
-    sphinxPluginTypesABI,
-    'sphinxCollectDeployment',
-    deploymentInfoPath
+  const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+  const deploymentInfo = decodeDeploymentInfo(
+    abiEncodedDeploymentInfo,
+    sphinxPluginTypesABI
   )
 
-  const contractNamesSet = new Set<string>()
-  const fullyQualifiedNamesSet = new Set<string>()
-  for (const rawInput of actionInputs) {
-    if (isRawDeployContractActionInput(rawInput)) {
-      fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
-    } else if (typeof rawInput.contractName === 'string') {
-      rawInput.contractName.includes(':')
-        ? fullyQualifiedNamesSet.add(rawInput.contractName)
-        : contractNamesSet.add(rawInput.contractName)
-    }
-  }
+  const actionInputs = readActionInputsOnSingleChain(
+    deploymentInfo,
+    scriptPath,
+    broadcastFolder,
+    'sphinxCollectDeployment'
+  )
 
-  for (const label of deploymentInfo.labels) {
-    // Only add the fully qualified name if it's not an empty string. The user can specify an empty
-    // string when they want a contract to remain unlabeled.
-    if (label.fullyQualifiedName !== '') {
-      fullyQualifiedNamesSet.add(label.fullyQualifiedName)
-    }
-  }
+  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
+    [actionInputs],
+    [deploymentInfo]
+  )
 
   const configArtifacts = await getConfigArtifacts(
-    Array.from(fullyQualifiedNamesSet),
-    Array.from(contractNamesSet)
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
   )
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
@@ -289,13 +273,11 @@ export const deploy = async (
     console.log(stdout)
   }
 
-  spinner.start(`Writing deployment artifacts...`)
+  spinner.start(`Writing contract deployment artifacts...`)
 
-  const containsDeployment = actionInputs.some((a) => {
-    const isDeployment =
-      isRawDeployContractActionInput(a) || isRawCreate2ActionInput(a)
-    return isDeployment && !a.skip
-  })
+  const containsDeployment = parsedConfig.actionInputs.some(
+    (e) => Object.keys(e.contracts).length > 0
+  )
 
   if (containsDeployment) {
     const broadcastFilePath = join(
@@ -305,22 +287,24 @@ export const deploy = async (
       `${remove0x(deployTaskFragment.selector)}-latest.json`
     )
 
-    const receipts: Array<FoundryBroadcastReceipt> = JSON.parse(
+    const broadcast: FoundryBroadcast = JSON.parse(
       readFileSync(broadcastFilePath, 'utf-8')
-    ).receipts
+    )
 
     const provider = new SphinxJsonRpcProvider(forkUrl)
-    // TODO: write deployment artifacts for create2 and create3
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      receipts,
+      bundleInfo.actionBundle.actions,
+      broadcast,
       deploymentFolder,
       configArtifacts
     )
-    spinner.succeed(`Wrote deployment artifacts to: ${deploymentArtifactPath}`)
+    spinner.succeed(
+      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    )
   } else {
-    spinner.succeed(`No deployment artifacts to write.`)
+    spinner.succeed(`No contract deployment artifacts to write.`)
   }
 
   return { parsedConfig, preview }

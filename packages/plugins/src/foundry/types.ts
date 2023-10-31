@@ -1,4 +1,4 @@
-import { CompilerConfig, FoundryDryRunTransaction } from '@sphinx-labs/core'
+import { CompilerConfig, FoundryBroadcastTransaction, FoundryDryRunTransaction } from '@sphinx-labs/core'
 import {
   BundledAuthLeaf,
   HumanReadableAction,
@@ -49,6 +49,18 @@ export type FoundryBroadcastReceipt = {
   logsBloom: string
   type: string
   effectiveGasPrice: string
+}
+
+export type FoundryBroadcast = {
+  transactions: Array<FoundryBroadcastTransaction>
+  receipts: Array<FoundryBroadcastReceipt>
+  libraries: Array<any>
+  pending: Array<any>
+  returns: any
+  timestamp: number
+  chain: number
+  multi: boolean
+  commit: string
 }
 
 export type FoundryDryRun = {

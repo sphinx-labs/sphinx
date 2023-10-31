@@ -87,7 +87,7 @@ contract ChainSpecific is SphinxClient, SphinxTestUtils {
             sphinxConfig, "OnlyArbitrumGoerliTwo", bytes32(uint(2))
         ));
 
-        manager = ISphinxManager(sphinxManager(sphinxConfig));
+        manager = ISphinxManager(sphinxManager());
     }
 
     function run() public override virtual sphinx {

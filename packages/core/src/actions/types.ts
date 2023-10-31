@@ -99,8 +99,16 @@ export type HumanReadableAction = {
  */
 export type BundledSphinxAction = {
   action: RawSphinxAction
+  contracts: ParsedContractDeployments
   siblings: string[]
   gas: bigint
+}
+
+export type ParsedContractDeployments = {
+  [address: string]: {
+    fullyQualifiedName: string
+    initCodeWithArgs: string
+  }
 }
 
 /**

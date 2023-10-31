@@ -73,7 +73,7 @@ abstract contract AbstractProposal_Test is SphinxClient, Test {
         );
 
         auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        manager = ISphinxManager(sphinxManager(sphinxConfig));
+        manager = ISphinxManager(sphinxManager());
 
         // We must set the address here because the `run` function is not called in this process.
         // Instead, it's called during the collection phase, which occurs in a separate process

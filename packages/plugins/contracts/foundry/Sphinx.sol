@@ -94,7 +94,7 @@ abstract contract Sphinx {
     function sphinxCollectProposal(
         address _proposer,
         bool _testnets,
-        string memory _proposalNetworksPath
+        string memory _deploymentInfoArrayPath
     ) external {
         Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
         require(
@@ -108,7 +108,7 @@ abstract contract Sphinx {
             )
         );
 
-        string memory allNetworkNames;
+        DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
         for (uint256 i = 0; i < networks.length; i++) {
             Network network = networks[i];
 
@@ -120,17 +120,14 @@ abstract contract Sphinx {
             vm.createSelectFork(rpcUrl);
 
             sphinxUtils.validateProposal(_proposer, network, sphinxConfig);
-            sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
+            DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
+            deploymentInfoArray[i] = deploymentInfo;
 
-            // Concatenate the network names, adding a comma except after the last name.
-            allNetworkNames = string(abi.encodePacked(allNetworkNames, networkName));
-            if (i < networks.length - 1) {
-                // If it's not the last network name, append a comma.
-                allNetworkNames = string(abi.encodePacked(allNetworkNames, ","));
-            }
+            // Delete the labels. This ensures that we only use the necessary labels for each chain.
+            delete labels;
         }
 
-        vm.writeFile(_proposalNetworksPath, allNetworkNames);
+        vm.writeFile(_deploymentInfoArrayPath, vm.toString(abi.encode(deploymentInfoArray)));
     }
 
     function sphinxCollectDeployment(string memory _networkName, string memory _deploymentInfoPath) external {
@@ -170,7 +167,7 @@ abstract contract Sphinx {
 
     function sphinxCollect(bool _isLiveNetwork) private returns (DeploymentInfo memory) {
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+        ISphinxManager manager = ISphinxManager(sphinxManager());
 
         DeploymentInfo memory deploymentInfo;
         deploymentInfo.authAddress = address(auth);
@@ -185,9 +182,8 @@ abstract contract Sphinx {
         run();
         vm.stopBroadcast();
 
-        // Validate then set the labels. We do this after running the user's script because the user
-        // may assign labels in their deployment.
-        sphinxUtils.validateLabels(labels);
+        // Set the labels. We do this after running the user's script because the user may assign
+        // labels in their deployment.
         deploymentInfo.labels = labels;
 
         return deploymentInfo;
@@ -229,7 +225,7 @@ abstract contract Sphinx {
 
         vm.startBroadcast(privateKey);
         sphinxDeployOnNetwork(
-            ISphinxManager(sphinxManager(sphinxConfig)),
+            ISphinxManager(sphinxManager()),
             ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
             _authRoot,
             _bundleInfo,
@@ -283,7 +279,7 @@ abstract contract Sphinx {
             // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
             vm.startPrank(proposer);
             sphinxDeployOnNetwork(
-                ISphinxManager(sphinxManager(sphinxConfig)),
+                ISphinxManager(sphinxManager()),
                 ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
                 _authRoot,
                 _bundleInfoArray[i],
@@ -485,7 +481,7 @@ abstract contract Sphinx {
             // Execute the user's 'run()' function.
             _;
         } else if (sphinxMode == SphinxMode.Default) {
-            ISphinxManager manager = ISphinxManager(sphinxManager(sphinxConfig));
+            ISphinxManager manager = ISphinxManager(sphinxManager());
 
             // Prank the SphinxManager then execute the user's `run()` function. We prank
             // the SphinxManager to replicate the deployment process on live networks.
@@ -719,7 +715,7 @@ abstract contract Sphinx {
             "Sphinx: You must include the 'sphinx' modifier on your run function."
         );
 
-        address manager = sphinxManager(sphinxConfig);
+        address manager = sphinxManager();
         // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
         {
             (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
@@ -817,8 +813,8 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxManager. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxManager(SphinxConfig memory _config) internal view returns (address) {
-        return sphinxUtils.getSphinxManagerAddress(_config);
+    function sphinxManager() internal view returns (address) {
+        return sphinxUtils.getSphinxManagerAddress(sphinxConfig);
     }
 
     /**
@@ -863,6 +859,14 @@ abstract contract Sphinx {
     }
 
     function sphinxLabel(address _addr, string memory _fullyQualifiedName) internal {
+        for (uint256 i = 0; i < labels.length; i++) {
+            Label memory label = labels[i];
+            if (label.addr == _addr) {
+                require(keccak256(abi.encodePacked(_fullyQualifiedName)) == keccak256(abi.encodePacked(label.fullyQualifiedName)), string(abi.encodePacked("Sphinx: The address ", vm.toString(_addr), " was labeled with two names:\n", label.fullyQualifiedName, "\n", _fullyQualifiedName, "\nPlease choose one label.")));
+                return;
+            }
+        }
+
         labels.push(Label(_addr, _fullyQualifiedName));
     }
 }
