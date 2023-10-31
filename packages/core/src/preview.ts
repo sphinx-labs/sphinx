@@ -167,7 +167,7 @@ export const getPreview = (
       unlabeledAddresses,
     } = parsedConfig
 
-    if (!initialState.isManagerDeployed) {
+    if (!initialState.isManagerDeployed && actionInputs.length > 0) {
       executing.push({
         referenceName: 'SphinxManager',
         functionName: 'deploy',

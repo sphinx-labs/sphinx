@@ -7,7 +7,8 @@ import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 import { ConstructorDeploysContract } from "../../../contracts/test/ConstructorDeploysContract.sol";
-import { DeploymentCases } from "../../../contracts/test/DeploymentCases.sol";
+import { Fallback } from "../../../contracts/test/Fallback.sol";
+import { ConflictingNameContract } from "../../../contracts/test/conflictingNameContracts/First.sol";
 
 contract Simple is Script, Sphinx {
     constructor() {
@@ -23,31 +24,51 @@ contract Simple is Script, Sphinx {
 
     function run() public override sphinx {
         // Deploy with Create2
-        DeploymentCases myContract = new DeploymentCases{ salt: 0 }(-1);
-        myContract.set(1);
-
+        Fallback fallbackCreate2 = new Fallback{ salt: 0 }(-1);
         // Perform low level call to fallback function
-        (bool success, ) = address(myContract).call("");
+        (bool success, ) = address(fallbackCreate2).call("");
         if (!success) {
             revert("Low level call to fallback function failed");
         }
 
         // Deploy with Create3
-        bytes memory deploymentCasesInitCode = abi.encodePacked(type(DeploymentCases).creationCode, abi.encode(-1));
-        DeploymentCases deploymentCases = DeploymentCases(CREATE3.deploy(bytes32(0), deploymentCasesInitCode, 0));
-        deploymentCases.set(1);
+        bytes memory fallbackInitCode = abi.encodePacked(type(Fallback).creationCode, abi.encode(-1));
+        Fallback fallbackContract = Fallback(CREATE3.deploy(bytes32(0), fallbackInitCode, 0));
+        fallbackContract.set(1);
 
         // Deploys contract that deploys another contract in its constructor using create2
-        // The contract deployed in the constructor requires a label
-        // ConstructorDeploysContract constructorDeploysContract = new ConstructorDeploysContract{ salt: 0 }(1);
-        // sphinxLabel(address(constructorDeploysContract), "contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract");
+        // The contract deployed is labeled
+        ConstructorDeploysContract constructorDeploysContract = new ConstructorDeploysContract{ salt: keccak256("1") }(1);
+        sphinxLabel(address(constructorDeploysContract.myContract()), "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor");
 
         // Deploys contract that deploys another contract in its constructor using create3
-        // The contract deployed in the constructor requires a label
-        // bytes memory constructorDeploysContractInitCode = abi.encodePacked(type(ConstructorDeploysContract).creationCode, abi.encode(1));
-        // address constructorDeploysContractAddress = CREATE3.deploy(bytes32(0), constructorDeploysContractInitCode, 0);
-        // sphinxLabel(constructorDeploysContractAddress, "contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract");
+        // Both the parent and child are labeled
+        bytes memory constructorDeploysContractInitCode = abi.encodePacked(type(ConstructorDeploysContract).creationCode, abi.encode(2));
+        ConstructorDeploysContract constructorDeploysContractCreate3 = ConstructorDeploysContract(CREATE3.deploy(keccak256("1"), constructorDeploysContractInitCode, 0));
+        sphinxLabel(address(constructorDeploysContractCreate3), "contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract");
+        sphinxLabel(address(constructorDeploysContractCreate3.myContract()), "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor");
+
+        // Deploys contract that deploys another contract in its constructor using create2
+        // The contract is not labeled
+        new ConstructorDeploysContract{ salt: keccak256("2") }(3);
+
+        // Deploys contract that deploys another contract in its constructor using create3
+        // Neither contract is labeled
+        bytes memory constructorDeploysContractUnlabeledInitCode = abi.encodePacked(type(ConstructorDeploysContract).creationCode, abi.encode(4));
+        CREATE3.deploy(keccak256("2"), constructorDeploysContractUnlabeledInitCode, 0);
 
         // Deploy a contract whose name is not unique in the source directory
+        // The contract is labeled
+        ConflictingNameContract conflictingNameContract = new ConflictingNameContract{ salt: 0 }(1);
+        sphinxLabel(address(conflictingNameContract), "contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract");
+
+        // Deploy a contract whose name is not unique in the source directory
+        // The contract is not labeled
+        new ConflictingNameContract{ salt: keccak256("1") }(2);
+
+        // Deploy a contract whose name is not unique in the source directory
+        // We interact with the contract, so it does not require a label
+        ConflictingNameContract conflictingNameContractInteract = new ConflictingNameContract{ salt: keccak256("2") }(3);
+        conflictingNameContractInteract.set(5);
     }
 }
