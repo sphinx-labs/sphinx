@@ -1,6 +1,6 @@
 # Sphinx: DevOps for Deployments
 
-TODO(md): document the label
+TODO(md): document the label?
 
 Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
 

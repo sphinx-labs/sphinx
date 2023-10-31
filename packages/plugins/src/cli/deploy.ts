@@ -1,6 +1,11 @@
 import { basename, join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 
+// TODO: support adding labels within the user's script (instead of requiring that it's in the setup
+// function). this way, they don't need to hard-code the addresses.
+
+// TODO: add a helper function for labels: sphinxLabel(address(myContract), ‘path/to/contract.sol:Contract’)
+
 // TODO: can you remove `sphinx generate` from the propose and deploy tasks? if so, c/f `sphinx
 // generate` in the repo to see if there's anywhere else you can remove it.
 

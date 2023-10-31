@@ -16,6 +16,7 @@ import {
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
+import { ContractDeployments } from '../actions'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -160,6 +161,7 @@ export interface RawDeployContractActionInput {
   constructorArgs: string
   userSalt: string
   referenceName: string
+  gas: bigint
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
@@ -167,6 +169,7 @@ export interface DeployContractActionInput
   extends RawDeployContractActionInput {
   decodedAction: DecodedAction
   create3Address: string
+  contracts: ContractDeployments
 }
 
 export interface RawCreate2ActionInput {
@@ -199,6 +202,7 @@ export type RawFunctionCallActionInput = {
     address: string
     initCode: string
   }>
+  gas: bigint
   decodedAction: DecodedAction
 }
 
@@ -287,8 +291,7 @@ export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
  * @param function The name of the function that the transaction is calling. For example,
  * "myFunction(uint256)".
  */
-export type FoundryDryRunTransaction = {
-  hash: string | null
+interface AbstractFoundryTransaction {
   transactionType: 'CREATE' | 'CALL' | 'CREATE2'
   contractName: string | null
   function: string | null
@@ -310,4 +313,13 @@ export type FoundryDryRunTransaction = {
     initCode: string
   }>
   isFixedGasLimit: boolean
+}
+
+export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {
+  hash: null
+}
+
+export interface FoundryBroadcastTransaction
+  extends AbstractFoundryTransaction {
+  hash: string
 }

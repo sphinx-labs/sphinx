@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-import { ConfigArtifacts, ParsedConfig } from '../config/types'
+import { ActionInput, ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   getDeploymentId,
   toHexString,
@@ -482,7 +482,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  */
 export const makeActionBundle = (
   actions: SphinxAction[],
-  costs: bigint[]
+  actionInputs: ActionInput[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -508,8 +508,9 @@ export const makeActionBundle = (
         })
       return {
         action,
-        gas: costs[idx],
+        gas: actionInputs[idx].gas,
         siblings,
+        contracts: actionInputs[idx].contracts,
       }
     }),
   }
@@ -580,7 +581,6 @@ export const makeActionBundleFromConfig = (
   const { actionInputs } = parsedConfig
 
   const actions: SphinxAction[] = []
-  const costs: bigint[] = []
 
   const humanReadableActions: Array<HumanReadableAction> = []
 
@@ -619,7 +619,6 @@ export const makeActionBundleFromConfig = (
         ]),
       })
 
-      costs.push(deployContractCost)
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
@@ -644,7 +643,6 @@ export const makeActionBundleFromConfig = (
         to,
       })
 
-      costs.push(gas)
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
@@ -658,7 +656,6 @@ export const makeActionBundleFromConfig = (
         data,
       })
 
-      costs.push(250_000n)
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: prettyRawFunctionCall(to, data),
@@ -671,7 +668,7 @@ export const makeActionBundleFromConfig = (
 
   // Generate a bundle from the list of actions.
   return {
-    actionBundle: makeActionBundle(actions, costs),
+    actionBundle: makeActionBundle(actions, actionInputs),
     humanReadableActions,
   }
 }

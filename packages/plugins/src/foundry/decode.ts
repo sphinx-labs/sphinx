@@ -43,6 +43,7 @@ import ora from 'ora'
 
 import { FoundryDryRun, ProposalOutput } from './types'
 import { getConfigArtifactForContractName } from './utils'
+import ora from 'ora'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
