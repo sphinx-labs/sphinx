@@ -36,7 +36,7 @@ import {
   makeParsedConfig,
   parseFoundryDryRun,
 } from '../../foundry/decode'
-import { FoundryToml, getFoundryConfigOptions } from '../../foundry/options'
+import { getFoundryConfigOptions } from '../../foundry/options'
 import {
   getBundleInfoArray,
   getUniqueNames,
@@ -138,7 +138,9 @@ export const buildParsedConfigArray = async (
     }
 
     multichainDryRun.forEach((dryRun, i) =>
-      actionInputArray.push(parseFoundryDryRun(deploymentInfoArray[i], dryRun))
+      actionInputArray.push(
+        parseFoundryDryRun(deploymentInfoArray[i], dryRun, dryRunPath)
+      )
     )
   }
 
