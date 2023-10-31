@@ -17,7 +17,7 @@ const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:42005`)
 
 const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
-const contractAddress = '0xa736B2394965D6b796c6D3F2766D96D19d8b2CFB'
+const contractAddress = '0xd5cEBC3C14a60eD76E843a286Eb8d93CBc252Ba1'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
@@ -36,7 +36,7 @@ describe('Deploy CLI command', () => {
   beforeEach(async () => {
     // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
     // because the latter will hang indefinitely.
-    exec(`anvil --chain-id 5 --port 42005 --silent &`)
+    exec(`anvil --chain-id 5 --port 42005 &`)
     await sleep(500)
 
     if (existsSync(deploymentArtifactFilePath)) {
@@ -80,24 +80,27 @@ describe('Deploy CLI command', () => {
           networkTags: ['goerli (local)'],
           executing: [
             {
+              address: '',
               referenceName: 'SphinxManager',
-              functionName: 'constructor',
-              variables: {},
+              functionName: 'deploy',
+              variables: [],
             },
             {
+              address: '',
               referenceName: 'MyContract1',
-              functionName: 'constructor',
-              variables: {
-                _intArg: -1n,
-                _uintArg: 2n,
-                _addressArg: '0x' + '00'.repeat(19) + '01',
-                _otherAddressArg: '0x' + '00'.repeat(19) + '02',
-              },
+              functionName: 'deploy',
+              variables: [
+                '-1',
+                '2',
+                '0x0000000000000000000000000000000000000001',
+                '0x0000000000000000000000000000000000000002',
+              ],
             },
             {
+              address: '0xd5cEBC3C14a60eD76E843a286Eb8d93CBc252Ba1',
               referenceName: 'MyContract1',
               functionName: 'incrementUint',
-              variables: {},
+              variables: [],
             },
           ],
           skipping: [],
@@ -145,7 +148,7 @@ describe('Deploy CLI command', () => {
   })
 
   describe('Without preview', () => {
-    it('Executes deployment', async () => {
+    it('Executes deployment with Create2', async () => {
       expect((await provider.getCode(contractAddress)) === '0x')
 
       // Check that the deployment artifact hasn't been created yet

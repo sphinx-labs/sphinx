@@ -161,13 +161,7 @@ export const buildParsedConfigArray = async (
   )
 
   const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
-    makeParsedConfig(
-      deploymentInfo,
-      actionInputArray[i],
-      configArtifacts,
-      true,
-      spinner
-    )
+    makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts, true)
   )
 
   return { parsedConfigArray, configArtifacts }

@@ -12,11 +12,14 @@ import {
 
 type PreviewElement = DecodedAction | { to: string; data: string }
 
-export type SphinxPreview = Array<{
-  networkTags: Array<string>
-  executing: Array<PreviewElement>
-  skipping: Array<PreviewElement>
-}>
+export type SphinxPreview = {
+  networks: Array<{
+    networkTags: Array<string>
+    executing: Array<PreviewElement>
+    skipping: Array<PreviewElement>
+  }>
+  unlabeledAddresses: Set<string>
+}
 
 export const isDecodedAction = (
   element: PreviewElement
@@ -46,7 +49,7 @@ export const getPreviewString = (
     `Already executed. See`
   )} ${blue(skippingLink)} ${yellow('for more info.')}`
 
-  for (const { networkTags, executing, skipping } of preview) {
+  for (const { networkTags, executing, skipping } of preview.networks) {
     // Get the preview string for the networks.
     const networkTagsArray: Array<string> = []
     if (networkTags.length === 1) {
@@ -125,6 +128,19 @@ export const getPreviewString = (
     previewString += '\n'
   }
 
+  // Warn about unlabeled addresses
+  previewString += `${yellow.bold(
+    'Warning: Unable to locate contract artifacts for some contracts\n'
+  )}`
+  previewString += yellow(
+    'If you chose deploy anyway these contracts may not be verified on Etherscan, displayed in the Sphinx UI, or included in deployment artifacts. To resolve this, you must label the contracts in your deployment script. This can occur for contracts that are deployed in non-standard way or that do not have unique names in your project. See the Sphinx contract labeling guide for more information:\n'
+  )
+  previewString += yellow.underline('TODO(md)\n\n')
+  previewString += `${yellow.bold('Affected contract addresses: \n')}`
+  previewString += `${Array.from(preview.unlabeledAddresses)
+    .map((e) => yellow(e))
+    .join('\n')}\n\n`
+
   if (includeConfirmQuestion) {
     previewString += `Confirm? [y/n]`
   }
@@ -138,6 +154,7 @@ export const getPreview = (
     [networkTag: string]: {
       executing: Array<PreviewElement>
       skipping: Array<PreviewElement>
+      unlabeledAddresses: Array<string>
     }
   } = {}
 
@@ -145,13 +162,19 @@ export const getPreview = (
     const executing: Array<PreviewElement> = []
     const skipping: Array<PreviewElement> = []
 
-    const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
+    const {
+      chainId,
+      initialState,
+      actionInputs,
+      isLiveNetwork,
+      unlabeledAddresses,
+    } = parsedConfig
 
     if (!initialState.isManagerDeployed) {
       executing.push({
         referenceName: 'SphinxManager',
         functionName: 'deploy',
-        variables: {},
+        variables: [],
         address: '',
       })
     }
@@ -173,23 +196,31 @@ export const getPreview = (
       BigInt(chainId)
     )
 
-    networks[networkTag] = { executing, skipping }
+    networks[networkTag] = { executing, skipping, unlabeledAddresses }
   }
 
   // Next, we group networks that have the same executing and skipping arrays.
-  const preview: SphinxPreview = []
-  for (const [networkTag, { executing, skipping }] of Object.entries(
-    networks
-  )) {
-    const existingNetwork = preview.find(
+  const preview: SphinxPreview = {
+    networks: [],
+    unlabeledAddresses: new Set([]),
+  }
+  for (const [
+    networkTag,
+    { executing, skipping, unlabeledAddresses },
+  ] of Object.entries(networks)) {
+    const existingNetwork = preview.networks.find(
       (e) =>
         arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
     )
 
+    for (const address of unlabeledAddresses) {
+      preview.unlabeledAddresses.add(address)
+    }
+
     if (existingNetwork) {
       existingNetwork.networkTags.push(networkTag)
     } else {
-      preview.push({
+      preview.networks.push({
         networkTags: [networkTag],
         executing,
         skipping,
