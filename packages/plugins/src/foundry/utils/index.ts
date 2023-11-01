@@ -250,8 +250,14 @@ export const makeGetConfigArtifacts = (
     const cachedNames = Object.keys(buildInfoCache)
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
-
-    if (buildInfoFileNames.length === 1) {
+    if (
+      buildInfoFileNames.length === 1 ||
+      (!cachedNames.includes(buildInfoFileNames[0]) &&
+        // handles an edge case where the user made a change and then reverted it and force recompiled
+        // TODO(ryan): What's the purpose of `buildInfoFileNames.length > 1`? It seems like it'll
+        // always be false because we already check that `buildInfoFileNames.length === 1`.
+        buildInfoFileNames.length > 1)
+    ) {
       buildInfoCache = {}
     }
 
@@ -267,24 +273,22 @@ export const makeGetConfigArtifacts = (
     // will be used or not and storing all of them can result in memory issues if there are
     // a lot of large build info files which can happen in large projects.
     for (const file of buildInfoFileNamesWithTime) {
-      if (cachedNames.includes(file.name)) {
-        // If the file exists in the cache and the time has changed, then we just update the time
-        if (
-          buildInfoCache[file.name]?.time &&
-          buildInfoCache[file.name]?.time !== file.time
-        ) {
-          buildInfoCache[file.name].time = file.time
-        } else {
-          const outputContracts = await streamFullyQualifiedNames(
-            join(buildInfoFolder, file.name)
-          )
+      // If the file exists in the cache and the time has changed, then we just update the time
+      if (
+        buildInfoCache[file.name]?.time &&
+        buildInfoCache[file.name]?.time !== file.time
+      ) {
+        buildInfoCache[file.name].time = file.time
+      } else {
+        const outputContracts = await streamFullyQualifiedNames(
+          join(buildInfoFolder, file.name)
+        )
 
-          // Update the build info file dictionary in the cache
-          buildInfoCache[file.name] = {
-            name: file.name,
-            time: file.time,
-            contracts: outputContracts,
-          }
+        // Update the build info file dictionary in the cache
+        buildInfoCache[file.name] = {
+          name: file.name,
+          time: file.time,
+          contracts: outputContracts,
         }
       }
     }
