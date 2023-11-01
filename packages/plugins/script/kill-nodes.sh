@@ -9,6 +9,7 @@ fi
 if [ ! -z "8545" ]
 then
   echo "Killing process on port 8545"
+  pid=$(lsof -t -i:8545)
   kill $pid
 else
   echo "No process running on port 8545"

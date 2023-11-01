@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
-import { SphinxClient, SphinxConfig, Version } from "../../../client/SphinxClient.sol";
 import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
-import { MyContract1 } from "../../../contracts/test/MyContracts.sol";
+import { MyContract2 } from "../../../contracts/test/MyContracts.sol";
+import { Sphinx } from "../../foundry/Sphinx.sol";
 
-contract Simple is Script, SphinxClient {
+contract Simple is Script, Sphinx {
     constructor() {
         sphinxConfig.projectName = "Simple Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
@@ -19,7 +19,13 @@ contract Simple is Script, SphinxClient {
     }
 
     function run() public override sphinx {
-        MyContract1 myContract1 = deployMyContract1(-1, 2, address(1), address(2));
-        myContract1.incrementUint();
+        MyContract2 myContract;
+        Network network = getSphinxNetwork(block.chainid);
+        if (network == Network.ethereum || network == Network.goerli) {
+            myContract = new MyContract2{ salt: 0 }();
+        } else if (network == Network.optimism) {
+            myContract = new MyContract2{ salt: bytes32(uint(1)) }();
+        }
+        myContract.incrementMyContract2(2);
     }
 }

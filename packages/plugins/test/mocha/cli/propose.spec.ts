@@ -3,13 +3,17 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  DecodedAction,
   execAsync,
   getAuthAddress,
   getSphinxManagerAddress,
   sleep,
   userConfirmation,
 } from '@sphinx-labs/core'
+import { ethers } from 'ethers'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
+import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { propose } from '../../../src/cli/propose'
 
 chai.use(chaiAsPromised)
@@ -55,6 +59,9 @@ describe('Propose CLI command', () => {
       true, // Silent
       'contracts/test/script/Simple.s.sol',
       undefined, // Only one contract in the script file, so there's no target contract to specify.
+      // Skip force re-compiling. (This test would take a really long time otherwise, and we can be
+      // confident that the correct artifacts are used in CI, where it matters).
+      true,
       mockPrompt
     )
 
@@ -84,37 +91,44 @@ describe('Propose CLI command', () => {
     expect(proposalRequest.deploymentName).to.equal('Simple Project')
     expect(proposalRequest.chainIds).to.deep.equal([5])
     expect(proposalRequest.canonicalConfig).to.equal('{}')
-    expect(proposalRequest.diff).to.deep.equal([
-      {
-        networkTags: ['goerli (local)'],
-        executing: [
-          {
-            functionName: 'constructor',
-            referenceName: 'SphinxManager',
-            variables: {},
-          },
-          {
-            functionName: 'constructor',
-            referenceName: 'MyContract1',
-            variables: {
-              _addressArg: '0x0000000000000000000000000000000000000001',
-              _intArg: -1n,
-              _otherAddressArg: '0x0000000000000000000000000000000000000002',
-              _uintArg: 2n,
-            },
-          },
-          {
-            functionName: 'incrementUint',
-            referenceName: 'MyContract1',
-            variables: {},
-          },
-        ],
-        skipping: [],
-      },
+    expect(proposalRequest.diff.networks.length).to.equal(1)
+    expect(proposalRequest.diff.networks[0].networkTags).to.deep.equal([
+      'goerli (local)',
     ])
+    const executing = proposalRequest.diff.networks[0].executing
+    expect(executing.length).to.equal(3)
+    expect(executing[0]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'SphinxManager',
+      variables: [],
+    })
+    expect(executing[1]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'MyContract2',
+      variables: [],
+    })
+    expect((executing[2] as DecodedAction).referenceName).to.equal(
+      'MyContract2'
+    )
+    expect((executing[2] as DecodedAction).functionName).to.equal(
+      'incrementMyContract2'
+    )
+    expect((executing[2] as DecodedAction).variables).to.deep.equal(['2'])
+    expect(proposalRequest.diff.networks[0].skipping.length).to.equal(0)
     expect(proposalRequest.tree.leaves.length).to.equal(3)
 
+    const expectedContractAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(MyContract2Artifact.bytecode.object)
+    )
     expect(ipfsData.length).to.equal(1)
+    const compilerConfig = JSON.parse(ipfsData[0])
+    expect(compilerConfig.actionInputs[0].create2Address).equals(
+      expectedContractAddress
+    )
   })
 
   it('Proposes without preview on multiple production networks', async () => {
@@ -125,6 +139,9 @@ describe('Propose CLI command', () => {
       true, // Silent
       'contracts/test/script/Simple.s.sol',
       undefined, // Only one contract in the script file, so there's no target contract to specify.
+      // Skip force re-compiling. (This test would take a really long time otherwise, and we can be
+      // confident that the correct artifacts are used in CI, where it matters).
+      true,
       // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
       // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
       userConfirmation
@@ -156,36 +173,58 @@ describe('Propose CLI command', () => {
     expect(proposalRequest.deploymentName).to.equal('Simple Project')
     expect(proposalRequest.chainIds).to.deep.equal([1, 10])
     expect(proposalRequest.canonicalConfig).to.equal('{}')
-    expect(proposalRequest.diff).to.deep.equal([
-      {
-        networkTags: ['ethereum (local)', 'optimism (local)'],
-        executing: [
-          {
-            functionName: 'constructor',
-            referenceName: 'SphinxManager',
-            variables: {},
-          },
-          {
-            functionName: 'constructor',
-            referenceName: 'MyContract1',
-            variables: {
-              _addressArg: '0x0000000000000000000000000000000000000001',
-              _intArg: -1n,
-              _otherAddressArg: '0x0000000000000000000000000000000000000002',
-              _uintArg: 2n,
-            },
-          },
-          {
-            functionName: 'incrementUint',
-            referenceName: 'MyContract1',
-            variables: {},
-          },
-        ],
-        skipping: [],
-      },
+    expect(proposalRequest.diff.networks.length).to.equal(2)
+    expect(proposalRequest.diff.networks[0].networkTags).to.deep.equal([
+      'ethereum (local)',
     ])
+    expect(proposalRequest.diff.networks[1].networkTags).to.deep.equal([
+      'optimism (local)',
+    ])
+    for (const preview of proposalRequest.diff.networks) {
+      const { executing, skipping } = preview
+      expect(executing.length).to.equal(3)
+      expect(executing[0]).to.deep.equal({
+        address: '',
+        functionName: 'deploy',
+        referenceName: 'SphinxManager',
+        variables: [],
+      })
+      expect(executing[1]).to.deep.equal({
+        address: '',
+        functionName: 'deploy',
+        referenceName: 'MyContract2',
+        variables: [],
+      })
+      expect((executing[2] as DecodedAction).referenceName).to.equal(
+        'MyContract2'
+      )
+      expect((executing[2] as DecodedAction).functionName).to.equal(
+        'incrementMyContract2'
+      )
+      expect((executing[2] as DecodedAction).variables).to.deep.equal(['2'])
+      expect(skipping.length).to.equal(0)
+    }
+
     expect(proposalRequest.tree.leaves.length).to.equal(6)
 
+    const expectedContractAddressEthereum = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(MyContract2Artifact.bytecode.object)
+    )
+    const expectedContractAddressOptimism = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      '0x' + '00'.repeat(31) + '01',
+      ethers.keccak256(MyContract2Artifact.bytecode.object)
+    )
     expect(ipfsData.length).to.equal(2)
+    const ethereumCompilerConfig = JSON.parse(ipfsData[0])
+    const optimismCompilerConfig = JSON.parse(ipfsData[1])
+    expect(ethereumCompilerConfig.actionInputs[0].create2Address).equals(
+      expectedContractAddressEthereum
+    )
+    expect(optimismCompilerConfig.actionInputs[0].create2Address).equals(
+      expectedContractAddressOptimism
+    )
   })
 })

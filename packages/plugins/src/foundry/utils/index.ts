@@ -2,12 +2,16 @@ import * as fs from 'fs'
 import path, { join } from 'path'
 import { promisify } from 'util'
 
-import { ContractArtifact } from '@sphinx-labs/core/dist/languages/solidity/types'
+import {
+  BuildInfo,
+  ContractArtifact,
+} from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   parseFoundryArtifact,
   execAsync,
   getNetworkNameForChainId,
   isRawDeployContractActionInput,
+  spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
@@ -16,8 +20,7 @@ import {
   GetConfigArtifacts,
   GetProviderForChainId,
   ParsedConfig,
-  RawDeployContractActionInput,
-  RawFunctionCallActionInput,
+  RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -28,16 +31,19 @@ import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
   AuthLeaf,
+  SupportedNetworkName,
   getAuthLeafsForChain,
   getProjectBundleInfo,
   makeAuthBundle,
+  networkEnumToName,
 } from '@sphinx-labs/core'
+import ora from 'ora'
 
 import { BundleInfo } from '../types'
 
 const readFileAsync = promisify(fs.readFile)
 
-export const streamOutputContractNames = async (filePath: string) => {
+export const streamFullyQualifiedNames = async (filePath: string) => {
   const pipeline = new chain([
     fs.createReadStream(filePath),
     parser(),
@@ -45,7 +51,11 @@ export const streamOutputContractNames = async (filePath: string) => {
     pick({ filter: 'contracts' }),
     streamObject(),
     (data) => {
-      return data.key
+      const fullyQualifiedNames: Array<string> = []
+      for (const contractName of Object.keys(data.value)) {
+        fullyQualifiedNames.push(`${data.key}:${contractName}`)
+      }
+      return fullyQualifiedNames
     },
   ])
 
@@ -152,23 +162,41 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   }
 }
 
-export const getUniqueFullyQualifiedNames = (
-  collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
-  }>
-): Array<string> => {
-  const fullyQualifiedSet = new Set<string>()
-  for (const { actionInputs } of collected) {
-    for (const actionInput of actionInputs) {
-      if (isRawDeployContractActionInput(actionInput)) {
-        fullyQualifiedSet.add(actionInput.fullyQualifiedName)
+export const getUniqueNames = (
+  actionInputArray: Array<Array<RawActionInput>>,
+  deploymentInfoArray: Array<DeploymentInfo>
+): {
+  uniqueFullyQualifiedNames: Array<string>
+  uniqueContractNames: Array<string>
+} => {
+  const contractNamesSet = new Set<string>()
+  const fullyQualifiedNamesSet = new Set<string>()
+  for (const actionInputs of actionInputArray) {
+    for (const rawInput of actionInputs) {
+      if (isRawDeployContractActionInput(rawInput)) {
+        fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
+      } else if (typeof rawInput.contractName === 'string') {
+        rawInput.contractName.includes(':')
+          ? fullyQualifiedNamesSet.add(rawInput.contractName)
+          : contractNamesSet.add(rawInput.contractName)
       }
     }
   }
-  return Array.from(fullyQualifiedSet)
+
+  for (const deploymentInfo of deploymentInfoArray) {
+    for (const label of deploymentInfo.labels) {
+      // Only add the fully qualified name if it's not an empty string. The user can specify an empty
+      // string when they want a contract to remain unlabeled.
+      if (label.fullyQualifiedName !== '') {
+        fullyQualifiedNamesSet.add(label.fullyQualifiedName)
+      }
+    }
+  }
+
+  return {
+    uniqueFullyQualifiedNames: Array.from(fullyQualifiedNamesSet),
+    uniqueContractNames: Array.from(contractNamesSet),
+  }
 }
 
 /**
@@ -187,7 +215,10 @@ export const makeGetConfigArtifacts = (
   buildInfoFolder: string,
   cachePath: string
 ): GetConfigArtifacts => {
-  return async (fullyQualifiedNames: Array<string>) => {
+  return async (
+    fullyQualifiedNames: Array<string>,
+    contractNames: Array<string>
+  ) => {
     // Check if the cache directory exists, and create it if not
     if (!fs.existsSync(cachePath)) {
       fs.mkdirSync(cachePath)
@@ -220,9 +251,11 @@ export const makeGetConfigArtifacts = (
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
     if (
-      buildInfoFileNames.length === 1 &&
-      (!cachedNames.includes(buildInfoFileNames[0]) ||
+      buildInfoFileNames.length === 1 ||
+      (!cachedNames.includes(buildInfoFileNames[0]) &&
         // handles an edge case where the user made a change and then reverted it and force recompiled
+        // TODO(ryan): What's the purpose of `buildInfoFileNames.length > 1`? It seems like it'll
+        // always be false because we already check that `buildInfoFileNames.length === 1`.
         buildInfoFileNames.length > 1)
     ) {
       buildInfoCache = {}
@@ -240,24 +273,22 @@ export const makeGetConfigArtifacts = (
     // will be used or not and storing all of them can result in memory issues if there are
     // a lot of large build info files which can happen in large projects.
     for (const file of buildInfoFileNamesWithTime) {
-      if (!cachedNames.includes(file.name)) {
-        // If the file exists in the cache and the time has changed, then we just update the time
-        if (
-          buildInfoCache[file.name]?.time &&
-          buildInfoCache[file.name]?.time !== file.time
-        ) {
-          buildInfoCache[file.name].time = file.time
-        } else {
-          const outputContracts = await streamOutputContractNames(
-            join(buildInfoFolder, file.name)
-          )
+      // If the file exists in the cache and the time has changed, then we just update the time
+      if (
+        buildInfoCache[file.name]?.time &&
+        buildInfoCache[file.name]?.time !== file.time
+      ) {
+        buildInfoCache[file.name].time = file.time
+      } else {
+        const outputContracts = await streamFullyQualifiedNames(
+          join(buildInfoFolder, file.name)
+        )
 
-          // Update the build info file dictionary in the cache
-          buildInfoCache[file.name] = {
-            name: file.name,
-            time: file.time,
-            contracts: outputContracts,
-          }
+        // Update the build info file dictionary in the cache
+        buildInfoCache[file.name] = {
+          name: file.name,
+          time: file.time,
+          contracts: outputContracts,
         }
       }
     }
@@ -268,15 +299,13 @@ export const makeGetConfigArtifacts = (
     )
 
     // Look through the cache, read all the contract artifacts, and find all of the required build
-    // info files names. We get the artifacts every action, even if it'll be skipped, because the
+    // info files names. We get the artifacts for every action, even if it'll be skipped, because the
     // artifact is necessary when we're creating the preview, which includes skipped actions.
-    // We read in and store all of the required build info files here. This sometimes means we
-    // read files twice (above, and then again here) which is not ideal, but reduces the memory
-    // footprint of this function significantly in large projects.
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
-    const resolved = await Promise.all(
-      fullyQualifiedNames.map(async (fullyQualifiedName) => {
+
+    const fullyQualifiedNamePromises = fullyQualifiedNames.map(
+      async (fullyQualifiedName) => {
         const artifact = await getContractArtifact(
           fullyQualifiedName,
           artifactFolder
@@ -284,7 +313,7 @@ export const makeGetConfigArtifacts = (
 
         // Look through the cache for the first build info file that contains the contract
         for (const file of sortedCachedFiles) {
-          if (file.contracts?.includes(artifact.sourceName)) {
+          if (file.contracts?.includes(fullyQualifiedName)) {
             // Keep track of if we need to read the file or not
             if (!toReadFiles.includes(file.name)) {
               toReadFiles.push(file.name)
@@ -306,10 +335,52 @@ export const makeGetConfigArtifacts = (
         throw new Error(
           `Build info cache is outdated, please run 'forge build --force' then try again.`
         )
-      })
+      }
     )
 
-    // Read any build info files that we didn't already have in memory
+    const contractNamePromises = contractNames.map(
+      async (targetContractName) => {
+        // Look through the cache for the first build info file that contains the contract name.
+        for (const cachedFile of sortedCachedFiles) {
+          for (const fullyQualifiedName of cachedFile.contracts) {
+            const contractName = fullyQualifiedName.split(':')[1]
+            if (contractName === targetContractName) {
+              // Keep track of whether or not we need to read the build info file later
+              if (!toReadFiles.includes(cachedFile.name)) {
+                toReadFiles.push(cachedFile.name)
+              }
+
+              const artifact = await getContractArtifact(
+                fullyQualifiedName,
+                artifactFolder
+              )
+              return {
+                fullyQualifiedName,
+                artifact,
+                buildInfoName: cachedFile.name,
+              }
+            }
+          }
+        }
+
+        // Throw an error if no build info file is found in the cache for this contract name. This
+        // should only happen if the user manually deletes a build info file.
+        if (fs.existsSync(buildInfoCacheFilePath)) {
+          fs.unlinkSync(buildInfoCacheFilePath)
+        }
+        throw new Error(
+          `Build info cache is outdated. Please run 'forge build --force' then try again.`
+        )
+      }
+    )
+
+    const resolved = await Promise.all(
+      fullyQualifiedNamePromises.concat(contractNamePromises)
+    )
+
+    // Read any build info files that we didn't already have in memory. This sometimes means we read
+    // files twice (above, and then again here) which is not ideal, but reduces the memory footprint
+    // of this function significantly in large projects.
     await Promise.all(
       toReadFiles.map(async (file) => {
         const fullFilePath = join(buildInfoFolder, file)
@@ -419,4 +490,109 @@ export const getBundleInfoArray = async (
     bundleInfoArray,
     authRoot: authBundle.root,
   }
+}
+
+export const getConfigArtifactForContractName = (
+  targetContractName: string,
+  configArtifacts: ConfigArtifacts
+): {
+  fullyQualifiedName: string
+  buildInfo: BuildInfo
+  artifact: ContractArtifact
+} => {
+  for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
+    configArtifacts
+  )) {
+    const contractName = fullyQualifiedName.split(':')[1]
+    if (contractName === targetContractName) {
+      return {
+        fullyQualifiedName,
+        buildInfo,
+        artifact,
+      }
+    }
+  }
+  throw new Error(
+    `Could not find artifact for ${targetContractName}. Should never happen.`
+  )
+}
+
+export const getSphinxConfigNetworksFromScript = async (
+  scriptPath: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<{
+  testnets: Array<SupportedNetworkName>
+  mainnets: Array<SupportedNetworkName>
+}> => {
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxConfigNetworks()',
+    '--silent', // Silence compiler output
+    '--json',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const returned = JSON.parse(stdout).returns
+
+  const testnetEnums = JSON.parse(returned['0'].value).map((e) => BigInt(e))
+  const mainnetEnums = JSON.parse(returned['1'].value).map((e) => BigInt(e))
+
+  return {
+    testnets: testnetEnums.map(networkEnumToName),
+    mainnets: mainnetEnums.map(networkEnumToName),
+  }
+}
+
+export const getSphinxManagerAddressFromScript = async (
+  scriptPath: string,
+  forkUrl: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<string> => {
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--rpc-url',
+    forkUrl,
+    '--sig',
+    'sphinxManager()',
+    '--silent', // Silence compiler output
+    '--json',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const json = JSON.parse(stdout)
+
+  const managerAddress = json.returns[0].value
+
+  return managerAddress
 }

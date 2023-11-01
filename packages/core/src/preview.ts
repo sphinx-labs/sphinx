@@ -5,19 +5,20 @@ import {
   arraysEqual,
   getNetworkNameForChainId,
   getNetworkTag,
-  hyperlink,
-  isRawFunctionCallActionInput,
   prettyFunctionCall,
   prettyRawFunctionCall,
 } from './utils'
 
 type PreviewElement = DecodedAction | { to: string; data: string }
 
-export type SphinxPreview = Array<{
-  networkTags: Array<string>
-  executing: Array<PreviewElement>
-  skipping: Array<PreviewElement>
-}>
+export type SphinxPreview = {
+  networks: Array<{
+    networkTags: Array<string>
+    executing: Array<PreviewElement>
+    skipping: Array<PreviewElement>
+  }>
+  unlabeledAddresses: Set<string>
+}
 
 export const isDecodedAction = (
   element: PreviewElement
@@ -35,19 +36,14 @@ export const getPreviewString = (
 ): string => {
   let previewString = ''
 
-  const sphinxManagerLink = hyperlink(
-    'here',
+  const sphinxManagerLink =
     'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
-  )
-  const skippingLink = hyperlink(
-    'here',
-    'https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md#why-is-sphinx-skipping-a-contract-deployment-or-function-call'
-  )
-  const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
-    `Already executed. See`
-  )} ${blue(skippingLink)} ${yellow('for more info.')}`
 
-  for (const { networkTags, executing, skipping } of preview) {
+  const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
+    `Already executed.`
+  )}`
+
+  for (const { networkTags, executing, skipping } of preview.networks) {
     // Get the preview string for the networks.
     const networkTagsArray: Array<string> = []
     if (networkTags.length === 1) {
@@ -69,9 +65,10 @@ export const getPreviewString = (
         const element = executing[i]
 
         if (isDecodedAction(element)) {
-          const { referenceName, functionName, variables } = element
+          const { referenceName, functionName, variables, address } = element
           const actionStr = prettyFunctionCall(
             referenceName,
+            address,
             functionName,
             variables,
             5,
@@ -81,10 +78,8 @@ export const getPreviewString = (
           let executingStr: string
           if (referenceName === 'SphinxManager') {
             executingStr =
-              green(`${i + 1}. ${actionStr}`) +
-              ` ${green('(see')} ${blue(sphinxManagerLink)} ${green(
-                'for more info)'
-              )}`
+              green(`${i + 1}. ${actionStr}. Learn more: `) +
+              blue.underline(sphinxManagerLink)
           } else {
             executingStr = green(`${i + 1}. ${actionStr}`)
           }
@@ -108,6 +103,7 @@ export const getPreviewString = (
         const functionCallStr = isDecodedAction(element)
           ? prettyFunctionCall(
               element.referenceName,
+              element.address,
               element.functionName,
               element.variables,
               5,
@@ -124,6 +120,24 @@ export const getPreviewString = (
     previewString += '\n'
   }
 
+  // Warn about unlabeled addresses
+  if (preview.unlabeledAddresses.size > 0) {
+    const troubleshootingGuideLink = blue.underline(
+      `https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md#labeling-contracts\n\n`
+    )
+    previewString += `${yellow.bold(
+      `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`
+    )}`
+    previewString += `${Array.from(preview.unlabeledAddresses)
+      .map((e) => yellow(`- ${e}`))
+      .join('\n')}\n`
+    previewString +=
+      yellow(
+        `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
+          `please label them in your script. See the troubleshooting guide for more information:\n`
+      ) + troubleshootingGuideLink
+  }
+
   if (includeConfirmQuestion) {
     previewString += `Confirm? [y/n]`
   }
@@ -137,6 +151,7 @@ export const getPreview = (
     [networkTag: string]: {
       executing: Array<PreviewElement>
       skipping: Array<PreviewElement>
+      unlabeledAddresses: Array<string>
     }
   } = {}
 
@@ -144,33 +159,30 @@ export const getPreview = (
     const executing: Array<PreviewElement> = []
     const skipping: Array<PreviewElement> = []
 
-    const { chainId, initialState, actionInputs, isLiveNetwork } = parsedConfig
+    const {
+      chainId,
+      initialState,
+      actionInputs,
+      isLiveNetwork,
+      unlabeledAddresses,
+    } = parsedConfig
 
-    if (!initialState.isManagerDeployed) {
+    if (!initialState.isManagerDeployed && actionInputs.length > 0) {
       executing.push({
         referenceName: 'SphinxManager',
-        functionName: 'constructor',
-        variables: {},
+        functionName: 'deploy',
+        variables: [],
+        address: '',
       })
     }
 
     for (const action of actionInputs) {
-      if (isRawFunctionCallActionInput(action)) {
-        const { data, skip, to } = action
+      const { decodedAction, skip } = action
 
-        if (skip) {
-          skipping.push({ to, data })
-        } else {
-          executing.push({ to, data })
-        }
+      if (skip) {
+        skipping.push(decodedAction)
       } else {
-        const { decodedAction, skip } = action
-
-        if (skip) {
-          skipping.push(decodedAction)
-        } else {
-          executing.push(decodedAction)
-        }
+        executing.push(decodedAction)
       }
     }
 
@@ -181,23 +193,31 @@ export const getPreview = (
       BigInt(chainId)
     )
 
-    networks[networkTag] = { executing, skipping }
+    networks[networkTag] = { executing, skipping, unlabeledAddresses }
   }
 
   // Next, we group networks that have the same executing and skipping arrays.
-  const preview: SphinxPreview = []
-  for (const [networkTag, { executing, skipping }] of Object.entries(
-    networks
-  )) {
-    const existingNetwork = preview.find(
+  const preview: SphinxPreview = {
+    networks: [],
+    unlabeledAddresses: new Set([]),
+  }
+  for (const [
+    networkTag,
+    { executing, skipping, unlabeledAddresses },
+  ] of Object.entries(networks)) {
+    const existingNetwork = preview.networks.find(
       (e) =>
         arraysEqual(e.executing, executing) && arraysEqual(e.skipping, skipping)
     )
 
+    for (const address of unlabeledAddresses) {
+      preview.unlabeledAddresses.add(address)
+    }
+
     if (existingNetwork) {
       existingNetwork.networkTags.push(networkTag)
     } else {
-      preview.push({
+      preview.networks.push({
         networkTags: [networkTag],
         executing,
         skipping,

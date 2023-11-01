@@ -1,9 +1,10 @@
 import { basename, join, resolve } from 'path'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { spawnSync } from 'child_process'
 
 import {
   displayDeploymentTable,
-  isRawDeployContractActionInput,
+  isLiveNetwork,
   remove0x,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
@@ -12,23 +13,28 @@ import {
   getPreview,
   getPreviewString,
   userConfirmation,
-  SphinxActionType,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
   ParsedConfig,
+  SphinxPreview,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
 
-import { getBundleInfoArray, makeGetConfigArtifacts } from '../foundry/utils'
+import {
+  getBundleInfoArray,
+  getSphinxManagerAddressFromScript,
+  getUniqueNames,
+  makeGetConfigArtifacts,
+} from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import {
-  getCollectedSingleChainDeployment,
+  decodeDeploymentInfo,
+  readActionInputsOnSingleChain,
   makeParsedConfig,
 } from '../foundry/decode'
-import { generateClient } from './typegen/client'
-import { FoundryBroadcastReceipt } from '../foundry/types'
+import { FoundryBroadcast } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
@@ -38,21 +44,12 @@ export const deploy = async (
   silent: boolean,
   targetContract?: string,
   verify?: boolean,
+  skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   parsedConfig: ParsedConfig
   preview?: ReturnType<typeof getPreview>
 }> => {
-  // First, we run the `sphinx generate` command to make sure that the user's contracts and clients
-  // are up-to-date. The Solidity compiler is run within this command via `forge build`.
-
-  // Generate the clients to make sure that the user's contracts and clients are up-to-date. We skip
-  // the last compilation step in the generate command to reduce the number of times in a row that
-  // we compile the contracts. If we didn't do this, then it'd be possible for the user to see
-  // "Compiling..." three times in a row when they run the deploy command with the preview skipped.
-  // This isn't a big deal, but it may be puzzling to the user.
-  await generateClient(silent, true)
-
   const {
     artifactFolder,
     buildInfoFolder,
@@ -62,6 +59,16 @@ export const deploy = async (
     etherscan,
     broadcastFolder,
   } = await getFoundryConfigOptions()
+
+  const forkUrl = rpcEndpoints[network]
+  if (!forkUrl) {
+    console.error(
+      red(
+        `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+      )
+    )
+    process.exit(1)
+  }
 
   const chainId = SUPPORTED_NETWORKS[network]
   if (chainId === undefined) {
@@ -87,12 +94,38 @@ export const deploy = async (
     }
   }
 
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
+  const provider = new SphinxJsonRpcProvider(forkUrl)
+  // Force re-compile the contracts if this step hasn't been disabled and if we're on a live
+  // network. This ensures that we're using the correct artifacts for the deployment. This is mostly
+  // out of an abundance of caution, since using the incorrect contract artifact will prevent us
+  // from writing the deployment artifact.
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
+    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
+    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
+      stdio: 'inherit',
+    })
+    // Exit the process if the clean fails.
+    if (cleanStatus !== 0) {
+      process.exit(1)
+    }
+  }
+
+  // Compile to make sure the user's contracts are up to date.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatus !== 0) {
+    process.exit(1)
+  }
+
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
+  const sphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
-      `${artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
+      `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
 
   const getConfigArtifacts = makeGetConfigArtifacts(
@@ -101,36 +134,48 @@ export const deploy = async (
     cachePath
   )
 
-  const forkUrl = rpcEndpoints[network]
-  if (!forkUrl) {
-    console.error(
-      red(
-        `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
-      )
-    )
-    process.exit(1)
-  }
-
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
+
+  const deploymentInfoPath = join(cachePath, 'deployment-info.txt')
+
+  // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
+  // use an outdated file.
+  if (existsSync(deploymentInfoPath)) {
+    unlinkSync(deploymentInfoPath)
+  }
 
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(string)',
+    'sphinxCollectDeployment(string,string)',
     network,
+    deploymentInfoPath,
     '--rpc-url',
     forkUrl,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    '--skip-simulation',
   ]
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+  const managerAddress = await getSphinxManagerAddressFromScript(
+    scriptPath,
+    forkUrl,
+    targetContract,
+    spinner
+  )
+
+  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
+  // SphinxManager as the `msg.sender` to ensure that it's the caller for all transactions. We need
+  // to do this even though we also broadcast from the SphinxManager's address in the script.
+  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
+  // linked library. In this scenario, the caller that deploys the library would be Foundry's
+  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
+  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
+    FOUNDRY_SENDER: managerAddress,
+  })
 
   if (spawnOutput.code !== 0) {
     spinner.stop()
@@ -141,18 +186,28 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const { deploymentInfo, actionInputs } = getCollectedSingleChainDeployment(
-    network,
+  const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+  const deploymentInfo = decodeDeploymentInfo(
+    abiEncodedDeploymentInfo,
+    sphinxPluginTypesABI
+  )
+
+  const actionInputs = readActionInputsOnSingleChain(
+    deploymentInfo,
     scriptPath,
     broadcastFolder,
-    sphinxCollectorABI,
     'sphinxCollectDeployment'
   )
 
-  const fullyQualifiedNames = actionInputs
-    .filter(isRawDeployContractActionInput)
-    .map((a) => a.fullyQualifiedName)
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
+  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
+    [actionInputs],
+    [deploymentInfo]
+  )
+
+  const configArtifacts = await getConfigArtifacts(
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
+  )
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
@@ -164,7 +219,7 @@ export const deploy = async (
 
   spinner.succeed(`Collected transactions.`)
 
-  let preview
+  let preview: SphinxPreview | undefined
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
@@ -178,8 +233,6 @@ export const deploy = async (
     if (emptyDeployment) {
       if (!silent) {
         spinner.info(`Nothing to deploy exiting early.`)
-        const previewString = getPreviewString(preview, false)
-        console.log(previewString)
       }
       return { parsedConfig, preview }
     } else {
@@ -250,12 +303,10 @@ export const deploy = async (
     console.log(stdout)
   }
 
-  spinner.start(`Writing deployment artifacts...`)
+  spinner.start(`Writing contract deployment artifacts...`)
 
-  const containsDeployment = actionInputs.some(
-    (action) =>
-      action.actionType === SphinxActionType.DEPLOY_CONTRACT.toString() &&
-      !action.skip
+  const containsDeployment = parsedConfig.actionInputs.some(
+    (e) => Object.keys(e.contracts).length > 0
   )
 
   if (containsDeployment) {
@@ -266,21 +317,23 @@ export const deploy = async (
       `${remove0x(deployTaskFragment.selector)}-latest.json`
     )
 
-    const receipts: Array<FoundryBroadcastReceipt> = JSON.parse(
+    const broadcast: FoundryBroadcast = JSON.parse(
       readFileSync(broadcastFilePath, 'utf-8')
-    ).receipts
+    )
 
-    const provider = new SphinxJsonRpcProvider(forkUrl)
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      receipts,
+      bundleInfo.actionBundle.actions,
+      broadcast,
       deploymentFolder,
       configArtifacts
     )
-    spinner.succeed(`Wrote deployment artifacts to: ${deploymentArtifactPath}`)
+    spinner.succeed(
+      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    )
   } else {
-    spinner.succeed(`No deployment artifacts to write.`)
+    spinner.succeed(`No contract deployment artifacts to write.`)
   }
 
   if (!silent) {

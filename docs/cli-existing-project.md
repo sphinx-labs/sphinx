@@ -7,15 +7,13 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 1. [Prerequisites](#1-prerequisites)
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
-4. [Update `gitignore`](#4-update-gitignore)
+4. [Update `.gitignore`](#4-update-gitignore)
 5. [Update `foundry.toml`](#5-update-foundrytoml)
 6. [Add remappings](#6-add-remappings)
 7. [Initialize a project](#7-initialize-a-project)
-8. [Generate clients](#8-generate-clients)
-9. [Update your build command (optional)](#9-update-your-build-command-optional)
-10. [Test the deployment](#10-test-the-deployment)
-11. [Broadcast a deployment on Anvil (optional)](#11-broadcast-a-deployment-on-anvil-optional)
-12. [Next steps](#12-next-steps)
+8. [Test the deployment](#8-test-the-deployment)
+9. [Broadcast a deployment on Anvil (optional)](#9-broadcast-a-deployment-on-anvil-optional)
+10. [Next steps](#10-next-steps)
 
 ## 1. Prerequisites
 
@@ -61,7 +59,6 @@ pnpm add -D @sphinx-labs/plugins
 Add the following to your `.gitignore` file:
 ```
 node_modules/
-client/
 ```
 
 ## 5. Update `foundry.toml`
@@ -71,7 +68,7 @@ Update your `foundry.toml` file to include a few settings that are needed to run
 ```
 ffi = true
 build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
+extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
@@ -107,49 +104,18 @@ npx sphinx init
 ```
 
 This created a few files:
-- `HelloSphinx.sol`: A sample contract to deploy. This is located in your contract folder, which defaults to `src/` if one doesn't already exist.
-- `HelloSphinx.s.sol`: A Sphinx deployment script. This script is located in your existing script folder or `script/` if one doesn't exist. It will deploy a `HelloSphinx` contract then call a function on it.
-- `HelloSphinx.t.sol`: A test file for the deployment. This is located in your existing test folder, or `test/` if one doesn't exist.
+- `HelloSphinx.sol`: A sample contract to deploy. This file is written to your existing contract folder, which defaults to `src/`.
+- `HelloSphinx.s.sol`: A sample deployment script. This file is written to your existing script folder, which defaults to `script/`.
+- `HelloSphinx.t.sol`: A sample test file. This file is written to your existing test folder, which defaults to `test/`.
 
-## 8. Generate clients
-
-Sphinx currently only supports CREATE3 deployments.
-
-To improve the UX of CREATE3 deployments, Sphinx autogenerates **clients**, which are thin wrappers over your contracts that provide type safety for your constructor arguments. You'll need to use clients when deploying your contracts.
-
-```
-npx sphinx generate
-```
-
-This command writes the clients into a new `client` folder.
-
-If you change the interface of one of your contract's constructors, you'll also need to re-run the `generate` command.
-
-## 9. Update your build command (optional)
-
-Follow this step if you use a build command to compile your contracts (e.g. `yarn build`). Otherwise, skip to the next step.
-
-You'll need to generate the Sphinx clients in your build command, or else the compilation process will fail.
-
-Open your `package.json`, then navigate to the `"build"` field, which is located in the following location:
-```json
-{
-  "scripts": {
-    "build": ...
-  }
-}
-```
-
-Then, copy and paste `npx sphinx generate` into your build command. You can use this as a drop-in replacement for `forge build`, since it runs this command under the hood.
-
-## 10. Test the deployment
+## 8. Test the deployment
 
 Run the test in `HelloSphinx.t.sol`:
 ```
 forge test --match-contract HelloSphinxTest
 ```
 
-## 11. Broadcast a deployment on Anvil (optional)
+## 9. Broadcast a deployment on Anvil (optional)
 
 Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful when you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
 
@@ -169,18 +135,20 @@ Add a private key to your .env file. We'll use the first valid one on Anvil:
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-Then, navigate to a new terminal window. Broadcast the deployment with the following command. You may need to change the path to the script depending on the location of your script directory.
+Then, navigate to a new terminal window. Broadcast the deployment with the following command, replacing `<script/path/>` with the path to your deployment script.
 
 ```
-npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
+npx sphinx deploy <script/path>/HelloSphinx.s.sol --network anvil
 ```
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
-Once the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`. Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
+Whenever a deployment is broadcasted with this command, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
-When deploying on a live network, you can verify your contracts using the `--verify` flag.
+If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 
-## 12. Next steps
+## 10. Next steps
 
-Your next step is to follow the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) guide.
+If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md).
+
+If you'd like to learn more about writing deployment scripts with Sphinx, see the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md).

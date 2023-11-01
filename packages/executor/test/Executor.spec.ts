@@ -1,4 +1,4 @@
-import path, { join } from 'path'
+import path from 'path'
 import '@sphinx-labs/plugins'
 
 import {
@@ -21,7 +21,6 @@ import {
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { Contract, ethers } from 'ethers'
-import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/options'
 import { buildParsedConfigArray } from '@sphinx-labs/plugins/src/cli/propose'
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
@@ -42,7 +41,7 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
 
 const rpcUrl = 'http://127.0.0.1:42420'
 const provider = new SphinxJsonRpcProvider(rpcUrl)
-const contractAddress = '0xE6855aF7ac9b8Eb0ad1ddB6f57527bfcED0E7Bf6'
+const contractAddress = '0x9b5Ec880A158Ba20Ab1AC6AFcC787f22070DD748'
 
 describe('Remote executor', () => {
   let contract: Contract
@@ -50,15 +49,11 @@ describe('Remote executor', () => {
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-    const { cachePath } = await getFoundryConfigOptions()
-    const proposalNetworksPath = join(cachePath, 'sphinx-proposal-networks.txt')
     const scriptPath = 'script/ExecutorTest.s.sol'
-
     const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
       scriptPath,
       owner.address,
-      true, // Is testnet
-      proposalNetworksPath
+      true // Is testnet
     )
 
     const parsedConfig = parsedConfigArray[0]

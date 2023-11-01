@@ -2,7 +2,7 @@
 src = 'contracts'
 ffi = true
 build_info = true
-extra_output = ['storageLayout', 'evm.gasEstimates']
+extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "/"}]
 allow_paths = ["../.."]
 optimizer = false

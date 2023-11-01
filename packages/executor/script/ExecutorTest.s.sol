@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 
 import { Script } from "forge-std/Script.sol";
 import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-import { SphinxClient } from "../client/SphinxClient.sol";
+import { ExecutorTest } from "../contracts/ExecutorTest.sol";
+import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 
-contract ExecutorTest_Script is Script, SphinxClient {
+contract ExecutorTest_Script is Script, Sphinx {
     constructor() {
         sphinxConfig.projectName = "Executor Test";
         sphinxConfig.owners = [0x70997970C51812dc3A010C7d01b50e0d17dc79C8];
@@ -16,6 +17,6 @@ contract ExecutorTest_Script is Script, SphinxClient {
     }
 
     function run() public override sphinx {
-        deployExecutorTest(42);
+        new ExecutorTest{ salt: 0 }(42);
     }
 }
