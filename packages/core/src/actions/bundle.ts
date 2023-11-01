@@ -509,7 +509,7 @@ export const makeActionBundle = (
         action,
         // Use a 20% buffer to account for potential difference between
         // the estimated gas and the actual gas used by the action.
-        gas: (actionInputs[idx].gas * 120n) / 100n,
+        gas: (BigInt(actionInputs[idx].gas) * 120n) / 100n,
         siblings,
         contracts: actionInputs[idx].contracts,
       }

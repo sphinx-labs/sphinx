@@ -156,7 +156,7 @@ export interface RawDeployContractActionInput {
   constructorArgs: string
   userSalt: string
   referenceName: string
-  gas: bigint
+  gas: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
@@ -174,7 +174,7 @@ export interface RawCreate2ActionInput {
   skip: boolean
   data: string
   actionType: string
-  gas: bigint
+  gas: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
 }
@@ -201,7 +201,7 @@ export interface RawFunctionCallActionInput {
     address: string
     initCode: string
   }>
-  gas: bigint
+  gas: string
   decodedAction: DecodedAction
 }
 
