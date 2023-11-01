@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
-import { SphinxConfig, Version } from "../../../client/SphinxClient.sol";
 import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../../../contracts/test/MyContracts.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";

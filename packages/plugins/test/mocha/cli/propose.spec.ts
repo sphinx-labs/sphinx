@@ -123,7 +123,10 @@ describe.only('Propose CLI command', () => {
     expect(ipfsData.length).to.equal(1)
   })
 
-  it('Proposes without preview on multiple production networks', async () => {
+  // TODO: npx sphinx clean
+
+  // TODO: you should vary the contracts slightly to test chain-specific stuff
+  it.only('Proposes without preview on multiple production networks', async () => {
     const { proposalRequest, ipfsData } = await propose(
       true, // Skip preview
       false, // Is prod network
