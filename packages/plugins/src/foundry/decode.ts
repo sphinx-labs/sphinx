@@ -309,7 +309,7 @@ export const parseFoundryDryRun = (
 
         const variables = callArguments ?? [
           transaction.data.length > 1000
-            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}.`
+            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
             : transaction.data,
         ]
 
@@ -417,11 +417,9 @@ export const makeParsedConfig = (
 
       // Check if the contract is a CREATE3 proxy. If it is, we won't attempt to verify it because
       // it doesn't have its own source file in any commonly used CREATE3 library.
-      if (initCodeWithArgs === CREATE3_PROXY_INITCODE) {
-        continue
-      } else if (input.contractName) {
-        // Check if the `contractName` is a fully qualified name or a contract name.
-        if (input.contractName.includes(':')) {
+      if (initCodeWithArgs !== CREATE3_PROXY_INITCODE) {
+        // Check if the `contractName` is a fully qualified name.
+        if (input.contractName && input.contractName.includes(':')) {
           // It's a fully qualified name.
 
           const fullyQualifiedName = input.contractName
@@ -430,9 +428,10 @@ export const makeParsedConfig = (
             fullyQualifiedName,
             initCodeWithArgs,
           }
-        } else {
-          // It's a contract name.
-
+        } else if (
+          // Check if the `contractName` is a standard contract name (not a fully qualified name).
+          input.contractName
+        ) {
           const { fullyQualifiedName } = getConfigArtifactForContractName(
             input.contractName,
             configArtifacts
@@ -442,59 +441,60 @@ export const makeParsedConfig = (
             fullyQualifiedName,
             initCodeWithArgs,
           }
-        }
-      } else {
-        // There's no contract name in this CREATE2 transaction.
-
-        const label = labels.find((l) => l.addr === input.create2Address)
-        if (isLabel(label)) {
-          parsedContracts[input.create2Address] = {
-            fullyQualifiedName: label.fullyQualifiedName,
-            initCodeWithArgs,
-          }
-
-          const contractName = label.fullyQualifiedName.split(':')[1]
-          input.decodedAction = {
-            referenceName: contractName,
-            functionName: 'deploy',
-            // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
-            variables: {
-              initCode: initCodeWithArgs,
-            },
-            address: '',
-          }
         } else {
-          // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
-          // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
-          const contractName = rawInputs
-            .filter(isRawFunctionCallActionInput)
-            .filter((e) => e.to === input.create2Address)
-            .map((e) => e.contractName)
-            .find(isString)
-          if (contractName) {
-            const fullyQualifiedName = contractName.includes(':')
-              ? contractName
-              : getConfigArtifactForContractName(contractName, configArtifacts)
-                  .fullyQualifiedName
-
+          // There's no contract name in this CREATE2 transaction.
+          const label = labels.find((l) => l.addr === input.create2Address)
+          if (isLabel(label)) {
             parsedContracts[input.create2Address] = {
-              fullyQualifiedName,
+              fullyQualifiedName: label.fullyQualifiedName,
               initCodeWithArgs,
             }
 
+            const contractName = label.fullyQualifiedName.split(':')[1]
             input.decodedAction = {
-              referenceName: fullyQualifiedName.split(':')[1],
+              referenceName: contractName,
               functionName: 'deploy',
               // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
-              variables: [
-                {
-                  initCode: initCodeWithArgs,
-                },
-              ],
+              variables: {
+                initCode: initCodeWithArgs,
+              },
               address: '',
             }
           } else {
-            unlabeledAddresses.push(input.create2Address)
+            // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
+            // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
+            const contractName = rawInputs
+              .filter(isRawFunctionCallActionInput)
+              .filter((e) => e.to === input.create2Address)
+              .map((e) => e.contractName)
+              .find(isString)
+            if (contractName) {
+              const fullyQualifiedName = contractName.includes(':')
+                ? contractName
+                : getConfigArtifactForContractName(
+                    contractName,
+                    configArtifacts
+                  ).fullyQualifiedName
+
+              parsedContracts[input.create2Address] = {
+                fullyQualifiedName,
+                initCodeWithArgs,
+              }
+
+              input.decodedAction = {
+                referenceName: fullyQualifiedName.split(':')[1],
+                functionName: 'deploy',
+                // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
+                variables: [
+                  {
+                    initCode: initCodeWithArgs,
+                  },
+                ],
+                address: '',
+              }
+            } else {
+              unlabeledAddresses.push(input.create2Address)
+            }
           }
         }
       }

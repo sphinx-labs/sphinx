@@ -3,6 +3,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
+  displayDeploymentTable,
   isLiveNetwork,
   remove0x,
   spawnAsync,
@@ -232,8 +233,6 @@ export const deploy = async (
     if (emptyDeployment) {
       if (!silent) {
         spinner.info(`Nothing to deploy exiting early.`)
-        const previewString = getPreviewString(preview, false)
-        console.log(previewString)
       }
       return { parsedConfig, preview }
     } else {
@@ -335,6 +334,10 @@ export const deploy = async (
     )
   } else {
     spinner.succeed(`No contract deployment artifacts to write.`)
+  }
+
+  if (!silent) {
+    displayDeploymentTable(parsedConfig)
   }
 
   return { parsedConfig, preview }

@@ -122,17 +122,20 @@ export const getPreviewString = (
 
   // Warn about unlabeled addresses
   if (preview.unlabeledAddresses.size > 0) {
+    const troubleshootingGuideLink = blue.underline(
+      `https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md#labeling-contracts\n\n`
+    )
     previewString += `${yellow.bold(
       `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`
     )}`
     previewString += `${Array.from(preview.unlabeledAddresses)
       .map((e) => yellow(`- ${e}`))
       .join('\n')}\n`
-    previewString += yellow(
-      `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
-        `please label them in your script. See the troubleshooting guide for more information:\n` +
-        `https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md#labeling-contracts\n\n`
-    )
+    previewString +=
+      yellow(
+        `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
+          `please label them in your script. See the troubleshooting guide for more information:\n`
+      ) + troubleshootingGuideLink
   }
 
   if (includeConfirmQuestion) {
@@ -164,7 +167,7 @@ export const getPreview = (
       unlabeledAddresses,
     } = parsedConfig
 
-    if (!initialState.isManagerDeployed) {
+    if (!initialState.isManagerDeployed && actionInputs.length > 0) {
       executing.push({
         referenceName: 'SphinxManager',
         functionName: 'deploy',

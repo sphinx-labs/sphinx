@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract DeploymentCases {
+contract Fallback {
     int public number;
     string public myString;
 

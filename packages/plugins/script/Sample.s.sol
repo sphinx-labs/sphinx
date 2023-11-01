@@ -43,6 +43,6 @@ contract Sample is Sphinx {
 
         bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
         address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
-        // sphinxLabel(deployed, "contracts/test/MyContracts.sol:MyContract1");
+        sphinxLabel(deployed, "contracts/test/MyContracts.sol:MyContract1");
     }
 }
