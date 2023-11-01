@@ -36,8 +36,6 @@ import {
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
-// TODO(test): test that you can propose on a single chain
-
 import { deploy } from '../../../src/cli/deploy'
 import { buildParsedConfigArray } from '../../../src/cli/propose'
 import {

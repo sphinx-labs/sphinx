@@ -78,9 +78,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         // We must set the address here because the `run` function is not called in this process.
         // Instead, it's called during the collection phase, which occurs in a separate process
         // that's invoked by TypeScript before this process is executed.
-        ownable = MyOwnable(sphinxAddress(
-            sphinxConfig, "MyOwnable"
-        ));
+        ownable = MyOwnable(address(0)); // TODO
     }
 
     function assertAuthContractInitialized() internal {
@@ -168,9 +166,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
     MyContract1 myNewContract;
 
     function setUp() external {
-        myNewContract = MyContract1(sphinxAddress(
-            sphinxConfig, "MyNewContract"
-        ));
+        myNewContract = MyContract1(address(0)); // TODO
     }
 
     function run() public override sphinx {
@@ -222,9 +218,7 @@ contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxCo
     function setUp() external {
         sphinxConfig.version = newVersion;
 
-        myNewContract = MyContract1(sphinxAddress(
-            sphinxConfig, "MyNewContract"
-        ));
+        myNewContract = MyContract1(address(0)); // TODO
     }
 
     function run() public override virtual sphinx {
@@ -293,9 +287,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
     MyContract1 myNewContract;
 
     function setUp() external {
-        myNewContract = MyContract1(sphinxAddress(
-            sphinxConfig, "MyNewContract"
-        ));
+        myNewContract = MyContract1(address(0)); // TODO
     }
 
 

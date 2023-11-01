@@ -817,35 +817,6 @@ abstract contract Sphinx {
         return sphinxUtils.getSphinxManagerAddress(sphinxConfig);
     }
 
-    /**
-     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
-     *         that a user-defined salt is not being used to deploy the contract. If it is, use the
-     *         overloaded function of the same name. Before calling this function, the following
-     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
-     */
-    function sphinxAddress(
-        SphinxConfig memory _config,
-        string memory _referenceName
-    ) internal view returns (address) {
-        return sphinxAddress(_config, _referenceName, bytes32(0));
-    }
-
-    /**
-     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
-     *         that a user-defined salt is being used to deploy the contract. If it's not, use the
-     *         overloaded function of the same name. Before calling this function, the following
-     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
-     */
-    function sphinxAddress(
-        SphinxConfig memory _config,
-        string memory _referenceName,
-        bytes32 _salt
-    ) internal view returns (address) {
-        address managerAddress = sphinxUtils.getSphinxManagerAddress(_config);
-        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
-        return sphinxUtils.computeCreate3Address(managerAddress, create3Salt);
-    }
-
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
         NetworkInfo[] memory all = sphinxUtils.getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
