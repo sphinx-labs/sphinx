@@ -1,181 +1,179 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// TODO: uncomment
+import { AbstractChainSpecific_Test } from "./AbstractChainSpecific.t.sol";
+import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
 
-// import { AbstractChainSpecific_Test } from "./AbstractChainSpecific.t.sol";
-// import { Network } from "../../contracts/foundry/SphinxPluginTypes.sol";
+contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificOptimismMainnet_Test is AbstractChainSpecific_Test {
+    Network network = Network.optimism;
 
-//     Network network = Network.optimism;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimism));
 
-//         deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimism));
+        run();
+    }
 
-//         run();
-//     }
+    function testChainSpecificActionsExecuted() external override {
+        assertOptimismMainnetActionsExecuted();
+    }
 
-//     function testChainSpecificActionsExecuted() external override {
-//         assertOptimismMainnetActionsExecuted();
-//     }
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumMainnetNotExecuted();
+        assertArbitrumGoerliNotExecuted();
+    }
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumMainnetNotExecuted();
-//         assertArbitrumGoerliNotExecuted();
-//     }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
 
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificOptimismGoerli_Test is AbstractChainSpecific_Test {
+    Network network = Network.optimism_goerli;
 
-//     Network network = Network.optimism_goerli;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimismGoerli));
 
-//         deployCodeTo("ChainSpecific.sol:OnlyOptimism", hex"", address(onlyOptimismGoerli));
+        run();
+    }
 
-//         run();
-//     }
+    function testChainSpecificActionsExecuted() external override {
+        assertOptimismGoerliActionsExecuted();
+    }
 
-//     function testChainSpecificActionsExecuted() external override {
-//         assertOptimismGoerliActionsExecuted();
-//     }
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumMainnetNotExecuted();
+        assertArbitrumGoerliNotExecuted();
+    }
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumMainnetNotExecuted();
-//         assertArbitrumGoerliNotExecuted();
-//     }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
 
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificEthereum_Test is AbstractChainSpecific_Test {
+    Network network = Network.ethereum;
 
-//     Network network = Network.ethereum;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        run();
+    }
 
-//         run();
-//     }
+    // Nothing network-specific on this chain.
+    function testChainSpecificActionsExecuted() external override {}
 
-//     // Nothing network-specific on this chain.
-//     function testChainSpecificActionsExecuted() external override {}
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumMainnetNotExecuted();
+        assertArbitrumGoerliNotExecuted();
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumMainnetNotExecuted();
-//         assertArbitrumGoerliNotExecuted();
+        assertEq(address(onlyOptimism).code.length, 0);
+        assertEq(address(onlyOptimismGoerli).code.length, 0);
+    }
 
-//         assertEq(address(onlyOptimism).code.length, 0);
-//         assertEq(address(onlyOptimismGoerli).code.length, 0);
-//     }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
 
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificGoerli_Test is AbstractChainSpecific_Test {
+    Network network = Network.goerli;
 
-//     Network network = Network.goerli;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        run();
+    }
 
-//         run();
-//     }
+    // Nothing network-specific on this chain.
+    function testChainSpecificActionsExecuted() external override {}
 
-//     // Nothing network-specific on this chain.
-//     function testChainSpecificActionsExecuted() external override {}
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumMainnetNotExecuted();
+        assertArbitrumGoerliNotExecuted();
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumMainnetNotExecuted();
-//         assertArbitrumGoerliNotExecuted();
+        assertEq(address(onlyOptimism).code.length, 0);
+        assertEq(address(onlyOptimismGoerli).code.length, 0);
+    }
 
-//         assertEq(address(onlyOptimism).code.length, 0);
-//         assertEq(address(onlyOptimismGoerli).code.length, 0);
-//     }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
 
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificArbitrum_Test is AbstractChainSpecific_Test {
+    Network network = Network.arbitrum;
 
-//     Network network = Network.arbitrum;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        run();
+    }
 
-//         run();
-//     }
+    function testChainSpecificActionsExecuted() external override {
+        assertArbitrumMainnetActionsExecuted();
+    }
 
-//     function testChainSpecificActionsExecuted() external override {
-//         assertArbitrumMainnetActionsExecuted();
-//     }
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumGoerliNotExecuted();
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumGoerliNotExecuted();
+        assertEq(address(onlyOptimism).code.length, 0);
+        assertEq(address(onlyOptimismGoerli).code.length, 0);
+    }
 
-//         assertEq(address(onlyOptimism).code.length, 0);
-//         assertEq(address(onlyOptimismGoerli).code.length, 0);
-//     }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
 
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+contract ChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
 
-// contract ChainSpecificArbitrumGoerli_Test is AbstractChainSpecific_Test {
+    Network network = Network.arbitrum_goerli;
 
-//     Network network = Network.arbitrum_goerli;
+    function setUp() public {
+        createSelectAlchemyFork(network);
 
-//     function setUp() public {
-//         createSelectAlchemyFork(network);
+        // Sanity check that the chain ID is correct.
+        assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//         // Sanity check that the chain ID is correct.
-//         assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
+        run();
+    }
 
-//         run();
-//     }
+    function testChainSpecificActionsExecuted() external override {
+        assertArbitrumGoerliActionsExecuted();
+    }
 
-//     function testChainSpecificActionsExecuted() external override {
-//         assertArbitrumGoerliActionsExecuted();
-//     }
+    function testOtherNetworkActionsNotExecuted() external override {
+        assertArbitrumMainnetNotExecuted();
 
-//     function testOtherNetworkActionsNotExecuted() external override {
-//         assertArbitrumMainnetNotExecuted();
+        assertEq(address(onlyOptimism).code.length, 0);
+        assertEq(address(onlyOptimismGoerli).code.length, 0);
+    }
 
-//         assertEq(address(onlyOptimism).code.length, 0);
-//         assertEq(address(onlyOptimismGoerli).code.length, 0);
-//     }
-
-//     function testAllNetworksContractSuccess() external {
-//         assertAllNetworksContractSuccess(network);
-//     }
-// }
+    function testAllNetworksContractSuccess() external {
+        assertAllNetworksContractSuccess(network);
+    }
+}
