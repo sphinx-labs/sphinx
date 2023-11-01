@@ -233,8 +233,6 @@ export const deploy = async (
     if (emptyDeployment) {
       if (!silent) {
         spinner.info(`Nothing to deploy exiting early.`)
-        const previewString = getPreviewString(preview, false)
-        console.log(previewString)
       }
       return { parsedConfig, preview }
     } else {
