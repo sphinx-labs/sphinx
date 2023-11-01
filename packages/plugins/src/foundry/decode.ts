@@ -253,7 +253,7 @@ export const parseFoundryDryRun = (
           skip: false,
           data: transaction.data,
           actionType: SphinxActionType.CALL.toString(),
-          gas: BigInt(transaction.gas),
+          gas: transaction.gas,
           additionalContracts,
           decodedAction: {
             referenceName: contractNameWithoutPath ?? create2Address,
@@ -281,7 +281,7 @@ export const parseFoundryDryRun = (
           skip: false,
           to,
           data: transaction.data,
-          gas: BigInt(transaction.gas),
+          gas: transaction.gas,
           contractName,
           additionalContracts,
           decodedAction: {
