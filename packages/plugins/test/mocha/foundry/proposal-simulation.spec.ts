@@ -72,7 +72,7 @@ const sphinxConfig: SphinxConfig = {
   version: CURRENT_SPHINX_MANAGER_VERSION,
 }
 
-describe.only('Simulate proposal', () => {
+describe('Simulate proposal', () => {
   let foundryToml: FoundryToml
   let authAddress: string
   let managerAddress: string
@@ -131,7 +131,6 @@ describe.only('Simulate proposal', () => {
       }
     })
 
-    // TODO: .only everywhere
     it('Simulates proposal for a project that was previously deployed', async () => {
       for (const network of sphinxConfig.testnets) {
         const rpcUrl = foundryToml.rpcEndpoints[network.toString()]

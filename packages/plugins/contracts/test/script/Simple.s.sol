@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
-import { MyContract1 } from "../../../contracts/test/MyContracts.sol";
+import { MyContract2 } from "../../../contracts/test/MyContracts.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";
 
 contract Simple is Script, Sphinx {
@@ -19,12 +19,13 @@ contract Simple is Script, Sphinx {
     }
 
     function run() public override sphinx {
-        MyContract1 myContract1;
-        if (getSphinxNetwork(block.chainid) == Network.ethereum) {
-            myContract1 = new MyContract1{ salt: 0 }(-1, 2, address(1), address(2));
-        } else {
-            myContract1 = new MyContract1{ salt: bytes32(uint(1)) }(-1, 2, address(1), address(2));
+        MyContract2 myContract;
+        Network network = getSphinxNetwork(block.chainid);
+        if (network == Network.ethereum || network == Network.goerli) {
+            myContract = new MyContract2{ salt: 0 }();
+        } else if (network == Network.optimism) {
+            myContract = new MyContract2{ salt: bytes32(uint(1)) }();
         }
-        myContract1.incrementUint();
+        myContract.incrementMyContract2(2);
     }
 }
