@@ -37,17 +37,12 @@ import {
 import { ethers } from 'ethers'
 
 import { deploy } from '../../../src/cli/deploy'
-import { collectProposal } from '../../../src/cli/propose'
+import { buildParsedConfigArray } from '../../../src/cli/propose'
 import {
   FoundryToml,
   getFoundryConfigOptions,
 } from '../../../src/foundry/options'
-import { makeParsedConfig } from '../../../src/foundry/decode'
-import {
-  getBundleInfoArray,
-  getUniqueFullyQualifiedNames,
-  makeGetConfigArtifacts,
-} from '../../../src/foundry/utils'
+import { getBundleInfoArray } from '../../../src/foundry/utils'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -130,6 +125,7 @@ describe('Simulate proposal', () => {
           true, // Silent
           'Proposal_Initial_Test',
           false, // Don't verify on Etherscan
+          undefined,
           mockPrompt
         )
       }
@@ -250,7 +246,7 @@ describe('Simulate proposal', () => {
         await execAsync(
           `cast rpc --rpc-url ${rpcUrl} anvil_setStorageAt ${managerAddress} 0x0000000000000000000000000000000000000000000000000000000000000099 0x1111111111111111111111111111111111111111111111111111111111111111`
         )
-        // Bump the block number on both networks. Necessary to make the previous RPC methods take effect.
+        // Bump the block number. Necessary to make the previous RPC methods take effect.
         await execAsync(`cast rpc --rpc-url ${rpcUrl} anvil_mine`)
 
         const provider = new SphinxJsonRpcProvider(rpcUrl)
@@ -333,26 +329,14 @@ const testProposalSimulation = async (
   foundryToml: FoundryToml,
   envVars?: NodeJS.ProcessEnv
 ) => {
-  const collected = await collectProposal(
-    isTestnet,
-    proposerAddress,
+  const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
-    foundryToml,
-    testContractName
+    proposerAddress,
+    isTestnet,
+    testContractName,
+    undefined // No spinner.
   )
 
-  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
-
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    foundryToml.cachePath
-  )
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
-
-  const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)
-  )
   const { authRoot, bundleInfoArray } = await getBundleInfoArray(
     configArtifacts,
     parsedConfigArray
@@ -380,7 +364,7 @@ const testProposalSimulation = async (
 
   const { code, stdout, stderr } = await spawnAsync(
     `forge`,
-    ['test', '--match-contract', testContractName],
+    ['test', '--match-contract', testContractName, '-vvvvv'],
     {
       AUTH_ROOT: authRoot,
       BUNDLE_INFO_ARRAY: encodedBundleInfoArray,

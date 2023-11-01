@@ -73,10 +73,8 @@ export const compileRemoteBundles = async (
 
   const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
 
-  const { bundles, humanReadableActions } = makeBundlesFromConfig(
-    compilerConfig,
-    configArtifacts
-  )
+  const { bundles, humanReadableActions } =
+    makeBundlesFromConfig(compilerConfig)
   return {
     bundles,
     compilerConfig,

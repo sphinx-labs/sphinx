@@ -2,11 +2,12 @@
 pragma solidity ^0.8.0;
 
 import { Script, console } from "sphinx-forge-std/Script.sol";
-import { SphinxClient, SphinxConfig, Version } from "../client/SphinxClient.sol";
-import { Network } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Sphinx } from "../contracts/foundry/Sphinx.sol";
+import { Network, Label } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
+import { CREATE3 } from "solady/utils/CREATE3.sol";
 
-contract Sample is Script, SphinxClient {
+contract Sample is Sphinx {
 
     MyContract1 myContract;
 
@@ -20,19 +21,27 @@ contract Sample is Script, SphinxClient {
     }
 
     function run() public override sphinx {
-        MyContract1 myClient = deployMyContract1(
+        new MyContract1{ salt: bytes32(uint(1)) }(
             -1,
             2,
             address(1),
             address(2)
         );
-        MyContract1.MyStruct memory myStruct = myClient.myPureFunction();
-        myClient.set(myStruct.a);
-        myClient.incrementUint();
-        myClient.incrementUint();
-        myClient.incrementUint();
+        new MyContract1{ salt: bytes32(uint(2)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
+        new MyContract1{ salt: bytes32(uint(3)) }(
+            -1,
+            2,
+            address(1),
+            address(2)
+        );
 
-        myContract = MyContract1(address(myClient));
-        console.logInt(myContract.intArg());
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
+        sphinxLabel(deployed, "contracts/test/MyContracts.sol:MyContract1");
     }
 }

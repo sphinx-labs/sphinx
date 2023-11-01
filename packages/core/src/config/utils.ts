@@ -43,16 +43,13 @@ export const getTargetAddress = (
   return getCreate3Address(managerAddress, targetSalt)
 }
 
-export const getCreate3Address = (
-  managerAddress: string,
-  salt: string
-): string => {
+export const getCreate3Address = (deployer: string, salt: string): string => {
   // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
   // library for details.
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
 
   const proxyAddress = getCreate2Address(
-    managerAddress,
+    deployer,
     salt,
     keccak256(proxyBytecode)
   )

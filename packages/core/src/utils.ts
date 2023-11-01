@@ -11,7 +11,6 @@ import {
   Signer,
   Contract,
   ethers,
-  Fragment,
   AbiCoder,
   Provider,
   JsonRpcSigner,
@@ -44,14 +43,16 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  ParsedConfig,
-  DecodedFunctionCallActionInput,
   DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
   RawFunctionCallActionInput,
   RawDeployContractActionInput,
   ActionInput,
+  RawCreate2ActionInput,
+  RawActionInput,
+  Label,
+  ParsedConfig,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -70,11 +71,7 @@ import {
   ContractArtifact,
 } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import {
-  fromRawSphinxAction,
-  getDeployContractActions,
-  isSetStorageAction,
-} from './actions/bundle'
+import { fromRawSphinxAction, isSetStorageAction } from './actions/bundle'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
@@ -497,18 +494,14 @@ export const validateBuildInfo = (
         `Did you forget to set the "storageLayout" compiler option in your Hardhat config file?`
       )
     }
-
-    if (
-      !buildInfo.input.settings.outputSelection['*']['*'].includes(
-        'evm.gasEstimates'
-      )
-    ) {
-      throw new Error(
-        `Did you forget to set the "evm.gasEstimates" compiler option in your Hardhat config file?`
-      )
-    }
   }
 }
+
+// TODO(ryan): (This is the `getConfigArtifact` bug we discussed on the call. You already have this
+// in your notes, so feel free to disregard). Say we have contracts/MyContracts.sol:MyContract1.sol
+// and contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
+// out/artifacts/test/, but it seems we assume that the artifact directory structure is "flat" in
+// `getConfigArtifact`.
 
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
@@ -534,7 +527,6 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
     deployedBytecode,
     metadata,
     methodIdentifiers: artifact.methodIdentifiers,
-    gasEstimates: artifact.gasEstimates,
     storageLayout: artifact.storageLayout,
   }
 }
@@ -566,27 +558,6 @@ export const isEqualType = (
     })
 
   return isEqual
-}
-
-/**
- * @notice Converts the variables from the object format used by Sphinx into an ordered array
- * which can be used by ethers.js and Etherscan.
- */
-export const getFunctionArgValueArray = (
-  args: ParsedVariable,
-  fragment?: Fragment
-): Array<ParsedVariable> => {
-  const argValues: Array<ParsedVariable> = []
-
-  if (fragment === undefined) {
-    return argValues
-  }
-
-  fragment.inputs.forEach((input) => {
-    argValues.push(args[input.name])
-  })
-
-  return argValues
 }
 
 /**
@@ -744,40 +715,41 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifactsRemote = {}
-  const unskippedContractDeployments = compilerConfig.actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
-  for (const actionInput of unskippedContractDeployments) {
-    const { fullyQualifiedName } = actionInput
-    // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = actionInput.fullyQualifiedName.split(':')
+  const unskipped = compilerConfig.actionInputs.filter((a) => !a.skip)
+  for (const actionInput of unskipped) {
+    for (const address of Object.keys(actionInput.contracts)) {
+      const { fullyQualifiedName } = actionInput.contracts[address]
 
-    const buildInfo = solcArray.find(
-      (e) => e.output.contracts[sourceName][contractName]
-    )
-    if (!buildInfo) {
-      throw new Error(
-        `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+      // Split the contract's fully qualified name into its source name and contract name.
+      const [sourceName, contractName] = fullyQualifiedName.split(':')
+
+      const buildInfo = solcArray.find(
+        (e) => e.output.contracts[sourceName][contractName]
       )
-    }
-    const contractOutput = buildInfo.output.contracts[sourceName][contractName]
+      if (!buildInfo) {
+        throw new Error(
+          `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+        )
+      }
+      const contractOutput =
+        buildInfo.output.contracts[sourceName][contractName]
 
-    const metadata =
-      typeof contractOutput.metadata === 'string'
-        ? JSON.parse(contractOutput.metadata)
-        : contractOutput.metadata
-    artifacts[fullyQualifiedName] = {
-      buildInfo,
-      artifact: {
-        abi: contractOutput.abi,
-        sourceName,
-        contractName,
-        bytecode: add0x(contractOutput.evm.bytecode.object),
-        deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-        gasEstimates: contractOutput.evm.gasEstimates,
-        methodIdentifiers: contractOutput.evm.methodIdentifiers,
-        metadata,
-      },
+      const metadata =
+        typeof contractOutput.metadata === 'string'
+          ? JSON.parse(contractOutput.metadata)
+          : contractOutput.metadata
+      artifacts[fullyQualifiedName] = {
+        buildInfo,
+        artifact: {
+          abi: contractOutput.abi,
+          sourceName,
+          contractName,
+          bytecode: add0x(contractOutput.evm.bytecode.object),
+          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+          methodIdentifiers: contractOutput.evm.methodIdentifiers,
+          metadata,
+        },
+      }
     }
   }
   return artifacts
@@ -861,38 +833,6 @@ export const getImpersonatedSigner = async (
   } else {
     return provider.getSigner(address)
   }
-}
-
-/**
- * Checks if one of the `DEPLOY_CONTRACT` actions reverts. This does not guarantee that the
- * deployment will or will not revert, but it will return the correct result in most cases.
- */
-export const deploymentDoesRevert = async (
-  provider: SphinxJsonRpcProvider,
-  managerAddress: string,
-  actionBundle: SphinxActionBundle,
-  actionsExecuted: number
-): Promise<boolean> => {
-  // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
-  const deployContractActions =
-    getDeployContractActions(actionBundle).slice(actionsExecuted)
-
-  try {
-    // Attempt to estimate the gas of the deployment transactions. This will throw an error if
-    // gas estimation fails, which should only occur if a constructor reverts.
-    await Promise.all(
-      deployContractActions.map(async (action) =>
-        provider.estimateGas({
-          from: managerAddress,
-          data: action.creationCodeWithConstructorArgs,
-        })
-      )
-    )
-  } catch (e) {
-    // At least one of the constructors reverted.
-    return true
-  }
-  return false
 }
 
 // Transfer ownership of the SphinxManager if a new project owner has been specified.
@@ -1049,13 +989,6 @@ export const arraysEqual = (
   }
 
   return true
-}
-
-/**
- * @notice Returns a hyperlinked string that can be printed to the console.
- */
-export const hyperlink = (text: string, url: string): string => {
-  return `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
 }
 
 export const userConfirmation = async (question: string) => {
@@ -1302,6 +1235,7 @@ export const isSupportedNetworkName = (
  */
 export const prettyFunctionCall = (
   referenceNameOrAddress: string,
+  address: string,
   functionName: string,
   variables: ParsedVariable,
   spaceToIndentVariables: number = 2,
@@ -1320,9 +1254,10 @@ export const prettyFunctionCall = (
   const addedSpaceToClosingParenthesis =
     removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
 
+  const addressTag = address !== '' ? `<${address}>` : ''
   const target = ethers.isAddress(referenceNameOrAddress)
     ? `(${referenceNameOrAddress})`
-    : referenceNameOrAddress
+    : `${referenceNameOrAddress}${addressTag}`
 
   return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
 }
@@ -1398,29 +1333,9 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   }
 }
 
-export const isDecodedFunctionCallActionInput = (
-  actionInput: ActionInput
-): actionInput is DecodedFunctionCallActionInput => {
-  const callActionInput = actionInput as DecodedFunctionCallActionInput
-  return (
-    callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.skip !== undefined &&
-    callActionInput.fullyQualifiedName !== undefined &&
-    callActionInput.data !== undefined &&
-    callActionInput.referenceName !== undefined &&
-    callActionInput.decodedAction.functionName !== undefined &&
-    callActionInput.decodedAction.referenceName !== undefined &&
-    callActionInput.decodedAction.variables !== undefined
-  )
-}
-
 export const isRawFunctionCallActionInput = (
-  actionInput: ActionInput
+  actionInput: ActionInput | RawActionInput
 ): actionInput is RawFunctionCallActionInput => {
-  if (isDecodedFunctionCallActionInput(actionInput)) {
-    return false
-  }
-
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
@@ -1437,9 +1352,23 @@ export const isDeployContractActionInput = (
 }
 
 export const isRawDeployContractActionInput = (
-  actionInput: RawDeployContractActionInput | RawFunctionCallActionInput
+  actionInput: RawActionInput
 ): actionInput is RawDeployContractActionInput => {
   return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
+}
+
+export const isRawCreate2ActionInput = (
+  actionInput: RawActionInput | ActionInput
+): actionInput is RawCreate2ActionInput => {
+  const rawCreate2 = actionInput as RawCreate2ActionInput
+  return (
+    rawCreate2.actionType === SphinxActionType.CALL.toString() &&
+    rawCreate2.contractName !== undefined &&
+    rawCreate2.create2Address !== undefined &&
+    rawCreate2.skip !== undefined &&
+    rawCreate2.data !== undefined &&
+    rawCreate2.gas !== undefined
+  )
 }
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
@@ -1448,15 +1377,18 @@ export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
 
 export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
-  parsedConfig.actionInputs
-    .filter(isDeployContractActionInput)
-    .filter((a) => !a.skip)
-    .forEach((a, i) => {
-      deployments[i + 1] = {
-        Contract: a.referenceName,
-        Address: a.create3Address,
+  let idx = 0
+  for (const input of parsedConfig.actionInputs) {
+    for (const address of Object.keys(input.contracts)) {
+      const fullyQualifiedName = input.contracts[address].fullyQualifiedName
+      const contractName = fullyQualifiedName.split(':')[1]
+      deployments[idx + 1] = {
+        Contract: contractName,
+        Address: address,
       }
-    })
+      idx += 1
+    }
+  }
   if (Object.keys(deployments).length > 0) {
     console.table(deployments)
   }
@@ -1576,4 +1508,19 @@ export const spawnAsync = (
       })
     })
   })
+}
+
+export const isString = (str: string | null | undefined): str is string => {
+  return typeof str === 'string'
+}
+
+export const isLabel = (l: Label | undefined): l is Label => {
+  if (l === undefined) {
+    return false
+  }
+
+  return (
+    typeof (l as Label).addr === 'string' &&
+    typeof (l as Label).fullyQualifiedName === 'string'
+  )
 }

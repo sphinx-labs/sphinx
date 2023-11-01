@@ -1,13 +1,11 @@
-import { basename, join, resolve } from 'path'
+import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { spawnSync } from 'child_process'
 
 import {
-  DeploymentInfo,
   ProjectDeployment,
   ProposalRequest,
   ProposalRequestLeaf,
-  RawDeployContractActionInput,
-  RawFunctionCallActionInput,
   RoleType,
   WEBSITE_URL,
   elementsEqual,
@@ -15,7 +13,6 @@ import {
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
-  hyperlink,
   relayIPFSCommit,
   relayProposal,
   signAuthRootMetaTxn,
@@ -23,80 +20,159 @@ import {
   userConfirmation,
 } from '@sphinx-labs/core'
 import ora from 'ora'
-import { blue } from 'chalk'
+import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
+import {
+  ConfigArtifacts,
+  DeploymentInfo,
+  ParsedConfig,
+  RawActionInput,
+} from '@sphinx-labs/core/dist/config/types'
 
 import {
-  getCollectedSingleChainDeployment,
+  readActionInputsOnSingleChain,
   makeParsedConfig,
-  parseFoundryDryRun,
+  decodeDeploymentInfo,
 } from '../../foundry/decode'
-import { FoundryToml, getFoundryConfigOptions } from '../../foundry/options'
-import { generateClient } from '../typegen/client'
+import { getFoundryConfigOptions } from '../../foundry/options'
 import {
   getBundleInfoArray,
-  getUniqueFullyQualifiedNames,
+  getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
+  getSphinxManagerAddressFromScript,
+  getUniqueNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
-import { FoundryDryRun } from '../../foundry/types'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   proposerAddress: string,
   isTestnet: boolean,
-  proposalNetworksPath: string,
   targetContract?: string,
   spinner?: ora.Ora
-) => {
+): Promise<{
+  parsedConfigArray: Array<ParsedConfig>
+  configArtifacts: ConfigArtifacts
+}> => {
   const foundryToml = await getFoundryConfigOptions()
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
-    proposerAddress,
-    isTestnet.toString(),
-    proposalNetworksPath,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    '--skip-simulation',
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
-
-  if (spawnOutput.code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
-
-  const collected = await collectProposal(
-    isTestnet,
-    proposerAddress,
-    scriptPath,
-    foundryToml,
-    targetContract,
-    spinner
-  )
-
-  const fullyQualifiedNames = getUniqueFullyQualifiedNames(collected)
 
   const getConfigArtifacts = makeGetConfigArtifacts(
     foundryToml.artifactFolder,
     foundryToml.buildInfoFolder,
     foundryToml.cachePath
   )
-  const configArtifacts = await getConfigArtifacts(fullyQualifiedNames)
 
-  const parsedConfigArray = collected.map((c) =>
-    makeParsedConfig(c.deploymentInfo, c.actionInputs, configArtifacts, true)
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxPluginTypesABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
+
+  const deploymentInfoPath = join(foundryToml.cachePath, 'deployment-info.txt')
+
+  const { testnets, mainnets } = await getSphinxConfigNetworksFromScript(
+    scriptPath,
+    targetContract,
+    spinner
+  )
+
+  const networks = isTestnet ? testnets : mainnets
+
+  const actionInputArray: Array<Array<RawActionInput>> = []
+  const deploymentInfoArray: Array<DeploymentInfo> = []
+  for (const network of networks) {
+    const rpcUrl = foundryToml.rpcEndpoints[network]
+    if (!rpcUrl) {
+      console.error(
+        red(
+          `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+        )
+      )
+      process.exit(1)
+    }
+    // Remove the file if it exists. This ensures that we don't accidentally use an outdated file.
+    if (existsSync(deploymentInfoPath)) {
+      unlinkSync(deploymentInfoPath)
+    }
+
+    const forgeScriptCollectArgs = [
+      'script',
+      scriptPath,
+      '--rpc-url',
+      rpcUrl,
+      '--sig',
+      'sphinxCollectProposal(address,string,string)',
+      proposerAddress,
+      network,
+      deploymentInfoPath,
+    ]
+    if (targetContract) {
+      forgeScriptCollectArgs.push('--target-contract', targetContract)
+    }
+
+    const managerAddress = await getSphinxManagerAddressFromScript(
+      scriptPath,
+      rpcUrl,
+      targetContract,
+      spinner
+    )
+
+    // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
+    // variable to set the SphinxManager as the `msg.sender` to ensure that it's the caller for all
+    // transactions. We need to do this even though we also broadcast from the SphinxManager's
+    // address in the script. Specifically, this is necessary if the user is deploying a contract
+    // via CREATE2 that uses a linked library. In this scenario, the caller that deploys the library
+    // would be Foundry's default sender if we don't set this environment variable. Note that
+    // `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER` environment
+    // variable. Also, passing the environment variable directly into the script overrides the
+    // user defining it in their `.env` file.
+    // It's worth mentioning that we can't run a single Forge script for all networks using
+    // cheatcodes like `vm.createSelectFork`. This is because we use the `FOUNDRY_SENDER`.
+    // Specifically, the state of the SphinxManager on the first fork is persisted across all forks
+    // when using `FOUNDRY_SENDER`. This is problematic if the SphinxManager doesn't have the same
+    // state across networks. This is a Foundry quirk; it may be a bug.
+    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
+      FOUNDRY_SENDER: managerAddress,
+    })
+
+    if (spawnOutput.code !== 0) {
+      spinner?.stop()
+      // The `stdout` contains the trace of the error.
+      console.log(spawnOutput.stdout)
+      // The `stderr` contains the error message.
+      console.log(spawnOutput.stderr)
+      process.exit(1)
+    }
+
+    const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+    const deploymentInfo = decodeDeploymentInfo(
+      abiEncodedDeploymentInfo,
+      sphinxPluginTypesABI
+    )
+
+    const actionInputs = readActionInputsOnSingleChain(
+      deploymentInfo,
+      scriptPath,
+      foundryToml.broadcastFolder,
+      'sphinxCollectProposal'
+    )
+
+    deploymentInfoArray.push(deploymentInfo)
+    actionInputArray.push(actionInputs)
+  }
+
+  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
+    actionInputArray,
+    deploymentInfoArray
+  )
+
+  const configArtifacts = await getConfigArtifacts(
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
+  )
+  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
+    makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts, true)
   )
 
   return { parsedConfigArray, configArtifacts }
@@ -109,6 +185,10 @@ export const buildParsedConfigArray = async (
  * @param dryRun If true, the proposal will not be relayed to the back-end.
  * @param targetContract The name of the contract within the script file. Necessary when there are
  * multiple contracts in the specified script.
+ * @param skipForceRecompile Force re-compile the contracts. By default, we force re-compile. This
+ * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
+ * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
+ * the contract on Etherscan and providing a deployment artifact for the contract.
  */
 export const propose = async (
   confirm: boolean,
@@ -117,6 +197,7 @@ export const propose = async (
   silent: boolean,
   scriptPath: string,
   targetContract?: string,
+  skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
@@ -135,31 +216,36 @@ export const propose = async (
   }
   const proposer = new ethers.Wallet(proposerPrivateKey)
 
-  // We run the `sphinx generate` command to make sure that the user's contracts and clients are
-  // up-to-date. The Solidity compiler is run within this command via `forge build`.
-  await generateClient(silent, true)
+  if (!skipForceRecompile) {
+    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
+    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
+      stdio: 'inherit',
+    })
+    // Exit the process if the clean fails.
+    if (cleanStatus !== 0) {
+      process.exit(1)
+    }
+  }
+
+  // Compile to make sure the user's contracts are up to date.
+  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  // Exit the process if compilation fails.
+  if (compilationStatus !== 0) {
+    process.exit(1)
+  }
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
   const foundryToml = await getFoundryConfigOptions()
-  const proposalNetworksPath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-networks.txt'
-  )
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
 
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
     proposer.address,
     isTestnet,
-    proposalNetworksPath,
     targetContract,
     spinner
   )
@@ -375,108 +461,13 @@ export const propose = async (
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
-    const websiteLink = blue(hyperlink('website', WEBSITE_URL))
     await relayProposal(proposalRequest)
     await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
     spinner.succeed(
-      `Proposal succeeded! Go to ${websiteLink} to approve the deployment.`
+      `Proposal succeeded! Go to ${blue.underline(
+        WEBSITE_URL
+      )} to approve the deployment.`
     )
   }
   return { proposalRequest, ipfsData: compilerConfigArray }
-}
-
-export const collectProposal = async (
-  isTestnet: boolean,
-  proposerAddress: string,
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  targetContract?: string,
-  spinner = ora({ isSilent: true })
-): Promise<
-  Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<
-      RawDeployContractActionInput | RawFunctionCallActionInput
-    >
-  }>
-> => {
-  const proposalNetworksPath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-networks.txt'
-  )
-
-  // Delete the proposal networks file if it already exists. This isn't strictly necessary, since an
-  // existing file would be overwritten automatically when we call `sphinxProposeTask`, but this
-  // ensures that we don't accidentally use outdated networks in the rest of the proposal.
-  if (existsSync(proposalNetworksPath)) {
-    unlinkSync(proposalNetworksPath)
-  }
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
-    proposerAddress,
-    isTestnet.toString(),
-    proposalNetworksPath,
-    // Skip the on-chain simulation. This is necessary because it will always fail if a
-    // SphinxManager already exists on the target network.
-    '--skip-simulation',
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
-
-  if (spawnOutput.code !== 0) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
-
-  const allNetworksStr = readFileSync(proposalNetworksPath, 'utf8')
-  const networkNames = allNetworksStr.split(',')
-
-  // We must load this ABI after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxCollectorABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${foundryToml.artifactFolder}/SphinxCollector.sol/SphinxCollector.json`
-    )).abi
-
-  if (networkNames.length === 1) {
-    return [
-      getCollectedSingleChainDeployment(
-        networkNames[0],
-        scriptPath,
-        foundryToml.broadcastFolder,
-        sphinxCollectorABI,
-        'sphinxCollectProposal'
-      ),
-    ]
-  } else {
-    // For multi-chain deployments, the format of the dry run file is:
-    // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
-    const dryRunPath = join(
-      foundryToml.broadcastFolder,
-      'multi',
-      'dry-run',
-      `${basename(scriptPath)}-latest`,
-      'sphinxCollectProposal.json'
-    )
-
-    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
-      readFileSync(dryRunPath, 'utf8')
-    ).deployments
-
-    return multichainDryRun.map((dryRun) =>
-      parseFoundryDryRun(dryRun, sphinxCollectorABI)
-    )
-  }
 }

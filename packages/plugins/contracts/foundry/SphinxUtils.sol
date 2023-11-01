@@ -39,7 +39,8 @@ import {
     SphinxConfig,
     InitialChainState,
     OptionalAddress,
-    Wallet
+    Wallet,
+    Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
@@ -288,15 +289,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getSphinxAuthAddress(SphinxConfig memory _config) public pure returns (address) {
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
         );
         require(
             _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
         );
         require(
             _config.threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
         );
 
         // Sort the owners in ascending order. This is required to calculate the address of the
@@ -734,7 +735,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 result = string(abi.encodePacked(result, "\n"));
             }
         }
-        result = string(abi.encodePacked(result));
         return result;
     }
 
@@ -789,18 +789,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.decode(result.stdout, (bool));
     }
 
-    function arrayContainsString(
-        string[] memory _ary,
-        string memory _str
-    ) external pure returns (bool) {
-        for (uint i = 0; i < _ary.length; i++) {
-            if (keccak256(abi.encodePacked(_str)) == keccak256(abi.encodePacked(_ary[i]))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
@@ -823,11 +811,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Filters out the duplicate networks and returns an array of unique networks.
-     * @param _networks The networks to filter.
-     * @return trimmed The unique networks.
+     * @notice Returns an array of Networks that appear more than once in the given array.
+     * @param _networks The unfiltered elements.
+     * @return duplicates The duplicated elements.
      */
-    function deduplicateElements(
+    function getDuplicatedElements(
         Network[] memory _networks
     ) public pure returns (Network[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the array is empty.
@@ -850,11 +838,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Filters out the duplicate addresses and returns an array of unique addresses.
-     * @param _ary The addresses to filter.
-     * @return trimmed The unique addresses.
+     * @notice Returns an array of addresses that appear more than once in the given array.
+     * @param _ary The unfiltered elements.
+     * @return duplicates The duplicated elements.
      */
-    function deduplicateElements(address[] memory _ary) public pure returns (address[] memory) {
+    function getDuplicatedElements(address[] memory _ary) public pure returns (address[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the array is empty.
         if (_ary.length == 0) return new address[](0);
 
@@ -920,15 +908,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function validate(SphinxConfig memory _config) external view {
         require(
             bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this fuction."
+            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
         );
         require(
             _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this fuction."
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
         );
         require(
             _config.threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this fuction."
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
         );
         if (!SPHINX_INTERNAL__TEST_VERSION_UPGRADE) {
             require(
@@ -953,10 +941,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."
         );
 
-        address[] memory duplicateOwners = deduplicateElements(_config.owners);
-        address[] memory duplicateProposers = deduplicateElements(_config.proposers);
-        Network[] memory duplicateMainnets = deduplicateElements(_config.mainnets);
-        Network[] memory duplicateTestnets = deduplicateElements(_config.testnets);
+        address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
+        address[] memory duplicateProposers = getDuplicatedElements(_config.proposers);
+        Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
+        Network[] memory duplicateTestnets = getDuplicatedElements(_config.testnets);
         require(
             duplicateOwners.length == 0,
             string(
@@ -1151,7 +1139,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function validateProposal(
         address _proposer,
-        Network _network,
+        string memory _networkName,
         SphinxConfig memory _config
     ) external view {
         require(
@@ -1176,7 +1164,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                         "Sphinx: The address ",
                         vm.toString(_proposer),
                         " is not currently a proposer on ",
-                        getNetworkInfo(_network).name,
+                        _networkName,
                         "."
                     )
                 )

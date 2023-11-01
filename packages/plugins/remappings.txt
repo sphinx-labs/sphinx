@@ -9,3 +9,4 @@ solidity-stringutils=node_modules/solidity-stringutils/src/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 @sphinx-labs/plugins=contracts/foundry/
 @layerzerolabs/solidity-examples/contracts/=node_modules/@layerzerolabs/solidity-examples/contracts/
+solady=../../node_modules/solady/src/

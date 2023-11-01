@@ -15,7 +15,7 @@ import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/option
 const deploymentArtifactDir = 'deployments'
 
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0x2A4805750C76d8B737bea20e5397bFda790AB14a'
+const contractAddress = '0xbd0DB8399aBE4EbC7247561C43a395E190633e07'
 
 describe('Init CLI command', () => {
   let contractPath: string
@@ -52,8 +52,6 @@ describe('Init CLI command', () => {
     // Check that the files have been created
     expect(fs.existsSync(contractPath)).to.be.true
     expect(fs.existsSync(testPath)).to.be.true
-
-    await execAsync(`npx sphinx generate`)
 
     // Next, we'll run the tests, then deploy it to anvil. If either of these commands fail, this
     // test case will also fail.

@@ -24,23 +24,22 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 - [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
 - [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
-- [Using the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
+- [Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
 
 ### Reference guides
 
-- [Configuring Sphinx Deployments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md)
-- [Calling Permissioned Functions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/permissioned-functions.md)
+- [Writing Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md)
+- [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuration-options.md)
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
-- [The `SphinxManager` contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
 
-### Current limitations
+## Current limitations
 
+- Sphinx supports `CREATE2` and `CREATE3`, but not the `CREATE` opcode, i.e. `new MyContract(...)`.
 - You cannot send ETH as part of a deployment.
-- Your deployment cannot contain externally linked libraries (i.e. libraries with `public`/`external` functions).
 
-Please reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if any of these limitations are blocking you!
+Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if this is blocking you!
 
 ## Supported Networks
 
