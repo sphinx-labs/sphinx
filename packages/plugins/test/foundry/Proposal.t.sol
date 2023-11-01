@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { console } from "sphinx-forge-std/console.sol";
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Test } from "sphinx-forge-std/Test.sol";
@@ -75,10 +76,12 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         manager = ISphinxManager(sphinxManager());
 
+        bytes memory initCode = abi.encodePacked(type(MyOwnable).creationCode, abi.encode(address(manager), 500));
+
         // We must set the address here because the `run` function is not called in this process.
         // Instead, it's called during the collection phase, which occurs in a separate process
         // that's invoked by TypeScript before this process is executed.
-        ownable = MyOwnable(address(0)); // TODO
+        ownable = MyOwnable(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
     }
 
     function assertAuthContractInitialized() internal {
@@ -165,8 +168,12 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
 
     MyContract1 myNewContract;
 
-    function setUp() external {
-        myNewContract = MyContract1(address(0)); // TODO
+    function setUp() public {
+        // We must set the address here because the `run` function is not called during the test.
+        // Instead, it's called during the collection phase, which occurs in a separate process
+        // that's invoked by TypeScript before the test is executed.
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(5, 6, address(7), address(8)));
+        myNewContract = MyContract1(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
     }
 
     function run() public override sphinx {
@@ -218,7 +225,11 @@ contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxCo
     function setUp() external {
         sphinxConfig.version = newVersion;
 
-        myNewContract = MyContract1(address(0)); // TODO
+        // We must set the address here because the `run` function is not called during the test.
+        // Instead, it's called during the collection phase, which occurs in a separate process
+        // that's invoked by TypeScript before the test is executed.
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(5, 6, address(7), address(8)));
+        myNewContract = MyContract1(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
     }
 
     function run() public override virtual sphinx {
@@ -286,10 +297,13 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
 
     MyContract1 myNewContract;
 
-    function setUp() external {
-        myNewContract = MyContract1(address(0)); // TODO
+    function setUp() public {
+        // We must set the address here because the `run` function is not called during the test.
+        // Instead, it's called during the collection phase, which occurs in a separate process
+        // that's invoked by TypeScript before the test is executed.
+        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(5, 6, address(7), address(8)));
+        myNewContract = MyContract1(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
     }
-
 
     function run() public override virtual sphinx {
         new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));

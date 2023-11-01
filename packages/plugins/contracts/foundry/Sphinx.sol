@@ -93,44 +93,21 @@ abstract contract Sphinx {
 
     function sphinxCollectProposal(
         address _proposer,
-        bool _testnets,
-        string memory _deploymentInfoArrayPath
+        string memory _networkName,
+        string memory _deploymentInfoPath
     ) external {
-        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
-        require(
-            networks.length > 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: There must be at least one network in your ",
-                    _testnets ? "'testnets'" : "'mainnets",
-                    " array."
-                )
-            )
-        );
+        string memory rpcUrl = vm.rpcUrl(_networkName);
+        sphinxUtils.validateProposal(_proposer, _networkName, sphinxConfig);
 
-        DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](networks.length);
-        for (uint256 i = 0; i < networks.length; i++) {
-            Network network = networks[i];
+        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
 
-            string memory networkName = sphinxUtils.getNetworkInfo(network).name;
-            string memory rpcUrl = vm.rpcUrl(networkName);
-
-            // Create a fork of the target network. This automatically sets the `block.chainid` to
-            // the target chain (e.g. 1 for ethereum mainnet).
-            vm.createSelectFork(rpcUrl);
-
-            sphinxUtils.validateProposal(_proposer, network, sphinxConfig);
-            DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
-            deploymentInfoArray[i] = deploymentInfo;
-
-            // Delete the labels. This ensures that we only use the necessary labels for each chain.
-            delete labels;
-        }
-
-        vm.writeFile(_deploymentInfoArrayPath, vm.toString(abi.encode(deploymentInfoArray)));
+        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxCollectDeployment(string memory _networkName, string memory _deploymentInfoPath) external {
+    function sphinxCollectDeployment(
+        string memory _networkName,
+        string memory _deploymentInfoPath
+    ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -817,6 +794,36 @@ abstract contract Sphinx {
         return sphinxUtils.getSphinxManagerAddress(sphinxConfig);
     }
 
+    // TODO: remove these two functions.
+    /**
+     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
+     *         that a user-defined salt is not being used to deploy the contract. If it is, use the
+     *         overloaded function of the same name. Before calling this function, the following
+     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
+     */
+    function sphinxAddress(
+        SphinxConfig memory _config,
+        string memory _referenceName
+    ) internal view returns (address) {
+        return sphinxAddress(_config, _referenceName, bytes32(0));
+    }
+
+    /**
+     * @notice Get the CREATE3 address of a contract to be deployed by Sphinx. This function assumes
+     *         that a user-defined salt is being used to deploy the contract. If it's not, use the
+     *         overloaded function of the same name. Before calling this function, the following
+     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
+     */
+    function sphinxAddress(
+        SphinxConfig memory _config,
+        string memory _referenceName,
+        bytes32 _salt
+    ) internal view returns (address) {
+        address managerAddress = sphinxUtils.getSphinxManagerAddress(_config);
+        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _salt));
+        return sphinxUtils.computeCreate3Address(managerAddress, create3Salt);
+    }
+
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
         NetworkInfo[] memory all = sphinxUtils.getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
@@ -833,11 +840,29 @@ abstract contract Sphinx {
         for (uint256 i = 0; i < labels.length; i++) {
             Label memory label = labels[i];
             if (label.addr == _addr) {
-                require(keccak256(abi.encodePacked(_fullyQualifiedName)) == keccak256(abi.encodePacked(label.fullyQualifiedName)), string(abi.encodePacked("Sphinx: The address ", vm.toString(_addr), " was labeled with two names:\n", label.fullyQualifiedName, "\n", _fullyQualifiedName, "\nPlease choose one label.")));
+                require(
+                    keccak256(abi.encodePacked(_fullyQualifiedName)) ==
+                        keccak256(abi.encodePacked(label.fullyQualifiedName)),
+                    string(
+                        abi.encodePacked(
+                            "Sphinx: The address ",
+                            vm.toString(_addr),
+                            " was labeled with two names:\n",
+                            label.fullyQualifiedName,
+                            "\n",
+                            _fullyQualifiedName,
+                            "\nPlease choose one label."
+                        )
+                    )
+                );
                 return;
             }
         }
 
         labels.push(Label(_addr, _fullyQualifiedName));
+    }
+
+    function sphinxConfigNetworks() external view returns (Network[] memory, Network[] memory) {
+        return (sphinxConfig.testnets, sphinxConfig.mainnets);
     }
 }

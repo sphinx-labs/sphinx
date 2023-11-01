@@ -1139,7 +1139,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function validateProposal(
         address _proposer,
-        Network _network,
+        string memory _networkName,
         SphinxConfig memory _config
     ) external view {
         require(
@@ -1164,7 +1164,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                         "Sphinx: The address ",
                         vm.toString(_proposer),
                         " is not currently a proposer on ",
-                        getNetworkInfo(_network).name,
+                        _networkName,
                         "."
                     )
                 )

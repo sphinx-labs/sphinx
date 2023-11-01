@@ -8,7 +8,9 @@ import { Sphinx } from "../../foundry/Sphinx.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 import { ConstructorDeploysContract } from "../../../contracts/test/ConstructorDeploysContract.sol";
 import { Fallback } from "../../../contracts/test/Fallback.sol";
-import { ConflictingNameContract } from "../../../contracts/test/conflictingNameContracts/First.sol";
+import {
+    ConflictingNameContract
+} from "../../../contracts/test/conflictingNameContracts/First.sol";
 
 contract Simple is Script, Sphinx {
     constructor() {
@@ -32,21 +34,40 @@ contract Simple is Script, Sphinx {
         }
 
         // Deploy with Create3
-        bytes memory fallbackInitCode = abi.encodePacked(type(Fallback).creationCode, abi.encode(-1));
+        bytes memory fallbackInitCode = abi.encodePacked(
+            type(Fallback).creationCode,
+            abi.encode(-1)
+        );
         Fallback fallbackContract = Fallback(CREATE3.deploy(bytes32(0), fallbackInitCode, 0));
         fallbackContract.set(1);
 
         // Deploys contract that deploys another contract in its constructor using create2
         // The contract deployed is labeled
-        ConstructorDeploysContract constructorDeploysContract = new ConstructorDeploysContract{ salt: keccak256("1") }(1);
-        sphinxLabel(address(constructorDeploysContract.myContract()), "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor");
+        ConstructorDeploysContract constructorDeploysContract = new ConstructorDeploysContract{
+            salt: keccak256("1")
+        }(1);
+        sphinxLabel(
+            address(constructorDeploysContract.myContract()),
+            "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor"
+        );
 
         // Deploys contract that deploys another contract in its constructor using create3
         // Both the parent and child are labeled
-        bytes memory constructorDeploysContractInitCode = abi.encodePacked(type(ConstructorDeploysContract).creationCode, abi.encode(2));
-        ConstructorDeploysContract constructorDeploysContractCreate3 = ConstructorDeploysContract(CREATE3.deploy(keccak256("1"), constructorDeploysContractInitCode, 0));
-        sphinxLabel(address(constructorDeploysContractCreate3), "contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract");
-        sphinxLabel(address(constructorDeploysContractCreate3.myContract()), "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor");
+        bytes memory constructorDeploysContractInitCode = abi.encodePacked(
+            type(ConstructorDeploysContract).creationCode,
+            abi.encode(2)
+        );
+        ConstructorDeploysContract constructorDeploysContractCreate3 = ConstructorDeploysContract(
+            CREATE3.deploy(keccak256("1"), constructorDeploysContractInitCode, 0)
+        );
+        sphinxLabel(
+            address(constructorDeploysContractCreate3),
+            "contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract"
+        );
+        sphinxLabel(
+            address(constructorDeploysContractCreate3.myContract()),
+            "contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor"
+        );
 
         // Deploys contract that deploys another contract in its constructor using create2
         // The contract is not labeled
@@ -54,13 +75,19 @@ contract Simple is Script, Sphinx {
 
         // Deploys contract that deploys another contract in its constructor using create3
         // Neither contract is labeled
-        bytes memory constructorDeploysContractUnlabeledInitCode = abi.encodePacked(type(ConstructorDeploysContract).creationCode, abi.encode(4));
+        bytes memory constructorDeploysContractUnlabeledInitCode = abi.encodePacked(
+            type(ConstructorDeploysContract).creationCode,
+            abi.encode(4)
+        );
         CREATE3.deploy(keccak256("2"), constructorDeploysContractUnlabeledInitCode, 0);
 
         // Deploy a contract whose name is not unique in the source directory
         // The contract is labeled
         ConflictingNameContract conflictingNameContract = new ConflictingNameContract{ salt: 0 }(1);
-        sphinxLabel(address(conflictingNameContract), "contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract");
+        sphinxLabel(
+            address(conflictingNameContract),
+            "contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract"
+        );
 
         // Deploy a contract whose name is not unique in the source directory
         // The contract is not labeled
@@ -68,7 +95,9 @@ contract Simple is Script, Sphinx {
 
         // Deploy a contract whose name is not unique in the source directory
         // We interact with the contract, so it does not require a label
-        ConflictingNameContract conflictingNameContractInteract = new ConflictingNameContract{ salt: keccak256("2") }(3);
+        ConflictingNameContract conflictingNameContractInteract = new ConflictingNameContract{
+            salt: keccak256("2")
+        }(3);
         conflictingNameContractInteract.set(5);
     }
 }

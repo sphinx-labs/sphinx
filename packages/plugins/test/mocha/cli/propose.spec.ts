@@ -3,6 +3,7 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  DecodedAction,
   execAsync,
   getAuthAddress,
   getSphinxManagerAddress,
@@ -22,7 +23,6 @@ const mockPrompt = async (q: string) => {}
 
 const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-// TODO: .only
 describe.only('Propose CLI command', () => {
   before(() => {
     process.env['SPHINX_API_KEY'] = sphinxApiKey
@@ -88,34 +88,36 @@ describe.only('Propose CLI command', () => {
     expect(proposalRequest.deploymentName).to.equal('Simple Project')
     expect(proposalRequest.chainIds).to.deep.equal([5])
     expect(proposalRequest.canonicalConfig).to.equal('{}')
-    expect(proposalRequest.diff).to.deep.equal([
-      {
-        networkTags: ['goerli (local)'],
-        executing: [
-          {
-            functionName: 'constructor',
-            referenceName: 'SphinxManager',
-            variables: {},
-          },
-          {
-            functionName: 'constructor',
-            referenceName: 'MyContract1',
-            variables: {
-              _addressArg: '0x0000000000000000000000000000000000000001',
-              _intArg: -1n,
-              _otherAddressArg: '0x0000000000000000000000000000000000000002',
-              _uintArg: 2n,
-            },
-          },
-          {
-            functionName: 'incrementUint',
-            referenceName: 'MyContract1',
-            variables: {},
-          },
-        ],
-        skipping: [],
-      },
+    expect(proposalRequest.diff.networks.length).to.equal(1)
+    expect(proposalRequest.diff.networks[0].networkTags).to.deep.equal([
+      'goerli (local)',
     ])
+    const executing = proposalRequest.diff.networks[0].executing
+    expect(executing.length).to.equal(3)
+    expect(executing[0]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'SphinxManager',
+      variables: [],
+    })
+    expect(executing[1]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'MyContract1',
+      variables: [
+        '-1',
+        '2',
+        '0x0000000000000000000000000000000000000001',
+        '0x0000000000000000000000000000000000000002',
+      ],
+    })
+    expect((executing[2] as DecodedAction).referenceName).to.equal(
+      'MyContract1'
+    )
+    expect((executing[2] as DecodedAction).functionName).to.equal(
+      'incrementUint'
+    )
+    expect(proposalRequest.diff.networks[0].skipping.length).to.equal(0)
     expect(proposalRequest.tree.leaves.length).to.equal(3)
 
     expect(ipfsData.length).to.equal(1)
@@ -163,34 +165,37 @@ describe.only('Propose CLI command', () => {
     expect(proposalRequest.deploymentName).to.equal('Simple Project')
     expect(proposalRequest.chainIds).to.deep.equal([1, 10])
     expect(proposalRequest.canonicalConfig).to.equal('{}')
-    expect(proposalRequest.diff).to.deep.equal([
-      {
-        networkTags: ['ethereum (local)', 'optimism (local)'],
-        executing: [
-          {
-            functionName: 'constructor',
-            referenceName: 'SphinxManager',
-            variables: {},
-          },
-          {
-            functionName: 'constructor',
-            referenceName: 'MyContract1',
-            variables: {
-              _addressArg: '0x0000000000000000000000000000000000000001',
-              _intArg: -1n,
-              _otherAddressArg: '0x0000000000000000000000000000000000000002',
-              _uintArg: 2n,
-            },
-          },
-          {
-            functionName: 'incrementUint',
-            referenceName: 'MyContract1',
-            variables: {},
-          },
-        ],
-        skipping: [],
-      },
+    expect(proposalRequest.diff.networks.length).to.equal(1)
+    expect(proposalRequest.diff.networks[0].networkTags).to.deep.equal([
+      'ethereum (local)',
+      'optimism (local)',
     ])
+    const executing = proposalRequest.diff.networks[0].executing
+    expect(executing.length).to.equal(3)
+    expect(executing[0]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'SphinxManager',
+      variables: [],
+    })
+    expect(executing[1]).to.deep.equal({
+      address: '',
+      functionName: 'deploy',
+      referenceName: 'MyContract1',
+      variables: [
+        '-1',
+        '2',
+        '0x0000000000000000000000000000000000000001',
+        '0x0000000000000000000000000000000000000002',
+      ],
+    })
+    expect((executing[2] as DecodedAction).referenceName).to.equal(
+      'MyContract1'
+    )
+    expect((executing[2] as DecodedAction).functionName).to.equal(
+      'incrementUint'
+    )
+    expect(proposalRequest.diff.networks[0].skipping.length).to.equal(0)
     expect(proposalRequest.tree.leaves.length).to.equal(6)
 
     expect(ipfsData.length).to.equal(2)

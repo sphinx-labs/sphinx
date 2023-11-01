@@ -72,7 +72,7 @@ const sphinxConfig: SphinxConfig = {
   version: CURRENT_SPHINX_MANAGER_VERSION,
 }
 
-describe('Simulate proposal', () => {
+describe.only('Simulate proposal', () => {
   let foundryToml: FoundryToml
   let authAddress: string
   let managerAddress: string
@@ -100,8 +100,7 @@ describe('Simulate proposal', () => {
     await execAsync(`yarn test:kill`)
   })
 
-  // TODO: .only
-  it.only('Simulates proposal for a project that has not been deployed on any network yet', async () => {
+  it('Simulates proposal for a project that has not been deployed on any network yet', async () => {
     for (const network of sphinxConfig.testnets) {
       const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
       // Narrow the type of `rpcUrl` to string
@@ -132,6 +131,7 @@ describe('Simulate proposal', () => {
       }
     })
 
+    // TODO: .only everywhere
     it('Simulates proposal for a project that was previously deployed', async () => {
       for (const network of sphinxConfig.testnets) {
         const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
@@ -247,7 +247,7 @@ describe('Simulate proposal', () => {
         await execAsync(
           `cast rpc --rpc-url ${rpcUrl} anvil_setStorageAt ${managerAddress} 0x0000000000000000000000000000000000000000000000000000000000000099 0x1111111111111111111111111111111111111111111111111111111111111111`
         )
-        // Bump the block number on both networks. Necessary to make the previous RPC methods take effect.
+        // Bump the block number. Necessary to make the previous RPC methods take effect.
         await execAsync(`cast rpc --rpc-url ${rpcUrl} anvil_mine`)
 
         const provider = new SphinxJsonRpcProvider(rpcUrl)
@@ -365,7 +365,7 @@ const testProposalSimulation = async (
 
   const { code, stdout, stderr } = await spawnAsync(
     `forge`,
-    ['test', '--match-contract', testContractName],
+    ['test', '--match-contract', testContractName, '-vvvvv'],
     {
       AUTH_ROOT: authRoot,
       BUNDLE_INFO_ARRAY: encodedBundleInfoArray,

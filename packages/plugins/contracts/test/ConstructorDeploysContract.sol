@@ -11,6 +11,7 @@ contract DeployedInConstructor {
 
 contract ConstructorDeploysContract {
     DeployedInConstructor public myContract;
+
     constructor(uint _x) {
         myContract = new DeployedInConstructor(_x);
     }

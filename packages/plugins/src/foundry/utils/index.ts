@@ -31,9 +31,11 @@ import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
   AuthLeaf,
+  SupportedNetworkName,
   getAuthLeafsForChain,
   getProjectBundleInfo,
   makeAuthBundle,
+  networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 
@@ -521,23 +523,64 @@ export const getConfigArtifactForContractName = (
   )
 }
 
+export const getSphinxConfigNetworksFromScript = async (
+  scriptPath: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<{
+  testnets: Array<SupportedNetworkName>
+  mainnets: Array<SupportedNetworkName>
+}> => {
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxConfigNetworks()',
+    '--silent', // Silence compiler output
+    '--json',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const returned = JSON.parse(stdout).returns
+
+  const testnetEnums = JSON.parse(returned['0'].value).map((e) => BigInt(e))
+  const mainnetEnums = JSON.parse(returned['1'].value).map((e) => BigInt(e))
+
+  return {
+    testnets: testnetEnums.map(networkEnumToName),
+    mainnets: mainnetEnums.map(networkEnumToName),
+  }
+}
+
 export const getSphinxManagerAddressFromScript = async (
   scriptPath: string,
-  forkUrl?: string,
+  forkUrl: string,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<string> => {
   const forgeScriptArgs = [
     'script',
     scriptPath,
+    '--rpc-url',
+    forkUrl,
     '--sig',
     'sphinxManager()',
-    '--silent',
+    '--silent', // Silence compiler output
     '--json',
   ]
-  if (forkUrl) {
-    forgeScriptArgs.push('--rpc-url', forkUrl)
-  }
   if (targetContract) {
     forgeScriptArgs.push('--target-contract', targetContract)
   }

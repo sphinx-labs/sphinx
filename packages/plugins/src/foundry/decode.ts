@@ -70,12 +70,6 @@ export const decodeDeploymentInfo = (
     deploymentInfoResult
   ) as any
 
-  return convertDeploymentInfoBigIntToString(deploymentInfoBigInt)
-}
-
-const convertDeploymentInfoBigIntToString = (
-  deploymentInfoBigInt: any
-): DeploymentInfo => {
   const {
     authAddress,
     managerAddress,
@@ -112,37 +106,6 @@ const convertDeploymentInfoBigIntToString = (
       },
     },
   }
-}
-
-export const decodeDeploymentInfoArray = (
-  abiEncodedDeploymentInfoArray: string,
-  sphinxPluginTypesABI: Array<any>
-): Array<DeploymentInfo> => {
-  const iface = new Interface(sphinxPluginTypesABI)
-  const deploymentInfoFragment = iface.fragments
-    .filter(Fragment.isFunction)
-    .find((fragment) => fragment.name === 'getDeploymentInfoArray')
-
-  if (!deploymentInfoFragment) {
-    throw new Error(
-      `'getDeploymentInfoArray' not found in ABI. Should never happen.`
-    )
-  }
-
-  const deploymentInfoResultArray = AbiCoder.defaultAbiCoder().decode(
-    deploymentInfoFragment.outputs,
-    abiEncodedDeploymentInfoArray
-  )
-
-  const { deploymentInfoArray: deploymentInfoArrayBigInt } =
-    recursivelyConvertResult(
-      deploymentInfoFragment.outputs,
-      deploymentInfoResultArray
-    ) as any
-
-  return deploymentInfoArrayBigInt.map((e) =>
-    convertDeploymentInfoBigIntToString(e)
-  )
 }
 
 export const decodeProposalOutput = (

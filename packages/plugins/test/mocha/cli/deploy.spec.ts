@@ -1,6 +1,6 @@
 import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
-import { exec, execSync } from 'child_process'
+import { exec } from 'child_process'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'

@@ -1,4 +1,4 @@
-import { basename, join, resolve } from 'path'
+import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
@@ -20,28 +20,28 @@ import {
   userConfirmation,
 } from '@sphinx-labs/core'
 import ora from 'ora'
-import { blue } from 'chalk'
+import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
   ConfigArtifacts,
+  DeploymentInfo,
   ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 
 import {
-  decodeDeploymentInfoArray,
   readActionInputsOnSingleChain,
   makeParsedConfig,
-  parseFoundryDryRun,
+  decodeDeploymentInfo,
 } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import {
   getBundleInfoArray,
+  getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
   getSphinxManagerAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
-import { FoundryDryRun } from '../../foundry/types'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
@@ -55,55 +55,11 @@ export const buildParsedConfigArray = async (
 }> => {
   const foundryToml = await getFoundryConfigOptions()
 
-  const deploymentInfoArrayPath = join(
-    foundryToml.cachePath,
-    'deployment-info-array.txt'
+  const getConfigArtifacts = makeGetConfigArtifacts(
+    foundryToml.artifactFolder,
+    foundryToml.buildInfoFolder,
+    foundryToml.cachePath
   )
-
-  // Remove the file if it exists. This ensures that we don't accidentally use an outdated file.
-  if (existsSync(deploymentInfoArrayPath)) {
-    unlinkSync(deploymentInfoArrayPath)
-  }
-
-  const forgeScriptCollectArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxCollectProposal(address,bool,string)',
-    proposerAddress,
-    isTestnet.toString(),
-    deploymentInfoArrayPath,
-  ]
-  if (targetContract) {
-    forgeScriptCollectArgs.push('--target-contract', targetContract)
-  }
-
-  const managerAddress = await getSphinxManagerAddressFromScript(
-    scriptPath,
-    undefined,
-    targetContract,
-    spinner
-  )
-
-  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
-  // SphinxManager as the `msg.sender` to ensure that it's the caller for all transactions. We need
-  // to do this even though we also broadcast from the SphinxManager's address in the script.
-  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
-  // linked library. In this scenario, the caller that deploys the library would be Foundry's
-  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
-  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-    FOUNDRY_SENDER: managerAddress,
-  })
-
-  if (spawnOutput.code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(spawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(spawnOutput.stderr)
-    process.exit(1)
-  }
 
   // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
@@ -113,50 +69,90 @@ export const buildParsedConfigArray = async (
       `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
 
-  const abiEncodedDeploymentInfo = readFileSync(
-    deploymentInfoArrayPath,
-    'utf-8'
-  )
-  const deploymentInfoArray = decodeDeploymentInfoArray(
-    abiEncodedDeploymentInfo,
-    sphinxPluginTypesABI
+  const deploymentInfoPath = join(foundryToml.cachePath, 'deployment-info.txt')
+
+  const { testnets, mainnets } = await getSphinxConfigNetworksFromScript(
+    scriptPath,
+    targetContract,
+    spinner
   )
 
+  const networks = isTestnet ? testnets : mainnets
+
   const actionInputArray: Array<Array<RawActionInput>> = []
-  if (deploymentInfoArray.length === 1) {
+  const deploymentInfoArray: Array<DeploymentInfo> = []
+  for (const network of networks) {
+    const rpcUrl = foundryToml.rpcEndpoints[network]
+    if (!rpcUrl) {
+      console.error(
+        red(
+          `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+        )
+      )
+      process.exit(1)
+    }
+    // Remove the file if it exists. This ensures that we don't accidentally use an outdated file.
+    if (existsSync(deploymentInfoPath)) {
+      unlinkSync(deploymentInfoPath)
+    }
+
+    const forgeScriptCollectArgs = [
+      'script',
+      scriptPath,
+      '--rpc-url',
+      rpcUrl,
+      '--sig',
+      'sphinxCollectProposal(address,string,string)',
+      proposerAddress,
+      network,
+      deploymentInfoPath,
+    ]
+    if (targetContract) {
+      forgeScriptCollectArgs.push('--target-contract', targetContract)
+    }
+
+    const managerAddress = await getSphinxManagerAddressFromScript(
+      scriptPath,
+      rpcUrl,
+      targetContract,
+      spinner
+    )
+
+    // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
+    // SphinxManager as the `msg.sender` to ensure that it's the caller for all transactions. We need
+    // to do this even though we also broadcast from the SphinxManager's address in the script.
+    // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
+    // linked library. In this scenario, the caller that deploys the library would be Foundry's
+    // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
+    // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
+    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
+      FOUNDRY_SENDER: managerAddress,
+    })
+
+    if (spawnOutput.code !== 0) {
+      spinner?.stop()
+      // The `stdout` contains the trace of the error.
+      console.log(spawnOutput.stdout)
+      // The `stderr` contains the error message.
+      console.log(spawnOutput.stderr)
+      process.exit(1)
+    }
+
+    const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+    const deploymentInfo = decodeDeploymentInfo(
+      abiEncodedDeploymentInfo,
+      sphinxPluginTypesABI
+    )
+
     const actionInputs = readActionInputsOnSingleChain(
-      deploymentInfoArray[0],
+      deploymentInfo,
       scriptPath,
       foundryToml.broadcastFolder,
       'sphinxCollectProposal'
     )
+
+    deploymentInfoArray.push(deploymentInfo)
     actionInputArray.push(actionInputs)
-  } else {
-    // For multi-chain deployments, the format of the dry run file is:
-    // <broadcast_folder>/multi/dry-run/<script_filename>-latest/<solidity_function>.json
-    const dryRunPath = join(
-      foundryToml.broadcastFolder,
-      'multi',
-      'dry-run',
-      `${basename(scriptPath)}-latest`,
-      'sphinxCollectProposal.json'
-    )
-
-    const multichainDryRun: Array<FoundryDryRun> = JSON.parse(
-      readFileSync(dryRunPath, 'utf8')
-    ).deployments
-
-    if (multichainDryRun.length !== deploymentInfoArray.length) {
-      throw new Error(
-        `Length mismatch between the DeploymentInfo array and the Foundry dry run. Should never happen.`
-      )
-    }
-
-    multichainDryRun.forEach((dryRun, i) =>
-      actionInputArray.push(
-        parseFoundryDryRun(deploymentInfoArray[i], dryRun, dryRunPath)
-      )
-    )
   }
 
   const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
@@ -164,17 +160,10 @@ export const buildParsedConfigArray = async (
     deploymentInfoArray
   )
 
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    foundryToml.cachePath
-  )
-
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
   )
-
   const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
     makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts, true)
   )

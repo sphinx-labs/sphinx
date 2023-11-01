@@ -316,6 +316,8 @@ contract SphinxPluginTypes {
         returns (DeploymentInfo[] memory deploymentInfoArray)
     {}
 
+    function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) {}
+
     function proposalOutput() external pure returns (ProposalOutput memory output) {}
 }
 

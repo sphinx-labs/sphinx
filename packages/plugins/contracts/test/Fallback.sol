@@ -5,7 +5,7 @@ contract Fallback {
     int public number;
     string public myString;
 
-    constructor (int _number) {
+    constructor(int _number) {
         number = _number;
     }
 
