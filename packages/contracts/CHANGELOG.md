@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.13.2
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+
 ## 0.13.1
 
 ### Patch Changes

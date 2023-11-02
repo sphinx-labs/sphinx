@@ -1,5 +1,14 @@
 # @sphinx-labs/executor
 
+## 0.18.1
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+- Updated dependencies [0ea4e001]
+  - @sphinx-labs/plugins@0.23.3
+  - @sphinx-labs/core@0.18.2
+
 ## 0.18.0
 
 ### Minor Changes
