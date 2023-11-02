@@ -34,6 +34,7 @@ import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
 import { CompilerOutputMetadata } from './languages'
+import { remove0x } from './utils'
 
 export interface EtherscanResponseBody {
   status: string
@@ -98,9 +99,8 @@ export const verifySphinxConfig = async (
       // determine where the contract's creation code ends and the constructor arguments begin. This
       // method works even if the `artifact.bytecode` contains externally linked library placeholders
       // or immutable variable placeholders, which are always the same length as the real values.
-      const encodedConstructorArgs = ethers.dataSlice(
-        initCodeWithArgs,
-        ethers.dataLength(bytecode)
+      const encodedConstructorArgs = remove0x(
+        ethers.dataSlice(initCodeWithArgs, ethers.dataLength(bytecode))
       )
 
       const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
