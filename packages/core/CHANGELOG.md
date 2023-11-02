@@ -1,5 +1,13 @@
 # @sphinx-labs/core
 
+## 0.18.2
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+- Updated dependencies [0ea4e001]
+  - @sphinx-labs/contracts@0.13.2
+
 ## 0.18.1
 
 ### Patch Changes

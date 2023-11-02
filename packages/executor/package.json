@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/executor",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Sphinx deployment execution bot",
   "main": "dist/index",
   "types": "dist/index",
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@eth-optimism/common-ts": "^0.7.1",
-    "@sphinx-labs/contracts": "^0.13.0",
+    "@sphinx-labs/contracts": "^0.13.2",
     "dotenv": "^16.0.3",
     "ethers": "^6.7.0",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#v1.6.1",
@@ -47,8 +47,8 @@
   "dependencies": {
     "@amplitude/node": "^1.10.2",
     "@nomiclabs/hardhat-etherscan": "^3.1.3",
-    "@sphinx-labs/core": "^0.18.0",
-    "@sphinx-labs/plugins": "^0.23.0",
+    "@sphinx-labs/core": "^0.18.2",
+    "@sphinx-labs/plugins": "^0.23.3",
     "chai": "^4.3.7",
     "graphql": "^16.6.0",
     "graphql-request": "^5.1.0"
