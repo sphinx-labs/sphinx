@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/core",
-  "version": "0.18.2",
+  "version": "0.18.3",
   "description": "Sphinx core library",
   "main": "dist/index",
   "types": "dist/index",
@@ -38,7 +38,7 @@
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/merkle-tree": "^1.0.5",
     "@openzeppelin/upgrades-core": "^1.20.6",
-    "@sphinx-labs/contracts": "^0.13.2",
+    "@sphinx-labs/contracts": "^0.13.3",
     "axios": "^1.4.0",
     "chalk": "^4.1.2",
     "core-js": "^3.27.1",
