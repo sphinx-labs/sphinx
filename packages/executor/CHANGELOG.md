@@ -1,5 +1,15 @@
 # @sphinx-labs/executor
 
+## 0.18.2
+
+### Patch Changes
+
+- 77a18fac: Change all docs to link to the main branch instead of develop
+- Updated dependencies [77a18fac]
+- Updated dependencies [22581a16]
+  - @sphinx-labs/plugins@0.23.4
+  - @sphinx-labs/core@0.18.3
+
 ## 0.18.1
 
 ### Patch Changes
