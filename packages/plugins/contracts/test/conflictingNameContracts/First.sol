@@ -7,4 +7,8 @@ contract ConflictingNameContract {
     constructor(uint _number) {
         number = _number;
     }
+
+    function set(uint _number) public {
+        number = _number;
+    }
 }

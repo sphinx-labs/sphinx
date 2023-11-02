@@ -2,16 +2,15 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-import { ConfigArtifacts, ParsedConfig } from '../config/types'
+import { ActionInput, ConfigArtifacts, ParsedConfig } from '../config/types'
 import {
   getDeploymentId,
   toHexString,
   fromHexString,
   prettyFunctionCall,
   isDeployContractActionInput,
-  isDecodedFunctionCallActionInput,
   isRawFunctionCallActionInput,
-  prettyRawFunctionCall,
+  isRawCreate2ActionInput,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -38,9 +37,9 @@ import {
   CancelActiveDeployment,
   AuthLeafType,
   HumanReadableAction,
+  CreateAction,
 } from './types'
 import { getProjectBundleInfo } from '../tasks'
-import { getEstDeployContractCost } from '../estimate'
 import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
 import { getCreate3Salt } from '../config/utils'
 
@@ -82,6 +81,12 @@ export const isCallAction = (action: SphinxAction): action is CallAction => {
     (action as CallAction).to !== undefined &&
     (action as CallAction).data !== undefined
   )
+}
+
+export const isCreateAction = (
+  action: SphinxAction
+): action is CreateAction => {
+  return (action as CreateAction).initCode !== undefined
 }
 
 export const getDeployContractActions = (
@@ -149,6 +154,12 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
       index: BigInt(action.index),
       data: coder.encode(['address', 'bytes'], [action.to, action.data]),
     }
+  } else if (isCreateAction(action)) {
+    return {
+      actionType: SphinxActionType.CREATE,
+      index: BigInt(action.index),
+      data: action.initCode,
+    }
   } else {
     throw new Error(`unknown action type`)
   }
@@ -193,6 +204,11 @@ export const fromRawSphinxAction = (
       to,
       index: Number(rawAction.index),
       data,
+    }
+  } else if (rawAction.actionType === SphinxActionType.CREATE) {
+    return {
+      initCode: rawAction.data,
+      index: Number(rawAction.index),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -459,12 +475,12 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
  * provided to the SphinxManager contract.
  *
- * @param actions Series of DeployContract and SetStorage actions to bundle.
+ * @param actions Series of actions to bundle.
  * @return Bundled actions.
  */
 export const makeActionBundle = (
   actions: SphinxAction[],
-  costs: bigint[]
+  actionInputs: ActionInput[]
 ): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
@@ -490,8 +506,11 @@ export const makeActionBundle = (
         })
       return {
         action,
-        gas: costs[idx],
+        // Use a 20% buffer to account for potential difference between
+        // the estimated gas and the actual gas used by the action.
+        gas: (BigInt(actionInputs[idx].gas) * 120n) / 100n,
         siblings,
+        contracts: actionInputs[idx].contracts,
       }
     }),
   }
@@ -520,16 +539,13 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 }
 
 export const makeBundlesFromConfig = (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  parsedConfig: ParsedConfig
 ): {
   bundles: SphinxBundles
   humanReadableActions: Array<HumanReadableAction>
 } => {
-  const { actionBundle, humanReadableActions } = makeActionBundleFromConfig(
-    parsedConfig,
-    configArtifacts
-  )
+  const { actionBundle, humanReadableActions } =
+    makeActionBundleFromConfig(parsedConfig)
 
   // TODO(upgrades): This is unused for now because we don't support upgrades.
   const targetBundle = {
@@ -553,8 +569,7 @@ export const makeBundlesFromConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  parsedConfig: ParsedConfig
 ): {
   actionBundle: SphinxActionBundle
   humanReadableActions: Array<HumanReadableAction>
@@ -562,7 +577,6 @@ export const makeActionBundleFromConfig = (
   const { actionInputs } = parsedConfig
 
   const actions: SphinxAction[] = []
-  const costs: bigint[] = []
 
   const humanReadableActions: Array<HumanReadableAction> = []
 
@@ -571,8 +585,6 @@ export const makeActionBundleFromConfig = (
   for (let index = 0; index < notSkipping.length; index++) {
     const actionInput = notSkipping[index]
     if (isDeployContractActionInput(actionInput)) {
-      const { artifact } = configArtifacts[actionInput.fullyQualifiedName]
-      const { gasEstimates } = artifact
       const {
         initCode,
         constructorArgs,
@@ -583,11 +595,10 @@ export const makeActionBundleFromConfig = (
 
       const readableSignature = prettyFunctionCall(
         referenceName,
+        decodedAction.address,
         decodedAction.functionName,
         decodedAction.variables
       )
-
-      const deployContractCost = getEstDeployContractCost(gasEstimates)
 
       // Add a DEPLOY_CONTRACT action.
       const create3Salt = getCreate3Salt(referenceName, userSalt)
@@ -600,42 +611,55 @@ export const makeActionBundleFromConfig = (
         ]),
       })
 
-      costs.push(deployContractCost)
       humanReadableActions.push({
         actionIndex: BigInt(index),
         reason: readableSignature,
         actionType: SphinxActionType.DEPLOY_CONTRACT,
       })
-    } else if (isDecodedFunctionCallActionInput(actionInput)) {
-      const { to, data, referenceName, decodedAction } = actionInput
+    } else if (isRawCreate2ActionInput(actionInput)) {
+      const { data, to } = actionInput
+
+      const { referenceName, functionName, variables, address } =
+        actionInput.decodedAction
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        address,
+        functionName,
+        variables
+      )
+
+      // Add a CALL action.
       actions.push({
-        to,
         index,
         data,
+        to,
       })
 
-      costs.push(250_000n)
       humanReadableActions.push({
         actionIndex: BigInt(index),
-        reason: prettyFunctionCall(
-          referenceName,
-          decodedAction.functionName,
-          decodedAction.variables
-        ),
+        reason: readableSignature,
         actionType: SphinxActionType.CALL,
       })
     } else if (isRawFunctionCallActionInput(actionInput)) {
       const { to, data } = actionInput
+      const { referenceName, functionName, variables, address } =
+        actionInput.decodedAction
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        address,
+        functionName,
+        variables
+      )
+
       actions.push({
         to,
         index,
         data,
       })
 
-      costs.push(250_000n)
       humanReadableActions.push({
         actionIndex: BigInt(index),
-        reason: prettyRawFunctionCall(to, data),
+        reason: readableSignature,
         actionType: SphinxActionType.CALL,
       })
     } else {
@@ -645,7 +669,7 @@ export const makeActionBundleFromConfig = (
 
   // Generate a bundle from the list of actions.
   return {
-    actionBundle: makeActionBundle(actions, costs),
+    actionBundle: makeActionBundle(actions, actionInputs),
     humanReadableActions,
   }
 }

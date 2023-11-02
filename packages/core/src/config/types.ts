@@ -16,6 +16,7 @@ import {
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
+import { ParsedContractDeployments } from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -76,10 +77,15 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
+export type RawActionInput =
+  | RawDeployContractActionInput
+  | RawFunctionCallActionInput
+  | RawCreate2ActionInput
+
 export type ActionInput =
   | DeployContractActionInput
-  | DecodedFunctionCallActionInput
-  | RawFunctionCallActionInput
+  | FunctionCallActionInput
+  | Create2ActionInput
 
 export type ParsedConfig = {
   authAddress: string
@@ -90,6 +96,7 @@ export type ParsedConfig = {
   isLiveNetwork: boolean
   initialState: InitialChainState
   remoteExecution: boolean
+  unlabeledAddresses: string[]
 }
 
 export type DeploymentInfo = {
@@ -99,6 +106,7 @@ export type DeploymentInfo = {
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
+  labels: Array<Label>
 }
 
 export type InitialChainState = {
@@ -124,6 +132,11 @@ export type UserAddressOverrides = {
   address: string
 }
 
+export type Label = {
+  addr: string
+  fullyQualifiedName: string
+}
+
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
@@ -143,35 +156,57 @@ export interface RawDeployContractActionInput {
   constructorArgs: string
   userSalt: string
   referenceName: string
+  gas: string
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
 }
 
 export interface DeployContractActionInput
   extends RawDeployContractActionInput {
   decodedAction: DecodedAction
+  contracts: ParsedContractDeployments
   create3Address: string
+}
+
+export interface RawCreate2ActionInput {
+  contractName: string | null
+  create2Address: string
+  to: string
+  skip: boolean
+  data: string
+  actionType: string
+  gas: string
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
+  decodedAction: DecodedAction
+}
+
+export interface Create2ActionInput extends RawCreate2ActionInput {
+  contracts: ParsedContractDeployments
 }
 
 export type DecodedAction = {
   referenceName: string
   functionName: string
   variables: ParsedVariable
+  address: string
 }
 
-export type RawFunctionCallActionInput = {
+export interface RawFunctionCallActionInput {
   actionType: string
   skip: boolean
   to: string
   data: string
-}
-
-export type DecodedFunctionCallActionInput = {
-  actionType: string
-  skip: boolean
-  to: string
-  fullyQualifiedName: string
-  data: string
-  referenceName: string
+  contractName: string | null
+  additionalContracts: Array<{
+    transactionType: string
+    address: string
+    initCode: string
+  }>
+  gas: string
   decodedAction: DecodedAction
+}
+
+export interface FunctionCallActionInput extends RawFunctionCallActionInput {
+  contracts: ParsedContractDeployments
 }
 
 /**
@@ -241,7 +276,54 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  fullyQualifiedNames: Array<string>
+  fullyQualifiedNames: Array<string>,
+  contractNames: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
+
+/**
+ * This is the format of the JSON file that is output in a Forge dry run. This type doesn't include
+ * the "contractAddress" field that exists in the actual broadcast file because it can be `null` for
+ * low-level calls, so we prefer to always use the 'transactions.to' field instead.
+ *
+ * @param contractName The name of the target contract. This is null if Foundry can't infer the
+ * contract's name. If this is a string and the contract's name is unique in the repo, then it'll be
+ * the contract's name. If the contract isn't unique in the repo, then it will either be the fully
+ * qualified name or null, depending on whether or not Foundry can infer its name.
+ * @param function The name of the function that the transaction is calling. For example,
+ * "myFunction(uint256)".
+ */
+interface AbstractFoundryTransaction {
+  transactionType: 'CREATE' | 'CALL' | 'CREATE2'
+  contractName: string | null
+  function: string | null
+  arguments: Array<any> | null
+  transaction: {
+    type: string | null
+    from: string | null
+    gas: string | null
+    data: string | null
+    nonce: string | null
+    accessList: string | null
+    // Undefined if deployed a library.
+    value?: string | null
+    // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
+    to?: string | null
+  }
+  additionalContracts: Array<{
+    transactionType: string
+    address: string
+    initCode: string
+  }>
+  isFixedGasLimit: boolean
+}
+
+export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {
+  hash: null
+}
+
+export interface FoundryBroadcastTransaction
+  extends AbstractFoundryTransaction {
+  hash: string
+}

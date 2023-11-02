@@ -70,20 +70,11 @@ export type ContractArtifact = {
   contractName: string
   bytecode: string
   deployedBytecode: string
-  gasEstimates: GasEstimates
   methodIdentifiers: {
     [methodSignature: string]: string
   }
   metadata: CompilerOutputMetadata
   storageLayout?: SolidityStorageLayout
-}
-
-export type GasEstimates = {
-  creation: {
-    totalCost: string
-    codeDepositCost: string
-    executionCost: string
-  }
 }
 
 export interface CompilerOutputMetadata {
@@ -105,13 +96,6 @@ export interface CompilerOutputContract {
     deployedBytecode: CompilerOutputBytecode
     methodIdentifiers: {
       [methodSignature: string]: string
-    }
-    gasEstimates: {
-      creation: {
-        totalCost: string
-        codeDepositCost: string
-        executionCost: string
-      }
     }
   }
   metadata: string | CompilerOutputMetadata

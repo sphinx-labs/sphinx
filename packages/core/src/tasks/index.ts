@@ -16,7 +16,6 @@ import {
   makeBundlesFromConfig,
   HumanReadableAction,
 } from '../actions'
-import { isDeployContractActionInput } from '../utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -32,39 +31,39 @@ export const sphinxCommitAbstractSubtask = async (
 }> => {
   const sphinxInputs: Array<BuildInfoInputs> = []
 
-  const unskippedContractDeployments = parsedConfig.actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
+  const unskipped = parsedConfig.actionInputs.filter((a) => !a.skip)
+  for (const actionInput of unskipped) {
+    for (const address of Object.keys(actionInput.contracts)) {
+      const { fullyQualifiedName } = actionInput.contracts[address]
 
-  for (const actionInput of unskippedContractDeployments) {
-    const { fullyQualifiedName } = actionInput
-    const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
+      const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
 
-    const prevSphinxInput = sphinxInputs.find(
-      (input) => input.solcLongVersion === buildInfo.solcLongVersion
-    )
+      const prevSphinxInput = sphinxInputs.find(
+        (input) => input.solcLongVersion === buildInfo.solcLongVersion
+      )
 
-    const { language, settings, sources } = getMinimumCompilerInput(
-      buildInfo.input,
-      artifact.metadata
-    )
+      const { language, settings, sources } = getMinimumCompilerInput(
+        buildInfo.input,
+        artifact.metadata
+      )
 
-    if (prevSphinxInput === undefined) {
-      const sphinxInput: BuildInfoInputs = {
-        solcVersion: buildInfo.solcVersion,
-        solcLongVersion: buildInfo.solcLongVersion,
-        id: buildInfo.id,
-        input: {
-          language,
-          settings,
-          sources,
-        },
-      }
-      sphinxInputs.push(sphinxInput)
-    } else {
-      prevSphinxInput.input.sources = {
-        ...prevSphinxInput.input.sources,
-        ...sources,
+      if (prevSphinxInput === undefined) {
+        const sphinxInput: BuildInfoInputs = {
+          solcVersion: buildInfo.solcVersion,
+          solcLongVersion: buildInfo.solcLongVersion,
+          id: buildInfo.id,
+          input: {
+            language,
+            settings,
+            sources,
+          },
+        }
+        sphinxInputs.push(sphinxInput)
+      } else {
+        prevSphinxInput.input.sources = {
+          ...prevSphinxInput.input.sources,
+          ...sources,
+        }
       }
     }
   }
@@ -130,10 +129,7 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const { bundles, humanReadableActions } = makeBundlesFromConfig(
-    parsedConfig,
-    configArtifacts
-  )
+  const { bundles, humanReadableActions } = makeBundlesFromConfig(parsedConfig)
 
   return { configUri, compilerConfig, bundles, humanReadableActions }
 }

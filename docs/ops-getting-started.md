@@ -1,6 +1,6 @@
-# Getting Started with the Sphinx DevOps Platform
+# Sphinx DevOps Platform
 
-This guide will walk you through a sample multi-chain deployment using the Sphinx DevOps platform.
+This guide will introduce you to the Sphinx DevOps platform by walking you through a sample multi-chain deployment.
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ To give some context on the deployment process, here's a high-level overview of 
 
 Deployments are a three-step process with the DevOps platform.
 
-1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. For simplicity, we'll propose the deployment on the command line in this guide.
+1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. We'll propose the deployment on the command line in this guide.
 2. **Approval**: The project owner(s) sign a meta transaction to approve the deployment in the Sphinx UI.
 3. **Execution**: The deployment is executed on-chain by a relayer. In order to execute the deployment, the relayer must submit both the meta transaction signed by the proposer and the owners.
 
@@ -82,7 +82,7 @@ sphinxConfig.testnets = [
 ];
 ```
 
-Fill in the org ID and proposer with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide. You can learn more about these options in the [DevOps Platform Options section of the Configuring Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuring-deployments.md).
+Fill in the org ID and proposer with your values. You can leave the `mainnets` array empty because we'll only be deploying on testnets in this guide. You can learn more about these options in the [DevOps Platform Options section of the Configuring Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md).
 
 ## 7. Add RPC endpoints
 

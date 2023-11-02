@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ConstructorFragment, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
   CustomChain,
@@ -30,7 +30,6 @@ import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
-import { getFunctionArgValueArray, isDeployContractActionInput } from './utils'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -83,65 +82,66 @@ export const verifySphinxConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const { actionInputs } = compilerConfig
-
   const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
     Number((await provider.getNetwork()).chainId)
   )
 
-  const actionInputsToVerify = actionInputs
-    .filter((a) => !a.skip)
-    .filter(isDeployContractActionInput)
+  for (const actionInput of compilerConfig.actionInputs) {
+    for (const address of Object.keys(actionInput.contracts)) {
+      const { fullyQualifiedName, initCodeWithArgs } =
+        actionInput.contracts[address]
 
-  for (const action of actionInputsToVerify) {
-    const { fullyQualifiedName, create3Address } = action
+      const { artifact } = configArtifacts[fullyQualifiedName]
+      const { abi, contractName, sourceName, metadata, bytecode } = artifact
 
-    const { artifact } = configArtifacts[fullyQualifiedName]
-    const { abi, contractName, sourceName, metadata } = artifact
-    const iface = new ethers.Interface(abi)
-    const constructorArgValues = getFunctionArgValueArray(
-      action.decodedAction.variables,
-      iface.fragments.find(ConstructorFragment.isFragment)
-    )
-
-    const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
-      Object.keys(compilerInput.input.sources).includes(sourceName)
-    )
-
-    if (!sphinxInput) {
-      throw new Error(
-        `Could not find compiler input for ${sourceName}. Should never happen.`
+      // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
+      // determine where the contract's creation code ends and the constructor arguments begin. This
+      // method works even if the `artifact.bytecode` contains externally linked library placeholders
+      // or immutable variable placeholders, which are always the same length as the real values.
+      const encodedConstructorArgs = ethers.dataSlice(
+        initCodeWithArgs,
+        ethers.dataLength(bytecode)
       )
+
+      const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
+        Object.keys(compilerInput.input.sources).includes(sourceName)
+      )
+
+      if (!sphinxInput) {
+        throw new Error(
+          `Could not find compiler input for ${sourceName}. Should never happen.`
+        )
+      }
+      const { input, solcVersion } = sphinxInput
+
+      const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
+
+      await attemptVerification(
+        provider,
+        networkName,
+        etherscanApiEndpoints.urls,
+        address,
+        sourceName,
+        contractName,
+        abi,
+        apiKey,
+        minimumCompilerInput,
+        solcVersion,
+        encodedConstructorArgs
+      )
+
+      // TODO(upgrades):
+      // if (contractConfig.kind !== 'immutable') {
+      //   // Link the proxy with its implementation
+      //   await linkProxyWithImplementation(
+      //     etherscanApiEndpoints.urls,
+      //     apiKey,
+      //     contractConfig.address,
+      //     implementationAddress,
+      //     contractName
+      //   )
+      // }
     }
-    const { input, solcVersion } = sphinxInput
-
-    const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
-
-    await attemptVerification(
-      provider,
-      networkName,
-      etherscanApiEndpoints.urls,
-      create3Address,
-      sourceName,
-      contractName,
-      abi,
-      apiKey,
-      minimumCompilerInput,
-      solcVersion,
-      constructorArgValues
-    )
-
-    // TODO(upgrades):
-    // if (contractConfig.kind !== 'immutable') {
-    //   // Link the proxy with its implementation
-    //   await linkProxyWithImplementation(
-    //     etherscanApiEndpoints.urls,
-    //     apiKey,
-    //     contractConfig.address,
-    //     implementationAddress,
-    //     contractName
-    //   )
-    // }
   }
 }
 
@@ -173,6 +173,13 @@ export const verifySphinx = async (
       metadata
     )
 
+    const encodedConstructorArgs = await encodeArguments(
+      abi,
+      sourceName,
+      contractName,
+      constructorArgs
+    )
+
     await attemptVerification(
       provider,
       networkName,
@@ -184,7 +191,7 @@ export const verifySphinx = async (
       apiKey,
       minimumCompilerInput,
       sphinxBuildInfo.solcVersion,
-      constructorArgs
+      encodedConstructorArgs
     )
   }
 }
@@ -200,7 +207,7 @@ export const attemptVerification = async (
   etherscanApiKey: string,
   compilerInput: CompilerInput,
   solcVersion: string,
-  constructorArgValues: any[]
+  encodedConstructorArgs: string
 ) => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
@@ -217,13 +224,6 @@ export const attemptVerification = async (
 
   const solcFullVersion = await getLongVersion(solcVersion)
 
-  const constructorArgsAbiEncoded = await encodeArguments(
-    abi,
-    sourceName,
-    contractName,
-    constructorArgValues
-  )
-
   const verifyRequest = toVerifyRequest({
     apiKey: etherscanApiKey,
     contractAddress,
@@ -231,7 +231,7 @@ export const attemptVerification = async (
     sourceName,
     contractName,
     compilerVersion: solcFullVersion,
-    constructorArguments: constructorArgsAbiEncoded,
+    constructorArguments: encodedConstructorArgs,
   })
 
   let response
