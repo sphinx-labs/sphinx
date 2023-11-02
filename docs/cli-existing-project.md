@@ -27,8 +27,6 @@ You must also have a basic understanding of how to use Foundry and Forge scripts
 
 ## 2. Update Foundry
 
-Make sure you're using the latest version of Foundry.
-
 ```
 foundryup
 ```
@@ -117,7 +115,7 @@ forge test --match-contract HelloSphinxTest
 
 ## 9. Broadcast a deployment on Anvil (optional)
 
-Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. This is useful when you'd rather deploy using a funded private key from your local machine. For example, you may use this command to deploy your contracts onto Anvil when integrating your contracts with your front-end.
+Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. Its main purpose is to deploy contracts on Anvil, but you can use it on live networks too.
 
 First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
 ```
@@ -143,12 +141,12 @@ npx sphinx deploy <script/path>/HelloSphinx.s.sol --network anvil
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
-Whenever a deployment is broadcasted with this command, Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
 If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 
 ## 10. Next steps
 
-If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md).
+If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md).
 
-If you'd like to learn more about writing deployment scripts with Sphinx, see the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-scripts.md).
+If you'd like to learn more about writing deployment scripts with Sphinx, see the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md).

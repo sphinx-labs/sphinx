@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/contracts",
-  "version": "0.13.1",
+  "version": "0.13.3",
   "description": "Sphinx contracts",
   "main": "dist/index",
   "types": "dist/index",
@@ -28,7 +28,7 @@
     "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol' && yarn solhint --fix '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/contracts#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/contracts#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

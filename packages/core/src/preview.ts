@@ -37,7 +37,7 @@ export const getPreviewString = (
   let previewString = ''
 
   const sphinxManagerLink =
-    'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
+    'https://github.com/sphinx-labs/sphinx/blob/main/docs/sphinx-manager.md'
 
   const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
     `Already executed.`
@@ -123,7 +123,7 @@ export const getPreviewString = (
   // Warn about unlabeled addresses
   if (preview.unlabeledAddresses.size > 0) {
     const troubleshootingGuideLink = blue.underline(
-      `https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md#labeling-contracts\n\n`
+      `https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md#labeling-contracts\n\n`
     )
     previewString += `${yellow.bold(
       `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`

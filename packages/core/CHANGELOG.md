@@ -1,5 +1,22 @@
 # @sphinx-labs/core
 
+## 0.18.3
+
+### Patch Changes
+
+- 77a18fac: Change all docs to link to the main branch instead of develop
+- 22581a16: Fix etherscan verification utility
+- Updated dependencies [77a18fac]
+  - @sphinx-labs/contracts@0.13.3
+
+## 0.18.2
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+- Updated dependencies [0ea4e001]
+  - @sphinx-labs/contracts@0.13.2
+
 ## 0.18.1
 
 ### Patch Changes

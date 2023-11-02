@@ -1,5 +1,26 @@
 # @sphinx-labs/demo
 
+## 0.10.3
+
+### Patch Changes
+
+- 77a18fac: Change all docs to link to the main branch instead of develop
+- Updated dependencies [77a18fac]
+- Updated dependencies [22581a16]
+  - @sphinx-labs/contracts@0.13.3
+  - @sphinx-labs/plugins@0.23.4
+  - @sphinx-labs/core@0.18.3
+
+## 0.10.2
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+- Updated dependencies [0ea4e001]
+  - @sphinx-labs/contracts@0.13.2
+  - @sphinx-labs/plugins@0.23.3
+  - @sphinx-labs/core@0.18.2
+
 ## 0.10.1
 
 ### Patch Changes

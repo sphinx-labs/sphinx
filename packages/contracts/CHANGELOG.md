@@ -1,5 +1,17 @@
 # @sphinx-labs/contracts
 
+## 0.13.3
+
+### Patch Changes
+
+- 77a18fac: Change all docs to link to the main branch instead of develop
+
+## 0.13.2
+
+### Patch Changes
+
+- 0ea4e001: Support native forge scripts
+
 ## 0.13.1
 
 ### Patch Changes
