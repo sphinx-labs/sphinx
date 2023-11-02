@@ -10,7 +10,6 @@ import {
   prettyFunctionCall,
   isDeployContractActionInput,
   isRawFunctionCallActionInput,
-  prettyRawFunctionCall,
   isRawCreate2ActionInput,
 } from '../utils'
 import {
@@ -643,6 +642,15 @@ export const makeActionBundleFromConfig = (
       })
     } else if (isRawFunctionCallActionInput(actionInput)) {
       const { to, data } = actionInput
+      const { referenceName, functionName, variables, address } =
+        actionInput.decodedAction
+      const readableSignature = prettyFunctionCall(
+        referenceName,
+        address,
+        functionName,
+        variables
+      )
+
       actions.push({
         to,
         index,
@@ -651,7 +659,7 @@ export const makeActionBundleFromConfig = (
 
       humanReadableActions.push({
         actionIndex: BigInt(index),
-        reason: prettyRawFunctionCall(to, data),
+        reason: readableSignature,
         actionType: SphinxActionType.CALL,
       })
     } else {

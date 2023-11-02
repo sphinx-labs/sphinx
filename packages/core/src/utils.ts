@@ -53,6 +53,8 @@ import {
   RawActionInput,
   Label,
   ParsedConfig,
+  Create2ActionInput,
+  FunctionCallActionInput,
 } from './config/types'
 import {
   SphinxActionBundle,
@@ -1369,6 +1371,22 @@ export const isRawCreate2ActionInput = (
     rawCreate2.data !== undefined &&
     rawCreate2.gas !== undefined
   )
+}
+
+export const isFunctionCallActionInput = (
+  actionInput: RawActionInput | ActionInput
+): actionInput is FunctionCallActionInput => {
+  const functionCall = actionInput as Create2ActionInput
+  return (
+    isRawCreate2ActionInput(actionInput) && functionCall.contracts !== undefined
+  )
+}
+
+export const isCreate2ActionInput = (
+  actionInput: RawActionInput | ActionInput
+): actionInput is Create2ActionInput => {
+  const create2 = actionInput as Create2ActionInput
+  return isRawCreate2ActionInput(actionInput) && create2.contracts !== undefined
 }
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
