@@ -140,7 +140,7 @@ const startGoerli = async () => {
   // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
   // because the latter will hang indefinitely.
   exec(`anvil --chain-id 5 --port 42005 &`)
-  await sleep(500)
+  await sleep(1000)
 }
 
 const killGoerli = async () => {

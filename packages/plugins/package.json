@@ -34,7 +34,7 @@
     "pre-commit": "lint-staged",
     "yalc:publish": "yarn build && yalc publish"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/plugins#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/plugins#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

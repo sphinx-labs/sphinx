@@ -22,7 +22,7 @@
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "pre-commit": "lint-staged"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/demo#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/demo#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

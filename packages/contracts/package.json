@@ -28,7 +28,7 @@
     "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol' && yarn solhint --fix '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/contracts#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/contracts#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

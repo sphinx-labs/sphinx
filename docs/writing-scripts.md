@@ -17,7 +17,7 @@ This guide will explain each of these in detail.
 
 The `SphinxManager` contract executes your deployment. It's owned by your project owners. Your project owners must approve a deployment before it can be executed by your `SphinxManager`.
 
-If you're curious how the address of your `SphinxManager` is calculated, see [our FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md).
+If you're curious how the address of your `SphinxManager` is calculated, see [our FAQ](https://github.com/sphinx-labs/sphinx/blob/main/docs/faq.md).
 
 If you need to use the address of your `SphinxManager` for any reason, you can retrieve it using a helper function that's inherited from the `Sphinx.sol` contract:
 
@@ -58,4 +58,4 @@ function setUp() public {
 }
 ```
 
-For a reference guide that describes each of these options, see the [Configuration Reference](https://github.com/sphinx-labs/sphinx/blob/develop/docs/configuration-options.md).
+For a reference guide that describes each of these options, see the [Configuration Reference](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md).

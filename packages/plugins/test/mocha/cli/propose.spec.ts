@@ -37,7 +37,7 @@ describe('Propose CLI command', () => {
     exec(`anvil --chain-id 1 --port 42001 --silent &`)
     exec(`anvil --chain-id 5 --port 42005 --silent &`)
     exec(`anvil --chain-id 10 --port 42010 --silent &`)
-    await sleep(500)
+    await sleep(1000)
   })
 
   afterEach(async () => {
