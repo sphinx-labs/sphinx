@@ -9,7 +9,6 @@ import 'core-js/features/array/at'
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { generateClient } from './typegen/client'
 import { propose } from './propose'
 import { deploy } from './deploy'
 
@@ -147,19 +146,6 @@ yargs(hideBin(process.argv))
       writeSampleProjectFiles(src, test, script, quickstart, solcVersion)
       spinner.succeed('Initialized sample project.')
     }
-  )
-  .command(
-    'generate',
-    'Generate Sphinx Client contracts for a project',
-    (y) =>
-      y
-        .usage(`Usage: npx sphinx generate [--silent]`)
-        .option('silent', {
-          describe: 'Silence the output except for error messages.',
-          boolean: true,
-        })
-        .hide('version'),
-    async (argv) => generateClient(argv.silent)
   )
   .command(
     'deploy',

@@ -254,8 +254,6 @@ export const makeGetConfigArtifacts = (
       buildInfoFileNames.length === 1 ||
       (!cachedNames.includes(buildInfoFileNames[0]) &&
         // handles an edge case where the user made a change and then reverted it and force recompiled
-        // TODO(ryan): What's the purpose of `buildInfoFileNames.length > 1`? It seems like it'll
-        // always be false because we already check that `buildInfoFileNames.length === 1`.
         buildInfoFileNames.length > 1)
     ) {
       buildInfoCache = {}
