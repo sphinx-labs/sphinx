@@ -22,7 +22,7 @@
     "pre-commit": "lint-staged",
     "deploy": "npx hardhat deploy-system"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/core#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/core#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

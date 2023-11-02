@@ -63,7 +63,7 @@ describe('Init CLI command', () => {
     // Check that the contract was deployed correctly
     expect(await provider.getCode(contractAddress)).to.not.equal('0x')
     const contract = getContract()
-    expect(await contract.greeting()).to.equal('Hi!')
+    expect(await contract.greeting()).to.equal('Hi')
     expect(await contract.number()).to.equal(10n)
   })
 })

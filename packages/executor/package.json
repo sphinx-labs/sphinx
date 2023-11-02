@@ -27,7 +27,7 @@
     "build-container": "docker build --tag sphinx-executor .",
     "container": "docker run --platform linux/amd64 --env-file ./.env sphinx-executor"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/executor#readme",
+  "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/executor#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {

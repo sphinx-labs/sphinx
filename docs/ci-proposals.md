@@ -24,7 +24,7 @@ We'll use GitHub Actions as the CI platform in this guide. You can still follow 
 
 The Sphinx DevOps Platform is currently invite-only, so you need an invite link to follow along with this guide. You can [request access on our website](https://sphinx.dev) if you haven't already.
 
-Make sure that you've already completed the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md) for the project you're going to deploy in this guide.
+Make sure that you've already completed the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md) for the project you're going to deploy in this guide.
 
 Also, make sure that your `foundry.toml` has an `rpc_endpoints` section that contains an RPC endpoint for each network you want to support in your project.
 
