@@ -2,6 +2,25 @@
 // TODO: can this license be MIT given that we're interacting with an LGPL contract?
 pragma solidity >=0.7.0 <0.9.0;
 
+// TODO(lawyer):
+// 1. Can we distribute the SphinxModule under any license that we want?
+// 2. Are we allowed to use Safe's contracts as a library?
+// 3. Do we need to include a notice in our documentation stating that we use Safe as a library?
+// 4. Is there anything else that we should be aware of when using Safe as a library?
+
+enum LeafType {
+    APPROVE,
+    EXECUTE
+}
+
+struct Leaf {
+    address to;
+    uint256 chainId;
+    uint256 index;
+    uint256 data;
+    LeafType leafType;
+}
+
 // TODO: consider having a SphinxModuleFactory. if we don't, it'd probably be pretty easy for a dev's local optimizer
 // settings to mess with the address of the SphinxModule.
 
@@ -33,7 +52,7 @@ contract SphinxModule {
     // TODO(docs): we have a nonce to ensure that deployments can't be replayed.
     uint256 public currentNonce;
 
-    uint256 public activeMerkleRoot;
+    uint256 public activeRoot;
 
     // TODO: change address to interface type here (but not in constructor). TODO(docs): this allows
     // contracts to deploy the SphinxModule without needing to import the Safe contract.
@@ -76,7 +95,7 @@ contract SphinxModule {
         DeploymentState storage state = deployments[_root];
         // TODO(docs): Verify the signatures. Since the Merkle root hasn't been approved before, we know that
         // there haven't been any leafs executed yet.
-        _verifySignatures(_root, _leaf, _proof, 0);
+        _verifySignatures(_root, _leaf, _proof, 0, LeafType.APPROVE);
 
         (uint256 nonce, uint256 numLeafs, address executor, string memory uri) = abi.decode(_leaf.data, (uint256, uint256, address, string));
 
@@ -94,7 +113,7 @@ contract SphinxModule {
 
         currentNonce += 1;
 
-        activeMerkleRoot = numLeafs > 1 ? _root : bytes32(0);
+        activeRoot = numLeafs > 1 ? _root : bytes32(0);
 
 
         // TODO: emit events everywhere
@@ -111,13 +130,13 @@ contract SphinxModule {
     function execute(
         Leaf[] memory _leafs,
         bytes32[][] memory _proofs
-    ) public nonReentrant payable returns (Result[] memory results) {
+    ) public nonReentrant returns (Result[] memory results) {
         require(_leafs.length == _proofs.length, "TODO: number of leafs does not match number of Merkle proofs");
         uint256 numActions = _leafs.length;
         require(numActions > 0, "TODO: leafs array is empty");
-        require(activeMerkleRoot != bytes32(0), "TODO: no deployment is currently active");
+        require(activeRoot != bytes32(0), "TODO: no deployment is currently active");
 
-        DeploymentState storage state = deployments[activeMerkleRoot];
+        DeploymentState storage state = deployments[activeRoot];
 
         require(state.executor == msg.sender, "TODO: caller must be the executor selected by the owner(s)");
 
@@ -128,11 +147,11 @@ contract SphinxModule {
             leaf = _leafs[i];
             proof = _proofs[i];
 
-            _verifySignatures(activeMerkleRoot, leaf, proof, state.leafsExecuted);
+            _verifySignatures(activeRoot, leaf, proof, state.leafsExecuted, LeafType.EXECUTE);
 
             // TODO: handle value > 0.
 
-            (address to, uint256 value, bytes memory data, Enum.Operation operation) = abi.decode(_leaf.data, (address, uint256, bytes, Enum.Operation));
+            (address to, uint256 value, uint256 gas, bytes memory data, Enum.Operation operation) = abi.decode(_leaf.data, (address, uint256, uint256, bytes, Enum.Operation));
 
             state.leafsExecuted += 1;
 
@@ -146,7 +165,7 @@ contract SphinxModule {
 
             // TODO: handle failed action. see Safe then SphinxManager.executeInitialActions.
 
-            // TODO: emit an event upon failure, and set status to FAILED. perhaps see the old SphinxManager
+            // TODO: emit an event upon failure. perhaps see the old SphinxManager
             // to be thorough.
 
             // TODO(test): see if there are any noteworthy chains that don't support create3. recently,
@@ -160,13 +179,16 @@ contract SphinxModule {
         // TODO: add the logic in Safe.execTransaction.
 
         if (state.leafsExecuted == state.numLeafs) {
-            activeMerkleRoot = bytes32(0);
+            activeRoot = bytes32(0);
             // TODO: emit event
         }
     }
 
     // TODO(test): run the test suite using all supported versions of SafeL2.
     // TODO(test): see if we support "atomic" create3 (i.e. the 'create2' and 'call' actions are guaranteed to be in the same txn).
+
+    // TODO: consider supporting the case where a user has ETH in their Safe, which they want to transfer
+    // to some other address part of execution.
 
     /**
      * @notice TODO(docs)
@@ -175,31 +197,33 @@ contract SphinxModule {
         bytes32 _root,
         Leaf memory _leaf,
         bytes32[] memory _proof,
-        uint256 _leafsExecuted
+        uint256 _leafsExecuted,
+        LeafType _expectedLeafType
     ) internal view {
         // TODO: consider validating that the merkle tree isn't empty.
-
-        // TODO: figure out how to validate these fields: (uint256 value,uint256 gas)
 
         // Validate the fields of the Leaf.
         if (_leaf.to != address(safe)) revert InvalidToAddress();
         if (_leaf.chainId != block.chainid) revert InvalidChainId();
         if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
+        if (_leaf.leafType != _expectedLeafType) revert InvalidLeafType();
 
         // TODO: all of these libraries should be non-upgradeable
         if (!MerkleProofUpgradeable.verify(_proof, _root, _getLeafHash(_leaf)))
             revert InvalidMerkleProof();
     }
 
-    // TODO(test): compile the contracts repo using the earliest expected version, like you do in the plugins package.
-    // this function will error because `bytes.concat` isn't supported by earlier versions of Solidity.
+    // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo
+    // too. When you implement this test, `_getLeafHash` will error because `bytes.concat` isn't
+    // supported by earlier versions of Solidity.
+
     // TODO: why do we double hash? i believe openzeppelin recommends this to prevent some sort of vulnerability.
     // we should make sure that we do it correctly, and document why we do it.
     function _getLeafHash(Leaf memory _leaf) internal pure returns (bytes32) {
         return
             keccak256(
                 bytes.concat(
-                    keccak256(abi.encode(_leaf.chainId, _leaf.to, _leaf.index, _leaf.data))
+                    keccak256(abi.encode(_leaf))
                 )
             );
     }
