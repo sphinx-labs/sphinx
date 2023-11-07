@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// TODO: can this license be MIT given that we're interacting with an LGPL contract?
 pragma solidity >=0.7.0 <0.9.0;
 
 // TODO(lawyer):
@@ -8,17 +7,37 @@ pragma solidity >=0.7.0 <0.9.0;
 // 3. Do we need to include a notice in our documentation stating that we use Safe as a library?
 // 4. Is there anything else that we should be aware of when using Safe as a library?
 
+/**
+ * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
+ *               can be executed.
+ * @custom:value EXECUTE Execute a transaction within a deployment.
+ */
 enum LeafType {
     APPROVE,
     EXECUTE
 }
 
+// TODO: case: say you deploy another SphinxModule, which the Safe owners install. Can that new
+// module execute trees that were previously approved in this SphinxModule? perhaps a solution is to
+// include the address of the module in the EIP 712 signature. however, that may not be a good idea
+// if a single merkle tree is being used to execute a deployment on a module that has different
+// addresses on different chains.
+
+// TODO: are there any other EIP 712 signature fields to include?
+
+// TODO: consider merging the approve function and execute function
+
+/**
+ * @custom:field chainId  The current chain ID.
+ * @custom:field index    The index of the leaf within the Merkle tree on this chain.
+ * @custom:field leafType The type of the leaf.
+ * @custom:field data     Arbitrary data to be decoded based on the leaf type.
+ */
 struct Leaf {
-    address to;
     uint256 chainId;
     uint256 index;
-    uint256 data;
     LeafType leafType;
+    bytes data;
 }
 
 // TODO: consider having a SphinxModuleFactory. if we don't, it'd probably be pretty easy for a dev's local optimizer
@@ -87,7 +106,7 @@ contract SphinxModule {
     ) public nonReentrant {
         // TODO: is there an audited version of any aspect of this line?
         bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
-        safe.checkSignatures(typedDataHash, _signatures);
+        safeProxy.checkSignatures(typedDataHash, _signatures);
 
         // TODO(end): loop through each `require` statement in each function to see if you should add it to any of the other functions.
 
@@ -97,8 +116,12 @@ contract SphinxModule {
         // there haven't been any leafs executed yet.
         _verifySignatures(_root, _leaf, _proof, 0, LeafType.APPROVE);
 
-        (uint256 nonce, uint256 numLeafs, address executor, string memory uri) = abi.decode(_leaf.data, (uint256, uint256, address, string));
+        // TODO(docs): we include the address of the safe in this leaf to protect against a
+        // vulnerability where you could attack a Safe with the same owners using a
+        // tree that was signed for a previous deployment through a different Safe
+        (address safe, uint256 nonce, uint256 numLeafs, address executor, string memory uri) = abi.decode(_leaf.data, (address, uint256, uint256, address, string));
 
+        require(safe == address(safeProxy), "TODO: invalid safe address");
         require(executor == msg.sender, "TODO: caller must be the executor selected by the owner(s)");
         require(nonce == currentNonce, "TODO: invalid nonce");
         require(numLeafs > 0, "TODO: there cannot be zero leafs in the Merkle tree");
@@ -151,15 +174,15 @@ contract SphinxModule {
 
             // TODO: handle value > 0.
 
-            (address to, uint256 value, uint256 gas, bytes memory data, Enum.Operation operation) = abi.decode(_leaf.data, (address, uint256, uint256, bytes, Enum.Operation));
+            (address to, uint256 value, uint256 gas, bytes memory txData, Enum.Operation operation) = abi.decode(_leaf.data, (address, uint256, uint256, bytes, Enum.Operation));
 
             state.leafsExecuted += 1;
 
             Result memory result = results[i];
-            (result.success, result.returnData) = safe.execTransactionFromModuleReturnData(
+            (result.success, result.returnData) = safeProxy.execTransactionFromModuleReturnData(
                 to,
                 value,
-                data,
+                txData,
                 operation
             );
 
@@ -203,7 +226,6 @@ contract SphinxModule {
         // TODO: consider validating that the merkle tree isn't empty.
 
         // Validate the fields of the Leaf.
-        if (_leaf.to != address(safe)) revert InvalidToAddress();
         if (_leaf.chainId != block.chainid) revert InvalidChainId();
         if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
         if (_leaf.leafType != _expectedLeafType) revert InvalidLeafType();
