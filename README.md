@@ -6,15 +6,15 @@ Sphinx automates the smart contract deployment process by funding, executing, an
 
 ## Key features:
 
-* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
-
 * **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
 
-* **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks with a single click. Sphinx will execute the deployment on each chain in parallel.
+* **One-Click Multichain Deployments**: Your project owners can approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx will execute the deployment on each chain in parallel.
 
 * **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd rather not use a CI process, you can propose deployments from your local machine instead.
 
 * **Automatic Etherscan verification**
+
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
 ## Request access
 

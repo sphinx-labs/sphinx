@@ -99,7 +99,10 @@ abstract contract Sphinx {
         string memory rpcUrl = vm.rpcUrl(_networkName);
         sphinxUtils.validateProposal(_proposer, _networkName, sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
+        DeploymentInfo memory deploymentInfo = sphinxCollect(
+            _networkName,
+            sphinxUtils.isLiveNetworkFFI(rpcUrl)
+        );
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
@@ -138,11 +141,30 @@ abstract contract Sphinx {
             sphinxConfig.proposers.push(deployer);
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork);
+        DeploymentInfo memory deploymentInfo = sphinxCollect(_networkName, isLiveNetwork);
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxCollect(bool _isLiveNetwork) private returns (DeploymentInfo memory) {
+    function sphinxCollect(
+        string memory _networkName,
+        bool _isLiveNetwork
+    ) private returns (DeploymentInfo memory) {
+        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByName(_networkName);
+        require(
+            block.chainid == networkInfo.chainId,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Detected an unexpected chain ID for the network: ",
+                    _networkName,
+                    ".\nExpected: ",
+                    vm.toString(networkInfo.chainId),
+                    "\nActual: ",
+                    vm.toString(block.chainid),
+                    "\nAre you sure you're using the correct RPC endpoint?"
+                )
+            )
+        );
+
         ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
         ISphinxManager manager = ISphinxManager(sphinxManager());
 
