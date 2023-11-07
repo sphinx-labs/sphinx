@@ -58,8 +58,14 @@ pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.
 
 ## 5. Initialize a project
 
+### yarn or npm
 ```
 npx sphinx init --quickstart
+```
+
+### pnpm
+```
+npx sphinx init --quickstart --pnpm
 ```
 
 This command created a few files:
