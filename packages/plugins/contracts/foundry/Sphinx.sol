@@ -171,8 +171,8 @@ abstract contract Sphinx {
      */
     function sphinxDeployTask(
         string memory _networkName,
-        bytes32 _authRoot,
-        BundleInfo memory _bundleInfo
+        bytes32 _root,
+        SphinxBundle memory _bundle
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
@@ -203,11 +203,11 @@ abstract contract Sphinx {
         vm.startBroadcast(privateKey);
         sphinxDeployOnNetwork(
             ISphinxManager(sphinxManager()),
-            ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
-            _authRoot,
-            _bundleInfo,
+            _root,
+            _bundle,
             metaTxnSignature,
-            rpcUrl
+            rpcUrl,
+            _networkName
         );
         vm.stopBroadcast();
     }
@@ -218,56 +218,57 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    function sphinxSimulateProposal(
-        bool _testnets,
-        bytes32 _authRoot,
-        BundleInfo[] memory _bundleInfoArray
-    ) external returns (uint256[] memory) {
-        setupPropose();
+    // TODO - proposals
+    // function sphinxSimulateProposal(
+    //     bool _testnets,
+    //     bytes32 _authRoot,
+    //     BundleInfo[] memory _bundleInfoArray
+    // ) external returns (uint256[] memory) {
+    //     setupPropose();
 
-        uint256 proposerPrivateKey = vm.envUint("PROPOSER_PRIVATE_KEY");
-        address proposer = vm.addr(proposerPrivateKey);
-        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-            proposerPrivateKey,
-            _authRoot
-        );
+    //     uint256 proposerPrivateKey = vm.envUint("PROPOSER_PRIVATE_KEY");
+    //     address proposer = vm.addr(proposerPrivateKey);
+    //     bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
+    //         proposerPrivateKey,
+    //         _authRoot
+    //     );
 
-        sphinxMode = SphinxMode.Proposal;
+    //     sphinxMode = SphinxMode.Proposal;
 
-        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
-        uint256[] memory forkIds = new uint256[](networks.length);
-        for (uint256 i = 0; i < networks.length; i++) {
-            Network network = networks[i];
-            NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
-            string memory rpcUrl = vm.rpcUrl(networkInfo.name);
+    //     Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
+    //     uint256[] memory forkIds = new uint256[](networks.length);
+    //     for (uint256 i = 0; i < networks.length; i++) {
+    //         Network network = networks[i];
+    //         NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
+    //         string memory rpcUrl = vm.rpcUrl(networkInfo.name);
 
-            // Create a fork of the target network. This automatically sets the `block.chainid` to
-            // the target chain (e.g. 1 for ethereum mainnet).
-            uint256 forkId = vm.createSelectFork(rpcUrl);
-            forkIds[i] = forkId;
+    //         // Create a fork of the target network. This automatically sets the `block.chainid` to
+    //         // the target chain (e.g. 1 for ethereum mainnet).
+    //         uint256 forkId = vm.createSelectFork(rpcUrl);
+    //         forkIds[i] = forkId;
 
-            // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
-            // because we never broadcast the transactions onto the forked network. This is a
-            // performance optimization.
-            sphinxUtils.initializeSphinxContracts(
-                OptionalAddress({ exists: true, value: proposer })
-            );
+    //         // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
+    //         // because we never broadcast the transactions onto the forked network. This is a
+    //         // performance optimization.
+    //         sphinxUtils.initializeSphinxContracts(
+    //             OptionalAddress({ exists: true, value: proposer })
+    //         );
 
-            // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
-            vm.startPrank(proposer);
-            sphinxDeployOnNetwork(
-                ISphinxManager(sphinxManager()),
-                ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
-                _authRoot,
-                _bundleInfoArray[i],
-                metaTxnSignature,
-                rpcUrl
-            );
-            vm.stopPrank();
-        }
+    //         // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
+    //         vm.startPrank(proposer);
+    //         sphinxDeployOnNetwork(
+    //             ISphinxManager(sphinxManager()),
+    //             ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
+    //             _authRoot,
+    //             _bundleInfoArray[i],
+    //             metaTxnSignature,
+    //             rpcUrl
+    //         );
+    //         vm.stopPrank();
+    //     }
 
-        return forkIds;
-    }
+    //     return forkIds;
+    // }
 
     function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
@@ -490,20 +491,20 @@ abstract contract Sphinx {
      */
     function sphinxDeployOnNetwork(
         ISphinxManager _manager,
-        ISphinxAuth _auth,
-        bytes32 _authRoot,
-        BundleInfo memory _bundleInfo,
+        bytes32 _root,
+        SphinxBundle memory _bundle,
         bytes memory _metaTxnSignature,
-        string memory _rpcUrl
+        string memory _rpcUrl,
+        string memory _networkName
     ) private {
         (, address msgSender, ) = vm.readCallers();
 
-        if (_bundleInfo.authLeafs.length == 0) {
+        if (_bundle.leafs.length == 0) {
             console.log(
                 string(
                     abi.encodePacked(
                         "Sphinx: Nothing to execute on ",
-                        _bundleInfo.networkName,
+                        _networkName,
                         ". Exiting early."
                     )
                 )
@@ -513,12 +514,7 @@ abstract contract Sphinx {
 
         sphinxRegisterProject(_rpcUrl, msgSender);
 
-        bytes32 deploymentId = sphinxUtils.getDeploymentId(
-            _bundleInfo.actionBundle,
-            _bundleInfo.targetBundle,
-            _bundleInfo.configUri
-        );
-        DeploymentState memory deploymentState = _manager.deployments(deploymentId);
+        DeploymentState memory deploymentState = _manager.deployments(_root);
 
         if (deploymentState.status == DeploymentStatus.COMPLETED) {
             console.log(

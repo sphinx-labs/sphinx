@@ -80,6 +80,7 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
+import { SphinxTransaction } from './actions'
 
 export const getDeploymentId = (
   actionBundle: SphinxActionBundle,
@@ -717,8 +718,7 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifactsRemote = {}
-  const unskipped = compilerConfig.actionInputs.filter((a) => !a.skip)
-  for (const actionInput of unskipped) {
+  for (const actionInput of compilerConfig.actionInputs) {
     for (const address of Object.keys(actionInput.contracts)) {
       const { fullyQualifiedName } = actionInput.contracts[address]
 
@@ -1341,22 +1341,9 @@ export const isRawFunctionCallActionInput = (
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.skip !== undefined &&
     callActionInput.to !== undefined &&
-    callActionInput.data !== undefined
+    callActionInput.txData !== undefined
   )
-}
-
-export const isDeployContractActionInput = (
-  actionInput: ActionInput
-): actionInput is DeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
-}
-
-export const isRawDeployContractActionInput = (
-  actionInput: RawActionInput
-): actionInput is RawDeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
 export const isRawCreate2ActionInput = (
@@ -1367,8 +1354,7 @@ export const isRawCreate2ActionInput = (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
-    rawCreate2.skip !== undefined &&
-    rawCreate2.data !== undefined &&
+    rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
   )
 }

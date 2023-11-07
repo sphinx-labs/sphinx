@@ -10,11 +10,11 @@ import {
   parseFoundryArtifact,
   execAsync,
   getNetworkNameForChainId,
-  isRawDeployContractActionInput,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
+  CompilerConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -30,11 +30,11 @@ import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
-  AuthLeaf,
+  DeploymentData,
+  SphinxTransaction,
   SupportedNetworkName,
-  getAuthLeafsForChain,
   getProjectBundleInfo,
-  makeAuthBundle,
+  makeSphinxBundle,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -173,9 +173,7 @@ export const getUniqueNames = (
   const fullyQualifiedNamesSet = new Set<string>()
   for (const actionInputs of actionInputArray) {
     for (const rawInput of actionInputs) {
-      if (isRawDeployContractActionInput(rawInput)) {
-        fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
-      } else if (typeof rawInput.contractName === 'string') {
+      if (typeof rawInput.contractName === 'string') {
         rawInput.contractName.includes(':')
           ? fullyQualifiedNamesSet.add(rawInput.contractName)
           : contractNamesSet.add(rawInput.contractName)
@@ -444,49 +442,72 @@ export const inferSolcVersion = async (): Promise<string> => {
   }
 }
 
-export const getBundleInfoArray = async (
+export const makeDeploymentData = (
+  compilerConfigArray: Array<{
+    compilerConfig: CompilerConfig
+    configUri: string
+  }>
+): DeploymentData => {
+  const data: DeploymentData = {}
+  for (const { compilerConfig, configUri } of compilerConfigArray) {
+    const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
+      (action) => {
+        return {
+          to: action.to,
+          value: action.value,
+          gas: action.gas,
+          txData: action.txData,
+          operation: action.operation,
+        }
+      }
+    )
+
+    data[compilerConfig.chainId] = {
+      nonce: compilerConfig.nonce,
+      executor: compilerConfig.executorAddress,
+      safe: compilerConfig.safeAddress,
+      deploymentURI: configUri,
+      txs,
+    }
+  }
+
+  return data
+}
+
+export const getBundleInfo = async (
   configArtifacts: ConfigArtifacts,
   parsedConfigArray: Array<ParsedConfig>
 ): Promise<{
-  authRoot: string
-  bundleInfoArray: Array<BundleInfo>
+  root: string
+  bundleInfo: BundleInfo
 }> => {
-  const allAuthLeafs: Array<AuthLeaf> = []
+  const compilerConfigsWithUris: Array<{
+    compilerConfig: CompilerConfig
+    configUri: string
+  }> = []
   for (const parsedConfig of parsedConfigArray) {
-    const authLeafsForChain = await getAuthLeafsForChain(
+    const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts
     )
-    allAuthLeafs.push(...authLeafsForChain)
-  }
 
-  const authBundle = makeAuthBundle(allAuthLeafs)
-
-  const bundleInfoArray: Array<BundleInfo> = []
-  for (const parsedConfig of parsedConfigArray) {
-    const networkName = getNetworkNameForChainId(BigInt(parsedConfig.chainId))
-
-    const authLeafsForChain = authBundle.leafs.filter(
-      (l) => l.leaf.chainId === BigInt(parsedConfig.chainId)
-    )
-
-    const { configUri, bundles, compilerConfig, humanReadableActions } =
-      await getProjectBundleInfo(parsedConfig, configArtifacts)
-
-    bundleInfoArray.push({
-      configUri,
-      networkName,
-      authLeafs: authLeafsForChain,
-      actionBundle: bundles.actionBundle,
-      targetBundle: bundles.targetBundle,
-      humanReadableActions,
+    compilerConfigsWithUris.push({
       compilerConfig,
+      configUri,
     })
   }
 
+  const deploymentData = makeDeploymentData(compilerConfigsWithUris)
+  const bundle = makeSphinxBundle(deploymentData)
+
   return {
-    bundleInfoArray,
-    authRoot: authBundle.root,
+    root: bundle.root,
+    bundleInfo: {
+      bundle,
+      compilerConfigs: compilerConfigsWithUris.map(
+        (compilerConfig) => compilerConfig.compilerConfig
+      ),
+    },
   }
 }
 

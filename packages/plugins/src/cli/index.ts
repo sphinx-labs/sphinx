@@ -9,7 +9,7 @@ import 'core-js/features/array/at'
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { propose } from './propose'
+// import { propose } from './propose'
 import { deploy } from './deploy'
 
 // Load environment variables from .env
@@ -111,14 +111,15 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await propose(
-        confirm,
-        isTestnet,
-        dryRun,
-        silent,
-        scriptPath,
-        targetContract
-      )
+      // TODO - proposals
+      // await propose(
+      //   confirm,
+      //   isTestnet,
+      //   dryRun,
+      //   silent,
+      //   scriptPath,
+      //   targetContract
+      // )
     }
   )
   .command(

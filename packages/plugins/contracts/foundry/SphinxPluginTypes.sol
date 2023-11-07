@@ -9,6 +9,7 @@ import {
     AuthLeaf,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { LeafType } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 
 struct SphinxAuthBundle {
     bytes32 root;
@@ -49,13 +50,15 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-struct BundleInfo {
-    string networkName;
-    string configUri;
-    BundledAuthLeaf[] authLeafs;
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
-    HumanReadableAction[] humanReadableActions;
+struct BundledSphinxLeaf {
+    Leaf leaf;
+    LeafType leafType;
+    bytes32[] proof;
+}
+
+struct SphinxBundle {
+    bytes32 root;
+    BundledSphinxLeaf[] leafs;
 }
 
 struct FoundryConfig {
@@ -152,8 +155,9 @@ struct OptionalBytes32 {
  * @custom:field initialState The values of several state variables before the deployment occurs.
  */
 struct DeploymentInfo {
-    address authAddress;
-    address managerAddress;
+    address safeAddress;
+    address moduleAddress;
+    uint256 nonce;
     uint256 chainId;
     SphinxConfig newConfig;
     bool isLiveNetwork;
