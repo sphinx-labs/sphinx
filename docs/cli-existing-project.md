@@ -82,7 +82,7 @@ npx sphinx init
 
 ### pnpm
 ```
-npx sphinx init --pnpm
+pnpm sphinx init --pnpm
 ```
 
 This created a few files:
