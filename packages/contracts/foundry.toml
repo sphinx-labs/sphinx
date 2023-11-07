@@ -9,5 +9,6 @@ remappings = [
   '@eth-optimism/contracts/=node_modules/@eth-optimism/contracts',
   '@connext/interfaces=node_modules/@connext/interfaces/',
   'forge-std/=node_modules/forge-std/src/',
-  'ds-test/=node_modules/ds-test/src/'
+  'ds-test/=node_modules/ds-test/src/',
+  '@gnosis.pm/safe-contracts/=node_modules/@gnosis.pm/safe-contracts/contracts/'
 ]

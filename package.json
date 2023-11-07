@@ -24,7 +24,8 @@
       "@sphinx-labs/plugins/sphinx-forge-std",
       "@sphinx-labs/{plugins,demo}/sphinx-solmate",
       "@sphinx-labs/plugins/solidity-stringutils",
-      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
+      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples",
+      "@sphinx-labs/contracts/@gnosis.pm/safe-contracts"
     ]
   },
   "scripts": {
