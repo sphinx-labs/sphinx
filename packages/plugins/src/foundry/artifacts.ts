@@ -10,7 +10,6 @@ import {
   getNetworkNameForChainId,
   recursivelyConvertResult,
 } from '@sphinx-labs/core'
-import { SphinxManagerABI } from '@sphinx-labs/contracts'
 
 import { FoundryBroadcast } from './types'
 

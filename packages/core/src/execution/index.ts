@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 
 import { SphinxBundles, DeploymentState, DeploymentStatus } from '../actions'
-import { getSphinxManager, getDeploymentEvents, sleep } from '../utils'
+import { getDeploymentEvents, sleep } from '../utils'
 import { ParsedConfig } from '../config'
 
 // export const monitorExecution = async (

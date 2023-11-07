@@ -1,128 +1,10 @@
-import * as path from 'path'
-import assert from 'assert'
-
 import { ethers } from 'ethers'
-import {
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  getOwnerAddress,
-  OWNER_MULTISIG_ADDRESS,
-  ManagedServiceArtifact,
-  OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  DEFAULT_PROXY_TYPE_HASH,
-  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  AuthFactoryABI,
-  SphinxRegistryABI,
-  buildInfo,
-  prevBuildInfo,
-} from '@sphinx-labs/contracts'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import { UpgradeableContract } from '@openzeppelin/upgrades-core'
 
-import {
-  isContractDeployed,
-  getGasPriceOverrides,
-  getImpersonatedSigner,
-  isLiveNetwork,
-} from '../../utils'
+import { isContractDeployed, getGasPriceOverrides } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
-import {
-  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  getSphinxManagerImplAddress,
-  getSphinxRegistryAddress,
-  getManagedServiceAddress,
-  OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  DEFAULT_ADAPTER_ADDRESS,
-  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  AUTH_FACTORY_ADDRESS,
-  getAuthImplAddress,
-} from '../../addresses'
-import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
-import { SphinxSystemConfig } from './types'
-import {
-  CURRENT_SPHINX_AUTH_VERSION,
-  CURRENT_SPHINX_MANAGER_VERSION,
-  FUNDER_ROLE,
-  RELAYER_ROLE,
-  REMOTE_EXECUTOR_ROLE,
-} from '../../constants'
-import { getSphinxConstants } from '../../contract-info'
-
-const fetchSphinxSystemConfig = (configPath: string) => {
-  delete require.cache[require.resolve(path.resolve(configPath))]
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const exported: SphinxSystemConfig = require(path.resolve(configPath)).default
-  if (
-    typeof exported === 'object' &&
-    exported.executors.length > 0 &&
-    exported.relayers.length > 0 &&
-    exported.funders.length > 0
-  ) {
-    return exported
-  } else {
-    throw new Error(
-      'Config file must export a valid config object with a list of executors and relayers.'
-    )
-  }
-}
-
-export const initializeAndVerifySphinx = async (
-  systemConfigPath: string,
-  provider: SphinxJsonRpcProvider,
-  signer: ethers.Signer
-) => {
-  const config = fetchSphinxSystemConfig(systemConfigPath)
-
-  const logger = new Logger({
-    name: 'deploy',
-  })
-
-  // Deploy Contracts
-  await initializeSphinx(
-    provider,
-    signer,
-    config.executors,
-    config.relayers,
-    config.funders,
-    logger
-  )
-
-  // Verify Sphinx contracts on etherscan
-  const { name: networkName } = await provider.getNetwork()
-  try {
-    // Verify the Sphinx contracts if the current network is supported.
-    if (
-      (await isSupportedNetworkOnEtherscan(provider)) &&
-      (await isLiveNetwork(provider))
-    ) {
-      const apiKey = process.env.ETHERSCAN_API_KEY
-      if (apiKey) {
-        logger.info('[Sphinx]: attempting to verify the sphinx contracts...')
-        await verifySphinx(provider, networkName, apiKey)
-        logger.info(
-          '[Sphinx]: finished attempting to verify the sphinx contracts'
-        )
-      } else {
-        logger.info(
-          `[Sphinx]: skipped verifying sphinx contracts. reason: no api key found`
-        )
-      }
-    } else {
-      logger.info(
-        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${networkName}`
-      )
-    }
-  } catch (e) {
-    console.error(e)
-    logger.error(
-      `[Sphinx]: error: failed to verify sphinx contracts on ${networkName}`,
-      e
-    )
-  }
-}
 
 /**
  * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
@@ -137,347 +19,352 @@ export const ensureSphinxInitialized = async (
   funders: string[] = [],
   logger?: Logger
 ) => {
-  if (!(await isLiveNetwork(provider))) {
-    await initializeSphinx(
-      provider,
-      signer,
-      executors,
-      relayers,
-      funders,
-      logger
-    )
-  } else if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
-    return
-  } else {
-    throw new Error(`Sphinx is not supported on this network.`)
-  }
+  // TODO - do this, but with a forge script
+  // if (!(await isLiveNetwork(provider))) {
+  //   await initializeSphinx(
+  //     provider,
+  //     signer,
+  //     executors,
+  //     relayers,
+  //     funders,
+  //     logger
+  //   )
+  // } else if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
+  //   return
+  // } else {
+  //   throw new Error(`Sphinx is not supported on this network.`)
+  // }
 }
 
-export const initializeSphinx = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Signer,
-  executors: string[],
-  relayers: string[],
-  funders: string[],
-  logger?: Logger
-): Promise<void> => {
-  const block = await provider.getBlock('latest')
-  if (!block) {
-    throw new Error('Failed to get latest block.')
-  }
+// TODO - make this into a forge script, but only deploy what we actually need for the module
+//        Notably we still need the ManagedService, BalanceFactory, and we need to make sure that
+//        we can easily configure roles on the ManagedService using a config file or some other
+//        configuration (e.g. a Solidity contract would be fine too)
+// export const initializeSphinx = async (
+//   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+//   signer: ethers.Signer,
+//   executors: string[],
+//   relayers: string[],
+//   funders: string[],
+//   logger?: Logger
+// ): Promise<void> => {
+//   const block = await provider.getBlock('latest')
+//   if (!block) {
+//     throw new Error('Failed to get latest block.')
+//   }
 
-  // Check that the previous storage layout of these contracts is compatible with the current
-  // one.
-  assertStorageLayoutCompatible('contracts/SphinxManager.sol:SphinxManager')
-  assertStorageLayoutCompatible('contracts/SphinxAuth.sol:SphinxAuth')
+//   // Check that the previous storage layout of these contracts is compatible with the current
+//   // one.
+//   assertStorageLayoutCompatible('contracts/SphinxManager.sol:SphinxManager')
+//   assertStorageLayoutCompatible('contracts/SphinxAuth.sol:SphinxAuth')
 
-  for (const {
-    artifact,
-    constructorArgs,
-    expectedAddress,
-  } of await getSphinxConstants(provider)) {
-    const { abi, bytecode, contractName } = artifact
+//   for (const {
+//     artifact,
+//     constructorArgs,
+//     expectedAddress,
+//   } of await getSphinxConstants(provider)) {
+//     const { abi, bytecode, contractName } = artifact
 
-    logger?.info(`[Sphinx]: deploying ${contractName}...`)
+//     logger?.info(`[Sphinx]: deploying ${contractName}...`)
 
-    const contract = await doDeterministicDeploy(provider, {
-      signer,
-      contract: {
-        abi,
-        bytecode,
-      },
-      args: constructorArgs,
-      salt: ethers.ZeroHash,
-    })
+//     const contract = await doDeterministicDeploy(provider, {
+//       signer,
+//       contract: {
+//         abi,
+//         bytecode,
+//       },
+//       args: constructorArgs,
+//       salt: ethers.ZeroHash,
+//     })
 
-    const addr = await contract.getAddress()
-    assert(addr === expectedAddress, `address mismatch for ${contractName}`)
+//     const addr = await contract.getAddress()
+//     assert(addr === expectedAddress, `address mismatch for ${contractName}`)
 
-    logger?.info(
-      `[Sphinx]: deployed ${contractName}, ${await contract.getAddress()}`
-    )
-  }
+//     logger?.info(
+//       `[Sphinx]: deployed ${contractName}, ${await contract.getAddress()}`
+//     )
+//   }
 
-  logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
+//   logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
 
-  // We need to do some additional setup: adding the manager version, adding executor roles, etc
-  // This requires a signer with the owner role which we have to handle differently depending on the situation.
-  // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
-  // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
-  // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
-  //    In this case, we need to create a signer using the SPHINX_INTERNAL__OWNER_PRIVATE_KEY and use that.
-  let owner: ethers.Signer
+//   // We need to do some additional setup: adding the manager version, adding executor roles, etc
+//   // This requires a signer with the owner role which we have to handle differently depending on the situation.
+//   // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
+//   // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
+//   // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
+//   //    In this case, we need to create a signer using the SPHINX_INTERNAL__OWNER_PRIVATE_KEY and use that.
+//   let owner: ethers.Signer
 
-  // If deploying on a live network and the target owner is the multisig, then throw an error because
-  // we have not setup the safe ethers adapter yet.
-  const isLiveNetwork_ = await isLiveNetwork(provider)
-  if (isLiveNetwork_ && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-    if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
-      throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
-    }
+//   // If deploying on a live network and the target owner is the multisig, then throw an error because
+//   // we have not setup the safe ethers adapter yet.
+//   const isLiveNetwork_ = await isLiveNetwork(provider)
+//   if (isLiveNetwork_ && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
+//     if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
+//       throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
+//     }
 
-    owner = new ethers.Wallet(
-      process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
-      provider
-    )
-  } else {
-    // if target owner is multisig, then use an impersonated multisig signer
-    if (getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-      owner = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
-    } else {
-      // if target owner is not multisig, then use the owner signer
-      // SPHINX_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
-      owner = new ethers.Wallet(
-        process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
-        provider
-      )
-    }
+//     owner = new ethers.Wallet(
+//       process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
+//       provider
+//     )
+//   } else {
+//     // if target owner is multisig, then use an impersonated multisig signer
+//     if (getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
+//       owner = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
+//     } else {
+//       // if target owner is not multisig, then use the owner signer
+//       // SPHINX_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
+//       owner = new ethers.Wallet(
+//         process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
+//         provider
+//       )
+//     }
 
-    if (!isLiveNetwork_) {
-      // Fund the signer
-      await (
-        await signer.sendTransaction({
-          to: await owner.getAddress(),
-          value: ethers.parseEther('1'),
-        })
-      ).wait()
-    }
-  }
+//     if (!isLiveNetwork_) {
+//       // Fund the signer
+//       await (
+//         await signer.sendTransaction({
+//           to: await owner.getAddress(),
+//           value: ethers.parseEther('1'),
+//         })
+//       ).wait()
+//     }
+//   }
 
-  const { chainId } = await provider.getNetwork()
-  const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(chainId),
-    ManagedServiceArtifact.abi,
-    owner
-  )
+//   const { chainId } = await provider.getNetwork()
+//   const ManagedService = new ethers.Contract(
+//     getManagedServiceAddress(chainId),
+//     ManagedServiceArtifact.abi,
+//     owner
+//   )
 
-  logger?.info('[Sphinx]: assigning executor roles...')
-  for (const executor of executors) {
-    if (
-      (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
-    ) {
-      await (
-        await ManagedService.grantRole(
-          REMOTE_EXECUTOR_ROLE,
-          executor,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[Sphinx]: finished assigning executor roles')
+//   logger?.info('[Sphinx]: assigning executor roles...')
+//   for (const executor of executors) {
+//     if (
+//       (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
+//     ) {
+//       await (
+//         await ManagedService.grantRole(
+//           REMOTE_EXECUTOR_ROLE,
+//           executor,
+//           await getGasPriceOverrides(owner)
+//         )
+//       ).wait()
+//     }
+//   }
+//   logger?.info('[Sphinx]: finished assigning executor roles')
 
-  logger?.info('[Sphinx]: assigning caller roles...')
-  for (const relayer of relayers) {
-    if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
-      await (
-        await ManagedService.grantRole(
-          RELAYER_ROLE,
-          relayer,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[Sphinx]: finished assigning caller roles')
+//   logger?.info('[Sphinx]: assigning caller roles...')
+//   for (const relayer of relayers) {
+//     if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
+//       await (
+//         await ManagedService.grantRole(
+//           RELAYER_ROLE,
+//           relayer,
+//           await getGasPriceOverrides(owner)
+//         )
+//       ).wait()
+//     }
+//   }
+//   logger?.info('[Sphinx]: finished assigning caller roles')
 
-  logger?.info('[Sphinx]: assigning funder role...')
-  for (const funder of funders) {
-    if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
-      await (
-        await ManagedService.grantRole(
-          FUNDER_ROLE,
-          funder,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[Sphinx]: finished assigning role')
+//   logger?.info('[Sphinx]: assigning funder role...')
+//   for (const funder of funders) {
+//     if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
+//       await (
+//         await ManagedService.grantRole(
+//           FUNDER_ROLE,
+//           funder,
+//           await getGasPriceOverrides(owner)
+//         )
+//       ).wait()
+//     }
+//   }
+//   logger?.info('[Sphinx]: finished assigning role')
 
-  logger?.info('[Sphinx]: adding the initial SphinxManager version...')
+//   logger?.info('[Sphinx]: adding the initial SphinxManager version...')
 
-  const SphinxRegistry = new ethers.Contract(
-    getSphinxRegistryAddress(),
-    SphinxRegistryABI,
-    owner
-  )
-  const sphinxManagerAddress = getSphinxManagerImplAddress(
-    chainId,
-    CURRENT_SPHINX_MANAGER_VERSION
-  )
-  if (
-    (await SphinxRegistry.managerImplementations(sphinxManagerAddress)) ===
-    false
-  ) {
-    await (
-      await SphinxRegistry.addVersion(
-        sphinxManagerAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-  }
+//   const SphinxRegistry = new ethers.Contract(
+//     getSphinxRegistryAddress(),
+//     SphinxRegistryABI,
+//     owner
+//   )
+//   const sphinxManagerAddress = getSphinxManagerImplAddress(
+//     chainId,
+//     CURRENT_SPHINX_MANAGER_VERSION
+//   )
+//   if (
+//     (await SphinxRegistry.managerImplementations(sphinxManagerAddress)) ===
+//     false
+//   ) {
+//     await (
+//       await SphinxRegistry.addVersion(
+//         sphinxManagerAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//   }
 
-  logger?.info('[Sphinx]: added the initial SphinxManager version')
+//   logger?.info('[Sphinx]: added the initial SphinxManager version')
 
-  logger?.info('[Sphinx]: setting the default SphinxManager version')
+//   logger?.info('[Sphinx]: setting the default SphinxManager version')
 
-  if (
-    (await SphinxRegistry.currentManagerImplementation()) === ethers.ZeroAddress
-  ) {
-    await (
-      await SphinxRegistry.setCurrentManagerImplementation(
-        sphinxManagerAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-  }
+//   if (
+//     (await SphinxRegistry.currentManagerImplementation()) === ethers.ZeroAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.setCurrentManagerImplementation(
+//         sphinxManagerAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//   }
 
-  logger?.info('[Sphinx]: set the default SphinxManager version')
+//   logger?.info('[Sphinx]: set the default SphinxManager version')
 
-  logger?.info('[Sphinx]: setting the default SphinxAuth version')
+//   logger?.info('[Sphinx]: setting the default SphinxAuth version')
 
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    owner
-  )
+//   const AuthFactory = new ethers.Contract(
+//     AUTH_FACTORY_ADDRESS,
+//     AuthFactoryABI,
+//     owner
+//   )
 
-  const authAddress = getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION)
-  if (!(await AuthFactory.authImplementations(authAddress))) {
-    await (
-      await AuthFactory.addVersion(
-        authAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-  }
+//   const authAddress = getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION)
+//   if (!(await AuthFactory.authImplementations(authAddress))) {
+//     await (
+//       await AuthFactory.addVersion(
+//         authAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//   }
 
-  if ((await AuthFactory.currentAuthImplementation()) === ethers.ZeroAddress) {
-    await (
-      await AuthFactory.setCurrentAuthImplementation(
-        authAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-  }
+//   if ((await AuthFactory.currentAuthImplementation()) === ethers.ZeroAddress) {
+//     await (
+//       await AuthFactory.setCurrentAuthImplementation(
+//         authAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//   }
 
-  logger?.info('[Sphinx]: set the default SphinxAuth version')
+//   logger?.info('[Sphinx]: set the default SphinxAuth version')
 
-  logger?.info(
-    '[Sphinx]: adding the default proxy type to the SphinxRegistry...'
-  )
+//   logger?.info(
+//     '[Sphinx]: adding the default proxy type to the SphinxRegistry...'
+//   )
 
-  // Set the oz transparent proxy type on the registry.
-  const transparentAdapterAddress = OZ_TRANSPARENT_ADAPTER_ADDRESS
-  if (
-    (await SphinxRegistry.adapters(OZ_TRANSPARENT_PROXY_TYPE_HASH)) !==
-    transparentAdapterAddress
-  ) {
-    await (
-      await SphinxRegistry.addContractKind(
-        OZ_TRANSPARENT_PROXY_TYPE_HASH,
-        transparentAdapterAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-    logger?.info(
-      '[Sphinx]: added the transparent proxy type to the SphinxRegistry'
-    )
-  } else {
-    logger?.info(
-      '[Sphinx]: the transparent proxy type was already added to the SphinxRegistry'
-    )
-  }
+//   // Set the oz transparent proxy type on the registry.
+//   const transparentAdapterAddress = OZ_TRANSPARENT_ADAPTER_ADDRESS
+//   if (
+//     (await SphinxRegistry.adapters(OZ_TRANSPARENT_PROXY_TYPE_HASH)) !==
+//     transparentAdapterAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.addContractKind(
+//         OZ_TRANSPARENT_PROXY_TYPE_HASH,
+//         transparentAdapterAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//     logger?.info(
+//       '[Sphinx]: added the transparent proxy type to the SphinxRegistry'
+//     )
+//   } else {
+//     logger?.info(
+//       '[Sphinx]: the transparent proxy type was already added to the SphinxRegistry'
+//     )
+//   }
 
-  logger?.info('[Sphinx]: adding the uups proxy type to the SphinxRegistry...')
+//   logger?.info('[Sphinx]: adding the uups proxy type to the SphinxRegistry...')
 
-  // Set the oz uups proxy type on the registry.
-  const uupsOwnableAdapterAddress = OZ_UUPS_OWNABLE_ADAPTER_ADDRESS
-  if (
-    (await SphinxRegistry.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
-    uupsOwnableAdapterAddress
-  ) {
-    await (
-      await SphinxRegistry.addContractKind(
-        OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-        uupsOwnableAdapterAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-    logger?.info(
-      '[Sphinx]: added the uups ownable proxy type to the SphinxRegistry'
-    )
-  } else {
-    logger?.info(
-      '[Sphinx]: the uups ownable proxy type was already added to the SphinxRegistry'
-    )
-  }
+//   // Set the oz uups proxy type on the registry.
+//   const uupsOwnableAdapterAddress = OZ_UUPS_OWNABLE_ADAPTER_ADDRESS
+//   if (
+//     (await SphinxRegistry.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
+//     uupsOwnableAdapterAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.addContractKind(
+//         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+//         uupsOwnableAdapterAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//     logger?.info(
+//       '[Sphinx]: added the uups ownable proxy type to the SphinxRegistry'
+//     )
+//   } else {
+//     logger?.info(
+//       '[Sphinx]: the uups ownable proxy type was already added to the SphinxRegistry'
+//     )
+//   }
 
-  // Set the oz uups proxy type on the registry.
-  const ozUUPSAccessControlAdapterAddress =
-    OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS
-  if (
-    (await SphinxRegistry.adapters(OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH)) !==
-    ozUUPSAccessControlAdapterAddress
-  ) {
-    await (
-      await SphinxRegistry.addContractKind(
-        OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-        ozUUPSAccessControlAdapterAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-    logger?.info(
-      '[Sphinx]: added the uups access control proxy type to the SphinxRegistry'
-    )
-  } else {
-    logger?.info(
-      '[Sphinx]: the uups access control proxy type was already added to the SphinxRegistry'
-    )
-  }
+//   // Set the oz uups proxy type on the registry.
+//   const ozUUPSAccessControlAdapterAddress =
+//     OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS
+//   if (
+//     (await SphinxRegistry.adapters(OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH)) !==
+//     ozUUPSAccessControlAdapterAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.addContractKind(
+//         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+//         ozUUPSAccessControlAdapterAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//     logger?.info(
+//       '[Sphinx]: added the uups access control proxy type to the SphinxRegistry'
+//     )
+//   } else {
+//     logger?.info(
+//       '[Sphinx]: the uups access control proxy type was already added to the SphinxRegistry'
+//     )
+//   }
 
-  const defaultAdapterAddress = DEFAULT_ADAPTER_ADDRESS
-  if (
-    (await SphinxRegistry.adapters(EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH)) !==
-    defaultAdapterAddress
-  ) {
-    await (
-      await SphinxRegistry.addContractKind(
-        EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-        defaultAdapterAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-    logger?.info(
-      '[Sphinx]: added the external default proxy type to the SphinxRegistry'
-    )
-  } else {
-    logger?.info(
-      '[Sphinx]: the external default proxy type was already added to the SphinxRegistry'
-    )
-  }
+//   const defaultAdapterAddress = DEFAULT_ADAPTER_ADDRESS
+//   if (
+//     (await SphinxRegistry.adapters(EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH)) !==
+//     defaultAdapterAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.addContractKind(
+//         EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+//         defaultAdapterAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//     logger?.info(
+//       '[Sphinx]: added the external default proxy type to the SphinxRegistry'
+//     )
+//   } else {
+//     logger?.info(
+//       '[Sphinx]: the external default proxy type was already added to the SphinxRegistry'
+//     )
+//   }
 
-  if (
-    (await SphinxRegistry.adapters(DEFAULT_PROXY_TYPE_HASH)) !==
-    defaultAdapterAddress
-  ) {
-    await (
-      await SphinxRegistry.addContractKind(
-        ethers.ZeroHash,
-        defaultAdapterAddress,
-        await getGasPriceOverrides(owner)
-      )
-    ).wait()
-    logger?.info(
-      '[Sphinx]: added the internal default proxy type to the SphinxRegistry'
-    )
-  } else {
-    logger?.info(
-      '[Sphinx]: the internal default proxy type was already added to the SphinxRegistry'
-    )
-  }
-}
+//   if (
+//     (await SphinxRegistry.adapters(DEFAULT_PROXY_TYPE_HASH)) !==
+//     defaultAdapterAddress
+//   ) {
+//     await (
+//       await SphinxRegistry.addContractKind(
+//         ethers.ZeroHash,
+//         defaultAdapterAddress,
+//         await getGasPriceOverrides(owner)
+//       )
+//     ).wait()
+//     logger?.info(
+//       '[Sphinx]: added the internal default proxy type to the SphinxRegistry'
+//     )
+//   } else {
+//     logger?.info(
+//       '[Sphinx]: the internal default proxy type was already added to the SphinxRegistry'
+//     )
+//   }
+// }
 
 export const getDeterministicFactoryAddress = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
@@ -577,21 +464,4 @@ export const doDeterministicDeploy = async (
   }
 
   return new ethers.Contract(address, options.contract.abi, options.signer)
-}
-
-const assertStorageLayoutCompatible = (fullyQualifiedName: string) => {
-  const previousContract = new UpgradeableContract(
-    fullyQualifiedName,
-    prevBuildInfo.input,
-    prevBuildInfo.output
-  )
-  const upgradedContract = new UpgradeableContract(
-    fullyQualifiedName,
-    buildInfo.input,
-    buildInfo.output
-  )
-  const report = previousContract.getStorageUpgradeReport(upgradedContract)
-  if (!report.ok) {
-    throw new Error(report.explain())
-  }
 }

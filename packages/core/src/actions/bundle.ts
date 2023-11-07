@@ -2,18 +2,9 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-import { ActionInput, ConfigArtifacts, ParsedConfig } from '../config/types'
+import { ActionInput, ParsedConfig } from '../config/types'
+import { getDeploymentId, toHexString, fromHexString } from '../utils'
 import {
-  getDeploymentId,
-  toHexString,
-  fromHexString,
-  prettyFunctionCall,
-  // isDeployContractActionInput,
-  isRawFunctionCallActionInput,
-  isRawCreate2ActionInput,
-} from '../utils'
-import {
-  ApproveDeployment,
   AuthLeaf,
   AuthLeafBundle,
   BundledAuthLeaf,
@@ -21,7 +12,6 @@ import {
   SphinxAction,
   SphinxActionBundle,
   SphinxActionType,
-  SphinxBundles,
   SphinxTarget,
   SphinxTargetBundle,
   DeployContractAction,
@@ -33,15 +23,8 @@ import {
   ProjectDeployment,
   CallAction,
   AuthLeafFunctions,
-  UpgradeAuthAndManagerImpl,
-  CancelActiveDeployment,
-  AuthLeafType,
-  HumanReadableAction,
   CreateAction,
 } from './types'
-// import { getProjectBundleInfo } from '../tasks'
-import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
-import { getCreate3Salt } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.

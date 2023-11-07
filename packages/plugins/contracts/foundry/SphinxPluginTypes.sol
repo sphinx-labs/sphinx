@@ -9,7 +9,7 @@ import {
     AuthLeaf,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import { LeafType } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
+import { LeafType, Leaf } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 
 struct SphinxAuthBundle {
     bytes32 root;
@@ -281,7 +281,7 @@ struct NetworkInfo {
 struct ProposalOutput {
     address proposerAddress;
     bytes metaTxnSignature;
-    BundleInfo[] bundleInfoArray;
+    SphinxBundle bundle;
     bytes32 authRoot;
 }
 
@@ -290,7 +290,7 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function bundleInfoArrayType() external pure returns (BundleInfo[] memory bundleInfoArray) {}
+    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) {}
 
     function bundledActionsType()
         external

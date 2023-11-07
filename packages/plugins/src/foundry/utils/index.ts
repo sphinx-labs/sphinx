@@ -104,6 +104,8 @@ export const messageMultipleArtifactsFound = (
   )
 }
 
+// TODO - handle searching recursively for the correct artifact in cases where
+//        the fully qualified name is not unique
 export const getContractArtifact = async (
   fullyQualifiedName: string,
   artifactFolder: string

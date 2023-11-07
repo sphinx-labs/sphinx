@@ -1,36 +1,13 @@
 import hre from 'hardhat'
 import '@nomicfoundation/hardhat-ethers'
+import { ManagedServiceArtifact } from '@sphinx-labs/contracts'
 import {
-  OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  DEFAULT_PROXY_TYPE_HASH,
-  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  buildInfo as sphinxContractsBuildInfo,
-  SphinxManagerArtifact,
-  ManagedServiceArtifact,
-} from '@sphinx-labs/contracts'
-import {
-  CURRENT_SPHINX_MANAGER_VERSION,
-  getSphinxRegistryAddress,
-  getManagerProxyInitCodeHash,
-  getSphinxManagerImplAddress,
-  OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  DEFAULT_ADAPTER_ADDRESS,
-  AUTH_PROXY_INIT_CODE_HASH,
   getSphinxConstants,
-  AUTH_FACTORY_ADDRESS,
   remove0x,
-  getAuthImplAddress,
-  CURRENT_SPHINX_AUTH_VERSION,
-  getStorageSlotKey,
-  getManagerConstructorValues,
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
-  DEFAULT_CREATE3_ADDRESS,
-  getStorageLayout,
+  getSphinxModuleFactoryAddress,
+  parseFoundryArtifact,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -43,117 +20,10 @@ import { ethers } from 'ethers'
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const writeConstants = async () => {
-  const fullyQualifiedNameAuth = 'contracts/SphinxAuth.sol:SphinxAuth'
-  const [sourceNameAuth, contractNameAuth] = fullyQualifiedNameAuth.split(':')
-  const storageLayoutAuth = getStorageLayout(
-    sphinxContractsBuildInfo.output,
-    sourceNameAuth,
-    contractNameAuth
-  )
-  // The `_roles` variable is a mapping located in the AccessControl contract inherited by
-  // SphinxAuth.
-  const authAccessControlRoleSlotKey = getStorageSlotKey(
-    fullyQualifiedNameAuth,
-    storageLayoutAuth,
-    '_roles'
-  )
-
-  const { major, minor, patch } = CURRENT_SPHINX_MANAGER_VERSION
-
   const constants = {
-    registryAddress: {
+    sphinxModuleFactoryAddress: {
       type: 'address',
-      value: getSphinxRegistryAddress(),
-    },
-    managerProxyInitCodeHash: {
-      type: 'bytes32',
-      value: getManagerProxyInitCodeHash(),
-    },
-    authProxyInitCodeHash: {
-      type: 'bytes32',
-      value: AUTH_PROXY_INIT_CODE_HASH,
-    },
-    major: {
-      type: 'uint256',
-      value: major,
-    },
-    minor: {
-      type: 'uint256',
-      value: minor,
-    },
-    patch: {
-      type: 'uint256',
-      value: patch,
-    },
-    defaultCreate3Address: {
-      type: 'address',
-      value: DEFAULT_CREATE3_ADDRESS,
-    },
-    defaultProxyTypeHash: {
-      type: 'bytes32',
-      value: DEFAULT_PROXY_TYPE_HASH,
-    },
-    ozTransparentProxyTypeHash: {
-      type: 'bytes32',
-      value: OZ_TRANSPARENT_PROXY_TYPE_HASH,
-    },
-    ozUUPSOwnableProxyTypeHash: {
-      type: 'bytes32',
-      value: OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-    },
-    ozUUPSAccessControlProxyTypeHash: {
-      type: 'bytes32',
-      value: OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-    },
-    externalTransparentProxyTypeHash: {
-      type: 'bytes32',
-      value: EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-    },
-    managerImplementationAddressStandard: {
-      type: 'address',
-      value: getSphinxManagerImplAddress(
-        31337n,
-        CURRENT_SPHINX_MANAGER_VERSION
-      ),
-    },
-    managerImplementationAddressOptimism: {
-      type: 'address',
-      value: getSphinxManagerImplAddress(10n, CURRENT_SPHINX_MANAGER_VERSION),
-    },
-    managerImplementationAddressOptimismGoerli: {
-      type: 'address',
-      value: getSphinxManagerImplAddress(420n, CURRENT_SPHINX_MANAGER_VERSION),
-    },
-    authAccessControlRoleSlotKey: {
-      type: 'bytes32',
-      value: ethers.zeroPadValue(
-        ethers.toBeHex(authAccessControlRoleSlotKey),
-        32
-      ),
-    },
-    ozTransparentAdapterAddr: {
-      type: 'address',
-      value: OZ_TRANSPARENT_ADAPTER_ADDRESS,
-    },
-    ozUUPSOwnableAdapterAddr: {
-      type: 'address',
-      value: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-    },
-    ozUUPSAccessControlAdapterAddr: {
-      type: 'address',
-      value: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-    },
-    defaultAdapterAddr: {
-      type: 'address',
-      value: DEFAULT_ADAPTER_ADDRESS,
-    },
-    authFactoryAddress: {
-      type: 'address',
-      value: AUTH_FACTORY_ADDRESS,
-    },
-    authImplAddress: {
-      type: 'address',
-      value: getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION),
+      value: getSphinxModuleFactoryAddress(),
     },
   }
 
@@ -167,34 +37,12 @@ const writeConstants = async () => {
   sphinxConstants.push(
     ...[
       {
-        artifact: SphinxManagerArtifact,
-        expectedAddress: getSphinxManagerImplAddress(
-          10n,
-          CURRENT_SPHINX_MANAGER_VERSION
-        ),
-        constructorArgs: getManagerConstructorValues(
-          10n,
-          CURRENT_SPHINX_MANAGER_VERSION
-        ),
-      },
-      {
-        artifact: ManagedServiceArtifact,
+        artifact: parseFoundryArtifact(ManagedServiceArtifact),
         expectedAddress: getManagedServiceAddress(10n),
         constructorArgs: getManagedServiceConstructorArgs(10n),
       },
       {
-        artifact: SphinxManagerArtifact,
-        expectedAddress: getSphinxManagerImplAddress(
-          420n,
-          CURRENT_SPHINX_MANAGER_VERSION
-        ),
-        constructorArgs: getManagerConstructorValues(
-          420n,
-          CURRENT_SPHINX_MANAGER_VERSION
-        ),
-      },
-      {
-        artifact: ManagedServiceArtifact,
+        artifact: parseFoundryArtifact(ManagedServiceArtifact),
         expectedAddress: getManagedServiceAddress(420n),
         constructorArgs: getManagedServiceConstructorArgs(420n),
       },

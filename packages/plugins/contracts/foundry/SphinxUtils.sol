@@ -29,7 +29,7 @@ import {
     SphinxActionBundle,
     BundledSphinxAction,
     SphinxTargetBundle,
-    BundleInfo,
+    SphinxBundle,
     DeploymentInfo,
     HumanReadableAction,
     BundledAuthLeaf,
@@ -82,20 +82,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
         ffiDeployOnAnvil(_rpcUrl, _executor);
         initializeSphinxContracts(_executor);
-    }
-
-    /**
-     * @notice Returns the SphinxManager implementation address for the current network.
-     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
-     */
-    function selectManagerImplAddressForNetwork() internal view returns (address) {
-        if (block.chainid == 10) {
-            return managerImplementationAddressOptimism;
-        } else if (block.chainid == 420) {
-            return managerImplementationAddressOptimismGoerli;
-        } else {
-            return managerImplementationAddressStandard;
-        }
     }
 
     function initializeSphinxContracts(OptionalAddress memory _executor) public {
