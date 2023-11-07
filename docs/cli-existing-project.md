@@ -20,6 +20,7 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
+- [Node Version >=16.16.0](https://nodejs.org/en/download)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
