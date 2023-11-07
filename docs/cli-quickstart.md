@@ -66,7 +66,7 @@ npx sphinx init --quickstart
 
 ### pnpm
 ```
-npx sphinx init --quickstart --pnpm
+pnpm sphinx init --quickstart --pnpm
 ```
 
 This command created a few files:
