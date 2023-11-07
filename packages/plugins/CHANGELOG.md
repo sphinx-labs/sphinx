@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.23.6
+
+### Patch Changes
+
+- 0d764817: Don't include forge-std and ds-test in recommended remappings
+
 ## 0.23.5
 
 ### Patch Changes
