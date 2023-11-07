@@ -216,19 +216,16 @@ export const propose = async (
   }
   const proposer = new ethers.Wallet(proposerPrivateKey)
 
-  if (!skipForceRecompile) {
-    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
-    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
-      stdio: 'inherit',
-    })
-    // Exit the process if the clean fails.
-    if (cleanStatus !== 0) {
-      process.exit(1)
-    }
-  }
-
   // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  // Force re-compile the contracts unless it's explicitly been disabled. This ensures that we're
+  // using the correct artifacts for proposals. This is mostly out of an abundance of caution, since
+  // using an incorrect contract artifact will prevent us from creating the contract's deployment
+  // and verifying it on Etherscan.
+  if (!skipForceRecompile) {
+    forgeBuildArgs.push('--force')
+  }
+
   const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',
   })
