@@ -3,6 +3,8 @@ src = 'contracts'
 out = 'forge-artifacts'
 fs_permissions = [{ access = "read", path = "./"}]
 verbosity = 2
+solc = '0.8.0'
+optimizer = false
 remappings = [
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',

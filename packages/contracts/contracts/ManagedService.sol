@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.0;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -14,12 +14,12 @@ contract ManagedService is AccessControl {
     ERC20 public immutable usdc;
 
     /**
-     * @notice Role required to collect the protocol creator's payment.
+     * @dev Role required to collect the protocol creator's payment.
      */
     bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
-     * @notice Role required to be a remote executor for a deployment.
+     * @dev Role required to be a remote executor for a deployment.
      */
     bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
 
@@ -30,16 +30,6 @@ contract ManagedService is AccessControl {
      * @param amount    Amount of ETH withdrawn.
      */
     event ProtocolPaymentClaimed(address indexed recipient, uint256 amount);
-
-    /**
-     * @notice Reverts if the caller is not a protocol payment recipient.
-     */
-    error CallerIsNotRelayer();
-
-    /**
-     * @notice Reverts if the caller is not the admin.
-     */
-    error CallerIsNotAdmin();
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
@@ -55,26 +45,18 @@ contract ManagedService is AccessControl {
        remotely executed deployments.
      */
     function withdrawRelayerFunds(uint256 _amount) external {
-        if (!hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
-            revert CallerIsNotRelayer();
-        }
-        if (_amount > address(this).balance) {
-            revert("ManagedService: Insufficient funds to withdraw relayer funds");
-        }
+        require(hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender), "ManagedService: invalid caller");
+        require(_amount <= address(this).balance, "ManagedService: insufficient funds to withdraw");
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);
 
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        if (!success) {
-            revert("ManagedService: Failed to withdraw relayer funds");
-        }
+        require(success, "ManagedService: failed to withdraw relayer funds");
     }
 
     function withdrawUSDCBalance(address _to, uint256 _amount) external {
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            revert CallerIsNotAdmin();
-        }
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ManagedService: caller is not admin");
         usdc.transfer(_to, _amount);
     }
 

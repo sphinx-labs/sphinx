@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.4 <0.9.0;
+pragma solidity >=0.7.0 <0.9.0;
 
 /**
  * @notice Clone of `ISphinxAccessControl.sol` in OpenZeppelin Contracts v4.4.1. The only modification is

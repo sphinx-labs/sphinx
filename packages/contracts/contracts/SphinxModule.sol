@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity ^0.8.0;
 
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
@@ -54,7 +54,6 @@ struct DeploymentState {
 
 /**
  * @title SphinxModule
- * @custom:version 1.0.0
  * @notice TODO(docs)
  */
 contract SphinxModule is ReentrancyGuard, Enum {
@@ -260,11 +259,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
     }
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo
-    // too. When you implement this test, `_getLeafHash` will error because `bytes.concat` isn't
-    // supported by earlier versions of Solidity.
+    // too.
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
     function _getLeafHash(Leaf memory _leaf) internal pure returns (bytes32) {
-        return keccak256(bytes.concat(keccak256(abi.encode(_leaf))));
+        return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf))));
     }
 }
