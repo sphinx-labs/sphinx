@@ -21,6 +21,7 @@ export type SphinxMerkleLeaf = {
   leafType: LeafType
 }
 
+// TODO(md)
 export type NetworkDeploymentData = {
   nonce: bigint
   executor: string
@@ -29,6 +30,7 @@ export type NetworkDeploymentData = {
   txs: SphinxTransaction[]
 }
 
+// TODO(md)
 export type SphinxTransaction = {
   to: string
   value: bigint
@@ -37,17 +39,20 @@ export type SphinxTransaction = {
   operation: Operation
 }
 
+// TODO(md)
 export interface SphinxBundle {
   root: string
   leafs: BundledSphinxLeaf[]
 }
 
+// TODO(md)
 export interface BundledSphinxLeaf {
   leaf: SphinxMerkleLeaf
   leafType: LeafType
   proof: string[]
 }
 
+// TODO(md)
 export const makeSphinxMerkleTree = (
   deploymentData: Record<number, NetworkDeploymentData>
 ): {
@@ -109,6 +114,7 @@ export const makeSphinxMerkleTree = (
   }
 }
 
+// TODO(md)
 export const makeSphinxBundle = (
   deploymentData: Record<number, NetworkDeploymentData>
 ): SphinxBundle => {
