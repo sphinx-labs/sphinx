@@ -1,5 +1,12 @@
 # @sphinx-labs/plugins
 
+## 0.23.5
+
+### Patch Changes
+
+- c2202c3a: Validate that the chain ID is correct in the user's script
+- 8ad7d5fc: Update init command to better support pnpm
+
 ## 0.23.4
 
 ### Patch Changes
