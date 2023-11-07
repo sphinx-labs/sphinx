@@ -90,8 +90,8 @@ export const writeSampleProjectFiles = (
 
   if (!quickstart) {
     const remappings = pnpm
-      ? fetchPNPMRemappings(pnpmPluginsPackage, pnpmContractsPackage, true)
-      : fetchNPMRemappings(true)
+      ? fetchPNPMRemappings(pnpmPluginsPackage, pnpmContractsPackage, false)
+      : fetchNPMRemappings(false)
 
     spinner.info(
       `Please add the following remappings to your foundry.toml or remappings.txt file:
