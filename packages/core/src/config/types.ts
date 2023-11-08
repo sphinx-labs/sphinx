@@ -6,6 +6,7 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  SphinxTransaction,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -17,7 +18,6 @@ import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
 import { ParsedContractDeployments } from '../actions/types'
-import { SphinxTransaction } from '../actions'
 
 export const userContractKinds = [
   'oz-transparent',

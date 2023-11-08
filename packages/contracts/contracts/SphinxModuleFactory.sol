@@ -11,10 +11,10 @@ import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract SphinxModuleFactory {
 
-    address private immutable moduleFactory = address(this);
+    address private immutable MODULE_FACTORY = address(this);
 
     modifier onlyDelegateCall() {
-        require(address(this) != moduleFactory, "SphinxModuleFactory: function must be delegatecalled");
+        require(address(this) != MODULE_FACTORY, "SphinxModuleFactory: function must be delegatecalled");
         _;
     }
 
@@ -51,7 +51,7 @@ contract SphinxModuleFactory {
     function computeSphinxModuleAddress(
         address _safeProxy,
         bytes32 _salt
-    ) public returns (address) {
-        return Create2.computeAddress(_salt, keccak256(abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))), _safeProxy);
+    ) public view returns (address) {
+        return Create2.computeAddress(_salt, keccak256(abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))), MODULE_FACTORY);
     }
 }
