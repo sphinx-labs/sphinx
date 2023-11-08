@@ -7,13 +7,10 @@ import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import {
     ISphinxAccessControl
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
-// import {
-//     ISphinxAccessControlEnumerable
-// } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
-// import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-// import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
-// import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
-// import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+// TODO - use interfaces
+import { SphinxModule } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
+import { SphinxModuleFactory } from "@sphinx-labs/contracts/contracts/SphinxModuleFactory.sol";
+import { BundledSphinxLeaf } from "./SphinxPluginTypes.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -53,7 +50,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
-    bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
+    bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
     bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
         vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
@@ -82,20 +79,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
         ffiDeployOnAnvil(_rpcUrl, _executor);
         initializeSphinxContracts(_executor);
-    }
-
-    /**
-     * @notice Returns the SphinxManager implementation address for the current network.
-     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
-     */
-    function selectManagerImplAddressForNetwork() internal view returns (address) {
-        if (block.chainid == 10) {
-            return managerImplementationAddressOptimism;
-        } else if (block.chainid == 420) {
-            return managerImplementationAddressOptimismGoerli;
-        } else {
-            return managerImplementationAddressStandard;
-        }
     }
 
     function selectManagedServiceAddressForNetwork () internal view returns (address) {
@@ -133,8 +116,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             // Impersonate system owner
             vm.startPrank(systemOwner);
 
-            address managedServiceAddress = selectManagedServiceAddressForNetwork();
-            address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
+            address managedServiceAddr = selectManagedServiceAddressForNetwork();
             ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
             if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
                 managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
@@ -152,6 +134,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return _data[_start:_end];
     }
 
+    // TODO - update so this deploys the Safe contracts
     function ffiDeployOnAnvil(string memory _rpcUrl, OptionalAddress memory _address) public {
         string[] memory cmds = new string[](6);
         cmds[0] = "npx";
@@ -201,10 +184,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
     }
 
-    function getCurrentSphinxManagerVersion() public pure returns (Version memory) {
-        return Version({ major: major, minor: minor, patch: patch });
-    }
-
     function create2Deploy(bytes memory _creationCode) public returns (address) {
         address addr = computeCreate2Address(
             bytes32(0),
@@ -230,54 +209,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function inefficientSlice(
-        BundledSphinxAction[] memory selected,
+        BundledSphinxLeaf[] memory selected,
         uint start,
         uint end
-    ) public pure returns (BundledSphinxAction[] memory sliced) {
+    ) public pure returns (BundledSphinxLeaf[] memory sliced) {
         sliced = new BundledSphinxAction[](end - start);
         for (uint i = start; i < end; i++) {
             sliced[i - start] = selected[i];
         }
-    }
-
-    function getSphinxManagerImplInitCode() private view returns (bytes memory) {
-        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-        for (uint i = 0; i < contracts.length; i++) {
-            if (contracts[i].expectedAddress == selectManagerImplAddressForNetwork()) {
-                return contracts[i].creationCode;
-            }
-        }
-        revert("Sphinx: Unable to find SphinxManager initcode. Should never happen.");
-    }
-
-    function getSphinxAuthAddress(SphinxConfig memory _config) public pure returns (address) {
-        require(
-            bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
-        );
-        require(
-            _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
-        );
-        require(
-            _config.threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
-        );
-
-        // Sort the owners in ascending order. This is required to calculate the address of the
-        // SphinxAuth contract, which determines the CREATE3 addresses of the user's contracts.
-        address[] memory sortedOwners = sortAddresses(_config.owners);
-
-        bytes memory authData = abi.encode(sortedOwners, _config.threshold);
-        bytes32 authSalt = keccak256(abi.encode(authData, _config.projectName));
-
-        return computeCreate2Address(authSalt, authProxyInitCodeHash, authFactoryAddress);
-    }
-
-    function getSphinxManagerAddress(SphinxConfig memory _config) public pure returns (address) {
-        address authAddress = getSphinxAuthAddress(_config);
-        bytes32 sphinxManagerSalt = keccak256(abi.encode(authAddress, _config.projectName, hex""));
-        return computeCreate2Address(sphinxManagerSalt, managerProxyInitCodeHash, registryAddress);
     }
 
     function sortAddresses(address[] memory _unsorted) public pure returns (address[] memory) {
@@ -349,7 +288,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
        limit.
      */
     function executable(
-        BundledSphinxAction[] memory selected,
+        BundledSphinxLeaf[] memory selected,
         uint maxGasLimit
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
@@ -366,21 +305,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
     function findMaxBatchSize(
-        BundledSphinxAction[] memory actions,
+        BundledSphinxLeaf[] memory leafs,
         uint maxGasLimit
     ) public pure returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(actions, maxGasLimit)) {
-            return actions.length;
+        if (executable(leafs, maxGasLimit)) {
+            return leafs.length;
         }
 
         // If the full batch isn't executavle, then do a binary search to find the largest
         // executable batch size
         uint min = 0;
-        uint max = actions.length;
+        uint max = leafs.length;
         while (min < max) {
             uint mid = ceilDiv((min + max), 2);
-            BundledSphinxAction[] memory left = inefficientSlice(actions, 0, mid);
+            BundledSphinxLeaf[] memory left = inefficientSlice(leafs, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {
@@ -854,9 +793,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function signMetaTxnForAuthRoot(
         uint256 _privateKey,
-        bytes32 _authRoot
+        bytes32 _root
     ) external pure returns (bytes memory) {
-        bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
+        bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _root));
         bytes32 typedDataHash = keccak256(
             abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
         );
@@ -882,31 +821,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.threshold > 0,
             "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."
         );
-        if (!SPHINX_INTERNAL__TEST_VERSION_UPGRADE) {
-            require(
-                _config.version.major == major &&
-                    _config.version.minor == minor &&
-                    _config.version.patch == patch,
-                string(
-                    abi.encodePacked(
-                        "Sphinx: Your 'sphinxConfig.version' field must be ",
-                        vm.toString(major),
-                        ".",
-                        vm.toString(minor),
-                        ".",
-                        vm.toString(patch),
-                        "."
-                    )
-                )
-            );
-        }
         require(
             _config.owners.length >= _config.threshold,
             "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."
         );
 
         address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
-        address[] memory duplicateProposers = getDuplicatedElements(_config.proposers);
         Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
         Network[] memory duplicateTestnets = getDuplicatedElements(_config.testnets);
         require(
@@ -915,15 +835,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 abi.encodePacked(
                     "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ",
                     toString(duplicateOwners)
-                )
-            )
-        );
-        require(
-            duplicateProposers.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.proposers' array contains duplicate addresses: ",
-                    toString(duplicateProposers)
                 )
             )
         );
@@ -976,10 +887,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxConfig memory _config,
         address _msgSender
     ) external view {
-        require(
-            registryAddress.code.length > 0,
-            "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
-        );
+        // TODO - We should do something similar to this, but what?
+        // require(
+        //     registryAddress.code.length > 0,
+        //     "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
+        // );
         require(
             _config.owners.length == 1,
             "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
@@ -1012,77 +924,44 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             )
         );
-        // If we don't check this, then an arbitrary proposer could be set on the
-        // live network, which would prevent the owner from making any more deployments unless
-        // they adopt the DevOps platform.
-        require(
-            _config.proposers.length == 0,
-            "Sphinx: There must not be any addresses in your 'sphinxConfig.proposers' array when broadcasting on a network."
-        );
 
-        address authAddress = getSphinxAuthAddress(_config);
-        if (authAddress.code.length > 0) {
-            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(authAddress);
-            // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
-            // by OpenZeppelin's AccessControl contract.
-            require(
-                auth.hasRole(0x00, deployer),
-                "Sphinx: The deployer must be an owner of the SphinxAuth contract."
-            );
-            require(
-                auth.getRoleMemberCount(0x00) == 1,
-                "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
-            );
-            require(
-                !ISphinxAuth(authAddress).firstProposalOccurred() ||
-                    auth.hasRole(keccak256("ProposerRole"), deployer),
-                "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
-            );
-        }
+        // TODO - Check if the caller owns the target safe
+        // address authAddress = getSphinxAuthAddress(_config);
+        // if (authAddress.code.length > 0) {
+        //     ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(authAddress);
+        //     // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
+        //     // by OpenZeppelin's AccessControl contract.
+        //     require(
+        //         auth.hasRole(0x00, deployer),
+        //         "Sphinx: The deployer must be an owner of the SphinxAuth contract."
+        //     );
+        //     require(
+        //         auth.getRoleMemberCount(0x00) == 1,
+        //         "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
+        //     );
+        //     require(
+        //         !ISphinxAuth(authAddress).firstProposalOccurred() ||
+        //             auth.hasRole(keccak256("ProposerRole"), deployer),
+        //         "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
+        //     );
+        // }
     }
 
     function getInitialChainState(
-        ISphinxAuth _auth,
-        ISphinxManager _manager
+        address _safe,
+        SphinxModule _sphinxModule
     ) external view returns (InitialChainState memory) {
-        if (address(_auth).code.length == 0) {
-            ISphinxRegistry registry = ISphinxRegistry(registryAddress);
-
-            // Get the current SphinxManager version. The SphinxRegistry may not be deployed if
-            // we're on a non-forked Anvil node.
-            Version memory version;
-            if (registryAddress.code.length > 0) {
-                address currentManager = registry.currentManagerImplementation();
-                version = ISphinxSemver(currentManager).version();
-            } else {
-                version = getCurrentSphinxManagerVersion();
-            }
-
+        if (address(_safe).code.length == 0) {
             return
                 InitialChainState({
-                    // We set these to default values.
-                    proposers: new address[](0),
-                    version: version,
-                    isManagerDeployed: false,
-                    firstProposalOccurred: false,
+                    isSafeDeployed: false,
                     isExecuting: false
                 });
         } else {
-            ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(address(_auth));
-            // Get the list of proposers in the SphinxAuth contract.
-            uint256 numProposers = auth.getRoleMemberCount(keccak256("ProposerRole"));
-            address[] memory proposers = new address[](numProposers);
-            for (uint i = 0; i < numProposers; i++) {
-                proposers[i] = auth.getRoleMember(keccak256("ProposerRole"), i);
-            }
-
             return
                 InitialChainState({
-                    proposers: proposers,
-                    version: ISphinxSemver(address(_manager)).version(),
-                    isManagerDeployed: true,
-                    firstProposalOccurred: _auth.firstProposalOccurred(),
-                    isExecuting: _manager.isExecuting()
+                    isSafeDeployed: true,
+                    isExecuting: _sphinxModule.activeRoot() != bytes32(0)
                 });
         }
     }
@@ -1115,35 +994,101 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
 
-        ISphinxAuth auth = ISphinxAuth(getSphinxAuthAddress(_config));
-        bool firstProposalOccurred = address(auth).code.length > 0
-            ? auth.firstProposalOccurred()
-            : false;
+        // TODO - proposals
+        // ISphinxAuth auth = ISphinxAuth(getSphinxAuthAddress(_config));
+        // bool firstProposalOccurred = address(auth).code.length > 0
+        //     ? auth.firstProposalOccurred()
+        //     : false;
 
-        if (firstProposalOccurred) {
-            require(
-                ISphinxAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), _proposer),
-                string(
-                    abi.encodePacked(
-                        "Sphinx: The address ",
-                        vm.toString(_proposer),
-                        " is not currently a proposer on ",
-                        _networkName,
-                        "."
-                    )
-                )
-            );
-        } else {
-            require(
-                arrayContainsAddress(_config.proposers, _proposer),
-                string(
-                    abi.encodePacked(
-                        "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
-                        vm.toString(_proposer)
-                    )
-                )
-            );
-        }
+        // if (firstProposalOccurred) {
+        //     require(
+        //         ISphinxAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), _proposer),
+        //         string(
+        //             abi.encodePacked(
+        //                 "Sphinx: The address ",
+        //                 vm.toString(_proposer),
+        //                 " is not currently a proposer on ",
+        //                 _networkName,
+        //                 "."
+        //             )
+        //         )
+        //     );
+        // } else {
+        //     require(
+        //         arrayContainsAddress(_config.proposers, _proposer),
+        //         string(
+        //             abi.encodePacked(
+        //                 "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
+        //                 vm.toString(_proposer)
+        //             )
+        //         )
+        //     );
+        // }
+    }
+
+    // TODO - implement actual calculation logic
+    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) external returns (address) {
+        return address(0);
+    }
+
+    function fetchSafeDeploymentArgs(
+        address[] memory _owners,
+        uint _threshold
+    ) internal returns (
+        bytes safeInitializer,
+        uint safeSaltNonce,
+        bytes32 sphinxModuleSalt
+    ) {
+        // TOOD - calculate this correctly
+        address sphinxModuleAddress = address(0);
+
+        // Default no initializer
+        bytes memory sphinxModuleInitializer = bytes(0);
+
+        // Default no fallback handler
+        address fallbackHandlerAddress = address(0);
+
+        // ETH is the default payment token
+        uint paymentToken = 0;
+        uint payment = 0;
+        uint paymentReceiver = address(0);
+
+        // TODO - encode setup function
+        safeInitializer = abi.encodeWithSignature(
+            'setup(address[],uint256,address,bytes,address,address,uint256,address)',
+            _owners,
+            _threshold,
+            sphinxModuleAddress,
+            sphinxModuleInitializer,
+            fallbackHandlerAddress,
+            paymentToken,
+            payment,
+            paymentReceiver
+        );
+
+        safeSaltNonce = 0;
+        sphinxModuleSalt = bytes32(0);
+    }
+
+    function sphinxModuleFactoryDeploy(
+        address[] memory _owners,
+        uint _threshold
+    ) external {
+        (
+            address _safeFactoryAddress,
+            address _safeSingletonAddress,
+            bytes memory safeInitializer,
+            uint safeSaltNonce,
+            bytes32 sphinxModuleSalt
+        ) = fetchSafeDeploymentArgs(_owners, _threshold);
+
+        SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy{ gas: 1000000 }(
+            safeFactoryAddress,
+            safeSingletonAddress,
+            safeInitializer,
+            safeSaltNonce,
+            sphinxModuleSalt
+        );
     }
 
     /**
@@ -1165,20 +1110,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
      *        before the storage values are set in the SphinxAuth contract in step 1.
      */
-    function authFactoryDeployFFI(
-        bytes memory _authData,
-        string memory _projectName,
+    function sphinxModuleFactoryDeployFFI(
+        address[] memory _owners,
+        uint _threshold,
         string memory _rpcUrl
     ) external {
+        (
+            address _safeFactoryAddress,
+            address _safeSingletonAddress,
+            bytes memory safeInitializer,
+            uint safeSaltNonce,
+            bytes32 sphinxModuleSalt
+        ) = fetchSafeDeploymentArgs(_owners, _threshold);
+
         string[] memory inputs;
         inputs = new string[](8);
         inputs[0] = "cast";
         inputs[1] = "send";
-        inputs[2] = vm.toString(authFactoryAddress);
+        inputs[2] = vm.toString(sphinxModuleFactoryAddress);
         inputs[3] = vm.toString(
             abi.encodePacked(
-                ISphinxAuthFactory(authFactoryAddress).deploy.selector,
-                abi.encode(_authData, hex"", _projectName)
+                SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy.selector,
+                abi.encode(safeFactoryAddress, safeSingletonAddress, _safeInitializer, _safeSaltNonce, _sphinxModuleSalt)
             )
         );
         inputs[4] = "--rpc-url";

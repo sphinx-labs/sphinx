@@ -1,6 +1,9 @@
 import hre from 'hardhat'
 import '@nomicfoundation/hardhat-ethers'
-import { ManagedServiceArtifact } from '@sphinx-labs/contracts'
+import {
+  ManagedServiceArtifact,
+  SphinxModuleArtifact,
+} from '@sphinx-labs/contracts'
 import {
   getSphinxConstants,
   remove0x,
@@ -9,6 +12,7 @@ import {
   getSphinxModuleFactoryAddress,
   parseFoundryArtifact,
   getGnosisSafeProxyFactoryAddress,
+  getGnosisSafeAddress,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -37,6 +41,18 @@ const writeConstants = async () => {
     managedServiceAddressStandard: {
       type: 'address',
       value: getManagedServiceAddress(1n),
+    },
+    safeFactoryAddress: {
+      type: 'address',
+      value: getGnosisSafeProxyFactoryAddress(),
+    },
+    safeSingletonAddress: {
+      type: 'address',
+      value: getGnosisSafeAddress(),
+    },
+    sphinxModuleBytecode: {
+      type: 'bytes',
+      value: parseFoundryArtifact(SphinxModuleArtifact).bytecode,
     },
   }
 
