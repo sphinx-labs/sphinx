@@ -27,7 +27,6 @@ import {
   getSimulateTxAccessorAddress,
   getSphinxModuleFactoryAddress,
 } from './addresses'
-import { parseFoundryArtifact } from './utils'
 import { getOwnerAddress } from './constants'
 
 // Maps a chain ID to the USDC address on the network.

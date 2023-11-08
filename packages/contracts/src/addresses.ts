@@ -25,7 +25,6 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from './constants'
 import { USDC_ADDRESSES } from './contract-info'
-import { parseFoundryArtifact } from './utils'
 
 export const getManagedServiceConstructorArgs = (chainId: bigint) => {
   const usdcAddress =
@@ -74,10 +73,7 @@ export const getSphinxModuleFactoryAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes'],
-      [SphinxModuleFactoryArtifact.bytecode]
-    )
+    solidityPackedKeccak256(['bytes'], [SphinxModuleFactoryArtifact.bytecode])
   )
 }
 
@@ -88,10 +84,7 @@ export const getSimulateTxAccessorAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes'],
-      [SimulateTxAccessorArtifact.bytecode]
-    )
+    solidityPackedKeccak256(['bytes'], [SimulateTxAccessorArtifact.bytecode])
   )
 }
 

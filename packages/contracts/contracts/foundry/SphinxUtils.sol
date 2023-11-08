@@ -37,6 +37,8 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -1033,61 +1035,45 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return address(1);
     }
 
-    function fetchSafeDeploymentArgs(
+    function fetchSafeInitializerData(
         address[] memory _owners,
         uint _threshold
     ) internal returns (
-        bytes memory safeInitializer,
-        uint safeSaltNonce,
-        bytes32 sphinxModuleSalt
+        bytes memory safeInitializerData
     ) {
-        // TOOD - calculate this correctly
-        address sphinxModuleAddress = address(0);
+        SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
+        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory deployModuleMultiSendData = abi.encodePacked(uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata);
+        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
+        bytes memory enableModuleMultiSendData = abi.encodePacked(uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata);
 
-        // Default no initializer
-        bytes memory sphinxModuleInitializer = "";
-
-        // Default no fallback handler
-        address fallbackHandlerAddress = address(0);
-
-        // ETH is the default payment token
-        uint paymentToken = 0;
-        uint payment = 0;
-        address paymentReceiver = address(0);
-
-        // TODO - encode setup function
-        safeInitializer = abi.encodeWithSignature(
-            'setup(address[],uint256,address,bytes,address,address,uint256,address)',
-            _owners,
-            _threshold,
-            sphinxModuleAddress,
-            sphinxModuleInitializer,
-            fallbackHandlerAddress,
-            paymentToken,
-            payment,
-            paymentReceiver
+        bytes memory multiSendData = abi.encodeWithSelector(MultiSend.multiSend.selector, abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData));
+        safeInitializerData = abi.encodePacked(
+            GnosisSafe.setup.selector,
+            abi.encode(
+                _owners,
+                _threshold,
+                multiSendAddress,
+                multiSendData,
+                compatibilityFallbackHandlerAddress,
+                address(0),
+                0,
+                address(0)
+            )
         );
-
-        safeSaltNonce = 0;
-        sphinxModuleSalt = bytes32(0);
     }
 
     function sphinxModuleFactoryDeploy(
         address[] memory _owners,
         uint _threshold
     ) external {
-        (
-            bytes memory safeInitializer,
-            uint safeSaltNonce,
-            bytes32 sphinxModuleSalt
-        ) = fetchSafeDeploymentArgs(_owners, _threshold);
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
-        SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy{ gas: 1000000 }(
-            GnosisSafeProxyFactory(safeFactoryAddress),
+        GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
+        safeProxyFactory.createProxyWithNonce(
             safeSingletonAddress,
-            safeInitializer,
-            safeSaltNonce,
-            sphinxModuleSalt
+            safeInitializerData,
+            0
         );
     }
 
@@ -1125,21 +1111,17 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint _threshold,
         string memory _rpcUrl
     ) external {
-        (
-            bytes memory safeInitializer,
-            uint safeSaltNonce,
-            bytes32 sphinxModuleSalt
-        ) = fetchSafeDeploymentArgs(_owners, _threshold);
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         string[] memory inputs;
         inputs = new string[](8);
         inputs[0] = "cast";
         inputs[1] = "send";
-        inputs[2] = vm.toString(sphinxModuleFactoryAddress);
+        inputs[2] = vm.toString(safeFactoryAddress);
         inputs[3] = vm.toString(
             abi.encodePacked(
-                SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy.selector,
-                abi.encode(safeFactoryAddress, safeSingletonAddress, safeInitializer, safeSaltNonce, sphinxModuleSalt)
+                GnosisSafeProxyFactory.createProxyWithNonce.selector,
+                abi.encode(safeSingletonAddress, safeInitializerData, 0)
             )
         );
         inputs[4] = "--rpc-url";

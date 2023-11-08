@@ -3,13 +3,15 @@ Error.stackTraceLimit = Infinity // TODO(end): rm
 import { ethers } from 'ethers'
 
 import { getSphinxConstants } from '../src/contract-info'
-import { remove0x, parseFoundryArtifact } from '../src/utils'
+import { remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
   getSphinxModuleFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeAddress,
+  getCompatibilityFallbackHandlerAddress,
+  getMultiSendAddress,
 } from '../src/addresses'
 import { ManagedServiceArtifact, SphinxModuleArtifact } from '../src/ifaces'
 
@@ -23,6 +25,14 @@ import { ManagedServiceArtifact, SphinxModuleArtifact } from '../src/ifaces'
  */
 const writeConstants = async () => {
   const constants = {
+    compatibilityFallbackHandlerAddress: {
+      type: 'address',
+      value: getCompatibilityFallbackHandlerAddress(),
+    },
+    multiSendAddress: {
+      type: 'address',
+      value: getMultiSendAddress(),
+    },
     sphinxModuleFactoryAddress: {
       type: 'address',
       value: getSphinxModuleFactoryAddress(),
