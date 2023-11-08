@@ -2,18 +2,9 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-import { ActionInput, ConfigArtifacts, ParsedConfig } from '../config/types'
+import { ActionInput, ParsedConfig } from '../config/types'
+import { getDeploymentId, toHexString, fromHexString } from '../utils'
 import {
-  getDeploymentId,
-  toHexString,
-  fromHexString,
-  prettyFunctionCall,
-  isDeployContractActionInput,
-  isRawFunctionCallActionInput,
-  isRawCreate2ActionInput,
-} from '../utils'
-import {
-  ApproveDeployment,
   AuthLeaf,
   AuthLeafBundle,
   BundledAuthLeaf,
@@ -21,7 +12,6 @@ import {
   SphinxAction,
   SphinxActionBundle,
   SphinxActionType,
-  SphinxBundles,
   SphinxTarget,
   SphinxTargetBundle,
   DeployContractAction,
@@ -33,15 +23,8 @@ import {
   ProjectDeployment,
   CallAction,
   AuthLeafFunctions,
-  UpgradeAuthAndManagerImpl,
-  CancelActiveDeployment,
-  AuthLeafType,
-  HumanReadableAction,
   CreateAction,
 } from './types'
-import { getProjectBundleInfo } from '../tasks'
-import { getAuthImplAddress, getSphinxManagerImplAddress } from '../addresses'
-import { getCreate3Salt } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -538,141 +521,141 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const makeBundlesFromConfig = (
-  parsedConfig: ParsedConfig
-): {
-  bundles: SphinxBundles
-  humanReadableActions: Array<HumanReadableAction>
-} => {
-  const { actionBundle, humanReadableActions } =
-    makeActionBundleFromConfig(parsedConfig)
+// export const makeBundlesFromConfig = (
+//   parsedConfig: ParsedConfig
+// ): {
+//   bundles: SphinxBundles
+//   humanReadableActions: Array<HumanReadableAction>
+// } => {
+//   const { actionBundle, humanReadableActions } =
+//     makeActionBundleFromConfig(parsedConfig)
 
-  // TODO(upgrades): This is unused for now because we don't support upgrades.
-  const targetBundle = {
-    root: ethers.ZeroHash,
-    targets: [],
-  }
-  // const targetBundle = makeTargetBundleFromConfig(
-  //   parsedConfig,
-  //   configArtifacts,
-  //   configCache.chainId as SupportedChainId
-  // )
+//   // TODO(upgrades): This is unused for now because we don't support upgrades.
+//   const targetBundle = {
+//     root: ethers.ZeroHash,
+//     targets: [],
+//   }
+//   // const targetBundle = makeTargetBundleFromConfig(
+//   //   parsedConfig,
+//   //   configArtifacts,
+//   //   configCache.chainId as SupportedChainId
+//   // )
 
-  return { bundles: { actionBundle, targetBundle }, humanReadableActions }
-}
+//   return { bundles: { actionBundle, targetBundle }, humanReadableActions }
+// }
 
-/**
- * Generates a Sphinx action bundle from a config file.
- *
- * @param config Config file to convert into a bundle.
- * @param env Environment variables to inject into the config file.
- * @returns Action bundle generated from the parsed config file.
- */
-export const makeActionBundleFromConfig = (
-  parsedConfig: ParsedConfig
-): {
-  actionBundle: SphinxActionBundle
-  humanReadableActions: Array<HumanReadableAction>
-} => {
-  const { actionInputs } = parsedConfig
+// /**
+//  * Generates a Sphinx action bundle from a config file.
+//  *
+//  * @param config Config file to convert into a bundle.
+//  * @param env Environment variables to inject into the config file.
+//  * @returns Action bundle generated from the parsed config file.
+//  */
+// export const makeActionBundleFromConfig = (
+//   parsedConfig: ParsedConfig
+// ): {
+//   actionBundle: SphinxActionBundle
+//   humanReadableActions: Array<HumanReadableAction>
+// } => {
+//   const { actionInputs } = parsedConfig
 
-  const actions: SphinxAction[] = []
+//   const actions: SphinxAction[] = []
 
-  const humanReadableActions: Array<HumanReadableAction> = []
+//   const humanReadableActions: Array<HumanReadableAction> = []
 
-  const notSkipping = actionInputs.filter((action) => !action.skip)
+//   const notSkipping = actionInputs.filter((action) => !action.skip)
 
-  for (let index = 0; index < notSkipping.length; index++) {
-    const actionInput = notSkipping[index]
-    if (isDeployContractActionInput(actionInput)) {
-      const {
-        initCode,
-        constructorArgs,
-        decodedAction,
-        referenceName,
-        userSalt,
-      } = actionInput
+//   for (let index = 0; index < notSkipping.length; index++) {
+//     const actionInput = notSkipping[index]
+//     if (isDeployContractActionInput(actionInput)) {
+//       const {
+//         initCode,
+//         constructorArgs,
+//         decodedAction,
+//         referenceName,
+//         userSalt,
+//       } = actionInput
 
-      const readableSignature = prettyFunctionCall(
-        referenceName,
-        decodedAction.address,
-        decodedAction.functionName,
-        decodedAction.variables
-      )
+//       const readableSignature = prettyFunctionCall(
+//         referenceName,
+//         decodedAction.address,
+//         decodedAction.functionName,
+//         decodedAction.variables
+//       )
 
-      // Add a DEPLOY_CONTRACT action.
-      const create3Salt = getCreate3Salt(referenceName, userSalt)
-      actions.push({
-        index,
-        salt: create3Salt,
-        creationCodeWithConstructorArgs: ethers.concat([
-          initCode,
-          constructorArgs,
-        ]),
-      })
+//       // Add a DEPLOY_CONTRACT action.
+//       const create3Salt = getCreate3Salt(referenceName, userSalt)
+//       actions.push({
+//         index,
+//         salt: create3Salt,
+//         creationCodeWithConstructorArgs: ethers.concat([
+//           initCode,
+//           constructorArgs,
+//         ]),
+//       })
 
-      humanReadableActions.push({
-        actionIndex: BigInt(index),
-        reason: readableSignature,
-        actionType: SphinxActionType.DEPLOY_CONTRACT,
-      })
-    } else if (isRawCreate2ActionInput(actionInput)) {
-      const { data, to } = actionInput
+//       humanReadableActions.push({
+//         actionIndex: BigInt(index),
+//         reason: readableSignature,
+//         actionType: SphinxActionType.DEPLOY_CONTRACT,
+//       })
+//     } else if (isRawCreate2ActionInput(actionInput)) {
+//       const { data, to } = actionInput
 
-      const { referenceName, functionName, variables, address } =
-        actionInput.decodedAction
-      const readableSignature = prettyFunctionCall(
-        referenceName,
-        address,
-        functionName,
-        variables
-      )
+//       const { referenceName, functionName, variables, address } =
+//         actionInput.decodedAction
+//       const readableSignature = prettyFunctionCall(
+//         referenceName,
+//         address,
+//         functionName,
+//         variables
+//       )
 
-      // Add a CALL action.
-      actions.push({
-        index,
-        data,
-        to,
-      })
+//       // Add a CALL action.
+//       actions.push({
+//         index,
+//         data,
+//         to,
+//       })
 
-      humanReadableActions.push({
-        actionIndex: BigInt(index),
-        reason: readableSignature,
-        actionType: SphinxActionType.CALL,
-      })
-    } else if (isRawFunctionCallActionInput(actionInput)) {
-      const { to, data } = actionInput
-      const { referenceName, functionName, variables, address } =
-        actionInput.decodedAction
-      const readableSignature = prettyFunctionCall(
-        referenceName,
-        address,
-        functionName,
-        variables
-      )
+//       humanReadableActions.push({
+//         actionIndex: BigInt(index),
+//         reason: readableSignature,
+//         actionType: SphinxActionType.CALL,
+//       })
+//     } else if (isRawFunctionCallActionInput(actionInput)) {
+//       const { to, data } = actionInput
+//       const { referenceName, functionName, variables, address } =
+//         actionInput.decodedAction
+//       const readableSignature = prettyFunctionCall(
+//         referenceName,
+//         address,
+//         functionName,
+//         variables
+//       )
 
-      actions.push({
-        to,
-        index,
-        data,
-      })
+//       actions.push({
+//         to,
+//         index,
+//         data,
+//       })
 
-      humanReadableActions.push({
-        actionIndex: BigInt(index),
-        reason: readableSignature,
-        actionType: SphinxActionType.CALL,
-      })
-    } else {
-      throw new Error(`Unknown action type. Should never happen.`)
-    }
-  }
+//       humanReadableActions.push({
+//         actionIndex: BigInt(index),
+//         reason: readableSignature,
+//         actionType: SphinxActionType.CALL,
+//       })
+//     } else {
+//       throw new Error(`Unknown action type. Should never happen.`)
+//     }
+//   }
 
-  // Generate a bundle from the list of actions.
-  return {
-    actionBundle: makeActionBundle(actions, actionInputs),
-    humanReadableActions,
-  }
-}
+//   // Generate a bundle from the list of actions.
+//   return {
+//     actionBundle: makeActionBundle(actions, actionInputs),
+//     humanReadableActions,
+//   }
+// }
 
 // TODO(upgrades): Make sure to use the fully qualified name as the key for the configArtifacts.
 /**
@@ -715,173 +698,173 @@ export const makeActionBundleFromConfig = (
 //   return makeTargetBundle(targets)
 // }
 
-/**
- * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
- * previous chain state.
- *
- * @param projectName Name of the project to generate leafs for. If the project hasn't changed, then
- * no project-specific leafs will be generated.
- */
-export const getAuthLeafsForChain = async (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
-): Promise<Array<AuthLeaf>> => {
-  const { managerAddress, initialState, newConfig, remoteExecution } =
-    parsedConfig
-  const chainId = BigInt(parsedConfig.chainId)
-  const {
-    firstProposalOccurred,
-    isExecuting,
-    proposers: prevProposers,
-    version: prevManagerVersion,
-  } = initialState
-  const { proposers: newProposers, version: newManagerVersion } = newConfig
+// /**
+//  * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
+//  * previous chain state.
+//  *
+//  * @param projectName Name of the project to generate leafs for. If the project hasn't changed, then
+//  * no project-specific leafs will be generated.
+//  */
+// export const getAuthLeafsForChain = async (
+//   parsedConfig: ParsedConfig,
+//   configArtifacts: ConfigArtifacts
+// ): Promise<Array<AuthLeaf>> => {
+//   const { managerAddress, initialState, newConfig, remoteExecution } =
+//     parsedConfig
+//   const chainId = BigInt(parsedConfig.chainId)
+//   const {
+//     firstProposalOccurred,
+//     isExecuting,
+//     proposers: prevProposers,
+//     version: prevManagerVersion,
+//   } = initialState
+//   const { proposers: newProposers, version: newManagerVersion } = newConfig
 
-  // We get a list of proposers to add and remove by comparing the current and previous proposers.
-  //  It's possible that we'll need to remove proposers even if the first proposal has not
-  //  occurred yet. This is because the user may have already attempted to setup the project with an
-  //  incorrect set of proposers.
-  const proposersToAdd = newProposers.filter((p) => !prevProposers.includes(p))
-  const proposersToRemove = prevProposers.filter(
-    (p) => !newProposers.includes(p)
-  )
+//   // We get a list of proposers to add and remove by comparing the current and previous proposers.
+//   //  It's possible that we'll need to remove proposers even if the first proposal has not
+//   //  occurred yet. This is because the user may have already attempted to setup the project with an
+//   //  incorrect set of proposers.
+//   const proposersToAdd = newProposers.filter((p) => !prevProposers.includes(p))
+//   const proposersToRemove = prevProposers.filter(
+//     (p) => !newProposers.includes(p)
+//   )
 
-  // Transform the list of proposers to add/remove into a list of tuples that will be used
-  // in the Setup leaf, if it's needed.
-  const proposersToSet = proposersToAdd
-    .map((p) => {
-      return { member: p, add: true }
-    })
-    .concat(
-      proposersToRemove.map((p) => {
-        return { member: p, add: false }
-      })
-    )
+//   // Transform the list of proposers to add/remove into a list of tuples that will be used
+//   // in the Setup leaf, if it's needed.
+//   const proposersToSet = proposersToAdd
+//     .map((p) => {
+//       return { member: p, add: true }
+//     })
+//     .concat(
+//       proposersToRemove.map((p) => {
+//         return { member: p, add: false }
+//       })
+//     )
 
-  const leafs: Array<AuthLeaf> = []
+//   const leafs: Array<AuthLeaf> = []
 
-  // We proceed by adding the leafs on this chain. We add the proposal and setup leaf at the end of
-  // this function because they both have a `numLeafs` field, which equals the total number of leafs
-  // on this chain. We use this `index` variable as a running count of the number of leafs, then use
-  // it as the value for `numLeafs` when we create the proposal and setup leaf. If the first
-  // proposal has occurred, we set the initial value of this index to 1 because we're reserving the
-  // first index for the proposal leaf. If the first proposal has not occurred, the index is 2
-  // because the first two indexes are reserved for the setup and proposal leafs.
-  let index = firstProposalOccurred ? 1 : 2
+//   // We proceed by adding the leafs on this chain. We add the proposal and setup leaf at the end of
+//   // this function because they both have a `numLeafs` field, which equals the total number of leafs
+//   // on this chain. We use this `index` variable as a running count of the number of leafs, then use
+//   // it as the value for `numLeafs` when we create the proposal and setup leaf. If the first
+//   // proposal has occurred, we set the initial value of this index to 1 because we're reserving the
+//   // first index for the proposal leaf. If the first proposal has not occurred, the index is 2
+//   // because the first two indexes are reserved for the setup and proposal leafs.
+//   let index = firstProposalOccurred ? 1 : 2
 
-  // If a previous deployment is currently executing, we cancel it. The user may need to cancel the
-  // previous deployment if one of their actions reverted during the execution process.
-  if (isExecuting) {
-    const cancelDeploymentLeaf: CancelActiveDeployment = {
-      chainId,
-      to: managerAddress,
-      index,
-      functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
-      leafTypeEnum: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT,
-    }
-    index += 1
-    leafs.push(cancelDeploymentLeaf)
-  }
+//   // If a previous deployment is currently executing, we cancel it. The user may need to cancel the
+//   // previous deployment if one of their actions reverted during the execution process.
+//   if (isExecuting) {
+//     const cancelDeploymentLeaf: CancelActiveDeployment = {
+//       chainId,
+//       to: managerAddress,
+//       index,
+//       functionName: AuthLeafFunctions.CANCEL_ACTIVE_DEPLOYMENT,
+//       leafTypeEnum: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT,
+//     }
+//     index += 1
+//     leafs.push(cancelDeploymentLeaf)
+//   }
 
-  const equalManagerVersion =
-    prevManagerVersion.major === newManagerVersion.major &&
-    prevManagerVersion.minor === newManagerVersion.minor &&
-    prevManagerVersion.patch === newManagerVersion.patch
-  if (!equalManagerVersion) {
-    const upgradeLeaf: UpgradeAuthAndManagerImpl = {
-      chainId,
-      to: managerAddress,
-      index,
-      functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
-      leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL,
-      managerInitCallData: '0x',
-      managerImpl: getSphinxManagerImplAddress(chainId, newManagerVersion),
-      authInitCallData: '0x',
-      authImpl: getAuthImplAddress(newManagerVersion),
-    }
-    index += 1
-    leafs.push(upgradeLeaf)
-  }
+//   const equalManagerVersion =
+//     prevManagerVersion.major === newManagerVersion.major &&
+//     prevManagerVersion.minor === newManagerVersion.minor &&
+//     prevManagerVersion.patch === newManagerVersion.patch
+//   if (!equalManagerVersion) {
+//     const upgradeLeaf: UpgradeAuthAndManagerImpl = {
+//       chainId,
+//       to: managerAddress,
+//       index,
+//       functionName: AuthLeafFunctions.UPGRADE_MANAGER_AND_AUTH_IMPL,
+//       leafTypeEnum: AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL,
+//       managerInitCallData: '0x',
+//       managerImpl: getSphinxManagerImplAddress(chainId, newManagerVersion),
+//       authInitCallData: '0x',
+//       authImpl: getAuthImplAddress(newManagerVersion),
+//     }
+//     index += 1
+//     leafs.push(upgradeLeaf)
+//   }
 
-  const { configUri, bundles } = await getProjectBundleInfo(
-    parsedConfig,
-    configArtifacts
-  )
-  const { actionBundle, targetBundle } = bundles
+//   const { configUri, bundles } = await getProjectBundleInfo(
+//     parsedConfig,
+//     configArtifacts
+//   )
+//   const { actionBundle, targetBundle } = bundles
 
-  // Only add the ApproveDeployment leaf if there are deployment actions.
-  if (
-    bundles.actionBundle.actions.length > 0 ||
-    bundles.targetBundle.targets.length > 0
-  ) {
-    const numTotalActions = actionBundle.actions.length
-    const numSetStorageActions = actionBundle.actions
-      .map((action) => fromRawSphinxAction(action.action))
-      .filter(isSetStorageAction).length
+//   // Only add the ApproveDeployment leaf if there are deployment actions.
+//   if (
+//     bundles.actionBundle.actions.length > 0 ||
+//     bundles.targetBundle.targets.length > 0
+//   ) {
+//     const numTotalActions = actionBundle.actions.length
+//     const numSetStorageActions = actionBundle.actions
+//       .map((action) => fromRawSphinxAction(action.action))
+//       .filter(isSetStorageAction).length
 
-    const approvalLeaf: ApproveDeployment = {
-      chainId,
-      to: managerAddress,
-      index,
-      approval: {
-        actionRoot: actionBundle.root,
-        targetRoot: targetBundle.root,
-        numInitialActions: numTotalActions - numSetStorageActions,
-        numSetStorageActions,
-        numTargets: targetBundle.targets.length,
-        configUri,
-        remoteExecution,
-      },
-      functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT,
-      leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT,
-    }
-    index += 1
-    leafs.push(approvalLeaf)
-  }
+//     const approvalLeaf: ApproveDeployment = {
+//       chainId,
+//       to: managerAddress,
+//       index,
+//       approval: {
+//         actionRoot: actionBundle.root,
+//         targetRoot: targetBundle.root,
+//         numInitialActions: numTotalActions - numSetStorageActions,
+//         numSetStorageActions,
+//         numTargets: targetBundle.targets.length,
+//         configUri,
+//         remoteExecution,
+//       },
+//       functionName: AuthLeafFunctions.APPROVE_DEPLOYMENT,
+//       leafTypeEnum: AuthLeafType.APPROVE_DEPLOYMENT,
+//     }
+//     index += 1
+//     leafs.push(approvalLeaf)
+//   }
 
-  // We only add a proposal leaf if the `leafs` array is non-empty. If the array is empty, then
-  // there's nothing to propose.
-  const addProposalLeaf = leafs.length > 0
+//   // We only add a proposal leaf if the `leafs` array is non-empty. If the array is empty, then
+//   // there's nothing to propose.
+//   const addProposalLeaf = leafs.length > 0
 
-  if (firstProposalOccurred && addProposalLeaf) {
-    const proposalLeaf: AuthLeaf = {
-      chainId,
-      to: managerAddress,
-      index: 0,
-      numLeafs: index,
-      functionName: AuthLeafFunctions.PROPOSE,
-      leafTypeEnum: AuthLeafType.PROPOSE,
-    }
-    leafs.push(proposalLeaf)
-  } else if (!firstProposalOccurred) {
-    // We always add a Setup leaf if the first proposal hasn't occurred yet.
-    const setupLeaf: AuthLeaf = {
-      chainId,
-      to: managerAddress,
-      index: 0,
-      proposers: proposersToSet,
-      numLeafs: index,
-      functionName: AuthLeafFunctions.SETUP,
-      leafTypeEnum: AuthLeafType.SETUP,
-    }
-    leafs.push(setupLeaf)
+//   if (firstProposalOccurred && addProposalLeaf) {
+//     const proposalLeaf: AuthLeaf = {
+//       chainId,
+//       to: managerAddress,
+//       index: 0,
+//       numLeafs: index,
+//       functionName: AuthLeafFunctions.PROPOSE,
+//       leafTypeEnum: AuthLeafType.PROPOSE,
+//     }
+//     leafs.push(proposalLeaf)
+//   } else if (!firstProposalOccurred) {
+//     // We always add a Setup leaf if the first proposal hasn't occurred yet.
+//     const setupLeaf: AuthLeaf = {
+//       chainId,
+//       to: managerAddress,
+//       index: 0,
+//       proposers: proposersToSet,
+//       numLeafs: index,
+//       functionName: AuthLeafFunctions.SETUP,
+//       leafTypeEnum: AuthLeafType.SETUP,
+//     }
+//     leafs.push(setupLeaf)
 
-    // Add a proposal leaf if there are any leafs to propose.
-    if (addProposalLeaf) {
-      const proposalLeaf: AuthLeaf = {
-        chainId,
-        to: managerAddress,
-        index: 1,
-        numLeafs: index,
-        functionName: AuthLeafFunctions.PROPOSE,
-        leafTypeEnum: AuthLeafType.PROPOSE,
-      }
-      leafs.push(proposalLeaf)
-    }
-  }
+//     // Add a proposal leaf if there are any leafs to propose.
+//     if (addProposalLeaf) {
+//       const proposalLeaf: AuthLeaf = {
+//         chainId,
+//         to: managerAddress,
+//         index: 1,
+//         numLeafs: index,
+//         functionName: AuthLeafFunctions.PROPOSE,
+//         leafTypeEnum: AuthLeafType.PROPOSE,
+//       }
+//       leafs.push(proposalLeaf)
+//     }
+//   }
 
-  return leafs
-}
+//   return leafs
+// }
 
 /**
  * @notice Gets the bundled leaf for a given chain-specific index and chain ID.

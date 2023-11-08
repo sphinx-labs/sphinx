@@ -11,11 +11,7 @@ import {
   ParsedConfig,
 } from '../config/types'
 import { getMinimumCompilerInput } from '../languages'
-import {
-  SphinxBundles,
-  makeBundlesFromConfig,
-  HumanReadableAction,
-} from '../actions'
+import { SphinxBundles, HumanReadableAction } from '../actions'
 
 // Load environment variables from .env
 dotenv.config()
@@ -31,8 +27,7 @@ export const sphinxCommitAbstractSubtask = async (
 }> => {
   const sphinxInputs: Array<BuildInfoInputs> = []
 
-  const unskipped = parsedConfig.actionInputs.filter((a) => !a.skip)
-  for (const actionInput of unskipped) {
+  for (const actionInput of parsedConfig.actionInputs) {
     for (const address of Object.keys(actionInput.contracts)) {
       const { fullyQualifiedName } = actionInput.contracts[address]
 
@@ -120,8 +115,6 @@ export const getProjectBundleInfo = async (
 ): Promise<{
   configUri: string
   compilerConfig: CompilerConfig
-  bundles: SphinxBundles
-  humanReadableActions: Array<HumanReadableAction>
 }> => {
   const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
     parsedConfig,
@@ -129,7 +122,5 @@ export const getProjectBundleInfo = async (
     configArtifacts
   )
 
-  const { bundles, humanReadableActions } = makeBundlesFromConfig(parsedConfig)
-
-  return { configUri, compilerConfig, bundles, humanReadableActions }
+  return { configUri, compilerConfig }
 }

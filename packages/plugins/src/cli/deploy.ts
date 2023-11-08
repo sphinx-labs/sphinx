@@ -23,7 +23,7 @@ import ora from 'ora'
 import { ethers } from 'ethers'
 
 import {
-  getBundleInfoArray,
+  getBundleInfo,
   getSphinxManagerAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
@@ -35,7 +35,7 @@ import {
   makeParsedConfig,
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
-import { writeDeploymentArtifacts } from '../foundry/artifacts'
+// import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
@@ -225,9 +225,7 @@ export const deploy = async (
   } else {
     preview = getPreview([parsedConfig])
 
-    const emptyDeployment = parsedConfig.actionInputs.every(
-      (action) => action.skip
-    )
+    const emptyDeployment = parsedConfig.actionInputs.length === 0
 
     spinner.stop()
     if (emptyDeployment) {
@@ -241,16 +239,14 @@ export const deploy = async (
     }
   }
 
-  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
-    configArtifacts,
-    [parsedConfig]
-  )
-  if (bundleInfoArray.length !== 1) {
+  const { root, bundleInfo } = await getBundleInfo(configArtifacts, [
+    parsedConfig,
+  ])
+  if (bundleInfo.compilerConfigs.length !== 1) {
     throw new Error(
       `Bundle info array has incorrect length. Should never happen`
     )
   }
-  const bundleInfo = bundleInfoArray[0]
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -265,8 +261,8 @@ export const deploy = async (
 
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
-    authRoot,
-    bundleInfo,
+    root,
+    bundleInfo.bundle,
   ])
 
   const forgeScriptDeployArgs = [
@@ -321,17 +317,18 @@ export const deploy = async (
       readFileSync(broadcastFilePath, 'utf-8')
     )
 
-    const deploymentArtifactPath = await writeDeploymentArtifacts(
-      provider,
-      parsedConfig,
-      bundleInfo.actionBundle.actions,
-      broadcast,
-      deploymentFolder,
-      configArtifacts
-    )
-    spinner.succeed(
-      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
-    )
+    // TODO - Fix deployment artifacts
+    // const deploymentArtifactPath = await writeDeploymentArtifacts(
+    //   provider,
+    //   parsedConfig,
+    //   bundleInfo.actionBundle.actions,
+    //   broadcast,
+    //   deploymentFolder,
+    //   configArtifacts
+    // )
+    // spinner.succeed(
+    //   `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    // )
   } else {
     spinner.succeed(`No contract deployment artifacts to write.`)
   }

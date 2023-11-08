@@ -18,7 +18,6 @@ import {
 import {
   isLabel,
   isRawCreate2ActionInput,
-  isRawDeployContractActionInput,
   isRawFunctionCallActionInput,
   isString,
   recursivelyConvertResult,
@@ -31,10 +30,12 @@ import {
   ethers,
 } from 'ethers'
 import {
+  Operation,
   ParsedContractDeployments,
   SphinxActionType,
   getCreate3Address,
   getCreate3Salt,
+  getManagedServiceAddress,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import {
@@ -71,8 +72,9 @@ export const decodeDeploymentInfo = (
   ) as any
 
   const {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    nonce,
     chainId,
     initialState,
     isLiveNetwork,
@@ -82,8 +84,9 @@ export const decodeDeploymentInfo = (
 
   return {
     labels,
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    nonce,
     chainId: chainId.toString(),
     initialState: {
       ...initialState,
@@ -180,13 +183,13 @@ export const parseFoundryDryRun = (
     .filter(
       (from) =>
         // Convert the 'from' field to a checksum address.
-        ethers.getAddress(from) !== deploymentInfo.managerAddress
+        ethers.getAddress(from) !== deploymentInfo.safeAddress
     )
   if (notFromSphinxManager.length > 0) {
     // The user must broadcast/prank from the SphinxManager so that the msg.sender for function
     // calls is the same as it would be in a production deployment.
     throw new Error(
-      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the SphinxManager.\n` +
+      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the Safe.\n` +
         `Your 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
     )
   }
@@ -250,8 +253,9 @@ export const parseFoundryDryRun = (
           to,
           create2Address,
           contractName,
-          skip: false,
-          data: transaction.data,
+          value: transaction.value ?? '0x0',
+          operation: Operation.Call,
+          txData: transaction.data,
           actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,
@@ -278,9 +282,10 @@ export const parseFoundryDryRun = (
 
         const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
-          skip: false,
           to,
-          data: transaction.data,
+          value: transaction.value ?? '0x0',
+          txData: transaction.data,
+          operation: Operation.Call,
           gas: transaction.gas,
           contractName,
           additionalContracts,
@@ -310,8 +315,9 @@ export const makeParsedConfig = (
   remoteExecution: boolean
 ): ParsedConfig => {
   const {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    nonce,
     chainId,
     newConfig,
     isLiveNetwork,
@@ -319,7 +325,6 @@ export const makeParsedConfig = (
     labels,
   } = deploymentInfo
 
-  const coder = ethers.AbiCoder.defaultAbiCoder()
   const actionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
   for (const input of rawInputs) {
@@ -327,56 +332,10 @@ export const makeParsedConfig = (
       parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
     unlabeledAddresses.push(...unlabeledAdditionalContracts)
 
-    if (isRawDeployContractActionInput(input)) {
-      const create3Salt = getCreate3Salt(input.referenceName, input.userSalt)
-      const create3Address = getCreate3Address(managerAddress, create3Salt)
-
-      const { abi } = configArtifacts[input.fullyQualifiedName].artifact
-      const iface = new ethers.Interface(abi)
-      const constructorFragment = iface.fragments.find(
-        ConstructorFragment.isFragment
-      )
-      let decodedConstructorArgs: ParsedVariable
-      if (constructorFragment) {
-        const decodedResult = coder.decode(
-          constructorFragment.inputs,
-          input.constructorArgs
-        )
-        // Convert from an Ethers `Result` into a plain object.
-        decodedConstructorArgs = recursivelyConvertResult(
-          constructorFragment.inputs,
-          decodedResult
-        ) as ParsedVariable
-      } else {
-        decodedConstructorArgs = {}
-      }
-
-      const decodedAction: DecodedAction = {
-        referenceName: input.referenceName,
-        functionName: 'deploy',
-        variables: decodedConstructorArgs,
-        address: '',
-      }
-
-      parsedContracts[create3Address] = {
-        fullyQualifiedName: input.fullyQualifiedName,
-        initCodeWithArgs: ethers.concat([
-          input.initCode,
-          input.constructorArgs,
-        ]),
-      }
-
-      const deployContractInput: DeployContractActionInput = {
-        contracts: parsedContracts,
-        create3Address,
-        decodedAction,
-        ...input,
-      }
-      actionInputs.push(deployContractInput)
-    } else if (isRawCreate2ActionInput(input)) {
+    if (isRawCreate2ActionInput(input)) {
       // Get the creation code of the CREATE2 deployment by removing the salt,
       // which is the first 32 bytes of the data.
-      const initCodeWithArgs = ethers.dataSlice(input.data, 32)
+      const initCodeWithArgs = ethers.dataSlice(input.txData, 32)
 
       // Check if the contract is a CREATE3 proxy. If it is, we won't attempt to verify it because
       // it doesn't have its own source file in any commonly used CREATE3 library.
@@ -479,8 +438,9 @@ export const makeParsedConfig = (
   }
 
   return {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    nonce,
     chainId,
     newConfig,
     isLiveNetwork,
@@ -488,6 +448,7 @@ export const makeParsedConfig = (
     actionInputs,
     remoteExecution,
     unlabeledAddresses,
+    executorAddress: getManagedServiceAddress(BigInt(chainId)),
   }
 }
 
@@ -518,7 +479,7 @@ const parseAdditionalContracts = (
       // transactions are 'CALL' types where the 'data' field of the transaction is equal to the
       // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy.
       isRawFunctionCallActionInput(currentInput) &&
-      currentInput.data === additionalContract.initCode
+      currentInput.txData === additionalContract.initCode
     ) {
       // We'll attempt to infer the name of the contract that was deployed using CREATE3.
       const contractName = allInputs

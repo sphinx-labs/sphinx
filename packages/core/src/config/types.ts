@@ -17,6 +17,7 @@ import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
 import { ParsedContractDeployments } from '../actions/types'
+import { SphinxTransaction } from '../actions'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -77,19 +78,15 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput =
-  | RawDeployContractActionInput
-  | RawFunctionCallActionInput
-  | RawCreate2ActionInput
+export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
 
-export type ActionInput =
-  | DeployContractActionInput
-  | FunctionCallActionInput
-  | Create2ActionInput
+export type ActionInput = FunctionCallActionInput | Create2ActionInput
 
 export type ParsedConfig = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  executorAddress: string
+  nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
@@ -100,8 +97,9 @@ export type ParsedConfig = {
 }
 
 export type DeploymentInfo = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  nonce: string
   chainId: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
@@ -167,14 +165,10 @@ export interface DeployContractActionInput
   create3Address: string
 }
 
-export interface RawCreate2ActionInput {
+export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
-  to: string
-  skip: boolean
-  data: string
   actionType: string
-  gas: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
 }
@@ -190,18 +184,14 @@ export type DecodedAction = {
   address: string
 }
 
-export interface RawFunctionCallActionInput {
+export interface RawFunctionCallActionInput extends SphinxTransaction {
   actionType: string
-  skip: boolean
-  to: string
-  data: string
   contractName: string | null
   additionalContracts: Array<{
     transactionType: string
     address: string
     initCode: string
   }>
-  gas: string
   decodedAction: DecodedAction
 }
 

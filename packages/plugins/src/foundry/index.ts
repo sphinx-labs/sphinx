@@ -1,7 +1,7 @@
 import {
-  ensureSphinxInitialized,
   SphinxJsonRpcProvider,
   isLiveNetwork,
+  ensureSafeAndSphinxInitialized,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -49,7 +49,13 @@ const command = args[0]
         ethers.toBeHex(ethers.parseEther('100')),
       ])
 
-      await ensureSphinxInitialized(provider, wallet, executorArray, [], [])
+      await ensureSafeAndSphinxInitialized(
+        provider,
+        wallet,
+        executorArray,
+        [],
+        []
+      )
 
       break
     }

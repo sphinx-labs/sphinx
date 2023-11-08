@@ -350,11 +350,9 @@ const testProposalSimulation = async (
   const iface = new ethers.Interface(sphinxPluginTypesABI)
   const bundleInfoArrayFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'bundleInfoArrayType')
+    .find((fragment) => fragment.name === 'sphinxBundleType')
   if (!bundleInfoArrayFragment) {
-    throw new Error(
-      `'bundleInfoArrayType' not found in ABI. Should never happen.`
-    )
+    throw new Error(`'sphinxBundleType' not found in ABI. Should never happen.`)
   }
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
