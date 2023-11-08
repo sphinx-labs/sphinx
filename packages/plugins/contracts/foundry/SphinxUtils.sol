@@ -10,7 +10,6 @@ import {
 // TODO - use interfaces
 import { SphinxModule } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 import { SphinxModuleFactory } from "@sphinx-labs/contracts/contracts/SphinxModuleFactory.sol";
-import { BundledSphinxLeaf } from "./SphinxPluginTypes.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -18,6 +17,7 @@ import {
     Version,
     AuthLeaf
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { LeafWithProof, Leaf } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 import {
     ISphinxAuthFactory
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
@@ -210,11 +210,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function inefficientSlice(
-        BundledSphinxLeaf[] memory selected,
+        LeafWithProof[] memory selected,
         uint start,
         uint end
-    ) public pure returns (BundledSphinxLeaf[] memory sliced) {
-        sliced = new BundledSphinxLeaf[](end - start);
+    ) public pure returns (LeafWithProof[] memory sliced) {
+        sliced = new LeafWithProof[](end - start);
         for (uint i = start; i < end; i++) {
             sliced[i - start] = selected[i];
         }
@@ -284,18 +284,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (rawActions, _proofs);
     }
 
+    function decodeExecutionLeafData(Leaf memory leaf) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
+        return abi.decode(leaf.data, (address, uint, uint, bytes, uint));
+    }
+
     /**
      * Helper function that determines if a given batch is executable within the specified gas
        limit.
      */
     function executable(
-        BundledSphinxLeaf[] memory selected,
+        LeafWithProof[] memory selected,
         uint maxGasLimit
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
-
         for (uint i = 0; i < selected.length; i++) {
-            estGasUsed += selected[i].gas;
+            (, , uint gas, , ) = decodeExecutionLeafData(selected[i].leaf);
+            estGasUsed += gas;
         }
         return maxGasLimit > estGasUsed;
     }
@@ -306,7 +310,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
     function findMaxBatchSize(
-        BundledSphinxLeaf[] memory leafs,
+        LeafWithProof[] memory leafs,
         uint maxGasLimit
     ) public pure returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
@@ -320,7 +324,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint max = leafs.length;
         while (min < max) {
             uint mid = ceilDiv((min + max), 2);
-            BundledSphinxLeaf[] memory left = inefficientSlice(leafs, 0, mid);
+            LeafWithProof[] memory left = inefficientSlice(leafs, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {
