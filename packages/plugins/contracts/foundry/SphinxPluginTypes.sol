@@ -9,7 +9,7 @@ import {
     AuthLeaf,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import { LeafType, Leaf } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
+import { LeafWithProof } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 
 struct SphinxAuthBundle {
     bytes32 root;
@@ -51,14 +51,13 @@ struct HumanReadableAction {
 }
 
 struct BundledSphinxLeaf {
-    Leaf leaf;
-    LeafType leafType;
-    bytes32[] proof;
+    uint256 gas;
+    LeafWithProof leaf;
 }
 
 struct SphinxBundle {
     bytes32 root;
-    BundledSphinxLeaf[] leafs;
+    BundledSphinxLeaf[] bundledLeafs;
 }
 
 struct FoundryConfig {
