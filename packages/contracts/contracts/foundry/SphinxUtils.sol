@@ -10,7 +10,6 @@ import {
 // TODO - use interfaces
 import { SphinxModule } from "../SphinxModule.sol";
 import { SphinxModuleFactory } from "../SphinxModuleFactory.sol";
-import { BundledSphinxLeaf } from "./SphinxPluginTypes.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -35,6 +34,7 @@ import {
     Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -204,11 +204,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function inefficientSlice(
-        BundledSphinxLeaf[] memory selected,
+        LeafWithProof[] memory selected,
         uint start,
         uint end
-    ) public pure returns (BundledSphinxLeaf[] memory sliced) {
-        sliced = new BundledSphinxAction[](end - start);
+    ) public pure returns (LeafWithProof[] memory sliced) {
+        sliced = new LeafWithProof[](end - start);
         for (uint i = start; i < end; i++) {
             sliced[i - start] = selected[i];
         }
@@ -278,18 +278,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (rawActions, _proofs);
     }
 
+    function decodeExecutionLeafData(Leaf memory leaf) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
+        return abi.decode(leaf.data, (address, uint, uint, bytes, uint));
+    }
+
     /**
      * Helper function that determines if a given batch is executable within the specified gas
        limit.
      */
     function executable(
-        BundledSphinxLeaf[] memory selected,
+        LeafWithProof[] memory selected,
         uint maxGasLimit
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
-
         for (uint i = 0; i < selected.length; i++) {
-            estGasUsed += selected[i].gas;
+            (, , uint gas, , ) = decodeExecutionLeafData(selected[i].leaf);
+            estGasUsed += gas;
         }
         return maxGasLimit > estGasUsed;
     }
@@ -300,7 +304,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
     function findMaxBatchSize(
-        BundledSphinxLeaf[] memory leafs,
+        LeafWithProof[] memory leafs,
         uint maxGasLimit
     ) public pure returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
@@ -314,7 +318,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint max = leafs.length;
         while (min < max) {
             uint mid = ceilDiv((min + max), 2);
-            BundledSphinxLeaf[] memory left = inefficientSlice(leafs, 0, mid);
+            LeafWithProof[] memory left = inefficientSlice(leafs, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {
@@ -981,10 +985,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxConfig memory _config
     ) external view {
         require(
-            _config.proposers.length > 0,
-            "Sphinx: There must be at least one proposer in your 'sphinxConfig.proposers' array."
-        );
-        require(
             bytes(_config.orgId).length > 0,
             "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
@@ -1022,15 +1022,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     // TODO - implement actual calculation logic
-    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) external returns (address) {
+    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) external view returns (address) {
         return address(0);
+    }
+
+    // TODO - implement actual calculation logic
+    function getSphinxModuleAddress(address[] memory _owners, uint _threshold) external view returns (address) {
+        return address(1);
     }
 
     function fetchSafeDeploymentArgs(
         address[] memory _owners,
         uint _threshold
     ) internal returns (
-        bytes safeInitializer,
+        bytes memory safeInitializer,
         uint safeSaltNonce,
         bytes32 sphinxModuleSalt
     ) {
@@ -1038,7 +1043,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address sphinxModuleAddress = address(0);
 
         // Default no initializer
-        bytes memory sphinxModuleInitializer = bytes(0);
+        bytes memory sphinxModuleInitializer = "";
 
         // Default no fallback handler
         address fallbackHandlerAddress = address(0);
@@ -1046,7 +1051,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // ETH is the default payment token
         uint paymentToken = 0;
         uint payment = 0;
-        uint paymentReceiver = address(0);
+        address paymentReceiver = address(0);
 
         // TODO - encode setup function
         safeInitializer = abi.encodeWithSignature(
@@ -1070,20 +1075,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint _threshold
     ) external {
         (
-            address _safeFactoryAddress,
-            address _safeSingletonAddress,
             bytes memory safeInitializer,
             uint safeSaltNonce,
             bytes32 sphinxModuleSalt
         ) = fetchSafeDeploymentArgs(_owners, _threshold);
 
         SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy{ gas: 1000000 }(
-            safeFactoryAddress,
+            GnosisSafeProxyFactory(safeFactoryAddress),
             safeSingletonAddress,
             safeInitializer,
             safeSaltNonce,
             sphinxModuleSalt
         );
+    }
+
+    function packBytes(bytes[] memory arr) external pure returns (bytes memory) {
+        bytes memory output;
+
+        for (uint256 i = 0; i < arr.length; i++) {
+            output = abi.encodePacked(output, arr[i]);
+        }
+
+        return output;
     }
 
     /**
@@ -1111,8 +1124,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         string memory _rpcUrl
     ) external {
         (
-            address _safeFactoryAddress,
-            address _safeSingletonAddress,
             bytes memory safeInitializer,
             uint safeSaltNonce,
             bytes32 sphinxModuleSalt
@@ -1126,7 +1137,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[3] = vm.toString(
             abi.encodePacked(
                 SphinxModuleFactory(sphinxModuleFactoryAddress).deploySphinxModuleAndSafeProxy.selector,
-                abi.encode(safeFactoryAddress, safeSingletonAddress, _safeInitializer, _safeSaltNonce, _sphinxModuleSalt)
+                abi.encode(safeFactoryAddress, safeSingletonAddress, safeInitializer, safeSaltNonce, sphinxModuleSalt)
             )
         );
         inputs[4] = "--rpc-url";

@@ -39,15 +39,9 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-struct BundledSphinxLeaf {
-    SphinxLeaf leaf;
-    SphinxLeafType leafType;
-    bytes32[] proof;
-}
-
 struct SphinxBundle {
     bytes32 root;
-    BundledSphinxLeaf[] leafs;
+    SphinxLeafWithProof[] leafs;
 }
 
 struct FoundryConfig {
