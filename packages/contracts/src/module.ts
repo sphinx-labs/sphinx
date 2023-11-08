@@ -14,7 +14,7 @@ export enum Operation {
 }
 
 // TODO(md): See Solidity docs
-export type SphinxMerkleLeaf = {
+export type SphinxLeaf = {
   chainId: bigint
   index: bigint
   data: string
@@ -49,7 +49,7 @@ export interface SphinxBundle {
 
 // TODO(md)
 export interface BundledSphinxLeaf {
-  leaf: SphinxMerkleLeaf
+  leaf: SphinxLeaf
   leafType: LeafType
   proof: string[]
 }
@@ -59,9 +59,9 @@ export const makeSphinxMerkleTree = (
   deploymentData: Record<number, NetworkDeploymentData>
 ): {
   tree: StandardMerkleTree<(string | bigint | LeafType)[]>
-  leafs: Array<SphinxMerkleLeaf>
+  leafs: Array<SphinxLeaf>
 } => {
-  const merkleLeafs: Array<SphinxMerkleLeaf> = []
+  const merkleLeafs: Array<SphinxLeaf> = []
 
   for (const [chainId, data] of Object.entries(deploymentData)) {
     // generate approval leaf data

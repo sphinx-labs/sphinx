@@ -1,8 +1,9 @@
+import { ZeroAddress } from 'ethers'
+
 import {
   CompatibilityFallbackHandlerArtifact,
   CreateCallArtifact,
   DefaultCallbackHandlerArtifact,
-  getOwnerAddress,
   GnosisSafeArtifact,
   GnosisSafeL2Artifact,
   GnosisSafeProxyFactoryArtifact,
@@ -11,10 +12,8 @@ import {
   MultiSendCallOnlyArtifact,
   SimulateTxAccessorArtifact,
   SphinxModuleFactoryArtifact,
-} from '@sphinx-labs/contracts'
-import { Provider, ZeroAddress } from 'ethers'
-
-import { ContractArtifact } from './languages/solidity/types'
+} from '../src/ifaces'
+import { ContractArtifact } from './types'
 import {
   getCompatibilityFallbackHandlerAddress,
   getCreateCallAddress,
@@ -28,23 +27,27 @@ import {
   getSimulateTxAccessorAddress,
   getSphinxModuleFactoryAddress,
 } from './addresses'
-import { USDC_ADDRESSES } from './networks'
 import { parseFoundryArtifact } from './utils'
+import { getOwnerAddress } from './constants'
 
-export const getSphinxConstants = async (
-  provider: Provider
-): Promise<
-  Array<{
-    artifact: ContractArtifact
-    expectedAddress: string
-    constructorArgs: any[]
-  }>
-> => {
-  const network = await provider.getNetwork()
-  const chainId = network.chainId
+// Maps a chain ID to the USDC address on the network.
+export const USDC_ADDRESSES: { [chainId: string]: string } = {
+  // Optimism Goerli:
+  420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
+  // Optimism Mainnet:
+  10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+}
+
+export const getSphinxConstants = (
+  chainId: bigint
+): Array<{
+  artifact: ContractArtifact
+  expectedAddress: string
+  constructorArgs: any[]
+}> => {
   const contractInfo = [
     {
-      artifact: parseFoundryArtifact(ManagedServiceArtifact),
+      artifact: ManagedServiceArtifact,
       expectedAddress: getManagedServiceAddress(chainId),
       constructorArgs: [
         getOwnerAddress(),
@@ -54,7 +57,7 @@ export const getSphinxConstants = async (
       ],
     },
     {
-      artifact: parseFoundryArtifact(SphinxModuleFactoryArtifact),
+      artifact: SphinxModuleFactoryArtifact,
       expectedAddress: getSphinxModuleFactoryAddress(),
       constructorArgs: [],
     },

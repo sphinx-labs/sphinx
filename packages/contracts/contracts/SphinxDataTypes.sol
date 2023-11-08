@@ -6,7 +6,7 @@ pragma solidity >=0.7.0 <0.9.0;
  *               can be executed.
  * @custom:value EXECUTE Execute a transaction within a deployment.
  */
-enum SphinxMerkleLeafType {
+enum SphinxLeafType {
     APPROVE,
     EXECUTE
 }
@@ -17,20 +17,20 @@ enum SphinxMerkleLeafType {
  * @custom:field leafType The type of the leaf.
  * @custom:field data     Arbitrary data to be decoded based on the leaf type.
  */
-struct SphinxMerkleLeaf {
+struct SphinxLeaf {
     uint256 chainId;
     uint256 index;
-    SphinxMerkleLeafType leafType;
+    SphinxLeafType leafType;
     bytes data;
 }
 
 struct SphinxMerkleTree {
   bytes32 root;
-  SphinxMerkleLeafWithProof[] leafs;
+  SphinxLeafWithProof[] leafs;
 }
 
-struct SphinxMerkleLeafWithProof {
-    SphinxMerkleLeaf leaf;
+struct SphinxLeafWithProof {
+    SphinxLeaf leaf;
     bytes32[] proof;
 }
 

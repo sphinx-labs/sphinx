@@ -1,20 +1,17 @@
-import hre from 'hardhat'
-import '@nomicfoundation/hardhat-ethers'
+Error.stackTraceLimit = Infinity // TODO(end): rm
+
+import { ethers } from 'ethers'
+
+import { getSphinxConstants } from '../src/contract-info'
+import { remove0x, parseFoundryArtifact } from '../src/utils'
 import {
-  ManagedServiceArtifact,
-  SphinxModuleArtifact,
-} from '@sphinx-labs/contracts'
-import {
-  getSphinxConstants,
-  remove0x,
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
   getSphinxModuleFactoryAddress,
-  parseFoundryArtifact,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeAddress,
-} from '@sphinx-labs/core'
-import { ethers } from 'ethers'
+} from '../src/addresses'
+import { ManagedServiceArtifact, SphinxModuleArtifact } from '../src/ifaces'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -52,11 +49,11 @@ const writeConstants = async () => {
     },
     sphinxModuleBytecode: {
       type: 'bytes',
-      value: parseFoundryArtifact(SphinxModuleArtifact).bytecode,
+      value: SphinxModuleArtifact.bytecode,
     },
   }
 
-  const sphinxConstants = await getSphinxConstants(hre.ethers.provider)
+  const sphinxConstants = getSphinxConstants(31337n)
 
   // Add the manager contract info for specifically optimism and optimism goerli
   // where the address is different from the rest of the networks.
@@ -66,12 +63,12 @@ const writeConstants = async () => {
   sphinxConstants.push(
     ...[
       {
-        artifact: parseFoundryArtifact(ManagedServiceArtifact),
+        artifact: ManagedServiceArtifact,
         expectedAddress: getManagedServiceAddress(10n),
         constructorArgs: getManagedServiceConstructorArgs(10n),
       },
       {
-        artifact: parseFoundryArtifact(ManagedServiceArtifact),
+        artifact: ManagedServiceArtifact,
         expectedAddress: getManagedServiceAddress(420n),
         constructorArgs: getManagedServiceConstructorArgs(420n),
       },

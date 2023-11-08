@@ -8,21 +8,9 @@ import {
     Version,
     AuthLeaf,
     AuthLeafType,
-    LeafType,
-    Leaf
+    SphinxLeafType,
+    SphinxLeaf
 } from "../SphinxDataTypes.sol";
-
-struct SphinxAuthBundle {
-    bytes32 root;
-    BundledAuthLeaf[] leafs;
-}
-
-struct BundledAuthLeaf {
-    AuthLeaf leaf;
-    AuthLeafType leafTypeEnum;
-    string leafFunctionName;
-    bytes32[] proof;
-}
 
 struct SphinxActionBundle {
     bytes32 root;
@@ -52,8 +40,8 @@ struct HumanReadableAction {
 }
 
 struct BundledSphinxLeaf {
-    Leaf leaf;
-    LeafType leafType;
+    SphinxLeaf leaf;
+    SphinxLeafType leafType;
     bytes32[] proof;
 }
 
@@ -283,12 +271,6 @@ contract SphinxPluginTypes {
         external
         pure
         returns (BundledSphinxAction[] memory bundledActions)
-    {}
-
-    function bundledAuthLeafsType()
-        external
-        pure
-        returns (BundledAuthLeaf[] memory bundledAuthLeafs)
     {}
 
     function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) {}

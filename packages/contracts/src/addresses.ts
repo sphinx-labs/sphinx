@@ -1,6 +1,12 @@
 import {
-  getOwnerAddress,
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  ZeroHash,
+  ZeroAddress,
+  getCreate2Address,
+  solidityPackedKeccak256,
+  AbiCoder,
+} from 'ethers'
+
+import {
   ManagedServiceArtifact,
   BalanceFactoryArtifact,
   SphinxModuleFactoryArtifact,
@@ -13,16 +19,12 @@ import {
   MultiSendCallOnlyArtifact,
   GnosisSafeL2Artifact,
   GnosisSafeArtifact,
-} from '@sphinx-labs/contracts'
+} from './ifaces'
 import {
-  ZeroHash,
-  ZeroAddress,
-  getCreate2Address,
-  solidityPackedKeccak256,
-  AbiCoder,
-} from 'ethers'
-
-import { USDC_ADDRESSES } from './networks'
+  getOwnerAddress,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+} from './constants'
+import { USDC_ADDRESSES } from './contract-info'
 import { parseFoundryArtifact } from './utils'
 
 export const getManagedServiceConstructorArgs = (chainId: bigint) => {
@@ -41,7 +43,7 @@ export const getManagedServiceAddress = (chainId: bigint) => {
     solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
-        parseFoundryArtifact(ManagedServiceArtifact).bytecode,
+        ManagedServiceArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           getManagedServiceConstructorArgs(chainId)
@@ -58,7 +60,7 @@ export const getBalanceFactoryAddress = (chainId: bigint): string => {
     solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
-        parseFoundryArtifact(BalanceFactoryArtifact).bytecode,
+        BalanceFactoryArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           [USDC_ADDRESSES[Number(chainId)], getManagedServiceAddress(chainId)]
@@ -74,7 +76,7 @@ export const getSphinxModuleFactoryAddress = () => {
     ZeroHash,
     solidityPackedKeccak256(
       ['bytes'],
-      [parseFoundryArtifact(SphinxModuleFactoryArtifact).bytecode]
+      [SphinxModuleFactoryArtifact.bytecode]
     )
   )
 }
@@ -86,7 +88,10 @@ export const getSimulateTxAccessorAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(['bytes'], [SimulateTxAccessorArtifact.bytecode])
+    solidityPackedKeccak256(
+      ['bytes'],
+      [SimulateTxAccessorArtifact.bytecode]
+    )
   )
 }
 

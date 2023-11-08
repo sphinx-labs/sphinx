@@ -1,3 +1,6 @@
 export * from './ifaces'
 export * from './constants'
 export * from './module'
+export * from './contract-info'
+export * from './addresses'
+export * from './types'

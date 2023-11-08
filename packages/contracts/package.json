@@ -13,10 +13,10 @@
     "error_codes.md"
   ],
   "scripts": {
-    "build": "yarn build:contracts && yarn build:ts",
+    "build": "forge clean && forge build --skip SphinxUtils && yarn write-constants && forge build && yarn build:ts",
+    "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "forge clean && forge compile",
-    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/",
     "test:coverage": "yarn test",
     "test": "forge test",
     "slither": "./scripts/slither.sh",

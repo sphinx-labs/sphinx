@@ -21,12 +21,10 @@ import {
 import {
     BundledSphinxAction,
     SphinxActionBundle,
-    BundledSphinxAction,
     SphinxTargetBundle,
     SphinxBundle,
     DeploymentInfo,
     HumanReadableAction,
-    BundledAuthLeaf,
     NetworkInfo,
     NetworkType,
     Network,
@@ -36,7 +34,7 @@ import {
     Wallet,
     Label
 } from "./SphinxPluginTypes.sol";
-// import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -78,7 +76,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         initializeSphinxContracts(_executor);
     }
 
-    function selectManagedServiceAddressForNetwork () internal view returns (address) {
+    function selectManagedServiceAddressForNetwork() internal view returns (address) {
         if (block.chainid == 10) {
             return managedServiceAddressOptimism;
         } else if (block.chainid == 420) {
