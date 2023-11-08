@@ -9,6 +9,7 @@ import {
     AuthLeaf,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { LeafType, Leaf } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
 
 struct SphinxAuthBundle {
     bytes32 root;
@@ -49,13 +50,15 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-struct BundleInfo {
-    string networkName;
-    string configUri;
-    BundledAuthLeaf[] authLeafs;
-    SphinxActionBundle actionBundle;
-    SphinxTargetBundle targetBundle;
-    HumanReadableAction[] humanReadableActions;
+struct BundledSphinxLeaf {
+    Leaf leaf;
+    LeafType leafType;
+    bytes32[] proof;
+}
+
+struct SphinxBundle {
+    bytes32 root;
+    BundledSphinxLeaf[] leafs;
 }
 
 struct FoundryConfig {
@@ -152,8 +155,9 @@ struct OptionalBytes32 {
  * @custom:field initialState The values of several state variables before the deployment occurs.
  */
 struct DeploymentInfo {
-    address authAddress;
-    address managerAddress;
+    address safeAddress;
+    address moduleAddress;
+    uint256 nonce;
     uint256 chainId;
     SphinxConfig newConfig;
     bool isLiveNetwork;
@@ -165,27 +169,15 @@ struct DeploymentInfo {
  * @notice Contains the values of a few state variables which are retrieved on-chain *before* the
  *         deployment occurs. These determine various aspects of the deployment.
  *
- * @custom:field proposers The existing list of proposers in the SphinxAuth contract. This is
- *               empty if the SphinxAuth contract does not exist yet. Determines which proposers
- *               must be added in this deployment.
- * @custom:field version The existing version of the user's SphinxManager and SphinxAuth contract.
- *               Determines whether we need to upgrae these contracts to the latest vesion during
- *               the deployment.
- * @custom:field isManagerDeployed True if the user's SphinxManager has been deployed. If false,
- *               we'll need to register this contract before the deployment occurs.
- * @custom:field firstProposalOccurred True if a proposal has previously been executed on the user's
- *               SphinxAuth contract. If false, then we won't call `SphinxAuth.setup` at the
- *               beginning of the deployment.
+ * @custom:field isSafeDeployed True if the user's Safe has been deployed. If false, we'll
+ *               need to deploy the Safe before the deployment occurs.
  * @custom:field isExecuting True if there's currently an active deployment in the user's
  *               SphinxManager. If so, we cancel the existing deployment, since an existing active
  *               deployment implies that an error occurred in one of the user's contracts during
  *               that deployment.
  */
 struct InitialChainState {
-    address[] proposers;
-    Version version;
-    bool isManagerDeployed;
-    bool firstProposalOccurred;
+    bool isSafeDeployed;
     bool isExecuting;
 }
 
@@ -217,10 +209,8 @@ struct SphinxConfig {
     address[] owners;
     uint256 threshold;
     string orgId;
-    address[] proposers;
     Network[] mainnets;
     Network[] testnets;
-    Version version;
 }
 
 struct Label {
@@ -277,7 +267,7 @@ struct NetworkInfo {
 struct ProposalOutput {
     address proposerAddress;
     bytes metaTxnSignature;
-    BundleInfo[] bundleInfoArray;
+    SphinxBundle bundle;
     bytes32 authRoot;
 }
 
@@ -286,7 +276,7 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function bundleInfoArrayType() external pure returns (BundleInfo[] memory bundleInfoArray) {}
+    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) {}
 
     function bundledActionsType()
         external

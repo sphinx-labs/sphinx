@@ -7,21 +7,7 @@ import yesno from 'yesno'
 import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
-import {
-  Signer,
-  Contract,
-  ethers,
-  AbiCoder,
-  Provider,
-  JsonRpcSigner,
-} from 'ethers'
-import {
-  ProxyArtifact,
-  SphinxRegistryABI,
-  SphinxManagerABI,
-  ProxyABI,
-  AuthFactoryABI,
-} from '@sphinx-labs/contracts'
+import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import { ProxyDeployment } from '@openzeppelin/upgrades-core'
@@ -43,11 +29,9 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
   RawFunctionCallActionInput,
-  RawDeployContractActionInput,
   ActionInput,
   RawCreate2ActionInput,
   RawActionInput,
@@ -65,7 +49,6 @@ import {
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import { AUTH_FACTORY_ADDRESS, getSphinxRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -125,75 +108,6 @@ export const writeSnapshotId = async (
   fs.writeFileSync(snapshotIdPath, snapshotId)
 }
 
-export const getDefaultProxyInitCode = (managerAddress: string): string => {
-  const bytecode = ProxyArtifact.bytecode
-  const iface = new ethers.Interface(ProxyABI)
-
-  const initCode = bytecode.concat(
-    remove0x(iface.encodeDeploy([managerAddress]))
-  )
-
-  return initCode
-}
-
-/**
- * Finalizes the registration of a project.
- *
- * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param ownerAddress Owner of the SphinxManager contract deployed by this call.
- */
-export const registerOwner = async (
-  projectName: string,
-  registryAddress: string,
-  managerAddress: string,
-  ownerAddress: string,
-  signer: Signer,
-  spinner: ora.Ora
-): Promise<void> => {
-  spinner.start(`Registering the project...`)
-
-  const registry = new Contract(registryAddress, SphinxRegistryABI, signer)
-  const manager = new Contract(managerAddress, SphinxManagerABI, signer)
-
-  if (!(await registry.isManagerDeployed(managerAddress))) {
-    await (
-      await registry.register(
-        ownerAddress,
-        projectName,
-        '0x', // We don't pass any extra initializer data to this version of the SphinxManager.
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-    spinner.succeed(`Project registered.`)
-  } else {
-    const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== ownerAddress) {
-      throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
-    } else {
-      spinner.succeed(`Project was already registered by the caller.`)
-    }
-  }
-}
-
-export const getSphinxRegistry = (signer: Signer): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, signer)
-}
-
-export const getSphinxRegistryReadOnly = (provider: Provider): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
-}
-
-export const getSphinxManager = (manager: string, signer: Signer): Contract => {
-  return new Contract(manager, SphinxManagerABI, signer)
-}
-
-export const getSphinxManagerReadOnly = (
-  manager: string,
-  provider: Provider
-): Contract => {
-  return new Contract(manager, SphinxManagerABI, provider)
-}
-
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
   title: string,
@@ -226,10 +140,6 @@ export const createSphinxLog = (
   }
 
   return parts.join('\n') + '\n'
-}
-
-export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
-  return new Contract(proxyAddress, ProxyABI, signer)
 }
 
 export const getCurrentSphinxActionType = (
@@ -499,12 +409,6 @@ export const validateBuildInfo = (
   }
 }
 
-// TODO(ryan): (This is the `getConfigArtifact` bug we discussed on the call. You already have this
-// in your notes, so feel free to disregard). Say we have contracts/MyContracts.sol:MyContract1.sol
-// and contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
-// out/artifacts/test/, but it seems we assume that the artifact directory structure is "flat" in
-// `getConfigArtifact`.
-
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
  *
@@ -717,8 +621,7 @@ export const getConfigArtifactsRemote = async (
   }
 
   const artifacts: ConfigArtifactsRemote = {}
-  const unskipped = compilerConfig.actionInputs.filter((a) => !a.skip)
-  for (const actionInput of unskipped) {
+  for (const actionInput of compilerConfig.actionInputs) {
     for (const address of Object.keys(actionInput.contracts)) {
       const { fullyQualifiedName } = actionInput.contracts[address]
 
@@ -949,19 +852,6 @@ export const relayIPFSCommit = async (
       `Unexpected response code, please report this to the developers`
     )
   }
-}
-
-export const isProjectCreated = async (
-  provider: Provider,
-  authAddress: string
-): Promise<boolean> => {
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    provider
-  )
-  const isCreated: boolean = await AuthFactory.isDeployed(authAddress)
-  return isCreated
 }
 
 export const findNetwork = (chainId: number): string => {
@@ -1341,22 +1231,9 @@ export const isRawFunctionCallActionInput = (
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.skip !== undefined &&
     callActionInput.to !== undefined &&
-    callActionInput.data !== undefined
+    callActionInput.txData !== undefined
   )
-}
-
-export const isDeployContractActionInput = (
-  actionInput: ActionInput
-): actionInput is DeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
-}
-
-export const isRawDeployContractActionInput = (
-  actionInput: RawActionInput
-): actionInput is RawDeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
 export const isRawCreate2ActionInput = (
@@ -1367,8 +1244,7 @@ export const isRawCreate2ActionInput = (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
-    rawCreate2.skip !== undefined &&
-    rawCreate2.data !== undefined &&
+    rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
   )
 }

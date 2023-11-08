@@ -30,12 +30,14 @@ export type NetworkDeploymentData = {
   txs: SphinxTransaction[]
 }
 
+export type DeploymentData = Record<number, NetworkDeploymentData>
+
 // TODO(md)
 export type SphinxTransaction = {
   to: string
-  value: bigint
+  value: string
   txData: string
-  gas: bigint
+  gas: string
   operation: Operation
 }
 
@@ -88,7 +90,13 @@ export const makeSphinxMerkleTree = (
       // generate transaction leaf data
       const transactionLeafData = AbiCoder.defaultAbiCoder().encode(
         ['address', 'uint', 'uint', 'bytes', 'uint'],
-        [tx.to, tx.value, tx.gas, tx.txData, BigInt(tx.operation)]
+        [
+          tx.to,
+          BigInt(tx.value),
+          BigInt(tx.gas),
+          tx.txData,
+          BigInt(tx.operation),
+        ]
       )
 
       merkleLeafs.push({
@@ -116,7 +124,7 @@ export const makeSphinxMerkleTree = (
 
 // TODO(md)
 export const makeSphinxBundle = (
-  deploymentData: Record<number, NetworkDeploymentData>
+  deploymentData: DeploymentData
 ): SphinxBundle => {
   const { tree, leafs } = makeSphinxMerkleTree(deploymentData)
 

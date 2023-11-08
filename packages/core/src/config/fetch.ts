@@ -3,7 +3,6 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { HumanReadableAction, SphinxBundles } from '../actions/types'
 import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
-import { makeBundlesFromConfig } from '../actions/bundle'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -49,36 +48,36 @@ export const sphinxFetchSubtask = async (args: {
   return config
 }
 
-/**
- * Compiles a remote SphinxBundle from a uri.
- *
- * @param configUri URI of the SphinxBundle to compile.
- * @param provider JSON RPC provider.
- * @returns Compiled SphinxBundle.
- */
-export const compileRemoteBundles = async (
-  configUri: string,
-  ipfsUrl?: string
-): Promise<{
-  bundles: SphinxBundles
-  compilerConfig: CompilerConfig
-  configArtifacts: ConfigArtifacts
-  humanReadableActions: Array<HumanReadableAction>
-}> => {
-  const compilerConfig = await callWithTimeout<CompilerConfig>(
-    sphinxFetchSubtask({ configUri, ipfsUrl }),
-    30000,
-    'Failed to fetch config file from IPFS'
-  )
+// /**
+//  * Compiles a remote SphinxBundle from a uri.
+//  *
+//  * @param configUri URI of the SphinxBundle to compile.
+//  * @param provider JSON RPC provider.
+//  * @returns Compiled SphinxBundle.
+//  */
+// export const compileRemoteBundles = async (
+//   configUri: string,
+//   ipfsUrl?: string
+// ): Promise<{
+//   bundles: SphinxBundles
+//   compilerConfig: CompilerConfig
+//   configArtifacts: ConfigArtifacts
+//   humanReadableActions: Array<HumanReadableAction>
+// }> => {
+//   const compilerConfig = await callWithTimeout<CompilerConfig>(
+//     sphinxFetchSubtask({ configUri, ipfsUrl }),
+//     30000,
+//     'Failed to fetch config file from IPFS'
+//   )
 
-  const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
+//   const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
 
-  const { bundles, humanReadableActions } =
-    makeBundlesFromConfig(compilerConfig)
-  return {
-    bundles,
-    compilerConfig,
-    configArtifacts,
-    humanReadableActions,
-  }
-}
+//   const { bundles, humanReadableActions } =
+//     makeBundlesFromConfig(compilerConfig)
+//   return {
+//     bundles,
+//     compilerConfig,
+//     configArtifacts,
+//     humanReadableActions,
+//   }
+// }
