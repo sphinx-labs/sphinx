@@ -15,7 +15,9 @@ import {
     SphinxActionType,
     SphinxTarget,
     Version,
-    AuthLeaf
+    AuthLeaf,
+    SphinxLeafWithProof,
+    SphinxLeaf
 } from "../SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
@@ -204,11 +206,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function inefficientSlice(
-        LeafWithProof[] memory selected,
+        SphinxLeafWithProof[] memory selected,
         uint start,
         uint end
-    ) public pure returns (LeafWithProof[] memory sliced) {
-        sliced = new LeafWithProof[](end - start);
+    ) public pure returns (SphinxLeafWithProof[] memory sliced) {
+        sliced = new SphinxLeafWithProof[](end - start);
         for (uint i = start; i < end; i++) {
             sliced[i - start] = selected[i];
         }
@@ -278,7 +280,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (rawActions, _proofs);
     }
 
-    function decodeExecutionLeafData(Leaf memory leaf) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
+    function decodeExecutionLeafData(SphinxLeaf memory leaf) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
         return abi.decode(leaf.data, (address, uint, uint, bytes, uint));
     }
 
@@ -287,7 +289,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
        limit.
      */
     function executable(
-        LeafWithProof[] memory selected,
+        SphinxLeafWithProof[] memory selected,
         uint maxGasLimit
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
@@ -304,7 +306,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
     function findMaxBatchSize(
-        LeafWithProof[] memory leafs,
+        SphinxLeafWithProof[] memory leafs,
         uint maxGasLimit
     ) public pure returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
@@ -318,7 +320,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint max = leafs.length;
         while (min < max) {
             uint mid = ceilDiv((min + max), 2);
-            LeafWithProof[] memory left = inefficientSlice(leafs, 0, mid);
+            SphinxLeafWithProof[] memory left = inefficientSlice(leafs, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {

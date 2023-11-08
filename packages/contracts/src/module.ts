@@ -22,7 +22,7 @@ export type SphinxLeaf = {
 }
 
 export type LeafWithProof = {
-  leaf: SphinxMerkleLeaf
+  leaf: SphinxLeaf
   proof: string[]
 }
 

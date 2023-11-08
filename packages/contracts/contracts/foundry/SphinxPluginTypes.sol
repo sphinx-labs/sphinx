@@ -9,7 +9,8 @@ import {
     AuthLeaf,
     AuthLeafType,
     SphinxLeafType,
-    SphinxLeaf
+    SphinxLeaf,
+    SphinxLeafWithProof
 } from "../SphinxDataTypes.sol";
 
 struct SphinxActionBundle {

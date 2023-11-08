@@ -26,8 +26,9 @@ import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 import { SphinxMerkleTree } from "../contracts/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 
-contract SphinxModule_Test is Test, Enum {
+contract SphinxModule_Test is Test, Enum, SphinxUtils {
 
     SphinxModule module;
     GnosisSafe safe;
@@ -94,7 +95,7 @@ contract SphinxModule_Test is Test, Enum {
 
     function test_TODO_success() external {
         SphinxMerkleTree memory tree = getMerkleTreeFFI();
-        // console.logBytes32(tree.root);
+        console.logBytes32(tree.root);
         // bytes memory signatures = getOwnerSignatures(owners, tree.root);
 
         // module.approve(tree.root, tree.leafs[0].leaf, tree.leafs[0].proof, signatures);
