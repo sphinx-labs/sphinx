@@ -13,6 +13,8 @@ import {
   parseFoundryArtifact,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeAddress,
+  getCompatibilityFallbackHandlerAddress,
+  getMultiSendAddress,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -26,6 +28,14 @@ import { ethers } from 'ethers'
  */
 const writeConstants = async () => {
   const constants = {
+    compatibilityFallbackHandlerAddress: {
+      type: 'address',
+      value: getCompatibilityFallbackHandlerAddress(),
+    },
+    multiSendAddress: {
+      type: 'address',
+      value: getMultiSendAddress(),
+    },
     sphinxModuleFactoryAddress: {
       type: 'address',
       value: getSphinxModuleFactoryAddress(),

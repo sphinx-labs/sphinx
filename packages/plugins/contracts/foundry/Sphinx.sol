@@ -7,12 +7,6 @@ import { console } from "sphinx-forge-std/console.sol";
 import {
     ISphinxAccessControl
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
-import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISphinxCreate3 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxCreate3.sol";
-import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
-import {
-    ISphinxAuthFactory
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
 import {
     Version,
     DeploymentStatus,
@@ -47,7 +41,6 @@ import {
 import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
-import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -481,29 +474,22 @@ abstract contract Sphinx {
         } else if (
             sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal
         ) {
-            uint256 currentOwnerThreshold = sphinxConfig.threshold;
-            ownerSignatureArray = new bytes[](currentOwnerThreshold);
+            ownerSignatureArray = new bytes[](1);
+            Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(1);
 
-            Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(
-                currentOwnerThreshold
+            // Create a list of owner meta transactions. This allows us to run the rest of
+            // this function without needing to know the owner private keys. If we don't do
+            // this, the rest of this function will fail because there are an insufficent
+            // number of owner signatures. It's worth mentioning that another strategy is to
+            // set the owner threshold to 0 via `vm.store`, but we do it this way because it
+            // allows us to run the meta transaction signature verification logic in the
+            // SphinxAuth contract instead of skipping it entirely, which would be the case
+            // if we set the owner threshold to 0.
+            _sphinxOverrideSafeOwners(sphinxSafe(), wallets[0].addr, _rpcUrl);
+            ownerSignatureArray[0] = sphinxUtils.signMetaTxnForAuthRoot(
+                wallets[0].privateKey,
+                _root
             );
-            for (uint256 i = 0; i < currentOwnerThreshold; i++) {
-                // Create a list of owner meta transactions. This allows us to run the rest of
-                // this function without needing to know the owner private keys. If we don't do
-                // this, the rest of this function will fail because there are an insufficent
-                // number of owner signatures. It's worth mentioning that another strategy is to
-                // set the owner threshold to 0 via `vm.store`, but we do it this way because it
-                // allows us to run the meta transaction signature verification logic in the
-                // SphinxAuth contract instead of skipping it entirely, which would be the case
-                // if we set the owner threshold to 0.
-
-                // TODO - Do the same thing in the safe contract?
-                // _sphinxGrantRoleInAuthContract(bytes32(0), wallets[i].addr, _rpcUrl);
-                ownerSignatureArray[i] = sphinxUtils.signMetaTxnForAuthRoot(
-                    wallets[i].privateKey,
-                    _root
-                );
-            }
         }
 
         bytes[] memory signatures = new bytes[](1);
@@ -595,52 +581,71 @@ abstract contract Sphinx {
         return create3Address;
     }
 
-    // /**
-    //  * @notice Grant a role to an account in the SphinxAuth contract. This is meant to be called
-    //  *         when running against local networks. It is not used as part of the live network
-    //  *         execution process. Its purpose on local networks is to make projects executable
-    //  *         even if the private keys of the owners are not known. It's worth mentioning that
-    //  *         we define this function in this contract instead of in `SphinxUtils` because it
-    //  *         involves an external call, which increases the number of transactions broadcasted
-    //  *         against local networks, making it difficult to test that no unnecessary transactions
-    //  *         are being broadcasted.
-    //  */
-    // function _sphinxGrantRoleInAuthContract(
-    //     bytes32 _role,
-    //     address _account,
-    //     string memory _rpcUrl
-    // ) private {
-    //     address auth = sphinxUtils.getSphinxAuthAddress(sphinxConfig);
-    //     if (!ISphinxAccessControl(address(auth)).hasRole(_role, _account)) {
-    //         bytes32 roleSlotKey = sphinxUtils.getMappingValueSlotKey(
-    //             constants.authAccessControlRoleSlotKey(),
-    //             _role
-    //         );
-    //         bytes32 memberSlotKey = sphinxUtils.getMappingValueSlotKey(
-    //             roleSlotKey,
-    //             bytes32(uint256(uint160(_account)))
-    //         );
-    //         vm.store(address(auth), memberSlotKey, bytes32(uint256(1)));
+    /**
+     * @notice Grant a role to an account in the SphinxAuth contract. This is meant to be called
+     *         when running against local networks. It is not used as part of the live network
+     *         execution process. Its purpose on local networks is to make projects executable
+     *         even if the private keys of the owners are not known. It's worth mentioning that
+     *         we define this function in this contract instead of in `SphinxUtils` because it
+     *         involves an external call, which increases the number of transactions broadcasted
+     *         against local networks, making it difficult to test that no unnecessary transactions
+     *         are being broadcasted.
+     */
+    function _sphinxOverrideSafeOwners(
+        address _safe,
+        address _owner,
+        string memory _rpcUrl
+    ) private {
+        // First update the threshold to one
+        bytes32 thresholdSlotKey = bytes32(uint(4));
+        vm.store(address(_safe), thresholdSlotKey, bytes32(uint(1)));
 
-    //         if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-    //             string[] memory inputs = new string[](8);
-    //             inputs[0] = "cast";
-    //             inputs[1] = "rpc";
-    //             inputs[2] = "--rpc-url";
-    //             inputs[3] = _rpcUrl;
-    //             // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
-    //             // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
-    //             inputs[4] = "hardhat_setStorageAt";
-    //             inputs[5] = vm.toString(address(auth));
-    //             inputs[6] = vm.toString(memberSlotKey);
-    //             inputs[7] = vm.toString(bytes32(uint256(1)));
-    //             Vm.FfiResult memory result = vm.tryFfi(inputs);
-    //             if (result.exitCode != 0) {
-    //                 revert(string(result.stderr));
-    //             }
-    //         }
-    //     }
-    // }
+        // Then set the owner to the new owner
+        bytes32 ownerMappingSlotKey = bytes32(uint(2));
+        address sentinalAddress = address(0x1);
+        bytes32 bytesSentinal = bytes32(uint256(uint160(sentinalAddress)));
+        bytes32 ownerSentinalSlotKey = sphinxUtils.getMappingValueSlotKey(
+            ownerMappingSlotKey,
+            bytesSentinal
+        );
+        bytes32 bytesOwner = bytes32(uint256(uint160(_owner)));
+        vm.store(address(_safe), ownerSentinalSlotKey, bytesOwner);
+
+        // If broadcasting on a local network, then also update the values on anvil using cast
+        if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
+            string[] memory setThresholdInputs = new string[](8);
+            setThresholdInputs[0] = "cast";
+            setThresholdInputs[1] = "rpc";
+            setThresholdInputs[2] = "--rpc-url";
+            setThresholdInputs[3] = _rpcUrl;
+            // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
+            // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
+            setThresholdInputs[4] = "hardhat_setStorageAt";
+            setThresholdInputs[5] = vm.toString(address(_safe));
+            setThresholdInputs[6] = vm.toString(thresholdSlotKey);
+            setThresholdInputs[7] = vm.toString(bytes32(uint256(1)));
+            Vm.FfiResult memory setThresholdResult = vm.tryFfi(setThresholdInputs);
+            if (setThresholdResult.exitCode != 0) {
+                revert(string(setThresholdResult.stderr));
+            }
+
+            string[] memory setOwnerInputs = new string[](8);
+            setOwnerInputs[0] = "cast";
+            setOwnerInputs[1] = "rpc";
+            setOwnerInputs[2] = "--rpc-url";
+            setOwnerInputs[3] = _rpcUrl;
+            // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
+            // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
+            setOwnerInputs[4] = "hardhat_setStorageAt";
+            setOwnerInputs[5] = vm.toString(address(_safe));
+            setOwnerInputs[6] = vm.toString(ownerSentinalSlotKey);
+            setOwnerInputs[7] = vm.toString(bytes32(uint256(1)));
+            Vm.FfiResult memory setOwnerResult = vm.tryFfi(setOwnerInputs);
+            if (setOwnerResult.exitCode != 0) {
+                revert(string(setOwnerResult.stderr));
+            }
+        }
+    }
 
     /**
      * @notice Get the address of the SphinxModule. Before calling this function, the following

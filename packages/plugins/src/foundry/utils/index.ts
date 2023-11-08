@@ -580,7 +580,7 @@ export const getSphinxConfigNetworksFromScript = async (
   }
 }
 
-export const getSphinxManagerAddressFromScript = async (
+export const getSphinxSafeAddressFromScript = async (
   scriptPath: string,
   forkUrl: string,
   targetContract?: string,
@@ -592,7 +592,7 @@ export const getSphinxManagerAddressFromScript = async (
     '--rpc-url',
     forkUrl,
     '--sig',
-    'sphinxManager()',
+    'sphinxSafe()',
     '--silent', // Silence compiler output
     '--json',
   ]
