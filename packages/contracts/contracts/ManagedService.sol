@@ -45,7 +45,10 @@ contract ManagedService is AccessControl {
        remotely executed deployments.
      */
     function withdrawRelayerFunds(uint256 _amount) external {
-        require(hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender), "ManagedService: invalid caller");
+        require(
+            hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender),
+            "ManagedService: invalid caller"
+        );
         require(_amount <= address(this).balance, "ManagedService: insufficient funds to withdraw");
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);

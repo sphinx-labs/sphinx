@@ -3,12 +3,8 @@ pragma solidity ^0.8.0;
 
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {
-    MerkleProof
-} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 // TODO(refactor): put these data fields somewhere
 
@@ -57,7 +53,6 @@ struct DeploymentState {
  * @notice TODO(docs)
  */
 contract SphinxModule is ReentrancyGuard, Enum {
-
     event SphinxDeploymentApproved(
         bytes32 indexed merkleRoot,
         bytes32 indexed previousActiveRoot,
@@ -67,19 +62,11 @@ contract SphinxModule is ReentrancyGuard, Enum {
         string uri
     );
 
-    event SphinxDeploymentCompleted(
-        bytes32 indexed merkleRoot
-    );
+    event SphinxDeploymentCompleted(bytes32 indexed merkleRoot);
 
-    event SphinxActionExecuted(
-        bytes32 indexed merkleRoot,
-        uint256 leafIndex
-    );
+    event SphinxActionExecuted(bytes32 indexed merkleRoot, uint256 leafIndex);
 
-    event SphinxDeploymentFailed(
-        bytes32 indexed merkleRoot,
-        uint256 leafIndex
-    );
+    event SphinxDeploymentFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
 
     string public constant VERSION = "1.0.0";
 
@@ -127,7 +114,11 @@ contract SphinxModule is ReentrancyGuard, Enum {
     ) public nonReentrant {
         require(_root != bytes32(0), "SP011");
 
-        bytes memory typedData = abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
         safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
 
         // TODO(docs): Verify the signatures. Since the Merkle root hasn't been approved before, we know that
