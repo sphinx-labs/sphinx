@@ -19,34 +19,20 @@ export const SphinxModuleArtifact = parseFoundryArtifact(
 export const SphinxModuleFactoryArtifact = parseFoundryArtifact(
   require('../out/SphinxModuleFactory.sol/SphinxModuleFactory.json')
 )
+
 // Gnosis Safe contracts:
-export const SimulateTxAccessorArtifact = parseFoundryArtifact(
-  require('../out/SimulateTxAccessor.sol/SimulateTxAccessor.json')
-)
-export const GnosisSafeProxyFactoryArtifact = parseFoundryArtifact(
-  require('../out/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json')
-)
-export const DefaultCallbackHandlerArtifact = parseFoundryArtifact(
-  require('../out/DefaultCallbackHandler.sol/DefaultCallbackHandler.json')
-)
-export const CompatibilityFallbackHandlerArtifact = parseFoundryArtifact(
-  require('../out/CompatibilityFallbackHandler.sol/CompatibilityFallbackHandler.json')
-)
-export const CreateCallArtifact = parseFoundryArtifact(
-  require('../out/CreateCall.sol/CreateCall.json')
-)
-export const MultiSendArtifact = parseFoundryArtifact(
-  require('../out/MultiSend.sol/MultiSend.json')
-)
-export const MultiSendCallOnlyArtifact = parseFoundryArtifact(
-  require('../out/MultiSendCallOnly.sol/MultiSendCallOnly.json')
-)
-export const GnosisSafeL2Artifact = parseFoundryArtifact(
-  require('../out/GnosisSafeL2.sol/GnosisSafeL2.json')
-)
-export const GnosisSafeArtifact = parseFoundryArtifact(
-  require('../out/GnosisSafe.sol/GnosisSafe.json')
-)
+// TODO - we need to generate these artifacts ourselves using a special build profile that results in exactly the same
+//        bytecode that is used to deploy the contracts in the gnosis script.
+//        Right now we just import the artifacts, but that only works for 1.3.0 which is the latest version on NPM
+export const SimulateTxAccessorArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/accessors/SimulateTxAccessor.sol/SimulateTxAccessor.json')
+export const GnosisSafeProxyFactoryArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json')
+export const DefaultCallbackHandlerArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/handler/DefaultCallbackHandler.sol/DefaultCallbackHandler.json')
+export const CompatibilityFallbackHandlerArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/handler/CompatibilityFallbackHandler.sol/CompatibilityFallbackHandler.json')
+export const CreateCallArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/CreateCall.sol/CreateCall.json')
+export const MultiSendArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/MultiSend.sol/MultiSend.json')
+export const MultiSendCallOnlyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/MultiSendCallOnly.sol/MultiSendCallOnly.json')
+export const GnosisSafeL2Artifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafeL2.sol/GnosisSafeL2.json')
+export const GnosisSafeArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafe.sol/GnosisSafe.json')
 
 export const EscrowABI = EscrowArtifact.abi
 export const BalanceFactoryABI = BalanceFactoryArtifact.abi

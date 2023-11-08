@@ -19,7 +19,7 @@ import {
     SphinxModule,
     Result
 } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
-import { LeafWithProof } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
+import { SphinxLeafWithProof } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxTarget,
@@ -27,20 +27,18 @@ import {
     SphinxBundle,
     HumanReadableAction,
     Network,
-    ProposalOutput,
     SphinxConfig,
     InitialChainState,
     DeploymentInfo,
-    BundledAuthLeaf,
     SphinxMode,
     NetworkInfo,
     OptionalAddress,
     Wallet,
     Label
-} from "./SphinxPluginTypes.sol";
+} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxCollector } from "./SphinxCollector.sol";
-import { SphinxUtils } from "./SphinxUtils.sol";
-import { SphinxConstants } from "./SphinxConstants.sol";
+import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -291,7 +289,7 @@ abstract contract Sphinx {
      */
     function sphinxExecuteBatchActions(
         SphinxModule _module,
-        LeafWithProof[] memory _leafs,
+        SphinxLeafWithProof[] memory _leafs,
         uint _bufferedGasLimit
     ) private returns (bool, uint) {
         // Pull the deployment state from the contract to make sure we're up to date
@@ -310,7 +308,7 @@ abstract contract Sphinx {
                 sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length),
                 _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100
             );
-            LeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
+            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
                 _leafs,
                 executed,
                 executed + batchSize
@@ -336,10 +334,10 @@ abstract contract Sphinx {
         // Define an empty action, which we'll return if the deployment succeeds.
         HumanReadableAction memory emptyAction;
 
-        LeafWithProof[] memory leafs = _bundle.leafs;
+        SphinxLeafWithProof[] memory leafs = _bundle.leafs;
 
         // The auth leaf is always first
-        LeafWithProof memory authLeaf = _bundle.leafs[0];
+        SphinxLeafWithProof memory authLeaf = _bundle.leafs[0];
 
         // Execute auth leaf
         bytes memory packedSignatures = sphinxUtils.packBytes(_signatures);

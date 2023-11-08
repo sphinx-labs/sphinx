@@ -2,12 +2,8 @@ import * as fs from 'fs'
 import path, { join } from 'path'
 import { promisify } from 'util'
 
+import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
-  BuildInfo,
-  ContractArtifact,
-} from '@sphinx-labs/core/dist/languages/solidity/types'
-import {
-  parseFoundryArtifact,
   execAsync,
   getNetworkNameForChainId,
   spawnAsync,
@@ -30,14 +26,18 @@ import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
-  DeploymentData,
-  SphinxTransaction,
   SupportedNetworkName,
   getProjectBundleInfo,
-  makeSphinxBundle,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
+import {
+  ContractArtifact,
+  DeploymentData,
+  SphinxTransaction,
+  makeSphinxBundle,
+  parseFoundryArtifact,
+} from '@sphinx-labs/contracts'
 
 import { BundleInfo } from '../types'
 

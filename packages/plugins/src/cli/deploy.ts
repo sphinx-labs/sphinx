@@ -5,7 +5,6 @@ import { spawnSync } from 'child_process'
 import {
   displayDeploymentTable,
   isLiveNetwork,
-  remove0x,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -21,6 +20,7 @@ import {
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
+import { remove0x } from '@sphinx-labs/contracts'
 
 import {
   getBundleInfo,
@@ -55,7 +55,6 @@ export const deploy = async (
     buildInfoFolder,
     cachePath,
     rpcEndpoints,
-    deploymentFolder,
     etherscan,
     broadcastFolder,
   } = await getFoundryConfigOptions()
