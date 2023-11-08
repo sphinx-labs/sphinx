@@ -50,14 +50,9 @@ struct HumanReadableAction {
     SphinxActionType actionType;
 }
 
-struct BundledSphinxLeaf {
-    uint256 gas;
-    LeafWithProof leaf;
-}
-
 struct SphinxBundle {
     bytes32 root;
-    BundledSphinxLeaf[] bundledLeafs;
+    LeafWithProof[] leafs;
 }
 
 struct FoundryConfig {

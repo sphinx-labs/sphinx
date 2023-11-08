@@ -42,8 +42,7 @@ import {
     NetworkInfo,
     OptionalAddress,
     Wallet,
-    Label,
-    BundledSphinxLeaf
+    Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
@@ -299,7 +298,7 @@ abstract contract Sphinx {
      */
     function sphinxExecuteBatchActions(
         SphinxModule _module,
-        BundledSphinxLeaf[] memory _leafs,
+        LeafWithProof[] memory _leafs,
         uint _bufferedGasLimit
     ) private returns (bool, uint) {
         // Pull the deployment state from the contract to make sure we're up to date
@@ -318,19 +317,13 @@ abstract contract Sphinx {
                 sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length),
                 _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100
             );
-            BundledSphinxLeaf[] memory batch = sphinxUtils.inefficientSlice(
+            LeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
                 _leafs,
                 executed,
                 executed + batchSize
             );
 
-            // Map to leafs
-            LeafWithProof[] memory leafs = new LeafWithProof[](batch.length);
-            for (uint i = 0; i < batch.length; i++) {
-                leafs[i] = batch[i].leaf;
-            }
-
-            Result[] memory results = SphinxModule(_module).execute(leafs);
+            Result[] memory results = SphinxModule(_module).execute(batch);
             // TODO - do something with the results
 
             // Move to next batch if necessary
@@ -350,10 +343,10 @@ abstract contract Sphinx {
         // Define an empty action, which we'll return if the deployment succeeds.
         HumanReadableAction memory emptyAction;
 
-        BundledSphinxLeaf[] memory leafs = _bundle.bundledLeafs;
+        LeafWithProof[] memory leafs = _bundle.leafs;
 
         // The auth leaf is always first
-        LeafWithProof memory authLeaf = _bundle.bundledLeafs[0].leaf;
+        LeafWithProof memory authLeaf = _bundle.leafs[0];
 
         // Execute auth leaf
         bytes memory packedSignatures = sphinxUtils.packBytes(_signatures);
@@ -446,7 +439,7 @@ abstract contract Sphinx {
     ) private {
         (, address msgSender, ) = vm.readCallers();
 
-        if (_bundle.bundledLeafs.length == 0) {
+        if (_bundle.leafs.length == 0) {
             console.log(
                 string(
                     abi.encodePacked(

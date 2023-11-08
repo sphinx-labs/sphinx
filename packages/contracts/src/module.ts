@@ -21,6 +21,11 @@ export type SphinxMerkleLeaf = {
   leafType: LeafType
 }
 
+export type LeafWithProof = {
+  leaf: SphinxMerkleLeaf
+  proof: string[]
+}
+
 // TODO(md)
 export type NetworkDeploymentData = {
   nonce: bigint
@@ -44,14 +49,7 @@ export type SphinxTransaction = {
 // TODO(md)
 export interface SphinxBundle {
   root: string
-  leafs: BundledSphinxLeaf[]
-}
-
-// TODO(md)
-export interface BundledSphinxLeaf {
-  leaf: SphinxMerkleLeaf
-  leafType: LeafType
-  proof: string[]
+  leafs: LeafWithProof[]
 }
 
 // TODO(md)
@@ -131,11 +129,11 @@ export const makeSphinxBundle = (
   return {
     root: tree.root,
     leafs: leafs.map((leaf) => {
-      return {
+      const leafWithProof = {
         leaf,
         proof: tree.getProof(Object.values(leaf)),
-        leafType: leaf.leafType,
       }
+      return leafWithProof
     }),
   }
 }
