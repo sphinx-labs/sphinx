@@ -13,6 +13,16 @@ export const BalanceABI = BalanceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleFactoryABI = SphinxModuleFactoryArtifact.abi
 
+export const SimulateTxAccessorArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/accessors/SimulateTxAccessor.sol/SimulateTxAccessor.json')
+export const GnosisSafeProxyFactoryArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json')
+export const DefaultCallbackHandlerArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/handler/DefaultCallbackHandler.sol/DefaultCallbackHandler.json')
+export const CompatibilityFallbackHandlerArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/handler/CompatibilityFallbackHandler.sol/CompatibilityFallbackHandler.json')
+export const CreateCallArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/CreateCall.sol/CreateCall.json')
+export const MultiSendArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/MultiSend.sol/MultiSend.json')
+export const MultiSendCallOnlyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/MultiSendCallOnly.sol/MultiSendCallOnly.json')
+export const GnosisSafeL2Artifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafeL2.sol/GnosisSafeL2.json')
+export const GnosisSafeArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafe.sol/GnosisSafe.json')
+
 // TODO - do we need any of this?
 // const directoryPath = path.join(__dirname, '../artifacts/build-info')
 // const fileNames = fs.readdirSync(directoryPath)

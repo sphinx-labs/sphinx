@@ -8,6 +8,7 @@ import {
   getManagedServiceConstructorArgs,
   getSphinxModuleFactoryAddress,
   parseFoundryArtifact,
+  getGnosisSafeProxyFactoryAddress,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -24,6 +25,18 @@ const writeConstants = async () => {
     sphinxModuleFactoryAddress: {
       type: 'address',
       value: getSphinxModuleFactoryAddress(),
+    },
+    managedServiceAddressOptimism: {
+      type: 'address',
+      value: getManagedServiceAddress(10n),
+    },
+    managedServiceAddressOptimismGoerli: {
+      type: 'address',
+      value: getManagedServiceAddress(420n),
+    },
+    managedServiceAddressStandard: {
+      type: 'address',
+      value: getManagedServiceAddress(1n),
     },
   }
 

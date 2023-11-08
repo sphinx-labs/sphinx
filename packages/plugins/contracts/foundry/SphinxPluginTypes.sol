@@ -169,27 +169,15 @@ struct DeploymentInfo {
  * @notice Contains the values of a few state variables which are retrieved on-chain *before* the
  *         deployment occurs. These determine various aspects of the deployment.
  *
- * @custom:field proposers The existing list of proposers in the SphinxAuth contract. This is
- *               empty if the SphinxAuth contract does not exist yet. Determines which proposers
- *               must be added in this deployment.
- * @custom:field version The existing version of the user's SphinxManager and SphinxAuth contract.
- *               Determines whether we need to upgrae these contracts to the latest vesion during
- *               the deployment.
- * @custom:field isManagerDeployed True if the user's SphinxManager has been deployed. If false,
- *               we'll need to register this contract before the deployment occurs.
- * @custom:field firstProposalOccurred True if a proposal has previously been executed on the user's
- *               SphinxAuth contract. If false, then we won't call `SphinxAuth.setup` at the
- *               beginning of the deployment.
+ * @custom:field isSafeDeployed True if the user's Safe has been deployed. If false, we'll
+ *               need to deploy the Safe before the deployment occurs.
  * @custom:field isExecuting True if there's currently an active deployment in the user's
  *               SphinxManager. If so, we cancel the existing deployment, since an existing active
  *               deployment implies that an error occurred in one of the user's contracts during
  *               that deployment.
  */
 struct InitialChainState {
-    address[] proposers;
-    Version version;
-    bool isManagerDeployed;
-    bool firstProposalOccurred;
+    bool isSafeDeployed;
     bool isExecuting;
 }
 
@@ -221,10 +209,8 @@ struct SphinxConfig {
     address[] owners;
     uint256 threshold;
     string orgId;
-    address[] proposers;
     Network[] mainnets;
     Network[] testnets;
-    Version version;
 }
 
 struct Label {

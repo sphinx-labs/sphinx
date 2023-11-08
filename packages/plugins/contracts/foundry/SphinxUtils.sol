@@ -7,13 +7,13 @@ import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import {
     ISphinxAccessControl
 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
-import {
-    ISphinxAccessControlEnumerable
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
-import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
-import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+// import {
+//     ISphinxAccessControlEnumerable
+// } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
+// import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
+// import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
+// import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
+// import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -84,9 +84,31 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         initializeSphinxContracts(_executor);
     }
 
+    /**
+     * @notice Returns the SphinxManager implementation address for the current network.
+     *         This is required because the implementation address is different on OP mainnet and OP Goerli.
+     */
+    function selectManagerImplAddressForNetwork() internal view returns (address) {
+        if (block.chainid == 10) {
+            return managerImplementationAddressOptimism;
+        } else if (block.chainid == 420) {
+            return managerImplementationAddressOptimismGoerli;
+        } else {
+            return managerImplementationAddressStandard;
+        }
+    }
+
+    function selectManagedServiceAddressForNetwork () internal view returns (address) {
+        if (block.chainid == 10) {
+            return managedServiceAddressOptimism;
+        } else if (block.chainid == 420) {
+            return managedServiceAddressOptimismGoerli;
+        } else {
+            return managedServiceAddressStandard;
+        }
+    }
+
     function initializeSphinxContracts(OptionalAddress memory _executor) public {
-        ISphinxRegistry registry = ISphinxRegistry(registryAddress);
-        ISphinxAuthFactory factory = ISphinxAuthFactory(authFactoryAddress);
         vm.etch(
             DETERMINISTIC_DEPLOYMENT_PROXY,
             hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
@@ -107,63 +129,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
         }
 
-        // Impersonate system owner
-        vm.startPrank(systemOwner);
-
-        address managerImplAddress = selectManagerImplAddressForNetwork();
-
         if (_executor.exists) {
+            // Impersonate system owner
+            vm.startPrank(systemOwner);
+
+            address managedServiceAddress = selectManagedServiceAddressForNetwork();
             address managedServiceAddr = ISphinxManager(managerImplAddress).managedService();
             ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
             if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
                 managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
             }
-        }
 
-        // Add initial manager version
-        if (!registry.managerImplementations(managerImplAddress)) {
-            registry.addVersion(managerImplAddress);
+            vm.stopPrank();
         }
-
-        // Set the default manager version if not already set
-        if (registry.currentManagerImplementation() == address(0)) {
-            registry.setCurrentManagerImplementation(managerImplAddress);
-        }
-
-        // Add the current auth version if not already added
-        if (!factory.authImplementations(authImplAddress)) {
-            factory.addVersion(authImplAddress);
-        }
-
-        // Set the default auth version if not already set
-        if (factory.currentAuthImplementation() == address(0)) {
-            factory.setCurrentAuthImplementation(authImplAddress);
-        }
-
-        // Add transparent proxy type
-        if (registry.adapters(keccak256("oz-transparent")) == address(0)) {
-            registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
-        }
-
-        // Add uups ownable proxy type
-        if (registry.adapters(keccak256("oz-ownable-uups")) == address(0)) {
-            registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
-        }
-
-        // Add uups access control proxy type
-        if (registry.adapters(keccak256("oz-access-control-uups")) == address(0)) {
-            registry.addContractKind(
-                keccak256("oz-access-control-uups"),
-                ozUUPSAccessControlAdapterAddr
-            );
-        }
-
-        // Add default proxy type
-        if (registry.adapters(bytes32(0)) == address(0)) {
-            registry.addContractKind(bytes32(0), defaultAdapterAddr);
-        }
-
-        vm.stopPrank();
     }
 
     function slice(
