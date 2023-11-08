@@ -7,6 +7,8 @@ struct SphinxContractInfo {
 }
 
 contract SphinxConstants {
+  address public constant compatibilityFallbackHandlerAddress = 0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4;
+  address public constant multiSendAddress = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
   address public constant sphinxModuleFactoryAddress = 0xA4431f4DaB46cBb595a8946712092A069B1FFC7f;
   address public constant managedServiceAddressOptimism = 0xA657012E99170C6022d7edCBD69e44f132ebF707;
   address public constant managedServiceAddressOptimismGoerli = 0x3F97dB3B24c6aDc0B6Fea5F4365f3FC39a5e986A;

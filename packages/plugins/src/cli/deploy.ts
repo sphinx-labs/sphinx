@@ -24,7 +24,7 @@ import { ethers } from 'ethers'
 
 import {
   getBundleInfo,
-  getSphinxManagerAddressFromScript,
+  getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
@@ -159,7 +159,7 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const managerAddress = await getSphinxManagerAddressFromScript(
+  const managerAddress = await getSphinxSafeAddressFromScript(
     scriptPath,
     forkUrl,
     targetContract,

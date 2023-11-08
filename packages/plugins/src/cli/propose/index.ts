@@ -37,7 +37,7 @@ import {
 import { getFoundryConfigOptions } from '../../foundry/options'
 import {
   getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
-  getSphinxManagerAddressFromScript,
+  getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
@@ -110,7 +110,7 @@ export const buildParsedConfigArray = async (
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
 
-    const managerAddress = await getSphinxManagerAddressFromScript(
+    const managerAddress = await getSphinxSafeAddressFromScript(
       scriptPath,
       rpcUrl,
       targetContract,
