@@ -1,41 +1,49 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.4 <0.9.0;
+pragma solidity >=0.7.0 <0.9.0;
 
 /**
- * @notice Struct representing the state of a deployment.
- *
- * @custom:field status The status of the deployment.
- * @custom:field actions An array of actions in the deployment. This is a legacy field that should
-   not be used.
- * @custom:field numInitialActions The number of initial actions in the deployment, which are either
- *               `CALL` or `DEPLOY_CONTRACT` actions.
- * @custom:field numSetStorageActions The number of `SET_STORAGE` actions in the deployment.
- * @custom:field targets The number of targets in the deployment.
- * @custom:field actionRoot The root of the Merkle tree of actions.
- * @custom:field targetRoot The root of the Merkle tree of targets.
- * @custom:field numImmutableContracts The number of immutable contracts in the deployment. This is
-   a legacy field that should not be used.
- * @custom:field actionsExecuted The number of actions that have been executed so far in the
-   deployment.
- * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
- * @custom:field selectedExecutor The address of the selected remote executor.
- * @custom:field remoteExecution Whether or not the deployment is being executed remotely.
- * @custom:field configUri URI pointing to the config file for the deployment.
+ * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
+ *               can be executed.
+ * @custom:value EXECUTE Execute a transaction within a deployment.
  */
+enum SphinxMerkleLeafType {
+    APPROVE,
+    EXECUTE
+}
+
+/**
+ * @custom:field chainId  The current chain ID.
+ * @custom:field index    The index of the leaf within the Merkle tree on this chain.
+ * @custom:field leafType The type of the leaf.
+ * @custom:field data     Arbitrary data to be decoded based on the leaf type.
+ */
+struct SphinxMerkleLeaf {
+    uint256 chainId;
+    uint256 index;
+    SphinxMerkleLeafType leafType;
+    bytes data;
+}
+
+struct SphinxMerkleTree {
+  bytes32 root;
+  SphinxMerkleLeafWithProof[] leafs;
+}
+
+struct SphinxMerkleLeafWithProof {
+    SphinxMerkleLeaf leaf;
+    bytes32[] proof;
+}
+
+struct Result {
+    bool success;
+    bytes returnData;
+}
+
 struct DeploymentState {
-    DeploymentStatus status;
-    bool[] actions;
-    uint256 targets;
-    bytes32 actionRoot;
-    bytes32 targetRoot;
-    uint256 numImmutableContracts;
-    uint256 actionsExecuted;
-    uint256 timeClaimed;
-    address selectedExecutor;
-    bool remoteExecution;
-    string configUri;
-    uint256 numInitialActions;
-    uint256 numSetStorageActions;
+    uint256 numLeafs;
+    uint256 leafsExecuted;
+    string uri;
+    address executor;
 }
 
 /**

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "sphinx-forge-std/Vm.sol";
-import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { Vm } from "forge-std/Vm.sol";
+import { StdUtils } from "forge-std/StdUtils.sol";
 
 import {
     ISphinxAccessControl
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
+} from "../interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
-import { SphinxModule } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
-import { SphinxModuleFactory } from "@sphinx-labs/contracts/contracts/SphinxModuleFactory.sol";
+import { SphinxModule } from "../SphinxModule.sol";
+import { SphinxModuleFactory } from "../SphinxModuleFactory.sol";
 import { BundledSphinxLeaf } from "./SphinxPluginTypes.sol";
 import {
     RawSphinxAction,
@@ -17,10 +17,7 @@ import {
     SphinxTarget,
     Version,
     AuthLeaf
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import {
-    ISphinxAuthFactory
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
+} from "../SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxActionBundle,
@@ -39,7 +36,7 @@ import {
     Wallet,
     Label
 } from "./SphinxPluginTypes.sol";
-import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+// import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));

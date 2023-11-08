@@ -1514,7 +1514,7 @@
     debug "^4.1.1"
     proper-lockfile "^4.1.1"
 
-"@openzeppelin/merkle-tree@^1.0.5":
+"@openzeppelin/merkle-tree@1.0.5":
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/@openzeppelin/merkle-tree/-/merkle-tree-1.0.5.tgz#4836d377777a7e39f31674f06ec3d6909def7913"
   integrity sha512-JkwG2ysdHeIphrScNxYagPy6jZeNONgDRyqU6lbFgE8HKCZFSkcP8r6AjZs+3HZk4uRNV0kNBBzuWhKQ3YV7Kw==

@@ -5,48 +5,13 @@ import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-
-// TODO(refactor): put these data fields somewhere
-
-/**
- * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
- *               can be executed.
- * @custom:value EXECUTE Execute a transaction within a deployment.
- */
-enum LeafType {
-    APPROVE,
-    EXECUTE
-}
-
-/**
- * @custom:field chainId  The current chain ID.
- * @custom:field index    The index of the leaf within the Merkle tree on this chain.
- * @custom:field leafType The type of the leaf.
- * @custom:field data     Arbitrary data to be decoded based on the leaf type.
- */
-struct Leaf {
-    uint256 chainId;
-    uint256 index;
-    LeafType leafType;
-    bytes data;
-}
-
-struct LeafWithProof {
-    Leaf leaf;
-    bytes32[] proof;
-}
-
-struct Result {
-    bool success;
-    bytes returnData;
-}
-
-struct DeploymentState {
-    uint256 numLeafs;
-    uint256 leafsExecuted;
-    string uri;
-    address executor;
-}
+import {
+    SphinxMerkleLeafType,
+    SphinxMerkleLeaf,
+    SphinxMerkleLeafWithProof,
+    Result,
+    DeploymentState
+} from "./SphinxDataTypes.sol";
 
 /**
  * @title SphinxModule
@@ -108,7 +73,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // to another contract (in the EIP-1271 verification logic).
     function approve(
         bytes32 _root,
-        Leaf memory _leaf,
+        SphinxMerkleLeaf memory _leaf,
         bytes32[] memory _proof,
         bytes memory _signatures
     ) public nonReentrant {
@@ -123,7 +88,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
         // TODO(docs): Verify the signatures. Since the Merkle root hasn't been approved before, we know that
         // there haven't been any leafs executed yet.
-        _verifySignatures(_root, _leaf, _proof, 0, LeafType.APPROVE);
+        _verifySignatures(_root, _leaf, _proof, 0, SphinxMerkleLeafType.APPROVE);
 
         // TODO(docs): we include the address of the safe in this leaf to protect against a
         // vulnerability where you could attack a Safe with the same owners using a
@@ -173,7 +138,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // TODO(docs): we return `results` so that we can display a useful error message to the user in
     // case an action fails.
     function execute(
-        LeafWithProof[] memory _leafsWithProofs
+        SphinxMerkleLeafWithProof[] memory _leafsWithProofs
     ) public nonReentrant returns (Result[] memory results) {
         uint256 numActions = _leafsWithProofs.length;
         require(numActions > 0, "SP005");
@@ -184,13 +149,13 @@ contract SphinxModule is ReentrancyGuard, Enum {
         require(state.executor == msg.sender, "SP002");
 
         results = new Result[](numActions);
-        Leaf memory leaf;
+        SphinxMerkleLeaf memory leaf;
         bytes32[] memory proof;
         for (uint256 i = 0; i < numActions; i++) {
             leaf = _leafsWithProofs[i].leaf;
             proof = _leafsWithProofs[i].proof;
 
-            _verifySignatures(activeRoot, leaf, proof, state.leafsExecuted, LeafType.EXECUTE);
+            _verifySignatures(activeRoot, leaf, proof, state.leafsExecuted, SphinxMerkleLeafType.EXECUTE);
 
             (
                 address to,
@@ -236,10 +201,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
      */
     function _verifySignatures(
         bytes32 _root,
-        Leaf memory _leaf,
+        SphinxMerkleLeaf memory _leaf,
         bytes32[] memory _proof,
         uint256 _leafsExecuted,
-        LeafType _expectedLeafType
+        SphinxMerkleLeafType _expectedLeafType
     ) internal view {
         // Validate the fields of the Leaf.
         require(_leaf.chainId == block.chainid, "SP007");
@@ -253,7 +218,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // too.
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
-    function _getLeafHash(Leaf memory _leaf) internal pure returns (bytes32) {
+    function _getLeafHash(SphinxMerkleLeaf memory _leaf) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf))));
     }
 }

@@ -7,9 +7,10 @@ import {
     SphinxActionType,
     Version,
     AuthLeaf,
-    AuthLeafType
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import { LeafType, Leaf } from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
+    AuthLeafType,
+    LeafType,
+    Leaf
+} from "../SphinxDataTypes.sol";
 
 struct SphinxAuthBundle {
     bytes32 root;

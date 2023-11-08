@@ -1,8 +1,8 @@
 [profile.default]
 src = 'contracts'
-out = 'forge-artifacts'
 fs_permissions = [{ access = "read", path = "./"}]
 verbosity = 2
+ffi = true
 solc = '0.8.0'
 optimizer = false
 remappings = [
