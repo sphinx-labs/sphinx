@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
+import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+
 /**
  * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
  *               can be executed.
@@ -22,6 +24,14 @@ struct SphinxLeaf {
     uint256 index;
     SphinxLeafType leafType;
     bytes data;
+}
+
+struct SphinxTransaction {
+    address to;
+    uint256 value;
+    bytes txData;
+    Enum.Operation operation;
+    uint256 gas;
 }
 
 struct SphinxMerkleTree {

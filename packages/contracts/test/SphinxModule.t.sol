@@ -24,9 +24,18 @@ import { SignMessageLib } from "@gnosis.pm/safe-contracts/libraries/SignMessageL
 import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { SphinxMerkleTree } from "../contracts/SphinxDataTypes.sol";
+import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.sol";
+
+contract MyContract {
+
+    uint public value;
+
+    function myFunction(uint _value) external {
+        value = _value;
+    }
+}
 
 contract SphinxModule_Test is Test, Enum, TestUtils {
 
@@ -38,6 +47,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
     uint256 threshold = 3;
     address executor = address(0x1000);
     string sampleDeploymentUri = "ipfs://Qm1234";
+    MyContract myContract = new MyContract();
 
     function setUp() public {
         // Deploy all Gnosis Safe contracts
@@ -98,30 +108,42 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
     }
 
     function test_TODO_success() external {
-        SphinxMerkleTree memory tree = getMerkleTreeFFI();
+        SphinxTransaction[] memory txs = new SphinxTransaction[](1);
+        txs[0] =
+            SphinxTransaction({
+                to: address(myContract),
+                value: 0,
+                txData: abi.encodePacked(myContract.myFunction.selector, abi.encode(123)),
+                operation: Operation.Call,
+                gas: 1_000_000
+            });
+
+        SphinxMerkleTree memory tree = getMerkleTreeFFI(txs);
         bytes memory signatures = getOwnerSignatures(ownerWallets, tree.root);
 
         vm.startPrank(executor);
         module.approve(tree.root, tree.leafs[0].leaf, tree.leafs[0].proof, signatures);
+        SphinxLeafWithProof[] memory executionLeafs = new SphinxLeafWithProof[](1);
+        executionLeafs[0] = tree.leafs[1];
+        module.execute(executionLeafs);
         vm.stopPrank();
+        assertEq(myContract.value(), 123);
     }
 
     // TODO: mv
-    function getMerkleTreeFFI() public returns (SphinxMerkleTree memory) {
-        console.log(address(module));
-        console.log(address(module).code.length);
+    function getMerkleTreeFFI(SphinxTransaction[] memory _txs) public returns (SphinxMerkleTree memory) {
         string[] memory inputs = new string[](11);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
-        inputs[2] = "scripts/display-merkle-tree.ts";
+        inputs[2] = "scripts/output-merkle-tree.ts";
         inputs[3] = vm.toString(block.chainid);
         inputs[4] = vm.toString(module.currentNonce());
         inputs[5] = vm.toString(executor);
         inputs[6] = vm.toString(address(safe));
         inputs[7] = vm.toString(address(module));
         inputs[8] = sampleDeploymentUri;
-        inputs[9] = "TODO";
-        inputs[10] = "--swc"; // Speeds up the script considerably
+        inputs[9] = vm.toString(abi.encode(_txs));
+        inputs[10] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -129,5 +151,6 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
-    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory tree) {}
+    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
+    function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) {}
 }

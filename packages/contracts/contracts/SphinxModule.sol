@@ -222,6 +222,6 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
     function _getLeafHash(SphinxLeaf memory _leaf) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf.chainId, _leaf.index, _leaf.leafType, _leaf.data))));
+        return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf))));
     }
 }

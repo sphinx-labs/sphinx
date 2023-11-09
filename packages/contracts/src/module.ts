@@ -57,14 +57,16 @@ export interface SphinxBundle {
 export const makeSphinxMerkleTree = (
   deploymentData: Record<number, NetworkDeploymentData>
 ): {
-  tree: StandardMerkleTree<(string | bigint | LeafType)[]>
+  tree: StandardMerkleTree<(string | bigint | LeafType)[][]>
   leafs: Array<SphinxLeaf>
 } => {
   const merkleLeafs: Array<SphinxLeaf> = []
 
+  const coder = AbiCoder.defaultAbiCoder()
+
   for (const [chainId, data] of Object.entries(deploymentData)) {
     // generate approval leaf data
-    const approvalData = AbiCoder.defaultAbiCoder().encode(
+    const approvalData = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string'],
       [
         data.safe,
@@ -110,13 +112,10 @@ export const makeSphinxMerkleTree = (
     }
   }
 
-  const rawLeafArray = merkleLeafs.map((leaf) => Object.values(leaf))
+  const rawLeafArray = merkleLeafs.map((leaf) => [Object.values(leaf)])
   return {
     tree: StandardMerkleTree.of(rawLeafArray, [
-      'uint256',
-      'uint256',
-      'uint8',
-      'bytes',
+      'tuple(uint256, uint256, uint8, bytes)',
     ]),
     leafs: merkleLeafs,
   }
@@ -133,7 +132,7 @@ export const makeSphinxBundle = (
     leafs: leafs.map((leaf) => {
       const leafWithProof = {
         leaf,
-        proof: tree.getProof(Object.values(leaf)),
+        proof: tree.getProof([Object.values(leaf)]),
       }
       return leafWithProof
     }),
