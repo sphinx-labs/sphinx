@@ -1040,47 +1040,47 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return address(1);
     }
 
-    // function fetchSafeInitializerData(
-    //     address[] memory _owners,
-    //     uint _threshold
-    // ) internal returns (
-    //     bytes memory safeInitializerData
-    // ) {
-    //     SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
-    //     bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
-    //     bytes memory deployModuleMultiSendData = abi.encodePacked(uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata);
-    //     bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
-    //     bytes memory enableModuleMultiSendData = abi.encodePacked(uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata);
+    function fetchSafeInitializerData(
+        address[] memory _owners,
+        uint _threshold
+    ) internal pure returns (
+        bytes memory safeInitializerData
+    ) {
+        SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
+        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory deployModuleMultiSendData = abi.encodePacked(uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata);
+        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
+        bytes memory enableModuleMultiSendData = abi.encodePacked(uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata);
 
-    //     bytes memory multiSendData = abi.encodeWithSelector(MultiSend.multiSend.selector, abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData));
-    //     safeInitializerData = abi.encodePacked(
-    //         GnosisSafe.setup.selector,
-    //         abi.encode(
-    //             _owners,
-    //             _threshold,
-    //             multiSendAddress,
-    //             multiSendData,
-    //             compatibilityFallbackHandlerAddress,
-    //             address(0),
-    //             0,
-    //             address(0)
-    //         )
-    //     );
-    // }
+        bytes memory multiSendData = abi.encodeWithSelector(MultiSend.multiSend.selector, abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData));
+        safeInitializerData = abi.encodePacked(
+            GnosisSafe.setup.selector,
+            abi.encode(
+                _owners,
+                _threshold,
+                multiSendAddress,
+                multiSendData,
+                compatibilityFallbackHandlerAddress,
+                address(0),
+                0,
+                address(0)
+            )
+        );
+    }
 
-    // function sphinxModuleFactoryDeploy(
-    //     address[] memory _owners,
-    //     uint _threshold
-    // ) external {
-    //     bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
+    function sphinxModuleFactoryDeploy(
+        address[] memory _owners,
+        uint _threshold
+    ) external {
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
-    //     GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
-    //     safeProxyFactory.createProxyWithNonce(
-    //         safeSingletonAddress,
-    //         safeInitializerData,
-    //         0
-    //     );
-    // }
+        GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
+        safeProxyFactory.createProxyWithNonce(
+            safeSingletonAddress,
+            safeInitializerData,
+            0
+        );
+    }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
         bytes memory output;
@@ -1111,33 +1111,33 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
      *        before the storage values are set in the SphinxAuth contract in step 1.
      */
-    // function sphinxModuleFactoryDeployFFI(
-    //     address[] memory _owners,
-    //     uint _threshold,
-    //     string memory _rpcUrl
-    // ) external {
-    //     bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
+    function sphinxModuleFactoryDeployFFI(
+        address[] memory _owners,
+        uint _threshold,
+        string memory _rpcUrl
+    ) external {
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
-    //     string[] memory inputs;
-    //     inputs = new string[](8);
-    //     inputs[0] = "cast";
-    //     inputs[1] = "send";
-    //     inputs[2] = vm.toString(safeFactoryAddress);
-    //     inputs[3] = vm.toString(
-    //         abi.encodePacked(
-    //             GnosisSafeProxyFactory.createProxyWithNonce.selector,
-    //             abi.encode(safeSingletonAddress, safeInitializerData, 0)
-    //         )
-    //     );
-    //     inputs[4] = "--rpc-url";
-    //     inputs[5] = _rpcUrl;
-    //     inputs[6] = "--private-key";
-    //     // We use the second auto-generated address to execute the transaction because we use the
-    //     // first address to deploy the user's contracts when broadcasting on Anvil. If we use the
-    //     // same address for both purposes, then its nonce will be incremented in this logic, causing
-    //     // a nonce mismatch error in the user's deployment, leading it to fail.
-    //     inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
-    //     Vm.FfiResult memory result = vm.tryFfi(inputs);
-    //     if (result.exitCode != 0) revert(string(result.stderr));
-    // }
+        string[] memory inputs;
+        inputs = new string[](8);
+        inputs[0] = "cast";
+        inputs[1] = "send";
+        inputs[2] = vm.toString(safeFactoryAddress);
+        inputs[3] = vm.toString(
+            abi.encodePacked(
+                GnosisSafeProxyFactory.createProxyWithNonce.selector,
+                abi.encode(safeSingletonAddress, safeInitializerData, 0)
+            )
+        );
+        inputs[4] = "--rpc-url";
+        inputs[5] = _rpcUrl;
+        inputs[6] = "--private-key";
+        // We use the second auto-generated address to execute the transaction because we use the
+        // first address to deploy the user's contracts when broadcasting on Anvil. If we use the
+        // same address for both purposes, then its nonce will be incremented in this logic, causing
+        // a nonce mismatch error in the user's deployment, leading it to fail.
+        inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
+        Vm.FfiResult memory result = vm.tryFfi(inputs);
+        if (result.exitCode != 0) revert(string(result.stderr));
+    }
 }
