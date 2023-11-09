@@ -7,13 +7,10 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
+  ContractArtifact,
 } from '@sphinx-labs/contracts'
 
-import {
-  BuildInfo,
-  CompilerOutput,
-  ContractArtifact,
-} from '../languages/solidity/types'
+import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'

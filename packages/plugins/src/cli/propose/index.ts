@@ -110,7 +110,7 @@ export const buildParsedConfigArray = async (
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
 
-    const managerAddress = await getSphinxSafeAddressFromScript(
+    const safeAddress = await getSphinxSafeAddressFromScript(
       scriptPath,
       rpcUrl,
       targetContract,
@@ -132,7 +132,7 @@ export const buildParsedConfigArray = async (
     // when using `FOUNDRY_SENDER`. This is problematic if the SphinxManager doesn't have the same
     // state across networks. This is a Foundry quirk; it may be a bug.
     const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-      FOUNDRY_SENDER: managerAddress,
+      FOUNDRY_SENDER: safeAddress,
     })
 
     if (spawnOutput.code !== 0) {

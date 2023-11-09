@@ -50,11 +50,7 @@ import {
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import 'core-js/features/array/at'
-import {
-  BuildInfo,
-  CompilerOutput,
-  ContractArtifact,
-} from './languages/solidity/types'
+import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import { fromRawSphinxAction, isSetStorageAction } from './actions/bundle'
 import {
@@ -63,6 +59,8 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
+
+import { ContractArtifact, add0x } from '@sphinx-labs/contracts'
 
 export const getDeploymentId = (
   actionBundle: SphinxActionBundle,

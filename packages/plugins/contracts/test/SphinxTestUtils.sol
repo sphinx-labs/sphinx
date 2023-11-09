@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
-import { Network, NetworkInfo } from "../foundry/SphinxPluginTypes.sol";
+import { Network, NetworkInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
-import { SphinxConstants, SphinxContractInfo } from "../foundry/SphinxConstants.sol";
-import { SphinxUtils } from "../foundry/SphinxUtils.sol";
+import { SphinxConstants, SphinxContractInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`

@@ -1,3 +1,8 @@
+import {
+  CompilerOutputMetadata,
+  SolidityStorageLayout,
+  SolidityStorageObj,
+} from '@sphinx-labs/contracts'
 import { CompilerInput } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 
