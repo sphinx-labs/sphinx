@@ -13,7 +13,7 @@ contract Sample is Sphinx {
 
     function setUp() public {
         sphinxConfig.projectName = "My Project";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.owners = [0xa0Ee7A142d267C1f36714E4a8F75612F20a79720];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "asdf";

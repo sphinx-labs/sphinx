@@ -6,20 +6,20 @@ import { console } from "sphinx-forge-std/console.sol";
 
 import {
     ISphinxAccessControl
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
+} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
 import {
     Version,
     DeploymentStatus,
     RawSphinxAction,
     SphinxActionType,
     AuthLeafType
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+} from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import {
     DeploymentState,
     SphinxModule,
     Result
-} from "@sphinx-labs/contracts/contracts/SphinxModule.sol";
-import { SphinxLeafWithProof } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+} from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
+import { SphinxLeafWithProof } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxTarget,
@@ -39,6 +39,7 @@ import {
 import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -91,7 +92,7 @@ abstract contract Sphinx {
         string memory rpcUrl = vm.rpcUrl(_networkName);
         sphinxUtils.validateProposal(_proposer, _networkName, sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl));
+        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), sphinxUtils.selectManagedServiceAddressForNetwork());
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
@@ -102,6 +103,7 @@ abstract contract Sphinx {
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
+        address deployer;
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         if (isLiveNetwork) {
             uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
@@ -110,7 +112,7 @@ abstract contract Sphinx {
                 "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
             );
 
-            address deployer = vm.addr(privateKey);
+            deployer = vm.addr(privateKey);
 
             sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
         } else {
@@ -118,20 +120,21 @@ abstract contract Sphinx {
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
             uint256 privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
-            address deployer = vm.addr(privateKey);
+            deployer = vm.addr(privateKey);
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork);
+        DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork, deployer);
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxCollect(bool _isLiveNetwork) private returns (DeploymentInfo memory) {
+    function sphinxCollect(bool _isLiveNetwork, address _executor) private returns (DeploymentInfo memory) {
         address safe = sphinxSafe();
         address module = sphinxModule();
 
         DeploymentInfo memory deploymentInfo;
         deploymentInfo.safeAddress = safe;
         deploymentInfo.moduleAddress = module;
+        deploymentInfo.executorAddress = _executor;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
@@ -304,9 +307,10 @@ abstract contract Sphinx {
         uint executed = 1;
         while (executed < _leafs.length) {
             // Figure out the maximum number of actions that can be executed in a single batch
+            uint maxGasLimit = _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100;
             uint batchSize = sphinxUtils.findMaxBatchSize(
                 sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length),
-                _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100
+                maxGasLimit
             );
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
                 _leafs,
@@ -314,7 +318,7 @@ abstract contract Sphinx {
                 executed + batchSize
             );
 
-            Result[] memory results = SphinxModule(_module).execute(batch);
+            Result[] memory results = SphinxModule(_module).execute{ gas: maxGasLimit }(batch);
             // TODO - do something with the results
 
             // Move to next batch if necessary
@@ -452,7 +456,7 @@ abstract contract Sphinx {
             address executor
         ) = _module.deployments(_root);
 
-        if (numLeafs == leafsExecuted) {
+        if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
             console.log(
                 string(
                     abi.encodePacked(
@@ -465,14 +469,12 @@ abstract contract Sphinx {
             return;
         }
 
-        bytes[] memory ownerSignatureArray;
+        bytes memory ownerSignatures;
         if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
-            ownerSignatureArray = new bytes[](1);
-            ownerSignatureArray[0] = _metaTxnSignature;
+            ownerSignatures = _metaTxnSignature;
         } else if (
             sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal
         ) {
-            ownerSignatureArray = new bytes[](1);
             Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(1);
 
             // Create a list of owner meta transactions. This allows us to run the rest of
@@ -484,10 +486,7 @@ abstract contract Sphinx {
             // SphinxAuth contract instead of skipping it entirely, which would be the case
             // if we set the owner threshold to 0.
             _sphinxOverrideSafeOwners(sphinxSafe(), wallets[0].addr, _rpcUrl);
-            ownerSignatureArray[0] = sphinxUtils.signMetaTxnForAuthRoot(
-                wallets[0].privateKey,
-                _root
-            );
+            ownerSignatures = sphinxUtils.getOwnerSignatures(wallets, _root);
         }
 
         bytes[] memory signatures = new bytes[](1);
@@ -579,6 +578,25 @@ abstract contract Sphinx {
         return create3Address;
     }
 
+    // TODO - docs
+    function setStorageFFI(string memory _rpcUrl, address _safe, bytes32 _slotKey, bytes32 _value) private {
+        string[] memory inputs = new string[](8);
+        inputs[0] = "cast";
+        inputs[1] = "rpc";
+        inputs[2] = "--rpc-url";
+        inputs[3] = _rpcUrl;
+        // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
+        // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
+        inputs[4] = "hardhat_setStorageAt";
+        inputs[5] = vm.toString(address(_safe));
+        inputs[6] = vm.toString(_slotKey);
+        inputs[7] = vm.toString(_value);
+        Vm.FfiResult memory result = vm.tryFfi(inputs);
+        if (result.exitCode != 0) {
+            revert(string(result.stderr));
+        }
+    }
+
     /**
      * @notice Grant a role to an account in the SphinxAuth contract. This is meant to be called
      *         when running against local networks. It is not used as part of the live network
@@ -596,52 +614,25 @@ abstract contract Sphinx {
     ) private {
         // First update the threshold to one
         bytes32 thresholdSlotKey = bytes32(uint(4));
-        vm.store(address(_safe), thresholdSlotKey, bytes32(uint(1)));
+        bytes32 bytesThreshold = bytes32(uint256(1));
+        vm.store(address(_safe), thresholdSlotKey, bytesThreshold);
 
-        // Then set the owner to the new owner
-        bytes32 ownerMappingSlotKey = bytes32(uint(2));
+        // Then set the sentinal to point to the new owner
         address sentinalAddress = address(0x1);
-        bytes32 bytesSentinal = bytes32(uint256(uint160(sentinalAddress)));
-        bytes32 ownerSentinalSlotKey = sphinxUtils.getMappingValueSlotKey(
-            ownerMappingSlotKey,
-            bytesSentinal
-        );
+        bytes32 sentinalSlotKey = keccak256(abi.encode(sentinalAddress, bytes32(uint(4))));
         bytes32 bytesOwner = bytes32(uint256(uint160(_owner)));
-        vm.store(address(_safe), ownerSentinalSlotKey, bytesOwner);
+        vm.store(address(_safe), sentinalSlotKey, bytesOwner);
+
+        // Then set the new owner to point to the sentinal
+        bytes32 ownerSlotKey = keccak256(abi.encode(_owner, bytes32(uint(2))));
+        bytes32 bytesSentinal = bytes32(uint256(uint160(sentinalAddress)));
+        vm.store(address(_safe), ownerSlotKey, bytesSentinal);
 
         // If broadcasting on a local network, then also update the values on anvil using cast
         if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-            string[] memory setThresholdInputs = new string[](8);
-            setThresholdInputs[0] = "cast";
-            setThresholdInputs[1] = "rpc";
-            setThresholdInputs[2] = "--rpc-url";
-            setThresholdInputs[3] = _rpcUrl;
-            // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
-            // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
-            setThresholdInputs[4] = "hardhat_setStorageAt";
-            setThresholdInputs[5] = vm.toString(address(_safe));
-            setThresholdInputs[6] = vm.toString(thresholdSlotKey);
-            setThresholdInputs[7] = vm.toString(bytes32(uint256(1)));
-            Vm.FfiResult memory setThresholdResult = vm.tryFfi(setThresholdInputs);
-            if (setThresholdResult.exitCode != 0) {
-                revert(string(setThresholdResult.stderr));
-            }
-
-            string[] memory setOwnerInputs = new string[](8);
-            setOwnerInputs[0] = "cast";
-            setOwnerInputs[1] = "rpc";
-            setOwnerInputs[2] = "--rpc-url";
-            setOwnerInputs[3] = _rpcUrl;
-            // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
-            // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
-            setOwnerInputs[4] = "hardhat_setStorageAt";
-            setOwnerInputs[5] = vm.toString(address(_safe));
-            setOwnerInputs[6] = vm.toString(ownerSentinalSlotKey);
-            setOwnerInputs[7] = vm.toString(bytes32(uint256(1)));
-            Vm.FfiResult memory setOwnerResult = vm.tryFfi(setOwnerInputs);
-            if (setOwnerResult.exitCode != 0) {
-                revert(string(setOwnerResult.stderr));
-            }
+            setStorageFFI(_rpcUrl, _safe, thresholdSlotKey, bytesThreshold);
+            setStorageFFI(_rpcUrl, _safe, sentinalSlotKey, bytesOwner);
+            setStorageFFI(_rpcUrl, _safe, ownerSlotKey, bytesSentinal);
         }
     }
 

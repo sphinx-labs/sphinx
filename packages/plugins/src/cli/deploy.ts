@@ -35,6 +35,7 @@ import {
   makeParsedConfig,
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
+import { writeDeploymentArtifacts } from '../foundry/artifacts'
 // import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
@@ -57,6 +58,7 @@ export const deploy = async (
     rpcEndpoints,
     etherscan,
     broadcastFolder,
+    deploymentFolder,
   } = await getFoundryConfigOptions()
 
   const forkUrl = rpcEndpoints[network]
@@ -246,7 +248,6 @@ export const deploy = async (
       `Bundle info array has incorrect length. Should never happen`
     )
   }
-  console.log('d')
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -258,7 +259,6 @@ export const deploy = async (
   if (!deployTaskFragment) {
     throw new Error(`'sphinxDeployTask' not found in ABI. Should never happen.`)
   }
-  console.log('e')
 
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
@@ -266,7 +266,6 @@ export const deploy = async (
     bundleInfo.bundle,
   ])
 
-  console.log('f')
   const forgeScriptDeployArgs = [
     'script',
     scriptPath,
@@ -289,8 +288,6 @@ export const deploy = async (
     'forge',
     forgeScriptDeployArgs
   )
-
-  console.log('g')
 
   spinner.stop()
   if (code !== 0) {
@@ -322,17 +319,16 @@ export const deploy = async (
     )
 
     // TODO - Fix deployment artifacts
-    // const deploymentArtifactPath = await writeDeploymentArtifacts(
-    //   provider,
-    //   parsedConfig,
-    //   bundleInfo.actionBundle.actions,
-    //   broadcast,
-    //   deploymentFolder,
-    //   configArtifacts
-    // )
-    // spinner.succeed(
-    //   `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
-    // )
+    const deploymentArtifactPath = await writeDeploymentArtifacts(
+      provider,
+      parsedConfig,
+      broadcast,
+      deploymentFolder,
+      configArtifacts
+    )
+    spinner.succeed(
+      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    )
   } else {
     spinner.succeed(`No contract deployment artifacts to write.`)
   }

@@ -85,7 +85,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         initializeSphinxContracts(_executor);
     }
 
-    function selectManagedServiceAddressForNetwork() internal view returns (address) {
+    function selectManagedServiceAddressForNetwork() public view returns (address) {
         if (block.chainid == 10) {
             return managedServiceAddressOptimism;
         } else if (block.chainid == 420) {
@@ -1146,5 +1146,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) revert(string(result.stderr));
+    }
+
+    function getOwnerSignatures(Wallet[] memory _owners, bytes32 _root) public pure returns (bytes memory) {
+        bytes[] memory signatures = new bytes[](_owners.length);
+        for (uint256 i = 0; i < _owners.length; i++) {
+            signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);
+        }
+        return packBytes(signatures);
     }
 }
