@@ -26,16 +26,17 @@ import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 import { SphinxMerkleTree } from "../contracts/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
+import { TestUtils } from "./TestUtils.sol";
 
-contract SphinxModule_Test is Test, Enum, SphinxUtils {
+contract SphinxModule_Test is Test, Enum, TestUtils {
 
     SphinxModule module;
     GnosisSafe safe;
 
-    address[] owners = new address[](5);
-    address executor = address(0x6000);
+    Wallet[] ownerWallets;
+    address[] owners;
     uint256 threshold = 3;
+    address executor = address(0x1000);
     string sampleDeploymentUri = "ipfs://Qm1234";
 
     function setUp() public {
@@ -56,11 +57,14 @@ contract SphinxModule_Test is Test, Enum, SphinxUtils {
 
         SphinxModuleFactory moduleFactory = new SphinxModuleFactory();
 
-        owners[0] = address(0x1000);
-        owners[1] = address(0x2000);
-        owners[2] = address(0x3000);
-        owners[3] = address(0x4000);
-        owners[4] = address(0x5000);
+        Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
+        // We can't assign the wallets directly to the `owners` array because Solidity throws an
+        // error if we try to assign a memory array to a storage array. So, instead, we have to
+        // iterate over the memory array and push each element to the storage array.
+        for (uint256 i = 0; i < wallets.length; i++) {
+            ownerWallets.push(wallets[i]);
+            owners.push(wallets[i].addr);
+        }
 
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
         bytes memory firstMultiSendData = abi.encodePacked(uint8(Operation.Call), moduleFactory, uint256(0), encodedDeployModuleCall.length, encodedDeployModuleCall);
@@ -95,16 +99,18 @@ contract SphinxModule_Test is Test, Enum, SphinxUtils {
 
     function test_TODO_success() external {
         SphinxMerkleTree memory tree = getMerkleTreeFFI();
-        console.logBytes32(tree.root);
-        // bytes memory signatures = getOwnerSignatures(owners, tree.root);
+        bytes memory signatures = getOwnerSignatures(ownerWallets, tree.root);
 
-        // module.approve(tree.root, tree.leafs[0].leaf, tree.leafs[0].proof, signatures);
+        vm.startPrank(executor);
+        module.approve(tree.root, tree.leafs[0].leaf, tree.leafs[0].proof, signatures);
+        vm.stopPrank();
     }
 
+    // TODO: mv
     function getMerkleTreeFFI() public returns (SphinxMerkleTree memory) {
         console.log(address(module));
         console.log(address(module).code.length);
-        string[] memory inputs = new string[](10);
+        string[] memory inputs = new string[](11);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/display-merkle-tree.ts";
@@ -112,9 +118,10 @@ contract SphinxModule_Test is Test, Enum, SphinxUtils {
         inputs[4] = vm.toString(module.currentNonce());
         inputs[5] = vm.toString(executor);
         inputs[6] = vm.toString(address(safe));
-        inputs[7] = sampleDeploymentUri;
-        inputs[8] = "TODO";
-        inputs[9] = "--swc"; // Speeds up the script considerably
+        inputs[7] = vm.toString(address(module));
+        inputs[8] = sampleDeploymentUri;
+        inputs[9] = "TODO";
+        inputs[10] = "--swc"; // Speeds up the script considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));

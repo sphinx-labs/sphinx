@@ -9,8 +9,9 @@ const chainId = argv[2]
 const nonce = argv[3]
 const executor = argv[4]
 const safe = argv[5]
-const deploymentURI = argv[6]
-const abiEncodedTxs = argv[7] // TODO
+const sphinxModule = argv[6]
+const deploymentURI = argv[7]
+const abiEncodedTxs = argv[8] // TODO
 
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
@@ -20,6 +21,7 @@ const abiEncodedTxs = argv[7] // TODO
       nonce: BigInt(nonce),
       executor,
       safe,
+      module: sphinxModule,
       deploymentURI,
       txs: [], // TODO
     },

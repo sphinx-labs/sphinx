@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { console } from "forge-std/console.sol"; // TODO(end): rm
+
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -211,7 +213,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
         require(_leaf.index == _leafsExecuted, "SP008");
         require(_leaf.leafType == _expectedLeafType, "SP009");
 
-        require(MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)));
+        bytes32 TODO = _getLeafHash(_leaf);
+        require(MerkleProof.verify(_proof, _root, TODO), "SP010");
     }
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo
@@ -219,6 +222,6 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
     function _getLeafHash(SphinxLeaf memory _leaf) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf))));
+        return keccak256(abi.encodePacked(keccak256(abi.encode(_leaf.chainId, _leaf.index, _leaf.leafType, _leaf.data))));
     }
 }

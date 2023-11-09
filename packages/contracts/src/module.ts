@@ -31,6 +31,7 @@ export type NetworkDeploymentData = {
   nonce: bigint
   executor: string
   safe: string
+  module: string
   deploymentURI: string
   txs: SphinxTransaction[]
 }
@@ -64,11 +65,12 @@ export const makeSphinxMerkleTree = (
   for (const [chainId, data] of Object.entries(deploymentData)) {
     // generate approval leaf data
     const approvalData = AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint', 'uint', 'address', 'string'],
+      ['address', 'address', 'uint', 'uint', 'address', 'string'],
       [
         data.safe,
+        data.module,
         data.nonce,
-        data.txs.length,
+        data.txs.length + 1, // We add one to account for the approval leaf
         data.executor,
         data.deploymentURI,
       ]
@@ -113,7 +115,7 @@ export const makeSphinxMerkleTree = (
     tree: StandardMerkleTree.of(rawLeafArray, [
       'uint256',
       'uint256',
-      'uint256',
+      'uint8',
       'bytes',
     ]),
     leafs: merkleLeafs,
