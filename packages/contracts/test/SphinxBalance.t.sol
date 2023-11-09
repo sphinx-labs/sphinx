@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "sphinx-forge-std/Test.sol";
-import { SphinxBalance } from "../contracts/SphinxBalance.sol";
+import { SphinxBalance } from "../contracts/core/SphinxBalance.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**

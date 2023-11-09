@@ -11,7 +11,7 @@ import {
     SphinxLeafType,
     SphinxLeaf,
     SphinxLeafWithProof
-} from "../SphinxDataTypes.sol";
+} from "../core/SphinxDataTypes.sol";
 
 struct SphinxActionBundle {
     bytes32 root;

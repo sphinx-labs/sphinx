@@ -488,6 +488,7 @@ export const getBundleInfo = async (
     configUri: string
   }> = []
   for (const parsedConfig of parsedConfigArray) {
+    console.log(parsedConfig)
     const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts
@@ -499,9 +500,11 @@ export const getBundleInfo = async (
     })
   }
 
+  console.log('a')
   const deploymentData = makeDeploymentData(compilerConfigsWithUris)
+  console.log('b')
   const bundle = makeSphinxBundle(deploymentData)
-
+  console.log('c')
   return {
     root: bundle.root,
     bundleInfo: {

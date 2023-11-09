@@ -12,7 +12,7 @@ import {
   MultiSendCallOnlyArtifact,
   SimulateTxAccessorArtifact,
   SphinxModuleFactoryArtifact,
-} from '../src/ifaces'
+} from './ifaces'
 import { ContractArtifact } from './types'
 import {
   getCompatibilityFallbackHandlerAddress,

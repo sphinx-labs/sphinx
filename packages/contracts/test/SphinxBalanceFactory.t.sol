@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "sphinx-forge-std/Test.sol";
-import { SphinxBalanceFactory } from "../contracts/SphinxBalanceFactory.sol";
-import { SphinxBalance } from "../contracts/SphinxBalance.sol";
-import { SphinxEscrow } from "../contracts/SphinxEscrow.sol";
+import { SphinxBalanceFactory } from "../contracts/core/SphinxBalanceFactory.sol";
+import { SphinxBalance } from "../contracts/core/SphinxBalance.sol";
+import { SphinxEscrow } from "../contracts/core/SphinxEscrow.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
