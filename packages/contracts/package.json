@@ -13,7 +13,7 @@
     "error_codes.md"
   ],
   "scripts": {
-    "build": "forge clean && forge build --skip SphinxUtils && yarn write-constants && forge build && yarn build:ts",
+    "build": "forge clean && forge build --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/",

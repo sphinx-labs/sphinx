@@ -6,10 +6,10 @@ import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
 import {
     ISphinxAccessControl
-} from "../interfaces/ISphinxAccessControl.sol";
+} from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
-import { SphinxModule } from "../SphinxModule.sol";
-import { SphinxModuleFactory } from "../SphinxModuleFactory.sol";
+import { SphinxModule } from "../core/SphinxModule.sol";
+import { SphinxModuleFactory } from "../core/SphinxModuleFactory.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -18,7 +18,7 @@ import {
     AuthLeaf,
     SphinxLeafWithProof,
     SphinxLeaf
-} from "../SphinxDataTypes.sol";
+} from "../core/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxActionBundle,
@@ -39,6 +39,7 @@ import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -1030,14 +1031,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // }
     }
 
-    // TODO - implement actual calculation logic
-    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) external view returns (address) {
-        return address(0);
+    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) public pure returns (address) {
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), bytes32(0)));
+        bytes memory deploymentData = abi.encodePacked(safeProxyBytecode, abi.encode(safeSingletonAddress));
+        return Create2.computeAddress(
+            salt,
+            keccak256(deploymentData),
+            safeFactoryAddress
+        );
     }
 
-    // TODO - implement actual calculation logic
-    function getSphinxModuleAddress(address[] memory _owners, uint _threshold) external view returns (address) {
-        return address(1);
+    function getSphinxModuleAddress(address[] memory _owners, uint _threshold) public pure returns (address) {
+        address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
+        return Create2.computeAddress(bytes32(0), keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))), sphinxModuleFactoryAddress);
     }
 
     function fetchSafeInitializerData(

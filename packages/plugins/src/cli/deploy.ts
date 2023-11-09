@@ -246,6 +246,7 @@ export const deploy = async (
       `Bundle info array has incorrect length. Should never happen`
     )
   }
+  console.log('d')
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -257,6 +258,7 @@ export const deploy = async (
   if (!deployTaskFragment) {
     throw new Error(`'sphinxDeployTask' not found in ABI. Should never happen.`)
   }
+  console.log('e')
 
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
@@ -264,6 +266,7 @@ export const deploy = async (
     bundleInfo.bundle,
   ])
 
+  console.log('f')
   const forgeScriptDeployArgs = [
     'script',
     scriptPath,
@@ -286,6 +289,8 @@ export const deploy = async (
     'forge',
     forgeScriptDeployArgs
   )
+
+  console.log('g')
 
   spinner.stop()
   if (code !== 0) {

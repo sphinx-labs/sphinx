@@ -79,11 +79,6 @@ export const decodeDeploymentInfo = (
     chainId: chainId.toString(),
     initialState: {
       ...initialState,
-      version: {
-        major: initialState.version.major.toString(),
-        minor: initialState.version.minor.toString(),
-        patch: initialState.version.patch.toString(),
-      },
     },
     isLiveNetwork,
     newConfig: {
@@ -91,11 +86,6 @@ export const decodeDeploymentInfo = (
       testnets: newConfig.testnets.map(networkEnumToName),
       mainnets: newConfig.mainnets.map(networkEnumToName),
       threshold: newConfig.threshold.toString(),
-      version: {
-        major: newConfig.version.major.toString(),
-        minor: newConfig.version.minor.toString(),
-        patch: newConfig.version.patch.toString(),
-      },
     },
   }
 }

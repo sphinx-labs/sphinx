@@ -649,7 +649,7 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxModule. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxModule() public view returns (address) {
+    function sphinxModule() public returns (address) {
         return sphinxUtils.getSphinxModuleAddress(sphinxConfig.owners, sphinxConfig.threshold);
     }
 
@@ -657,7 +657,7 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxModule. Before calling this function, the following
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
-    function sphinxSafe() public view returns (address) {
+    function sphinxSafe() public returns (address) {
         return sphinxUtils.getSphinxSafeAddress(sphinxConfig.owners, sphinxConfig.threshold);
     }
 
