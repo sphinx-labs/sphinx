@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "forge-std/console.sol";
-import "forge-std/Test.sol";
-import { StdUtils } from "forge-std/StdUtils.sol";
+import { console } from "sphinx-forge-std/console.sol";
+import "sphinx-forge-std/Test.sol";
+import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { SphinxModuleFactory } from "../contracts/SphinxModuleFactory.sol";
 import { SphinxModule } from "../contracts/SphinxModule.sol";
 import {
@@ -20,7 +20,6 @@ import {
 import { CreateCall } from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
 import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
-import { SignMessageLib } from "@gnosis.pm/safe-contracts/libraries/SignMessageLib.sol";
 import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
@@ -60,7 +59,6 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
         new CreateCall();
         MultiSend multiSend = new MultiSend();
         new MultiSendCallOnly();
-        new SignMessageLib();
         // Deploy singletons
         new GnosisSafeL2();
         GnosisSafe gnosisSafeSingleton = new GnosisSafe();
