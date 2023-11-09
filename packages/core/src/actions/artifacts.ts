@@ -1,7 +1,6 @@
-import {
-  CompilerOutput,
-  SolidityStorageLayout,
-} from '../languages/solidity/types'
+import { SolidityStorageLayout } from '@sphinx-labs/contracts'
+
+import { CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 
 /**

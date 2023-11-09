@@ -4,8 +4,7 @@ import {
   CompilerDownloader,
   CompilerPlatform,
 } from 'hardhat/internal/solidity/compiler/downloader'
-
-import { CompilerOutputMetadata } from './types'
+import { CompilerOutputMetadata } from '@sphinx-labs/contracts'
 
 // Credit: NomicFoundation
 // https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts

@@ -25,12 +25,12 @@ import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/versi
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
+import { remove0x } from '@sphinx-labs/contracts'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { remove0x } from './utils'
 
 export interface EtherscanResponseBody {
   status: string

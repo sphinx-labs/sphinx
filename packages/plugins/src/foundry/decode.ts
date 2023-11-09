@@ -4,13 +4,10 @@ import { existsSync, readFileSync } from 'fs'
 import {
   ActionInput,
   ConfigArtifacts,
-  DecodedAction,
-  DeployContractActionInput,
   DeploymentInfo,
   FunctionCallActionInput,
   Label,
   ParsedConfig,
-  ParsedVariable,
   RawActionInput,
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
@@ -22,25 +19,17 @@ import {
   isString,
   recursivelyConvertResult,
 } from '@sphinx-labs/core/dist/utils'
+import { AbiCoder, Fragment, Interface, ethers } from 'ethers'
 import {
-  AbiCoder,
-  ConstructorFragment,
-  Fragment,
-  Interface,
-  ethers,
-} from 'ethers'
-import {
-  Operation,
   ParsedContractDeployments,
   SphinxActionType,
-  getCreate3Address,
-  getCreate3Salt,
-  getManagedServiceAddress,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  Operation,
+  getManagedServiceAddress,
 } from '@sphinx-labs/contracts'
 
 import { FoundryDryRun, ProposalOutput } from './types'

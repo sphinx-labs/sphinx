@@ -5,7 +5,10 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   ManagedServiceArtifact,
   OWNER_MULTISIG_ADDRESS,
+  getManagedServiceAddress,
   getOwnerAddress,
+  getSphinxConstants,
+  getSphinxModuleFactoryAddress,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
@@ -18,15 +21,10 @@ import {
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import {
-  getManagedServiceAddress,
-  getSphinxModuleFactoryAddress,
-} from '../../addresses'
-import {
   FUNDER_ROLE,
   RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
-import { getSphinxConstants } from '../../contract-info'
 
 /**
  * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
@@ -78,7 +76,7 @@ export const initializeSafeAndSphinx = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of await getSphinxConstants(provider)) {
+  } of getSphinxConstants((await provider.getNetwork()).chainId)) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[Sphinx]: deploying ${contractName}...`)

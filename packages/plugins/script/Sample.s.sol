@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Script, console } from "sphinx-forge-std/Script.sol";
 import { Sphinx } from "../contracts/foundry/Sphinx.sol";
-import { Network, Label } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, Label } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1 } from "../contracts/test/MyContracts.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 

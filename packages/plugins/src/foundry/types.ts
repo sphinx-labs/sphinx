@@ -1,15 +1,9 @@
+import { SphinxBundle } from '@sphinx-labs/contracts'
 import {
   CompilerConfig,
   FoundryBroadcastTransaction,
   FoundryDryRunTransaction,
-  SphinxBundle,
 } from '@sphinx-labs/core'
-import {
-  BundledAuthLeaf,
-  HumanReadableAction,
-  SphinxActionBundle,
-  SphinxTargetBundle,
-} from '@sphinx-labs/core/dist/actions/types'
 
 export type BundleInfo = {
   bundle: SphinxBundle
