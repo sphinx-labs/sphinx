@@ -45,6 +45,7 @@ export type SphinxTransaction = {
   txData: string
   gas: string
   operation: Operation
+  requireSuccess: boolean
 }
 
 // TODO(md)
@@ -91,13 +92,14 @@ export const makeSphinxMerkleTree = (
     for (const tx of data.txs) {
       // generate transaction leaf data
       const transactionLeafData = AbiCoder.defaultAbiCoder().encode(
-        ['address', 'uint', 'uint', 'bytes', 'uint'],
+        ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
         [
           tx.to,
           BigInt(tx.value),
           BigInt(tx.gas),
           tx.txData,
           BigInt(tx.operation),
+          tx.requireSuccess,
         ]
       )
 

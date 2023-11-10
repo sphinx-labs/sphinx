@@ -32,6 +32,7 @@ struct SphinxTransaction {
     bytes txData;
     Enum.Operation operation;
     uint256 gas;
+    bool requireSuccess;
 }
 
 struct SphinxMerkleTree {

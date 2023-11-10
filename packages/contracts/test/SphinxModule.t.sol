@@ -102,7 +102,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
             );
 
         safe = GnosisSafe(payable(address(safeProxy)));
-        module = SphinxModule(moduleFactory.computeSphinxModuleAddress(address(safe), bytes32(0)));
+        module = SphinxModule(moduleFactory.computeSphinxModuleAddress(address(safe), address(safe), 0));
     }
 
     function test_TODO_success() external {
@@ -113,7 +113,8 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
                 value: 0,
                 txData: abi.encodePacked(myContract.myFunction.selector, abi.encode(123)),
                 operation: Operation.Call,
-                gas: 1_000_000
+                gas: 1_000_000,
+                requireSuccess: true
             });
 
         SphinxMerkleTree memory tree = getMerkleTreeFFI(txs);

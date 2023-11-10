@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// TODO(spec): how does the executor find out about deployments? is this method grief-proof?
+
+// TODO(spec): perhaps mention somewhere that the executor cannot lose money on a deployment because
+// it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
+// transactions.
+
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -12,6 +18,28 @@ import {
     Result,
     DeploymentState
 } from "./SphinxDataTypes.sol";
+
+// TODO(break): actors:
+// - malicious safe (finished)
+// - malicious third-party (finished)
+// - buggy executor (finished): the first two bullet points of 'malicious executor'
+// - malicious executor:
+//      - wait an arbitrary amount of time to approve then execute a deployment.
+//      - partially execute a deployment.
+//      - users can cancel deployments, but it's possible for the executor to approve a deployment
+//        once the user has signaled intent to cancel the deployment. i.e. the executor can watch
+//        for the 'cancel' transaction in the mempool, and submit the 'approve' transaction before
+//        it.
+//      - if a deployment relies on the state of an existing smart contract, and if the executor is
+//        able to manipulate the state of that smart contract, then it could be possible for the
+//        executor to execute the deployment in a manner that is detrimental to the user. a simple
+//        example: a deployment relies on `existingContract.myBoolean() == true`, otherwise it
+//        fails. if the executor is able to set `existingContract.myBoolean() == false`, then the
+//        deployment will fail.
+//      - the executor can interact with a contract in the same transaction that it's deployed,
+//        which can be an "unfair advantage" for the executor. for example, if a deployed contract
+//        has an open token airdrop, the executor can deploy the contract then claim the airdropped
+//        tokens in the same transaction, before any other account has a chance to claim them.
 
 /**
  * @title SphinxModule
@@ -38,9 +66,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256(bytes("Sphinx")),
-                keccak256(bytes(VERSION))
+                keccak256("EIP712Domain(string name)"),
+                keccak256(bytes("Sphinx"))
             )
         );
 
@@ -48,12 +75,15 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     mapping(bytes32 => DeploymentState) public deployments;
 
-    // TODO(docs): we have a nonce to ensure that deployments can't be replayed.
+    // TODO(docs): we have a nonce to make it possible for a user to cancel a deployment
+    // that has been signed by the owners off-chain, but not approved on-chain. to do this,
+    // the user must submit a deployment with the same nonce as the deployment that they'd
+    // like to cancel.
     uint256 public currentNonce;
 
     bytes32 public activeRoot;
 
-    GnosisSafe safeProxy;
+    GnosisSafe public safeProxy;
 
     // TODO(docs): this allows contracts to deploy the SphinxModule without needing to import the
     // Safe contract type.
@@ -62,6 +92,57 @@ contract SphinxModule is ReentrancyGuard, Enum {
     }
 
     // TODO(off-chain): check that the corresponding Safe is a valid version. (not sure which versions are "valid").
+
+    // TODO(H-invariant):
+    // - a merkle root can only be used once per deployment, per chain.
+    // - each leaf within a merkle tree can only be submitted once.
+    // - only a single deployment can occur at a time.
+    // - the SphinxModule must be compatible with:
+    //      - GnosisSafe v1.3.0
+    //      - GnosisSafeL2 v1.3.0
+    //      - Safe v1.4.1
+    //      - SafeL2 v1.4.1
+
+    // TODO(refactor): for all contract dependencies, you should use an exact version. otherwise,
+    // it'd probably be possible for the bytecode of our contracts to change.
+
+    // TODO(invariant):
+    // - must revert if a merkle root equals the zero hash (bytes32(0))
+    // - must revert if a merkle root was previously approved.
+    // - must revert if the leaf is not valid:
+    //      - revert if the leaf type is not 'approve'
+    //      - revert if the leaf's chain ID field does not match the `block.chainid`
+    //      - revert if the leaf is not executed in the correct order
+    //      - revert if the leaf is not part of the merkle tree
+    // - the decoded leaf data must satisfy the following conditions:
+    //      - revert if the 'safe' does not equal the hard-coded safe address in the SphinxModule
+    //      - revert if the 'module' does not equal the address of the SphinxModule
+    //      - revert if the 'nonce' does not equal the current nonce in the SphinxModule
+    //      - revert if the 'numLeafs' equals 0
+    //      - revert if the 'executor' does not equal the caller
+    // - must revert if an insufficient number of Gnosis Safe owners have signed the merkle root.
+    // - must be possible to cancel a deployment that has been signed by the owners off-chain, but
+    //   not approved on-chain.
+    // - must be possible to cancel an active deployment by approving a new deployment.
+    // - a deployment that contains a single leaf on a chain (i.e. just an approval leaf) must be
+    //   marked as completed in this function.
+
+    // TODO(flow-chart):
+    // ```mermaid
+    // graph TD
+    //     style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
+    //     style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
+    //     style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
+    //     Approve --> A[Is there one leaf in the merkle tree for the current chain?]
+    //     A -->|Yes| B[Completed]
+    //     A -->|No| C[Approved]
+    //     C --> D[Execute]
+    //     D --> E[Did the Safe txn fail and does the leaf specify that it must succeed?]
+    //     E -->|Yes| F[Failed]
+    //     E -->|No| G[Are there any more leafs to execute for the current chain in this deployment?]
+    //     G -->|Yes| D
+    //     G -->|No| B
+    // ```
 
     // TODO(spec): the user must be able to cancel a deployment that has been approved off-chain but
     // not approved on-chain. they can do this by approving an empty deployment that has the same
@@ -77,18 +158,15 @@ contract SphinxModule is ReentrancyGuard, Enum {
         bytes32[] memory _proof,
         bytes memory _signatures
     ) public nonReentrant {
-        require(_root != bytes32(0), "SP011");
+        require(_root != bytes32(0), "SphinxModule: invalid root");
 
-        bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, _root))
-        );
-        safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
+        // TODO(docs): without this check, it'd be possible to approve a Merkle root twice by
+        // including two 'approval' leafs in the tree.
+        require(deployments[_root].numLeafs == 0, "SphinxModule: root already used");
 
-        // TODO(docs): Verify the signatures. Since the Merkle root hasn't been approved before, we know that
-        // there haven't been any leafs executed yet.
-        _verifySignatures(_root, _leaf, _proof, 0, SphinxLeafType.APPROVE);
+        // TODO(docs): Verify the signatures. We already checked that the `numLeafs` for this Merkle root is 0,
+        // so we hard-code this value in this call.
+        _validateLeaf(_root, _leaf, _proof, 0, SphinxLeafType.APPROVE);
 
         // TODO(docs): we include the address of the safe in this leaf to protect against a
         // vulnerability where you could attack a Safe with the same owners using a
@@ -105,11 +183,11 @@ contract SphinxModule is ReentrancyGuard, Enum {
             string memory uri
         ) = abi.decode(_leaf.data, (address, address, uint256, uint256, address, string));
 
-        require(safe == address(safeProxy), "SP000");
-        require(module == address(this), "SP001");
-        require(nonce == currentNonce, "SP003");
-        require(numLeafs > 0, "SP004");
-        require(executor == msg.sender, "SP002");
+        require(safe == address(safeProxy), "SphinxModule: invalid SafeProxy");
+        require(module == address(this), "SphinxModule: invalid SphinxModule");
+        require(nonce == currentNonce, "SphinxModule: invalid nonce");
+        require(numLeafs > 0, "SphinxModule: tree has no leafs");
+        require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // TODO(docs): we don't perform any checks on the URI because it may be empty if numLeafs is 1.
 
         deployments[_root] = DeploymentState({
@@ -129,24 +207,66 @@ contract SphinxModule is ReentrancyGuard, Enum {
         } else {
             activeRoot = _root;
         }
+
+        // TODO(docs): we do this last to follow the CEI pattern. i think it's possible
+        // for an external call to happen within 'checkSignatures' due to eip-1271 logic.
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
+        safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
     // TODO(docs): we require that any ETH transfers occur in the `execute` function. we don't have
     // a mechanism for sending ETH to this contract in advance because it'd be possible for the ETH
     // to be sent, then the deployment is cancelled, leaving ETH stuck in this contract.
 
-    // TODO(docs): we return `results` so that we can display a useful error message to the user in
-    // case an action fails.
+    // TODO(docs): execute function: we return `results` so that we can display a useful error
+    // message to the user in case an action fails.
+
+    // TODO: our default recommended Safe should probably include a reentrancy guard.
+
+    // TODO(invariant):
+    // - must revert if zero leafs are provided as an input parameter.
+    // - must revert if there is no active deployment (i.e. a merkle root hasn't been approved).
+    // - must revert if the caller isn't the executor that was stored on-chain in the `approve` function.
+    // - must revert if the leaf is not valid:
+    //      - revert if the leaf type is not 'execute'
+    //      - revert if the leaf's chain ID field does not match the `block.chainid`
+    //      - revert if the leaf is not executed in the correct order
+    //      - revert if the leaf is not part of the merkle tree
+    // - must revert if a merkle leaf does not yield a merkle root, given a proof.
+    // - the executor must not be able to cause a deployment to fail or cause one of the user's
+    //   transactions to revert.
+    // - it must be impossible to submit a leaf that is not part of the active merkle root.
+    // - the transaction must be executed on the Safe using the exact data that was included in
+    //   the leaf.
+    // - it must not be possible to execute more leafs than the `numLeafs` field that was stored
+    //   on-chain in the approval function.
+    // - if a Safe transaction fails and the decoded leaf data contains `requireSuccess == true`,
+    //   the deployment must end immediately, preventing any future transactions from being executed for the
+    //   merkle root.
+    // - if all of the leafs for the current chain are executed without the previous condition occurring, the
+    //   deployment must be marked as 'completed':
+    //      - emit event
+    //      - the active merkle root is removed, allowing future deployments to occur.
+    // - a `Result[]` must be returned for every Safe transaction that was attempted, regardless of whether
+    //   or not it succeeded.
+    // Trust assumptions:
+    // - (is this true?) a malicious Safe could grief the executor by causing execution to revert.
+    //   they could do this by doing `address(0).call{ gas: 10000000000}()` one of the transactions
+    //   being executed. this is fine; the user will be billed for all of the executor's gas costs.
     function execute(
         SphinxLeafWithProof[] memory _leafsWithProofs
     ) public nonReentrant returns (Result[] memory results) {
         uint256 numActions = _leafsWithProofs.length;
-        require(numActions > 0, "SP005");
-        require(activeRoot != bytes32(0), "SP006");
+        require(numActions > 0, "SphinxModule: no leafs to execute");
+        require(activeRoot != bytes32(0), "SphinxModule: no active root");
 
         DeploymentState storage state = deployments[activeRoot];
 
-        require(state.executor == msg.sender, "SP002");
+        require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
         results = new Result[](numActions);
         SphinxLeaf memory leaf;
@@ -155,37 +275,42 @@ contract SphinxModule is ReentrancyGuard, Enum {
             leaf = _leafsWithProofs[i].leaf;
             proof = _leafsWithProofs[i].proof;
 
-            _verifySignatures(activeRoot, leaf, proof, state.leafsExecuted, SphinxLeafType.EXECUTE);
+            // TODO(docs): without this check, it'd be possible to execute more than `numLeafs` leafs.
+            require(state.numLeafs > state.leafsExecuted, "SphinxModule: extra leafs not allowed");
+
+            _validateLeaf(activeRoot, leaf, proof, state.leafsExecuted, SphinxLeafType.EXECUTE);
 
             (
                 address to,
                 uint256 value,
                 uint256 gas,
                 bytes memory txData,
-                Enum.Operation operation
-            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation));
+                Enum.Operation operation,
+                bool requireSuccess
+            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
 
             Result memory result = results[i];
             (result.success, result.returnData) = safeProxy.execTransactionFromModuleReturnData{
                 gas: gas
             }(to, value, txData, operation);
 
-            if (result.success) {
-                state.leafsExecuted += 1;
-                emit SphinxActionExecuted(activeRoot, leaf.index);
-            } else {
+            if (!result.success && requireSuccess) {
                 activeRoot = bytes32(0);
                 emit SphinxDeploymentFailed(activeRoot, leaf.index);
                 return results;
+            } else {
+                state.leafsExecuted += 1;
+                emit SphinxActionExecuted(activeRoot, leaf.index);
             }
-
-            // TODO(test): use erc1167 proxy? if so, you probably don't need these SPXXX error codes.
 
             // TODO(test): see if there are any noteworthy chains that don't support create3. recently,
             // we discovered a chain that has an alternate create3 formula, although i forget its name.
             // we should consider modifying an existing create3 library and auditing our version to support
             // alternate formulas.
         }
+
+        // TODO(left off): it's possible to supply more leafs than 'numLeafs'. probably put a
+        // require statement in the for-loop that compares the leafsExecuted to the numLeafs.
 
         if (state.leafsExecuted == state.numLeafs) {
             emit SphinxDeploymentCompleted(activeRoot);
@@ -199,7 +324,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     /**
      * @notice TODO(docs)
      */
-    function _verifySignatures(
+    function _validateLeaf(
         bytes32 _root,
         SphinxLeaf memory _leaf,
         bytes32[] memory _proof,
@@ -207,12 +332,11 @@ contract SphinxModule is ReentrancyGuard, Enum {
         SphinxLeafType _expectedLeafType
     ) internal view {
         // Validate the fields of the Leaf.
-        require(_leaf.chainId == block.chainid, "SP007");
-        require(_leaf.index == _leafsExecuted, "SP008");
-        require(_leaf.leafType == _expectedLeafType, "SP009");
+        require(_leaf.leafType == _expectedLeafType, "SphinxModule: invalid leaf type");
+        require(_leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
+        require(_leaf.index == _leafsExecuted, "SphinxModule: invalid leaf index");
 
-        bytes32 TODO = _getLeafHash(_leaf);
-        require(MerkleProof.verify(_proof, _root, TODO), "SP010");
+        require(MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)), "SphinxModule: invalid merkle proof");
     }
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo

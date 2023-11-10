@@ -48,9 +48,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256(bytes("Sphinx")),
-                keccak256(bytes("1.0.0"))
+                keccak256("EIP712Domain(string name)"),
+                keccak256(bytes("Sphinx"))
             )
         );
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
@@ -1047,7 +1046,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     //     bytes memory safeInitializerData
     // ) {
     //     SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
-    //     bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
+    //     bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModule.selector, bytes32(0));
     //     bytes memory deployModuleMultiSendData = abi.encodePacked(uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata);
     //     bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
     //     bytes memory enableModuleMultiSendData = abi.encodePacked(uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata);
