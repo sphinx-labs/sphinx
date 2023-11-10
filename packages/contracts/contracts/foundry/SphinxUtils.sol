@@ -80,9 +80,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // contains a test that ensures this value is correct.
     uint8 internal constant numSupportedNetworks = 23;
 
-    function initializeFFI(string memory _rpcUrl, OptionalAddress memory _executor) external {
-        ffiDeployOnAnvil(_rpcUrl, _executor);
-        initializeSphinxContracts(_executor);
+    function initializeFFI(string memory _rpcUrl) external {
+        ffiDeployOnAnvil(_rpcUrl);
+        initializeSphinxContracts();
     }
 
     function selectManagedServiceAddressForNetwork() public view returns (address) {
@@ -95,7 +95,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function initializeSphinxContracts(OptionalAddress memory _executor) public {
+    function initializeSphinxContracts() public {
         vm.etch(
             DETERMINISTIC_DEPLOYMENT_PROXY,
             hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
@@ -116,18 +116,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
         }
 
-        if (_executor.exists) {
-            // Impersonate system owner
-            vm.startPrank(systemOwner);
+        // if (_executor.exists) {
+        //     // Impersonate system owner
+        //     vm.startPrank(systemOwner);
 
-            address managedServiceAddr = selectManagedServiceAddressForNetwork();
-            ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
-            if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
-                managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
-            }
+        //     address managedServiceAddr = selectManagedServiceAddressForNetwork();
+        //     ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
+        //     if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
+        //         managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
+        //     }
 
-            vm.stopPrank();
-        }
+        //     vm.stopPrank();
+        // }
     }
 
     function slice(
@@ -139,14 +139,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     // TODO - update so this deploys the Safe contracts
-    function ffiDeployOnAnvil(string memory _rpcUrl, OptionalAddress memory _address) public {
-        string[] memory cmds = new string[](6);
+    function ffiDeployOnAnvil(string memory _rpcUrl) public {
+        string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
         cmds[3] = "deployOnAnvil";
         cmds[4] = _rpcUrl;
-        cmds[5] = vm.toString(_address.value);
 
         Vm.FfiResult memory result = vm.tryFfi(cmds);
         if (result.exitCode != 0) {
@@ -368,6 +367,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             }
         }
         return (numInitialActions, numSetStorageActions);
+    }
+
+    function filterActionsOnNetwork (
+        SphinxLeafWithProof[] memory leafs
+    ) external view returns (SphinxLeafWithProof[] memory) {
+        uint numLeafsOnNetwork = 0;
+        for (uint256 i = 0; i < leafs.length; i++) {
+            if (leafs[i].leaf.chainId == block.chainid) {
+                numLeafsOnNetwork += 1;
+            }
+        }
+
+        SphinxLeafWithProof[] memory leafsOnNetwork = new SphinxLeafWithProof[](numLeafsOnNetwork);
+        uint leafIndex = 0;
+        for (uint256 i = 0; i < leafs.length; i++) {
+            if (leafs[i].leaf.chainId == block.chainid) {
+                leafsOnNetwork[leafIndex] = leafs[i];
+                leafIndex += 1;
+            }
+        }
+
+        return leafsOnNetwork;
     }
 
     function removeExecutedActions(
@@ -989,46 +1010,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return a == 0 ? 0 : (a - 1) / b + 1;
     }
 
-    function validateProposal(
-        address _proposer,
-        string memory _networkName,
-        SphinxConfig memory _config
-    ) external view {
+    function validateProposal(SphinxConfig memory _config) external view {
         require(
             bytes(_config.orgId).length > 0,
             "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
-
-        // TODO - proposals
-        // ISphinxAuth auth = ISphinxAuth(getSphinxAuthAddress(_config));
-        // bool firstProposalOccurred = address(auth).code.length > 0
-        //     ? auth.firstProposalOccurred()
-        //     : false;
-
-        // if (firstProposalOccurred) {
-        //     require(
-        //         ISphinxAccessControl(address(auth)).hasRole(keccak256("ProposerRole"), _proposer),
-        //         string(
-        //             abi.encodePacked(
-        //                 "Sphinx: The address ",
-        //                 vm.toString(_proposer),
-        //                 " is not currently a proposer on ",
-        //                 _networkName,
-        //                 "."
-        //             )
-        //         )
-        //     );
-        // } else {
-        //     require(
-        //         arrayContainsAddress(_config.proposers, _proposer),
-        //         string(
-        //             abi.encodePacked(
-        //                 "Sphinx: The address corresponding to your 'PROPOSER_PRIVATE_KEY' env variable is not in\n your 'proposers' array. Please add it or change your private key.\n Address: ",
-        //                 vm.toString(_proposer)
-        //             )
-        //         )
-        //     );
-        // }
     }
 
     function getSphinxSafeAddress(address[] memory _owners, uint _threshold) public pure returns (address) {

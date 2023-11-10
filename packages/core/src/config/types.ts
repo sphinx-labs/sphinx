@@ -207,6 +207,10 @@ export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
 }
 
+export interface CompilerConfigWithUri extends CompilerConfig {
+  configUri: string
+}
+
 /**
  * @notice The `BuildInfo` object, but without the compiler ouputs.
  */
