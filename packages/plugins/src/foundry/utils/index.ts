@@ -468,6 +468,7 @@ export const makeDeploymentData = (
       nonce: compilerConfig.nonce,
       executor: compilerConfig.executorAddress,
       safe: compilerConfig.safeAddress,
+      module: compilerConfig.moduleAddress,
       deploymentURI: configUri,
       txs,
     }
@@ -488,7 +489,6 @@ export const getBundleInfo = async (
     configUri: string
   }> = []
   for (const parsedConfig of parsedConfigArray) {
-    console.log(parsedConfig)
     const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts
@@ -500,11 +500,8 @@ export const getBundleInfo = async (
     })
   }
 
-  console.log('a')
   const deploymentData = makeDeploymentData(compilerConfigsWithUris)
-  console.log('b')
   const bundle = makeSphinxBundle(deploymentData)
-  console.log('c')
   return {
     root: bundle.root,
     bundleInfo: {
@@ -616,7 +613,7 @@ export const getSphinxSafeAddressFromScript = async (
 
   const json = JSON.parse(stdout)
 
-  const managerAddress = json.returns[0].value
+  const safeAddress = json.returns[0].value
 
-  return managerAddress
+  return safeAddress
 }

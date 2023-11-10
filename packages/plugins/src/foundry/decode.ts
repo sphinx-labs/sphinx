@@ -17,7 +17,6 @@ import {
   isRawCreate2ActionInput,
   isRawFunctionCallActionInput,
   isString,
-  recursivelyConvertResult,
 } from '@sphinx-labs/core/dist/utils'
 import { AbiCoder, Fragment, Interface, ethers } from 'ethers'
 import {
@@ -29,7 +28,7 @@ import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
-  getManagedServiceAddress,
+  recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
 import { FoundryDryRun, ProposalOutput } from './types'
@@ -63,6 +62,7 @@ export const decodeDeploymentInfo = (
   const {
     safeAddress,
     moduleAddress,
+    executorAddress,
     nonce,
     chainId,
     initialState,
@@ -75,6 +75,7 @@ export const decodeDeploymentInfo = (
     labels,
     safeAddress,
     moduleAddress,
+    executorAddress,
     nonce,
     chainId: chainId.toString(),
     initialState: {
@@ -304,6 +305,7 @@ export const makeParsedConfig = (
     labels,
   } = deploymentInfo
 
+  let actionIndex = 1
   const actionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
   for (const input of rawInputs) {
@@ -402,11 +404,13 @@ export const makeParsedConfig = (
 
       actionInputs.push({
         contracts: parsedContracts,
+        index: actionIndex,
         ...input,
       })
     } else if (isRawFunctionCallActionInput(input)) {
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
+        index: actionIndex,
         ...input,
       }
 
@@ -414,6 +418,7 @@ export const makeParsedConfig = (
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
+    actionIndex += 1
   }
 
   return {
@@ -427,7 +432,7 @@ export const makeParsedConfig = (
     actionInputs,
     remoteExecution,
     unlabeledAddresses,
-    executorAddress: getManagedServiceAddress(BigInt(chainId)),
+    executorAddress: deploymentInfo.executorAddress,
   }
 }
 
