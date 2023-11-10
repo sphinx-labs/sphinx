@@ -11,6 +11,7 @@ import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 // import { propose } from './propose'
 import { deploy } from './deploy'
+import { propose } from './propose'
 
 // Load environment variables from .env
 dotenv.config()
@@ -111,15 +112,14 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      // TODO - proposals
-      // await propose(
-      //   confirm,
-      //   isTestnet,
-      //   dryRun,
-      //   silent,
-      //   scriptPath,
-      //   targetContract
-      // )
+      await propose(
+        confirm,
+        isTestnet,
+        dryRun,
+        silent,
+        scriptPath,
+        targetContract
+      )
     }
   )
   .command(

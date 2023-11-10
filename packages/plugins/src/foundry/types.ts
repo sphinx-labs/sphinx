@@ -1,13 +1,13 @@
 import { SphinxBundle } from '@sphinx-labs/contracts'
 import {
-  CompilerConfig,
+  CompilerConfigWithUri,
   FoundryBroadcastTransaction,
   FoundryDryRunTransaction,
 } from '@sphinx-labs/core'
 
 export type BundleInfo = {
   bundle: SphinxBundle
-  compilerConfigs: Array<CompilerConfig>
+  compilerConfigs: Array<CompilerConfigWithUri>
 }
 
 export type ProposalOutput = {

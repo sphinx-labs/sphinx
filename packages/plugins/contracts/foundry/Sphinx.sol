@@ -85,12 +85,11 @@ abstract contract Sphinx {
     }
 
     function sphinxCollectProposal(
-        address _proposer,
         string memory _networkName,
         string memory _deploymentInfoPath
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
-        sphinxUtils.validateProposal(_proposer, _networkName, sphinxConfig);
+        sphinxUtils.validateProposal(sphinxConfig);
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), sphinxUtils.selectManagedServiceAddressForNetwork());
 
@@ -179,11 +178,10 @@ abstract contract Sphinx {
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
             privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
-
-            address deployer = vm.addr(privateKey);
-            sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({ exists: true, value: deployer }));
+            sphinxUtils.initializeFFI(rpcUrl);
         }
 
+        // TODO - do a better job detecting if the private key is 0 and throw a better error
         bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _root);
 
         vm.startBroadcast(privateKey);
@@ -204,57 +202,47 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    // TODO - proposals
-    // function sphinxSimulateProposal(
-    //     bool _testnets,
-    //     bytes32 _authRoot,
-    //     BundleInfo[] memory _bundleInfoArray
-    // ) external returns (uint256[] memory) {
-    //     setupPropose();
+    function sphinxSimulateProposal(
+        bool _testnets,
+        bytes32 _root,
+        SphinxBundle memory _bundleInfo
+    ) external returns (uint256[] memory) {
+        setupPropose();
 
-    //     uint256 proposerPrivateKey = vm.envUint("PROPOSER_PRIVATE_KEY");
-    //     address proposer = vm.addr(proposerPrivateKey);
-    //     bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-    //         proposerPrivateKey,
-    //         _authRoot
-    //     );
+        sphinxMode = SphinxMode.Proposal;
 
-    //     sphinxMode = SphinxMode.Proposal;
+        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
+        uint256[] memory forkIds = new uint256[](networks.length);
+        for (uint256 i = 0; i < networks.length; i++) {
+            Network network = networks[i];
+            NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
+            string memory rpcUrl = vm.rpcUrl(networkInfo.name);
 
-    //     Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
-    //     uint256[] memory forkIds = new uint256[](networks.length);
-    //     for (uint256 i = 0; i < networks.length; i++) {
-    //         Network network = networks[i];
-    //         NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
-    //         string memory rpcUrl = vm.rpcUrl(networkInfo.name);
+            // Create a fork of the target network. This automatically sets the `block.chainid` to
+            // the target chain (e.g. 1 for ethereum mainnet).
+            uint256 forkId = vm.createSelectFork(rpcUrl);
+            forkIds[i] = forkId;
 
-    //         // Create a fork of the target network. This automatically sets the `block.chainid` to
-    //         // the target chain (e.g. 1 for ethereum mainnet).
-    //         uint256 forkId = vm.createSelectFork(rpcUrl);
-    //         forkIds[i] = forkId;
+            // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
+            // because we never broadcast the transactions onto the forked network. This is a
+            // performance optimization.
+            sphinxUtils.initializeSphinxContracts();
 
-    //         // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
-    //         // because we never broadcast the transactions onto the forked network. This is a
-    //         // performance optimization.
-    //         sphinxUtils.initializeSphinxContracts(
-    //             OptionalAddress({ exists: true, value: proposer })
-    //         );
+            // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
+            vm.startPrank(sphinxUtils.selectManagedServiceAddressForNetwork());
+            sphinxDeployOnNetwork(
+                SphinxModule(sphinxModule()),
+                _root,
+                _bundleInfo,
+                "",
+                rpcUrl,
+                networkInfo.name
+            );
+            vm.stopPrank();
+        }
 
-    //         // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
-    //         vm.startPrank(proposer);
-    //         sphinxDeployOnNetwork(
-    //             ISphinxManager(sphinxManager()),
-    //             ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
-    //             _authRoot,
-    //             _bundleInfoArray[i],
-    //             metaTxnSignature,
-    //             rpcUrl
-    //         );
-    //         vm.stopPrank();
-    //     }
-
-    //     return forkIds;
-    // }
+        return forkIds;
+    }
 
     function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
@@ -333,19 +321,19 @@ abstract contract Sphinx {
         SphinxModule _module,
         SphinxBundle memory _bundle,
         uint256 blockGasLimit,
-        bytes[] memory _signatures
+        bytes memory _signatures
     ) private returns (bool, HumanReadableAction memory) {
         // Define an empty action, which we'll return if the deployment succeeds.
         HumanReadableAction memory emptyAction;
 
-        SphinxLeafWithProof[] memory leafs = _bundle.leafs;
+        // Filter out any leafs that aren't intended to be executed on this network
+        SphinxLeafWithProof[] memory leafs = sphinxUtils.filterActionsOnNetwork(_bundle.leafs);
 
         // The auth leaf is always first
-        SphinxLeafWithProof memory authLeaf = _bundle.leafs[0];
+        SphinxLeafWithProof memory authLeaf = leafs[0];
 
         // Execute auth leaf
-        bytes memory packedSignatures = sphinxUtils.packBytes(_signatures);
-        _module.approve{ gas: 1000000 }(_bundle.root, authLeaf.leaf, authLeaf.proof, packedSignatures);
+        _module.approve{ gas: 1000000 }(_bundle.root, authLeaf.leaf, authLeaf.proof, _signatures);
 
         // Execute the rest of the actions
         uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
@@ -453,7 +441,6 @@ abstract contract Sphinx {
             uint256 numLeafs,
             uint256 leafsExecuted,
             string memory uri,
-            address executor
         ) = _module.deployments(_root);
 
         if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
@@ -489,12 +476,10 @@ abstract contract Sphinx {
             ownerSignatures = sphinxUtils.getOwnerSignatures(wallets, _root);
         }
 
-        bytes[] memory signatures = new bytes[](1);
-        signatures[0] = _metaTxnSignature;
         (
             bool executionSuccess,
             HumanReadableAction memory readableAction
-        ) = sphinxExecuteDeployment(_module, _bundle, block.gaslimit, signatures);
+        ) = sphinxExecuteDeployment(_module, _bundle, block.gaslimit, ownerSignatures);
 
         if (!executionSuccess) {
             bytes memory revertMessage = abi.encodePacked(

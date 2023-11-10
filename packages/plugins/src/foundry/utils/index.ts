@@ -10,7 +10,7 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
-  CompilerConfig,
+  CompilerConfigWithUri,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -445,13 +445,10 @@ export const inferSolcVersion = async (): Promise<string> => {
 }
 
 export const makeDeploymentData = (
-  compilerConfigArray: Array<{
-    compilerConfig: CompilerConfig
-    configUri: string
-  }>
+  compilerConfigArray: Array<CompilerConfigWithUri>
 ): DeploymentData => {
   const data: DeploymentData = {}
-  for (const { compilerConfig, configUri } of compilerConfigArray) {
+  for (const compilerConfig of compilerConfigArray) {
     const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
       (action) => {
         return {
@@ -469,7 +466,7 @@ export const makeDeploymentData = (
       executor: compilerConfig.executorAddress,
       safe: compilerConfig.safeAddress,
       module: compilerConfig.moduleAddress,
-      deploymentURI: configUri,
+      deploymentURI: compilerConfig.configUri,
       txs,
     }
   }
@@ -484,10 +481,7 @@ export const getBundleInfo = async (
   root: string
   bundleInfo: BundleInfo
 }> => {
-  const compilerConfigsWithUris: Array<{
-    compilerConfig: CompilerConfig
-    configUri: string
-  }> = []
+  const compilerConfigsWithUris: Array<CompilerConfigWithUri> = []
   for (const parsedConfig of parsedConfigArray) {
     const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
@@ -495,7 +489,7 @@ export const getBundleInfo = async (
     )
 
     compilerConfigsWithUris.push({
-      compilerConfig,
+      ...compilerConfig,
       configUri,
     })
   }
@@ -506,9 +500,7 @@ export const getBundleInfo = async (
     root: bundle.root,
     bundleInfo: {
       bundle,
-      compilerConfigs: compilerConfigsWithUris.map(
-        (compilerConfig) => compilerConfig.compilerConfig
-      ),
+      compilerConfigs: compilerConfigsWithUris,
     },
   }
 }
