@@ -35,6 +35,7 @@ import {
   makeParsedConfig,
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
+import { writeDeploymentArtifacts } from '../foundry/artifacts'
 // import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
@@ -57,6 +58,7 @@ export const deploy = async (
     rpcEndpoints,
     etherscan,
     broadcastFolder,
+    deploymentFolder,
   } = await getFoundryConfigOptions()
 
   const forkUrl = rpcEndpoints[network]
@@ -317,17 +319,16 @@ export const deploy = async (
     )
 
     // TODO - Fix deployment artifacts
-    // const deploymentArtifactPath = await writeDeploymentArtifacts(
-    //   provider,
-    //   parsedConfig,
-    //   bundleInfo.actionBundle.actions,
-    //   broadcast,
-    //   deploymentFolder,
-    //   configArtifacts
-    // )
-    // spinner.succeed(
-    //   `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
-    // )
+    const deploymentArtifactPath = await writeDeploymentArtifacts(
+      provider,
+      parsedConfig,
+      broadcast,
+      deploymentFolder,
+      configArtifacts
+    )
+    spinner.succeed(
+      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    )
   } else {
     spinner.succeed(`No contract deployment artifacts to write.`)
   }

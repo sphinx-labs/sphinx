@@ -96,6 +96,7 @@ export type ParsedConfig = {
 export type DeploymentInfo = {
   safeAddress: string
   moduleAddress: string
+  executorAddress: string
   nonce: string
   chainId: string
   newConfig: SphinxConfig<SupportedNetworkName>
@@ -172,6 +173,7 @@ export interface RawCreate2ActionInput extends SphinxTransaction {
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
   contracts: ParsedContractDeployments
+  index: number
 }
 
 export type DecodedAction = {
@@ -194,6 +196,7 @@ export interface RawFunctionCallActionInput extends SphinxTransaction {
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
   contracts: ParsedContractDeployments
+  index: number
 }
 
 /**
@@ -202,6 +205,10 @@ export interface FunctionCallActionInput extends RawFunctionCallActionInput {
  */
 export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
+}
+
+export interface CompilerConfigWithUri extends CompilerConfig {
+  configUri: string
 }
 
 /**

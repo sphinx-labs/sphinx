@@ -33,6 +33,7 @@ export const MultiSendArtifact = require('../node_modules/@gnosis.pm/safe-contra
 export const MultiSendCallOnlyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/libraries/MultiSendCallOnly.sol/MultiSendCallOnly.json')
 export const GnosisSafeL2Artifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafeL2.sol/GnosisSafeL2.json')
 export const GnosisSafeArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafe.sol/GnosisSafe.json')
+export const GnosisSafeProxyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json')
 
 export const EscrowABI = EscrowArtifact.abi
 export const BalanceFactoryABI = BalanceFactoryArtifact.abi

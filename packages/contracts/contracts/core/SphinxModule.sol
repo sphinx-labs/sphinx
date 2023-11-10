@@ -18,6 +18,7 @@ import {
     Result,
     DeploymentState
 } from "./SphinxDataTypes.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 // TODO(break): actors:
 // - malicious safe (finished)

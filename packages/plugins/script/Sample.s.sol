@@ -12,11 +12,11 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function setUp() public {
-        sphinxConfig.projectName = "My Project";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.projectName = "11/8";
+        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
-        sphinxConfig.orgId = "asdf";
+        sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
     }
 
     function run() public override sphinx {

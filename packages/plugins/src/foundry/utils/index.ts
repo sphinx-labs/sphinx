@@ -10,7 +10,7 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
-  CompilerConfig,
+  CompilerConfigWithUri,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -445,13 +445,10 @@ export const inferSolcVersion = async (): Promise<string> => {
 }
 
 export const makeDeploymentData = (
-  compilerConfigArray: Array<{
-    compilerConfig: CompilerConfig
-    configUri: string
-  }>
+  compilerConfigArray: Array<CompilerConfigWithUri>
 ): DeploymentData => {
   const data: DeploymentData = {}
-  for (const { compilerConfig, configUri } of compilerConfigArray) {
+  for (const compilerConfig of compilerConfigArray) {
     const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
       (action) => {
         return {
@@ -468,7 +465,8 @@ export const makeDeploymentData = (
       nonce: compilerConfig.nonce,
       executor: compilerConfig.executorAddress,
       safe: compilerConfig.safeAddress,
-      deploymentURI: configUri,
+      module: compilerConfig.moduleAddress,
+      deploymentURI: compilerConfig.configUri,
       txs,
     }
   }
@@ -483,10 +481,7 @@ export const getBundleInfo = async (
   root: string
   bundleInfo: BundleInfo
 }> => {
-  const compilerConfigsWithUris: Array<{
-    compilerConfig: CompilerConfig
-    configUri: string
-  }> = []
+  const compilerConfigsWithUris: Array<CompilerConfigWithUri> = []
   for (const parsedConfig of parsedConfigArray) {
     const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
@@ -494,21 +489,18 @@ export const getBundleInfo = async (
     )
 
     compilerConfigsWithUris.push({
-      compilerConfig,
+      ...compilerConfig,
       configUri,
     })
   }
 
   const deploymentData = makeDeploymentData(compilerConfigsWithUris)
   const bundle = makeSphinxBundle(deploymentData)
-
   return {
     root: bundle.root,
     bundleInfo: {
       bundle,
-      compilerConfigs: compilerConfigsWithUris.map(
-        (compilerConfig) => compilerConfig.compilerConfig
-      ),
+      compilerConfigs: compilerConfigsWithUris,
     },
   }
 }
@@ -613,7 +605,7 @@ export const getSphinxSafeAddressFromScript = async (
 
   const json = JSON.parse(stdout)
 
-  const managerAddress = json.returns[0].value
+  const safeAddress = json.returns[0].value
 
-  return managerAddress
+  return safeAddress
 }

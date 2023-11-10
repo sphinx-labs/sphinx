@@ -11,7 +11,7 @@ import {
     SphinxLeafType,
     SphinxLeaf,
     SphinxLeafWithProof
-} from "../SphinxDataTypes.sol";
+} from "../core/SphinxDataTypes.sol";
 
 struct SphinxActionBundle {
     bytes32 root;
@@ -141,6 +141,7 @@ struct OptionalBytes32 {
 struct DeploymentInfo {
     address safeAddress;
     address moduleAddress;
+    address executorAddress;
     uint256 nonce;
     uint256 chainId;
     SphinxConfig newConfig;

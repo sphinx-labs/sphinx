@@ -364,12 +364,10 @@ export type ProposalRequest = {
   isTestnet: boolean
   owners: string[]
   threshold: number
-  authAddress: string
-  managerAddress: string
-  managerVersion: string
+  safeAddress: string
+  moduleAddress: string
   deploymentName: string
   chainIds: Array<number>
-  canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   diff: SphinxPreview
@@ -379,7 +377,6 @@ export type ProposalRequest = {
       numLeaves: number
       chainId: number
     }>
-    leaves: Array<ProposalRequestLeaf>
   }
 }
 

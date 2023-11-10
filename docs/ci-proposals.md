@@ -59,6 +59,8 @@ First, we'll create a workflow that dry runs the proposal whenever a pull reques
 
 Copy and paste the following into your `sphinx.dry-run.yml` file:
 
+// TODO - remove all references to `PROPOSER_PRIVATE_KEY`
+
 ```
 name: Sphinx Dry Run
 env:

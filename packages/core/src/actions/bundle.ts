@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
+import { LeafType, LeafWithProof, SphinxBundle } from '@sphinx-labs/contracts'
 
 import { ActionInput, ParsedConfig } from '../config/types'
 import { getDeploymentId, toHexString, fromHexString } from '../utils'
@@ -888,16 +889,14 @@ export const findBundledLeaf = (
 }
 
 export const getProjectDeploymentForChain = (
-  leafsOnChain: Array<BundledAuthLeaf>,
-  parsedConfig: ParsedConfig,
-  configUri: string,
-  actionBundle: SphinxActionBundle,
-  targetBundle: SphinxTargetBundle
+  bundle: SphinxBundle,
+  parsedConfig: ParsedConfig
 ): ProjectDeployment | undefined => {
   const { newConfig, initialState, chainId } = parsedConfig
 
-  const approvalLeafs = leafsOnChain.filter(
-    (l) => l.leafFunctionName === AuthLeafFunctions.APPROVE_DEPLOYMENT
+  const approvalLeafs = bundle.leafs.filter(
+    (l) =>
+      l.leaf.leafType === LeafType.APPROVE && l.leaf.chainId === BigInt(chainId)
   )
 
   if (approvalLeafs.length === 0) {
@@ -908,7 +907,7 @@ export const getProjectDeploymentForChain = (
     )
   }
 
-  const deploymentId = getDeploymentId(actionBundle, targetBundle, configUri)
+  const deploymentId = bundle.root
 
   return {
     chainId: Number(chainId),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { Version } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 
 contract Stateless {
     uint public immutable immutableUint;

@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import { console } from "sphinx-forge-std/console.sol";
 import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
-import { SphinxModuleFactory } from "../contracts/SphinxModuleFactory.sol";
-import { SphinxModule } from "../contracts/SphinxModule.sol";
+import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
+import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
     GnosisSafeProxyFactory
 } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
@@ -23,9 +23,9 @@ import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSend
 import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/SphinxDataTypes.sol";
+import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/core/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { TestUtils } from "./TestUtils.sol";
+import { TestUtils } from "./TestUtils.t.sol";
 
 contract MyContract {
 

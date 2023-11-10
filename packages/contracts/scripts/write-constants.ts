@@ -13,7 +13,11 @@ import {
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
 } from '../src/addresses'
-import { ManagedServiceArtifact, SphinxModuleArtifact } from '../src/ifaces'
+import {
+  GnosisSafeProxyArtifact,
+  ManagedServiceArtifact,
+  SphinxModuleArtifact,
+} from '../src/ifaces'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -56,6 +60,10 @@ const writeConstants = async () => {
     safeSingletonAddress: {
       type: 'address',
       value: getGnosisSafeAddress(),
+    },
+    safeProxyBytecode: {
+      type: 'bytes',
+      value: GnosisSafeProxyArtifact.bytecode,
     },
     sphinxModuleBytecode: {
       type: 'bytes',

@@ -12,7 +12,7 @@
     "artifacts/build-info/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build && yarn write-constants && yarn build:ts",
+    "build": "forge clean && forge build --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/",
