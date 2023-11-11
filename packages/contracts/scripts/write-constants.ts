@@ -6,18 +6,13 @@ import { getSphinxConstants } from '../src/contract-info'
 import { remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
-  getManagedServiceConstructorArgs,
   getSphinxModuleFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeAddress,
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
 } from '../src/addresses'
-import {
-  GnosisSafeProxyArtifact,
-  ManagedServiceArtifact,
-  SphinxModuleArtifact,
-} from '../src/ifaces'
+import { GnosisSafeProxyArtifact, SphinxModuleArtifact } from '../src/ifaces'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -41,17 +36,9 @@ const writeConstants = async () => {
       type: 'address',
       value: getSphinxModuleFactoryAddress(),
     },
-    managedServiceAddressOptimism: {
+    managedServiceAddress: {
       type: 'address',
-      value: getManagedServiceAddress(10n),
-    },
-    managedServiceAddressOptimismGoerli: {
-      type: 'address',
-      value: getManagedServiceAddress(420n),
-    },
-    managedServiceAddressStandard: {
-      type: 'address',
-      value: getManagedServiceAddress(1n),
+      value: getManagedServiceAddress(),
     },
     safeFactoryAddress: {
       type: 'address',
@@ -71,27 +58,7 @@ const writeConstants = async () => {
     },
   }
 
-  const sphinxConstants = getSphinxConstants(31337n)
-
-  // Add the manager contract info for specifically optimism and optimism goerli
-  // where the address is different from the rest of the networks.
-  // We do not include these in the above getSphinxConstants function b/c that function
-  // is also used by our live network deployment process so including three copies of the
-  // Sphinx manager contract info would be redundant and potentially cause errors.
-  sphinxConstants.push(
-    ...[
-      {
-        artifact: ManagedServiceArtifact,
-        expectedAddress: getManagedServiceAddress(10n),
-        constructorArgs: getManagedServiceConstructorArgs(10n),
-      },
-      {
-        artifact: ManagedServiceArtifact,
-        expectedAddress: getManagedServiceAddress(420n),
-        constructorArgs: getManagedServiceConstructorArgs(420n),
-      },
-    ]
-  )
+  const sphinxConstants = getSphinxConstants()
 
   const contractInfo = sphinxConstants.map(
     ({ artifact, constructorArgs, expectedAddress }) => {

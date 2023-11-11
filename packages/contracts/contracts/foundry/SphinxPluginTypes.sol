@@ -144,6 +144,8 @@ struct DeploymentInfo {
     address executorAddress;
     uint256 nonce;
     uint256 chainId;
+    bytes   safeInitData;
+    bool requireSuccess;
     SphinxConfig newConfig;
     bool isLiveNetwork;
     InitialChainState initialState;

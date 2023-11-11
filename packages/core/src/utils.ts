@@ -22,6 +22,7 @@ import {
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
+import { ContractArtifact, add0x } from '@sphinx-labs/contracts'
 
 import {
   CompilerConfig,
@@ -59,8 +60,6 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
-
-import { ContractArtifact, add0x } from '@sphinx-labs/contracts'
 
 export const getDeploymentId = (
   actionBundle: SphinxActionBundle,
@@ -549,84 +548,87 @@ export const toOpenZeppelinContractKind = (
 // }
 
 export const getConfigArtifactsRemote = async (
-  compilerConfig: CompilerConfig
+  compilerConfigs: Array<CompilerConfig>
 ): Promise<ConfigArtifactsRemote> => {
   const solcArray: BuildInfoRemote[] = []
-  // Get the compiler output for each compiler input.
-  for (const sphinxInput of compilerConfig.inputs) {
-    const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
-    let compilerOutput: CompilerOutput
-    if (solcBuild.isSolcJs) {
-      const compiler = new Compiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
-    } else {
-      const compiler = new NativeCompiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
-    }
-
-    if (compilerOutput.errors) {
-      const formattedErrorMessages: string[] = []
-      compilerOutput.errors.forEach((error) => {
-        // Ignore warnings thrown by the compiler.
-        if (error.type.toLowerCase() !== 'warning') {
-          formattedErrorMessages.push(error.formattedMessage)
-        }
-      })
-
-      if (formattedErrorMessages.length > 0) {
-        throw new Error(
-          `Failed to compile. Please report this error to Sphinx.\n` +
-            `${formattedErrorMessages}`
-        )
-      }
-    }
-
-    solcArray.push({
-      input: sphinxInput.input,
-      output: compilerOutput,
-      id: sphinxInput.id,
-      solcLongVersion: sphinxInput.solcLongVersion,
-      solcVersion: sphinxInput.solcVersion,
-    })
-  }
-
   const artifacts: ConfigArtifactsRemote = {}
-  for (const actionInput of compilerConfig.actionInputs) {
-    for (const address of Object.keys(actionInput.contracts)) {
-      const { fullyQualifiedName } = actionInput.contracts[address]
-
-      // Split the contract's fully qualified name into its source name and contract name.
-      const [sourceName, contractName] = fullyQualifiedName.split(':')
-
-      const buildInfo = solcArray.find(
-        (e) => e.output.contracts[sourceName][contractName]
-      )
-      if (!buildInfo) {
-        throw new Error(
-          `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
-        )
+  // Get the compiler output for each compiler input.
+  for (const compilerConfig of compilerConfigs) {
+    for (const sphinxInput of compilerConfig.inputs) {
+      const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
+      let compilerOutput: CompilerOutput
+      if (solcBuild.isSolcJs) {
+        const compiler = new Compiler(solcBuild.compilerPath)
+        compilerOutput = await compiler.compile(sphinxInput.input)
+      } else {
+        const compiler = new NativeCompiler(solcBuild.compilerPath)
+        compilerOutput = await compiler.compile(sphinxInput.input)
       }
-      const contractOutput =
-        buildInfo.output.contracts[sourceName][contractName]
 
-      const metadata =
-        typeof contractOutput.metadata === 'string'
-          ? JSON.parse(contractOutput.metadata)
-          : contractOutput.metadata
-      artifacts[fullyQualifiedName] = {
-        buildInfo,
-        artifact: {
-          abi: contractOutput.abi,
-          sourceName,
-          contractName,
-          bytecode: add0x(contractOutput.evm.bytecode.object),
-          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-          methodIdentifiers: contractOutput.evm.methodIdentifiers,
-          metadata,
-        },
+      if (compilerOutput.errors) {
+        const formattedErrorMessages: string[] = []
+        compilerOutput.errors.forEach((error) => {
+          // Ignore warnings thrown by the compiler.
+          if (error.type.toLowerCase() !== 'warning') {
+            formattedErrorMessages.push(error.formattedMessage)
+          }
+        })
+
+        if (formattedErrorMessages.length > 0) {
+          throw new Error(
+            `Failed to compile. Please report this error to Sphinx.\n` +
+              `${formattedErrorMessages}`
+          )
+        }
+      }
+
+      solcArray.push({
+        input: sphinxInput.input,
+        output: compilerOutput,
+        id: sphinxInput.id,
+        solcLongVersion: sphinxInput.solcLongVersion,
+        solcVersion: sphinxInput.solcVersion,
+      })
+    }
+
+    for (const actionInput of compilerConfig.actionInputs) {
+      for (const address of Object.keys(actionInput.contracts)) {
+        const { fullyQualifiedName } = actionInput.contracts[address]
+
+        // Split the contract's fully qualified name into its source name and contract name.
+        const [sourceName, contractName] = fullyQualifiedName.split(':')
+
+        const buildInfo = solcArray.find(
+          (e) => e.output.contracts[sourceName][contractName]
+        )
+        if (!buildInfo) {
+          throw new Error(
+            `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+          )
+        }
+        const contractOutput =
+          buildInfo.output.contracts[sourceName][contractName]
+
+        const metadata =
+          typeof contractOutput.metadata === 'string'
+            ? JSON.parse(contractOutput.metadata)
+            : contractOutput.metadata
+        artifacts[fullyQualifiedName] = {
+          buildInfo,
+          artifact: {
+            abi: contractOutput.abi,
+            sourceName,
+            contractName,
+            bytecode: add0x(contractOutput.evm.bytecode.object),
+            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+            methodIdentifiers: contractOutput.evm.methodIdentifiers,
+            metadata,
+          },
+        }
       }
     }
   }
+
   return artifacts
 }
 

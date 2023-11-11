@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
@@ -77,16 +78,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function initializeFFI(string memory _rpcUrl) external {
         ffiDeployOnAnvil(_rpcUrl);
         initializeSphinxContracts();
-    }
-
-    function selectManagedServiceAddressForNetwork() public view returns (address) {
-        if (block.chainid == 10) {
-            return managedServiceAddressOptimism;
-        } else if (block.chainid == 420) {
-            return managedServiceAddressOptimismGoerli;
-        } else {
-            return managedServiceAddressStandard;
-        }
     }
 
     function initializeSphinxContracts() public {
@@ -1027,9 +1018,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint _threshold
     ) public pure returns (address) {
         address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
+        bytes32 saltNonce = bytes32(0);
+        bytes32 salt = keccak256(abi.encode(safeProxyAddress, saltNonce));
         return
             Create2.computeAddress(
-                bytes32(0),
+                salt,
                 keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
                 sphinxModuleFactoryAddress
             );
@@ -1038,7 +1031,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function fetchSafeInitializerData(
         address[] memory _owners,
         uint _threshold
-    ) internal pure returns (bytes memory safeInitializerData) {
+    ) public pure returns (bytes memory safeInitializerData) {
         SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleFactory.deploySphinxModuleFromSafe.selector,
@@ -1084,9 +1077,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function sphinxModuleFactoryDeploy(address[] memory _owners, uint _threshold) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
+        console.logBytes(safeInitializerData);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
-        safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0);
+        address proxy = address(safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0));
+        console.logAddress(proxy);
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {

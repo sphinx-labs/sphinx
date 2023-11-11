@@ -16,6 +16,7 @@ import {
   SUPPORTED_NETWORKS,
   ParsedConfig,
   SphinxPreview,
+  getBundleInfo,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -23,7 +24,6 @@ import { ethers } from 'ethers'
 import { remove0x } from '@sphinx-labs/contracts'
 
 import {
-  getBundleInfo,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,

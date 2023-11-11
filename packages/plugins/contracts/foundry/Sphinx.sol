@@ -91,7 +91,7 @@ abstract contract Sphinx {
         string memory rpcUrl = vm.rpcUrl(_networkName);
         sphinxUtils.validateProposal(sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), sphinxUtils.selectManagedServiceAddressForNetwork());
+        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), constants.managedServiceAddress());
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
@@ -135,9 +135,12 @@ abstract contract Sphinx {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.chainId = block.chainid;
+        deploymentInfo.safeInitData = sphinxUtils.fetchSafeInitializerData(sphinxConfig.owners, sphinxConfig.threshold);
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, SphinxModule(module));
+        // TODO - support configuring this? Not sure if it's necessary in the first version.
+        deploymentInfo.requireSuccess = true;
 
         sphinxMode = SphinxMode.Collect;
         vm.startBroadcast(safe);
@@ -229,7 +232,7 @@ abstract contract Sphinx {
             sphinxUtils.initializeSphinxContracts();
 
             // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
-            vm.startPrank(sphinxUtils.selectManagedServiceAddressForNetwork());
+            vm.startPrank(constants.managedServiceAddress());
             sphinxDeployOnNetwork(
                 SphinxModule(sphinxModule()),
                 _root,
@@ -437,10 +440,18 @@ abstract contract Sphinx {
 
         sphinxRegisterProject(_rpcUrl, msgSender);
 
+        console.logAddress(address(sphinxSafe()));
+        console.logBytes(address(sphinxSafe()).code);
+
+        console.log("module address");
+        console.logAddress(sphinxModule());
+
         (
             uint256 numLeafs,
             uint256 leafsExecuted,
             string memory uri,
+            address executor,
+            DeploymentStatus status
         ) = _module.deployments(_root);
 
         if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {

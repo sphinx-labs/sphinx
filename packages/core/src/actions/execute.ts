@@ -1,21 +1,23 @@
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-
 import {
-  BundledSphinxAction,
-  SphinxBundles,
-  DeploymentState,
-  DeploymentStatus,
-  HumanReadableAction,
-} from './types'
+  LeafWithProof,
+  ManagedServiceABI,
+  SphinxBundle,
+  getManagedServiceAddress,
+} from '@sphinx-labs/contracts'
+
+import { DeploymentState, DeploymentStatus, HumanReadableAction } from './types'
 import { getGasPriceOverrides } from '../utils'
-import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
+import { getTargetNetworkLeafs } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
+import { decodeExecuteLeafData } from '../fund'
 
 export const executeDeployment = async (
-  manager: ethers.Contract,
-  bundles: SphinxBundles,
+  module: ethers.Contract,
+  bundle: SphinxBundle,
+  signatures: string[],
   humanReadableActions: Array<HumanReadableAction>,
   blockGasLimit: bigint,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
@@ -26,9 +28,9 @@ export const executeDeployment = async (
   receipts: ethers.TransactionReceipt[]
   failureAction?: HumanReadableAction
 }> => {
-  const { actionBundle, targetBundle } = bundles
-
   logger?.info(`[Sphinx]: preparing to execute the project...`)
+
+  const receipts: ethers.TransactionReceipt[] = []
 
   // We execute all actions in batches to reduce the total number of transactions and reduce the
   // cost of a deployment in general. Approaching the maximum block gas limit can cause
@@ -38,67 +40,62 @@ export const executeDeployment = async (
   const gasFraction = 2n
   const maxGasLimit = blockGasLimit / gasFraction
 
-  const initialActionBundle = getInitialActionBundle(actionBundle)
-  const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
+  // filter for only leafs for the target network
+  const networkLeafs = getTargetNetworkLeafs(
+    await (
+      await provider.getNetwork()
+    ).chainId,
+    bundle.leafs
+  )
 
-  logger?.info(`[Sphinx]: executing initial actions...`)
-  const { status, receipts, failureAction } = await executeBatchActions(
-    initialActionBundle,
-    false,
-    manager,
+  // execute the auth leaf with signatures
+  // TODO - call through the managed service contract
+  const authLeaf = networkLeafs[0]
+  const packedSignatures = ethers.solidityPacked(
+    signatures.map(() => 'bytes'),
+    signatures
+  )
+  const managedService = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceABI,
+    signer
+  )
+  const approveData = module.interface.encodeFunctionData('approve', [
+    bundle.root,
+    authLeaf.leaf,
+    authLeaf.proof,
+    packedSignatures,
+  ])
+
+  receipts.push(
+    await (
+      await managedService.call(
+        await module.getAddress(),
+        approveData,
+        await getGasPriceOverrides(signer)
+      )
+    ).wait()
+  )
+
+  // execute the rest of the leafs
+  logger?.info(`[Sphinx]: executing actions...`)
+  const { status, failureAction } = await executeBatchActions(
+    networkLeafs,
+    module,
+    managedService,
     maxGasLimit,
     humanReadableActions,
     signer,
-    provider,
+    receipts,
     logger
   )
 
   if (status === DeploymentStatus.FAILED) {
-    logger?.error(`[Sphinx]: failed to execute initial actions`)
+    logger?.error(`[Sphinx]: failed during execution`)
     return { success: false, receipts, failureAction }
-  } else if (status === DeploymentStatus.COMPLETED) {
-    logger?.info(`[Sphinx]: finished non-proxied deployment early`)
-    return { success: true, receipts }
   } else {
-    logger?.info(`[Sphinx]: executed initial actions`)
+    logger?.info(`[Sphinx]: executed actions`)
   }
-
-  logger?.info(`[Sphinx]: initiating upgrade...`)
-  receipts.push(
-    await (
-      await manager.initiateUpgrade(
-        targetBundle.targets.map((target) => target.target),
-        targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-  )
-  logger?.info(`[Sphinx]: initiated upgrade`)
-
-  logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
-  const { receipts: setStorageReceipts } = await executeBatchActions(
-    setStorageActionBundle,
-    true,
-    manager,
-    maxGasLimit,
-    humanReadableActions,
-    signer,
-    provider,
-    logger
-  )
-  receipts.push(...setStorageReceipts)
-  logger?.info(`[Sphinx]: executed 'SET_STORAGE' actions`)
-
-  logger?.info(`[Sphinx]: finalizing upgrade...`)
-  receipts.push(
-    await (
-      await manager.finalizeUpgrade(
-        targetBundle.targets.map((target) => target.target),
-        targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-  )
 
   // We're done!
   logger?.info(`[Sphinx]: successfully deployed project`)
@@ -114,22 +111,22 @@ export const executeDeployment = async (
  * @returns Maximum number of actions that can be executed.
  */
 const findMaxBatchSize = async (
-  actions: BundledSphinxAction[],
+  leafs: LeafWithProof[],
   maxGasLimit: bigint
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(actions, maxGasLimit)) {
-    return actions.length
+  if (await executable(leafs, maxGasLimit)) {
+    return leafs.length
   }
 
   // If the full batch size isn't executable, then we need to perform a binary search to find the
   // largest batch size that is actually executable.
   let min = 0
-  let max = actions.length
+  let max = leafs.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(actions.slice(0, mid), maxGasLimit)) {
+    if (await executable(leafs.slice(0, mid), maxGasLimit)) {
       min = mid
     } else {
       max = mid - 1
@@ -152,28 +149,26 @@ const findMaxBatchSize = async (
  * @param actions List of actions to execute.
  */
 const executeBatchActions = async (
-  actions: BundledSphinxAction[],
-  isSetStorageActionArray: boolean,
-  manager: ethers.Contract,
+  leafs: LeafWithProof[],
+  module: ethers.Contract,
+  managedService: ethers.Contract,
   maxGasLimit: bigint,
   humanReadableActions: Array<HumanReadableAction>,
   signer: ethers.Signer,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  receipts: ethers.TransactionReceipt[],
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
   receipts: ethers.TransactionReceipt[]
   failureAction?: HumanReadableAction
 }> => {
-  const receipts: ethers.TransactionReceipt[] = []
-
   // Pull the deployment state from the contract so we're guaranteed to be up to date.
-  const activeDeploymentId = await manager.activeDeploymentId()
-  let state: DeploymentState = await manager.deployments(activeDeploymentId)
+  const activeRoot = await module.activeRoot()
+  let state: DeploymentState = await module.deployments(activeRoot)
 
   // Remove the actions that have already been executed.
-  const filtered = actions.filter((action) => {
-    return action.action.index >= state.actionsExecuted
+  const filtered = leafs.filter((leaf) => {
+    return leaf.leaf.index >= state.leafsExecuted
   })
 
   // We can return early if there are no actions to execute.
@@ -184,8 +179,8 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
-    const mostRecentState: DeploymentState = await manager.deployments(
-      activeDeploymentId
+    const mostRecentState: DeploymentState = await module.deployments(
+      activeRoot
     )
     if (mostRecentState.status === DeploymentStatus.FAILED) {
       return { status: mostRecentState.status, receipts }
@@ -207,56 +202,39 @@ const executeBatchActions = async (
       }...`
     )
 
-    // Execute the batch of actions.
-    if (isSetStorageActionArray) {
-      const tx = await (
-        await manager.setStorage(
-          batch.map((action) => action.action),
-          batch.map((action) => action.siblings),
-          await getGasPriceOverrides(signer)
-        )
-      ).wait()
+    try {
+      const executeData = module.interface.encodeFunctionData('execute', [
+        batch,
+      ])
+      const res = await managedService.call(
+        await module.getAddress(),
+        executeData,
+        await getGasPriceOverrides(signer)
+      )
+      const tx = await res.wait()
       receipts.push(tx)
-    } else {
-      try {
-        // Call estimateGas first to check if the transaction will fail.
-        // estimateGas provides more information on the failure, allowing us to decode the custom error.
-        await provider.estimateGas({
-          to: await manager.getAddress(),
-          from: await signer.getAddress(),
-          data: manager.interface.encodeFunctionData('executeInitialActions', [
-            batch.map((action) => action.action),
-            batch.map((action) => action.siblings),
-          ]),
-        })
+    } catch (e) {
+      throw e
 
-        const tx = await (
-          await manager.executeInitialActions(
-            batch.map((action) => action.action),
-            batch.map((action) => action.siblings),
-            await getGasPriceOverrides(signer)
-          )
-        ).wait()
-        receipts.push(tx)
-      } catch (e) {
-        // If the deployment failed due to a constructor or call reverting, handle gracefully.
-        const revertData = e.data
-        const decodedError = manager.interface.parseError(revertData)
-        if (decodedError?.name === 'DeploymentFailed') {
-          logger?.error(`[Sphinx]: failed to execute initial actions`)
-          if (decodedError?.args[0] !== undefined) {
-            const failureAction = humanReadableActions[decodedError.args[0]]
-            return { status: DeploymentStatus.FAILED, receipts, failureAction }
-          }
-        } else {
-          // Otherwise, rethrow the error
-          throw e
-        }
-      }
+      // TODO - handle partial failures (or just only handle the default supported case)
+
+      // If the deployment failed due to a constructor or call reverting, handle gracefully.
+      // const revertData = e.data
+      // const decodedError = module.interface.parseError(revertData)
+      // if (decodedError?.name === 'DeploymentFailed') {
+      //   logger?.error(`[Sphinx]: failed to execute initial actions`)
+      //   if (decodedError?.args[0] !== undefined) {
+      //     const failureAction = humanReadableActions[decodedError.args[0]]
+      //     return { status: DeploymentStatus.FAILED, receipts, failureAction }
+      //   }
+      // } else {
+      //   // Otherwise, rethrow the error
+      //   throw e
+      // }
     }
 
     // Return early if the deployment failed.
-    state = await manager.deployments(activeDeploymentId)
+    state = await module.deployments(activeRoot)
     if (state.status === DeploymentStatus.FAILED) {
       return { status: state.status, receipts }
     }
@@ -276,11 +254,14 @@ const executeBatchActions = async (
  * @returns True if the batch is executable, false otherwise.
  */
 export const executable = async (
-  selected: BundledSphinxAction[],
+  selected: LeafWithProof[],
   maxGasLimit: bigint
 ): Promise<boolean> => {
   const estGasUsed = selected
-    .map((action) => action.gas)
+    .map((action) => {
+      const values = decodeExecuteLeafData(action.leaf.data)
+      return values[2]
+    })
     .reduce((a, b) => a + b)
 
   return maxGasLimit > estGasUsed

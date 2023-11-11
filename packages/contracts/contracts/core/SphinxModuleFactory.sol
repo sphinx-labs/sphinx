@@ -36,6 +36,7 @@ contract SphinxModuleFactory {
         uint256 _saltNonce
     ) public returns (SphinxModule sphinxModule) {
         bytes32 salt = keccak256(abi.encode(msg.sender, _saltNonce));
+        console.logAddress(msg.sender);
         sphinxModule = SphinxModule(
             Create2.deploy(
                 0,
@@ -43,6 +44,8 @@ contract SphinxModuleFactory {
                 abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
             )
         );
+        console.log("deployed module");
+        console.logAddress(address(sphinxModule));
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
     }
 

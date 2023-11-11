@@ -1,6 +1,5 @@
 import {
   ZeroHash,
-  ZeroAddress,
   getCreate2Address,
   solidityPackedKeccak256,
   AbiCoder,
@@ -8,7 +7,6 @@ import {
 
 import {
   ManagedServiceArtifact,
-  BalanceFactoryArtifact,
   SphinxModuleFactoryArtifact,
   SimulateTxAccessorArtifact,
   GnosisSafeProxyFactoryArtifact,
@@ -24,18 +22,12 @@ import {
   getOwnerAddress,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from './constants'
-import { USDC_ADDRESSES } from './contract-info'
 
-export const getManagedServiceConstructorArgs = (chainId: bigint) => {
-  const usdcAddress =
-    chainId === 10n || chainId === 420n
-      ? USDC_ADDRESSES[Number(chainId)]
-      : ZeroAddress
-
-  return [getOwnerAddress(), usdcAddress]
+export const getManagedServiceConstructorArgs = () => {
+  return [getOwnerAddress()]
 }
 
-export const getManagedServiceAddress = (chainId: bigint) => {
+export const getManagedServiceAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -44,25 +36,8 @@ export const getManagedServiceAddress = (chainId: bigint) => {
       [
         ManagedServiceArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          getManagedServiceConstructorArgs(chainId)
-        ),
-      ]
-    )
-  )
-}
-
-export const getBalanceFactoryAddress = (chainId: bigint): string => {
-  return getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes', 'bytes'],
-      [
-        BalanceFactoryArtifact.bytecode,
-        AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          [USDC_ADDRESSES[Number(chainId)], getManagedServiceAddress(chainId)]
+          ['address'],
+          getManagedServiceConstructorArgs()
         ),
       ]
     )
@@ -77,7 +52,7 @@ export const getSphinxModuleFactoryAddress = () => {
   )
 }
 
-// TODO - use gnosis singleton factory to get the canonical addresses
+// TODO - use gnosis singleton factory to get the canonical addresses?
 
 // SimulateTxAccessor
 export const getSimulateTxAccessorAddress = () => {
