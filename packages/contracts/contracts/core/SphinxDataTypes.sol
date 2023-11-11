@@ -36,8 +36,8 @@ struct SphinxTransaction {
 }
 
 struct SphinxMerkleTree {
-  bytes32 root;
-  SphinxLeafWithProof[] leafs;
+    bytes32 root;
+    SphinxLeafWithProof[] leafs;
 }
 
 struct SphinxLeafWithProof {
@@ -55,6 +55,7 @@ struct DeploymentState {
     uint256 leafsExecuted;
     string uri;
     address executor;
+    DeploymentStatus status;
 }
 
 /**
@@ -103,26 +104,17 @@ enum SphinxActionType {
    with the `CANCELLED` status being an exception.
  *
  * @custom:value EMPTY The deployment does not exist.
- * @custom:value APPROVED The deployment has been approved by the owner.
- * @custom:value INITIAL_ACTIONS_EXECUTED The initial `DEPLOY_CONTRACT` and `CALL` actions in the
-   deployment have been executed.
- * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
- * @custom:value SET_STORAGE_ACTIONS_EXECUTED The `SET_STORAGE` actions in the deployment have been
-                 executed.
+ * @custom:value APPROVED The deployment has been approved by the Gnosis Safe owner(s).
  * @custom:value COMPLETED The deployment has been completed.
- * @custom:value CANCELLED The deployment has been cancelled.
- * @custom:value FAILED The deployment has failed. This is deprecated as we no longer allow
- *               deployments to silently fail.
+ * @custom:value CANCELLED The deployment has been cancelled by the Gnosis Safe owner(s).
+ * @custom:value FAILED The deployment has failed due to a transaction reverting.
  */
 enum DeploymentStatus {
     EMPTY,
     APPROVED,
-    PROXIES_INITIATED,
     COMPLETED,
     CANCELLED,
-    FAILED,
-    INITIAL_ACTIONS_EXECUTED,
-    SET_STORAGE_ACTIONS_EXECUTED
+    FAILED
 }
 
 /**

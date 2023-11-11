@@ -22,28 +22,27 @@ import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 // TODO(A-invariant): everything applies for gnosis safe v1.3.0 and v1.4.1.
 
-// TODO(docs):
-// - desc: Deploys SphinxModule contracts at deterministic addresses and enables them within Gnosis Safes.
 contract SphinxModuleFactory {
-
     address private immutable MODULE_FACTORY = address(this);
 
     event SphinxModuleDeployed(SphinxModule indexed sphinxModule, address indexed safeProxy);
 
     event SphinxModuleEnabled(address indexed sphinxModule, address indexed safeProxy);
 
-    // TODO(invariants):
-    // - desc: deploys a SphinxModule at a deterministic address based on the caller's address, an arbitrary salt, and the Safe address input parameter.
-    // - must revert if a SphinxModule already exists at an address
-    // - must be possible to deploy more than one SphinxModule for a given caller
-    // - must emit a SphinxModuleDeployed event
-    // - must return the address of the deployed SphinxModule
+    // TODO(docs): deploys a SphinxModule at a deterministic address based on the caller's address,
+    // an arbitrary salt, and the Safe address input parameter.
     function deploySphinxModule(
         address _safeProxy,
         uint256 _saltNonce
     ) public returns (SphinxModule sphinxModule) {
         bytes32 salt = keccak256(abi.encode(msg.sender, _saltNonce));
-        sphinxModule = SphinxModule(Create2.deploy(0, salt, abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))));
+        sphinxModule = SphinxModule(
+            Create2.deploy(
+                0,
+                salt,
+                abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
+            )
+        );
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
     }
 
@@ -53,46 +52,72 @@ contract SphinxModuleFactory {
     // address. the Safe initializer data would need to include the Safe's address, but its address
     // is determined by the initializer data when deploying with
     // `GnosisSafeProxyFactory.createProxyWithNonce`).
-    // TODO(invariants):
-    // - desc: deploys a SphinxModule at a deterministic address based on the caller's address and an arbitrary salt.
-    // - must revert if delegatecalled
-    // - must revert if a SphinxModule already exists at an address
-    // - must be possible to deploy more than one SphinxModule for a given caller
-    // - must emit a SphinxModuleDeployed event
-    function deploySphinxModuleFromSafe(
-        uint256 _saltNonce
-    ) public {
+    // TODO(docs): deploys a SphinxModule at a deterministic address based on the caller's address
+    // and an arbitrary salt.
+    function deploySphinxModuleFromSafe(uint256 _saltNonce) public {
         require(address(this) == MODULE_FACTORY, "SphinxModuleFactory: delegatecall not allowed");
         deploySphinxModule(msg.sender, _saltNonce);
     }
 
     // TODO(docs): delegatecalling prevents a malicious actor from being able to snipe a SphinxModule
     // address inside the call to `enableModule`.
+    // TODO(docs): this function assumes that the deployer of the SphinxModule is the GnosisSafe. if the deployer is a different account, the Safe should use `Safe.enableModule` instead.
     // TODO(docs): must be delegatecalled by a safe. will revert if the SphinxModule is already
-    // enabled in the Safe (at least in Safe v.1.3.0). the SphinxModule does not need to be
-    // deployed yet.
+    // enabled in the Safe (at least in Safe v.1.3.0).
     // TODO(invariants):
     // - desc: enables a SphinxModule in a Gnosis Safe.
     // - must revert if not delegatecalled
     // - must emit a SphinxModuleEnabled event in the Safe (not the SphinxModuleFactory)
-    function enableSphinxModule(
-        uint256 _saltNonce
-    ) public {
-        console.log('msgSender', msg.sender);
-        console.log('this', address(this));
+
+    /**
+     * @notice Enables a `SphinxModule` within a Gnosis Safe. Must be delegatecalled by
+     * the Gnosis Safe. This function is meant to be called during the initialization of a Gnosis
+       Safe after calling `SphinxModuleFactory.deploySphinxModuleFromSafe`. To enable a SphinxModule
+       after a Gnosis Safe has been initialized, use the Gnosis Safe's `enableModule` function
+       instead.
+
+       We cannot use the address of the Gnosis Safe or the address of the `SphinxModule` as
+       an input parameter to this function because this would cause a circular dependency when
+       calculating the initializer data. Specifically, the initializer data would need to include
+       the address of the SphinxModule or the address of the Gnosis Safe, which are both determined
+       by the initializer data.
+     *
+     * @param _saltNonce An arbitrary nonce that is used as an input to the CREATE2 salt which
+     * determines the address of the `SphinxModule`.
+     */
+    function enableSphinxModuleFromSafe(uint256 _saltNonce) public {
         require(address(this) != MODULE_FACTORY, "SphinxModuleFactory: must be delegatecalled");
-        console.log('same addresses');
         address sphinxModule = computeSphinxModuleAddress(address(this), address(this), _saltNonce);
         GnosisSafe(payable(address(this))).enableModule(sphinxModule);
         emit SphinxModuleEnabled(sphinxModule, address(this));
     }
 
+    // TODO(spec): Deploys `SphinxModule` contracts using CREATE2. The address of a `SphinxModule` is determined by the following inputs:
+    // - `address safeProxy`: The address of the Gnosis Safe proxy contract that the `SphinxModule` belongs to.
+    // - `address caller`: The address of the caller that deployed (or will deploy) the `SphinxModule` through the `SphinxModuleFactory`.
+    // - `uint256 saltNonce`: An arbitrary nonce.
+
+    /**
+     * @notice Computes the address of a `SphinxModule` contract. Assumes that the deployer of the
+     * `SphinxModule` is this `SphinxModuleFactory` contract.
+     *
+     * @param _safeProxy The address of the Gnosis Safe proxy contract that the `SphinxModule` belongs to.
+     * @param _caller    The address of the caller that deployed (or will deploy) the `SphinxModule` through the `SphinxModuleFactory`.
+     * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the address of the `SphinxModule`.
+     */
     function computeSphinxModuleAddress(
         address _safeProxy,
-        address _deployer,
+        address _caller,
         uint256 _saltNonce
     ) public view returns (address) {
-        bytes32 salt = keccak256(abi.encode(_deployer, _saltNonce));
-        return Create2.computeAddress(salt, keccak256(abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))), MODULE_FACTORY);
+        bytes32 salt = keccak256(abi.encode(_caller, _saltNonce));
+        return
+            Create2.computeAddress(
+                salt,
+                keccak256(
+                    abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
+                ),
+                MODULE_FACTORY
+            );
     }
 }

@@ -4,9 +4,7 @@ pragma solidity ^0.8.0;
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
-import {
-    ISphinxAccessControl
-} from "../core/interfaces/ISphinxAccessControl.sol";
+import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
 import { SphinxModule } from "../core/SphinxModule.sol";
 import { SphinxModuleFactory } from "../core/SphinxModuleFactory.sol";
@@ -36,7 +34,9 @@ import {
     Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
-import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import {
+    GnosisSafeProxyFactory
+} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
@@ -47,12 +47,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // These are constants thare are used when signing an EIP-712 meta transaction. They're copied
     // from the `SphinxAuth` contract.
     bytes32 private constant DOMAIN_SEPARATOR =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name)"),
-                keccak256(bytes("Sphinx"))
-            )
-        );
+        keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
     bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
@@ -285,7 +280,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (rawActions, _proofs);
     }
 
-    function decodeExecutionLeafData(SphinxLeaf memory leaf) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
+    function decodeExecutionLeafData(
+        SphinxLeaf memory leaf
+    ) public pure returns (address to, uint value, uint gas, bytes memory uri, uint operation) {
         return abi.decode(leaf.data, (address, uint, uint, bytes, uint));
     }
 
@@ -368,7 +365,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (numInitialActions, numSetStorageActions);
     }
 
-    function filterActionsOnNetwork (
+    function filterActionsOnNetwork(
         SphinxLeafWithProof[] memory leafs
     ) external view returns (SphinxLeafWithProof[] memory) {
         uint numLeafsOnNetwork = 0;
@@ -981,11 +978,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxModule _sphinxModule
     ) external view returns (InitialChainState memory) {
         if (address(_safe).code.length == 0) {
-            return
-                InitialChainState({
-                    isSafeDeployed: false,
-                    isExecuting: false
-                });
+            return InitialChainState({ isSafeDeployed: false, isExecuting: false });
         } else {
             return
                 InitialChainState({
@@ -1016,35 +1009,64 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function getSphinxSafeAddress(address[] memory _owners, uint _threshold) public pure returns (address) {
+    function getSphinxSafeAddress(
+        address[] memory _owners,
+        uint _threshold
+    ) public pure returns (address) {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
         bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), bytes32(0)));
-        bytes memory deploymentData = abi.encodePacked(safeProxyBytecode, abi.encode(safeSingletonAddress));
-        return Create2.computeAddress(
-            salt,
-            keccak256(deploymentData),
-            safeFactoryAddress
+        bytes memory deploymentData = abi.encodePacked(
+            safeProxyBytecode,
+            abi.encode(safeSingletonAddress)
         );
+        return Create2.computeAddress(salt, keccak256(deploymentData), safeFactoryAddress);
     }
 
-    function getSphinxModuleAddress(address[] memory _owners, uint _threshold) public pure returns (address) {
+    function getSphinxModuleAddress(
+        address[] memory _owners,
+        uint _threshold
+    ) public pure returns (address) {
         address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
-        return Create2.computeAddress(bytes32(0), keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))), sphinxModuleFactoryAddress);
+        return
+            Create2.computeAddress(
+                bytes32(0),
+                keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
+                sphinxModuleFactoryAddress
+            );
     }
 
     function fetchSafeInitializerData(
         address[] memory _owners,
         uint _threshold
-    ) internal pure returns (
-        bytes memory safeInitializerData
-    ) {
+    ) internal pure returns (bytes memory safeInitializerData) {
         SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
-        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
-        bytes memory deployModuleMultiSendData = abi.encodePacked(uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata);
-        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
-        bytes memory enableModuleMultiSendData = abi.encodePacked(uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata);
+        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
+            moduleFactory.deploySphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
+        bytes memory deployModuleMultiSendData = abi.encodePacked(
+            uint8(0),
+            moduleFactory,
+            uint256(0),
+            encodedDeployModuleCalldata.length,
+            encodedDeployModuleCalldata
+        );
+        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(
+            moduleFactory.enableSphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            uint8(1),
+            moduleFactory,
+            uint256(0),
+            encodedEnableModuleCalldata.length,
+            encodedEnableModuleCalldata
+        );
 
-        bytes memory multiSendData = abi.encodeWithSelector(MultiSend.multiSend.selector, abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData));
+        bytes memory multiSendData = abi.encodeWithSelector(
+            MultiSend.multiSend.selector,
+            abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
+        );
         safeInitializerData = abi.encodePacked(
             GnosisSafe.setup.selector,
             abi.encode(
@@ -1060,18 +1082,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function sphinxModuleFactoryDeploy(
-        address[] memory _owners,
-        uint _threshold
-    ) external {
+    function sphinxModuleFactoryDeploy(address[] memory _owners, uint _threshold) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
-        safeProxyFactory.createProxyWithNonce(
-            safeSingletonAddress,
-            safeInitializerData,
-            0
-        );
+        safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0);
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
@@ -1133,7 +1148,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (result.exitCode != 0) revert(string(result.stderr));
     }
 
-    function getOwnerSignatures(Wallet[] memory _owners, bytes32 _root) public pure returns (bytes memory) {
+    function getOwnerSignatures(
+        Wallet[] memory _owners,
+        bytes32 _root
+    ) public pure returns (bytes memory) {
         bytes[] memory signatures = new bytes[](_owners.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);

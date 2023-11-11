@@ -16,7 +16,8 @@ import {
     SphinxLeaf,
     SphinxLeafWithProof,
     Result,
-    DeploymentState
+    DeploymentState,
+    DeploymentStatus
 } from "./SphinxDataTypes.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
@@ -58,6 +59,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     event SphinxDeploymentCompleted(bytes32 indexed merkleRoot);
 
+    event SphinxDeploymentCancelled(bytes32 indexed merkleRoot);
+
     event SphinxActionExecuted(bytes32 indexed merkleRoot, uint256 leafIndex);
 
     event SphinxDeploymentFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
@@ -65,12 +68,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     string public constant VERSION = "1.0.0";
 
     bytes32 private constant DOMAIN_SEPARATOR =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name)"),
-                keccak256(bytes("Sphinx"))
-            )
-        );
+        keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
 
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
@@ -128,7 +126,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // - a deployment that contains a single leaf on a chain (i.e. just an approval leaf) must be
     //   marked as completed in this function.
 
-    // TODO(flow-chart):
+
+    // TODO(flow-chart): update this with 'cancelled' and any other DeploymentStatuses.
     // ```mermaid
     // graph TD
     //     style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
@@ -191,23 +190,33 @@ contract SphinxModule is ReentrancyGuard, Enum {
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // TODO(docs): we don't perform any checks on the URI because it may be empty if numLeafs is 1.
 
-        deployments[_root] = DeploymentState({
-            numLeafs: numLeafs,
-            leafsExecuted: 1,
-            uri: uri,
-            executor: executor
-        });
+        if (activeRoot != bytes32(0)) {
+            // TODO(docs): we don't need to assign the activeRoot to a new value here because we do
+            // it later in this function.
+            deployments[activeRoot].status = DeploymentStatus.CANCELLED;
+            emit SphinxDeploymentCancelled(activeRoot);
+        }
 
         emit SphinxDeploymentApproved(_root, activeRoot, nonce, executor, numLeafs, uri);
 
-        currentNonce += 1;
+        DeploymentState storage state = deployments[_root];
+        // TODO(docs): assign values to all fields of the DeploymentState except for the `status`,
+        // which will be assigned in the code block below (TODO(docs): <- awkward phrasing).
+        state.numLeafs = numLeafs;
+        state.leafsExecuted = 1;
+        state.uri = uri;
+        state.executor = executor;
 
         if (numLeafs == 1) {
-            emit SphinxDeploymentCompleted(_root);
+            state.status = DeploymentStatus.COMPLETED;
             activeRoot = bytes32(0);
+            emit SphinxDeploymentCompleted(_root);
         } else {
+            state.status = DeploymentStatus.APPROVED;
             activeRoot = _root;
         }
+
+        currentNonce += 1;
 
         // TODO(docs): we do this last to follow the CEI pattern. i think it's possible
         // for an external call to happen within 'checkSignatures' due to eip-1271 logic.
@@ -296,6 +305,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
             }(to, value, txData, operation);
 
             if (!result.success && requireSuccess) {
+                state.status = DeploymentStatus.FAILED;
                 activeRoot = bytes32(0);
                 emit SphinxDeploymentFailed(activeRoot, leaf.index);
                 return results;
@@ -310,12 +320,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
             // alternate formulas.
         }
 
-        // TODO(left off): it's possible to supply more leafs than 'numLeafs'. probably put a
-        // require statement in the for-loop that compares the leafsExecuted to the numLeafs.
-
         if (state.leafsExecuted == state.numLeafs) {
-            emit SphinxDeploymentCompleted(activeRoot);
+            state.status = DeploymentStatus.COMPLETED;
             activeRoot = bytes32(0);
+            emit SphinxDeploymentCompleted(activeRoot);
         }
     }
 
@@ -337,7 +345,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
         require(_leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         require(_leaf.index == _leafsExecuted, "SphinxModule: invalid leaf index");
 
-        require(MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)), "SphinxModule: invalid merkle proof");
+        require(
+            MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)),
+            "SphinxModule: invalid merkle proof"
+        );
     }
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo

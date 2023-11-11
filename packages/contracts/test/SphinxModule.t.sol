@@ -23,12 +23,15 @@ import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSend
 import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/core/SphinxDataTypes.sol";
+import {
+    SphinxMerkleTree,
+    SphinxLeafWithProof,
+    SphinxTransaction
+} from "../contracts/core/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 
 contract MyContract {
-
     uint public value;
 
     function myFunction(uint _value) external {
@@ -37,7 +40,6 @@ contract MyContract {
 }
 
 contract SphinxModule_Test is Test, Enum, TestUtils {
-
     SphinxModule module;
     GnosisSafe safe;
 
@@ -74,12 +76,33 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
             owners.push(wallets[i].addr);
         }
 
-        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
-        bytes memory firstMultiSendData = abi.encodePacked(uint8(Operation.Call), moduleFactory, uint256(0), encodedDeployModuleCall.length, encodedDeployModuleCall);
-        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(moduleFactory.enableSphinxModule.selector, bytes32(0));
-        bytes memory secondMultiSendData = abi.encodePacked(uint8(Operation.DelegateCall), moduleFactory, uint256(0), encodedEnableModuleCall.length, encodedEnableModuleCall);
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            moduleFactory.deploySphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
+        bytes memory firstMultiSendData = abi.encodePacked(
+            uint8(Operation.Call),
+            moduleFactory,
+            uint256(0),
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleFactory.enableSphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
+        bytes memory secondMultiSendData = abi.encodePacked(
+            uint8(Operation.DelegateCall),
+            moduleFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
 
-        bytes memory multiSendData = abi.encodeWithSelector(multiSend.multiSend.selector, abi.encodePacked(firstMultiSendData, secondMultiSendData));
+        bytes memory multiSendData = abi.encodeWithSelector(
+            multiSend.multiSend.selector,
+            abi.encodePacked(firstMultiSendData, secondMultiSendData)
+        );
 
         bytes memory safeInitializerData = abi.encodePacked(
             gnosisSafeSingleton.setup.selector,
@@ -96,26 +119,27 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
         );
 
         GnosisSafeProxy safeProxy = safeProxyFactory.createProxyWithNonce(
-                address(gnosisSafeSingleton),
-                safeInitializerData,
-                0
-            );
+            address(gnosisSafeSingleton),
+            safeInitializerData,
+            0
+        );
 
         safe = GnosisSafe(payable(address(safeProxy)));
-        module = SphinxModule(moduleFactory.computeSphinxModuleAddress(address(safe), address(safe), 0));
+        module = SphinxModule(
+            moduleFactory.computeSphinxModuleAddress(address(safe), address(safe), 0)
+        );
     }
 
     function test_TODO_success() external {
         SphinxTransaction[] memory txs = new SphinxTransaction[](1);
-        txs[0] =
-            SphinxTransaction({
-                to: address(myContract),
-                value: 0,
-                txData: abi.encodePacked(myContract.myFunction.selector, abi.encode(123)),
-                operation: Operation.Call,
-                gas: 1_000_000,
-                requireSuccess: true
-            });
+        txs[0] = SphinxTransaction({
+            to: address(myContract),
+            value: 0,
+            txData: abi.encodePacked(myContract.myFunction.selector, abi.encode(123)),
+            operation: Operation.Call,
+            gas: 1_000_000,
+            requireSuccess: true
+        });
 
         SphinxMerkleTree memory tree = getMerkleTreeFFI(txs);
         bytes memory signatures = getOwnerSignatures(ownerWallets, tree.root);
@@ -130,7 +154,9 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
     }
 
     // TODO: mv
-    function getMerkleTreeFFI(SphinxTransaction[] memory _txs) public returns (SphinxMerkleTree memory) {
+    function getMerkleTreeFFI(
+        SphinxTransaction[] memory _txs
+    ) public returns (SphinxMerkleTree memory) {
         string[] memory inputs = new string[](11);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
@@ -151,5 +177,6 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
     }
 
     function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
+
     function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) {}
 }
