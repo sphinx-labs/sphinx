@@ -7,10 +7,10 @@ pragma solidity ^0.8.0;
 // it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
 // transactions.
 
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {
     SphinxLeafType,
     SphinxLeaf,
@@ -19,7 +19,7 @@ import {
     DeploymentState,
     DeploymentStatus
 } from "./SphinxDataTypes.sol";
-import { console } from "sphinx-forge-std/console.sol";
+import {console} from "sphinx-forge-std/console.sol";
 
 // TODO(break): actors:
 // - malicious safe (finished)
@@ -126,7 +126,6 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // - a deployment that contains a single leaf on a chain (i.e. just an approval leaf) must be
     //   marked as completed in this function.
 
-
     // TODO(flow-chart): update this with 'cancelled' and any other DeploymentStatuses.
     // ```mermaid
     // graph TD
@@ -152,12 +151,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // can do this by approving a new Merkle root, which will cancel the previous deployment.
     // TODO(docs): we add a reentrancy guard because `safe.checkSignatures` may contain an external call
     // to another contract (in the EIP-1271 verification logic).
-    function approve(
-        bytes32 _root,
-        SphinxLeaf memory _leaf,
-        bytes32[] memory _proof,
-        bytes memory _signatures
-    ) public nonReentrant {
+    function approve(bytes32 _root, SphinxLeaf memory _leaf, bytes32[] memory _proof, bytes memory _signatures)
+        public
+        nonReentrant
+    {
         require(_root != bytes32(0), "SphinxModule: invalid root");
 
         // TODO(docs): without this check, it'd be possible to approve a Merkle root twice by
@@ -174,14 +171,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
         // TODO(docs): We include the address of the `SphinxModule` to prevent a vulnerability where
         // every deployment in a Safe could be re-executed if it adds a new SphinxModule after
         // executing deployments in a different SphinxModule.
-        (
-            address safe,
-            address module,
-            uint256 nonce,
-            uint256 numLeafs,
-            address executor,
-            string memory uri
-        ) = abi.decode(_leaf.data, (address, address, uint256, uint256, address, string));
+        (address safe, address module, uint256 nonce, uint256 numLeafs, address executor, string memory uri) =
+            abi.decode(_leaf.data, (address, address, uint256, uint256, address, string));
 
         require(safe == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(module == address(this), "SphinxModule: invalid SphinxModule");
@@ -220,11 +211,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
         // TODO(docs): we do this last to follow the CEI pattern. i think it's possible
         // for an external call to happen within 'checkSignatures' due to eip-1271 logic.
-        bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, _root))
-        );
+        bytes memory typedData = abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
         safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
@@ -270,9 +257,11 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // - (is this true?) a malicious Safe could grief the executor by causing execution to revert.
     //   they could do this by doing `address(0).call{ gas: 10000000000}()` one of the transactions
     //   being executed. this is fine; the user will be billed for all of the executor's gas costs.
-    function execute(
-        SphinxLeafWithProof[] memory _leafsWithProofs
-    ) public nonReentrant returns (Result[] memory results) {
+    function execute(SphinxLeafWithProof[] memory _leafsWithProofs)
+        public
+        nonReentrant
+        returns (Result[] memory results)
+    {
         uint256 numActions = _leafsWithProofs.length;
         require(numActions > 0, "SphinxModule: no leafs to execute");
         require(activeRoot != bytes32(0), "SphinxModule: no active root");
@@ -293,19 +282,12 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
             _validateLeaf(activeRoot, leaf, proof, state.leafsExecuted, SphinxLeafType.EXECUTE);
 
-            (
-                address to,
-                uint256 value,
-                uint256 gas,
-                bytes memory txData,
-                Enum.Operation operation,
-                bool requireSuccess
-            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
+            (address to, uint256 value, uint256 gas, bytes memory txData, Enum.Operation operation, bool requireSuccess)
+            = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
 
             Result memory result = results[i];
-            (result.success, result.returnData) = safeProxy.execTransactionFromModuleReturnData{
-                gas: gas
-            }(to, value, txData, operation);
+            (result.success, result.returnData) =
+                safeProxy.execTransactionFromModuleReturnData{gas: gas}(to, value, txData, operation);
 
             if (!result.success && requireSuccess) {
                 state.status = DeploymentStatus.FAILED;
@@ -348,10 +330,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
         require(_leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         require(_leaf.index == _leafsExecuted, "SphinxModule: invalid leaf index");
 
-        require(
-            MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)),
-            "SphinxModule: invalid merkle proof"
-        );
+        require(MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)), "SphinxModule: invalid merkle proof");
     }
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo

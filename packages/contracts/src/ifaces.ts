@@ -1,15 +1,6 @@
 import { parseFoundryArtifact } from './utils'
 
 /* eslint-disable @typescript-eslint/no-var-requires */
-export const EscrowArtifact = parseFoundryArtifact(
-  require('../out/SphinxEscrow.sol/SphinxEscrow.json')
-)
-export const BalanceFactoryArtifact = parseFoundryArtifact(
-  require('../out/SphinxBalanceFactory.sol/SphinxBalanceFactory.json')
-)
-export const BalanceArtifact = parseFoundryArtifact(
-  require('../out/SphinxBalance.sol/SphinxBalance.json')
-)
 export const ManagedServiceArtifact = parseFoundryArtifact(
   require('../out/ManagedService.sol/ManagedService.json')
 )
@@ -35,10 +26,7 @@ export const GnosisSafeL2Artifact = require('../node_modules/@gnosis.pm/safe-con
 export const GnosisSafeArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafe.sol/GnosisSafe.json')
 export const GnosisSafeProxyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json')
 
-export const EscrowABI = EscrowArtifact.abi
-export const BalanceFactoryABI = BalanceFactoryArtifact.abi
 export const ManagedServiceABI = ManagedServiceArtifact.abi
-export const BalanceABI = BalanceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleFactoryABI = SphinxModuleFactoryArtifact.abi
 

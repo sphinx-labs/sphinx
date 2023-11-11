@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import { SphinxModule } from "./SphinxModule.sol";
-import {
-    GnosisSafeProxyFactory
-} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import {SphinxModule} from "./SphinxModule.sol";
+import {GnosisSafeProxyFactory} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {GnosisSafeProxy} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /**
  * @title SphinxModuleFactory
  * @notice Deploys `SphinxModule` contracts at deterministic addresses and enables them within
-           Gnosis Safe contracts.
+ *            Gnosis Safe contracts.
  */
 contract SphinxModuleFactory {
-
     /**
      * @dev Address of this `SphinxModuleFactory`.
      */
@@ -32,23 +29,16 @@ contract SphinxModuleFactory {
     /**
      * @notice Deploy a `SphinxModule` using `CREATE2`. Use this function if the Gnosis Safe
      *         has already been deployed on this network. Otherwise, use
-               `deploySphinxModuleFromSafe`.
+     *            `deploySphinxModuleFromSafe`.
      *
      * @param _safeProxy Address of the Gnosis Safe proxy that the `SphinxModule` will belong to.
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
      */
-    function deploySphinxModule(
-        address _safeProxy,
-        uint256 _saltNonce
-    ) public returns (SphinxModule sphinxModule) {
+    function deploySphinxModule(address _safeProxy, uint256 _saltNonce) public returns (SphinxModule sphinxModule) {
         bytes32 salt = keccak256(abi.encode(msg.sender, _saltNonce));
         sphinxModule = SphinxModule(
-            Create2.deploy(
-                0,
-                salt,
-                abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
-            )
+            Create2.deploy(0, salt, abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy)))
         );
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
     }
@@ -57,11 +47,11 @@ contract SphinxModuleFactory {
      * @notice Deploys a `SphinxModule` using `CREATE2`. Meant to be called by a Gnosis Safe
      *         during its initial deployment. Otherwise, use `deploySphinxModule` instead.
      *         After calling this function, enable the `SphinxModule` in the Gnosis Safe by calling
-               `enableSphinxModuleFromSafe`.
+     *            `enableSphinxModuleFromSafe`.
      *
      *         Unlike `deploySphinxModule`, this function doesn't return the address of the deployed
-               SphinxModule. This is because this function is meant to be called from a Gnosis Safe,
-               where the return value is unused.
+     *            SphinxModule. This is because this function is meant to be called from a Gnosis Safe,
+     *            where the return value is unused.
      *
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
@@ -74,11 +64,11 @@ contract SphinxModuleFactory {
     /**
      * @notice Enable a `SphinxModule` within a Gnosis Safe. Must be delegatecalled by
      * the Gnosis Safe. This function is meant to be called during the deployment of a Gnosis Safe
-       after `SphinxModuleFactory.deploySphinxModuleFromSafe`. If the Gnosis Safe has already been
-       deployed, use the Gnosis Safe's `enableModule` function instead.
-
-       We don't emit an event because this function is meant to be delegatecalled by a Gnosis Safe,
-       which emits an `EnabledModule` event when we call its `enableModule` function.
+     *    after `SphinxModuleFactory.deploySphinxModuleFromSafe`. If the Gnosis Safe has already been
+     *    deployed, use the Gnosis Safe's `enableModule` function instead.
+     *
+     *    We don't emit an event because this function is meant to be delegatecalled by a Gnosis Safe,
+     *    which emits an `EnabledModule` event when we call its `enableModule` function.
      *
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
@@ -94,25 +84,20 @@ contract SphinxModuleFactory {
      * `SphinxModule` is this `SphinxModuleFactory` contract.
      *
      * @param _safeProxy The address of the Gnosis Safe proxy contract that the `SphinxModule`
-       belongs to.
+     *    belongs to.
      * @param _caller    The address of the caller that deployed (or will deploy) the `SphinxModule`
-       through the `SphinxModuleFactory`.
+     *    through the `SphinxModuleFactory`.
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the address
-       of the `SphinxModule`.
+     *    of the `SphinxModule`.
      */
-    function computeSphinxModuleAddress(
-        address _safeProxy,
-        address _caller,
-        uint256 _saltNonce
-    ) public view returns (address) {
+    function computeSphinxModuleAddress(address _safeProxy, address _caller, uint256 _saltNonce)
+        public
+        view
+        returns (address)
+    {
         bytes32 salt = keccak256(abi.encode(_caller, _saltNonce));
-        return
-            Create2.computeAddress(
-                salt,
-                keccak256(
-                    abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
-                ),
-                MODULE_FACTORY
-            );
+        return Create2.computeAddress(
+            salt, keccak256(abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))), MODULE_FACTORY
+        );
     }
 }

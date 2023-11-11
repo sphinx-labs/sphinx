@@ -17,3 +17,6 @@ remappings = [
   'ds-test/=node_modules/ds-test/src/',
   '@gnosis.pm/safe-contracts/=node_modules/@gnosis.pm/safe-contracts/contracts/'
 ]
+
+[profile.core]
+src = 'contracts/core'

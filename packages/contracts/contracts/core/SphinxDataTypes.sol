@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
 
 /**
  * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
@@ -63,7 +63,7 @@ struct DeploymentState {
  *
  * @custom:field actionType The type of action.
  * @custom:field index The unique index of the action in the deployment. Actions must be executed in
-   ascending order according to their index.
+ *    ascending order according to their index.
  * @custom:field data The ABI-encoded data associated with the action.
  */
 struct RawSphinxAction {
@@ -77,7 +77,7 @@ struct RawSphinxAction {
  *
  * @custom:field addr The address of the proxy associated with this target.
  * @custom:field implementation The address that will be the proxy's implementation at the end of
-   the deployment.
+ *    the deployment.
  * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  */
 struct SphinxTarget {
@@ -101,7 +101,7 @@ enum SphinxActionType {
 
 /**
  * @notice Enum representing the status of the deployment. These steps occur in sequential order,
-   with the `CANCELLED` status being an exception.
+ *    with the `CANCELLED` status being an exception.
  *
  * @custom:value EMPTY The deployment does not exist.
  * @custom:value APPROVED The deployment has been approved by the Gnosis Safe owner(s).
@@ -138,15 +138,15 @@ struct RegistrationInfo {
 
 /**
  * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
-   authenticated action taken by a permissioned account such as an owner or proposer.
+ *    authenticated action taken by a permissioned account such as an owner or proposer.
  *
  * @custom:field chainId The chain ID for the leaf to be executed on.
  * @custom:field to The address that is the subject of the data in this leaf. This should always be
-                 a SphinxManager.
+ *                  a SphinxManager.
  * @custom:field index The index of the leaf. Each index must be unique on a chain, and start from
-                 zero. Leafs must be executed in ascending order according to their index. This
-                 makes it possible to ensure that leafs in an Auth tree will be executed in a
-                 certain order, e.g. creating a proposal then approving it.
+ *                  zero. Leafs must be executed in ascending order according to their index. This
+ *                  makes it possible to ensure that leafs in an Auth tree will be executed in a
+ *                  certain order, e.g. creating a proposal then approving it.
  */
 struct AuthLeaf {
     uint256 chainId;

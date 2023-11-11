@@ -8,7 +8,6 @@ import {
 
 import {
   ManagedServiceArtifact,
-  BalanceFactoryArtifact,
   SphinxModuleFactoryArtifact,
   SimulateTxAccessorArtifact,
   GnosisSafeProxyFactoryArtifact,
@@ -46,23 +45,6 @@ export const getManagedServiceAddress = (chainId: bigint) => {
         AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           getManagedServiceConstructorArgs(chainId)
-        ),
-      ]
-    )
-  )
-}
-
-export const getBalanceFactoryAddress = (chainId: bigint): string => {
-  return getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    ZeroHash,
-    solidityPackedKeccak256(
-      ['bytes', 'bytes'],
-      [
-        BalanceFactoryArtifact.bytecode,
-        AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          [USDC_ADDRESSES[Number(chainId)], getManagedServiceAddress(chainId)]
         ),
       ]
     )

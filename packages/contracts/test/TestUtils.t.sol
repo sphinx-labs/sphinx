@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "sphinx-forge-std/Vm.sol";
-import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
-import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {Vm} from "sphinx-forge-std/Vm.sol";
+import {SphinxUtils} from "../contracts/foundry/SphinxUtils.sol";
+import {Wallet} from "../contracts/foundry/SphinxPluginTypes.sol";
+import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 
 contract TestUtils is SphinxUtils, Enum {
-
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     struct GnosisSafeTransaction {

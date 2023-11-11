@@ -1,40 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "sphinx-forge-std/console.sol";
+import {console} from "sphinx-forge-std/console.sol";
 import "sphinx-forge-std/Test.sol";
-import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
-import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
-import { SphinxModule } from "../contracts/core/SphinxModule.sol";
-import {
-    GnosisSafeProxyFactory
-} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
-import { SimulateTxAccessor } from "@gnosis.pm/safe-contracts/accessors/SimulateTxAccessor.sol";
-import {
-    DefaultCallbackHandler
-} from "@gnosis.pm/safe-contracts/handler/DefaultCallbackHandler.sol";
-import {
-    CompatibilityFallbackHandler
-} from "@gnosis.pm/safe-contracts/handler/CompatibilityFallbackHandler.sol";
-import { CreateCall } from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
-import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
-import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
-import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import {
-    SphinxMerkleTree,
-    SphinxLeafWithProof,
-    SphinxTransaction
-} from "../contracts/core/SphinxDataTypes.sol";
-import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { TestUtils } from "./TestUtils.t.sol";
+import {StdUtils} from "sphinx-forge-std/StdUtils.sol";
+import {SphinxModuleFactory} from "../contracts/core/SphinxModuleFactory.sol";
+import {SphinxModule} from "../contracts/core/SphinxModule.sol";
+import {GnosisSafeProxyFactory} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import {GnosisSafeProxy} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
+import {SimulateTxAccessor} from "@gnosis.pm/safe-contracts/accessors/SimulateTxAccessor.sol";
+import {DefaultCallbackHandler} from "@gnosis.pm/safe-contracts/handler/DefaultCallbackHandler.sol";
+import {CompatibilityFallbackHandler} from "@gnosis.pm/safe-contracts/handler/CompatibilityFallbackHandler.sol";
+import {CreateCall} from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
+import {MultiSend} from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
+import {MultiSendCallOnly} from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
+import {GnosisSafeL2} from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
+import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import {SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction} from "../contracts/core/SphinxDataTypes.sol";
+import {Wallet} from "../contracts/foundry/SphinxPluginTypes.sol";
+import {TestUtils} from "./TestUtils.t.sol";
 
 contract MyContract {
-    uint public value;
+    uint256 public value;
 
-    function myFunction(uint _value) external {
+    function myFunction(uint256 _value) external {
         value = _value;
     }
 }
@@ -76,21 +66,13 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
             owners.push(wallets[i].addr);
         }
 
-        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            moduleFactory.deploySphinxModuleFromSafe.selector,
-            bytes32(0)
-        );
+        bytes memory encodedDeployModuleCall =
+            abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
         bytes memory firstMultiSendData = abi.encodePacked(
-            uint8(Operation.Call),
-            moduleFactory,
-            uint256(0),
-            encodedDeployModuleCall.length,
-            encodedDeployModuleCall
+            uint8(Operation.Call), moduleFactory, uint256(0), encodedDeployModuleCall.length, encodedDeployModuleCall
         );
-        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            moduleFactory.enableSphinxModuleFromSafe.selector,
-            bytes32(0)
-        );
+        bytes memory encodedEnableModuleCall =
+            abi.encodeWithSelector(moduleFactory.enableSphinxModuleFromSafe.selector, bytes32(0));
         bytes memory secondMultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
             moduleFactory,
@@ -100,8 +82,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
         );
 
         bytes memory multiSendData = abi.encodeWithSelector(
-            multiSend.multiSend.selector,
-            abi.encodePacked(firstMultiSendData, secondMultiSendData)
+            multiSend.multiSend.selector, abi.encodePacked(firstMultiSendData, secondMultiSendData)
         );
 
         bytes memory safeInitializerData = abi.encodePacked(
@@ -118,16 +99,11 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
             )
         );
 
-        GnosisSafeProxy safeProxy = safeProxyFactory.createProxyWithNonce(
-            address(gnosisSafeSingleton),
-            safeInitializerData,
-            0
-        );
+        GnosisSafeProxy safeProxy =
+            safeProxyFactory.createProxyWithNonce(address(gnosisSafeSingleton), safeInitializerData, 0);
 
         safe = GnosisSafe(payable(address(safeProxy)));
-        module = SphinxModule(
-            moduleFactory.computeSphinxModuleAddress(address(safe), address(safe), 0)
-        );
+        module = SphinxModule(moduleFactory.computeSphinxModuleAddress(address(safe), address(safe), 0));
     }
 
     function test_TODO_success() external {
@@ -154,9 +130,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
     }
 
     // TODO: mv
-    function getMerkleTreeFFI(
-        SphinxTransaction[] memory _txs
-    ) public returns (SphinxMerkleTree memory) {
+    function getMerkleTreeFFI(SphinxTransaction[] memory _txs) public returns (SphinxMerkleTree memory) {
         string[] memory inputs = new string[](11);
         inputs[0] = "npx";
         inputs[1] = "ts-node";

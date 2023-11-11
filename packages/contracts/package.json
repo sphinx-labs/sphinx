@@ -24,8 +24,8 @@
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
-    "lint:contracts:check": "yarn solhint -f table 'contracts/**/*.sol' && yarn prettier --check 'contracts/**/*.sol'",
-    "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol' && yarn solhint --fix '{contracts,test}/**/*.sol'",
+    "lint:contracts:fix": "forge fmt",
+    "lint:contracts:check": "yarn lint:contracts:fix && git diff --exit-code",
     "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/contracts#readme",
@@ -43,11 +43,9 @@
     "@openzeppelin/merkle-tree": "1.0.5",
     "dotenv": "^16.0.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "sphinx-forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1",
     "hardhat": "^2.17.1",
-    "solhint": "^3.4.1",
-    "solhint-plugin-prettier": "^0.0.5",
-    "solmate": "^6.7.0"
+    "solmate": "^6.7.0",
+    "sphinx-forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1"
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.40",

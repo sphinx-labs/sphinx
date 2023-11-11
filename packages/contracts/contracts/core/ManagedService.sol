@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title ManagedService
  * @notice Contract controlled by the Sphinx managed service. This contract allows the managed
-   service to remotely execute deployments and collect the protocol's fee.
-Users can opt in to this functionality if they choose to do so.
+ *    service to remotely execute deployments and collect the protocol's fee.
+ * Users can opt in to this functionality if they choose to do so.
  */
 contract ManagedService is AccessControl {
     ERC20 public immutable usdc;
@@ -33,7 +33,7 @@ contract ManagedService is AccessControl {
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
-       multisig owned by the Sphinx team.
+     *    multisig owned by the Sphinx team.
      */
     constructor(address _owner, address _usdc) {
         usdc = ERC20(_usdc);
@@ -42,7 +42,7 @@ contract ManagedService is AccessControl {
 
     /**
      * @notice Allows the protocol creators to claim their royalty, which is only earned during
-       remotely executed deployments.
+     *    remotely executed deployments.
      */
     function withdrawRelayerFunds(uint256 _amount) external {
         require(
@@ -54,7 +54,7 @@ contract ManagedService is AccessControl {
         emit ProtocolPaymentClaimed(msg.sender, _amount);
 
         // slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
+        (bool success,) = payable(msg.sender).call{value: _amount}(new bytes(0));
         require(success, "ManagedService: failed to withdraw relayer funds");
     }
 
