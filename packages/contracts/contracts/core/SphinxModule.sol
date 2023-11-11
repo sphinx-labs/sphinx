@@ -7,10 +7,10 @@ pragma solidity ^0.8.0;
 // it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
 // transactions.
 
-import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {
     SphinxLeafType,
     SphinxLeaf,
@@ -19,7 +19,7 @@ import {
     DeploymentState,
     DeploymentStatus
 } from "./SphinxDataTypes.sol";
-import {console} from "sphinx-forge-std/console.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 // TODO(break): actors:
 // - malicious safe (finished)
@@ -151,7 +151,12 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // can do this by approving a new Merkle root, which will cancel the previous deployment.
     // TODO(docs): we add a reentrancy guard because `safe.checkSignatures` may contain an external call
     // to another contract (in the EIP-1271 verification logic).
-    function approve(bytes32 _root, SphinxLeaf memory _leaf, bytes32[] memory _proof, bytes memory _signatures)
+    function approve(
+        bytes32 _root,
+        SphinxLeaf memory _leaf,
+        bytes32[] memory _proof,
+        bytes memory _signatures
+    )
         public
         nonReentrant
     {
@@ -287,7 +292,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
             Result memory result = results[i];
             (result.success, result.returnData) =
-                safeProxy.execTransactionFromModuleReturnData{gas: gas}(to, value, txData, operation);
+                safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation);
 
             if (!result.success && requireSuccess) {
                 state.status = DeploymentStatus.FAILED;
@@ -313,7 +318,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
     }
 
     // TODO(test): run the test suite using all supported versions of SafeL2.
-    // TODO(test): see if we support "atomic" create3 (i.e. the 'create2' and 'call' actions are guaranteed to be in the same txn).
+    // TODO(test): see if we support "atomic" create3 (i.e. the 'create2' and 'call' actions are guaranteed to be in the
+    // same txn).
 
     /**
      * @notice TODO(docs)
@@ -324,7 +330,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
         bytes32[] memory _proof,
         uint256 _leafsExecuted,
         SphinxLeafType _expectedLeafType
-    ) internal view {
+    )
+        internal
+        view
+    {
         // Validate the fields of the Leaf.
         require(_leaf.leafType == _expectedLeafType, "SphinxModule: invalid leaf type");
         require(_leaf.chainId == block.chainid, "SphinxModule: invalid chain id");

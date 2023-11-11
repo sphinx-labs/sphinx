@@ -20,3 +20,9 @@ remappings = [
 
 [profile.core]
 src = 'contracts/core'
+
+[fmt]
+line_length=120
+multiline_func_header="all"
+bracket_spacing=true
+wrap_comments=true

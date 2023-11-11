@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Vm} from "sphinx-forge-std/Vm.sol";
-import {StdUtils} from "sphinx-forge-std/StdUtils.sol";
+import { Vm } from "sphinx-forge-std/Vm.sol";
+import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
-import {ISphinxAccessControl} from "../core/interfaces/ISphinxAccessControl.sol";
+import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
-import {SphinxModule} from "../core/SphinxModule.sol";
-import {SphinxModuleFactory} from "../core/SphinxModuleFactory.sol";
+import { SphinxModule } from "../core/SphinxModule.sol";
+import { SphinxModuleFactory } from "../core/SphinxModuleFactory.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -33,11 +33,11 @@ import {
     Wallet,
     Label
 } from "./SphinxPluginTypes.sol";
-import {SphinxContractInfo, SphinxConstants} from "./SphinxConstants.sol";
-import {GnosisSafeProxyFactory} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import {MultiSend} from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
-import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -147,7 +147,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxActionBundle memory _actionBundle,
         SphinxTargetBundle memory _targetBundle,
         string memory _configUri
-    ) external pure returns (bytes32) {
+    )
+        external
+        pure
+        returns (bytes32)
+    {
         (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actionBundle.actions);
 
         return keccak256(
@@ -176,7 +180,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return addr;
     }
 
-    function inefficientSlice(SphinxLeafWithProof[] memory selected, uint256 start, uint256 end)
+    function inefficientSlice(
+        SphinxLeafWithProof[] memory selected,
+        uint256 start,
+        uint256 end
+    )
         public
         pure
         returns (SphinxLeafWithProof[] memory sliced)
@@ -215,7 +223,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
             uint256 privateKey = getSphinxDeployerPrivateKey(i);
-            wallets[i] = Wallet({addr: vm.addr(privateKey), privateKey: privateKey});
+            wallets[i] = Wallet({ addr: vm.addr(privateKey), privateKey: privateKey });
         }
 
         // Sort the wallets by address
@@ -351,7 +359,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return leafsOnNetwork;
     }
 
-    function removeExecutedActions(BundledSphinxAction[] memory _actions, uint256 _actionsExecuted)
+    function removeExecutedActions(
+        BundledSphinxAction[] memory _actions,
+        uint256 _actionsExecuted
+    )
         external
         pure
         returns (BundledSphinxAction[] memory)
@@ -465,18 +476,24 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
         NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
-        all[0] = NetworkInfo({network: Network.anvil, name: "anvil", chainId: 31337, networkType: NetworkType.Local});
+        all[0] = NetworkInfo({ network: Network.anvil, name: "anvil", chainId: 31337, networkType: NetworkType.Local });
         all[1] =
-            NetworkInfo({network: Network.ethereum, name: "ethereum", chainId: 1, networkType: NetworkType.Mainnet});
+            NetworkInfo({ network: Network.ethereum, name: "ethereum", chainId: 1, networkType: NetworkType.Mainnet });
         all[2] =
-            NetworkInfo({network: Network.optimism, name: "optimism", chainId: 10, networkType: NetworkType.Mainnet});
-        all[3] =
-            NetworkInfo({network: Network.arbitrum, name: "arbitrum", chainId: 42161, networkType: NetworkType.Mainnet});
+            NetworkInfo({ network: Network.optimism, name: "optimism", chainId: 10, networkType: NetworkType.Mainnet });
+        all[3] = NetworkInfo({
+            network: Network.arbitrum,
+            name: "arbitrum",
+            chainId: 42161,
+            networkType: NetworkType.Mainnet
+        });
         all[4] =
-            NetworkInfo({network: Network.polygon, name: "polygon", chainId: 137, networkType: NetworkType.Mainnet});
-        all[5] = NetworkInfo({network: Network.bnb, name: "bnb", chainId: 56, networkType: NetworkType.Mainnet});
-        all[6] = NetworkInfo({network: Network.gnosis, name: "gnosis", chainId: 100, networkType: NetworkType.Mainnet});
-        all[7] = NetworkInfo({network: Network.linea, name: "linea", chainId: 59144, networkType: NetworkType.Mainnet});
+            NetworkInfo({ network: Network.polygon, name: "polygon", chainId: 137, networkType: NetworkType.Mainnet });
+        all[5] = NetworkInfo({ network: Network.bnb, name: "bnb", chainId: 56, networkType: NetworkType.Mainnet });
+        all[6] =
+            NetworkInfo({ network: Network.gnosis, name: "gnosis", chainId: 100, networkType: NetworkType.Mainnet });
+        all[7] =
+            NetworkInfo({ network: Network.linea, name: "linea", chainId: 59144, networkType: NetworkType.Mainnet });
         all[8] = NetworkInfo({
             network: Network.polygon_zkevm,
             name: "polygon_zkevm",
@@ -489,9 +506,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             chainId: 43114,
             networkType: NetworkType.Mainnet
         });
-        all[10] = NetworkInfo({network: Network.fantom, name: "fantom", chainId: 250, networkType: NetworkType.Mainnet});
-        all[11] = NetworkInfo({network: Network.base, name: "base", chainId: 8453, networkType: NetworkType.Mainnet});
-        all[12] = NetworkInfo({network: Network.goerli, name: "goerli", chainId: 5, networkType: NetworkType.Testnet});
+        all[10] =
+            NetworkInfo({ network: Network.fantom, name: "fantom", chainId: 250, networkType: NetworkType.Mainnet });
+        all[11] = NetworkInfo({ network: Network.base, name: "base", chainId: 8453, networkType: NetworkType.Mainnet });
+        all[12] = NetworkInfo({ network: Network.goerli, name: "goerli", chainId: 5, networkType: NetworkType.Testnet });
         all[13] = NetworkInfo({
             network: Network.optimism_goerli,
             name: "optimism_goerli",
@@ -576,7 +594,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return result;
     }
 
-    function removeNetworkType(Network[] memory _networks, NetworkType _networkType)
+    function removeNetworkType(
+        Network[] memory _networks,
+        NetworkType _networkType
+    )
         public
         pure
         returns (Network[] memory)
@@ -864,15 +885,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // }
     }
 
-    function getInitialChainState(address _safe, SphinxModule _sphinxModule)
+    function getInitialChainState(
+        address _safe,
+        SphinxModule _sphinxModule
+    )
         external
         view
         returns (InitialChainState memory)
     {
         if (address(_safe).code.length == 0) {
-            return InitialChainState({isSafeDeployed: false, isExecuting: false});
+            return InitialChainState({ isSafeDeployed: false, isExecuting: false });
         } else {
-            return InitialChainState({isSafeDeployed: true, isExecuting: _sphinxModule.activeRoot() != bytes32(0)});
+            return InitialChainState({ isSafeDeployed: true, isExecuting: _sphinxModule.activeRoot() != bytes32(0) });
         }
     }
 
@@ -913,7 +937,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function fetchSafeInitializerData(address[] memory _owners, uint256 _threshold)
+    function fetchSafeInitializerData(
+        address[] memory _owners,
+        uint256 _threshold
+    )
         internal
         pure
         returns (bytes memory safeInitializerData)
@@ -984,7 +1011,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
      *        before the storage values are set in the SphinxAuth contract in step 1.
      */
-    function sphinxModuleFactoryDeployFFI(address[] memory _owners, uint256 _threshold, string memory _rpcUrl)
+    function sphinxModuleFactoryDeployFFI(
+        address[] memory _owners,
+        uint256 _threshold,
+        string memory _rpcUrl
+    )
         external
     {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);

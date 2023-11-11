@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Vm} from "sphinx-forge-std/Vm.sol";
-import {SphinxUtils} from "../contracts/foundry/SphinxUtils.sol";
-import {Wallet} from "../contracts/foundry/SphinxPluginTypes.sol";
-import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { Vm } from "sphinx-forge-std/Vm.sol";
+import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
+import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 
 contract TestUtils is SphinxUtils, Enum {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -23,7 +23,11 @@ contract TestUtils is SphinxUtils, Enum {
         Wallet[] memory _ownerWallets,
         GnosisSafe _safe,
         GnosisSafeTransaction memory _gnosisSafeTxn
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes[] memory signatures = new bytes[](_ownerWallets.length);
         for (uint256 i = 0; i < _ownerWallets.length; i++) {
             uint256 nonce = _safe.nonce();

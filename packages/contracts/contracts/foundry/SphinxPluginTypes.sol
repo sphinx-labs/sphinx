@@ -261,21 +261,21 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) {}
+    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) { }
 
-    function bundledActionsType() external pure returns (BundledSphinxAction[] memory bundledActions) {}
+    function bundledActionsType() external pure returns (BundledSphinxAction[] memory bundledActions) { }
 
-    function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) {}
+    function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) { }
 
-    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory humanReadableActions) {}
+    function humanReadableActionsType() external pure returns (HumanReadableAction[] memory humanReadableActions) { }
 
-    function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
+    function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) { }
 
-    function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory deploymentInfoArray) {}
+    function getDeploymentInfoArray() external view returns (DeploymentInfo[] memory deploymentInfoArray) { }
 
-    function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) {}
+    function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) { }
 
-    function proposalOutput() external pure returns (ProposalOutput memory output) {}
+    function proposalOutput() external pure returns (ProposalOutput memory output) { }
 }
 
 struct Wallet {

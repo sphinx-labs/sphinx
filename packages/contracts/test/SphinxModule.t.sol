@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {console} from "sphinx-forge-std/console.sol";
+import { console } from "sphinx-forge-std/console.sol";
 import "sphinx-forge-std/Test.sol";
-import {StdUtils} from "sphinx-forge-std/StdUtils.sol";
-import {SphinxModuleFactory} from "../contracts/core/SphinxModuleFactory.sol";
-import {SphinxModule} from "../contracts/core/SphinxModule.sol";
-import {GnosisSafeProxyFactory} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import {GnosisSafeProxy} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
-import {SimulateTxAccessor} from "@gnosis.pm/safe-contracts/accessors/SimulateTxAccessor.sol";
-import {DefaultCallbackHandler} from "@gnosis.pm/safe-contracts/handler/DefaultCallbackHandler.sol";
-import {CompatibilityFallbackHandler} from "@gnosis.pm/safe-contracts/handler/CompatibilityFallbackHandler.sol";
-import {CreateCall} from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
-import {MultiSend} from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
-import {MultiSendCallOnly} from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
-import {GnosisSafeL2} from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
-import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import {SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction} from "../contracts/core/SphinxDataTypes.sol";
-import {Wallet} from "../contracts/foundry/SphinxPluginTypes.sol";
-import {TestUtils} from "./TestUtils.t.sol";
+import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
+import { SphinxModule } from "../contracts/core/SphinxModule.sol";
+import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
+import { SimulateTxAccessor } from "@gnosis.pm/safe-contracts/accessors/SimulateTxAccessor.sol";
+import { DefaultCallbackHandler } from "@gnosis.pm/safe-contracts/handler/DefaultCallbackHandler.sol";
+import { CompatibilityFallbackHandler } from "@gnosis.pm/safe-contracts/handler/CompatibilityFallbackHandler.sol";
+import { CreateCall } from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
+import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
+import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
+import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/core/SphinxDataTypes.sol";
+import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { TestUtils } from "./TestUtils.t.sol";
 
 contract MyContract {
     uint256 public value;
@@ -150,7 +150,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
-    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
+    function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) { }
 
-    function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) {}
+    function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) { }
 }

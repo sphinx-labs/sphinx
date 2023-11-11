@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import {SphinxModule} from "./SphinxModule.sol";
-import {GnosisSafeProxyFactory} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import {GnosisSafeProxy} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import { SphinxModule } from "./SphinxModule.sol";
+import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 /**
  * @title SphinxModuleFactory
@@ -90,7 +90,11 @@ contract SphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the address
      *    of the `SphinxModule`.
      */
-    function computeSphinxModuleAddress(address _safeProxy, address _caller, uint256 _saltNonce)
+    function computeSphinxModuleAddress(
+        address _safeProxy,
+        address _caller,
+        uint256 _saltNonce
+    )
         public
         view
         returns (address)

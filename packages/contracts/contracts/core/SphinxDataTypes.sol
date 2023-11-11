@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import {Enum} from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
 
 /**
  * @custom:value APPROVE Approve a deployment. This must occur before a deployment can

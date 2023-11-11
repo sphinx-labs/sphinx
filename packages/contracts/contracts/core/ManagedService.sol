@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title ManagedService
@@ -53,8 +53,7 @@ contract ManagedService is AccessControl {
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);
 
-        // slither-disable-next-line arbitrary-send-eth
-        (bool success,) = payable(msg.sender).call{value: _amount}(new bytes(0));
+        (bool success,) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         require(success, "ManagedService: failed to withdraw relayer funds");
     }
 
@@ -66,5 +65,5 @@ contract ManagedService is AccessControl {
     /**
      * @notice Allows for this contract to receive ETH.
      */
-    receive() external payable {}
+    receive() external payable { }
 }
