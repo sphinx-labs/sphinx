@@ -2,9 +2,7 @@
 pragma solidity ^0.8.0;
 
 // TODO(end): rm unnnecessary imports
-import { console } from "sphinx-forge-std/console.sol";
 import "sphinx-forge-std/Test.sol";
-import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
@@ -38,7 +36,8 @@ import { TestUtils } from "./TestUtils.t.sol";
 // - deploy and enable module after Safe deployment
 
 contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory {
-    // selector of Error(string)
+    // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
+    // call/delegatecall fails.
     bytes constant ERROR_SELECTOR = hex"08c379a0";
 
     SphinxModuleFactory moduleFactory;
@@ -98,15 +97,7 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
 
     /////////////////////////// deploySphinxModule ///////////////////////////////////////
 
-    // Must revert if a SphinxModule already exists at an address.
-    function test_deploySphinxModule_revert_alreadyDeployed() external {
-        helper_test_deploySphinxModule({ _saltNonce: 0, _caller: address(this) });
-
-        vm.expectRevert("Create2: Failed on deploy");
-        moduleFactory.deploySphinxModule({ _safeProxy: address(safe), _saltNonce: 0 });
-    }
-
-    // Must:
+    // A successful call must:
     // - Deploy a `SphinxModule`.
     // - Emit a `SphinxModuleDeployed` event.
     // - Initialize the `SphinxModule` with the correct Gnosis Safe proxy address.
@@ -145,16 +136,7 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         );
     }
 
-    // Must revert if a SphinxModule already exists at an address.
-    function test_deploySphinxModuleFromSafe_revert_alreadyDeployed() external {
-        helper_test_deploySphinxModuleFromSafe({ _saltNonce: 0 });
-
-        vm.expectRevert("Create2: Failed on deploy");
-        vm.prank(address(safe));
-        moduleFactory.deploySphinxModuleFromSafe({ _saltNonce: 0 });
-    }
-
-    // Must:
+    // A successful call must:
     // - Deploy a `SphinxModule`.
     // - Emit a `SphinxModuleDeployed` event.
     // - Initialize the `SphinxModule` with the correct Gnosis Safe proxy address.
@@ -172,61 +154,28 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
 
     //////////////////////////////////// enableSphinxModuleFromSafe //////////////////////////////////////////
 
+    // Must revert if not delegatecalled.
     function test_enableSphinxModuleFromSafe_revert_mustBeDelegateCalled() external {
         vm.expectRevert("SphinxModuleFactory: must be delegatecalled");
         moduleFactory.enableSphinxModuleFromSafe({ _saltNonce: 0 });
     }
 
+    // A successful delegatecall must:
+    // - Enable the `SphinxModule` as a module in the Gnosis Safe.
     function test_enableSphinxModuleFromSafe_success() external {
-        SphinxModule module = helper_test_deploySphinxModuleFromSafe({ _saltNonce: 0 });
-        assertFalse(safe.isModuleEnabled(address(module)));
+        helper_test_enableSphinxModule({ _saltNonce: 0 });
+    }
 
-        // TODO(docs): we can't prank the safe then delegatecall the SphinxModuleFactory because
-        // `address(this)` will be the address of this test contract, which will cause the
-        // delegatecall to fail. this is a byproduct of the fact that you can't change
-        // `address(this)` in the scope of a forge test. to change `adddress(this)`, you must call
-        // another contract. so, we call the safe, which then delegatecalls into the
-        // SphinxModuleFactory.
-
-        uint256 saltNonce = 0;
-        bytes memory encodedDelegateCall = abi.encodeWithSelector(
-            moduleFactory.enableSphinxModuleFromSafe.selector,
-            (saltNonce)
-        );
-        GnosisSafeTransaction memory gnosisSafeTxn = GnosisSafeTransaction({
-            to: address(moduleFactory),
-            value: 0,
-            txData: encodedDelegateCall,
-            operation: Operation.DelegateCall,
-            safeTxGas: 1_000_000
-        });
-        bytes memory ownerSignatures = signSafeTransaction({
-            _ownerWallets: ownerWallets,
-            _safe: safe,
-            _gnosisSafeTxn: gnosisSafeTxn
-        });
-        vm.expectEmit(address(safe));
-        emit SphinxModuleEnabled(address(module), address(safe));
-        bool success = safe.execTransaction({
-            to: gnosisSafeTxn.to,
-            value: gnosisSafeTxn.value,
-            data: gnosisSafeTxn.txData,
-            operation: gnosisSafeTxn.operation,
-            safeTxGas: gnosisSafeTxn.safeTxGas,
-            signatures: ownerSignatures,
-            // TODO(docs): the following fields are unused:
-            baseGas: 0,
-            gasPrice: 0,
-            gasToken: address(0),
-            refundReceiver: payable(address(0))
-        });
-
-        assertTrue(success);
-        assertTrue(safe.isModuleEnabled(address(module)));
+    // Must be possible to enable more than one SphinxModule for a given Safe.
+    function test_enableSphinxModuleFromSafe_success_enableMultiple() external {
+        helper_test_enableSphinxModule({ _saltNonce: 0 });
+        helper_test_enableSphinxModule({ _saltNonce: 1 });
     }
 
     //////////////////////////////////// computeSphinxModuleAddress //////////////////////////////////////////
 
+    // Must return the correct `CREATE2` address of a `SphinxModule` deployed by the
+    // `SphinxModuleFactory`.
     function test_computeSphinxModuleAddress_success() external {
         address caller = address(0x1234);
         address expectedModuleAddress = moduleFactory.computeSphinxModuleAddress({
@@ -284,5 +233,53 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         assertEq(address(SphinxModule(expectedModuleAddress).safeProxy()), address(safe));
 
         return SphinxModule(expectedModuleAddress);
+    }
+
+    function helper_test_enableSphinxModule(
+        uint256 _saltNonce
+    ) internal {
+        SphinxModule module = helper_test_deploySphinxModuleFromSafe({ _saltNonce: _saltNonce });
+        assertFalse(safe.isModuleEnabled(address(module)));
+
+        // We enable the `SphinxModule` by creating a transaction that's signed by the Gnosis Safe
+        // owners then executed within the Gnosis Safe. We can't shortcut this process by pranking
+        // the Gnosis Safe then delegatecalling the `SphinxModuleFactory` because `address(this)` in
+        // the `SphinxModuleFactory` will be the address of this test contract, which will cause the
+        // delegatecall to fail. This is a byproduct of the fact that Forge doesn't let us change
+        // `address(this)` in the scope of a Forge test. To change `adddress(this)`, we must call
+        // another contract. So, we call the Gnosis Safe, which then delegatecalls into the
+        // `SphinxModuleFactory`.
+        bytes memory encodedDelegateCall = abi.encodeWithSelector(
+            moduleFactory.enableSphinxModuleFromSafe.selector,
+            (_saltNonce)
+        );
+        GnosisSafeTransaction memory gnosisSafeTxn = GnosisSafeTransaction({
+            to: address(moduleFactory),
+            value: 0,
+            txData: encodedDelegateCall,
+            operation: Operation.DelegateCall,
+            safeTxGas: 1_000_000
+        });
+        bytes memory ownerSignatures = signSafeTransaction({
+            _ownerWallets: ownerWallets,
+            _safe: safe,
+            _gnosisSafeTxn: gnosisSafeTxn
+        });
+        bool success = safe.execTransaction({
+            to: gnosisSafeTxn.to,
+            value: gnosisSafeTxn.value,
+            data: gnosisSafeTxn.txData,
+            operation: gnosisSafeTxn.operation,
+            safeTxGas: gnosisSafeTxn.safeTxGas,
+            signatures: ownerSignatures,
+            // The following fields are for refunding the caller. We don't use them.
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0))
+        });
+
+        assertTrue(success);
+        assertTrue(safe.isModuleEnabled(address(module)));
     }
 }

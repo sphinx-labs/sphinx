@@ -232,6 +232,9 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // a mechanism for sending ETH to this contract in advance because it'd be possible for the ETH
     // to be sent, then the deployment is cancelled, leaving ETH stuck in this contract.
 
+    // TODO(test-e2e): enable two SphinxModules in a single Gnosis Safe, and execute a deployment
+    // through each one.
+
     // TODO(docs): execute function: we return `results` so that we can display a useful error
     // message to the user in case an action fails.
 
