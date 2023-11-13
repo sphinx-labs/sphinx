@@ -5,27 +5,26 @@ pragma solidity ^0.8.0;
 import "sphinx-forge-std/Test.sol";
 import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
-import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
-import { SimulateTxAccessor } from "@gnosis.pm/safe-contracts/accessors/SimulateTxAccessor.sol";
-import { DefaultCallbackHandler } from "@gnosis.pm/safe-contracts/handler/DefaultCallbackHandler.sol";
-import { CompatibilityFallbackHandler } from "@gnosis.pm/safe-contracts/handler/CompatibilityFallbackHandler.sol";
-import { CreateCall } from "@gnosis.pm/safe-contracts/libraries/CreateCall.sol";
-import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
-import { MultiSendCallOnly } from "@gnosis.pm/safe-contracts/libraries/MultiSendCallOnly.sol";
-import { GnosisSafeL2 } from "@gnosis.pm/safe-contracts/GnosisSafeL2.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxy.sol";
 import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
-import { SphinxMerkleTree, SphinxLeafWithProof, SphinxTransaction } from "../contracts/core/SphinxDataTypes.sol";
+import {
+    SphinxMerkleTree,
+    SphinxLeafWithProof,
+    SphinxTransaction
+} from "../contracts/core/SphinxDataTypes.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
+import { Common } from "./Common.t.sol";
+
+// TODO: add an invariant and test for 'must revert if safeProxy == address(0)'.
 
 // TODO(e2e):
 // for each Safe type:
 // - deploy and enable in Safe initializer
 // - deploy and enable module after Safe deployment
 
-contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory {
+contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory, Common {
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
     // call/delegatecall fails.
     bytes constant ERROR_SELECTOR = hex"08c379a0";
@@ -36,20 +35,8 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
     address[] owners;
     uint256 threshold = 3;
 
-    function setUp() public {
-        // Deploy all Gnosis Safe contracts
-        new SimulateTxAccessor();
-        GnosisSafeProxyFactory safeProxyFactory = new GnosisSafeProxyFactory();
-        // Deploy handlers
-        new DefaultCallbackHandler();
-        CompatibilityFallbackHandler compatibilityFallbackHandler = new CompatibilityFallbackHandler();
-        // Deploy libraries
-        new CreateCall();
-        new MultiSend();
-        new MultiSendCallOnly();
-        // Deploy singletons
-        new GnosisSafeL2();
-        GnosisSafe gnosisSafeSingleton = new GnosisSafe();
+    function setUp() public override {
+        Common.setUp();
 
         moduleFactory = new SphinxModuleFactory();
 
@@ -63,26 +50,51 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         }
 
         bytes memory safeInitializerData = abi.encodePacked(
-            gnosisSafeSingleton.setup.selector,
+            gnosisSafeContracts.gnosisSafeSingleton.setup.selector,
             abi.encode(
                 owners,
                 threshold,
                 address(0),
                 new bytes(0),
-                address(compatibilityFallbackHandler),
+                address(gnosisSafeContracts.compatibilityFallbackHandler),
                 address(0),
                 0,
                 address(0)
             )
         );
 
-        GnosisSafeProxy safeProxy =
-            safeProxyFactory.createProxyWithNonce(address(gnosisSafeSingleton), safeInitializerData, 0);
+        GnosisSafeProxy safeProxy = gnosisSafeContracts.safeProxyFactory.createProxyWithNonce(
+            address(gnosisSafeContracts.gnosisSafeSingleton), safeInitializerData, 0
+        );
 
         safe = GnosisSafe(payable(address(safeProxy)));
     }
 
     /////////////////////////// deploySphinxModule ///////////////////////////////////////
+
+    // Must revert if a contract already exists at the `CREATE2` address.
+    function test_deploySphinxModule_revert_alreadyDeployed() external {
+        helper_test_deploySphinxModule({ _saltNonce: 0, _caller: address(this) });
+
+        vm.expectRevert("Create2: Failed on deploy");
+        moduleFactory.deploySphinxModule({ _safeProxy: address(safe), _saltNonce: 0 });
+    }
+
+    // Must revert if delegatecalled
+    function test_deploySphinxModule_revert_delegateCallNotAllowed() external {
+        uint256 saltNonce = 0;
+        bytes memory encodedFunctionCall =
+            abi.encodePacked(moduleFactory.deploySphinxModule.selector, abi.encode(safe, saltNonce));
+        (bool success, bytes memory retdata) =
+            address(moduleFactory).delegatecall(encodedFunctionCall);
+        assertFalse(success);
+        assertEq(
+            retdata,
+            abi.encodePacked(
+                ERROR_SELECTOR, abi.encode("SphinxModuleFactory: delegatecall not allowed")
+            )
+        );
+    }
 
     // A successful call must:
     // - Deploy a `SphinxModule`.
@@ -95,22 +107,39 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
 
     // Must be possible to deploy more than one SphinxModule for a given caller.
     function test_deploySphinxModule_success_deployMultiple() external {
-        SphinxModule module1 = helper_test_deploySphinxModule({ _saltNonce: 0, _caller: address(this) });
+        SphinxModule module1 =
+            helper_test_deploySphinxModule({ _saltNonce: 0, _caller: address(this) });
 
-        SphinxModule module2 = helper_test_deploySphinxModule({ _saltNonce: 1, _caller: address(this) });
+        SphinxModule module2 =
+            helper_test_deploySphinxModule({ _saltNonce: 1, _caller: address(this) });
         assertTrue(address(module1) != address(module2));
     }
 
     /////////////////////////// deploySphinxModuleFromSafe //////////////////////////////////
+
+    // Must revert if a contract already exists at the `CREATE2` address.
+    function test_deploySphinxModuleFromSafe_revert_alreadyDeployed() external {
+        helper_test_deploySphinxModuleFromSafe({ _saltNonce: 0 });
+
+        vm.expectRevert("Create2: Failed on deploy");
+        vm.prank(address(safe));
+        moduleFactory.deploySphinxModuleFromSafe({ _saltNonce: 0 });
+    }
 
     // Must revert if delegatecalled
     function test_deploySphinxModuleFromSafe_revert_delegateCallNotAllowed() external {
         uint256 saltNonce = 0;
         bytes memory encodedFunctionCall =
             abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, (saltNonce));
-        (bool success, bytes memory retdata) = address(moduleFactory).delegatecall(encodedFunctionCall);
+        (bool success, bytes memory retdata) =
+            address(moduleFactory).delegatecall(encodedFunctionCall);
         assertFalse(success);
-        assertEq(retdata, abi.encodePacked(ERROR_SELECTOR, abi.encode("SphinxModuleFactory: delegatecall not allowed")));
+        assertEq(
+            retdata,
+            abi.encodePacked(
+                ERROR_SELECTOR, abi.encode("SphinxModuleFactory: delegatecall not allowed")
+            )
+        );
     }
 
     // A successful call must:
@@ -129,7 +158,8 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         assertTrue(address(module1) != address(module2));
     }
 
-    //////////////////////////////////// enableSphinxModuleFromSafe //////////////////////////////////////////
+    //////////////////////////////////// enableSphinxModuleFromSafe
+    // //////////////////////////////////////////
 
     // Must revert if not delegatecalled.
     function test_enableSphinxModuleFromSafe_revert_mustBeDelegateCalled() external {
@@ -149,14 +179,18 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         helper_test_enableSphinxModule({ _saltNonce: 1 });
     }
 
-    //////////////////////////////////// computeSphinxModuleAddress //////////////////////////////////////////
+    //////////////////////////////////// computeSphinxModuleAddress
+    // //////////////////////////////////////////
 
     // Must return the correct `CREATE2` address of a `SphinxModule` deployed by the
     // `SphinxModuleFactory`.
     function test_computeSphinxModuleAddress_success() external {
         address caller = address(0x1234);
-        address expectedModuleAddress =
-            moduleFactory.computeSphinxModuleAddress({ _safeProxy: address(safe), _caller: caller, _saltNonce: 0 });
+        address expectedModuleAddress = moduleFactory.computeSphinxModuleAddress({
+            _safeProxy: address(safe),
+            _caller: caller,
+            _saltNonce: 0
+        });
         assertEq(expectedModuleAddress.code.length, 0);
 
         SphinxModule module = helper_test_deploySphinxModule({ _saltNonce: 0, _caller: caller });
@@ -167,7 +201,13 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
 
     //////////////////////////////////// Helper functions //////////////////////////////////////////
 
-    function helper_test_deploySphinxModule(uint256 _saltNonce, address _caller) internal returns (SphinxModule) {
+    function helper_test_deploySphinxModule(
+        uint256 _saltNonce,
+        address _caller
+    )
+        internal
+        returns (SphinxModule)
+    {
         address expectedModuleAddress = moduleFactory.computeSphinxModuleAddress({
             _safeProxy: address(safe),
             _caller: _caller,
@@ -178,7 +218,8 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         vm.expectEmit(address(moduleFactory));
         emit SphinxModuleDeployed(SphinxModule(expectedModuleAddress), address(safe));
         vm.prank(_caller);
-        SphinxModule module = moduleFactory.deploySphinxModule({ _safeProxy: address(safe), _saltNonce: _saltNonce });
+        SphinxModule module =
+            moduleFactory.deploySphinxModule({ _safeProxy: address(safe), _saltNonce: _saltNonce });
         assertGt(address(module).code.length, 0);
         assertEq(address(module), expectedModuleAddress);
         assertEq(address(module.safeProxy()), address(safe));
@@ -186,7 +227,10 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
         return module;
     }
 
-    function helper_test_deploySphinxModuleFromSafe(uint256 _saltNonce) internal returns (SphinxModule) {
+    function helper_test_deploySphinxModuleFromSafe(uint256 _saltNonce)
+        internal
+        returns (SphinxModule)
+    {
         address expectedModuleAddress = moduleFactory.computeSphinxModuleAddress({
             _safeProxy: address(safe),
             _caller: address(safe),
@@ -225,8 +269,11 @@ contract SphinxModuleFactory_Test is Test, Enum, TestUtils, SphinxModuleFactory 
             operation: Operation.DelegateCall,
             safeTxGas: 1_000_000
         });
-        bytes memory ownerSignatures =
-            signSafeTransaction({ _ownerWallets: ownerWallets, _safe: safe, _gnosisSafeTxn: gnosisSafeTxn });
+        bytes memory ownerSignatures = signSafeTransaction({
+            _ownerWallets: ownerWallets,
+            _safe: safe,
+            _gnosisSafeTxn: gnosisSafeTxn
+        });
         bool success = safe.execTransaction({
             to: gnosisSafeTxn.to,
             value: gnosisSafeTxn.value,

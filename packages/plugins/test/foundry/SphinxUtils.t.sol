@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "sphinx-forge-std/Test.sol";
-import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import {SphinxUtils} from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import {
     FoundryContractConfig,
     OptionalString,

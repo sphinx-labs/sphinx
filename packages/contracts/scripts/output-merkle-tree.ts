@@ -5,10 +5,11 @@ import { ethers } from 'ethers'
 import {
   DeploymentData,
   SphinxTransaction,
-  makeSphinxBundle,
+  makeSphinxLeafs,
+  makeSphinxMerkleTree,
 } from '../src/module'
 import { recursivelyConvertResult } from '../src/utils'
-import { abi as sphinxModuleTestABI } from '../out/SphinxModule.t.sol/SphinxModule_Test.json'
+import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
 const chainId = argv[2]
 const nonce = argv[3]
@@ -16,12 +17,15 @@ const executor = argv[4]
 const safe = argv[5]
 const sphinxModule = argv[6]
 const deploymentURI = argv[7]
-const abiEncodedTxs = argv[8] // TODO
+const abiEncodedTxs = argv[8]
+const forceNumLeafsValue = argv[9] === 'true'
+const overridingNumLeafsValue = argv[10]
+const forceApprovalLeafIndexNonZero = argv[11] === 'true'
 
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const iface = new ethers.Interface(sphinxModuleTestABI)
+  const iface = new ethers.Interface(testUtilsABI)
   const merkleTreeFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
@@ -52,10 +56,29 @@ const abiEncodedTxs = argv[8] // TODO
     },
   }
 
-  const { root, leafs } = makeSphinxBundle(deploymentData)
+  const leafs = makeSphinxLeafs(deploymentData)
+
+  if (forceNumLeafsValue) {
+    leafs[0].data = coder.encode(
+      ['address', 'address', 'uint', 'uint', 'address', 'string'],
+      [
+        safe,
+        sphinxModule,
+        nonce,
+        overridingNumLeafsValue, // Override the `numLeafs`
+        executor,
+        deploymentURI,
+      ]
+    )
+  }
+  if (forceApprovalLeafIndexNonZero) {
+    leafs[0].index = 1n
+  }
+
+  const { root, leafsWithProofs } = makeSphinxMerkleTree(leafs)
 
   const abiEncodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
-    [root, leafs],
+    [root, leafsWithProofs],
   ])
 
   process.stdout.write(abiEncodedMerkleTree)

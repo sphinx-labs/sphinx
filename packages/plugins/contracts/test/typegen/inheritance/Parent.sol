@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 abstract contract Parent {
-    uint public myNumber;
+    uint256 public myNumber;
     bool public myBool;
 
     constructor(uint256 _myNumber, bool _myBool) {

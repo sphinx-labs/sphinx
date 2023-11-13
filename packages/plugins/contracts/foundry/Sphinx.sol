@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
-import { console } from "sphinx-forge-std/console.sol";
+import {VmSafe, Vm} from "sphinx-forge-std/Vm.sol";
+import {console} from "sphinx-forge-std/console.sol";
 
-import {
-    ISphinxAccessControl
-} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
+import {ISphinxAccessControl} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
 import {
     Version,
     DeploymentStatus,
@@ -14,12 +12,8 @@ import {
     SphinxActionType,
     AuthLeafType
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
-import {
-    DeploymentState,
-    SphinxModule,
-    Result
-} from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
-import { SphinxLeafWithProof } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
+import {DeploymentState, SphinxModule, Result} from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
+import {SphinxLeafWithProof} from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import {
     BundledSphinxAction,
     SphinxTarget,
@@ -36,10 +30,10 @@ import {
     Wallet,
     Label
 } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxCollector } from "./SphinxCollector.sol";
-import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
-import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {SphinxCollector} from "./SphinxCollector.sol";
+import {SphinxUtils} from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import {SphinxConstants} from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import {GnosisSafe} from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -84,22 +78,17 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(
-        string memory _networkName,
-        string memory _deploymentInfoPath
-    ) external {
+    function sphinxCollectProposal(string memory _networkName, string memory _deploymentInfoPath) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
         sphinxUtils.validateProposal(sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), sphinxUtils.selectManagedServiceAddressForNetwork());
+        DeploymentInfo memory deploymentInfo =
+            sphinxCollect(sphinxUtils.isLiveNetworkFFI(rpcUrl), sphinxUtils.selectManagedServiceAddressForNetwork());
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
-    function sphinxCollectDeployment(
-        string memory _networkName,
-        string memory _deploymentInfoPath
-    ) external {
+    function sphinxCollectDeployment(string memory _networkName, string memory _deploymentInfoPath) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         address deployer;
@@ -107,8 +96,7 @@ abstract contract Sphinx {
         if (isLiveNetwork) {
             uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
             require(
-                privateKey != 0,
-                "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
+                privateKey != 0, "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
             );
 
             deployer = vm.addr(privateKey);
@@ -154,11 +142,7 @@ abstract contract Sphinx {
     /**
      * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
      */
-    function sphinxDeployTask(
-        string memory _networkName,
-        bytes32 _root,
-        SphinxBundle memory _bundle
-    ) external {
+    function sphinxDeployTask(string memory _networkName, bytes32 _root, SphinxBundle memory _bundle) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -185,14 +169,7 @@ abstract contract Sphinx {
         bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _root);
 
         vm.startBroadcast(privateKey);
-        sphinxDeployOnNetwork(
-            SphinxModule(sphinxModule()),
-            _root,
-            _bundle,
-            metaTxnSignature,
-            rpcUrl,
-            _networkName
-        );
+        sphinxDeployOnNetwork(SphinxModule(sphinxModule()), _root, _bundle, metaTxnSignature, rpcUrl, _networkName);
         vm.stopBroadcast();
     }
 
@@ -202,11 +179,10 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    function sphinxSimulateProposal(
-        bool _testnets,
-        bytes32 _root,
-        SphinxBundle memory _bundleInfo
-    ) external returns (uint256[] memory) {
+    function sphinxSimulateProposal(bool _testnets, bytes32 _root, SphinxBundle memory _bundleInfo)
+        external
+        returns (uint256[] memory)
+    {
         setupPropose();
 
         sphinxMode = SphinxMode.Proposal;
@@ -230,14 +206,7 @@ abstract contract Sphinx {
 
             // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
             vm.startPrank(sphinxUtils.selectManagedServiceAddressForNetwork());
-            sphinxDeployOnNetwork(
-                SphinxModule(sphinxModule()),
-                _root,
-                _bundleInfo,
-                "",
-                rpcUrl,
-                networkInfo.name
-            );
+            sphinxDeployOnNetwork(SphinxModule(sphinxModule()), _root, _bundleInfo, "", rpcUrl, networkInfo.name);
             vm.stopPrank();
         }
 
@@ -253,24 +222,14 @@ abstract contract Sphinx {
             if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
                 vm.stopBroadcast();
 
-                sphinxUtils.sphinxModuleFactoryDeploy(
-                    sortedOwners,
-                    sphinxConfig.threshold
-                );
+                sphinxUtils.sphinxModuleFactoryDeploy(sortedOwners, sphinxConfig.threshold);
 
                 // Call the `SphinxModuleFactory.deploySphinxModuleAndSafeProxy` function via FFI.
-                sphinxUtils.sphinxModuleFactoryDeployFFI(
-                    sortedOwners,
-                    sphinxConfig.threshold,
-                    _rpcUrl
-                );
+                sphinxUtils.sphinxModuleFactoryDeployFFI(sortedOwners, sphinxConfig.threshold, _rpcUrl);
 
                 vm.startBroadcast(_msgSender);
             } else {
-                sphinxUtils.sphinxModuleFactoryDeploy(
-                    sortedOwners,
-                    sphinxConfig.threshold
-                );
+                sphinxUtils.sphinxModuleFactoryDeploy(sortedOwners, sphinxConfig.threshold);
             }
         }
     }
@@ -281,8 +240,8 @@ abstract contract Sphinx {
     function sphinxExecuteBatchActions(
         SphinxModule _module,
         SphinxLeafWithProof[] memory _leafs,
-        uint _bufferedGasLimit
-    ) private returns (bool, uint) {
+        uint256 _bufferedGasLimit
+    ) private returns (bool, uint256) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeRoot = _module.activeRoot();
 
@@ -292,21 +251,15 @@ abstract contract Sphinx {
         }
 
         // The first leaf is always the auth leaf which we execute separately
-        uint executed = 1;
+        uint256 executed = 1;
         while (executed < _leafs.length) {
             // Figure out the maximum number of actions that can be executed in a single batch
-            uint maxGasLimit = _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100;
-            uint batchSize = sphinxUtils.findMaxBatchSize(
-                sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length),
-                maxGasLimit
-            );
-            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
-                _leafs,
-                executed,
-                executed + batchSize
-            );
+            uint256 maxGasLimit = _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100;
+            uint256 batchSize =
+                sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length), maxGasLimit);
+            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leafs, executed, executed + batchSize);
 
-            Result[] memory results = SphinxModule(_module).execute{ gas: maxGasLimit }(batch);
+            Result[] memory results = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
             // TODO - do something with the results
 
             // Move to next batch if necessary
@@ -333,15 +286,11 @@ abstract contract Sphinx {
         SphinxLeafWithProof memory authLeaf = leafs[0];
 
         // Execute auth leaf
-        _module.approve{ gas: 1000000 }(_bundle.root, authLeaf.leaf, authLeaf.proof, _signatures);
+        _module.approve{gas: 1000000}(_bundle.root, authLeaf.leaf, authLeaf.proof, _signatures);
 
         // Execute the rest of the actions
-        uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
-        sphinxExecuteBatchActions(
-            _module,
-            leafs,
-            bufferedGasLimit
-        );
+        uint256 bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
+        sphinxExecuteBatchActions(_module, leafs, bufferedGasLimit);
 
         // TODO - handle outputting something useful if the deployment fails
         //        maybe do something with HumanReadableAction wrt to this
@@ -356,7 +305,7 @@ abstract contract Sphinx {
     modifier sphinx() {
         sphinxModifierEnabled = true;
 
-        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+        (VmSafe.CallerMode callerMode, address msgSender,) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
@@ -420,37 +369,21 @@ abstract contract Sphinx {
         string memory _rpcUrl,
         string memory _networkName
     ) private {
-        (, address msgSender, ) = vm.readCallers();
+        (, address msgSender,) = vm.readCallers();
 
         if (_bundle.leafs.length == 0) {
-            console.log(
-                string(
-                    abi.encodePacked(
-                        "Sphinx: Nothing to execute on ",
-                        _networkName,
-                        ". Exiting early."
-                    )
-                )
-            );
+            console.log(string(abi.encodePacked("Sphinx: Nothing to execute on ", _networkName, ". Exiting early.")));
             return;
         }
 
         sphinxRegisterProject(_rpcUrl, msgSender);
 
-        (
-            uint256 numLeafs,
-            uint256 leafsExecuted,
-            string memory uri,
-        ) = _module.deployments(_root);
+        (uint256 numLeafs, uint256 leafsExecuted, string memory uri,) = _module.deployments(_root);
 
         if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
             console.log(
                 string(
-                    abi.encodePacked(
-                        "Sphinx: Deployment was already completed on ",
-                        _networkName,
-                        ". Exiting early."
-                    )
+                    abi.encodePacked("Sphinx: Deployment was already completed on ", _networkName, ". Exiting early.")
                 )
             );
             return;
@@ -459,9 +392,7 @@ abstract contract Sphinx {
         bytes memory ownerSignatures;
         if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
             ownerSignatures = _metaTxnSignature;
-        } else if (
-            sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal
-        ) {
+        } else if (sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal) {
             Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(1);
 
             // Create a list of owner meta transactions. This allows us to run the rest of
@@ -476,15 +407,12 @@ abstract contract Sphinx {
             ownerSignatures = sphinxUtils.getOwnerSignatures(wallets, _root);
         }
 
-        (
-            bool executionSuccess,
-            HumanReadableAction memory readableAction
-        ) = sphinxExecuteDeployment(_module, _bundle, block.gaslimit, ownerSignatures);
+        (bool executionSuccess, HumanReadableAction memory readableAction) =
+            sphinxExecuteDeployment(_module, _bundle, block.gaslimit, ownerSignatures);
 
         if (!executionSuccess) {
             bytes memory revertMessage = abi.encodePacked(
-                "Sphinx: failed to execute deployment because the following action reverted: ",
-                readableAction.reason
+                "Sphinx: failed to execute deployment because the following action reverted: ", readableAction.reason
             );
 
             revert(string(revertMessage));
@@ -498,7 +426,7 @@ abstract contract Sphinx {
      *         SphinxClient, which is currently unused.
      *
      * @param _referenceName     The reference name of the contract to deploy. Used to generate the
-       contracts address.
+     *    contracts address.
      * @param _userSalt          The user's salt. Used to generate the contracts address.
      * @param _constructorArgs   The constructor arguments for the contract.
      * @param fullyQualifiedName The fully qualified name of the contract to deploy.
@@ -511,15 +439,12 @@ abstract contract Sphinx {
         string memory fullyQualifiedName,
         string memory artifactPath
     ) internal returns (address) {
-        require(
-            sphinxModifierEnabled,
-            "Sphinx: You must include the 'sphinx' modifier on your run function."
-        );
+        require(sphinxModifierEnabled, "Sphinx: You must include the 'sphinx' modifier on your run function.");
 
         address manager = sphinxSafe();
         // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
         {
-            (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+            (VmSafe.CallerMode callerMode, address msgSender,) = vm.readCallers();
             // Check that we're currently pranking/broadcasting from the SphinxManager. This should
             // always be true unless the user deliberately cancels the prank/broadcast in their 'deploy'
             // function.
@@ -592,24 +517,20 @@ abstract contract Sphinx {
      *         against local networks, making it difficult to test that no unnecessary transactions
      *         are being broadcasted.
      */
-    function _sphinxOverrideSafeOwners(
-        address _safe,
-        address _owner,
-        string memory _rpcUrl
-    ) private {
+    function _sphinxOverrideSafeOwners(address _safe, address _owner, string memory _rpcUrl) private {
         // First update the threshold to one
-        bytes32 thresholdSlotKey = bytes32(uint(4));
+        bytes32 thresholdSlotKey = bytes32(uint256(4));
         bytes32 bytesThreshold = bytes32(uint256(1));
         vm.store(address(_safe), thresholdSlotKey, bytesThreshold);
 
         // Then set the sentinal to point to the new owner
         address sentinalAddress = address(0x1);
-        bytes32 sentinalSlotKey = keccak256(abi.encode(sentinalAddress, bytes32(uint(4))));
+        bytes32 sentinalSlotKey = keccak256(abi.encode(sentinalAddress, bytes32(uint256(4))));
         bytes32 bytesOwner = bytes32(uint256(uint160(_owner)));
         vm.store(address(_safe), sentinalSlotKey, bytesOwner);
 
         // Then set the new owner to point to the sentinal
-        bytes32 ownerSlotKey = keccak256(abi.encode(_owner, bytes32(uint(2))));
+        bytes32 ownerSlotKey = keccak256(abi.encode(_owner, bytes32(uint256(2))));
         bytes32 bytesSentinal = bytes32(uint256(uint160(sentinalAddress)));
         vm.store(address(_safe), ownerSlotKey, bytesSentinal);
 
@@ -644,9 +565,7 @@ abstract contract Sphinx {
                 return all[i].network;
             }
         }
-        revert(
-            string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId)))
-        );
+        revert(string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId))));
     }
 
     function sphinxLabel(address _addr, string memory _fullyQualifiedName) internal {
@@ -654,8 +573,8 @@ abstract contract Sphinx {
             Label memory label = labels[i];
             if (label.addr == _addr) {
                 require(
-                    keccak256(abi.encodePacked(_fullyQualifiedName)) ==
-                        keccak256(abi.encodePacked(label.fullyQualifiedName)),
+                    keccak256(abi.encodePacked(_fullyQualifiedName))
+                        == keccak256(abi.encodePacked(label.fullyQualifiedName)),
                     string(
                         abi.encodePacked(
                             "Sphinx: The address ",

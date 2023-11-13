@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-type ConflictingType is uint;
+type ConflictingType is uint256;
 
 struct ConflictingStruct {
-    uint a;
+    uint256 a;
 }
 
 enum ConflictingEnum {

@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 contract VariableValidation {
     struct SimpleStruct {
-        uint a;
-        uint b;
+        uint256 a;
+        uint256 b;
     }
 
     int8 public arrayInt8;
@@ -29,13 +29,13 @@ contract VariableValidation {
     bytes32[2] public invalidBytes32Array;
     address[2] public invalidAddressArray;
     mapping(string => string) public invalidStringStringMapping;
-    mapping(string => int) public invalidStringIntMapping;
-    mapping(string => mapping(string => int)) public invalidNestedStringIntBoolMapping;
+    mapping(string => int256) public invalidStringIntMapping;
+    mapping(string => mapping(string => int256)) public invalidNestedStringIntBoolMapping;
     SimpleStruct public extraMemberStruct;
     SimpleStruct public missingMemberStruct;
 
     // Variables that are not set in the config
-    uint public notSetUint;
+    uint256 public notSetUint;
     string public notSetString;
 
     // Variables that should not be set in the config (but are)

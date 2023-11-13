@@ -7,9 +7,7 @@ struct MyTopLevelStruct {
     bool a;
 }
 
-enum MyTopLevelEnum {
-    TopLevel
-}
+enum MyTopLevelEnum {TopLevel}
 
 library MyTypeLibrary {
     type MyTypeInLibrary is uint8;

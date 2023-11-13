@@ -34,7 +34,8 @@ import {
     Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
-import { GnosisSafeProxyFactory } from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafeProxyFactory } from
+    "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
@@ -48,18 +49,23 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
-    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE = vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
-    string private rootPluginPath = vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
+    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
+        vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
+    string private rootPluginPath =
+        vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
     string private rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
     string private mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
-    uint256 private systemOwnerPrivateKey = vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint256(0));
+    uint256 private systemOwnerPrivateKey =
+        vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint256(0));
 
-    address public systemOwner =
-        systemOwnerPrivateKey != 0 ? vm.rememberKey(systemOwnerPrivateKey) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+    address public systemOwner = systemOwnerPrivateKey != 0
+        ? vm.rememberKey(systemOwnerPrivateKey)
+        : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
-    address public constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
+        0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     // Number of networks that Sphinx supports, i.e. the number of networks in the `Networks` enum
     // in SphinxPluginTypes.sol. Unfortunately, we can't retrieve this value using type(Network).max
@@ -94,7 +100,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             address addr = create2Deploy(ct.creationCode);
             require(
                 addr == ct.expectedAddress,
-                string(abi.encodePacked("address mismatch. expected address: ", vm.toString(ct.expectedAddress)))
+                string(
+                    abi.encodePacked(
+                        "address mismatch. expected address: ", vm.toString(ct.expectedAddress)
+                    )
+                )
             );
         }
 
@@ -112,7 +122,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // }
     }
 
-    function slice(bytes calldata _data, uint256 _start, uint256 _end) external pure returns (bytes memory) {
+    function slice(
+        bytes calldata _data,
+        uint256 _start,
+        uint256 _end
+    )
+        external
+        pure
+        returns (bytes memory)
+    {
         return _data[_start:_end];
     }
 
@@ -152,7 +170,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         pure
         returns (bytes32)
     {
-        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actionBundle.actions);
+        (uint256 numInitialActions, uint256 numSetStorageActions) =
+            getNumActions(_actionBundle.actions);
 
         return keccak256(
             abi.encode(
@@ -167,13 +186,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function create2Deploy(bytes memory _creationCode) public returns (address) {
-        address addr = computeCreate2Address(bytes32(0), keccak256(_creationCode), DETERMINISTIC_DEPLOYMENT_PROXY);
+        address addr = computeCreate2Address(
+            bytes32(0), keccak256(_creationCode), DETERMINISTIC_DEPLOYMENT_PROXY
+        );
 
         if (addr.code.length == 0) {
             bytes memory code = abi.encodePacked(bytes32(0), _creationCode);
             (bool success,) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
             require(
-                success, string(abi.encodePacked("failed to deploy contract. expected address: ", vm.toString(addr)))
+                success,
+                string(
+                    abi.encodePacked(
+                        "failed to deploy contract. expected address: ", vm.toString(addr)
+                    )
+                )
             );
         }
 
@@ -219,7 +245,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         be called during a broadcast. If it's not view/pure, then this call would be
      *         broadcasted, which is not what we want.
      */
-    function getSphinxWalletsSortedByAddress(uint256 _numWallets) public pure returns (Wallet[] memory) {
+    function getSphinxWalletsSortedByAddress(uint256 _numWallets)
+        public
+        pure
+        returns (Wallet[] memory)
+    {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
             uint256 privateKey = getSphinxDeployerPrivateKey(i);
@@ -271,7 +301,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * Helper function that determines if a given batch is executable within the specified gas
      *    limit.
      */
-    function executable(SphinxLeafWithProof[] memory selected, uint256 maxGasLimit) public pure returns (bool) {
+    function executable(
+        SphinxLeafWithProof[] memory selected,
+        uint256 maxGasLimit
+    )
+        public
+        pure
+        returns (bool)
+    {
         uint256 estGasUsed = 0;
         for (uint256 i = 0; i < selected.length; i++) {
             (,, uint256 gas,,) = decodeExecutionLeafData(selected[i].leaf);
@@ -285,7 +322,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * given input list of actions. This is done by performing a binary search over the possible
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
-    function findMaxBatchSize(SphinxLeafWithProof[] memory leafs, uint256 maxGasLimit) public pure returns (uint256) {
+    function findMaxBatchSize(
+        SphinxLeafWithProof[] memory leafs,
+        uint256 maxGasLimit
+    )
+        public
+        pure
+        returns (uint256)
+    {
         // Optimization, try to execute the entire batch at once before doing a binary search
         if (executable(leafs, maxGasLimit)) {
             return leafs.length;
@@ -321,12 +365,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return bytes32(uint256(uint160(_addr)));
     }
 
-    function getNumActions(BundledSphinxAction[] memory _actions) public pure returns (uint256, uint256) {
+    function getNumActions(BundledSphinxAction[] memory _actions)
+        public
+        pure
+        returns (uint256, uint256)
+    {
         uint256 numInitialActions = 0;
         uint256 numSetStorageActions = 0;
         for (uint256 i = 0; i < _actions.length; i++) {
             SphinxActionType actionType = _actions[i].action.actionType;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT || actionType == SphinxActionType.CALL) {
+            if (
+                actionType == SphinxActionType.DEPLOY_CONTRACT
+                    || actionType == SphinxActionType.CALL
+            ) {
                 numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
                 numSetStorageActions += 1;
@@ -432,7 +483,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *
      * @param _addresses An array of addresses that may contain duplicates.
      */
-    function getUniqueAddresses(address[] memory _addresses) internal pure returns (address[] memory) {
+    function getUniqueAddresses(address[] memory _addresses)
+        internal
+        pure
+        returns (address[] memory)
+    {
         // First, we get an array of unique addresses. We do this by iterating over the input array
         // and adding each address to a new array if it hasn't been added already.
         address[] memory uniqueAddresses = new address[](_addresses.length);
@@ -464,36 +519,72 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return trimmedUniqueAddresses;
     }
 
-    function findNetworkInfoByName(string memory _networkName) public pure returns (NetworkInfo memory) {
+    function findNetworkInfoByName(string memory _networkName)
+        public
+        pure
+        returns (NetworkInfo memory)
+    {
         NetworkInfo[] memory all = getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
             if (keccak256(abi.encode(all[i].name)) == keccak256(abi.encode(_networkName))) {
                 return all[i];
             }
         }
-        revert(string(abi.encodePacked("Sphinx: No network found with the given name: ", _networkName)));
+        revert(
+            string(abi.encodePacked("Sphinx: No network found with the given name: ", _networkName))
+        );
     }
 
     function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
         NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
-        all[0] = NetworkInfo({ network: Network.anvil, name: "anvil", chainId: 31337, networkType: NetworkType.Local });
-        all[1] =
-            NetworkInfo({ network: Network.ethereum, name: "ethereum", chainId: 1, networkType: NetworkType.Mainnet });
-        all[2] =
-            NetworkInfo({ network: Network.optimism, name: "optimism", chainId: 10, networkType: NetworkType.Mainnet });
+        all[0] = NetworkInfo({
+            network: Network.anvil,
+            name: "anvil",
+            chainId: 31337,
+            networkType: NetworkType.Local
+        });
+        all[1] = NetworkInfo({
+            network: Network.ethereum,
+            name: "ethereum",
+            chainId: 1,
+            networkType: NetworkType.Mainnet
+        });
+        all[2] = NetworkInfo({
+            network: Network.optimism,
+            name: "optimism",
+            chainId: 10,
+            networkType: NetworkType.Mainnet
+        });
         all[3] = NetworkInfo({
             network: Network.arbitrum,
             name: "arbitrum",
             chainId: 42161,
             networkType: NetworkType.Mainnet
         });
-        all[4] =
-            NetworkInfo({ network: Network.polygon, name: "polygon", chainId: 137, networkType: NetworkType.Mainnet });
-        all[5] = NetworkInfo({ network: Network.bnb, name: "bnb", chainId: 56, networkType: NetworkType.Mainnet });
-        all[6] =
-            NetworkInfo({ network: Network.gnosis, name: "gnosis", chainId: 100, networkType: NetworkType.Mainnet });
-        all[7] =
-            NetworkInfo({ network: Network.linea, name: "linea", chainId: 59144, networkType: NetworkType.Mainnet });
+        all[4] = NetworkInfo({
+            network: Network.polygon,
+            name: "polygon",
+            chainId: 137,
+            networkType: NetworkType.Mainnet
+        });
+        all[5] = NetworkInfo({
+            network: Network.bnb,
+            name: "bnb",
+            chainId: 56,
+            networkType: NetworkType.Mainnet
+        });
+        all[6] = NetworkInfo({
+            network: Network.gnosis,
+            name: "gnosis",
+            chainId: 100,
+            networkType: NetworkType.Mainnet
+        });
+        all[7] = NetworkInfo({
+            network: Network.linea,
+            name: "linea",
+            chainId: 59144,
+            networkType: NetworkType.Mainnet
+        });
         all[8] = NetworkInfo({
             network: Network.polygon_zkevm,
             name: "polygon_zkevm",
@@ -506,10 +597,24 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             chainId: 43114,
             networkType: NetworkType.Mainnet
         });
-        all[10] =
-            NetworkInfo({ network: Network.fantom, name: "fantom", chainId: 250, networkType: NetworkType.Mainnet });
-        all[11] = NetworkInfo({ network: Network.base, name: "base", chainId: 8453, networkType: NetworkType.Mainnet });
-        all[12] = NetworkInfo({ network: Network.goerli, name: "goerli", chainId: 5, networkType: NetworkType.Testnet });
+        all[10] = NetworkInfo({
+            network: Network.fantom,
+            name: "fantom",
+            chainId: 250,
+            networkType: NetworkType.Mainnet
+        });
+        all[11] = NetworkInfo({
+            network: Network.base,
+            name: "base",
+            chainId: 8453,
+            networkType: NetworkType.Mainnet
+        });
+        all[12] = NetworkInfo({
+            network: Network.goerli,
+            name: "goerli",
+            chainId: 5,
+            networkType: NetworkType.Testnet
+        });
         all[13] = NetworkInfo({
             network: Network.optimism_goerli,
             name: "optimism_goerli",
@@ -649,7 +754,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.decode(result.stdout, (bool));
     }
 
-    function arrayContainsAddress(address[] memory _ary, address _addr) private pure returns (bool) {
+    function arrayContainsAddress(
+        address[] memory _ary,
+        address _addr
+    )
+        private
+        pure
+        returns (bool)
+    {
         for (uint256 i = 0; i < _ary.length; i++) {
             if (_ary[i] == _addr) {
                 return true;
@@ -658,8 +770,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    function computeCreate3Address(address _deployer, bytes32 _salt) public pure returns (address) {
-        // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
+    function computeCreate3Address(
+        address _deployer,
+        bytes32 _salt
+    )
+        public
+        pure
+        returns (address)
+    {
+        // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the
+        // `CREATE3.sol`
         // library for details.
         bytes memory proxyBytecode = hex"67363d3d37363d34f03d5260086018f3";
 
@@ -672,8 +792,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @param _networks The unfiltered elements.
      * @return duplicates The duplicated elements.
      */
-    function getDuplicatedElements(Network[] memory _networks) public pure returns (Network[] memory) {
-        // We return early here because the for-loop below will throw an underflow error if the array is empty.
+    function getDuplicatedElements(Network[] memory _networks)
+        public
+        pure
+        returns (Network[] memory)
+    {
+        // We return early here because the for-loop below will throw an underflow error if the
+        // array is empty.
         if (_networks.length == 0) return new Network[](0);
 
         Network[] memory sorted = sortNetworks(_networks);
@@ -698,7 +823,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @return duplicates The duplicated elements.
      */
     function getDuplicatedElements(address[] memory _ary) public pure returns (address[] memory) {
-        // We return early here because the for-loop below will throw an underflow error if the array is empty.
+        // We return early here because the for-loop below will throw an underflow error if the
+        // array is empty.
         if (_ary.length == 0) return new address[](0);
 
         address[] memory sorted = sortAddresses(_ary);
@@ -736,12 +862,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return sorted;
     }
 
-    function getMappingValueSlotKey(bytes32 _mappingSlotKey, bytes32 _key) public pure returns (bytes32) {
+    function getMappingValueSlotKey(
+        bytes32 _mappingSlotKey,
+        bytes32 _key
+    )
+        public
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    function signMetaTxnForAuthRoot(uint256 _privateKey, bytes32 _root) public pure returns (bytes memory) {
-        bytes memory typedData = abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+    function signMetaTxnForAuthRoot(
+        uint256 _privateKey,
+        bytes32 _root
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
+        bytes memory typedData =
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, keccak256(typedData));
         return abi.encodePacked(r, s, v);
     }
@@ -776,7 +917,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             duplicateOwners.length == 0,
             string(
                 abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ", toString(duplicateOwners)
+                    "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ",
+                    toString(duplicateOwners)
                 )
             )
         );
@@ -814,7 +956,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             invalidTestnets.length == 0,
             string(
                 abi.encodePacked(
-                    "Sphinx: Your 'testnets' array contains invalid test networks: ", toString(invalidTestnets)
+                    "Sphinx: Your 'testnets' array contains invalid test networks: ",
+                    toString(invalidTestnets)
                 )
             )
         );
@@ -824,11 +967,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @notice Performs validation on the user's deployment. This is only run if a broadcast is
      *         being performed on a live network (i.e. not an Anvil or Hardhat node).
      */
-    function validateLiveNetworkBroadcast(SphinxConfig memory _config, address _msgSender) external view {
+    function validateLiveNetworkBroadcast(
+        SphinxConfig memory _config,
+        address _msgSender
+    )
+        external
+        view
+    {
         // TODO - We should do something similar to this, but what?
         // require(
         //     registryAddress.code.length > 0,
-        //     "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
+        //     "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support
+        // it."
         // );
         require(
             _config.owners.length == 1,
@@ -896,7 +1046,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_safe).code.length == 0) {
             return InitialChainState({ isSafeDeployed: false, isExecuting: false });
         } else {
-            return InitialChainState({ isSafeDeployed: true, isExecuting: _sphinxModule.activeRoot() != bytes32(0) });
+            return InitialChainState({
+                isSafeDeployed: true,
+                isExecuting: _sphinxModule.activeRoot() != bytes32(0)
+            });
         }
     }
 
@@ -921,14 +1074,29 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function getSphinxSafeAddress(address[] memory _owners, uint256 _threshold) public pure returns (address) {
+    function getSphinxSafeAddress(
+        address[] memory _owners,
+        uint256 _threshold
+    )
+        public
+        pure
+        returns (address)
+    {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
         bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), bytes32(0)));
-        bytes memory deploymentData = abi.encodePacked(safeProxyBytecode, abi.encode(safeSingletonAddress));
+        bytes memory deploymentData =
+            abi.encodePacked(safeProxyBytecode, abi.encode(safeSingletonAddress));
         return Create2.computeAddress(salt, keccak256(deploymentData), safeFactoryAddress);
     }
 
-    function getSphinxModuleAddress(address[] memory _owners, uint256 _threshold) public pure returns (address) {
+    function getSphinxModuleAddress(
+        address[] memory _owners,
+        uint256 _threshold
+    )
+        public
+        pure
+        returns (address)
+    {
         address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
         return Create2.computeAddress(
             bytes32(0),
@@ -949,16 +1117,25 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         bytes memory encodedDeployModuleCalldata =
             abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
         bytes memory deployModuleMultiSendData = abi.encodePacked(
-            uint8(0), moduleFactory, uint256(0), encodedDeployModuleCalldata.length, encodedDeployModuleCalldata
+            uint8(0),
+            moduleFactory,
+            uint256(0),
+            encodedDeployModuleCalldata.length,
+            encodedDeployModuleCalldata
         );
         bytes memory encodedEnableModuleCalldata =
             abi.encodeWithSelector(moduleFactory.enableSphinxModuleFromSafe.selector, bytes32(0));
         bytes memory enableModuleMultiSendData = abi.encodePacked(
-            uint8(1), moduleFactory, uint256(0), encodedEnableModuleCalldata.length, encodedEnableModuleCalldata
+            uint8(1),
+            moduleFactory,
+            uint256(0),
+            encodedEnableModuleCalldata.length,
+            encodedEnableModuleCalldata
         );
 
         bytes memory multiSendData = abi.encodeWithSelector(
-            MultiSend.multiSend.selector, abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
+            MultiSend.multiSend.selector,
+            abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
         );
         safeInitializerData = abi.encodePacked(
             GnosisSafe.setup.selector,
@@ -1043,7 +1220,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (result.exitCode != 0) revert(string(result.stderr));
     }
 
-    function getOwnerSignatures(Wallet[] memory _owners, bytes32 _root) public pure returns (bytes memory) {
+    function getOwnerSignatures(
+        Wallet[] memory _owners,
+        bytes32 _root
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
         bytes[] memory signatures = new bytes[](_owners.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);

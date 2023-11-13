@@ -22,7 +22,7 @@ remappings = [
 src = 'contracts/core'
 
 [fmt]
-line_length=120
+line_length=100
 multiline_func_header="all"
 bracket_spacing=true
 wrap_comments=true

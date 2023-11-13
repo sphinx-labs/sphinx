@@ -2,7 +2,8 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 /**
- * @notice Clone of `ISphinxAccessControl.sol` in OpenZeppelin Contracts v4.4.1. The only modification is
+ * @notice Clone of `ISphinxAccessControl.sol` in OpenZeppelin Contracts v4.4.1. The only
+ * modification is
  *         that this interface supports a wider Solidity version range.
  *         We've also added the `Sphinx` prefix to the interface name to avoid potential conflicts
  *         with other interfaces the user may have in their project.
@@ -18,7 +19,9 @@ interface ISphinxAccessControl {
      *
      * _Available since v3.1._
      */
-    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
+    event RoleAdminChanged(
+        bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole
+    );
 
     /**
      * @dev Emitted when `account` is granted `role`.

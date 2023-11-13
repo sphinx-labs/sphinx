@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Child as AliasedChild } from "./Child.sol";
+import {Child as AliasedChild} from "./Child.sol";
 
 contract Grandchild is AliasedChild {
     bytes32 public myBytes32;
 
-    constructor(
-        uint256 _myNumber,
-        bool _myBool,
-        address _myAddress,
-        bytes32 _myBytes
-    ) AliasedChild(_myNumber, _myBool, _myAddress) {
+    constructor(uint256 _myNumber, bool _myBool, address _myAddress, bytes32 _myBytes)
+        AliasedChild(_myNumber, _myBool, _myAddress)
+    {
         myBytes32 = _myBytes;
     }
 

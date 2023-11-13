@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 contract BasicInputTypes {
     uint8 public myUint8;
-    uint public myUint;
+    uint256 public myUint;
     int64 public myInt64;
-    int public myInt;
+    int256 public myInt;
     address public myAddress;
     bytes32 public myBytes32;
     bytes public myBytes;
@@ -14,9 +14,9 @@ contract BasicInputTypes {
 
     constructor(
         uint8 _myUint8,
-        uint _myUint,
+        uint256 _myUint,
         int64 _myInt64,
-        int _myInt,
+        int256 _myInt,
         address _myAddress,
         bytes32 _myBytes32,
         bytes memory _myBytes,
@@ -36,9 +36,9 @@ contract BasicInputTypes {
 
     function setValues(
         uint8 _myUint8,
-        uint _myUint,
+        uint256 _myUint,
         int64 _myInt64,
-        int _myInt,
+        int256 _myInt,
         address _myAddress,
         bytes32 _myBytes32,
         bytes memory _myBytes,
@@ -59,7 +59,7 @@ contract BasicInputTypes {
     function returnValues()
         public
         pure
-        returns (uint8, uint, int64, int, address, bytes32, bytes memory, bool, string memory)
+        returns (uint8, uint256, int64, int256, address, bytes32, bytes memory, bool, string memory)
     {
         return (6, 5, 4, 3, address(2), keccak256("1"), bytes("pure"), true, "function");
     }
