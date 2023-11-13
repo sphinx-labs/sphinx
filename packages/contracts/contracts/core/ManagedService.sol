@@ -6,18 +6,18 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title ManagedService
- * @notice Contract controlled by the Sphinx managed service. This contract allows the managed
-   service to remotely execute deployments and collect the protocol's fee.
-Users can opt in to this functionality if they choose to do so.
+ * @notice Contract controlled by the Sphinx managed service. This contract is used by
+           the managed service to remotely execute deployments.
+           Users can opt in to this functionality if they choose to do so.
  */
 contract ManagedService is AccessControl {
     /**
-     * @dev Role required to collect the protocol creator's payment.
+     * @dev Role required to make calls through this contract.
      */
     bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
-     * @notice Emitted when a protocol payment recipient claims a payment.
+     * @notice Emitted when funds are withdrawn from this contract.
      *
      * @param recipient The recipient that withdrew the funds.
      * @param amount    Amount of ETH withdrawn.
@@ -27,8 +27,10 @@ contract ManagedService is AccessControl {
     /**
      * @notice Emitted when a call is made to a remote contract.
      *
-     * @param to   The address of the remote contract.
-     * @param data The data that was sent to the remote contract.
+     * @param relayer The address of the account that made the call.
+     * @param to      The address of the remote contract.
+     * @param data    The data that was sent to the remote contract.
+     * @param res     The response from the remote contract.
      */
     event Called(address indexed relayer, address indexed to, bytes data, bytes res);
 
@@ -45,7 +47,7 @@ contract ManagedService is AccessControl {
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
-       multisig owned by the Sphinx team.
+     *               multisig owned by the Sphinx team.
      */
     constructor(address _owner) {
         _grantRole(bytes32(0), _owner);
@@ -58,23 +60,41 @@ contract ManagedService is AccessControl {
 
     /**
      * @notice Allows for the relayers or admin to withdraw ETH from the contract.
+     *
+     * @param _amount The amount of ETH to withdraw.
      */
-    function withdraw(uint256 _amount) external refund {
+    function withdraw(uint256 _amount) external {
+        withdrawTo(_amount, msg.sender);
+    }
+
+    /**
+     * @notice Allows for the relayers or admin to send ETH from the contract to a recipient.
+     *
+     * @param _amount The amount of ETH to withdraw.
+     * @param _recipient The address that will receive the ETH.
+     */
+    function withdrawTo(uint256 _amount, address _recipient) public {
         require(
             hasRole(RELAYER_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
             "ManagedService: invalid caller"
         );
         require(_amount <= address(this).balance, "ManagedService: insufficient funds to withdraw");
 
-        emit Withdew(msg.sender, _amount);
+        emit Withdew(_recipient, _amount);
 
         // slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        require(success, "ManagedService: failed to funds");
+        (bool success, ) = payable(_recipient).call{ value: _amount }(new bytes(0));
+        require(success, "ManagedService: failed to send funds");
     }
 
-    // TODO - docs
-    function call(address _to, bytes calldata _data) external payable refund returns (bytes memory) {
+    /**
+     * @notice Allows for the relayers to make arbitrary calls using this contract. The relayers will
+     *         be automatically refunded for the gas spent in the call.
+     *
+     * @param _to   The target address.
+     * @param _data The data that will be sent.
+     */
+    function call(address _to, bytes calldata _data) public payable refund returns (bytes memory) {
         require(hasRole(RELAYER_ROLE, msg.sender), "ManagedService: invalid caller");
 
         // slither-disable-next-line arbitrary-send-eth
