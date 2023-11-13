@@ -8,6 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   ContractArtifact,
+  SphinxBundle,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
@@ -83,6 +84,7 @@ export type ParsedConfig = {
   safeAddress: string
   moduleAddress: string
   executorAddress: string
+  safeInitData: string
   nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
@@ -96,9 +98,11 @@ export type ParsedConfig = {
 export type DeploymentInfo = {
   safeAddress: string
   moduleAddress: string
+  requireSuccess: boolean
   executorAddress: string
   nonce: string
   chainId: string
+  safeInitData: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -173,7 +177,7 @@ export interface RawCreate2ActionInput extends SphinxTransaction {
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
   contracts: ParsedContractDeployments
-  index: number
+  index: string
 }
 
 export type DecodedAction = {
@@ -196,7 +200,7 @@ export interface RawFunctionCallActionInput extends SphinxTransaction {
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
   contracts: ParsedContractDeployments
-  index: number
+  index: string
 }
 
 /**
@@ -207,8 +211,9 @@ export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
 }
 
-export interface CompilerConfigWithUri extends CompilerConfig {
-  configUri: string
+export type BundleInfo = {
+  bundle: SphinxBundle
+  compilerConfigs: Array<CompilerConfig>
 }
 
 /**

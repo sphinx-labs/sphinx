@@ -20,11 +20,7 @@ import {
   getImpersonatedSigner,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
-import {
-  FUNDER_ROLE,
-  RELAYER_ROLE,
-  REMOTE_EXECUTOR_ROLE,
-} from '../../constants'
+import { RELAYER_ROLE } from '../../constants'
 
 /**
  * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
@@ -34,20 +30,11 @@ import {
 export const ensureSafeAndSphinxInitialized = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
-  executors: string[] = [],
   relayers: string[] = [],
-  funders: string[] = [],
   logger?: Logger
 ) => {
   if (!(await isLiveNetwork(provider))) {
-    await initializeSafeAndSphinx(
-      provider,
-      signer,
-      executors,
-      relayers,
-      funders,
-      logger
-    )
+    await initializeSafeAndSphinx(provider, signer, relayers, logger)
   } else if (
     await isContractDeployed(getSphinxModuleFactoryAddress(), provider)
   ) {
@@ -62,9 +49,7 @@ export const ensureSafeAndSphinxInitialized = async (
 export const initializeSafeAndSphinx = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
-  executors: string[],
   relayers: string[],
-  funders: string[],
   logger?: Logger
 ): Promise<void> => {
   const block = await provider.getBlock('latest')
@@ -76,7 +61,7 @@ export const initializeSafeAndSphinx = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of getSphinxConstants((await provider.getNetwork()).chainId)) {
+  } of getSphinxConstants()) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[Sphinx]: deploying ${contractName}...`)
@@ -145,30 +130,13 @@ export const initializeSafeAndSphinx = async (
     }
   }
 
-  const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(chainId),
+    getManagedServiceAddress(),
     ManagedServiceArtifact.abi,
     owner
   )
 
-  logger?.info('[Sphinx]: assigning executor roles...')
-  for (const executor of executors) {
-    if (
-      (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
-    ) {
-      await (
-        await ManagedService.grantRole(
-          REMOTE_EXECUTOR_ROLE,
-          executor,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[Sphinx]: finished assigning executor roles')
-
-  logger?.info('[Sphinx]: assigning caller roles...')
+  logger?.info('[Sphinx]: assigning relayers roles...')
   for (const relayer of relayers) {
     if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
       await (
@@ -180,21 +148,7 @@ export const initializeSafeAndSphinx = async (
       ).wait()
     }
   }
-  logger?.info('[Sphinx]: finished assigning caller roles')
-
-  logger?.info('[Sphinx]: assigning funder role...')
-  for (const funder of funders) {
-    if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
-      await (
-        await ManagedService.grantRole(
-          FUNDER_ROLE,
-          funder,
-          await getGasPriceOverrides(owner)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[Sphinx]: finished assigning role')
+  logger?.info('[Sphinx]: finished assigning relayers roles')
 }
 
 export const getDeterministicFactoryAddress = async (

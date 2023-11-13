@@ -47,7 +47,7 @@ const command = args[0]
         ethers.toBeHex(ethers.parseEther('100')),
       ])
 
-      await ensureSafeAndSphinxInitialized(provider, wallet, [], [], [])
+      await ensureSafeAndSphinxInitialized(provider, wallet, [])
 
       break
     }

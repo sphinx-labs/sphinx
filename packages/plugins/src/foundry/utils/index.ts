@@ -10,12 +10,10 @@ import {
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
-  CompilerConfigWithUri,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
   GetProviderForChainId,
-  ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -25,21 +23,9 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import {
-  SupportedNetworkName,
-  getProjectBundleInfo,
-  networkEnumToName,
-} from '@sphinx-labs/core'
+import { SupportedNetworkName, networkEnumToName } from '@sphinx-labs/core'
 import ora from 'ora'
-import {
-  ContractArtifact,
-  DeploymentData,
-  SphinxTransaction,
-  makeSphinxBundle,
-  parseFoundryArtifact,
-} from '@sphinx-labs/contracts'
-
-import { BundleInfo } from '../types'
+import { ContractArtifact, parseFoundryArtifact } from '@sphinx-labs/contracts'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -441,67 +427,6 @@ export const inferSolcVersion = async (): Promise<string> => {
     return parsed ? parsed.toString() : defaultSolcVersion
   } catch (err) {
     return defaultSolcVersion
-  }
-}
-
-export const makeDeploymentData = (
-  compilerConfigArray: Array<CompilerConfigWithUri>
-): DeploymentData => {
-  const data: DeploymentData = {}
-  for (const compilerConfig of compilerConfigArray) {
-    const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
-      (action) => {
-        return {
-          to: action.to,
-          value: action.value,
-          gas: action.gas,
-          txData: action.txData,
-          operation: action.operation,
-        }
-      }
-    )
-
-    data[compilerConfig.chainId] = {
-      nonce: compilerConfig.nonce,
-      executor: compilerConfig.executorAddress,
-      safe: compilerConfig.safeAddress,
-      module: compilerConfig.moduleAddress,
-      deploymentURI: compilerConfig.configUri,
-      txs,
-    }
-  }
-
-  return data
-}
-
-export const getBundleInfo = async (
-  configArtifacts: ConfigArtifacts,
-  parsedConfigArray: Array<ParsedConfig>
-): Promise<{
-  root: string
-  bundleInfo: BundleInfo
-}> => {
-  const compilerConfigsWithUris: Array<CompilerConfigWithUri> = []
-  for (const parsedConfig of parsedConfigArray) {
-    const { compilerConfig, configUri } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts
-    )
-
-    compilerConfigsWithUris.push({
-      ...compilerConfig,
-      configUri,
-    })
-  }
-
-  const deploymentData = makeDeploymentData(compilerConfigsWithUris)
-  const bundle = makeSphinxBundle(deploymentData)
-  return {
-    root: bundle.root,
-    bundleInfo: {
-      bundle,
-      compilerConfigs: compilerConfigsWithUris,
-    },
   }
 }
 

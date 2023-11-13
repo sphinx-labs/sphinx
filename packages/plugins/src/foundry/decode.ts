@@ -69,13 +69,17 @@ export const decodeDeploymentInfo = (
     isLiveNetwork,
     newConfig,
     labels,
+    requireSuccess,
+    safeInitData,
   } = deploymentInfoBigInt
 
   return {
     labels,
     safeAddress,
     moduleAddress,
+    safeInitData,
     executorAddress,
+    requireSuccess,
     nonce,
     chainId: chainId.toString(),
     initialState: {
@@ -239,6 +243,7 @@ export const parseFoundryDryRun = (
           actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,
+          requireSuccess: deploymentInfo.requireSuccess,
           decodedAction: {
             referenceName: contractNameWithoutPath ?? create2Address,
             functionName: 'deploy',
@@ -269,6 +274,7 @@ export const parseFoundryDryRun = (
           gas: transaction.gas,
           contractName,
           additionalContracts,
+          requireSuccess: deploymentInfo.requireSuccess,
           decodedAction: {
             referenceName:
               contractNameWithoutPath ?? ethers.getAddress(transaction.to),
@@ -303,6 +309,7 @@ export const makeParsedConfig = (
     isLiveNetwork,
     initialState,
     labels,
+    safeInitData,
   } = deploymentInfo
 
   let actionIndex = 1
@@ -404,13 +411,13 @@ export const makeParsedConfig = (
 
       actionInputs.push({
         contracts: parsedContracts,
-        index: actionIndex,
+        index: actionIndex.toString(),
         ...input,
       })
     } else if (isRawFunctionCallActionInput(input)) {
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
-        index: actionIndex,
+        index: actionIndex.toString(),
         ...input,
       }
 
@@ -424,6 +431,7 @@ export const makeParsedConfig = (
   return {
     safeAddress,
     moduleAddress,
+    safeInitData,
     nonce,
     chainId,
     newConfig,

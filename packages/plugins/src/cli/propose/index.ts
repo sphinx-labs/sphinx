@@ -7,6 +7,7 @@ import {
   ProposalRequest,
   WEBSITE_URL,
   elementsEqual,
+  getBundleInfo,
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
@@ -32,7 +33,6 @@ import {
 } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import {
-  getBundleInfo,
   getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
@@ -238,7 +238,7 @@ export const propose = async (
     spinner
   )
 
-  const { root, bundleInfo } = await getBundleInfo(
+  const { root, bundleInfo, configUri } = await getBundleInfo(
     configArtifacts,
     parsedConfigArray
   )
@@ -306,6 +306,7 @@ export const propose = async (
       newConfig: compilerConfig.newConfig,
       safeAddress: compilerConfig.safeAddress,
       moduleAddress: compilerConfig.moduleAddress,
+      safeInitData: compilerConfig.safeInitData,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -316,16 +317,16 @@ export const propose = async (
   }
   // Since we know that the following fields are the same for each `compilerConfig`, we get their
   // values here.
-  const { newConfig, safeAddress, moduleAddress } =
+  const { newConfig, safeAddress, moduleAddress, safeInitData } =
     bundleInfo.compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
-  const compilerConfigs: {
-    [ipfsHash: string]: string
-  } = {}
+  // const compilerConfigs: {
+  //   [ipfsHash: string]: string
+  // } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
   for (const compilerConfig of bundleInfo.compilerConfigs) {
-    const { configUri, actionInputs } = compilerConfig
+    const { actionInputs } = compilerConfig
 
     const {} = bundleInfo.compilerConfigs
 
@@ -349,14 +350,13 @@ export const propose = async (
     })
 
     const projectDeployment = getProjectDeploymentForChain(
+      configUri,
       bundleInfo.bundle,
       compilerConfig
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
-
-    compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
   }
 
   const emptyBundle = bundleInfo.bundle.leafs.length === 0
@@ -386,6 +386,7 @@ export const propose = async (
     threshold: Number(newConfig.threshold),
     safeAddress,
     moduleAddress,
+    safeInitData,
     projectDeployments,
     gasEstimates,
     diff: preview,
@@ -395,17 +396,17 @@ export const propose = async (
     },
   }
 
-  const compilerConfigArray = Object.values(compilerConfigs)
+  const ipfsData = [JSON.stringify(bundleInfo.compilerConfigs, null, 2)]
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
     await relayProposal(proposalRequest)
-    await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
+    await relayIPFSCommit(apiKey, newConfig.orgId, ipfsData)
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData: compilerConfigArray }
+  return { proposalRequest, ipfsData }
 }
