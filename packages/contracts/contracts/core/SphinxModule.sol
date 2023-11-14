@@ -250,6 +250,10 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // TODO(test-e2e): enable two SphinxModules in a single Gnosis Safe, and execute a deployment
     // through each one.
 
+    // TODO: sanity check that you can use the traces to retrieve the error message.
+
+    // TODO: if sanity check works, then change the safeProxy exec function and update unit tests.
+
     // TODO(docs): execute function: we return `results` so that we can display a useful error
     // message to the user in case an action fails.
 
@@ -302,8 +306,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
     //   another way that the user can grief the executor is by returning a large amount of data in
     //   a "return bomb" attack. this is also fine for the same reason. in the situation that the
     //   gas amount is so high that the transaction cannot be executed at all, the deployment will
-    //   remain active until the user cancels it. we rely on gas estimation off-chain when simulating
-    //   the deployment to avoid this.
+    //   remain active until the user cancels it.
     //   tooling
     function execute(SphinxLeafWithProof[] memory _leafsWithProofs)
         public
@@ -337,9 +340,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
                 uint256 gas,
                 bytes memory txData,
                 Enum.Operation operation,
-                bool requireSuccess,
-                bool getReturnData
-            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool, bool));
+                bool requireSuccess
+            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
 
             state.leafsExecuted += 1;
 
@@ -354,24 +356,13 @@ contract SphinxModule is ReentrancyGuard, Enum {
             // is equal to `gas`. without this check, it'd be possible for the executor to send
             // an insufficient amount of gas to the Gnosis Safe, which could cause the user's
             // transaction to fail and the deployment to be marked as `FAILED`.
-            // TODO: increase 500?
             require(gasleft() >= ((gas * 64) / 63) + 500, "SphinxModule: insufficient gas");
-            if (getReturnData) {
-                try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
-                    bool success, bytes memory returnData
-                ) {
-                    result = Result({ success: success, returnData: returnData });
-                } catch (bytes memory returnData) {
-                    result = Result({ success: false, returnData: returnData });
-                }
-            } else {
-                try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
-                    bool success, bytes memory returnData
-                ) {
-                    result = Result({ success: success, returnData: returnData });
-                } catch (bytes memory returnData) {
-                    result = Result({ success: false, returnData: returnData });
-                }
+            try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
+                bool success, bytes memory returnData
+            ) {
+                result = Result({ success: success, returnData: returnData });
+            } catch (bytes memory returnData) {
+                result = Result({ success: false, returnData: returnData });
             }
 
             if (result.success) emit SphinxActionSucceeded(activeRoot, leaf.index);
