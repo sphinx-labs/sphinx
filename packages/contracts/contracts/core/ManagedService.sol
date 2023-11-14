@@ -29,10 +29,9 @@ contract ManagedService is AccessControl {
      *
      * @param relayer The address of the account that made the call.
      * @param to      The address of the remote contract.
-     * @param data    The data that was sent to the remote contract.
-     * @param res     The response from the remote contract.
+     * @param data    A keccak256 hash of the input data.
      */
-    event Called(address indexed relayer, address indexed to, bytes data, bytes res);
+    event Called(address indexed relayer, address indexed to, bytes32 data);
 
     /**
      * @notice A modifer that refunds the caller for the gas spent in the function call.
@@ -79,6 +78,7 @@ contract ManagedService is AccessControl {
             "ManagedService: invalid caller"
         );
         require(_amount <= address(this).balance, "ManagedService: insufficient funds to withdraw");
+        require(_recipient != address(0), "ManagedService: recipient is zero address");
 
         emit Withdew(_recipient, _amount);
 
@@ -107,7 +107,7 @@ contract ManagedService is AccessControl {
             }
             revert(abi.decode(res, (string)));
         } else {
-            emit Called(msg.sender, _to, _data, res);
+            emit Called(msg.sender, _to, keccak256(_data));
             return res;
         }
     }
