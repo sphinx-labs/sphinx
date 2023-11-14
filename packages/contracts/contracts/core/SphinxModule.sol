@@ -260,6 +260,9 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO: upgrade OpenZellin version to v5.x.
 
+    // TODO: Safe has logic that allows the safeTxGas amount to be 0 for gas estimation. they
+    // document this. should we include something like it?
+
     // TODO: our default recommended Safe should probably include a reentrancy guard.
 
     // TODO(invariant):
@@ -332,10 +335,20 @@ contract SphinxModule is ReentrancyGuard, Enum {
             ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
 
             Result memory result = results[i];
+            // TODO(docs): this guarantees that the amount of gas forwarded to the Gnosis Safe
+            // is at least `gas`. otherwise, it could be possible for the executor to underfund
+            // the transaction, triggering an 'out of gas' error, etc etc.
             require(gasleft() >= ((gas * 64) / 63) + 500, "SphinxModule: insufficient gas");
-            (result.success, result.returnData) = safeProxy.execTransactionFromModuleReturnData{
-                gas: gas
-            }(to, value, txData, operation);
+            // TODO(docs): we use a low-level call because...
+            (result.success, result.returnData) = address(safeProxy).call{ gas: gas }(
+                abi.encodeWithSelector(
+                    safeProxy.execTransactionFromModuleReturnData.selector,
+                    to,
+                    value,
+                    txData,
+                    operation
+                )
+            );
 
             if (result.success) emit SphinxActionSucceeded(activeRoot, leaf.index);
             else emit SphinxActionFailed(activeRoot, leaf.index);
@@ -385,6 +398,9 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo
     // too.
+
+    // TODO: consider using an EIP-1167 (or whatever) minimal proxy to make the deployment cost
+    // cheaper. hundreds of dollars in a bull market isn't a great onboarding experience.
 
     // TODO: check out invariant testing in foundry
 

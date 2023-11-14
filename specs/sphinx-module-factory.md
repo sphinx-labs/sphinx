@@ -91,6 +91,6 @@ TODO: this formatting is a little awkward b/c the function signature is so long.
 
 TODO: you say that you unit tests the correct behavior of Safe, but currently the unit tests don't include all four Safes.
 
-The `SphinxModuleFactory` calls a couple external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleFactory`](TODO(end)). However, we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're robust and secure. These external contracts are:
+The `SphinxModuleFactory` calls a couple external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleFactory`](TODO(end)). However, we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These external contracts are:
 - OpenZeppelin's `Create2.sol` vTODO, which deploys the `SphinxModule` contracts (via `Create2.deploy`) and computes their addresses (via `Create2.computeAddress`).
 - Gnosis Safe's `enableModule` function, which enables the `SphinxModule` within the user's Gnosis Safe.

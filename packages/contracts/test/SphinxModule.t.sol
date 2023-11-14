@@ -43,7 +43,7 @@ contract MyContract {
         myNum = _num;
     }
 
-    function reverter() external {
+    function reverter() external pure {
         revert("MyContract: reverted");
     }
 
@@ -822,6 +822,8 @@ contract SphinxModule_Test is Test, Enum, TestUtils, SphinxModule, Common {
         module.execute(executionLeafWithProof);
     }
 
+    function test_execute_revert_
+
     function test_execute_fail_userTransactionReverted() external {
         defaultTxs[1].txData = abi.encodePacked(myContract.reverter.selector);
         TODOOutput memory defaultOutput = getTODOOutput(helper_makeTODO(defaultTxs));
@@ -889,7 +891,7 @@ contract SphinxModule_Test is Test, Enum, TestUtils, SphinxModule, Common {
             module.deployments(defaultOutput.merkleRoot);
         assertEq(uint256(status), uint256(DeploymentStatus.FAILED));
         assertEq(module.activeRoot(), bytes32(0));
-        assertEq(leafsExecuted, 1); // Only the approval leaf was executed successfully.
+        assertEq(leafsExecuted, 2); // The first execution leaf was executed, as well as the approval leaf.
 
         // Check that the user's transactions weren't executed.
         helper_test_preExecution();
@@ -946,23 +948,6 @@ contract SphinxModule_Test is Test, Enum, TestUtils, SphinxModule, Common {
             _todoOutput: output,
             _initialActiveMerkleRoot: bytes32(0)
         });
-    }
-
-    function test_execute_TODO_RM() external {
-        SphinxTransaction[] memory txns = new SphinxTransaction[](1);
-        txns[0] = defaultTxs[0];
-        txns[0].txData = abi.encodePacked(myContract.rm.selector);
-        txns[0].gas = 5_000_000;
-        TODOOutput memory defaultOutput = getTODOOutput(helper_makeTODO(txns));
-        helper_test_approve({
-            _todoOutput: defaultOutput,
-            _initialActiveMerkleRoot: bytes32(0),
-            _expectedStatus: DeploymentStatus.APPROVED
-        });
-        vm.startPrank(executor);
-        Result[] memory result =
-            module.execute{ gas: 500_000 }(defaultOutput.executionLeafsWithProofs);
-        assertTrue(result[0].success);
     }
 
     //////////////////////////////// Helper functions ////////////////////////////////////
