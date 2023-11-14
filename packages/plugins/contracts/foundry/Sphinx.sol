@@ -40,6 +40,9 @@ import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import {
+    GnosisSafeProxyFactory
+} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -251,15 +254,18 @@ abstract contract Sphinx {
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
 
         address safeAddress = sphinxModule();
+        GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(constants.safeFactoryAddress());
+
+        vm.stopBroadcast();
+        bytes memory safeInitializerData = sphinxUtils.fetchSafeInitializerData(sortedOwners, sphinxConfig.threshold);
+        address singletonAddress = constants.safeSingletonAddress();
+        vm.startBroadcast(_msgSender);
 
         if (safeAddress.code.length == 0) {
             if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
                 vm.stopBroadcast();
-
-                sphinxUtils.sphinxModuleFactoryDeploy(
-                    sortedOwners,
-                    sphinxConfig.threshold
-                );
+                address proxy = address(safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, 0));
+                console.logAddress(proxy);
 
                 // Call the `SphinxModuleFactory.deploySphinxModuleAndSafeProxy` function via FFI.
                 sphinxUtils.sphinxModuleFactoryDeployFFI(
@@ -270,10 +276,8 @@ abstract contract Sphinx {
 
                 vm.startBroadcast(_msgSender);
             } else {
-                sphinxUtils.sphinxModuleFactoryDeploy(
-                    sortedOwners,
-                    sphinxConfig.threshold
-                );
+                address proxy = address(safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, 0));
+                console.logAddress(proxy);
             }
         }
     }

@@ -1077,11 +1077,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function sphinxModuleFactoryDeploy(address[] memory _owners, uint _threshold) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
-        console.logBytes(safeInitializerData);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
         address proxy = address(safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0));
-        console.logAddress(proxy);
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
