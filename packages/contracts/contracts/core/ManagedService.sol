@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @title ManagedService
@@ -14,7 +14,7 @@ contract ManagedService is AccessControl {
     /**
      * @dev Role required to make calls through this contract.
      */
-    bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
      * @notice Emitted when funds are withdrawn from this contract.
@@ -37,10 +37,10 @@ contract ManagedService is AccessControl {
      * @notice A modifer that refunds the caller for the gas spent in the function call.
      */
     modifier refund {
-        uint256 gasAtStart = gasleft();
+        uint256 start = gasleft();
         _;
-        uint256 gasSpent = gasAtStart - gasleft() + 28925;
-        (bool success, ) = payable(msg.sender).call{ value: gasSpent * tx.gasprice }(new bytes(0));
+        uint256 spent = start - gasleft() + 40000;
+        (bool success, ) = payable(msg.sender).call{ value: spent * tx.gasprice }(new bytes(0));
         require(success, "ManagedService: failed to refund caller");
     }
 
@@ -77,7 +77,7 @@ contract ManagedService is AccessControl {
             hasRole(RELAYER_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
             "ManagedService: invalid caller"
         );
-        require(_amount <= address(this).balance, "ManagedService: insufficient funds to withdraw");
+        require(_amount <= address(this).balance, "ManagedService: insufficient funds");
         require(_recipient != address(0), "ManagedService: recipient is zero address");
 
         emit Withdew(_recipient, _amount);
@@ -94,8 +94,11 @@ contract ManagedService is AccessControl {
      * @param _to   The target address.
      * @param _data The data that will be sent.
      */
-    function call(address _to, bytes calldata _data) public payable refund returns (bytes memory) {
-        require(hasRole(RELAYER_ROLE, msg.sender), "ManagedService: invalid caller");
+    function exec(address _to, bytes calldata _data) public payable refund returns (bytes memory) {
+        require(
+            hasRole(RELAYER_ROLE, msg.sender),
+            "ManagedService: invalid caller"
+        );
 
         // slither-disable-next-line arbitrary-send-eth
         (bool success, bytes memory res) = _to.call{ value: msg.value }(_data);

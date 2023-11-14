@@ -35,7 +35,7 @@ The Sphinx DevOps platform backend relies on sending transactions via the `Manag
 
 ## Function Level Invariants
 
-#### function call(address _to, bytes calldata _data) public payable returns (bytes memory)
+#### function exec(address _to, bytes calldata _data) public payable returns (bytes memory)
 Should execute a low-level call to the `_to` address with `_data`, and refund the caller for the cost of the transaction.
 
 - Must revert if the caller does not have the `RELAYER_ROLE` role.
@@ -57,8 +57,6 @@ Should send `_amount` from the `ManagedService` contract and to the `_recipient`
 - A successful call:
   - `_amount` in native tokens is transferred to the `_recipient` address.
   - Emit a `Withdew` event in the `ManagedService` contract.
-
-- Only accounts with the `RELAYER_ROLE` or `DEFAULT_ADMIN_ROLE` may withdraw funds from the contract
 
 #### function withdraw(uint256 _amount) external
 Should send `_amount` to the caller. Invariants match the `withdrawTo` function.
