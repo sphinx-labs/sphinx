@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// TODO(spec): how does the executor find out about deployments? is this method grief-proof?
-
-// TODO(post-test): check coverage
+// TODO(end): check coverage for ManagedService. also, run slither.
 
 // TODO(spec): perhaps mention somewhere that the executor cannot lose money on a deployment because
 // it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
@@ -23,9 +21,7 @@ import {
 } from "./SphinxDataTypes.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
-// TODO(break): actors:
-// - malicious safe (finished)
-// - malicious third-party (finished)
+// TODO(spec): actors:
 // - buggy executor (finished): the first two bullet points of 'malicious executor'
 // - malicious executor:
 //      - wait an arbitrary amount of time to approve then execute a deployment.
@@ -44,9 +40,6 @@ import { console } from "sphinx-forge-std/console.sol";
 //        which can be an "unfair advantage" for the executor. for example, if a deployed contract
 //        has an open token airdrop, the executor can deploy the contract then claim the airdropped
 //        tokens in the same transaction, before any other account has a chance to claim them.
-
-// TODO: figure out how to put slither in CI. currently, i think it just displays a list of
-// potential issues, and doesn't halt under any situation.
 
 /**
  * @title SphinxModule
@@ -100,6 +93,8 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO(off-chain): check that the corresponding Safe is a valid version. (not sure which
     // versions are "valid").
+    // TODO(off-chain): update the gas estimate for the execution leafs. it needs to estimate
+    // the entire `safeProxy.execTransactionFromModuleReturnData` call.
 
     // TODO(H-invariant):
     // - a merkle root can only be used once per deployment, per chain.
@@ -263,7 +258,12 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // TODO: Safe has logic that allows the safeTxGas amount to be 0 for gas estimation. they
     // document this. should we include something like it?
 
-    // TODO: our default recommended Safe should probably include a reentrancy guard.
+            // TODO(docs): put this somewhere:
+            // Slither warns that a call inside of a loop can lead to a denial-of-service attack if
+            // the call reverts. However, this isn't a concern because the call to the Gnosis Safe
+            // cannot cause a revert since it's wrapped in a try/catch. Slither also warns of a
+            // re-entrancy vulnerability here, which isn't a concern because we've included a
+            // `nonReentrant` modifier in this function.
 
     // TODO(invariant):
     // - must revert if zero leafs are provided as an input parameter.
@@ -299,6 +299,12 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // - (is this true?) a malicious Safe could grief the executor by causing execution to revert.
     //   they could do this by doing `address(0).call{ gas: 10000000000}()` one of the transactions
     //   being executed. this is fine; the user will be billed for all of the executor's gas costs.
+    //   another way that the user can grief the executor is by returning a large amount of data in
+    //   a "return bomb" attack. this is also fine for the same reason. in the situation that the
+    //   gas amount is so high that the transaction cannot be executed at all, the deployment will
+    //   remain active until the user cancels it. we rely on gas estimation off-chain when simulating
+    //   the deployment to avoid this.
+    //   tooling
     function execute(SphinxLeafWithProof[] memory _leafsWithProofs)
         public
         nonReentrant
@@ -331,29 +337,47 @@ contract SphinxModule is ReentrancyGuard, Enum {
                 uint256 gas,
                 bytes memory txData,
                 Enum.Operation operation,
-                bool requireSuccess
-            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool));
+                bool requireSuccess,
+                bool getReturnData
+            ) = abi.decode(leaf.data, (address, uint256, uint256, bytes, Enum.Operation, bool, bool));
 
-            Result memory result = results[i];
+            state.leafsExecuted += 1;
+
+            // TODO(spec): execution: a call to the Gnosis Safe's `execTr...` function must not
+            // cause a revert in the `SphinxModule`.
+
+            // TODO(docs): Slither thinks that it's possible for the `result` variable to remain
+            // unassigned, which is not true. It's always either assigned in the body of the `try`
+            // statement or the `catch` statement below.
+            Result memory result;
             // TODO(docs): this guarantees that the amount of gas forwarded to the Gnosis Safe
-            // is at least `gas`. otherwise, it could be possible for the executor to underfund
-            // the transaction, triggering an 'out of gas' error, etc etc.
+            // is equal to `gas`. without this check, it'd be possible for the executor to send
+            // an insufficient amount of gas to the Gnosis Safe, which could cause the user's
+            // transaction to fail and the deployment to be marked as `FAILED`.
+            // TODO: increase 500?
             require(gasleft() >= ((gas * 64) / 63) + 500, "SphinxModule: insufficient gas");
-            // TODO(docs): we use a low-level call because...
-            (result.success, result.returnData) = address(safeProxy).call{ gas: gas }(
-                abi.encodeWithSelector(
-                    safeProxy.execTransactionFromModuleReturnData.selector,
-                    to,
-                    value,
-                    txData,
-                    operation
-                )
-            );
+            if (getReturnData) {
+                try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
+                    bool success, bytes memory returnData
+                ) {
+                    result = Result({ success: success, returnData: returnData });
+                } catch (bytes memory returnData) {
+                    result = Result({ success: false, returnData: returnData });
+                }
+            } else {
+                try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
+                    bool success, bytes memory returnData
+                ) {
+                    result = Result({ success: success, returnData: returnData });
+                } catch (bytes memory returnData) {
+                    result = Result({ success: false, returnData: returnData });
+                }
+            }
 
             if (result.success) emit SphinxActionSucceeded(activeRoot, leaf.index);
             else emit SphinxActionFailed(activeRoot, leaf.index);
 
-            state.leafsExecuted += 1;
+            results[i] = result;
 
             if (!result.success && requireSuccess) {
                 emit SphinxDeploymentFailed(activeRoot, leaf.index);
@@ -401,8 +425,6 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
     // TODO: consider using an EIP-1167 (or whatever) minimal proxy to make the deployment cost
     // cheaper. hundreds of dollars in a bull market isn't a great onboarding experience.
-
-    // TODO: check out invariant testing in foundry
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
     function _getLeafHash(SphinxLeaf memory _leaf) internal pure returns (bytes32) {

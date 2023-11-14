@@ -57,7 +57,7 @@ contract TestUtils is SphinxUtils, Enum {
         return packBytes(signatures);
     }
 
-    function getMerkleTreeFFI(TODOStruct memory _todoStruct)
+    function getMerkleTreeFFI(MerkleTreeInputs memory _treeInputs)
         public
         returns (SphinxMerkleTree memory)
     {
@@ -65,16 +65,16 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-merkle-tree.ts";
-        inputs[3] = vm.toString(_todoStruct.chainId);
-        inputs[4] = vm.toString(_todoStruct.nonceInModule);
-        inputs[5] = vm.toString(_todoStruct.executor);
-        inputs[6] = vm.toString(_todoStruct.safeProxy);
-        inputs[7] = vm.toString(address(_todoStruct.module));
-        inputs[8] = _todoStruct.deploymentUri;
-        inputs[9] = vm.toString(abi.encode(_todoStruct.txs));
-        inputs[10] = vm.toString(_todoStruct.forceNumLeafsValue);
-        inputs[11] = vm.toString(_todoStruct.overridingNumLeafsValue);
-        inputs[12] = vm.toString(_todoStruct.forceApprovalLeafIndexNonZero);
+        inputs[3] = vm.toString(_treeInputs.chainId);
+        inputs[4] = vm.toString(_treeInputs.nonceInModule);
+        inputs[5] = vm.toString(_treeInputs.executor);
+        inputs[6] = vm.toString(_treeInputs.safeProxy);
+        inputs[7] = vm.toString(address(_treeInputs.module));
+        inputs[8] = _treeInputs.deploymentUri;
+        inputs[9] = vm.toString(abi.encode(_treeInputs.txs));
+        inputs[10] = vm.toString(_treeInputs.forceNumLeafsValue);
+        inputs[11] = vm.toString(_treeInputs.overridingNumLeafsValue);
+        inputs[12] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
         inputs[13] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
@@ -84,7 +84,7 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     // TODO: mv
-    struct TODOStruct {
+    struct MerkleTreeInputs {
         SphinxTransaction[] txs;
         Wallet[] ownerWallets;
         uint256 chainId;
@@ -99,15 +99,15 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     // TODO: mv
-    struct TODOOutput {
+    struct ModuleInputs {
         bytes32 merkleRoot;
         SphinxLeafWithProof approvalLeafWithProof;
         SphinxLeafWithProof[] executionLeafsWithProofs;
         bytes ownerSignatures;
     }
 
-    function getTODOOutput(TODOStruct memory _todoStruct) internal returns (TODOOutput memory) {
-        SphinxMerkleTree memory tree = getMerkleTreeFFI(_todoStruct);
+    function getModuleInputs(MerkleTreeInputs memory _treeInputs) internal returns (ModuleInputs memory) {
+        SphinxMerkleTree memory tree = getMerkleTreeFFI(_treeInputs);
 
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory approvalLeafWithProof = tree.leafs[0];
@@ -116,9 +116,9 @@ contract TestUtils is SphinxUtils, Enum {
         for (uint256 i = 1; i < tree.leafs.length; i++) {
             executionLeafsWithProofs[i - 1] = tree.leafs[i];
         }
-        bytes memory ownerSignatures = getOwnerSignatures(_todoStruct.ownerWallets, tree.root);
+        bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
         return
-            TODOOutput(merkleRoot, approvalLeafWithProof, executionLeafsWithProofs, ownerSignatures);
+            ModuleInputs(merkleRoot, approvalLeafWithProof, executionLeafsWithProofs, ownerSignatures);
     }
 
     // TODO(docs)
