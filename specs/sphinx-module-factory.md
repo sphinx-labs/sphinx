@@ -46,7 +46,6 @@ To resolve this, the `SphinxModuleFactory` includes functions for deploying and 
 
 ## High-level Invariants
 
-- The `SphinxModule` implementation deployed in the `SphinxModuleFactory`'s constructor must be the implementation used for all `SphinxModule` proxies deployed by the `SphinxModuleFactory`.
 - It must be possible to deploy and enable a `SphinxModule` for a Gnosis Safe that already exists.
 - It must be possible for anybody to execute a single transaction that deploys a Gnosis Safe at a deterministic address, deploys a `SphinxModule` at a deterministic address, and enables the `SphinxModule`, as described in the [previous section](TODO(end)).
 - If the deployment strategy described in the [previous section](TODO(end)) succeeds on one network, it must always succeed on another network (assuming that the appropriate factories have been deployed first). For example, this invariant would be violated if the following scenario is possible:
@@ -58,7 +57,7 @@ To resolve this, the `SphinxModuleFactory` includes functions for deploying and 
   - The address of the Gnosis Safe contract that the `SphinxModule` belongs to.
   - The address of the caller that deploys the `SphinxModule` through the `SphinxModuleFactory`.
   - An arbitrary `uint256` nonce.
-- All of the behavior described in this specification must apply to [all versions of Gnosis Safe supported by Sphinx](TODO(end)).
+- All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](TODO(end)).
 
 ## Function-level Invariants
 
@@ -69,29 +68,28 @@ To resolve this, the `SphinxModuleFactory` includes functions for deploying and 
 
 #### `function deploySphinxModule(address _safeProxy, uint256 _saltNonce) external returns (address sphinxModule);`
 
-- Must revert if delegatecalled.
-  - Rationale: This would change the `CREATE2` address of the deployed `SphinxModule`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation.
+  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleFactory`'s constructor.
   - Emit a `SphinxModuleDeployed` event in the `SphinxModuleFactory`.
   - Initialize the `SphinxModule` using the correct Gnosis Safe address.
   - Return the address of the `SphinxModule`.
+- A single caller must be able to deploy an arbitrary number of `SphinxModule`s by calling this function multiple times.
 
 #### `function deploySphinxModuleFromSafe(uint256 _saltNonce) external;`
 
-- Must revert if delegatecalled.
-  - Rationale: This would change the `CREATE2` address of the deployed `SphinxModule`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation.
+  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation deployed in the `SphinxModuleFactory`'s constructor.
   - Emit a `SphinxModuleDeployed` event in the `SphinxModuleFactory`.
   - Initialize the `SphinxModule` using the _caller's address_ as the Gnosis Safe address.
+- A single caller must be able to deploy an arbitrary number of `SphinxModule`s by calling this function multiple times.
 
 #### `function enableSphinxModuleFromSafe(uint256 _saltNonce) external;`
 
 - Must revert if not delegatecalled.
 - Must enable the correct `SphinxModule` as a module in the Gnosis Safe that triggered the delegatecall.
+- A single Gnosis Safe must be able to enable more than one `SphinxModule` by calling this function multiple times.
 
 #### `function computeSphinxModuleAddress(address _safeProxy, address _caller, uint256 _saltNonce) external view returns (address);`
 

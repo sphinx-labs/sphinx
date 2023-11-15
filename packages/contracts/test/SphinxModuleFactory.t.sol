@@ -20,13 +20,25 @@ import {
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 
-// TODO: add an invariant and test for 'must revert if safeProxy == address(0)'.
-
 // TODO(e2e):
 // for each Safe type:
-// - deploy and enable in Safe initializer
-// - deploy and enable module after Safe deployment
+// - deploy and enable in Safe initializer.
+// - deploy safe, then enable module via safe.enableModule.
 
+/**
+ * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleFactory`.
+ *         This contract is inherited by four contracts, which are at the bottom of this file.
+ *         Each of the four contracts is for testing a different type of Gnosis Safe against
+ *         the `SphinxModuleFactory`. These four Gnosis Safes are:
+ *         1. `GnosisSafe` from Gnosis Safe v1.3.0
+ *         2. `GnosisSafeL2` from Gnosis Safe v1.3.0
+ *         3. `Safe` from Gnosis Safe v1.4.1
+ *         4. `SafeL2` from Gnosis Safe v1.4.1
+ *
+ *         Since all of the test functions in this contract are public, they'll run for each
+ *         version of Gnosis Safe, ensuring that the `SphinxModuleFactory` is compatible with
+ *         each type.
+ */
 abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISphinxModuleFactory {
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
     // call/delegatecall fails.
@@ -36,7 +48,6 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
     GnosisSafe safeProxy;
     Wallet[] ownerWallets;
     address[] owners;
-    uint256 threshold = 3;
 
     function setUp(
         address _compatibilityFallbackHandler,
@@ -57,7 +68,7 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
         bytes memory safeInitializerData = abi.encodeWithSelector(
             GnosisSafe.setup.selector,
             owners,
-            threshold,
+            3, // Owner threshold
             address(0),
             new bytes(0),
             _compatibilityFallbackHandler,
@@ -81,7 +92,21 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
 
     /////////////////////////// constructor ///////////////////////////////////////
 
-    function test_constructor_success() external {}
+    // Must:
+    // - Deploy a `SphinxModule` implementation contract at a `CREATE2` address determined by the
+    //   address of the `SphinxModuleFactory` and a `bytes32(0)` salt.
+    // - Initialize the `SphinxModule` implementation so that nobody has permission to call its
+    //   `approve` function.
+    function test_constructor_success() external {
+        address expectedModuleImpl = computeCreate2Address({
+            salt: bytes32(0),
+            initcodeHash: keccak256(type(SphinxModule).creationCode),
+            deployer: address(moduleFactory)
+        });
+        address actualModule = moduleFactory.SPHINX_MODULE_IMPL();
+        assertEq(actualModule, expectedModuleImpl);
+        assertEq(address(SphinxModule(actualModule).safeProxy()), address(1));
+    }
 
     /////////////////////////// deploySphinxModule ///////////////////////////////////////
 
@@ -93,31 +118,12 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
         moduleFactory.deploySphinxModule({ _safeProxy: address(safeProxy), _saltNonce: 0 });
     }
 
-    // Must revert if delegatecalled
-    function test_deploySphinxModule_revert_delegateCallNotAllowed() external {
-        uint256 saltNonce = 0;
-        bytes memory encodedFunctionCall = abi.encodePacked(
-            moduleFactory.deploySphinxModule.selector,
-            abi.encode(safeProxy, saltNonce)
-        );
-        (bool success, bytes memory retdata) = address(moduleFactory).delegatecall(
-            encodedFunctionCall
-        );
-        assertFalse(success);
-        assertEq(
-            retdata,
-            abi.encodePacked(
-                ERROR_SELECTOR,
-                abi.encode("SphinxModuleFactory: delegatecall not allowed")
-            )
-        );
-    }
-
     // A successful call must:
-    // - Deploy a `SphinxModule`.
-    // - Emit a `SphinxModuleDeployed` event.
-    // - Initialize the `SphinxModule` with the correct Gnosis Safe proxy address.
-    // - Return the deployed `SphinxModule`.
+    // - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule`
+    //   implementation deployed in the `SphinxModuleFactory`'s constructor.
+    // - Emit a `SphinxModuleDeployed` event in the `SphinxModuleFactory`.
+    // - Initialize the `SphinxModule` using the correct Gnosis Safe address.
+    // - Return the address of the `SphinxModule`.
     function test_deploySphinxModule_success() external {
         helper_test_deploySphinxModule({ _saltNonce: 0, _caller: address(this) });
     }
@@ -147,30 +153,11 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
         moduleFactory.deploySphinxModuleFromSafe({ _saltNonce: 0 });
     }
 
-    // Must revert if delegatecalled
-    function test_deploySphinxModuleFromSafe_revert_delegateCallNotAllowed() external {
-        uint256 saltNonce = 0;
-        bytes memory encodedFunctionCall = abi.encodeWithSelector(
-            moduleFactory.deploySphinxModuleFromSafe.selector,
-            (saltNonce)
-        );
-        (bool success, bytes memory retdata) = address(moduleFactory).delegatecall(
-            encodedFunctionCall
-        );
-        assertFalse(success);
-        assertEq(
-            retdata,
-            abi.encodePacked(
-                ERROR_SELECTOR,
-                abi.encode("SphinxModuleFactory: delegatecall not allowed")
-            )
-        );
-    }
-
-    // A successful call must:
-    // - Deploy a `SphinxModule`.
-    // - Emit a `SphinxModuleDeployed` event.
-    // - Initialize the `SphinxModule` with the correct Gnosis Safe proxy address.
+    // - Must:
+    //   - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule`
+    //     implementation deployed in the `SphinxModuleFactory`'s constructor.
+    //   - Emit a `SphinxModuleDeployed` event in the `SphinxModuleFactory`.
+    //   - Initialize the `SphinxModule` using the caller's address as the Gnosis Safe address.
     function test_deploySphinxModuleFromSafe_success() external {
         helper_test_deploySphinxModuleFromSafe({ _saltNonce: 0 });
     }
@@ -242,7 +229,8 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
             _safeProxy: address(safeProxy),
             _saltNonce: _saltNonce
         });
-        assertGt(module.code.length, 0);
+        bytes memory expectedModuleProxyCode = abi.encodePacked(hex"363d3d373d3d3d363d73", moduleFactory.SPHINX_MODULE_IMPL(), hex"5af43d82803e903d91602b57fd5bf3");
+        assertEq(module.code, expectedModuleProxyCode);
         assertEq(module, expectedModuleAddress);
         assertEq(address(SphinxModule(module).safeProxy()), address(safeProxy));
 
@@ -263,7 +251,8 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
         emit SphinxModuleDeployed(expectedModuleAddress, address(safeProxy));
         vm.prank(address(safeProxy));
         moduleFactory.deploySphinxModuleFromSafe({ _saltNonce: _saltNonce });
-        assertGt(address(expectedModuleAddress).code.length, 0);
+        bytes memory expectedModuleProxyCode = abi.encodePacked(hex"363d3d373d3d3d363d73", moduleFactory.SPHINX_MODULE_IMPL(), hex"5af43d82803e903d91602b57fd5bf3");
+        assertEq(expectedModuleAddress.code, expectedModuleProxyCode);
         assertEq(address(SphinxModule(expectedModuleAddress).safeProxy()), address(safeProxy));
 
         return SphinxModule(expectedModuleAddress);
@@ -329,6 +318,8 @@ abstract contract AbstractSphinxModuleFactory_Test is Test, Enum, TestUtils, ISp
     function deploySphinxModuleFromSafe(uint256 _saltNonce) external override {}
 
     function enableSphinxModuleFromSafe(uint256 _saltNonce) external override {}
+
+    function SPHINX_MODULE_IMPL() external override view returns (address) {}
 }
 
 contract SphinxModuleFactory_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleFactory_Test {

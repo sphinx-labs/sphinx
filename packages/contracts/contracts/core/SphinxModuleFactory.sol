@@ -25,9 +25,9 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 contract SphinxModuleFactory is ISphinxModuleFactory {
 
     /**
-     * @notice The `SphinxModule` implementation contract.
+     * @notice The address of the `SphinxModule` implementation contract.
      */
-    SphinxModule public immutable SPHINX_MODULE_IMPL;
+    address public override immutable SPHINX_MODULE_IMPL;
 
     /**
      * @dev Address of this `SphinxModuleFactory`.
@@ -43,7 +43,7 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
         // We initialize the implementation using `address(1)` because its initializer
         // checks that the Gnosis Safe address isn't `address(0)`.
         module.initialize(address(1));
-        SPHINX_MODULE_IMPL = module;
+        SPHINX_MODULE_IMPL = address(module);
     }
 
     /**
@@ -53,9 +53,6 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
      *         `deploySphinxModuleFromSafe`.
      *
      *            This function will revert if a contract already exists at the `CREATE2` address.
-     *            It will also revert if it's delegatecalled, since this would change the `CREATE2`
-     *            address of the `SphinxModule`, making it difficult for off-chain tooling to
-     *            determine its address.
      *
      * @param _safeProxy Address of the Gnosis Safe proxy that the `SphinxModule` will belong to.
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
@@ -67,8 +64,6 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
         address _safeProxy,
         uint256 _saltNonce
     ) public override returns (address sphinxModule) {
-        require(address(this) == MODULE_FACTORY, "SphinxModuleFactory: delegatecall not allowed");
-
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
         sphinxModule = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
@@ -88,9 +83,6 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
      *            where the return value is unused.
      *
      *            This function will revert if a contract already exists at the `CREATE2` address.
-     *            It will also revert if it's delegatecalled, since this would change the `CREATE2`
-     *            address of the `SphinxModule`, making it difficult for off-chain tooling to
-     *            determine its address.
      *
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
