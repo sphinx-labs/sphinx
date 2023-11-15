@@ -29,7 +29,7 @@
     "lint:check": "yarn lint:ts:check && yarn lint:contracts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "lint:contracts:fix": "forge fmt",
+    "lint:contracts:fix": "yarn prettier --write 'contracts/**/*.sol'",
     "lint:contracts:check": "yarn lint:contracts:fix && git diff --exit-code",
     "pre-commit": "lint-staged",
     "yalc:publish": "yarn build && yalc publish"

@@ -53,7 +53,7 @@ contract ManagedService is AccessControl {
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);
 
-        (bool success,) = payable(msg.sender).call{ value: _amount }(new bytes(0));
+        (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         require(success, "ManagedService: failed to withdraw relayer funds");
     }
 
@@ -65,5 +65,5 @@ contract ManagedService is AccessControl {
     /**
      * @notice Allows for this contract to receive ETH.
      */
-    receive() external payable { }
+    receive() external payable {}
 }

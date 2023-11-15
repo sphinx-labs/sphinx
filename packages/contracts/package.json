@@ -24,8 +24,8 @@
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
-    "lint:contracts:fix": "forge fmt",
-    "lint:contracts:check": "yarn lint:contracts:fix && git diff --exit-code",
+    "lint:contracts:check": "yarn prettier --check 'contracts/**/*.sol'",
+    "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/contracts#readme",
@@ -36,19 +36,17 @@
     "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "devDependencies": {
-    "@connext/interfaces": "^2.0.5",
     "@gnosis.pm/safe-contracts-1.4.1": "https://github.com/safe-global/safe-contracts.git#192c7dc67290940fcbc75165522bb86a37187069",
-    "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/merkle-tree": "1.0.5",
     "dotenv": "^16.0.1",
-    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "hardhat": "^2.17.1",
-    "solmate": "^6.7.0",
     "sphinx-forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1"
   },
   "dependencies": {
-    "@eth-optimism/contracts": "^0.5.40",
     "@gnosis.pm/safe-contracts": "1.3.0",
-    "ethers": "^6.7.0"
+    "@openzeppelin/contracts": "4.9.3",
+    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
+    "ethers": "^6.7.0",
+    "solmate": "6.2.0"
   }
 }

@@ -10,29 +10,47 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 // TODO(end): grammarly and chat gpt on all specs and contract docs.
 // TODO(end): format natspec docs in all contracts to audit.
 
+// TODO(end): update ISphinxModuleFactory
+
 /**
- * @title SphinxModuleFactory
- * @notice Deploys `SphinxModule` contracts at deterministic addresses and enables them within
- *          Gnosis Safe contracts.
+ * @title SphinxModuleFactory The `SphinxModuleFactory` deploys `SphinxModule` proxy contracts at
+          deterministic addresses and enables them within Gnosis Safe contracts.
+
+          It uses the EIP-1167 standard to reduce the cost of deploying `SphinxModule` contracts. Instead of
+          deploying a new `SphinxModule` contract for every Gnosis Safe, it deploys a minimal, non-upgradeable
+          EIP-1167 proxy that delegates all calls to a single `SphinxModule` implementation
+          contract. The `SphinxModuleFactory` deploys the `SphinxModule` implementation inside its
+          constructor.
  */
 contract SphinxModuleFactory is ISphinxModuleFactory {
+
+    /**
+     * @notice The `SphinxModule` implementation contract.
+     */
+    SphinxModule public immutable SPHINX_MODULE_IMPL;
+
     /**
      * @dev Address of this `SphinxModuleFactory`.
      */
     address private immutable MODULE_FACTORY = address(this);
 
-    SphinxModule public immutable SPHINX_MODULE_IMPL;
-
+    /**
+     * @notice Deploys the `SphinxModule` implementation contract and initializes it so
+     *         that nobody can deploy directly through it.
+     */
     constructor() {
         SphinxModule module = new SphinxModule{ salt: bytes32(0) }();
+        // We initialize the implementation using `address(1)` because its initializer
+        // checks that the Gnosis Safe address isn't `address(0)`.
         module.initialize(address(1));
         SPHINX_MODULE_IMPL = module;
     }
 
     /**
-     * @notice Deploy a `SphinxModule` using `CREATE2`. Use this function if the Gnosis Safe
+     * @notice Uses `CREATE2` to deploy an EIP-1167 proxy that delegates all calls to the
+       `SphinxModule` implementation. Use this function if the Gnosis Safe
      *         has already been deployed on this network. Otherwise, use
-     *            `deploySphinxModuleFromSafe`.
+     *         `deploySphinxModuleFromSafe`.
      *
      *            This function will revert if a contract already exists at the `CREATE2` address.
      *            It will also revert if it's delegatecalled, since this would change the `CREATE2`
@@ -43,26 +61,23 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
      *
-     * @return sphinxModule TODO(docs)
+     * @return sphinxModule The `CREATE2` address of the deployed `SphinxModule` proxy.
      */
     function deploySphinxModule(
         address _safeProxy,
         uint256 _saltNonce
-    )
-        public
-        override
-        returns (address sphinxModule)
-    {
+    ) public override returns (address sphinxModule) {
         require(address(this) == MODULE_FACTORY, "SphinxModuleFactory: delegatecall not allowed");
 
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
         sphinxModule = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
-        SphinxModule(sphinxModule).initialize(_safeProxy);
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
+        SphinxModule(sphinxModule).initialize(_safeProxy);
     }
 
     /**
-     * @notice Deploys a `SphinxModule` using `CREATE2`. Meant to be called by a Gnosis Safe
+     * @notice Uses `CREATE2` to deploy an EIP-1167 proxy that delegates all calls to the
+       `SphinxModule` implementation. Meant to be called by a Gnosis Safe
      *         during its initial deployment. Otherwise, use `deploySphinxModule` instead.
      *         After calling this function, enable the `SphinxModule` in the Gnosis Safe by calling
      *            `enableSphinxModuleFromSafe`.
@@ -86,7 +101,7 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
 
     /**
      * @notice Enable a `SphinxModule` within a Gnosis Safe. Must be delegatecalled by
-     * the Gnosis Safe. This function is meant to be called during the deployment of a Gnosis Safe
+     * the Gnosis Safe. This function is meant to be triggered during the deployment of a Gnosis Safe
      *    after `SphinxModuleFactory.deploySphinxModuleFromSafe`. If the Gnosis Safe has already
      * been
      *    deployed, use the Gnosis Safe's `enableModule` function instead.
@@ -105,7 +120,7 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
     }
 
     /**
-     * @notice Computes the address of a `SphinxModule` contract. Assumes that the deployer of the
+     * @notice Computes the address of a `SphinxModule` proxy contract. Assumes that the deployer of the
      * `SphinxModule` is this `SphinxModuleFactory` contract.
      *
      * @param _safeProxy The address of the Gnosis Safe proxy contract that the `SphinxModule`
@@ -115,19 +130,15 @@ contract SphinxModuleFactory is ISphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the address
      *    of the `SphinxModule`.
      *
-     * @return The `CREATE2` address of the `SphinxModule`.
+     * @return The `CREATE2` address of the `SphinxModule` proxy.
      */
     function computeSphinxModuleAddress(
         address _safeProxy,
         address _caller,
         uint256 _saltNonce
-    )
-        public
-        view
-        override
-        returns (address)
-    {
+    ) public view override returns (address) {
         bytes32 salt = keccak256(abi.encode(_safeProxy, _caller, _saltNonce));
-        return Clones.predictDeterministicAddress(address(SPHINX_MODULE_IMPL), salt, MODULE_FACTORY);
+        return
+            Clones.predictDeterministicAddress(address(SPHINX_MODULE_IMPL), salt, MODULE_FACTORY);
     }
 }

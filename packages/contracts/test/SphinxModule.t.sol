@@ -6,8 +6,9 @@ import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
-import { GnosisSafeProxyFactory } from
-    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import {
+    GnosisSafeProxyFactory
+} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
 import { CreateCall } from "@gnosis.pm/safe-contracts-1.3.0/libraries/CreateCall.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
@@ -44,8 +45,8 @@ contract MyContract {
         (bool success, bytes memory retdata) = _to.call(_data);
         require(!success, "MyContract: reentrancy succeeded");
         require(
-            keccak256(retdata)
-                == keccak256(
+            keccak256(retdata) ==
+                keccak256(
                     abi.encodePacked(ERROR_SELECTOR, abi.encode("ReentrancyGuard: reentrant call"))
                 ),
             "MyContract: incorrect error"
@@ -57,7 +58,7 @@ contract MyContract {
         revert("MyContract: reverted");
     }
 
-    function acceptPayment() external payable { }
+    function acceptPayment() external payable {}
 }
 
 contract MyDelegateCallContract {
@@ -119,8 +120,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             owners.push(wallets[i].addr);
         }
 
-        bytes memory encodedDeployModuleCall =
-            abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            moduleFactory.deploySphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
         bytes memory firstMultiSendData = abi.encodePacked(
             uint8(Operation.Call),
             moduleFactory,
@@ -128,8 +131,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             encodedDeployModuleCall.length,
             encodedDeployModuleCall
         );
-        bytes memory encodedEnableModuleCall =
-            abi.encodeWithSelector(moduleFactory.enableSphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleFactory.enableSphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
         bytes memory secondMultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
             moduleFactory,
@@ -138,7 +143,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             encodedEnableModuleCall
         );
         bytes memory multiSendData = abi.encodeWithSelector(
-            MultiSend.multiSend.selector, abi.encodePacked(firstMultiSendData, secondMultiSendData)
+            MultiSend.multiSend.selector,
+            abi.encodePacked(firstMultiSendData, secondMultiSendData)
         );
 
         bytes memory safeInitializerData = abi.encodePacked(
@@ -161,8 +167,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                 address(
                     GnosisSafeProxyFactory(_gnosisSafeAddresses.safeProxyFactory)
                         .createProxyWithNonce(
-                        _gnosisSafeAddresses.safeSingleton, safeInitializerData, 0
-                    )
+                            _gnosisSafeAddresses.safeSingleton,
+                            safeInitializerData,
+                            0
+                        )
                 )
             )
         );
@@ -172,15 +180,19 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         // Give the Gnosis Safe 2 ether
         vm.deal(address(safeProxy), 2 ether);
 
-        deployedViaCreate =
-            computeCreateAddress(address(safeProxy), vm.getNonce(address(safeProxy)));
+        deployedViaCreate = computeCreateAddress(
+            address(safeProxy),
+            vm.getNonce(address(safeProxy))
+        );
         deployedViaCreate2 = computeCreate2Address({
             salt: bytes32(0),
             initcodeHash: keccak256(type(MyContract).creationCode),
             deployer: address(safeProxy)
         });
-        deployedViaCreate3 =
-            computeCreate3Address({ _deployer: address(safeProxy), _salt: bytes32(uint256(0)) });
+        deployedViaCreate3 = computeCreate3Address({
+            _deployer: address(safeProxy),
+            _salt: bytes32(uint256(0))
+        });
 
         // Standard function call:
         defaultTxs.push(
@@ -221,8 +233,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                 to: _gnosisSafeAddresses.createCall,
                 value: 0,
                 txData: abi.encodePacked(
-                    CreateCall.performCreate.selector, abi.encode(0, type(MyContract).creationCode)
-                    ),
+                    CreateCall.performCreate.selector,
+                    abi.encode(0, type(MyContract).creationCode)
+                ),
                 operation: Operation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
@@ -236,7 +249,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                 txData: abi.encodePacked(
                     CreateCall.performCreate2.selector,
                     abi.encode(0, type(MyContract).creationCode, bytes32(0))
-                    ),
+                ),
                 operation: Operation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
@@ -250,7 +263,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             deployer: address(safeProxy)
         });
         bytes memory create3ProxyDeploymentData = abi.encodeWithSelector(
-            CreateCall.performCreate2.selector, abi.encode(0, CREATE3_PROXY_BYTECODE, bytes32(0))
+            CreateCall.performCreate2.selector,
+            abi.encode(0, CREATE3_PROXY_BYTECODE, bytes32(0))
         );
         bytes memory firstCreate3MultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
@@ -273,7 +287,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                 txData: abi.encodeWithSelector(
                     MultiSend.multiSend.selector,
                     abi.encodePacked(firstCreate3MultiSendData, secondCreate3MultiSendData)
-                    ),
+                ),
                 operation: Operation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
@@ -325,8 +339,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
 
         // TODO(docs): Create a transaction that will cause the Gnosis Safe to call the `approve`
         // function in the `SphinxModule`. This should trigger a re-entrancy error.
-        ModuleInputs memory defaultModuleInputs =
-            getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+        ModuleInputs memory defaultModuleInputs = getModuleInputs(
+            helper_makeMerkleTreeInputs(defaultTxs)
+        );
         bytes memory approvalData = abi.encodePacked(
             module.approve.selector,
             abi.encode(
@@ -346,8 +361,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                         // The approval function's args don't matter  because the call will revert
                         // before they're used.
                         txData: abi.encodeWithSelector(
-                            myContract.reenter.selector, module, approvalData
-                            ),
+                            myContract.reenter.selector,
+                            module,
+                            approvalData
+                        ),
                         operation: Operation.Call,
                         gas: 1_000_000,
                         requireSuccess: true
@@ -439,8 +456,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
 
     function test_approve_revert_merkleProofVerify_invalidLeafData() external {
         ModuleInputs memory moduleInputs = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
-        moduleInputs.approvalLeafWithProof.leaf.data =
-            abi.encodePacked(moduleInputs.approvalLeafWithProof.leaf.data, hex"00");
+        moduleInputs.approvalLeafWithProof.leaf.data = abi.encodePacked(
+            moduleInputs.approvalLeafWithProof.leaf.data,
+            hex"00"
+        );
         vm.prank(executor);
         vm.expectRevert("SphinxModule: failed to verify leaf");
         module.approve(
@@ -467,7 +486,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         vm.prank(executor);
         vm.expectRevert("SphinxModule: failed to verify leaf");
         module.approve(
-            bytes32(uint256(1)), moduleInputs.approvalLeafWithProof, moduleInputs.ownerSignatures
+            bytes32(uint256(1)),
+            moduleInputs.approvalLeafWithProof,
+            moduleInputs.ownerSignatures
         );
     }
 
@@ -609,8 +630,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
     }
 
     function test_approve_success_multipleApprovals() external {
-        ModuleInputs memory firstModuleInputs =
-            getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+        ModuleInputs memory firstModuleInputs = getModuleInputs(
+            helper_makeMerkleTreeInputs(defaultTxs)
+        );
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: firstModuleInputs,
@@ -642,8 +664,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
     }
 
     function test_approve_success_cancelActiveMerkleRoot() external {
-        ModuleInputs memory initialModuleInputs =
-            getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+        ModuleInputs memory initialModuleInputs = getModuleInputs(
+            helper_makeMerkleTreeInputs(defaultTxs)
+        );
         helper_test_approve({
             _moduleInputs: initialModuleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
@@ -673,8 +696,9 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _expectedDeploymentUri: defaultDeploymentUri
         });
 
-        (,,,, DeploymentStatus initialRootStatus) =
-            module.deployments(initialModuleInputs.merkleRoot);
+        (, , , , DeploymentStatus initialRootStatus) = module.deployments(
+            initialModuleInputs.merkleRoot
+        );
         assertEq(initialRootStatus, DeploymentStatus.CANCELLED);
     }
 
@@ -702,10 +726,12 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
 
         // TODO(docs): Create a transaction that will cause the Gnosis Safe to call the `approve`
         // function in the `SphinxModule`. This should trigger a re-entrancy error.
-        ModuleInputs memory defaultModuleInputs =
-            getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+        ModuleInputs memory defaultModuleInputs = getModuleInputs(
+            helper_makeMerkleTreeInputs(defaultTxs)
+        );
         bytes memory executionData = abi.encodePacked(
-            module.execute.selector, abi.encode(defaultModuleInputs.executionLeafsWithProofs)
+            module.execute.selector,
+            abi.encode(defaultModuleInputs.executionLeafsWithProofs)
         );
         ModuleInputs memory moduleInputs = getModuleInputs(
             helper_makeMerkleTreeInputs(
@@ -718,8 +744,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                         // The function's args don't matter  because the call will revert
                         // before they're used.
                         txData: abi.encodeWithSelector(
-                            myContract.reenter.selector, module, executionData
-                            ),
+                            myContract.reenter.selector,
+                            module,
+                            executionData
+                        ),
                         operation: Operation.Call,
                         gas: 1_000_000,
                         requireSuccess: true
@@ -841,8 +869,10 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _expectedDeploymentUri: defaultDeploymentUri
         });
 
-        moduleInputs.executionLeafsWithProofs[0].leaf.data =
-            abi.encodePacked(moduleInputs.executionLeafsWithProofs[0].leaf.data, hex"00");
+        moduleInputs.executionLeafsWithProofs[0].leaf.data = abi.encodePacked(
+            moduleInputs.executionLeafsWithProofs[0].leaf.data,
+            hex"00"
+        );
         vm.prank(executor);
         vm.expectRevert("SphinxModule: failed to verify leaf");
         module.execute(moduleInputs.executionLeafsWithProofs);
@@ -943,18 +973,20 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         emit SphinxActionFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 2 // Second execution leaf
-         });
+        });
         vm.expectEmit(address(module));
         emit SphinxDeploymentFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 2 // Second execution leaf
-         });
+        });
         vm.prank(executor);
-        DeploymentStatus executionFinalStatus =
-            module.execute(moduleInputs.executionLeafsWithProofs);
+        DeploymentStatus executionFinalStatus = module.execute(
+            moduleInputs.executionLeafsWithProofs
+        );
 
-        (, uint256 leafsExecuted,,, DeploymentStatus deploymentStateStatus) =
-            module.deployments(moduleInputs.merkleRoot);
+        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus) = module.deployments(
+            moduleInputs.merkleRoot
+        );
         assertEq(executionFinalStatus, DeploymentStatus.FAILED);
         assertEq(executionFinalStatus, deploymentStateStatus);
         assertEq(module.activeRoot(), bytes32(0));
@@ -981,18 +1013,20 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         emit SphinxActionFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 1 // First execution leaf
-         });
+        });
         vm.expectEmit(address(module));
         emit SphinxDeploymentFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 1 // First execution leaf
-         });
+        });
         vm.prank(executor);
-        DeploymentStatus executionFinalStatus =
-            module.execute(moduleInputs.executionLeafsWithProofs);
+        DeploymentStatus executionFinalStatus = module.execute(
+            moduleInputs.executionLeafsWithProofs
+        );
 
-        (, uint256 leafsExecuted,,, DeploymentStatus deploymentStateStatus) =
-            module.deployments(moduleInputs.merkleRoot);
+        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus) = module.deployments(
+            moduleInputs.merkleRoot
+        );
         assertEq(deploymentStateStatus, DeploymentStatus.FAILED);
         assertEq(executionFinalStatus, DeploymentStatus.FAILED);
         assertEq(module.activeRoot(), bytes32(0));
@@ -1067,7 +1101,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             operation: Operation.Call,
             gas: 1_000_000,
             requireSuccess: false // Don't require success
-         });
+        });
         expectedSuccesses[0] = false;
         for (uint256 i = 0; i < defaultTxs.length; i++) {
             txs[i + 1] = defaultTxs[i];
@@ -1100,15 +1134,15 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         bytes32 _expectedInitialActiveMerkleRoot,
         DeploymentStatus _expectedStatus,
         string memory _expectedDeploymentUri
-    )
-        internal
-    {
+    ) internal {
         uint256 initialNonce = module.currentNonce();
         uint256 expectedNumLeafs = _moduleInputs.executionLeafsWithProofs.length + 1;
         assertEq(module.activeRoot(), _expectedInitialActiveMerkleRoot);
 
         bytes memory typedData = abi.encodePacked(
-            "\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _moduleInputs.merkleRoot))
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _moduleInputs.merkleRoot))
         );
         vm.expectCall(
             address(safeProxy),
@@ -1163,9 +1197,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         bool[] memory _expectedSuccesses,
         DeploymentStatus _expectedFinalDeploymentStatus,
         bytes32 _expectedInitialActiveMerkleRoot
-    )
-        internal
-    {
+    ) internal {
         // Sanity check
         assertEq(_txs.length, _expectedSuccesses.length);
 
@@ -1242,43 +1274,40 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         assertEq(address(myContract).balance, 1 ether);
     }
 
-    function helper_makeMerkleTreeInputs(SphinxTransaction memory _tx)
-        internal
-        view
-        returns (MerkleTreeInputs memory)
-    {
+    function helper_makeMerkleTreeInputs(
+        SphinxTransaction memory _tx
+    ) internal view returns (MerkleTreeInputs memory) {
         SphinxTransaction[] memory txs = new SphinxTransaction[](1);
         txs[0] = _tx;
         return helper_makeMerkleTreeInputs(txs);
     }
 
-    function helper_makeMerkleTreeInputs(SphinxTransaction[] memory _txs)
-        internal
-        view
-        returns (MerkleTreeInputs memory)
-    {
-        return MerkleTreeInputs({
-            txs: _txs,
-            ownerWallets: ownerWallets,
-            chainId: block.chainid,
-            module: module,
-            nonceInModule: module.currentNonce(),
-            executor: executor,
-            safeProxy: address(safeProxy),
-            deploymentUri: defaultDeploymentUri,
-            forceNumLeafsValue: false,
-            overridingNumLeafsValue: 0,
-            forceApprovalLeafIndexNonZero: false
-        });
+    function helper_makeMerkleTreeInputs(
+        SphinxTransaction[] memory _txs
+    ) internal view returns (MerkleTreeInputs memory) {
+        return
+            MerkleTreeInputs({
+                txs: _txs,
+                ownerWallets: ownerWallets,
+                chainId: block.chainid,
+                module: module,
+                nonceInModule: module.currentNonce(),
+                executor: executor,
+                safeProxy: address(safeProxy),
+                deploymentUri: defaultDeploymentUri,
+                forceNumLeafsValue: false,
+                overridingNumLeafsValue: 0,
+                forceApprovalLeafIndexNonZero: false
+            });
     }
 
     function helper_test_execute_oneByOne(ModuleInputs memory _moduleInputs) internal {
         uint256 numExecutionLeafs = _moduleInputs.executionLeafsWithProofs.length;
         uint256 finalExecutionLeafIndex = numExecutionLeafs - 1;
         for (uint256 i = 0; i < numExecutionLeafs; i++) {
-            SphinxLeafWithProof memory executionLeafWithProof =
-                _moduleInputs.executionLeafsWithProofs[i];
-            (, uint256 initialLeafsExecuted,,,) = module.deployments(_moduleInputs.merkleRoot);
+            SphinxLeafWithProof memory executionLeafWithProof = _moduleInputs
+                .executionLeafsWithProofs[i];
+            (, uint256 initialLeafsExecuted, , , ) = module.deployments(_moduleInputs.merkleRoot);
 
             vm.expectEmit(address(module));
             emit SphinxActionSucceeded(_moduleInputs.merkleRoot, executionLeafWithProof.leaf.index);
@@ -1296,7 +1325,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             } else {
                 assertEq(status, DeploymentStatus.APPROVED);
             }
-            (, uint256 leafsExecuted,,,) = module.deployments(_moduleInputs.merkleRoot);
+            (, uint256 leafsExecuted, , , ) = module.deployments(_moduleInputs.merkleRoot);
             assertEq(leafsExecuted, initialLeafsExecuted + 1);
         }
     }

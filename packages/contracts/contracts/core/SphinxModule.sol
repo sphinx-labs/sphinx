@@ -150,11 +150,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         bytes32 _root,
         SphinxLeafWithProof memory _leafWithProof,
         bytes memory _signatures
-    )
-        public
-        override
-        nonReentrant
-    {
+    ) public override nonReentrant {
         require(_root != bytes32(0), "SphinxModule: invalid root");
 
         // TODO(docs): without this check, it'd be possible to approve a Merkle root twice by
@@ -180,8 +176,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             address executor,
             string memory uri
         ) = abi.decode(
-            _leafWithProof.leaf.data, (address, address, uint256, uint256, address, string)
-        );
+                _leafWithProof.leaf.data,
+                (address, address, uint256, uint256, address, string)
+            );
 
         require(safe == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(module == address(this), "SphinxModule: invalid SphinxModule");
@@ -221,8 +218,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // TODO(docs): we do this last to follow the CEI pattern. i think it's possible
         // for an external call to happen within 'checkSignatures' due to eip-1271 logic.
-        bytes memory typedData =
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
         safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
@@ -232,15 +232,6 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
     // TODO(test-e2e): enable two SphinxModules in a single Gnosis Safe, and execute a deployment
     // through each one.
-
-    // TODO: upgrade OpenZellin version to v5.x.
-
-    // TODO(docs): put this somewhere:
-    // Slither warns that a call inside of a loop can lead to a denial-of-service attack if
-    // the call reverts. However, this isn't a concern because the call to the Gnosis Safe
-    // cannot cause a revert since it's wrapped in a try/catch. Slither also warns of a
-    // re-entrancy vulnerability here, which isn't a concern because we've included a
-    // `nonReentrant` modifier in this function.
 
     // TODO(invariant):
     // - must revert if zero leafs are provided as an input parameter.
@@ -281,12 +272,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     //   gas amount is so high that the transaction cannot be executed at all, the deployment will
     //   remain active until the user cancels it.
     //   tooling
-    function execute(SphinxLeafWithProof[] memory _leafsWithProofs)
-        public
-        override
-        nonReentrant
-        returns (DeploymentStatus)
-    {
+    function execute(
+        SphinxLeafWithProof[] memory _leafsWithProofs
+    ) public override nonReentrant returns (DeploymentStatus) {
         uint256 numActions = _leafsWithProofs.length;
         require(numActions > 0, "SphinxModule: no leafs to execute");
         require(activeRoot != bytes32(0), "SphinxModule: no active root");
@@ -323,23 +311,33 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
             // TODO(spec): we use traces to recover any error messages that occur
 
-            // TODO: add back prettier solidity
-
-            // TODO(docs): Slither thinks that it's possible for the `result` variable to remain
+            // TODO(docs): Slither thinks that it's possible for the `success` variable to remain
             // unassigned, which is not true. It's always either assigned in the body of the `try`
             // statement or the `catch` statement below.
+            // slither-disable-next-line uninitialized-local
             bool success;
             // TODO(docs): this guarantees that the amount of gas forwarded to the Gnosis Safe
             // is equal to `gas`. without this check, it'd be possible for the executor to send
             // an insufficient amount of gas to the Gnosis Safe, which could cause the user's
             // transaction to fail and the deployment to be marked as `FAILED`.
             require(gasleft() >= ((gas * 64) / 63) + 500, "SphinxModule: insufficient gas");
-            try safeProxy.execTransactionFromModule{ gas: gas }(to, value, txData, operation)
+
+            // Slither warns that a call inside of a loop can lead to a denial-of-service attack if
+            // the call reverts. However, this isn't a concern because the call to the Gnosis Safe
+            // is wrapped in a try/catch, and because we restrict the amount of gas sent along with
+            // the call. Slither also warns of a re-entrancy vulnerability here, which isn't a
+            // concern because we've included a `nonReentrant` modifier in this function.
+            // slither-disable-start calls-loop
+            // slither-disable-start reentrancy-no-eth
+            try
+                safeProxy.execTransactionFromModule{ gas: gas }(to, value, txData, operation)
             returns (bool execSuccess) {
                 success = execSuccess;
             } catch {
                 success = false;
             }
+            // slither-disable-end calls-loop
+            // slither-disable-end reentrancy-no-eth
 
             if (success) emit SphinxActionSucceeded(activeRoot, leaf.index);
             else emit SphinxActionFailed(activeRoot, leaf.index);
@@ -373,10 +371,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         bytes32[] memory _proof,
         uint256 _leafsExecuted,
         SphinxLeafType _expectedLeafType
-    )
-        internal
-        view
-    {
+    ) internal view {
         require(
             MerkleProof.verify(_proof, _root, _getLeafHash(_leaf)),
             "SphinxModule: failed to verify leaf"
@@ -390,9 +385,6 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
     // TODO(test): the `yarn test:solc` test in the plugins package should be in the contracts repo
     // too.
-
-    // TODO: consider using an EIP-1167 (or whatever) minimal proxy to make the deployment cost
-    // cheaper. hundreds of dollars in a bull market isn't a great onboarding experience.
 
     // TODO(docs): the leaf is double hashed to prevent a second preimage attack.
     function _getLeafHash(SphinxLeaf memory _leaf) internal pure returns (bytes32) {

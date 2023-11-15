@@ -20,7 +20,9 @@ interface ISphinxAccessControl {
      * _Available since v3.1._
      */
     event RoleAdminChanged(
-        bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole
+        bytes32 indexed role,
+        bytes32 indexed previousAdminRole,
+        bytes32 indexed newAdminRole
     );
 
     /**

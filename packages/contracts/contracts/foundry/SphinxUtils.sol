@@ -34,8 +34,9 @@ import {
     Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
-import { GnosisSafeProxyFactory } from
-    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import {
+    GnosisSafeProxyFactory
+} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
@@ -59,9 +60,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     uint256 private systemOwnerPrivateKey =
         vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint256(0));
 
-    address public systemOwner = systemOwnerPrivateKey != 0
-        ? vm.rememberKey(systemOwnerPrivateKey)
-        : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+    address public systemOwner =
+        systemOwnerPrivateKey != 0
+            ? vm.rememberKey(systemOwnerPrivateKey)
+            : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
@@ -102,7 +104,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 addr == ct.expectedAddress,
                 string(
                     abi.encodePacked(
-                        "address mismatch. expected address: ", vm.toString(ct.expectedAddress)
+                        "address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
                     )
                 )
             );
@@ -126,11 +129,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         bytes calldata _data,
         uint256 _start,
         uint256 _end
-    )
-        external
-        pure
-        returns (bytes memory)
-    {
+    ) external pure returns (bytes memory) {
         return _data[_start:_end];
     }
 
@@ -165,39 +164,40 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxActionBundle memory _actionBundle,
         SphinxTargetBundle memory _targetBundle,
         string memory _configUri
-    )
-        external
-        pure
-        returns (bytes32)
-    {
-        (uint256 numInitialActions, uint256 numSetStorageActions) =
-            getNumActions(_actionBundle.actions);
-
-        return keccak256(
-            abi.encode(
-                _actionBundle.root,
-                _targetBundle.root,
-                numInitialActions,
-                numSetStorageActions,
-                _targetBundle.targets.length,
-                _configUri
-            )
+    ) external pure returns (bytes32) {
+        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
+            _actionBundle.actions
         );
+
+        return
+            keccak256(
+                abi.encode(
+                    _actionBundle.root,
+                    _targetBundle.root,
+                    numInitialActions,
+                    numSetStorageActions,
+                    _targetBundle.targets.length,
+                    _configUri
+                )
+            );
     }
 
     function create2Deploy(bytes memory _creationCode) public returns (address) {
         address addr = computeCreate2Address(
-            bytes32(0), keccak256(_creationCode), DETERMINISTIC_DEPLOYMENT_PROXY
+            bytes32(0),
+            keccak256(_creationCode),
+            DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
         if (addr.code.length == 0) {
             bytes memory code = abi.encodePacked(bytes32(0), _creationCode);
-            (bool success,) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
             require(
                 success,
                 string(
                     abi.encodePacked(
-                        "failed to deploy contract. expected address: ", vm.toString(addr)
+                        "failed to deploy contract. expected address: ",
+                        vm.toString(addr)
                     )
                 )
             );
@@ -210,11 +210,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxLeafWithProof[] memory selected,
         uint256 start,
         uint256 end
-    )
-        public
-        pure
-        returns (SphinxLeafWithProof[] memory sliced)
-    {
+    ) public pure returns (SphinxLeafWithProof[] memory sliced) {
         sliced = new SphinxLeafWithProof[](end - start);
         for (uint256 i = start; i < end; i++) {
             sliced[i - start] = selected[i];
@@ -245,11 +241,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         be called during a broadcast. If it's not view/pure, then this call would be
      *         broadcasted, which is not what we want.
      */
-    function getSphinxWalletsSortedByAddress(uint256 _numWallets)
-        public
-        pure
-        returns (Wallet[] memory)
-    {
+    function getSphinxWalletsSortedByAddress(
+        uint256 _numWallets
+    ) public pure returns (Wallet[] memory) {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
             uint256 privateKey = getSphinxDeployerPrivateKey(i);
@@ -273,11 +267,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     /**
      * @notice Splits up a bundled action into its components
      */
-    function disassembleActions(BundledSphinxAction[] memory actions)
-        public
-        pure
-        returns (RawSphinxAction[] memory, bytes32[][] memory)
-    {
+    function disassembleActions(
+        BundledSphinxAction[] memory actions
+    ) public pure returns (RawSphinxAction[] memory, bytes32[][] memory) {
         RawSphinxAction[] memory rawActions = new RawSphinxAction[](actions.length);
         bytes32[][] memory _proofs = new bytes32[][](actions.length);
         for (uint256 i = 0; i < actions.length; i++) {
@@ -289,7 +281,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (rawActions, _proofs);
     }
 
-    function decodeExecutionLeafData(SphinxLeaf memory leaf)
+    function decodeExecutionLeafData(
+        SphinxLeaf memory leaf
+    )
         public
         pure
         returns (address to, uint256 value, uint256 gas, bytes memory uri, uint256 operation)
@@ -304,14 +298,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function executable(
         SphinxLeafWithProof[] memory selected,
         uint256 maxGasLimit
-    )
-        public
-        pure
-        returns (bool)
-    {
+    ) public pure returns (bool) {
         uint256 estGasUsed = 0;
         for (uint256 i = 0; i < selected.length; i++) {
-            (,, uint256 gas,,) = decodeExecutionLeafData(selected[i].leaf);
+            (, , uint256 gas, , ) = decodeExecutionLeafData(selected[i].leaf);
             estGasUsed += gas;
         }
         return maxGasLimit > estGasUsed;
@@ -325,11 +315,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function findMaxBatchSize(
         SphinxLeafWithProof[] memory leafs,
         uint256 maxGasLimit
-    )
-        public
-        pure
-        returns (uint256)
-    {
+    ) public pure returns (uint256) {
         // Optimization, try to execute the entire batch at once before doing a binary search
         if (executable(leafs, maxGasLimit)) {
             return leafs.length;
@@ -365,18 +351,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return bytes32(uint256(uint160(_addr)));
     }
 
-    function getNumActions(BundledSphinxAction[] memory _actions)
-        public
-        pure
-        returns (uint256, uint256)
-    {
+    function getNumActions(
+        BundledSphinxAction[] memory _actions
+    ) public pure returns (uint256, uint256) {
         uint256 numInitialActions = 0;
         uint256 numSetStorageActions = 0;
         for (uint256 i = 0; i < _actions.length; i++) {
             SphinxActionType actionType = _actions[i].action.actionType;
             if (
-                actionType == SphinxActionType.DEPLOY_CONTRACT
-                    || actionType == SphinxActionType.CALL
+                actionType == SphinxActionType.DEPLOY_CONTRACT ||
+                actionType == SphinxActionType.CALL
             ) {
                 numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
@@ -386,11 +370,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return (numInitialActions, numSetStorageActions);
     }
 
-    function filterActionsOnNetwork(SphinxLeafWithProof[] memory leafs)
-        external
-        view
-        returns (SphinxLeafWithProof[] memory)
-    {
+    function filterActionsOnNetwork(
+        SphinxLeafWithProof[] memory leafs
+    ) external view returns (SphinxLeafWithProof[] memory) {
         uint256 numLeafsOnNetwork = 0;
         for (uint256 i = 0; i < leafs.length; i++) {
             if (leafs[i].leaf.chainId == block.chainid) {
@@ -413,11 +395,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function removeExecutedActions(
         BundledSphinxAction[] memory _actions,
         uint256 _actionsExecuted
-    )
-        external
-        pure
-        returns (BundledSphinxAction[] memory)
-    {
+    ) external pure returns (BundledSphinxAction[] memory) {
         uint256 numActionsToExecute = 0;
         for (uint256 i = 0; i < _actions.length; i++) {
             BundledSphinxAction memory action = _actions[i];
@@ -440,11 +418,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return filteredActions;
     }
 
-    function splitActions(BundledSphinxAction[] memory _actions)
-        external
-        pure
-        returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory)
-    {
+    function splitActions(
+        BundledSphinxAction[] memory _actions
+    ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
         (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actions);
 
         BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](numInitialActions);
@@ -456,8 +432,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         for (uint256 i = 0; i < _actions.length; i++) {
             BundledSphinxAction memory action = _actions[i];
             if (
-                action.action.actionType == SphinxActionType.DEPLOY_CONTRACT
-                    || action.action.actionType == SphinxActionType.CALL
+                action.action.actionType == SphinxActionType.DEPLOY_CONTRACT ||
+                action.action.actionType == SphinxActionType.CALL
             ) {
                 initialActions[initialActionArrayIndex] = action;
                 initialActionArrayIndex += 1;
@@ -483,11 +459,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *
      * @param _addresses An array of addresses that may contain duplicates.
      */
-    function getUniqueAddresses(address[] memory _addresses)
-        internal
-        pure
-        returns (address[] memory)
-    {
+    function getUniqueAddresses(
+        address[] memory _addresses
+    ) internal pure returns (address[] memory) {
         // First, we get an array of unique addresses. We do this by iterating over the input array
         // and adding each address to a new array if it hasn't been added already.
         address[] memory uniqueAddresses = new address[](_addresses.length);
@@ -519,11 +493,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return trimmedUniqueAddresses;
     }
 
-    function findNetworkInfoByName(string memory _networkName)
-        public
-        pure
-        returns (NetworkInfo memory)
-    {
+    function findNetworkInfoByName(
+        string memory _networkName
+    ) public pure returns (NetworkInfo memory) {
         NetworkInfo[] memory all = getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
             if (keccak256(abi.encode(all[i].name)) == keccak256(abi.encode(_networkName))) {
@@ -702,11 +674,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function removeNetworkType(
         Network[] memory _networks,
         NetworkType _networkType
-    )
-        public
-        pure
-        returns (Network[] memory)
-    {
+    ) public pure returns (Network[] memory) {
         Network[] memory notNetworkType = new Network[](_networks.length);
         uint256 numNotNetworkType = 0;
         for (uint256 i = 0; i < _networks.length; i++) {
@@ -757,11 +725,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
-    )
-        private
-        pure
-        returns (bool)
-    {
+    ) private pure returns (bool) {
         for (uint256 i = 0; i < _ary.length; i++) {
             if (_ary[i] == _addr) {
                 return true;
@@ -770,14 +734,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return false;
     }
 
-    function computeCreate3Address(
-        address _deployer,
-        bytes32 _salt
-    )
-        public
-        pure
-        returns (address)
-    {
+    function computeCreate3Address(address _deployer, bytes32 _salt) public pure returns (address) {
         // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the
         // `CREATE3.sol`
         // library for details.
@@ -792,11 +749,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @param _networks The unfiltered elements.
      * @return duplicates The duplicated elements.
      */
-    function getDuplicatedElements(Network[] memory _networks)
-        public
-        pure
-        returns (Network[] memory)
-    {
+    function getDuplicatedElements(
+        Network[] memory _networks
+    ) public pure returns (Network[] memory) {
         // We return early here because the for-loop below will throw an underflow error if the
         // array is empty.
         if (_networks.length == 0) return new Network[](0);
@@ -865,24 +820,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getMappingValueSlotKey(
         bytes32 _mappingSlotKey,
         bytes32 _key
-    )
-        public
-        pure
-        returns (bytes32)
-    {
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
     function signMetaTxnForAuthRoot(
         uint256 _privateKey,
         bytes32 _root
-    )
-        public
-        pure
-        returns (bytes memory)
-    {
-        bytes memory typedData =
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, keccak256(abi.encode(TYPE_HASH, _root)));
+    ) public pure returns (bytes memory) {
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, keccak256(typedData));
         return abi.encodePacked(r, s, v);
     }
@@ -970,10 +920,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
         address _msgSender
-    )
-        external
-        view
-    {
+    ) external view {
         // TODO - We should do something similar to this, but what?
         // require(
         //     registryAddress.code.length > 0,
@@ -1038,18 +985,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getInitialChainState(
         address _safe,
         SphinxModule _sphinxModule
-    )
-        external
-        view
-        returns (InitialChainState memory)
-    {
+    ) external view returns (InitialChainState memory) {
         if (address(_safe).code.length == 0) {
             return InitialChainState({ isSafeDeployed: false, isExecuting: false });
         } else {
-            return InitialChainState({
-                isSafeDeployed: true,
-                isExecuting: _sphinxModule.activeRoot() != bytes32(0)
-            });
+            return
+                InitialChainState({
+                    isSafeDeployed: true,
+                    isExecuting: _sphinxModule.activeRoot() != bytes32(0)
+                });
         }
     }
 
@@ -1077,45 +1021,38 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getSphinxSafeAddress(
         address[] memory _owners,
         uint256 _threshold
-    )
-        public
-        pure
-        returns (address)
-    {
+    ) public pure returns (address) {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
         bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), bytes32(0)));
-        bytes memory deploymentData =
-            abi.encodePacked(safeProxyBytecode, abi.encode(safeSingletonAddress));
+        bytes memory deploymentData = abi.encodePacked(
+            safeProxyBytecode,
+            abi.encode(safeSingletonAddress)
+        );
         return Create2.computeAddress(salt, keccak256(deploymentData), safeFactoryAddress);
     }
 
     function getSphinxModuleAddress(
         address[] memory _owners,
         uint256 _threshold
-    )
-        public
-        pure
-        returns (address)
-    {
+    ) public pure returns (address) {
         address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
-        return Create2.computeAddress(
-            bytes32(0),
-            keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
-            sphinxModuleFactoryAddress
-        );
+        return
+            Create2.computeAddress(
+                bytes32(0),
+                keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
+                sphinxModuleFactoryAddress
+            );
     }
 
     function fetchSafeInitializerData(
         address[] memory _owners,
         uint256 _threshold
-    )
-        internal
-        pure
-        returns (bytes memory safeInitializerData)
-    {
+    ) internal pure returns (bytes memory safeInitializerData) {
         SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
-        bytes memory encodedDeployModuleCalldata =
-            abi.encodeWithSelector(moduleFactory.deploySphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
+            moduleFactory.deploySphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
         bytes memory deployModuleMultiSendData = abi.encodePacked(
             uint8(0),
             moduleFactory,
@@ -1123,8 +1060,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             encodedDeployModuleCalldata.length,
             encodedDeployModuleCalldata
         );
-        bytes memory encodedEnableModuleCalldata =
-            abi.encodeWithSelector(moduleFactory.enableSphinxModuleFromSafe.selector, bytes32(0));
+        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(
+            moduleFactory.enableSphinxModuleFromSafe.selector,
+            bytes32(0)
+        );
         bytes memory enableModuleMultiSendData = abi.encodePacked(
             uint8(1),
             moduleFactory,
@@ -1192,9 +1131,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _threshold,
         string memory _rpcUrl
-    )
-        external
-    {
+    ) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         string[] memory inputs;
@@ -1223,11 +1160,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getOwnerSignatures(
         Wallet[] memory _owners,
         bytes32 _root
-    )
-        public
-        pure
-        returns (bytes memory)
-    {
+    ) public pure returns (bytes memory) {
         bytes[] memory signatures = new bytes[](_owners.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);
