@@ -62,4 +62,4 @@ Should send `_amount` from the `ManagedService` contract and to the `_recipient`
 Should send `_amount` to the caller. Invariants match the `withdrawTo` function.
 
 ## Assumptions
-The `ManagedService` contract on the OpenZeppelin `AccessControl` contract. We test that the interactions with this contract works properly in the [unit tests for the `ManagedService`](TODO(end)). However, we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that it is robust and secure.
+The `ManagedService` contract on the OpenZeppelin `AccessControl` contract. We test that the interactions with this contract work properly in the [unit tests for the `ManagedService`](TODO(end)). However, we don't thoroughly test the internals of this contract. Instead, we rely on the assumption that it is robust and secure.
