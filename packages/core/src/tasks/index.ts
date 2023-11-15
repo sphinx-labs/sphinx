@@ -141,8 +141,8 @@ export const makeDeploymentData = (
     data[compilerConfig.chainId] = {
       nonce: compilerConfig.nonce,
       executor: compilerConfig.executorAddress,
-      safe: compilerConfig.safeAddress,
-      module: compilerConfig.moduleAddress,
+      safeProxy: compilerConfig.safeAddress,
+      moduleProxy: compilerConfig.moduleAddress,
       deploymentURI: configUri,
       txs,
     }

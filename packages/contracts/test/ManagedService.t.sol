@@ -30,6 +30,10 @@ contract Endpoint {
     function doSilentRevert() public {
         revert();
     }
+
+    receive() external payable {
+        revert("cannot send funds to this contract");
+    }
 }
 
 contract ManagedService_Test is Test {
@@ -151,6 +155,14 @@ contract ManagedService_Test is Test {
         service.withdrawTo(0.5 ether, address(0));
     }
 
+    function test_WithdrawRevertsSendingFundsToContract() external {
+        vm.startPrank(sender);
+        vm.deal(address(service), 1 ether);
+
+        vm.expectRevert("ManagedService: failed to send funds");
+        service.withdrawTo(0.5 ether, address(endpoint));
+    }
+
     function test_depositeAndSuccessfulWithdrawTo() external {
         vm.startPrank(sender);
         uint depositeAmount = 1 ether;
@@ -164,5 +176,10 @@ contract ManagedService_Test is Test {
 
         service.withdrawTo(withdrawAmount, invalidSender);
         assertEq(invalidSender.balance, withdrawAmount);
+    }
+
+    function test_RevertIfOwnerIsAddressZero() external {
+        vm.expectRevert("ManagedService: admin cannot be address(0)");
+        new ManagedService{ salt: keccak256("1") }(address(0));
     }
 }

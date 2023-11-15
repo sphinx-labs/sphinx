@@ -16,9 +16,9 @@ export const SphinxActionType = {
 export const DeploymentStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
-  COMPLETED: 3n,
-  CANCELLED: 4n,
-  FAILED: 5n,
+  COMPLETED: 2n,
+  CANCELLED: 3n,
+  FAILED: 4n,
 }
 
 /**
@@ -358,6 +358,7 @@ export type ProposalRequest = {
   safeAddress: string
   moduleAddress: string
   safeInitData: string
+  safeInitSaltNonce: string
   deploymentName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>

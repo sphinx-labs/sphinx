@@ -17,6 +17,7 @@ import {
   MultiSendCallOnlyArtifact,
   GnosisSafeL2Artifact,
   GnosisSafeArtifact,
+  SphinxModuleArtifact,
 } from './ifaces'
 import {
   getOwnerAddress,
@@ -41,6 +42,14 @@ export const getManagedServiceAddress = () => {
         ),
       ]
     )
+  )
+}
+
+export const getSphinxModuleImplAddress = () => {
+  return getCreate2Address(
+    getSphinxModuleProxyFactoryAddress(),
+    ZeroHash,
+    solidityPackedKeccak256(['bytes'], [SphinxModuleArtifact.bytecode])
   )
 }
 

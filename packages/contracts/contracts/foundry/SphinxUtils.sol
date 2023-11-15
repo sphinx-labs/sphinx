@@ -29,6 +29,8 @@ import {
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -890,39 +892,39 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getSphinxSafeAddress(
         address[] memory _owners,
-        uint256 _threshold
-    ) public pure returns (address) {
-        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), bytes32(0)));
-        bytes memory deploymentData = abi.encodePacked(
-            safeProxyBytecode,
-            abi.encode(safeSingletonAddress)
-        );
-        return Create2.computeAddress(salt, keccak256(deploymentData), safeFactoryAddress);
+        uint256 _threshold,
+        string memory _projectName
+    ) public view returns (address) {
+        address[] memory sortedOwners = sortAddresses(_owners);
+        bytes memory safeInitializerData = fetchSafeInitializerData(sortedOwners, _threshold);
+        uint safeSaltNonce = fetchSafeSaltNonce(_projectName);
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), safeSaltNonce));
+        bytes memory deploymentData = abi.encodePacked(safeProxyBytecode, uint256(uint160(safeSingletonAddress)));
+        address addr = Create2.computeAddress(salt, keccak256(deploymentData), safeFactoryAddress);
+        return addr;
     }
 
     function getSphinxModuleAddress(
         address[] memory _owners,
-        uint256 _threshold
-    ) public pure returns (address) {
-        address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold);
+        uint256 _threshold,
+        string memory _projectName
+    ) public view returns (address) {
+        address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold, _projectName);
         bytes32 saltNonce = bytes32(0);
-        bytes32 salt = keccak256(abi.encode(safeProxyAddress, saltNonce));
-        return
-            Create2.computeAddress(
-                salt,
-                keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
-                sphinxModuleProxyFactoryAddress
-            );
+        bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, saltNonce));
+        address addr = Clones.predictDeterministicAddress(sphinxModuleImplAddress, salt, sphinxModuleProxyFactoryAddress);
+        return addr;
+    }
+
+    function fetchSafeSaltNonce(string memory _projectName) public view returns (uint) {
+        return uint(keccak256(bytes(_projectName)));
     }
 
     function fetchSafeInitializerData(
         address[] memory _owners,
         uint _threshold
-    ) public pure returns (bytes memory safeInitializerData) {
-        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(
-            sphinxModuleProxyFactoryAddress
-        );
+    ) public view returns (bytes memory safeInitializerData) {
+        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)
@@ -965,13 +967,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function sphinxModuleProxyFactoryDeploy(address[] memory _owners, uint256 _threshold) external {
+    function sphinxModuleProxyFactoryDeploy(address[] memory _owners, uint _threshold, string memory _projectName) external returns (address) {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
-        address proxy = address(
-            safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0)
-        );
+        return address(safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, fetchSafeSaltNonce(_projectName)));
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
@@ -1006,6 +1006,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function sphinxModuleProxyFactoryDeployFFI(
         address[] memory _owners,
         uint256 _threshold,
+        string memory _projectName,
         string memory _rpcUrl
     ) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
@@ -1018,7 +1019,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[3] = vm.toString(
             abi.encodePacked(
                 GnosisSafeProxyFactory.createProxyWithNonce.selector,
-                abi.encode(safeSingletonAddress, safeInitializerData, 0)
+                abi.encode(safeSingletonAddress, safeInitializerData, fetchSafeSaltNonce(_projectName))
             )
         );
         inputs[4] = "--rpc-url";
@@ -1042,5 +1043,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);
         }
         return packBytes(signatures);
+    }
+
+    function getDeploymentNonce(SphinxModule _module) public view returns (uint) {
+        if (address(_module).code.length == 0) {
+            return 0;
+        } else {
+            return _module.currentNonce();
+        }
     }
 }
