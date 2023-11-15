@@ -3,19 +3,19 @@ src = 'contracts'
 fs_permissions = [{ access = "read", path = "./"}]
 verbosity = 2
 ffi = true
-solc = '0.8.0'
+solc = '0.8.2'
 optimizer = false
 test = 'test'
 script = 'scripts'
 build_info = true
 remappings = [
-  '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
   '@eth-optimism/contracts/=node_modules/@eth-optimism/contracts',
   '@connext/interfaces=node_modules/@connext/interfaces/',
   'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
-  '@gnosis.pm/safe-contracts/=node_modules/@gnosis.pm/safe-contracts/contracts/'
+  '@gnosis.pm/safe-contracts-1.3.0/=node_modules/@gnosis.pm/safe-contracts/contracts/',
+  '@gnosis.pm/safe-contracts-1.4.1/=node_modules/@gnosis.pm/safe-contracts-1.4.1/contracts/'
 ]
 
 [profile.core]

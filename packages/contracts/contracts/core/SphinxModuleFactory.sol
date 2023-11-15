@@ -3,8 +3,9 @@ pragma solidity >=0.7.0 <0.9.0;
 
 // TODO(end): remove unnecessary imports in all contracts to be audited
 import { SphinxModule } from "./SphinxModule.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { ISphinxModuleFactory } from "./interfaces/ISphinxModuleFactory.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
 // TODO(end): grammarly and chat gpt on all specs and contract docs.
 // TODO(end): format natspec docs in all contracts to audit.
@@ -14,26 +15,18 @@ import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
  * @notice Deploys `SphinxModule` contracts at deterministic addresses and enables them within
  *          Gnosis Safe contracts.
  */
-contract SphinxModuleFactory {
+contract SphinxModuleFactory is ISphinxModuleFactory {
     /**
      * @dev Address of this `SphinxModuleFactory`.
      */
     address private immutable MODULE_FACTORY = address(this);
 
-    /**
-     * @notice Emitted whenever a `SphinxModule` is deployed by this factory.
-     *
-     * @param sphinxModule The `SphinxModule` that was deployed.
-     * @param safeProxy    The address of the Gnosis Safe proxy that the `SphinxModule` belongs to.
-     */
-    event SphinxModuleDeployed(SphinxModule indexed sphinxModule, address indexed safeProxy);
+    SphinxModule public immutable SPHINX_MODULE_IMPL;
 
-    /**
-     * @notice Reverts if the function is delegatecalled by the caller.
-     */
-    modifier noDelegateCall() {
-        require(address(this) == MODULE_FACTORY, "SphinxModuleFactory: delegatecall not allowed");
-        _;
+    constructor() {
+        SphinxModule module = new SphinxModule{ salt: bytes32(0) }();
+        module.initialize(address(1));
+        SPHINX_MODULE_IMPL = module;
     }
 
     /**
@@ -50,22 +43,21 @@ contract SphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
      *
-     * @return sphinxModule
+     * @return sphinxModule TODO(docs)
      */
     function deploySphinxModule(
         address _safeProxy,
         uint256 _saltNonce
     )
         public
-        noDelegateCall
-        returns (SphinxModule sphinxModule)
+        override
+        returns (address sphinxModule)
     {
-        bytes32 salt = keccak256(abi.encode(msg.sender, _saltNonce));
-        sphinxModule = SphinxModule(
-            Create2.deploy(
-                0, salt, abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))
-            )
-        );
+        require(address(this) == MODULE_FACTORY, "SphinxModuleFactory: delegatecall not allowed");
+
+        bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
+        sphinxModule = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
+        SphinxModule(sphinxModule).initialize(_safeProxy);
         emit SphinxModuleDeployed(sphinxModule, _safeProxy);
     }
 
@@ -88,7 +80,7 @@ contract SphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
      */
-    function deploySphinxModuleFromSafe(uint256 _saltNonce) public noDelegateCall {
+    function deploySphinxModuleFromSafe(uint256 _saltNonce) public override {
         deploySphinxModule(msg.sender, _saltNonce);
     }
 
@@ -106,7 +98,7 @@ contract SphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
      *                   address of the `SphinxModule`.
      */
-    function enableSphinxModuleFromSafe(uint256 _saltNonce) public {
+    function enableSphinxModuleFromSafe(uint256 _saltNonce) public override {
         require(address(this) != MODULE_FACTORY, "SphinxModuleFactory: must be delegatecalled");
         address sphinxModule = computeSphinxModuleAddress(address(this), address(this), _saltNonce);
         GnosisSafe(payable(address(this))).enableModule(sphinxModule);
@@ -123,7 +115,7 @@ contract SphinxModuleFactory {
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the address
      *    of the `SphinxModule`.
      *
-     *    @return The `CREATE2` address of the `SphinxModule`.
+     * @return The `CREATE2` address of the `SphinxModule`.
      */
     function computeSphinxModuleAddress(
         address _safeProxy,
@@ -132,13 +124,10 @@ contract SphinxModuleFactory {
     )
         public
         view
+        override
         returns (address)
     {
-        bytes32 salt = keccak256(abi.encode(_caller, _saltNonce));
-        return Create2.computeAddress(
-            salt,
-            keccak256(abi.encodePacked(type(SphinxModule).creationCode, abi.encode(_safeProxy))),
-            MODULE_FACTORY
-        );
+        bytes32 salt = keccak256(abi.encode(_safeProxy, _caller, _saltNonce));
+        return Clones.predictDeterministicAddress(address(SPHINX_MODULE_IMPL), salt, MODULE_FACTORY);
     }
 }

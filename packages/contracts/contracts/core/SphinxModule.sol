@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.2;
 
 // TODO(end): check coverage for ManagedService. also, run slither.
 
@@ -7,18 +7,19 @@ pragma solidity ^0.8.0;
 // it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
 // transactions.
 
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
-import { Enum } from "@gnosis.pm/safe-contracts/common/Enum.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
+import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {
     SphinxLeafType,
     SphinxLeaf,
     SphinxLeafWithProof,
-    Result,
     DeploymentState,
     DeploymentStatus
 } from "./SphinxDataTypes.sol";
+import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
 // TODO(spec): actors:
@@ -45,48 +46,29 @@ import { console } from "sphinx-forge-std/console.sol";
  * @title SphinxModule
  * @notice TODO(docs)
  */
-contract SphinxModule is ReentrancyGuard, Enum {
-    event SphinxDeploymentApproved(
-        bytes32 indexed merkleRoot,
-        bytes32 indexed previousActiveRoot,
-        uint256 indexed nonce,
-        address executor,
-        uint256 numLeafs,
-        string uri
-    );
-
-    event SphinxDeploymentCompleted(bytes32 indexed merkleRoot);
-
-    event SphinxDeploymentCancelled(bytes32 indexed merkleRoot);
-
-    event SphinxActionSucceeded(bytes32 indexed merkleRoot, uint256 leafIndex);
-
-    event SphinxActionFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
-
-    event SphinxDeploymentFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
-
-    string public constant VERSION = "1.0.0";
+contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
+    string public constant override VERSION = "1.0.0";
 
     bytes32 internal constant DOMAIN_SEPARATOR =
         keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
 
     bytes32 internal constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
-    mapping(bytes32 => DeploymentState) public deployments;
+    mapping(bytes32 => DeploymentState) public override deployments;
 
     // TODO(docs): we have a nonce to make it possible for a user to cancel a deployment
     // that has been signed by the owners off-chain, but not approved on-chain. to do this,
     // the user must submit a deployment with the same nonce as the deployment that they'd
     // like to cancel.
-    uint256 public currentNonce;
+    uint256 public override currentNonce;
 
-    bytes32 public activeRoot;
+    bytes32 public override activeRoot;
 
-    GnosisSafe public safeProxy;
+    GnosisSafe public override safeProxy;
 
     // TODO(docs): this allows contracts to deploy the SphinxModule without needing to import the
     // Safe contract type.
-    constructor(address _safeProxy) {
+    function initialize(address _safeProxy) external initializer {
         require(_safeProxy != address(0), "SphinxModule: invalid Safe address");
         safeProxy = GnosisSafe(payable(_safeProxy));
     }
@@ -170,6 +152,7 @@ contract SphinxModule is ReentrancyGuard, Enum {
         bytes memory _signatures
     )
         public
+        override
         nonReentrant
     {
         require(_root != bytes32(0), "SphinxModule: invalid root");
@@ -250,24 +233,14 @@ contract SphinxModule is ReentrancyGuard, Enum {
     // TODO(test-e2e): enable two SphinxModules in a single Gnosis Safe, and execute a deployment
     // through each one.
 
-    // TODO: sanity check that you can use the traces to retrieve the error message.
-
-    // TODO: if sanity check works, then change the safeProxy exec function and update unit tests.
-
-    // TODO(docs): execute function: we return `results` so that we can display a useful error
-    // message to the user in case an action fails.
-
     // TODO: upgrade OpenZellin version to v5.x.
 
-    // TODO: Safe has logic that allows the safeTxGas amount to be 0 for gas estimation. they
-    // document this. should we include something like it?
-
-            // TODO(docs): put this somewhere:
-            // Slither warns that a call inside of a loop can lead to a denial-of-service attack if
-            // the call reverts. However, this isn't a concern because the call to the Gnosis Safe
-            // cannot cause a revert since it's wrapped in a try/catch. Slither also warns of a
-            // re-entrancy vulnerability here, which isn't a concern because we've included a
-            // `nonReentrant` modifier in this function.
+    // TODO(docs): put this somewhere:
+    // Slither warns that a call inside of a loop can lead to a denial-of-service attack if
+    // the call reverts. However, this isn't a concern because the call to the Gnosis Safe
+    // cannot cause a revert since it's wrapped in a try/catch. Slither also warns of a
+    // re-entrancy vulnerability here, which isn't a concern because we've included a
+    // `nonReentrant` modifier in this function.
 
     // TODO(invariant):
     // - must revert if zero leafs are provided as an input parameter.
@@ -310,8 +283,9 @@ contract SphinxModule is ReentrancyGuard, Enum {
     //   tooling
     function execute(SphinxLeafWithProof[] memory _leafsWithProofs)
         public
+        override
         nonReentrant
-        returns (Result[] memory results)
+        returns (DeploymentStatus)
     {
         uint256 numActions = _leafsWithProofs.length;
         require(numActions > 0, "SphinxModule: no leafs to execute");
@@ -321,7 +295,6 @@ contract SphinxModule is ReentrancyGuard, Enum {
 
         require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
-        results = new Result[](numActions);
         SphinxLeaf memory leaf;
         bytes32[] memory proof;
         for (uint256 i = 0; i < numActions; i++) {
@@ -348,33 +321,34 @@ contract SphinxModule is ReentrancyGuard, Enum {
             // TODO(spec): execution: a call to the Gnosis Safe's `execTr...` function must not
             // cause a revert in the `SphinxModule`.
 
+            // TODO(spec): we use traces to recover any error messages that occur
+
+            // TODO: add back prettier solidity
+
             // TODO(docs): Slither thinks that it's possible for the `result` variable to remain
             // unassigned, which is not true. It's always either assigned in the body of the `try`
             // statement or the `catch` statement below.
-            Result memory result;
+            bool success;
             // TODO(docs): this guarantees that the amount of gas forwarded to the Gnosis Safe
             // is equal to `gas`. without this check, it'd be possible for the executor to send
             // an insufficient amount of gas to the Gnosis Safe, which could cause the user's
             // transaction to fail and the deployment to be marked as `FAILED`.
             require(gasleft() >= ((gas * 64) / 63) + 500, "SphinxModule: insufficient gas");
-            try safeProxy.execTransactionFromModuleReturnData{ gas: gas }(to, value, txData, operation) returns (
-                bool success, bytes memory returnData
-            ) {
-                result = Result({ success: success, returnData: returnData });
-            } catch (bytes memory returnData) {
-                result = Result({ success: false, returnData: returnData });
+            try safeProxy.execTransactionFromModule{ gas: gas }(to, value, txData, operation)
+            returns (bool execSuccess) {
+                success = execSuccess;
+            } catch {
+                success = false;
             }
 
-            if (result.success) emit SphinxActionSucceeded(activeRoot, leaf.index);
+            if (success) emit SphinxActionSucceeded(activeRoot, leaf.index);
             else emit SphinxActionFailed(activeRoot, leaf.index);
 
-            results[i] = result;
-
-            if (!result.success && requireSuccess) {
+            if (!success && requireSuccess) {
                 emit SphinxDeploymentFailed(activeRoot, leaf.index);
                 state.status = DeploymentStatus.FAILED;
                 activeRoot = bytes32(0);
-                return results;
+                return DeploymentStatus.FAILED;
             }
         }
 
@@ -382,6 +356,9 @@ contract SphinxModule is ReentrancyGuard, Enum {
             state.status = DeploymentStatus.COMPLETED;
             emit SphinxDeploymentCompleted(activeRoot);
             activeRoot = bytes32(0);
+            return DeploymentStatus.COMPLETED;
+        } else {
+            return DeploymentStatus.APPROVED;
         }
     }
 

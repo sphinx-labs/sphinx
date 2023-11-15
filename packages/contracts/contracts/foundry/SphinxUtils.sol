@@ -35,9 +35,9 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { GnosisSafeProxyFactory } from
-    "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import { MultiSend } from "@gnosis.pm/safe-contracts/libraries/MultiSend.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+    "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
+import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
