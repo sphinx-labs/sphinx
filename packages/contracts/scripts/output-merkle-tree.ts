@@ -18,9 +18,10 @@ const safe = argv[5]
 const sphinxModule = argv[6]
 const deploymentURI = argv[7]
 const abiEncodedTxs = argv[8]
-const forceNumLeafsValue = argv[9] === 'true'
-const overridingNumLeafsValue = argv[10]
-const forceApprovalLeafIndexNonZero = argv[11] === 'true'
+const arbitraryChain = argv[9] === 'true'
+const forceNumLeafsValue = argv[10] === 'true'
+const overridingNumLeafsValue = argv[11]
+const forceApprovalLeafIndexNonZero = argv[12] === 'true'
 
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
@@ -53,6 +54,7 @@ const forceApprovalLeafIndexNonZero = argv[11] === 'true'
       module: sphinxModule,
       deploymentURI,
       txs: txArray,
+      arbitraryChain,
     },
   }
 
@@ -60,7 +62,7 @@ const forceApprovalLeafIndexNonZero = argv[11] === 'true'
 
   if (forceNumLeafsValue) {
     leafs[0].data = coder.encode(
-      ['address', 'address', 'uint', 'uint', 'address', 'string'],
+      ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
         safe,
         sphinxModule,
@@ -68,6 +70,7 @@ const forceApprovalLeafIndexNonZero = argv[11] === 'true'
         overridingNumLeafsValue, // Override the `numLeafs`
         executor,
         deploymentURI,
+        arbitraryChain,
       ]
     )
   }

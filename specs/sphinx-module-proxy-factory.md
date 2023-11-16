@@ -18,7 +18,7 @@ TODO(end)
 - Unit tests: [`SphinxModuleProxyFactory.t.sol`](TODO(end))
 - TODO(end): E2E tests?
 
-## Use cases
+## Use Cases
 
 There are two use cases for the `SphinxModuleProxyFactory`:
 1. _Deploy a `SphinxModuleProxy` after a Gnosis Safe has been deployed_.
@@ -45,7 +45,7 @@ Since the `initializer` data determines the address of the Gnosis Safe, it canno
 
 To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying and enabling a `SphinxModuleProxy` without using the address of the Gnosis Safe or the address of the `SphinxModuleProxy` as input parameters. The `initializer` data must include a [`MultiSend`](TODO(end)) call that executes two function calls on the `SphinxModuleProxyFactory`: `deploySphinxModuleProxyProxyFactoryFromSafe` and `enableSphinxModuleProxyFromSafe`. More details on these functions are below. To see an example of this deployment process, see [TODO(end)](TODO(end)).
 
-## High-level Invariants
+## High-Level Invariants
 
 - It must be possible to deploy and enable a `SphinxModuleProxy` for a Gnosis Safe that already exists.
 - It must be possible for anybody to execute a single transaction that deploys a Gnosis Safe at a deterministic address, deploys a `SphinxModuleProxy` at a deterministic address, and enables the `SphinxModuleProxy`, as described in the [previous section](TODO(end)).
@@ -60,14 +60,14 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
   - An arbitrary `uint256` nonce.
 - All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](TODO(end)).
 
-## Function-level Invariants
+## Function-Level Invariants
 
-#### `constructor`
+#### `constructor()`
 
 - Must deploy a `SphinxModuleProxy` contract at a `CREATE2` address determined by the address of the `SphinxModuleProxyFactory` and a `bytes32(0)` salt.
 - Must initialize the `SphinxModuleProxy` so that nobody has permission to call its `approve` function.
 
-#### `function deploySphinxModuleProxy(address _safeProxy, uint256 _saltNonce) external returns (address sphinxModuleProxy);`
+#### `function deploySphinxModuleProxy(address _safeProxy, uint256 _saltNonce) external returns (address sphinxModuleProxy)`
 
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
@@ -77,7 +77,7 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
   - Return the address of the `SphinxModuleProxy`.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy` contracts by calling this function multiple times.
 
-#### `function deploySphinxModuleProxyFromSafe(uint256 _saltNonce) external;`
+#### `function deploySphinxModuleProxyFromSafe(uint256 _saltNonce) external`
 
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
@@ -86,7 +86,7 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
   - Initialize the `SphinxModuleProxy` using the _caller's address_ as the Gnosis Safe address.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy`s by calling this function multiple times.
 
-#### `function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) external;`
+#### `function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) external`
 
 - Must revert if not delegatecalled.
 - A successful call must:

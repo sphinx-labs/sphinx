@@ -136,7 +136,7 @@ contract TestUtils is SphinxUtils, Enum {
     function getMerkleTreeFFI(
         MerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
-        string[] memory inputs = new string[](14);
+        string[] memory inputs = new string[](15);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-merkle-tree.ts";
@@ -147,10 +147,11 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[7] = vm.toString(address(_treeInputs.module));
         inputs[8] = _treeInputs.deploymentUri;
         inputs[9] = vm.toString(abi.encode(_treeInputs.txs));
-        inputs[10] = vm.toString(_treeInputs.forceNumLeafsValue);
-        inputs[11] = vm.toString(_treeInputs.overridingNumLeafsValue);
-        inputs[12] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
-        inputs[13] = "--swc"; // Speeds up ts-node considerably
+        inputs[10] = vm.toString(_treeInputs.arbitraryChain);
+        inputs[11] = vm.toString(_treeInputs.forceNumLeafsValue);
+        inputs[12] = vm.toString(_treeInputs.overridingNumLeafsValue);
+        inputs[13] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
+        inputs[14] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -168,6 +169,7 @@ contract TestUtils is SphinxUtils, Enum {
         address executor;
         address safeProxy;
         string deploymentUri;
+        bool arbitraryChain;
         bool forceNumLeafsValue;
         uint256 overridingNumLeafsValue;
         bool forceApprovalLeafIndexNonZero;

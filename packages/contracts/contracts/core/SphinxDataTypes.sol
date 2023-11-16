@@ -51,6 +51,7 @@ struct DeploymentState {
     string uri;
     address executor;
     DeploymentStatus status;
+    bool arbitraryChain;
 }
 
 /**

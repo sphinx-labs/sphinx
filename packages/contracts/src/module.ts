@@ -33,6 +33,7 @@ export type NetworkDeploymentData = {
   safe: string
   module: string
   deploymentURI: string
+  arbitraryChain: boolean
   txs: SphinxTransaction[]
 }
 
@@ -65,7 +66,7 @@ export const makeSphinxLeafs = (
   for (const [chainId, data] of Object.entries(deploymentData)) {
     // generate approval leaf data
     const approvalData = coder.encode(
-      ['address', 'address', 'uint', 'uint', 'address', 'string'],
+      ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
         data.safe,
         data.module,
@@ -73,6 +74,7 @@ export const makeSphinxLeafs = (
         data.txs.length + 1, // We add one to account for the approval leaf
         data.executor,
         data.deploymentURI,
+        data.arbitraryChain,
       ]
     )
 

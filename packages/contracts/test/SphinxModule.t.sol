@@ -405,7 +405,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: false
         });
 
         vm.prank(executor);
@@ -613,7 +614,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
     }
 
@@ -625,7 +627,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: ""
+            _expectedDeploymentUri: "",
+            _expectedArbitraryChain: false
         });
     }
 
@@ -638,7 +641,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: firstModuleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: false
         });
 
         ModuleInputs memory moduleInputs = getModuleInputs(
@@ -659,7 +663,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
     }
 
@@ -671,7 +676,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: initialModuleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         // We use slightly different data so that the new Merkle root is different.
@@ -693,10 +699,11 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: newModuleInputs,
             _expectedInitialActiveMerkleRoot: initialModuleInputs.merkleRoot,
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
-        (, , , , DeploymentStatus initialRootStatus) = module.deployments(
+        (, , , , DeploymentStatus initialRootStatus, ) = module.deployments(
             initialModuleInputs.merkleRoot
         );
         assertEq(initialRootStatus, DeploymentStatus.CANCELLED);
@@ -715,7 +722,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.COMPLETED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
     }
 
@@ -785,7 +793,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
         // Prank an address that isn't the executor
         vm.prank(address(0x1234));
@@ -821,7 +830,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         moduleInputs.executionLeafsWithProofs[0].leaf.chainId += 1;
@@ -836,7 +846,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         moduleInputs.executionLeafsWithProofs[0].leaf.index += 1;
@@ -851,7 +862,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         moduleInputs.executionLeafsWithProofs[0].leaf.leafType = SphinxLeafType.APPROVE;
@@ -866,7 +878,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         moduleInputs.executionLeafsWithProofs[0].leaf.data = abi.encodePacked(
@@ -884,7 +897,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         moduleInputs.executionLeafsWithProofs[0].proof[0] = bytes32(0);
@@ -904,7 +918,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
         vm.prank(executor);
         vm.expectRevert("SphinxModule: invalid leaf type");
@@ -920,7 +935,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
         vm.chainId(block.chainid + 1);
         vm.prank(executor);
@@ -934,7 +950,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         vm.prank(executor);
@@ -951,7 +968,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         vm.prank(executor);
@@ -966,7 +984,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         vm.expectEmit(address(module));
@@ -984,7 +1003,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             moduleInputs.executionLeafsWithProofs
         );
 
-        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus) = module.deployments(
+        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus, ) = module.deployments(
             moduleInputs.merkleRoot
         );
         assertEq(executionFinalStatus, DeploymentStatus.FAILED);
@@ -1006,7 +1025,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         vm.expectEmit(address(module));
@@ -1024,14 +1044,14 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             moduleInputs.executionLeafsWithProofs
         );
 
-        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus) = module.deployments(
+        (, uint256 leafsExecuted, , , DeploymentStatus deploymentStateStatus, ) = module.deployments(
             moduleInputs.merkleRoot
         );
         assertEq(deploymentStateStatus, DeploymentStatus.FAILED);
         assertEq(executionFinalStatus, DeploymentStatus.FAILED);
         assertEq(module.activeRoot(), bytes32(0));
-        assertEq(leafsExecuted, 2); // The first execution leaf was executed, as well as the
-        // approval leaf.
+        // The first execution leaf was executed, as well as the approval leaf.
+        assertEq(leafsExecuted, 2);
 
         // Check that the user's transactions weren't executed.
         helper_test_preExecution();
@@ -1045,7 +1065,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: false
         });
     }
 
@@ -1059,7 +1080,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         helper_test_execute_oneByOne(moduleInputs);
@@ -1077,7 +1099,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
         });
 
         helper_test_execute_oneByOne(moduleInputs);
@@ -1114,7 +1137,23 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: expectedSuccesses,
-            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: false
+        });
+    }
+
+    function test_execute_withArbitraryChain() external {
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        treeInputs.arbitraryChain = true;
+        treeInputs.chainId = 0;
+        ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        helper_test_approveThenExecuteBatch({
+            _txs: defaultTxs,
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedSuccesses: defaultExpectedSuccesses,
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: true
         });
     }
 
@@ -1133,7 +1172,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         ModuleInputs memory _moduleInputs,
         bytes32 _expectedInitialActiveMerkleRoot,
         DeploymentStatus _expectedStatus,
-        string memory _expectedDeploymentUri
+        string memory _expectedDeploymentUri,
+        bool _expectedArbitraryChain
     ) internal {
         uint256 initialNonce = module.currentNonce();
         uint256 expectedNumLeafs = _moduleInputs.executionLeafsWithProofs.length + 1;
@@ -1176,13 +1216,16 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             uint256 approvedLeafsExecuted,
             string memory approvedUri,
             address approvedExecutor,
-            DeploymentStatus approvedStatus
+            DeploymentStatus approvedStatus,
+            bool approvedArbitraryChain
         ) = module.deployments(_moduleInputs.merkleRoot);
         assertEq(approvedNumLeafs, expectedNumLeafs);
         assertEq(approvedLeafsExecuted, 1);
         assertEq(approvedUri, _expectedDeploymentUri);
         assertEq(approvedExecutor, executor);
         assertEq(approvedStatus, _expectedStatus);
+        assertEq(approvedArbitraryChain, _expectedArbitraryChain);
+
         if (_expectedStatus == DeploymentStatus.COMPLETED) {
             assertEq(module.activeRoot(), bytes32(0));
         } else {
@@ -1196,7 +1239,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         ModuleInputs memory _moduleInputs,
         bool[] memory _expectedSuccesses,
         DeploymentStatus _expectedFinalDeploymentStatus,
-        bytes32 _expectedInitialActiveMerkleRoot
+        bytes32 _expectedInitialActiveMerkleRoot,
+        bool _expectedArbitraryChain
     ) internal {
         // Sanity check
         assertEq(_txs.length, _expectedSuccesses.length);
@@ -1207,7 +1251,8 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             _moduleInputs: _moduleInputs,
             _expectedInitialActiveMerkleRoot: _expectedInitialActiveMerkleRoot,
             _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: _expectedArbitraryChain
         });
 
         for (uint256 i = 0; i < _moduleInputs.executionLeafsWithProofs.length; i++) {
@@ -1240,9 +1285,18 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
     }
 
     function helper_test_postExecution(ModuleInputs memory _moduleInputs) internal {
-        // The expected number of leafs is equal to the number of execution leafs plus one (for the
-        // approval leaf).
-        uint256 expectedNumLeafs = _moduleInputs.executionLeafsWithProofs.length + 1;
+        (
+            ,
+            ,
+            ,
+            uint256 expectedNumLeafs,
+            address expectedExecutor,
+            string memory expectedUri,
+            bool expectedArbitraryChain
+        ) = abi.decode(
+                _moduleInputs.approvalLeafWithProof.leaf.data,
+                (address, address, uint256, uint256, address, string, bool)
+            );
 
         // Check that the state of the `SphinxModule` was updated correctly.
         assertEq(module.activeRoot(), bytes32(0));
@@ -1250,14 +1304,16 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             uint256 numLeafs,
             uint256 leafsExecuted,
             string memory uri,
-            address executor_,
-            DeploymentStatus status
+            address actualExecutor,
+            DeploymentStatus status,
+            bool arbitraryChain
         ) = module.deployments(_moduleInputs.merkleRoot);
         assertEq(expectedNumLeafs, numLeafs);
         assertEq(leafsExecuted, numLeafs);
-        assertEq(defaultDeploymentUri, uri);
-        assertEq(executor, executor_);
+        assertEq(expectedUri, uri);
+        assertEq(expectedExecutor, actualExecutor);
         assertEq(status, DeploymentStatus.COMPLETED);
+        assertEq(expectedArbitraryChain, arbitraryChain);
 
         // The first transaction sets the `myNum` variable in `MyContract`.
         assertEq(myContract.myNum(), 123);
@@ -1295,6 +1351,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
                 executor: executor,
                 safeProxy: address(safeProxy),
                 deploymentUri: defaultDeploymentUri,
+                arbitraryChain: false,
                 forceNumLeafsValue: false,
                 overridingNumLeafsValue: 0,
                 forceApprovalLeafIndexNonZero: false
@@ -1307,7 +1364,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         for (uint256 i = 0; i < numExecutionLeafs; i++) {
             SphinxLeafWithProof memory executionLeafWithProof = _moduleInputs
                 .executionLeafsWithProofs[i];
-            (, uint256 initialLeafsExecuted, , , ) = module.deployments(_moduleInputs.merkleRoot);
+            (, uint256 initialLeafsExecuted, , , , ) = module.deployments(_moduleInputs.merkleRoot);
 
             vm.expectEmit(address(module));
             emit SphinxActionSucceeded(_moduleInputs.merkleRoot, executionLeafWithProof.leaf.index);
@@ -1325,7 +1382,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             } else {
                 assertEq(status, DeploymentStatus.APPROVED);
             }
-            (, uint256 leafsExecuted, , , ) = module.deployments(_moduleInputs.merkleRoot);
+            (, uint256 leafsExecuted, , , , ) = module.deployments(_moduleInputs.merkleRoot);
             assertEq(leafsExecuted, initialLeafsExecuted + 1);
         }
     }

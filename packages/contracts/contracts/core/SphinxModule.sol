@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-// TODO(end): check coverage for ManagedService. also, run slither.
-
 // TODO(spec): perhaps mention somewhere that the executor cannot lose money on a deployment because
 // it withdraws enough USDC to cover the deployment, including a buffer, before it submits any
 // transactions.
@@ -174,10 +172,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             uint256 nonce,
             uint256 numLeafs,
             address executor,
-            string memory uri
+            string memory uri,
+            bool arbitraryChain
         ) = abi.decode(
                 _leafWithProof.leaf.data,
-                (address, address, uint256, uint256, address, string)
+                (address, address, uint256, uint256, address, string, bool)
             );
 
         require(safe == address(safeProxy), "SphinxModule: invalid SafeProxy");
@@ -185,6 +184,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(nonce == currentNonce, "SphinxModule: invalid nonce");
         require(numLeafs > 0, "SphinxModule: numLeafs cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
+        require(arbitraryChain || _leafWithProof.leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         // TODO(docs): we don't perform any checks on the URI because it may be empty if numLeafs is
         // 1.
 
@@ -204,6 +204,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.leafsExecuted = 1;
         state.uri = uri;
         state.executor = executor;
+        state.arbitraryChain = arbitraryChain;
 
         if (numLeafs == 1) {
             state.status = DeploymentStatus.COMPLETED;
@@ -295,6 +296,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
             _validateLeaf(activeRoot, leaf, proof, state.leafsExecuted, SphinxLeafType.EXECUTE);
 
+            require(state.arbitraryChain || leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
+
             (
                 address to,
                 uint256 value,
@@ -379,7 +382,6 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Validate the fields of the Leaf TODO(docs): except for the `data` field.
         require(_leaf.leafType == _expectedLeafType, "SphinxModule: invalid leaf type");
-        require(_leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         require(_leaf.index == _leafsExecuted, "SphinxModule: invalid leaf index");
     }
 
