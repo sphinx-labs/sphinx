@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { console } from "sphinx-forge-std/console.sol";
 import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
-import { SphinxModuleFactory } from "../contracts/core/SphinxModuleFactory.sol";
+import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
     GnosisSafeProxyFactory
@@ -109,7 +109,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
     address deployedViaCreate3;
 
     function setUp(GnosisSafeAddresses memory _gnosisSafeAddresses) internal {
-        SphinxModuleFactory moduleFactory = new SphinxModuleFactory();
+        SphinxModuleProxyFactory moduleProxyFactory = new SphinxModuleProxyFactory();
 
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
         // We can't assign the wallets directly to the `owners` array because Solidity throws an
@@ -121,23 +121,23 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
         }
 
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            moduleFactory.deploySphinxModuleFromSafe.selector,
+            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)
         );
         bytes memory firstMultiSendData = abi.encodePacked(
             uint8(Operation.Call),
-            moduleFactory,
+            moduleProxyFactory,
             uint256(0),
             encodedDeployModuleCall.length,
             encodedDeployModuleCall
         );
         bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            moduleFactory.enableSphinxModuleFromSafe.selector,
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
             bytes32(0)
         );
         bytes memory secondMultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
-            moduleFactory,
+            moduleProxyFactory,
             uint256(0),
             encodedEnableModuleCall.length,
             encodedEnableModuleCall
@@ -175,7 +175,7 @@ abstract contract AbstractSphinxModule_Test is Test, Enum, TestUtils, SphinxModu
             )
         );
         module = SphinxModule(
-            moduleFactory.computeSphinxModuleAddress(address(safeProxy), address(safeProxy), 0)
+            moduleProxyFactory.computeSphinxModuleProxyAddress(address(safeProxy), address(safeProxy), 0)
         );
         // Give the Gnosis Safe 2 ether
         vm.deal(address(safeProxy), 2 ether);

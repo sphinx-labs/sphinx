@@ -7,8 +7,8 @@ export const ManagedServiceArtifact = parseFoundryArtifact(
 export const SphinxModuleArtifact = parseFoundryArtifact(
   require('../out/SphinxModule.sol/SphinxModule.json')
 )
-export const SphinxModuleFactoryArtifact = parseFoundryArtifact(
-  require('../out/SphinxModuleFactory.sol/SphinxModuleFactory.json')
+export const SphinxModuleProxyFactoryArtifact = parseFoundryArtifact(
+  require('../out/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
 
 // Gnosis Safe contracts:
@@ -28,7 +28,7 @@ export const GnosisSafeProxyArtifact = require('../node_modules/@gnosis.pm/safe-
 
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
-export const SphinxModuleFactoryABI = SphinxModuleFactoryArtifact.abi
+export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
 
 // TODO - do we need any of this?
 // const directoryPath = path.join(__dirname, '../artifacts/build-info')

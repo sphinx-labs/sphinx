@@ -8,7 +8,7 @@ import {
   getManagedServiceAddress,
   getOwnerAddress,
   getSphinxConstants,
-  getSphinxModuleFactoryAddress,
+  getSphinxModuleProxyFactoryAddress,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
@@ -49,7 +49,7 @@ export const ensureSafeAndSphinxInitialized = async (
       logger
     )
   } else if (
-    await isContractDeployed(getSphinxModuleFactoryAddress(), provider)
+    await isContractDeployed(getSphinxModuleProxyFactoryAddress(), provider)
   ) {
     return
   } else {

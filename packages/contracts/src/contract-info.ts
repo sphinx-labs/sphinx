@@ -11,7 +11,7 @@ import {
   MultiSendArtifact,
   MultiSendCallOnlyArtifact,
   SimulateTxAccessorArtifact,
-  SphinxModuleFactoryArtifact,
+  SphinxModuleProxyFactoryArtifact,
 } from './ifaces'
 import { ContractArtifact } from './types'
 import {
@@ -25,7 +25,7 @@ import {
   getMultiSendAddress,
   getMultiSendCallOnlyAddress,
   getSimulateTxAccessorAddress,
-  getSphinxModuleFactoryAddress,
+  getSphinxModuleProxyFactoryAddress,
 } from './addresses'
 import { getOwnerAddress } from './constants'
 
@@ -56,8 +56,8 @@ export const getSphinxConstants = (
       ],
     },
     {
-      artifact: SphinxModuleFactoryArtifact,
-      expectedAddress: getSphinxModuleFactoryAddress(),
+      artifact: SphinxModuleProxyFactoryArtifact,
+      expectedAddress: getSphinxModuleProxyFactoryAddress(),
       constructorArgs: [],
     },
     {

@@ -7,7 +7,7 @@ import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
 import { SphinxModule } from "../core/SphinxModule.sol";
-import { SphinxModuleFactory } from "../core/SphinxModuleFactory.sol";
+import { SphinxModuleProxyFactory } from "../core/SphinxModuleProxyFactory.sol";
 import {
     RawSphinxAction,
     SphinxActionType,
@@ -1040,7 +1040,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             Create2.computeAddress(
                 bytes32(0),
                 keccak256(abi.encodePacked(sphinxModuleBytecode, abi.encode(safeProxyAddress))),
-                sphinxModuleFactoryAddress
+                sphinxModuleProxyFactoryAddress
             );
     }
 
@@ -1048,25 +1048,25 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _threshold
     ) internal pure returns (bytes memory safeInitializerData) {
-        SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
+        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
-            moduleFactory.deploySphinxModuleFromSafe.selector,
+            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)
         );
         bytes memory deployModuleMultiSendData = abi.encodePacked(
             uint8(0),
-            moduleFactory,
+            moduleProxyFactory,
             uint256(0),
             encodedDeployModuleCalldata.length,
             encodedDeployModuleCalldata
         );
         bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(
-            moduleFactory.enableSphinxModuleFromSafe.selector,
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
             bytes32(0)
         );
         bytes memory enableModuleMultiSendData = abi.encodePacked(
             uint8(1),
-            moduleFactory,
+            moduleProxyFactory,
             uint256(0),
             encodedEnableModuleCalldata.length,
             encodedEnableModuleCalldata
@@ -1091,7 +1091,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function sphinxModuleFactoryDeploy(address[] memory _owners, uint256 _threshold) external {
+    function sphinxModuleProxyFactoryDeploy(address[] memory _owners, uint256 _threshold) external {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
@@ -1127,7 +1127,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
      *        before the storage values are set in the SphinxAuth contract in step 1.
      */
-    function sphinxModuleFactoryDeployFFI(
+    function sphinxModuleProxyFactoryDeployFFI(
         address[] memory _owners,
         uint256 _threshold,
         string memory _rpcUrl

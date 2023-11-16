@@ -7,7 +7,7 @@ import { remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
   getManagedServiceConstructorArgs,
-  getSphinxModuleFactoryAddress,
+  getSphinxModuleProxyFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeAddress,
   getCompatibilityFallbackHandlerAddress,
@@ -37,9 +37,9 @@ const writeConstants = async () => {
       type: 'address',
       value: getMultiSendAddress(),
     },
-    sphinxModuleFactoryAddress: {
+    sphinxModuleProxyFactoryAddress: {
       type: 'address',
-      value: getSphinxModuleFactoryAddress(),
+      value: getSphinxModuleProxyFactoryAddress(),
     },
     managedServiceAddressOptimism: {
       type: 'address',

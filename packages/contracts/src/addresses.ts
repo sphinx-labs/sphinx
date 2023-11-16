@@ -8,7 +8,7 @@ import {
 
 import {
   ManagedServiceArtifact,
-  SphinxModuleFactoryArtifact,
+  SphinxModuleProxyFactoryArtifact,
   SimulateTxAccessorArtifact,
   GnosisSafeProxyFactoryArtifact,
   DefaultCallbackHandlerArtifact,
@@ -51,11 +51,11 @@ export const getManagedServiceAddress = (chainId: bigint) => {
   )
 }
 
-export const getSphinxModuleFactoryAddress = () => {
+export const getSphinxModuleProxyFactoryAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(['bytes'], [SphinxModuleFactoryArtifact.bytecode])
+    solidityPackedKeccak256(['bytes'], [SphinxModuleProxyFactoryArtifact.bytecode])
   )
 }
 

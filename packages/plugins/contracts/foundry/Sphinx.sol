@@ -222,14 +222,14 @@ abstract contract Sphinx {
             if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
                 vm.stopBroadcast();
 
-                sphinxUtils.sphinxModuleFactoryDeploy(sortedOwners, sphinxConfig.threshold);
+                sphinxUtils.sphinxModuleProxyFactoryDeploy(sortedOwners, sphinxConfig.threshold);
 
-                // Call the `SphinxModuleFactory.deploySphinxModuleAndSafeProxy` function via FFI.
-                sphinxUtils.sphinxModuleFactoryDeployFFI(sortedOwners, sphinxConfig.threshold, _rpcUrl);
+                // Call the `SphinxModuleProxyFactory.deploySphinxModuleProxyAndSafeProxy` function via FFI.
+                sphinxUtils.sphinxModuleProxyFactoryDeployFFI(sortedOwners, sphinxConfig.threshold, _rpcUrl);
 
                 vm.startBroadcast(_msgSender);
             } else {
-                sphinxUtils.sphinxModuleFactoryDeploy(sortedOwners, sphinxConfig.threshold);
+                sphinxUtils.sphinxModuleProxyFactoryDeploy(sortedOwners, sphinxConfig.threshold);
             }
         }
     }
