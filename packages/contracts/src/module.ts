@@ -17,8 +17,8 @@ export enum Operation {
 export type SphinxLeaf = {
   chainId: bigint
   index: bigint
-  data: string
   leafType: LeafType
+  data: string
 }
 
 export type LeafWithProof = {

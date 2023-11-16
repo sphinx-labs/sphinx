@@ -76,7 +76,5 @@ export interface CompilerOutputBytecode {
 }
 
 export type SphinxSystemConfig = {
-  executors: string[]
   relayers: string[]
-  funders: string[]
 }

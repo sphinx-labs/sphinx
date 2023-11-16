@@ -35,11 +35,10 @@ export const USDC_ADDRESSES: { [chainId: string]: string } = {
   420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
   // Optimism Mainnet:
   10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+  31337: ZeroAddress,
 }
 
-export const getSphinxConstants = (
-  chainId: bigint
-): Array<{
+export const getSphinxConstants = (): Array<{
   artifact: ContractArtifact
   expectedAddress: string
   constructorArgs: any[]
@@ -47,13 +46,8 @@ export const getSphinxConstants = (
   const contractInfo = [
     {
       artifact: ManagedServiceArtifact,
-      expectedAddress: getManagedServiceAddress(chainId),
-      constructorArgs: [
-        getOwnerAddress(),
-        chainId === 420n || chainId === 10n
-          ? USDC_ADDRESSES[Number(chainId)]
-          : ZeroAddress,
-      ],
+      expectedAddress: getManagedServiceAddress(),
+      constructorArgs: [getOwnerAddress()],
     },
     {
       artifact: SphinxModuleProxyFactoryArtifact,

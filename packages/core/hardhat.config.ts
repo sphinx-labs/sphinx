@@ -1,11 +1,16 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import * as dotenv from 'dotenv'
 import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
 import '@nomicfoundation/hardhat-ethers'
 
+import ora from 'ora'
+import { Logger } from '@eth-optimism/common-ts'
+
 import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
+import { SphinxSystemConfig, initializeSafeAndSphinx } from './src/languages'
 
 // Load environment variables from .env
 dotenv.config()
@@ -164,7 +169,19 @@ task('deploy-system')
       const provider = new SphinxJsonRpcProvider(hre.network.config.url)
       const signer = await hre.ethers.provider.getSigner()
 
-      await initializeAndVerifySphinx(args.systemConfig, provider, signer)
+      const systemConfig: SphinxSystemConfig =
+        require(args.systemConfig).default
+
+      const logger = new Logger({
+        name: 'Logger',
+      })
+
+      await initializeSafeAndSphinx(
+        provider,
+        signer,
+        systemConfig.relayers,
+        logger
+      )
     }
   )
 

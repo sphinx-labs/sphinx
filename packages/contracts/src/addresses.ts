@@ -1,6 +1,5 @@
 import {
   ZeroHash,
-  ZeroAddress,
   getCreate2Address,
   solidityPackedKeccak256,
   AbiCoder,
@@ -23,18 +22,12 @@ import {
   getOwnerAddress,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from './constants'
-import { USDC_ADDRESSES } from './contract-info'
 
-export const getManagedServiceConstructorArgs = (chainId: bigint) => {
-  const usdcAddress =
-    chainId === 10n || chainId === 420n
-      ? USDC_ADDRESSES[Number(chainId)]
-      : ZeroAddress
-
-  return [getOwnerAddress(), usdcAddress]
+export const getManagedServiceConstructorArgs = () => {
+  return [getOwnerAddress()]
 }
 
-export const getManagedServiceAddress = (chainId: bigint) => {
+export const getManagedServiceAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
@@ -43,8 +36,8 @@ export const getManagedServiceAddress = (chainId: bigint) => {
       [
         ManagedServiceArtifact.bytecode,
         AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address'],
-          getManagedServiceConstructorArgs(chainId)
+          ['address'],
+          getManagedServiceConstructorArgs()
         ),
       ]
     )
@@ -55,11 +48,14 @@ export const getSphinxModuleProxyFactoryAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
-    solidityPackedKeccak256(['bytes'], [SphinxModuleProxyFactoryArtifact.bytecode])
+    solidityPackedKeccak256(
+      ['bytes'],
+      [SphinxModuleProxyFactoryArtifact.bytecode]
+    )
   )
 }
 
-// TODO - use gnosis singleton factory to get the canonical addresses
+// TODO - use gnosis singleton factory to get the canonical addresses?
 
 // SimulateTxAccessor
 export const getSimulateTxAccessorAddress = () => {

@@ -25,10 +25,12 @@ export const MultiSendCallOnlyArtifact = require('../node_modules/@gnosis.pm/saf
 export const GnosisSafeL2Artifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafeL2.sol/GnosisSafeL2.json')
 export const GnosisSafeArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/GnosisSafe.sol/GnosisSafe.json')
 export const GnosisSafeProxyArtifact = require('../node_modules/@gnosis.pm/safe-contracts/build/artifacts/contracts/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json')
+export const ERC20Artifact = require('../node_modules/@openzeppelin/contracts/build/contracts/ERC20.json')
 
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
+export const ERC20ABI = ERC20Artifact.abi // TODO(ask-ryan): what's this for?
 
 // TODO - do we need any of this?
 // const directoryPath = path.join(__dirname, '../artifacts/build-info')

@@ -16,12 +16,9 @@ export const SphinxActionType = {
 export const DeploymentStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
-  PROXIES_INITIATED: 2n,
   COMPLETED: 3n,
   CANCELLED: 4n,
   FAILED: 5n,
-  INITIAL_ACTIONS_EXECUTED: 6n,
-  SET_STORAGE_ACTIONS_EXECUTED: 7n,
 }
 
 /**
@@ -158,17 +155,11 @@ export interface SphinxTargetBundle {
  * The state of a Sphinx bundle.
  */
 export type DeploymentState = {
+  numLeafs: bigint
+  leafsExecuted: bigint
+  uri: string
+  executor: string
   status: bigint
-  numInitialActions: bigint
-  numSetStorageActions: bigint
-  actionRoot: string
-  targetRoot: string
-  targets: bigint
-  actionsExecuted: bigint
-  timeClaimed: bigint
-  selectedExecutor: string
-  remoteExecution: boolean
-  configUri: string
 }
 
 export interface BaseAuthLeaf {
@@ -366,6 +357,7 @@ export type ProposalRequest = {
   threshold: number
   safeAddress: string
   moduleAddress: string
+  safeInitData: string
   deploymentName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>
@@ -390,6 +382,7 @@ export type ProjectDeployment = {
   deploymentId: string
   name: string
   isExecuting: boolean
+  configUri: string
 }
 
 export type ProposalRequestLeaf = {
