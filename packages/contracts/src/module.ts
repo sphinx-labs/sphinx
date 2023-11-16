@@ -30,8 +30,8 @@ export type LeafWithProof = {
 export type NetworkDeploymentData = {
   nonce: bigint
   executor: string
-  safe: string
-  module: string
+  safeProxy: string
+  moduleProxy: string
   deploymentURI: string
   arbitraryChain: boolean
   txs: SphinxTransaction[]
@@ -68,8 +68,8 @@ export const makeSphinxLeafs = (
     const approvalData = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
-        data.safe,
-        data.module,
+        data.safeProxy,
+        data.moduleProxy,
         data.nonce,
         data.txs.length + 1, // We add one to account for the approval leaf
         data.executor,

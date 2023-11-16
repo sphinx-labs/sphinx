@@ -33,11 +33,10 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
  */
 contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
-
     /**
      * @notice The address of the `SphinxModule`.
      */
-    address public override immutable SPHINX_MODULE_IMPL;
+    address public immutable override SPHINX_MODULE_IMPL;
 
     /**
      * @dev Address of this `SphinxModuleProxyFactory`.
@@ -62,6 +61,7 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
      *         `deploySphinxModuleProxyFromSafe`.
      *
      *            This function will revert if a contract already exists at the `CREATE2` address.
+     *          It will also revert if the `_safeProxy` is the zero-address.
      *
      * @param _safeProxy Address of the Gnosis Safe proxy that the `SphinxModuleProxy` will belong to.
      * @param _saltNonce An arbitrary nonce, which is one of the inputs that determines the
@@ -73,6 +73,7 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         address _safeProxy,
         uint256 _saltNonce
     ) public override returns (address sphinxModuleProxy) {
+        require(_safeProxy != address(0), "SphinxModuleProxyFactory: invalid Safe");
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
         sphinxModuleProxy = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
         emit SphinxModuleProxyDeployed(sphinxModuleProxy, _safeProxy);
@@ -114,8 +115,15 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
      *                   address of the `SphinxModuleProxy`.
      */
     function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) public override {
-        require(address(this) != MODULE_FACTORY, "SphinxModuleProxyFactory: must be delegatecalled");
-        address sphinxModuleProxy = computeSphinxModuleProxyAddress(address(this), address(this), _saltNonce);
+        require(
+            address(this) != MODULE_FACTORY,
+            "SphinxModuleProxyFactory: must be delegatecalled"
+        );
+        address sphinxModuleProxy = computeSphinxModuleProxyAddress(
+            address(this),
+            address(this),
+            _saltNonce
+        );
         GnosisSafe(payable(address(this))).enableModule(sphinxModuleProxy);
     }
 

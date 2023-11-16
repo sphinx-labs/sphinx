@@ -243,7 +243,7 @@ abstract contract Sphinx {
         uint256 _bufferedGasLimit
     ) private returns (bool, uint256) {
         // Pull the deployment state from the contract to make sure we're up to date
-        bytes32 activeRoot = _module.activeRoot();
+        bytes32 activeRoot = _module.activeMerkleRoot();
 
         // We can return early if there are no actions to execute (outside the approval action).
         if (_leafs.length == 1) {

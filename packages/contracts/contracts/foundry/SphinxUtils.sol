@@ -992,7 +992,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return
                 InitialChainState({
                     isSafeDeployed: true,
-                    isExecuting: _sphinxModule.activeRoot() != bytes32(0)
+                    isExecuting: _sphinxModule.activeMerkleRoot() != bytes32(0)
                 });
         }
     }
@@ -1048,7 +1048,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _threshold
     ) internal pure returns (bytes memory safeInitializerData) {
-        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
+        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(
+            sphinxModuleProxyFactoryAddress
+        );
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)

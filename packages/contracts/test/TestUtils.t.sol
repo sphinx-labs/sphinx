@@ -141,10 +141,10 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-merkle-tree.ts";
         inputs[3] = vm.toString(_treeInputs.chainId);
-        inputs[4] = vm.toString(_treeInputs.nonceInModule);
+        inputs[4] = vm.toString(_treeInputs.nonceInModuleProxy);
         inputs[5] = vm.toString(_treeInputs.executor);
         inputs[6] = vm.toString(_treeInputs.safeProxy);
-        inputs[7] = vm.toString(address(_treeInputs.module));
+        inputs[7] = vm.toString(address(_treeInputs.moduleProxy));
         inputs[8] = _treeInputs.deploymentUri;
         inputs[9] = vm.toString(abi.encode(_treeInputs.txs));
         inputs[10] = vm.toString(_treeInputs.arbitraryChain);
@@ -164,8 +164,8 @@ contract TestUtils is SphinxUtils, Enum {
         SphinxTransaction[] txs;
         Wallet[] ownerWallets;
         uint256 chainId;
-        SphinxModule module;
-        uint256 nonceInModule;
+        SphinxModule moduleProxy;
+        uint256 nonceInModuleProxy;
         address executor;
         address safeProxy;
         string deploymentUri;

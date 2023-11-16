@@ -14,8 +14,8 @@ import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 const chainId = argv[2]
 const nonce = argv[3]
 const executor = argv[4]
-const safe = argv[5]
-const sphinxModule = argv[6]
+const safeProxy = argv[5]
+const moduleProxy = argv[6]
 const deploymentURI = argv[7]
 const abiEncodedTxs = argv[8]
 const arbitraryChain = argv[9] === 'true'
@@ -50,8 +50,8 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
     [chainId]: {
       nonce: BigInt(nonce),
       executor,
-      safe,
-      module: sphinxModule,
+      safeProxy,
+      moduleProxy,
       deploymentURI,
       txs: txArray,
       arbitraryChain,
@@ -64,8 +64,8 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
     leafs[0].data = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
-        safe,
-        sphinxModule,
+        safeProxy,
+        moduleProxy,
         nonce,
         overridingNumLeafsValue, // Override the `numLeafs`
         executor,

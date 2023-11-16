@@ -69,6 +69,7 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 
 #### `function deploySphinxModuleProxy(address _safeProxy, uint256 _saltNonce) external returns (address sphinxModuleProxy)`
 
+- Must revert if the input Gnosis Safe proxy is `address(0)`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
   - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
@@ -102,3 +103,12 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 The `SphinxModuleProxyFactory` calls a couple external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxyFactory`](TODO(end)), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These external contracts are:
 - OpenZeppelin's `Clones.sol` library vTODO(end), which deploys the `SphinxModuleProxy` contracts (via `Clones.cloneDeterministic`) and computes their addresses (via `Clones.predictDeterministicAddress`).
 - Gnosis Safe's `enableModule` function, which enables a `SphinxModuleProxy` within the user's Gnosis Safe.
+
+        // TODO(spec): we include the address of the safe in this leaf to protect against a
+        // vulnerability where you could attack a Safe with the same owners using a
+        // tree that was signed for a previous deployment through a different Safe.
+        // TODO(spec): We include the address of the `SphinxModule` to prevent a vulnerability where
+        // every deployment in a Safe could be re-executed if it adds a new SphinxModule after
+        // executing deployments in a different SphinxModule.
+
+TODO: explain arbitrary chain
