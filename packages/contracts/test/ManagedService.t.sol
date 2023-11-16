@@ -7,6 +7,8 @@ import { ManagedService } from "contracts/core/ManagedService.sol";
 contract Endpoint {
     uint public x;
 
+    error CustomError(uint256 value, address a, address b, address c, bytes32 d);
+
     constructor(uint _x) {
         x = _x;
     }
@@ -20,6 +22,14 @@ contract Endpoint {
     function doRevert() public {
         revert("did revert");
     }
+
+    function doRevertCustom() public {
+        revert CustomError(10, address(1), address(2), address(3), bytes32(uint(1)));
+    }
+
+    function doSilentRevert() public {
+        revert();
+    }
 }
 
 contract ManagedService_Test is Test {
@@ -31,7 +41,7 @@ contract ManagedService_Test is Test {
     bytes invalidCallerError = "ManagedService: invalid caller";
 
     event Called(address indexed relayer, address indexed to, bytes32 data);
-    event Withdew(address indexed recipient, uint256 amount);
+    event Withdrew(address indexed recipient, uint256 amount);
 
     function setUp() public {
         vm.startPrank(owner);
@@ -62,6 +72,24 @@ contract ManagedService_Test is Test {
         vm.startPrank(sender);
         vm.expectRevert("did revert");
         service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doRevert.selector));
+    }
+
+    function test_RevertIfUnderlyingCallRevertsWithCustomError() external {
+        vm.startPrank(sender);
+        vm.expectRevert(abi.encodeWithSelector(Endpoint.CustomError.selector, 10, address(1), address(2), address(3), bytes32(uint(1))));
+        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doRevertCustom.selector));
+    }
+
+    function test_RevertSilently() external {
+        vm.startPrank(sender);
+        vm.expectRevert("ManagedService: Transaction reverted silently");
+        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doSilentRevert.selector));
+    }
+
+    function test_RevertIfTargetZeroAddress() external {
+        vm.startPrank(sender);
+        vm.expectRevert("ManagedService: target is address(0)");
+        service.exec(address(0), abi.encodeWithSelector(Endpoint.set.selector, 2));
     }
 
     function test_SuccessfulCall() external {
@@ -96,14 +124,14 @@ contract ManagedService_Test is Test {
         vm.deal(address(service), 1 ether);
 
         vm.expectRevert(invalidCallerError);
-        service.withdraw(0.5 ether);
+        service.withdrawTo(0.5 ether, msg.sender);
     }
 
     function test_WithdrawRevertsIfNotEnoughFunds() external {
         vm.startPrank(sender);
 
         vm.expectRevert("ManagedService: insufficient funds");
-        service.withdraw(2 ether);
+        service.withdrawTo(2 ether, msg.sender);
     }
 
     function test_WithdrawRevertsIfRecipientZeroAddress() external {
@@ -112,21 +140,6 @@ contract ManagedService_Test is Test {
 
         vm.expectRevert("ManagedService: recipient is zero address");
         service.withdrawTo(0.5 ether, address(0));
-    }
-
-    function test_depositeAndSuccessfulWithdraw() external {
-        vm.startPrank(sender);
-        uint depositeAmount = 1 ether;
-
-        vm.deal(address(sender), depositeAmount);
-        payable(address(service)).transfer(depositeAmount);
-
-        uint withdrawAmount = 0.5 ether;
-        vm.expectEmit(address(service));
-        emit Withdew(sender, withdrawAmount);
-
-        service.withdraw(withdrawAmount);
-        assertEq(sender.balance, withdrawAmount);
     }
 
     function test_depositeAndSuccessfulWithdrawTo() external {
@@ -138,7 +151,7 @@ contract ManagedService_Test is Test {
 
         uint withdrawAmount = 0.5 ether;
         vm.expectEmit(address(service));
-        emit Withdew(invalidSender, withdrawAmount);
+        emit Withdrew(invalidSender, withdrawAmount);
 
         service.withdrawTo(withdrawAmount, invalidSender);
         assertEq(invalidSender.balance, withdrawAmount);

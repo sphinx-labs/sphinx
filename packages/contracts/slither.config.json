@@ -8,6 +8,6 @@
   "hardhat_ignore_compile": false,
   "disable_color": false,
   "exclude_dependencies": true,
-  "filter_paths": "test,node_modules",
-  "foundry_out_directory": "forge-artifacts"
+  "filter_paths": "test,node_modules,contracts/foundry",
+  "foundry_out_directory": "out"
 }

@@ -3,7 +3,6 @@ src = 'contracts'
 fs_permissions = [{ access = "read", path = "./"}]
 verbosity = 2
 ffi = true
-solc = '0.8.0'
 optimizer = false
 test = 'test'
 script = 'scripts'
