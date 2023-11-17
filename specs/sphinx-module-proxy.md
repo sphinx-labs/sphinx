@@ -50,10 +50,10 @@ We've included a flow chart that explains the deployment process in more detail:
 
 ```mermaid
 graph TD
-    style C fill:#cccc66,stroke:#cccc00,stroke-width:2px
-    style B fill:#66cc66,stroke:#00cc00,stroke-width:2px
-    style F fill:#cc6666,stroke:#cc0000,stroke-width:2px
-    style I fill:#6699cc,stroke:#336699,stroke-width:2px
+    style C fill:#cccc66,stroke:#cccc00,stroke-width:2px,color:black
+    style B fill:#66cc66,stroke:#00cc00,stroke-width:2px,color:black
+    style F fill:#cc6666,stroke:#cc0000,stroke-width:2px,color:black
+    style I fill:#6699cc,stroke:#336699,stroke-width:2px,color:black
     Z["approve(...)"] --> H[Is there an existing deployment?]
     H -->|Yes| I[Cancel existing deployment]
     H -->|No| A[Is there one leaf in the new Merkle tree for the current chain?]
