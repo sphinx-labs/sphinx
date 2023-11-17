@@ -55,6 +55,7 @@ export const executeDeployment = async (
     signatures.map(() => 'bytes'),
     signatures
   )
+  console.log(signatures)
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
     ManagedServiceABI,
@@ -69,7 +70,7 @@ export const executeDeployment = async (
 
   receipts.push(
     await (
-      await managedService.call(
+      await managedService.exec(
         await module.getAddress(),
         approveData,
         await getGasPriceOverrides(signer)
@@ -163,7 +164,7 @@ const executeBatchActions = async (
   failureAction?: HumanReadableAction
 }> => {
   // Pull the deployment state from the contract so we're guaranteed to be up to date.
-  const activeRoot = await module.activeRoot()
+  const activeRoot = await module.activeMerkleRoot()
   let state: DeploymentState = await module.deployments(activeRoot)
 
   // Remove the actions that have already been executed.
@@ -206,7 +207,7 @@ const executeBatchActions = async (
       const executeData = module.interface.encodeFunctionData('execute', [
         batch,
       ])
-      const res = await managedService.call(
+      const res = await managedService.exec(
         await module.getAddress(),
         executeData,
         await getGasPriceOverrides(signer)

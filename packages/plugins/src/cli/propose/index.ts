@@ -197,7 +197,7 @@ export const propose = async (
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
-  ipfsData: string[] | undefined
+  ipfsData: string | undefined
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -307,6 +307,7 @@ export const propose = async (
       safeAddress: compilerConfig.safeAddress,
       moduleAddress: compilerConfig.moduleAddress,
       safeInitData: compilerConfig.safeInitData,
+      safeInitSaltNonce: compilerConfig.safeInitSaltNonce,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -317,8 +318,13 @@ export const propose = async (
   }
   // Since we know that the following fields are the same for each `compilerConfig`, we get their
   // values here.
-  const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    bundleInfo.compilerConfigs[0]
+  const {
+    newConfig,
+    safeAddress,
+    moduleAddress,
+    safeInitData,
+    safeInitSaltNonce,
+  } = bundleInfo.compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   // const compilerConfigs: {
@@ -387,6 +393,7 @@ export const propose = async (
     safeAddress,
     moduleAddress,
     safeInitData,
+    safeInitSaltNonce,
     projectDeployments,
     gasEstimates,
     diff: preview,
@@ -396,12 +403,12 @@ export const propose = async (
     },
   }
 
-  const ipfsData = [JSON.stringify(bundleInfo.compilerConfigs, null, 2)]
+  const ipfsData = JSON.stringify(bundleInfo.compilerConfigs, null, 2)
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
     await relayProposal(proposalRequest)
-    await relayIPFSCommit(apiKey, newConfig.orgId, ipfsData)
+    await relayIPFSCommit(apiKey, newConfig.orgId, [ipfsData])
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL

@@ -12,8 +12,8 @@ contract Sample is Sphinx {
 
     function setUp() public {
         sphinxConfig.projectName = "11/10";
-        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
-        sphinxConfig.threshold = 1;
+        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51, 0xFBD0C9AA5356577F09e8cA7681A88cC8C9DF52F0, 0xaecFD89752218c7C4ab6A679CdE5494F88272779];
+        sphinxConfig.threshold = 2;
         sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
     }

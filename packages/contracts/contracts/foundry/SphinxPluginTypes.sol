@@ -112,7 +112,8 @@ struct DeploymentInfo {
     address executorAddress;
     uint256 nonce;
     uint256 chainId;
-    bytes safeInitData;
+    bytes   safeInitData;
+    uint256 safeInitSaltNonce;
     bool requireSuccess;
     SphinxConfig newConfig;
     bool isLiveNetwork;
@@ -231,7 +232,7 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) {}
+    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfo) {}
 
     function humanReadableActionsType()
         external

@@ -71,6 +71,7 @@ export const decodeDeploymentInfo = (
     labels,
     requireSuccess,
     safeInitData,
+    safeInitSaltNonce,
   } = deploymentInfoBigInt
 
   return {
@@ -78,6 +79,7 @@ export const decodeDeploymentInfo = (
     safeAddress,
     moduleAddress,
     safeInitData,
+    safeInitSaltNonce: safeInitSaltNonce.toString(),
     executorAddress,
     requireSuccess,
     nonce,
@@ -310,6 +312,7 @@ export const makeParsedConfig = (
     initialState,
     labels,
     safeInitData,
+    safeInitSaltNonce,
   } = deploymentInfo
 
   let actionIndex = 1
@@ -432,6 +435,7 @@ export const makeParsedConfig = (
     safeAddress,
     moduleAddress,
     safeInitData,
+    safeInitSaltNonce,
     nonce,
     chainId,
     newConfig,

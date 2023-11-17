@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {VmSafe, Vm} from "sphinx-forge-std/Vm.sol";
 import {console} from "sphinx-forge-std/console.sol";
 
+// TODO - fix contracts remappings so everything can just be @sphinx-labs/contracts/* instead of @sphinx-labs/contracts/(core or foundry)/*
 import {ISphinxAccessControl} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
 import {
     DeploymentStatus,
@@ -119,9 +120,11 @@ abstract contract Sphinx {
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.safeInitData = sphinxUtils.fetchSafeInitializerData(sphinxConfig.owners, sphinxConfig.threshold);
+        deploymentInfo.safeInitSaltNonce = sphinxUtils.fetchSafeSaltNonce(sphinxConfig.projectName);
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, SphinxModule(module));
+        deploymentInfo.nonce = sphinxUtils.getDeploymentNonce(SphinxModule(module));
         // TODO - support configuring this? Not sure if it's necessary in the first version.
         deploymentInfo.requireSuccess = true;
 
@@ -223,25 +226,28 @@ abstract contract Sphinx {
 
         address safeAddress = sphinxModule();
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(constants.safeFactoryAddress());
-
-        vm.stopBroadcast();
-        bytes memory safeInitializerData = sphinxUtils.fetchSafeInitializerData(sortedOwners, sphinxConfig.threshold);
         address singletonAddress = constants.safeSingletonAddress();
-        vm.startBroadcast(_msgSender);
 
         if (safeAddress.code.length == 0) {
             if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
                 vm.stopBroadcast();
-                address proxy = address(safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, 0));
-                console.logAddress(proxy);
+                bytes memory safeInitializerData = sphinxUtils.fetchSafeInitializerData(sortedOwners, sphinxConfig.threshold);
+                uint safeInitSaltNonce = sphinxUtils.fetchSafeSaltNonce(sphinxConfig.projectName);
+                safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, safeInitSaltNonce);
 
-                // Call the `SphinxModuleProxyFactory.deploySphinxModuleProxyAndSafeProxy` function via FFI.
-                sphinxUtils.sphinxModuleProxyFactoryDeployFFI(sortedOwners, sphinxConfig.threshold, _rpcUrl);
+                // Call the `SphinxModuleFactory.deploySphinxModuleAndSafeProxy` function via FFI.
+                sphinxUtils.sphinxModuleProxyFactoryDeployFFI(
+                    sortedOwners,
+                    sphinxConfig.threshold,
+                    sphinxConfig.projectName,
+                    _rpcUrl
+                );
 
                 vm.startBroadcast(_msgSender);
             } else {
-                address proxy = address(safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, 0));
-                console.logAddress(proxy);
+                bytes memory safeInitializerData = sphinxUtils.fetchSafeInitializerData(sortedOwners, sphinxConfig.threshold);
+                uint safeInitSaltNonce = sphinxUtils.fetchSafeSaltNonce(sphinxConfig.projectName);
+                safeProxyFactory.createProxyWithNonce(singletonAddress, safeInitializerData, safeInitSaltNonce);
             }
         }
     }
@@ -390,11 +396,6 @@ abstract contract Sphinx {
 
         sphinxRegisterProject(_rpcUrl, msgSender);
 
-        console.logAddress(address(sphinxSafe()));
-        console.logBytes(address(sphinxSafe()).code);
-
-        console.log("module address");
-        console.logAddress(sphinxModule());
 
         (
             uint256 numLeaves,
@@ -571,7 +572,7 @@ abstract contract Sphinx {
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
     function sphinxModule() public returns (address) {
-        return sphinxUtils.getSphinxModuleAddress(sphinxConfig.owners, sphinxConfig.threshold);
+        return sphinxUtils.getSphinxModuleAddress(sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName);
     }
 
     /**
@@ -579,7 +580,7 @@ abstract contract Sphinx {
      *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
      */
     function sphinxSafe() public returns (address) {
-        return sphinxUtils.getSphinxSafeAddress(sphinxConfig.owners, sphinxConfig.threshold);
+        return sphinxUtils.getSphinxSafeAddress(sphinxConfig.owners, sphinxConfig.threshold, sphinxConfig.projectName);
     }
 
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
