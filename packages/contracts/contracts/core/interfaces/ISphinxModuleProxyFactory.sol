@@ -6,7 +6,6 @@ pragma solidity >=0.7.0 <0.9.0;
  * @notice Interface for the `SphinxModuleProxyFactory` contract.
  */
 interface ISphinxModuleProxyFactory {
-
     /**
      * @notice Emitted whenever a `SphinxModuleProxy` is deployed by this factory.
      *

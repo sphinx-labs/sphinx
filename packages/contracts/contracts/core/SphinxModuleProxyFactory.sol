@@ -23,7 +23,6 @@ import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
  *         deploys the `SphinxModule` implementation inside its constructor.
  */
 contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
-
     /**
      * @inheritdoc ISphinxModuleProxyFactory
      */

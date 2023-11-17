@@ -313,7 +313,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_initialize_reverts_alreadyInitialized() external {
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert("SphinxModule: already initialized");
         moduleProxy.initialize(address(safeProxy));
     }
 

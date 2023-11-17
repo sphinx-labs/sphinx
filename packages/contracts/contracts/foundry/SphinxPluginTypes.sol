@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {
-    SphinxLeafType,
-    SphinxLeaf,
-    SphinxLeafWithProof
-} from "../core/SphinxDataTypes.sol";
+import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 
 struct HumanReadableAction {
     string reason;

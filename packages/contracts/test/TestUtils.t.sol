@@ -5,9 +5,7 @@ import { Vm } from "sphinx-forge-std/Vm.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import {
-    SphinxLeafWithProof
-} from "../contracts/core/SphinxDataTypes.sol";
+import { SphinxLeafWithProof } from "../contracts/core/SphinxDataTypes.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 // Gnosis Safe v1.3.0
 import {

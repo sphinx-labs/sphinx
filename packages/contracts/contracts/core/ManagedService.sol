@@ -11,7 +11,6 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  *         functionality if they choose to do so.
  */
 contract ManagedService is AccessControl, ReentrancyGuard {
-
     /**
      * @notice Role required to make calls through this contract.
      */

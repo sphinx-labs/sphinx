@@ -8,10 +8,7 @@ import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.so
 // TODO - use interfaces
 import { SphinxModule } from "../core/SphinxModule.sol";
 import { SphinxModuleProxyFactory } from "../core/SphinxModuleProxyFactory.sol";
-import {
-    SphinxLeafWithProof,
-    SphinxLeaf
-} from "../core/SphinxDataTypes.sol";
+import { SphinxLeafWithProof, SphinxLeaf } from "../core/SphinxDataTypes.sol";
 import {
     SphinxBundle,
     DeploymentInfo,

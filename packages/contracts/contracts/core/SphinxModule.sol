@@ -6,7 +6,6 @@ import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 // as well as `Safe.sol` and `SafeL2.sol` from Safe v1.4.1. All of these contracts share the same
 // interface for the functions used in this contract.
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
-import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {
@@ -27,8 +26,7 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
  *         because it's considerably cheaper to deploy an EIP-1167 proxy than a `SphinxModule`.
  */
-contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
-
+contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     /**
      * @inheritdoc ISphinxModule
      */
@@ -69,7 +67,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     /**
      * @inheritdoc ISphinxModule
      */
-    function initialize(address _safeProxy) external override initializer {
+    function initialize(address _safeProxy) external override {
+        // Notice that the first `require` statement uses `safeProxy`, which is a state variable in
+        // this contract, and the second `require` statement uses `_safeProxy` (with an underscore),
+        // which is the input variable to this function.
+        require(safeProxy == address(0), "SphinxModule: already initialized");
         require(_safeProxy != address(0), "SphinxModule: invalid Safe address");
         safeProxy = payable(_safeProxy);
     }
@@ -266,7 +268,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // revert. This could happen if the user supplies an extremely low `gas` value (e.g.
             // 1000).
             try
-                GnosisSafe(safeProxy).execTransactionFromModule{ gas: gas }(to, value, txData, operation)
+                GnosisSafe(safeProxy).execTransactionFromModule{ gas: gas }(
+                    to,
+                    value,
+                    txData,
+                    operation
+                )
             returns (bool execSuccess) {
                 // The `execSuccess` returns whether or not the user's transaction reverted. We
                 // don't use a low-level call to make it easy to retrieve this value.

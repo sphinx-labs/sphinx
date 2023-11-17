@@ -111,9 +111,9 @@ graph TD
 
 #### `function initialize(address _safeProxy) external`
 
-- Must revert this function has already been called.
+- Must revert this function has already been successfully called.
 - Must revert if the input Gnosis Safe proxy is the zero address.
-- A successful call must set the Gnosis Safe proxy in the `SphinxModuleProxy`.
+- A successful call must set the Gnosis Safe proxy address in the `SphinxModuleProxy`.
 
 #### `function approve(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) public`
 
@@ -228,7 +228,6 @@ which would prevent the deployment from being executable.
 The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](TODO(end)), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These contracts are:
 - OpenZeppelin vTODO(end):
   - [`ReentrancyGuard`](TODO(end)): Prevents re-entrancy attacks in the `approve` and `execute` function in the `SphinxModuleProxy`.
-  - [`Initializable`](TODO(end)): Prevents the `SphinxModuleProxy`'s `initialize` function from being called more than once.
   - [`MerkleProof`](TODO(end)): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
 - Gnosis Safe:
   - `Enum` ([v1.3.0](TODO(end)), [v1.4.1](TODO(end))): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
