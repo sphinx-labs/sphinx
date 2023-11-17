@@ -47,7 +47,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      *         Includes a conservative 40k buffer to cover the cost of the refund modifier
      *         which is not included in the gas usage calculation.
      */
-    modifier refund {
+    modifier refund() {
         uint256 start = gasleft();
         _;
         uint256 spent = start - gasleft() + 42000;
@@ -101,11 +101,11 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      * @param  _data The data that will be sent.
      * @return bytes The return value of the underlying call.
      */
-    function exec(address _to, bytes calldata _data) public payable nonReentrant refund returns (bytes memory) {
-        require(
-            hasRole(RELAYER_ROLE, msg.sender),
-            "ManagedService: invalid caller"
-        );
+    function exec(
+        address _to,
+        bytes calldata _data
+    ) public payable nonReentrant refund returns (bytes memory) {
+        require(hasRole(RELAYER_ROLE, msg.sender), "ManagedService: invalid caller");
         require(_to != address(0), "ManagedService: target is address(0)");
 
         // slither-disable-next-line arbitrary-send-eth

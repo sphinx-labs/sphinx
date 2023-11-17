@@ -98,12 +98,12 @@
 //         assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
 //     }
 
-//     function assertAuthBundleCompleted(uint256 _expectedNumLeafs, bytes32 _authRoot) internal {
+//     function assertAuthBundleCompleted(uint256 _expectedNumLeaves, bytes32 _authRoot) internal {
 //         assertTrue(auth.firstProposalOccurred());
-//         (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(_authRoot);
+//         (AuthStatus status, uint256 leavesExecuted, uint256 numLeaves) = auth.authStates(_authRoot);
 //         assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-//         assertEq(numLeafs, _expectedNumLeafs);
-//         assertEq(leafsExecuted, numLeafs);
+//         assertEq(numLeaves, _expectedNumLeaves);
+//         assertEq(leavesExecuted, numLeaves);
 //         assertFalse(manager.isExecuting());
 //     }
 
@@ -148,7 +148,7 @@
 
 //             assertAuthContractInitialized();
 
-//             // Three leafs were executed: `setup`, `propose`, and `approveDeployment`.
+//             // Three leaves were executed: `setup`, `propose`, and `approveDeployment`.
 //             assertAuthBundleCompleted(3, authRoot);
 
 //             // Check that the contract was deployed correctly.
@@ -197,7 +197,7 @@
 //             // chain ID matches the expected testnet's chain ID.
 //             assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
 
-//             // Two leafs were executed: `propose` and `approveDeployment`
+//             // Two leaves were executed: `propose` and `approveDeployment`
 //             assertAuthBundleCompleted(2, authRoot);
 
 //             // Check that the contract was deployed correctly.
@@ -273,7 +273,7 @@
 //             // chain ID matches the expected testnet's chain ID.
 //             assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
 
-//             // Three leafs were executed: `propose`, `upgradeManagerAndAuth`, and
+//             // Three leaves were executed: `propose`, `upgradeManagerAndAuth`, and
 //             // `approveDeployment`.
 //             assertAuthBundleCompleted(3, authRoot);
 
@@ -327,7 +327,7 @@
 //             // chain ID matches the expected testnet's chain ID.
 //             assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-//             // Three leafs were executed: `propose`, `cancelActiveDeployment`, and
+//             // Three leaves were executed: `propose`, `cancelActiveDeployment`, and
 //             // `approveDeployment`.
 //             assertAuthBundleCompleted(3, authRoot);
 

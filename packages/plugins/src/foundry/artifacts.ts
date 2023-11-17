@@ -77,12 +77,12 @@ export const writeDeploymentArtifacts = async (
             data
           )
 
-          const { _leafsWithProofs } = recursivelyConvertResult(
+          const { _leavesWithProofs } = recursivelyConvertResult(
             executeActionsFragment.inputs,
             decodedResult
           ) as any
 
-          return _leafsWithProofs.some((a) => {
+          return _leavesWithProofs.some((a) => {
             return a.leaf.index === BigInt(action.index)
           })
         }

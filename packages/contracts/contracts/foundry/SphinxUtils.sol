@@ -9,18 +9,10 @@ import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.so
 import { SphinxModule } from "../core/SphinxModule.sol";
 import { SphinxModuleProxyFactory } from "../core/SphinxModuleProxyFactory.sol";
 import {
-    RawSphinxAction,
-    SphinxActionType,
-    SphinxTarget,
-    Version,
-    AuthLeaf,
     SphinxLeafWithProof,
     SphinxLeaf
 } from "../core/SphinxDataTypes.sol";
 import {
-    BundledSphinxAction,
-    SphinxActionBundle,
-    SphinxTargetBundle,
     SphinxBundle,
     DeploymentInfo,
     HumanReadableAction,
@@ -150,28 +142,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return address(uint160(uint256(ownerBytes32)));
     }
 
-    function getDeploymentId(
-        SphinxActionBundle memory _actionBundle,
-        SphinxTargetBundle memory _targetBundle,
-        string memory _configUri
-    ) external pure returns (bytes32) {
-        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
-            _actionBundle.actions
-        );
-
-        return
-            keccak256(
-                abi.encode(
-                    _actionBundle.root,
-                    _targetBundle.root,
-                    numInitialActions,
-                    numSetStorageActions,
-                    _targetBundle.targets.length,
-                    _configUri
-                )
-            );
-    }
-
     function create2Deploy(bytes memory _creationCode) public returns (address) {
         address addr = computeCreate2Address(
             bytes32(0),
@@ -254,23 +224,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return wallets;
     }
 
-    /**
-     * @notice Splits up a bundled action into its components
-     */
-    function disassembleActions(
-        BundledSphinxAction[] memory actions
-    ) public pure returns (RawSphinxAction[] memory, bytes32[][] memory) {
-        RawSphinxAction[] memory rawActions = new RawSphinxAction[](actions.length);
-        bytes32[][] memory _proofs = new bytes32[][](actions.length);
-        for (uint256 i = 0; i < actions.length; i++) {
-            BundledSphinxAction memory action = actions[i];
-            rawActions[i] = action.action;
-            _proofs[i] = action.siblings;
-        }
-
-        return (rawActions, _proofs);
-    }
-
     function decodeExecutionLeafData(
         SphinxLeaf memory leaf
     )
@@ -303,21 +256,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
      */
     function findMaxBatchSize(
-        SphinxLeafWithProof[] memory leafs,
+        SphinxLeafWithProof[] memory leaves,
         uint256 maxGasLimit
     ) public pure returns (uint256) {
         // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(leafs, maxGasLimit)) {
-            return leafs.length;
+        if (executable(leaves, maxGasLimit)) {
+            return leaves.length;
         }
 
         // If the full batch isn't executavle, then do a binary search to find the largest
         // executable batch size
         uint256 min = 0;
-        uint256 max = leafs.length;
+        uint256 max = leaves.length;
         while (min < max) {
             uint256 mid = ceilDiv((min + max), 2);
-            SphinxLeafWithProof[] memory left = inefficientSlice(leafs, 0, mid);
+            SphinxLeafWithProof[] memory left = inefficientSlice(leaves, 0, mid);
             if (executable(left, maxGasLimit)) {
                 min = mid;
             } else {
@@ -341,98 +294,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return bytes32(uint256(uint160(_addr)));
     }
 
-    function getNumActions(
-        BundledSphinxAction[] memory _actions
-    ) public pure returns (uint256, uint256) {
-        uint256 numInitialActions = 0;
-        uint256 numSetStorageActions = 0;
-        for (uint256 i = 0; i < _actions.length; i++) {
-            SphinxActionType actionType = _actions[i].action.actionType;
-            if (
-                actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                actionType == SphinxActionType.CALL
-            ) {
-                numInitialActions += 1;
-            } else if (actionType == SphinxActionType.SET_STORAGE) {
-                numSetStorageActions += 1;
-            }
-        }
-        return (numInitialActions, numSetStorageActions);
-    }
-
     function filterActionsOnNetwork(
-        SphinxLeafWithProof[] memory leafs
+        SphinxLeafWithProof[] memory leaves
     ) external view returns (SphinxLeafWithProof[] memory) {
-        uint256 numLeafsOnNetwork = 0;
-        for (uint256 i = 0; i < leafs.length; i++) {
-            if (leafs[i].leaf.chainId == block.chainid) {
-                numLeafsOnNetwork += 1;
+        uint256 numLeavesOnNetwork = 0;
+        for (uint256 i = 0; i < leaves.length; i++) {
+            if (leaves[i].leaf.chainId == block.chainid) {
+                numLeavesOnNetwork += 1;
             }
         }
 
-        SphinxLeafWithProof[] memory leafsOnNetwork = new SphinxLeafWithProof[](numLeafsOnNetwork);
+        SphinxLeafWithProof[] memory leavesOnNetwork = new SphinxLeafWithProof[](
+            numLeavesOnNetwork
+        );
         uint256 leafIndex = 0;
-        for (uint256 i = 0; i < leafs.length; i++) {
-            if (leafs[i].leaf.chainId == block.chainid) {
-                leafsOnNetwork[leafIndex] = leafs[i];
+        for (uint256 i = 0; i < leaves.length; i++) {
+            if (leaves[i].leaf.chainId == block.chainid) {
+                leavesOnNetwork[leafIndex] = leaves[i];
                 leafIndex += 1;
             }
         }
 
-        return leafsOnNetwork;
-    }
-
-    function removeExecutedActions(
-        BundledSphinxAction[] memory _actions,
-        uint256 _actionsExecuted
-    ) external pure returns (BundledSphinxAction[] memory) {
-        uint256 numActionsToExecute = 0;
-        for (uint256 i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (action.action.index >= _actionsExecuted) {
-                numActionsToExecute += 1;
-            }
-        }
-
-        BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](
-            numActionsToExecute
-        );
-        uint256 filteredArrayIndex = 0;
-        for (uint256 i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (action.action.index >= _actionsExecuted) {
-                filteredActions[filteredArrayIndex] = action;
-                filteredArrayIndex += 1;
-            }
-        }
-        return filteredActions;
-    }
-
-    function splitActions(
-        BundledSphinxAction[] memory _actions
-    ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
-        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actions);
-
-        BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](numInitialActions);
-        BundledSphinxAction[] memory setStorageActions = new BundledSphinxAction[](
-            numSetStorageActions
-        );
-        uint256 initialActionArrayIndex = 0;
-        uint256 setStorageArrayIndex = 0;
-        for (uint256 i = 0; i < _actions.length; i++) {
-            BundledSphinxAction memory action = _actions[i];
-            if (
-                action.action.actionType == SphinxActionType.DEPLOY_CONTRACT ||
-                action.action.actionType == SphinxActionType.CALL
-            ) {
-                initialActions[initialActionArrayIndex] = action;
-                initialActionArrayIndex += 1;
-            } else if (action.action.actionType == SphinxActionType.SET_STORAGE) {
-                setStorageActions[setStorageArrayIndex] = action;
-                setStorageArrayIndex += 1;
-            }
-        }
-        return (initialActions, setStorageActions);
+        return leavesOnNetwork;
     }
 
     function getCodeSize(address _addr) external view returns (uint256) {
@@ -1040,7 +923,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint _threshold
     ) public pure returns (bytes memory safeInitializerData) {
-        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
+        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(
+            sphinxModuleProxyFactoryAddress
+        );
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)
@@ -1087,7 +972,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         GnosisSafeProxyFactory safeProxyFactory = GnosisSafeProxyFactory(safeFactoryAddress);
-        address proxy = address(safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0));
+        address proxy = address(
+            safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, 0)
+        );
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {

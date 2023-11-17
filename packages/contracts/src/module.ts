@@ -52,14 +52,14 @@ export type SphinxTransaction = {
 // TODO(md)
 export interface SphinxBundle {
   root: string
-  leafs: LeafWithProof[]
+  leaves: LeafWithProof[]
 }
 
 // TODO(md)
-export const makeSphinxLeafs = (
+export const makeSphinxLeaves = (
   deploymentData: Record<number, NetworkDeploymentData>
 ): Array<SphinxLeaf> => {
-  const merkleLeafs: Array<SphinxLeaf> = []
+  const merkleLeaves: Array<SphinxLeaf> = []
 
   const coder = AbiCoder.defaultAbiCoder()
 
@@ -79,14 +79,14 @@ export const makeSphinxLeafs = (
     )
 
     // push approval leaf
-    merkleLeafs.push({
+    merkleLeaves.push({
       chainId: BigInt(chainId),
       index: BigInt(0),
       leafType: LeafType.APPROVE,
       data: approvalData,
     })
 
-    // push transaction leafs
+    // push transaction leaves
     let index = BigInt(1)
     for (const tx of data.txs) {
       // generate transaction leaf data
@@ -102,7 +102,7 @@ export const makeSphinxLeafs = (
         ]
       )
 
-      merkleLeafs.push({
+      merkleLeaves.push({
         chainId: BigInt(chainId),
         index,
         leafType: LeafType.EXECUTE,
@@ -113,23 +113,23 @@ export const makeSphinxLeafs = (
     }
   }
 
-  return merkleLeafs
+  return merkleLeaves
 }
 
 export const makeSphinxMerkleTree = (
-  leafs: Array<SphinxLeaf>
+  leaves: Array<SphinxLeaf>
 ): {
   root: string
-  leafsWithProofs: Array<LeafWithProof>
+  leavesWithProofs: Array<LeafWithProof>
 } => {
-  const rawLeafArray = leafs.map((leaf) => [Object.values(leaf)])
+  const rawLeafArray = leaves.map((leaf) => [Object.values(leaf)])
   const tree = StandardMerkleTree.of(rawLeafArray, [
     'tuple(uint256, uint256, uint8, bytes)',
   ])
 
   return {
     root: tree.root,
-    leafsWithProofs: leafs.map((leaf) => {
+    leavesWithProofs: leaves.map((leaf) => {
       const leafWithProof = {
         leaf,
         proof: tree.getProof([Object.values(leaf)]),
@@ -143,7 +143,7 @@ export const makeSphinxMerkleTree = (
 export const makeSphinxBundle = (
   deploymentData: DeploymentData
 ): SphinxBundle => {
-  const leafs = makeSphinxLeafs(deploymentData)
-  const { root, leafsWithProofs } = makeSphinxMerkleTree(leafs)
-  return { root, leafs: leafsWithProofs }
+  const leaves = makeSphinxLeaves(deploymentData)
+  const { root, leavesWithProofs } = makeSphinxMerkleTree(leaves)
+  return { root, leaves: leavesWithProofs }
 }

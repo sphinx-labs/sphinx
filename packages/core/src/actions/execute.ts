@@ -10,7 +10,7 @@ import {
 
 import { DeploymentState, DeploymentStatus, HumanReadableAction } from './types'
 import { getGasPriceOverrides } from '../utils'
-import { getTargetNetworkLeafs } from './bundle'
+import { getTargetNetworkLeaves } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
 import { decodeExecuteLeafData } from '../fund'
 
@@ -40,17 +40,17 @@ export const executeDeployment = async (
   const gasFraction = 2n
   const maxGasLimit = blockGasLimit / gasFraction
 
-  // filter for only leafs for the target network
-  const networkLeafs = getTargetNetworkLeafs(
+  // filter for only leaves for the target network
+  const networkLeaves = getTargetNetworkLeaves(
     await (
       await provider.getNetwork()
     ).chainId,
-    bundle.leafs
+    bundle.leaves
   )
 
   // execute the auth leaf with signatures
   // TODO - call through the managed service contract
-  const authLeaf = networkLeafs[0]
+  const authLeaf = networkLeaves[0]
   const packedSignatures = ethers.solidityPacked(
     signatures.map(() => 'bytes'),
     signatures
@@ -77,10 +77,10 @@ export const executeDeployment = async (
     ).wait()
   )
 
-  // execute the rest of the leafs
+  // execute the rest of the leaves
   logger?.info(`[Sphinx]: executing actions...`)
   const { status, failureAction } = await executeBatchActions(
-    networkLeafs,
+    networkLeaves,
     module,
     managedService,
     maxGasLimit,
@@ -111,22 +111,22 @@ export const executeDeployment = async (
  * @returns Maximum number of actions that can be executed.
  */
 const findMaxBatchSize = async (
-  leafs: LeafWithProof[],
+  leaves: LeafWithProof[],
   maxGasLimit: bigint
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(leafs, maxGasLimit)) {
-    return leafs.length
+  if (await executable(leaves, maxGasLimit)) {
+    return leaves.length
   }
 
   // If the full batch size isn't executable, then we need to perform a binary search to find the
   // largest batch size that is actually executable.
   let min = 0
-  let max = leafs.length
+  let max = leaves.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(leafs.slice(0, mid), maxGasLimit)) {
+    if (await executable(leaves.slice(0, mid), maxGasLimit)) {
       min = mid
     } else {
       max = mid - 1
@@ -149,7 +149,7 @@ const findMaxBatchSize = async (
  * @param actions List of actions to execute.
  */
 const executeBatchActions = async (
-  leafs: LeafWithProof[],
+  leaves: LeafWithProof[],
   module: ethers.Contract,
   managedService: ethers.Contract,
   maxGasLimit: bigint,
@@ -167,8 +167,8 @@ const executeBatchActions = async (
   let state: DeploymentState = await module.deployments(activeRoot)
 
   // Remove the actions that have already been executed.
-  const filtered = leafs.filter((leaf) => {
-    return leaf.leaf.index >= state.leafsExecuted
+  const filtered = leaves.filter((leaf) => {
+    return leaf.leaf.index >= state.leavesExecuted
   })
 
   // We can return early if there are no actions to execute.

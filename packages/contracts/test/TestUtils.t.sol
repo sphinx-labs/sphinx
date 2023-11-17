@@ -6,8 +6,6 @@ import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import {
-    SphinxMerkleTree,
-    SphinxTransaction,
     SphinxLeafWithProof
 } from "../contracts/core/SphinxDataTypes.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
@@ -104,6 +102,20 @@ contract TestUtils is SphinxUtils, Enum {
         uint256 safeTxGas;
     }
 
+    struct SphinxTransaction {
+        address to;
+        uint256 value;
+        bytes txData;
+        Enum.Operation operation;
+        uint256 gas;
+        bool requireSuccess;
+    }
+
+    struct SphinxMerkleTree {
+        bytes32 root;
+        SphinxLeafWithProof[] leaves;
+    }
+
     // TODO(docs): wallets must be sorted in ascending order according to their addresses.
     function signSafeTransaction(
         Wallet[] memory _ownerWallets,
@@ -148,8 +160,8 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[8] = _treeInputs.deploymentUri;
         inputs[9] = vm.toString(abi.encode(_treeInputs.txs));
         inputs[10] = vm.toString(_treeInputs.arbitraryChain);
-        inputs[11] = vm.toString(_treeInputs.forceNumLeafsValue);
-        inputs[12] = vm.toString(_treeInputs.overridingNumLeafsValue);
+        inputs[11] = vm.toString(_treeInputs.forceNumLeavesValue);
+        inputs[12] = vm.toString(_treeInputs.overridingNumLeavesValue);
         inputs[13] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
         inputs[14] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
@@ -170,8 +182,8 @@ contract TestUtils is SphinxUtils, Enum {
         address safeProxy;
         string deploymentUri;
         bool arbitraryChain;
-        bool forceNumLeafsValue;
-        uint256 overridingNumLeafsValue;
+        bool forceNumLeavesValue;
+        uint256 overridingNumLeavesValue;
         bool forceApprovalLeafIndexNonZero;
     }
 
@@ -179,7 +191,7 @@ contract TestUtils is SphinxUtils, Enum {
     struct ModuleInputs {
         bytes32 merkleRoot;
         SphinxLeafWithProof approvalLeafWithProof;
-        SphinxLeafWithProof[] executionLeafsWithProofs;
+        SphinxLeafWithProof[] executionLeavesWithProofs;
         bytes ownerSignatures;
     }
 
@@ -189,19 +201,19 @@ contract TestUtils is SphinxUtils, Enum {
         SphinxMerkleTree memory tree = getMerkleTreeFFI(_treeInputs);
 
         bytes32 merkleRoot = tree.root;
-        SphinxLeafWithProof memory approvalLeafWithProof = tree.leafs[0];
-        SphinxLeafWithProof[] memory executionLeafsWithProofs = new SphinxLeafWithProof[](
-            tree.leafs.length - 1
+        SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
+        SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
+            tree.leaves.length - 1
         );
-        for (uint256 i = 1; i < tree.leafs.length; i++) {
-            executionLeafsWithProofs[i - 1] = tree.leafs[i];
+        for (uint256 i = 1; i < tree.leaves.length; i++) {
+            executionLeavesWithProofs[i - 1] = tree.leaves[i];
         }
         bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
         return
             ModuleInputs(
                 merkleRoot,
                 approvalLeafWithProof,
-                executionLeafsWithProofs,
+                executionLeavesWithProofs,
                 ownerSignatures
             );
     }

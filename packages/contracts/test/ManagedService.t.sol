@@ -76,7 +76,16 @@ contract ManagedService_Test is Test {
 
     function test_RevertIfUnderlyingCallRevertsWithCustomError() external {
         vm.startPrank(sender);
-        vm.expectRevert(abi.encodeWithSelector(Endpoint.CustomError.selector, 10, address(1), address(2), address(3), bytes32(uint(1))));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Endpoint.CustomError.selector,
+                10,
+                address(1),
+                address(2),
+                address(3),
+                bytes32(uint(1))
+            )
+        );
         service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doRevertCustom.selector));
     }
 

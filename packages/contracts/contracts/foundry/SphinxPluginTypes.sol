@@ -2,47 +2,19 @@
 pragma solidity ^0.8.0;
 
 import {
-    SphinxTarget,
-    RawSphinxAction,
-    SphinxActionType,
-    Version,
-    AuthLeaf,
-    AuthLeafType,
     SphinxLeafType,
     SphinxLeaf,
     SphinxLeafWithProof
 } from "../core/SphinxDataTypes.sol";
 
-struct SphinxActionBundle {
-    bytes32 root;
-    BundledSphinxAction[] actions;
-}
-
-struct SphinxTargetBundle {
-    bytes32 root;
-    BundledSphinxTarget[] targets;
-}
-
-struct BundledSphinxAction {
-    RawSphinxAction action;
-    uint256 gas;
-    bytes32[] siblings;
-}
-
-struct BundledSphinxTarget {
-    SphinxTarget target;
-    bytes32[] siblings;
-}
-
 struct HumanReadableAction {
     string reason;
     uint256 actionIndex;
-    SphinxActionType actionType;
 }
 
 struct SphinxBundle {
     bytes32 root;
-    SphinxLeafWithProof[] leafs;
+    SphinxLeafWithProof[] leaves;
 }
 
 struct FoundryConfig {
@@ -144,7 +116,7 @@ struct DeploymentInfo {
     address executorAddress;
     uint256 nonce;
     uint256 chainId;
-    bytes   safeInitData;
+    bytes safeInitData;
     bool requireSuccess;
     SphinxConfig newConfig;
     bool isLiveNetwork;
@@ -265,14 +237,6 @@ struct ProposalOutput {
 contract SphinxPluginTypes {
     function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfoArray) {}
 
-    function bundledActionsType()
-        external
-        pure
-        returns (BundledSphinxAction[] memory bundledActions)
-    {}
-
-    function targetBundleType() external pure returns (SphinxTargetBundle memory targetBundle) {}
-
     function humanReadableActionsType()
         external
         pure
@@ -295,4 +259,17 @@ contract SphinxPluginTypes {
 struct Wallet {
     uint256 privateKey;
     address addr;
+}
+
+/**
+ * @notice Version number as a struct.
+ *
+ * @custom:field major Major version number.
+ * @custom:field minor Minor version number.
+ * @custom:field patch Patch version number.
+ */
+struct Version {
+    uint256 major;
+    uint256 minor;
+    uint256 patch;
 }

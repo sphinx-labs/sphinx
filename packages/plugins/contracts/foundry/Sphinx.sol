@@ -6,18 +6,11 @@ import {console} from "sphinx-forge-std/console.sol";
 
 import {ISphinxAccessControl} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
 import {
-    Version,
     DeploymentStatus,
-    RawSphinxAction,
-    SphinxActionType,
-    AuthLeafType,
     DeploymentState,SphinxLeafWithProof
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import { SphinxModule } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 import {
-    BundledSphinxAction,
-    SphinxTarget,
-    BundledSphinxTarget,
     SphinxBundle,
     HumanReadableAction,
     Network,
@@ -258,25 +251,25 @@ abstract contract Sphinx {
      */
     function sphinxExecuteBatchActions(
         SphinxModule _module,
-        SphinxLeafWithProof[] memory _leafs,
+        SphinxLeafWithProof[] memory _leaves,
         uint256 _bufferedGasLimit
     ) private returns (bool, uint256) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeRoot = _module.activeMerkleRoot();
 
         // We can return early if there are no actions to execute (outside the approval action).
-        if (_leafs.length == 1) {
+        if (_leaves.length == 1) {
             return (true, 0);
         }
 
         // The first leaf is always the auth leaf which we execute separately
         uint256 executed = 1;
-        while (executed < _leafs.length) {
+        while (executed < _leaves.length) {
             // Figure out the maximum number of actions that can be executed in a single batch
             uint256 maxGasLimit = _bufferedGasLimit - ((_bufferedGasLimit) * 20) / 100;
             uint256 batchSize =
-                sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length), maxGasLimit);
-            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leafs, executed, executed + batchSize);
+                sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leaves, executed, _leaves.length), maxGasLimit);
+            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leaves, executed, executed + batchSize);
 
             DeploymentStatus status = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
             // TODO - do something with the status
@@ -298,18 +291,18 @@ abstract contract Sphinx {
         // Define an empty action, which we'll return if the deployment succeeds.
         HumanReadableAction memory emptyAction;
 
-        // Filter out any leafs that aren't intended to be executed on this network
-        SphinxLeafWithProof[] memory leafs = sphinxUtils.filterActionsOnNetwork(_bundle.leafs);
+        // Filter out any leaves that aren't intended to be executed on this network
+        SphinxLeafWithProof[] memory leaves = sphinxUtils.filterActionsOnNetwork(_bundle.leaves);
 
         // The auth leaf is always first
-        SphinxLeafWithProof memory authLeaf = leafs[0];
+        SphinxLeafWithProof memory authLeaf = leaves[0];
 
         // Execute auth leaf
         _module.approve{gas: 1000000}(_bundle.root, authLeaf, _signatures);
 
         // Execute the rest of the actions
         uint256 bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
-        sphinxExecuteBatchActions(_module, leafs, bufferedGasLimit);
+        sphinxExecuteBatchActions(_module, leaves, bufferedGasLimit);
 
         // TODO - handle outputting something useful if the deployment fails
         //        maybe do something with HumanReadableAction wrt to this
@@ -390,7 +383,7 @@ abstract contract Sphinx {
     ) private {
         (, address msgSender,) = vm.readCallers();
 
-        if (_bundle.leafs.length == 0) {
+        if (_bundle.leaves.length == 0) {
             console.log(string(abi.encodePacked("Sphinx: Nothing to execute on ", _networkName, ". Exiting early.")));
             return;
         }
@@ -404,14 +397,14 @@ abstract contract Sphinx {
         console.logAddress(sphinxModule());
 
         (
-            uint256 numLeafs,
-            uint256 leafsExecuted,
+            uint256 numLeaves,
+            uint256 leavesExecuted,
             string memory uri,
             address executor,
             DeploymentStatus status,
         ) = _module.deployments(_root);
 
-        if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
+        if (numLeaves == leavesExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
             console.log(
                 string(
                     abi.encodePacked("Sphinx: Deployment was already completed on ", _networkName, ". Exiting early.")

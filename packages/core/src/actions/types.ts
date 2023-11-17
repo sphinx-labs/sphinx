@@ -136,11 +136,11 @@ export interface BundledAuthLeafWithPrettyLeaf extends BundledAuthLeaf {
 }
 
 /**
- * Bundle of auth leafs.
+ * Bundle of auth leaves.
  */
 export interface AuthLeafBundle {
   root: string
-  leafs: BundledAuthLeaf[]
+  leaves: BundledAuthLeaf[]
 }
 
 /**
@@ -155,8 +155,8 @@ export interface SphinxTargetBundle {
  * The state of a Sphinx bundle.
  */
 export type DeploymentState = {
-  numLeafs: bigint
-  leafsExecuted: bigint
+  numLeaves: bigint
+  leavesExecuted: bigint
   uri: string
   executor: string
   status: bigint
@@ -237,15 +237,15 @@ export const AuthStatus = {
 
 export type AuthState = {
   status: typeof AuthStatus
-  leafsExecuted: bigint
-  numLeafs: bigint
+  leavesExecuted: bigint
+  numLeaves: bigint
 }
 
 export interface Setup extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SETUP
   leafTypeEnum: bigint
   proposers: Array<SetRoleMember>
-  numLeafs: number
+  numLeaves: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
@@ -319,7 +319,7 @@ export interface CancelActiveDeployment extends BaseAuthLeaf {
 interface Propose extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.PROPOSE
   leafTypeEnum: bigint
-  numLeafs: number
+  numLeaves: number
 }
 
 export type AuthLeaf =

@@ -330,7 +330,7 @@ export const propose = async (
 
     const {} = bundleInfo.compilerConfigs
 
-    bundleInfo.bundle.leafs
+    bundleInfo.bundle.leaves
 
     let estimatedGas = 0
     estimatedGas += actionInputs
@@ -359,7 +359,7 @@ export const propose = async (
     }
   }
 
-  const emptyBundle = bundleInfo.bundle.leafs.length === 0
+  const emptyBundle = bundleInfo.bundle.leaves.length === 0
   if (emptyBundle) {
     spinner.succeed(
       `Skipping proposal because there is nothing to propose on any chain.`

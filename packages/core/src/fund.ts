@@ -14,7 +14,7 @@ export const estimateExecutionGas = async (
   bundle: SphinxBundle,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const gas = bundle.leafs
+  const gas = bundle.leaves
     .slice(actionsExecuted)
     .map((action) => {
       const values = decodeExecuteLeafData(action.leaf.data)

@@ -1,7 +1,7 @@
 ## Safe Module Merkle Tree Bundling Logic
 
 ### Goal
-A function that transforms an arbitrary set of transactions on an arbitrary set of networks into a Merkle Tree which is executable by the SphinxModule. See the SphinxModule Merkle Tree spec for more detail on the exact structure and content of the Merkle tree and its leafs.
+A function that transforms an arbitrary set of transactions on an arbitrary set of networks into a Merkle Tree which is executable by the SphinxModule. See the SphinxModule Merkle Tree spec for more detail on the exact structure and content of the Merkle tree and its leaves.
 
 ### Secondary Goals
 - Simple and auditable
@@ -22,6 +22,6 @@ Accepts an object where the keys are canonical chain ids and the values are depl
 - data: Arbitrary calldata to forward to the safe.
 
 ### Output
-A `StandardMerkleTree` from the `@openzeppelin/merkle-tree` library with leafs that match the SphinxModule Merkle tree spec. In addition to that, the `StandardMerkleTree` should contain leafs which are ordered by chain id ascending and index ascending starting with the approval leaf for each chain.
+A `StandardMerkleTree` from the `@openzeppelin/merkle-tree` library with leaves that match the SphinxModule Merkle tree spec. In addition to that, the `StandardMerkleTree` should contain leaves which are ordered by chain id ascending and index ascending starting with the approval leaf for each chain.
 
-So for example, if we intend to run some set of transactions on Goerli (5), OP Goerli (420), and Polygon Mumbai (80001). Then the leafs are expected to be ordered with the approval leaf for Goerli first, then all of the transaction leafs on Goerli in ascending order, then the approval leaf for OP Goerli, then all the transaction leafs on OP Goerli in ascending order, and so on.
+So for example, if we intend to run some set of transactions on Goerli (5), OP Goerli (420), and Polygon Mumbai (80001). Then the leaves are expected to be ordered with the approval leaf for Goerli first, then all of the transaction leaves on Goerli in ascending order, then the approval leaf for OP Goerli, then all the transaction leaves on OP Goerli in ascending order, and so on.

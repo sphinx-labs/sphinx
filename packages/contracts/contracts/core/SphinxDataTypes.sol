@@ -3,12 +3,11 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 
-// TODO(docs): in this entire file
-
 /**
- * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
- *               can be executed.
- * @custom:value EXECUTE Execute a transaction within a deployment.
+ * @custom:value APPROVE Approve a new deployment on a chain. This leaf must be submitted in the
+ *               `approve` function on the `SphinxModuleProxy`.
+ * @custom:value EXECUTE Execute a transaction in the deployment. These leaves must be submitted in
+ *               the `execute` function on the `SphinxModuleProxy`.
  */
 enum SphinxLeafType {
     APPROVE,
@@ -16,10 +15,12 @@ enum SphinxLeafType {
 }
 
 /**
+ * @notice A Merkle leaf.
+ *
  * @custom:field chainId  The current chain ID.
  * @custom:field index    The index of the leaf within the Merkle tree on this chain.
  * @custom:field leafType The type of the leaf.
- * @custom:field data     Arbitrary data to be decoded based on the leaf type.
+ * @custom:field data     Arbitrary data that is ABI encoded based on the leaf type.
  */
 struct SphinxLeaf {
     uint256 chainId;
@@ -28,28 +29,40 @@ struct SphinxLeaf {
     bytes data;
 }
 
-struct SphinxTransaction {
-    address to;
-    uint256 value;
-    bytes txData;
-    Enum.Operation operation;
-    uint256 gas;
-    bool requireSuccess;
-}
-
-struct SphinxMerkleTree {
-    bytes32 root;
-    SphinxLeafWithProof[] leafs;
-}
-
+/**
+ * @custom:field leaf  A Merkle leaf.
+ * @custom:field proof The Merkle leaf's proof.
+ */
 struct SphinxLeafWithProof {
     SphinxLeaf leaf;
     bytes32[] proof;
 }
 
+/**
+ * @notice The deployment state that corresponds to a Merkle root.
+ *
+ * @custom:field numLeaves       The total number of leaves in the Merkle tree on the current chain.
+ *                              There must be at least one leaf (the `APPROVE` leaf).
+ * @custom:field leavesExecuted  The number of Merkle leaves that have been executed on the current
+ *                              chain for the current Merkle root.
+ * @custom:field uri            The IPFS URI of the deployment. This contains information such as
+ *                              the Solidity compiler inputs, which allow the executor to verify
+ *                              the user's smart contracts on Etherscan. This can be an empty string
+ *                              if there is only a single leaf on the current network (the `APPROVE`
+ *                              leaf).
+ * @custom:field executor       The address of the caller, which is the only account that is allowed
+ *                              to execute the deployment.
+ * @custom:field status         The status of the deployment.
+ * @custom:field arbitraryChain If this is `true`, the Merkle root can be executed on any chain
+ *                              without the explicit permission of the Gnosis Safe owners. This is
+ *                              useful if the owners want their system to be permissionlessly
+ *                              deployed on new chains. By default, this is disabled, which means
+ *                              that the Gnosis Safe owners must explicitly approve the deployment
+ *                              on individual chains.
+ */
 struct DeploymentState {
-    uint256 numLeafs;
-    uint256 leafsExecuted;
+    uint256 numLeaves;
+    uint256 leavesExecuted;
     string uri;
     address executor;
     DeploymentStatus status;
@@ -57,55 +70,16 @@ struct DeploymentState {
 }
 
 /**
- * @notice Struct representing a Sphinx action.
+ * @notice Enum that represents the status of the deployment for a Merkle root.
  *
- * @custom:field actionType The type of action.
- * @custom:field index The unique index of the action in the deployment. Actions must be executed in
- *    ascending order according to their index.
- * @custom:field data The ABI-encoded data associated with the action.
- */
-struct RawSphinxAction {
-    SphinxActionType actionType;
-    uint256 index;
-    bytes data;
-}
-
-/**
- * @notice Struct representing a target.
- *
- * @custom:field addr The address of the proxy associated with this target.
- * @custom:field implementation The address that will be the proxy's implementation at the end of
- *    the deployment.
- * @custom:field contractKindHash The hash of the contract kind associated with this contract.
- */
-struct SphinxTarget {
-    address payable addr;
-    address implementation;
-    bytes32 contractKindHash;
-}
-
-/**
- * @notice Enum representing possible action types.
- *
- * @custom:value SET_STORAGE Set a storage slot value in a proxy contract.
- * @custom:value DEPLOY_CONTRACT Deploy a contract.
- * @custom:value CALL Execute a low-level call on an address.
- */
-enum SphinxActionType {
-    SET_STORAGE,
-    DEPLOY_CONTRACT,
-    CALL
-}
-
-/**
- * @notice Enum representing the status of the deployment. These steps occur in sequential order,
- *    with the `CANCELLED` status being an exception.
- *
- * @custom:value EMPTY The deployment does not exist.
- * @custom:value APPROVED The deployment has been approved by the Gnosis Safe owner(s).
- * @custom:value COMPLETED The deployment has been completed.
- * @custom:value CANCELLED The deployment has been cancelled by the Gnosis Safe owner(s).
- * @custom:value FAILED The deployment has failed due to a transaction reverting.
+ * @custom:value EMPTY     The deployment does not exist.
+ * @custom:value APPROVED  The Merkle root has been approved by the Gnosis Safe owners, and the
+ *                         `approve` function has been called on the `SphinxModuleProxy`. This
+ *                         Merkle root is now "active".
+ * @custom:value COMPLETED The deployment has been completed on this network.
+ * @custom:value CANCELLED The deployment has been canceled by the Gnosis Safe owner(s).
+ * @custom:value FAILED    The deployment has failed due to a transaction reverting in the Gnosis
+ *                         Safe.
  */
 enum DeploymentStatus {
     EMPTY,
@@ -113,92 +87,4 @@ enum DeploymentStatus {
     COMPLETED,
     CANCELLED,
     FAILED
-}
-
-/**
- * @notice Version number as a struct.
- *
- * @custom:field major Major version number.
- * @custom:field minor Minor version number.
- * @custom:field patch Patch version number.
- */
-struct Version {
-    uint256 major;
-    uint256 minor;
-    uint256 patch;
-}
-
-struct RegistrationInfo {
-    Version version;
-    address owner;
-    bytes managerInitializerData;
-}
-
-/**
- * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
- *    authenticated action taken by a permissioned account such as an owner or proposer.
- *
- * @custom:field chainId The chain ID for the leaf to be executed on.
- * @custom:field to The address that is the subject of the data in this leaf. This should always be
- *                  a SphinxManager.
- * @custom:field index The index of the leaf. Each index must be unique on a chain, and start from
- *                  zero. Leafs must be executed in ascending order according to their index. This
- *                  makes it possible to ensure that leafs in an Auth tree will be executed in a
- *                  certain order, e.g. creating a proposal then approving it.
- */
-struct AuthLeaf {
-    uint256 chainId;
-    address to;
-    uint256 index;
-    bytes data;
-}
-
-/**
- * @notice Struct representing the state of an auth Merkle tree.
- *
- * @custom:field status The status of the auth Merkle tree.
- * @custom:field leafsExecuted The number of auth leafs that have been executed.
- * @custom:field numLeafs The total number of leafs in the auth Merkle tree on a chain.
- */
-struct AuthState {
-    AuthStatus status;
-    uint256 leafsExecuted;
-    uint256 numLeafs;
-}
-
-enum AuthStatus {
-    EMPTY,
-    SETUP,
-    PROPOSED,
-    COMPLETED
-}
-
-struct SetRoleMember {
-    address member;
-    bool add;
-}
-
-struct DeploymentApproval {
-    bytes32 actionRoot;
-    bytes32 targetRoot;
-    uint256 numInitialActions;
-    uint256 numSetStorageActions;
-    uint256 numTargets;
-    string configUri;
-    bool remoteExecution;
-}
-
-enum AuthLeafType {
-    SETUP,
-    PROPOSE,
-    EXPORT_PROXY,
-    SET_OWNER,
-    SET_THRESHOLD,
-    TRANSFER_MANAGER_OWNERSHIP,
-    UPGRADE_MANAGER_IMPLEMENTATION,
-    UPGRADE_AUTH_IMPLEMENTATION,
-    UPGRADE_MANAGER_AND_AUTH_IMPL,
-    SET_PROPOSER,
-    APPROVE_DEPLOYMENT,
-    CANCEL_ACTIVE_DEPLOYMENT
 }

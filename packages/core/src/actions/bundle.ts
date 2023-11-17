@@ -80,11 +80,11 @@ export const getDeployContractActions = (
     .filter(isDeployContractAction)
 }
 
-export const getTargetNetworkLeafs = (
+export const getTargetNetworkLeaves = (
   chainId: bigint,
-  leafs: Array<LeafWithProof>
+  leaves: Array<LeafWithProof>
 ): Array<LeafWithProof> => {
-  return leafs.filter((leaf) => leaf.leaf.chainId === chainId)
+  return leaves.filter((leaf) => leaf.leaf.chainId === chainId)
 }
 
 /**
@@ -251,7 +251,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     case AuthLeafFunctions.SETUP:
       return coder.encode(
         ['tuple(address member, bool add)[]', 'uint256'],
-        [leaf.proposers, leaf.numLeafs]
+        [leaf.proposers, leaf.numLeaves]
       )
 
     case AuthLeafFunctions.EXPORT_PROXY:
@@ -304,7 +304,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     /****************************** PROPOSER ACTIONS ******************************/
 
     case AuthLeafFunctions.PROPOSE:
-      return coder.encode(['uint256'], [leaf.numLeafs])
+      return coder.encode(['uint256'], [leaf.numLeaves])
 
     default:
       throw Error(`Unknown auth leaf type. Should never happen.`)
@@ -379,25 +379,25 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
 }
 
 /**
- * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
+ * Generates a bundle of auth leaves. Effectively encodes the inputs that will be provided to the
  * SphinxAuth contract.
  *
- * @param leafs Series of auth leafs.
- * @return Bundled leafs.
+ * @param leaves Series of auth leaves.
+ * @return Bundled leaves.
  */
-export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
-  if (leafs.length === 0) {
+export const makeAuthBundle = (leaves: Array<AuthLeaf>): AuthLeafBundle => {
+  if (leaves.length === 0) {
     return {
       root: ethers.ZeroHash,
-      leafs: [],
+      leaves: [],
     }
   }
 
-  // Sort the leafs in ascending order, prioritizing the `chainId` field first and then the `index`
+  // Sort the leaves in ascending order, prioritizing the `chainId` field first and then the `index`
   // field. Specifically, it sorts the array in ascending order based on chainId; if two elements
   // have the same chainId, it further sorts them based on the ascending order of their `index`
   // value.
-  const sorted = leafs.sort((a, b) => {
+  const sorted = leaves.sort((a, b) => {
     // First compare the chainId fields
     if (a.chainId < b.chainId) {
       return -1
@@ -410,7 +410,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     return a.index - b.index
   })
 
-  // Turn the "nice" leaf structs into raw leafs.
+  // Turn the "nice" leaf structs into raw leaves.
   const leafPairs = sorted.map((leaf) => {
     return {
       leaf: toRawAuthLeaf(leaf),
@@ -430,7 +430,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
 
   return {
     root: root !== '0x' ? root : ethers.ZeroHash,
-    leafs: leafPairs.map((pair) => {
+    leaves: leafPairs.map((pair) => {
       const { leaf, prettyLeaf } = pair
       return {
         leaf,
@@ -513,16 +513,16 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 /**
  * @notice Gets the bundled leaf for a given chain-specific index and chain ID.
  *
- * @param bundledLeafs List of bundled leafs.
+ * @param bundledLeaves List of bundled leaves.
  * @param index Index of the leaf on the specified chain.
  * @param chainId Chain ID of the leaf.
  */
 export const findBundledLeaf = (
-  bundledLeafs: Array<BundledAuthLeaf>,
+  bundledLeaves: Array<BundledAuthLeaf>,
   index: bigint,
   chainId: bigint
 ): BundledAuthLeaf => {
-  const leaf = bundledLeafs.find(
+  const leaf = bundledLeaves.find(
     ({ leaf: l }) => l.index === index && l.chainId === chainId
   )
   if (!leaf) {
@@ -538,16 +538,16 @@ export const getProjectDeploymentForChain = (
 ): ProjectDeployment | undefined => {
   const { newConfig, initialState, chainId } = compilerConfig
 
-  const approvalLeafs = bundle.leafs.filter(
+  const approvalLeaves = bundle.leaves.filter(
     (l) =>
       l.leaf.leafType === LeafType.APPROVE && l.leaf.chainId === BigInt(chainId)
   )
 
-  if (approvalLeafs.length === 0) {
+  if (approvalLeaves.length === 0) {
     return undefined
-  } else if (approvalLeafs.length > 1) {
+  } else if (approvalLeaves.length > 1) {
     throw new Error(
-      `Found multiple approval leafs for chain ${chainId}. Should never happen.`
+      `Found multiple approval leaves for chain ${chainId}. Should never happen.`
     )
   }
 

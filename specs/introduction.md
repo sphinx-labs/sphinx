@@ -44,4 +44,4 @@ graph LR
 
 This Merkle tree contains a deployment on two chains. There are three transactions for each deployment.
 
-You'll notice that each Merkle leaf has an index. On any given chain, the Merkle leafs must be executed in ascending order according to their indexes.
+You'll notice that each Merkle leaf has an index. On any given chain, the Merkle leaves must be executed in ascending order according to their indexes.

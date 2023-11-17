@@ -5,7 +5,7 @@ import { ethers } from 'ethers'
 import {
   DeploymentData,
   SphinxTransaction,
-  makeSphinxLeafs,
+  makeSphinxLeaves,
   makeSphinxMerkleTree,
 } from '../src/module'
 import { recursivelyConvertResult } from '../src/utils'
@@ -19,8 +19,8 @@ const moduleProxy = argv[6]
 const deploymentURI = argv[7]
 const abiEncodedTxs = argv[8]
 const arbitraryChain = argv[9] === 'true'
-const forceNumLeafsValue = argv[10] === 'true'
-const overridingNumLeafsValue = argv[11]
+const forceNumLeavesValue = argv[10] === 'true'
+const overridingNumLeavesValue = argv[11]
 const forceApprovalLeafIndexNonZero = argv[12] === 'true'
 
 ;(async () => {
@@ -58,16 +58,16 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
     },
   }
 
-  const leafs = makeSphinxLeafs(deploymentData)
+  const leaves = makeSphinxLeaves(deploymentData)
 
-  if (forceNumLeafsValue) {
-    leafs[0].data = coder.encode(
+  if (forceNumLeavesValue) {
+    leaves[0].data = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
         safeProxy,
         moduleProxy,
         nonce,
-        overridingNumLeafsValue, // Override the `numLeafs`
+        overridingNumLeavesValue, // Override the `numLeaves`
         executor,
         deploymentURI,
         arbitraryChain,
@@ -75,13 +75,13 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
     )
   }
   if (forceApprovalLeafIndexNonZero) {
-    leafs[0].index = 1n
+    leaves[0].index = 1n
   }
 
-  const { root, leafsWithProofs } = makeSphinxMerkleTree(leafs)
+  const { root, leavesWithProofs } = makeSphinxMerkleTree(leaves)
 
   const abiEncodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
-    [root, leafsWithProofs],
+    [root, leavesWithProofs],
   ])
 
   process.stdout.write(abiEncodedMerkleTree)
