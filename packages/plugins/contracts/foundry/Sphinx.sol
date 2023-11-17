@@ -10,10 +10,10 @@ import {
     DeploymentStatus,
     RawSphinxAction,
     SphinxActionType,
-    AuthLeafType
+    AuthLeafType,
+    DeploymentState,SphinxLeafWithProof
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
-import {DeploymentState, SphinxModule, Result} from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
-import {SphinxLeafWithProof} from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
+import { SphinxModule } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 import {
     BundledSphinxAction,
     SphinxTarget,
@@ -33,10 +33,10 @@ import {
 import { SphinxCollector } from "./SphinxCollector.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
-import { GnosisSafe } from "@gnosis.pm/safe-contracts/GnosisSafe.sol";
+import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import {
     GnosisSafeProxyFactory
-} from "@gnosis.pm/safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+} from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -278,8 +278,8 @@ abstract contract Sphinx {
                 sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leafs, executed, _leafs.length), maxGasLimit);
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leafs, executed, executed + batchSize);
 
-            Result[] memory results = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
-            // TODO - do something with the results
+            DeploymentStatus status = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
+            // TODO - do something with the status
 
             // Move to next batch if necessary
             executed += batchSize;
@@ -305,7 +305,7 @@ abstract contract Sphinx {
         SphinxLeafWithProof memory authLeaf = leafs[0];
 
         // Execute auth leaf
-        _module.approve{gas: 1000000}(_bundle.root, authLeaf.leaf, authLeaf.proof, _signatures);
+        _module.approve{gas: 1000000}(_bundle.root, authLeaf, _signatures);
 
         // Execute the rest of the actions
         uint256 bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
@@ -408,7 +408,7 @@ abstract contract Sphinx {
             uint256 leafsExecuted,
             string memory uri,
             address executor,
-            DeploymentStatus status
+            DeploymentStatus status,
         ) = _module.deployments(_root);
 
         if (numLeafs == leafsExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
