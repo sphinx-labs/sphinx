@@ -50,18 +50,18 @@ We've included a flow chart that explains the deployment process in more detail:
 
 ```mermaid
 graph TD
-    style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
-    style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
-    style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
+    style C fill:#cccc66,stroke:#cccc00,stroke-width:2px
+    style B fill:#66cc66,stroke:#00cc00,stroke-width:2px
+    style F fill:#cc6666,stroke:#cc0000,stroke-width:2px
     style I fill:#6699cc,stroke:#336699,stroke-width:2px
     Z["approve(...)"] --> H[Is there an existing deployment?]
     H -->|Yes| I[Cancel existing deployment]
-    H -->|No| A[Is there one leaf in the new merkle tree for the current chain?]
+    H -->|No| A[Is there one leaf in the new Merkle tree for the current chain?]
     I -->A
     A -->|Yes| B[Completed]
     A -->|No| C[Approved]
     C --> D["execute(...)"]
-    D --> E[Did the Safe txn fail and does the leaf specify that it must succeed?]
+    D --> E[Did the Gnosis Safe transaction fail?]
     E -->|Yes| F[Failed]
     E -->|No| G[Are there any more leafs to execute for the current chain in this deployment?]
     G -->|Yes| D
@@ -78,7 +78,7 @@ graph TD
 - The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](TODO(end)).
 - It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy` that is also owned by the Gnosis Safe.[^2]
-- All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](TODO(end)).
+- All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](TODO(end)).
 
 ## Function-Level Invariants
 
@@ -161,19 +161,17 @@ graph TD
 
 ## Assumptions
 
-### Executor
-
-It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
-
-#### Buggy Executor
+### Buggy Executor
 
 A buggy executor can:
 * Wait an arbitrary amount of time to approve or execute a deployment that has been signed by the Gnosis Safe owners.
   * Remedy: The Gnosis Safe owners can [cancel the deployment](TODO(end)) at any time.
 * Partially execute a deployment.
-  * Remedy: Users can batch critical actions into a single call using `Multicall`(TODO(end)) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
+  * Remedy: Users can batch critical actions into a single call using [`Multicall`](TODO(end)) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
 
-#### Malicious Executor
+### Malicious Executor
+
+_Note_: It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
 
 A malicious executor is subject to the same two limitations as a buggy executor. In addition, a malicious executor can take advantage of its privilege as the sole executor of a deployment. There are a variety of ways that it can do this.
 
@@ -181,7 +179,7 @@ Some examples:
 * If a deployment relies on the state of an existing smart contract, and if the executor is able to
    manipulate the state of that smart contract, then it could be possible for the executor to
    execute the deployment in a manner that is detrimental to the user. For example, say a deployment
-   relies on `existingContract.myBoolean() == true`, otherwise it fails. if the executor is able to
+   relies on `existingContract.myBoolean() == true`, otherwise it fails. If the executor is able to
    set `existingContract.myBoolean() == false`, then the deployment will fail.
 * The executor can interact with a contract in the same transaction that it's deployed, which can be
    an "unfair advantage" for the executor. For example, if a deployed contract has an open token
@@ -207,7 +205,7 @@ The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library 
   - [`MerkleProof`](TODO(end)): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
 - Gnosis Safe:
   - `Enum` ([v1.3.0](TODO(end)), [v1.4.1](TODO(end))): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
-  - [`GnosisSafe`](TODO(end): link to our list of supported Safes): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
+  - [`GnosisSafe`](TODO(end)): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
 
 ## Footnotes
 
