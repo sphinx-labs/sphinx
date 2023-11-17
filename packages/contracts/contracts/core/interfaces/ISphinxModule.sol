@@ -2,8 +2,6 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import { SphinxLeafWithProof, DeploymentStatus } from "../SphinxDataTypes.sol";
-// TODO(end): replace with IGnosisSafe
-import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 
 /**
  * @notice The interface of the `SphinxModule` contract.
@@ -35,7 +33,7 @@ interface ISphinxModule {
      * @param executor           The address of the caller.
      * @param numLeaves          The total number of leaves in the Merkle tree on the current chain.
      * @param uri                The IPFS URI of the deployment. This contains information such as
-     *                           the Solidity compiler inputs, which allows the executor to verify
+     *                           the Solidity compiler inputs, which allow the executor to verify
      *                           the user's smart contracts on Etherscan. This can be an empty
      *                           string if there is only a single leaf on the current network (the
      *                           `APPROVE` leaf).
@@ -50,9 +48,9 @@ interface ISphinxModule {
     );
 
     /**
-     * @notice Emitted when an active Merkle root is cancelled by the Gnosis Safe owners.
+     * @notice Emitted when an active Merkle root is canceled by the Gnosis Safe owners.
      *
-     * @param merkleRoot The Merkle root of the deployment that was cancelled.
+     * @param merkleRoot The Merkle root of the deployment that was canceled.
      */
     event SphinxDeploymentCancelled(bytes32 indexed merkleRoot);
 
@@ -149,7 +147,7 @@ interface ISphinxModule {
     function initialize(address _safeProxy) external;
 
     /**
-     * @notice The Gnosis Safe proxy that corresponds to this contract.
+     * @notice The address of the Gnosis Safe proxy that this contract belongs to.
      */
-    function safeProxy() external view returns (GnosisSafe);
+    function safeProxy() external view returns (address payable);
 }

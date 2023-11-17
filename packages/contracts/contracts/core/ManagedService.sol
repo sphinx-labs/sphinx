@@ -7,10 +7,11 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
 /**
  * @title ManagedService
  * @notice Contract controlled by the Sphinx managed service. This contract is used by
-           the managed service to remotely execute deployments.
-           Users can opt in to this functionality if they choose to do so.
+ *         the managed service to remotely execute deployments. Users can opt into this
+ *         functionality if they choose to do so.
  */
 contract ManagedService is AccessControl, ReentrancyGuard {
+
     /**
      * @notice Role required to make calls through this contract.
      */
@@ -42,7 +43,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     event Deposited(address indexed sender, uint256 amount);
 
     /**
-     * @notice A modifer that refunds the caller for the gas spent in the function call.
+     * @notice A modifier that refunds the caller for the gas spent in the function call.
      *
      *         Includes a conservative 40k buffer to cover the cost of the refund modifier
      *         which is not included in the gas usage calculation.
@@ -92,13 +93,14 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Allows for the relayers to make arbitrary calls using this contract. The relayers will
-     *         be automatically refunded for the gas spent in the call.
+     * @notice Allows for the relayers to make arbitrary calls using this contract. The relayers
+     *         will be automatically refunded for the gas spent on the call.
      *
      *         If the underlying call reverts, then we decode and forward the revert reason.
      *
      * @param  _to   The target address.
      * @param  _data The data that will be sent.
+     *
      * @return bytes The return value of the underlying call.
      */
     function exec(

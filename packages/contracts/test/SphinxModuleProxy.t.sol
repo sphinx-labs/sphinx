@@ -163,7 +163,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _gnosisSafeAddresses.safeProxyFactory
         ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
 
-        safeProxy = GnosisSafe(payable(address(deployedSafeProxy)));
+        safeProxy = payable(address(deployedSafeProxy));
         moduleProxy = SphinxModule(
             moduleProxyFactory.computeSphinxModuleProxyAddress(
                 address(safeProxy),
@@ -1209,9 +1209,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             keccak256(abi.encode(TYPE_HASH, _moduleInputs.merkleRoot))
         );
         vm.expectCall(
-            address(safeProxy),
+            safeProxy,
             abi.encodePacked(
-                safeProxy.checkSignatures.selector,
+                GnosisSafe(safeProxy).checkSignatures.selector,
                 abi.encode(keccak256(typedData), typedData, _moduleInputs.ownerSignatures)
             )
         );

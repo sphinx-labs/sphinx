@@ -10,7 +10,7 @@ Sphinx is a protocol that aims to make the smart contract deployment process mor
 
 ## Architecture Overview
 
-Most teams use a multisig wallet to approve permissioned actions. We wanted teams to be able to approve deployments from their multisig as well, so we built our protocol on top of Gnosis Safe. Our primary on-chain component is a [Safe Module](TODO(end)), which allows us to use our own signature verification mechanism that's tailored for deployments (details below).
+Most teams use a multisig wallet to approve permissioned actions. We wanted teams to be able to approve deployments from their multisig as well, so we built our protocol on top of Gnosis Safe. Our primary on-chain component is a [Safe Module](TODO(end)), which allows us to use our own signature verification mechanism that's designed for deployments (details below).
 
 When a set of Gnosis Safe owners approve a deployment with Sphinx, they sign a 32-byte hash of the deployment using a meta transaction. This hash is the root of a [Merkle tree](TODO(end)). We use a Merkle tree because it provides an efficient and secure way to trustlessly execute large deployments across many chains.
 

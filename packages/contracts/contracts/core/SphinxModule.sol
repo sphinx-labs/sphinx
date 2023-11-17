@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
+// We import `GnosisSafe` v1.3.0 here, but this contract also supports `GnosisSafeL2.sol` (v1.3.0)
+// as well as `Safe.sol` and `SafeL2.sol` from Safe v1.4.1. All of these contracts share the same
+// interface for the functions used in this contract.
+import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -25,6 +28,7 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
  *         because it's considerably cheaper to deploy an EIP-1167 proxy than a `SphinxModule`.
  */
 contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
+
     /**
      * @inheritdoc ISphinxModule
      */
@@ -60,14 +64,14 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     /**
      * @inheritdoc ISphinxModule
      */
-    GnosisSafe public override safeProxy;
+    address payable public override safeProxy;
 
     /**
      * @inheritdoc ISphinxModule
      */
     function initialize(address _safeProxy) external override initializer {
         require(_safeProxy != address(0), "SphinxModule: invalid Safe address");
-        safeProxy = GnosisSafe(payable(_safeProxy));
+        safeProxy = payable(_safeProxy);
     }
 
     /**
@@ -168,7 +172,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
-        safeProxy.checkSignatures(keccak256(typedData), typedData, _signatures);
+        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
     /**
@@ -262,7 +266,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // revert. This could happen if the user supplies an extremely low `gas` value (e.g.
             // 1000).
             try
-                safeProxy.execTransactionFromModule{ gas: gas }(to, value, txData, operation)
+                GnosisSafe(safeProxy).execTransactionFromModule{ gas: gas }(to, value, txData, operation)
             returns (bool execSuccess) {
                 // The `execSuccess` returns whether or not the user's transaction reverted. We
                 // don't use a low-level call to make it easy to retrieve this value.
