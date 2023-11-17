@@ -147,11 +147,11 @@ graph TD
   - Must revert if the leaf data contains a nonce that does not equal the current nonce in the `SphinxModuleProxy`.
   - Must revert if the leaf data contains a `numLeaves` field that equals `0`.
   - Must revert if the leaf data contains an `executor` field that does not equal the caller's address.
-  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO(end)) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root cannot be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
   - Emit a `SphinxDeploymentApproved` event in the `SphinxModuleProxy`.
-  - Set all of the fields in the [`DeploymentState` struct](TODO(end)).
+  - Set all of the fields in the [`DeploymentState` struct](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L41-L70).
   - Increment the nonce in the `SphinxModuleProxy`.
 - If there is an existing active Merkle root in the `SphinxModuleProxy`, a successful call must also:
   - Set the `DeploymentStatus` of the _existing_ Merkle root to `CANCELLED`.
@@ -174,9 +174,9 @@ graph TD
 - For each element of the `_leavesWithProofs` array:
   - Must revert if the current Merkle leaf does not yield the active Merkle root, given the current Merkle proof.
   - Must revert if the current Merkle leaf's type does not equal `EXECUTE`.
-  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO(end)) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root cannot be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
   - Must revert if the current Merkle leaf is executed in the incorrect order (i.e. its index isn't correct).
-  - Must revert if the transaction has an [insufficient amount of gas](TODO(end)).
+  - Must revert if the transaction has an [insufficient amount of gas](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol#L241-L256).
   - A successful iteration must:
     - Increment the number of leaves executed for the active Merkle root by `1`.
     - Attempt to execute a transaction in the user's Gnosis Safe using the data in the current Merkle leaf.
@@ -210,9 +210,9 @@ graph TD
 
 A buggy executor can:
 * Wait an arbitrary amount of time to approve or execute a deployment that has been signed by the Gnosis Safe owners.
-  * Remedy: The Gnosis Safe owners can [cancel the deployment](TODO(end)) at any time.
+  * Remedy: The Gnosis Safe owners can cancel the deployment at any time.
 * Partially execute a deployment.
-  * Remedy: Users can batch critical actions into a single call using [`Multicall`](TODO(end)) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
+  * Remedy: Users can batch critical actions into a single call using [`Multicall`](https://github.com/mds1/multicall) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
 
 ### Malicious Executor
 
