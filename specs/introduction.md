@@ -45,3 +45,13 @@ graph LR
 This Merkle tree contains a deployment on two chains. There are three transactions for each deployment.
 
 You'll notice that each Merkle leaf has an index. On any given chain, the Merkle leaves must be executed in ascending order according to their indexes.
+
+## Supported Gnosis Safe Versions
+
+Sphinx supports two versions of Gnosis Safe, which each have two types of Gnosis Safe contracts: one for L1 and one for L2. The full list is below:
+- [Gnosis Safe v1.3.0](TODO(end)):
+  - [`GnosisSafe.sol`](TODO(end)): L1 Gnosis Safe
+  - [`GnosisSafeL2.sol`](TODO(end)): L2 Gnosis Safe
+- [Gnosis Safe v1.4.1](TODO(end)):
+  - [`Safe.sol`](TODO(end)): L1 Gnosis Safe
+  - [`SafeL2.sol`](TODO(end)): L2 Gnosis Safe

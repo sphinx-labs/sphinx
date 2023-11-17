@@ -3,11 +3,12 @@
 The `SphinxModuleProxy` handles the deployment lifecycle for a Gnosis Safe. This includes verifying
 Gnosis Safe owner signatures and executing transactions through the Gnosis Safe. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
 
-A `SphinxModuleProxy` is a minimal, non-upgradeable [EIP-1167](TODO(end)) proxy that delegates calls
-to a `SphinxModule` implementation contract. In production, users will interact with a
-`SphinxModuleProxy` instead of the `SphinxModule` implementation contract, which is why this
-specification describes the expected behavior of the proxy. The implementation contract will be
-locked so that nobody can deploy directly through it.
+A `SphinxModuleProxy` is a minimal, non-upgradeable
+[EIP-1167](https://eips.ethereum.org/EIPS/eip-1167) proxy that delegates calls to a `SphinxModule`
+implementation contract. In production, users will interact with a `SphinxModuleProxy` instead of
+the `SphinxModule` implementation contract, which is why this specification describes the expected
+behavior of the proxy. The implementation contract will be locked so that nobody can deploy directly
+through it.
 
 **Vocabulary notes**:
 * An _executor_ is an address that has sole permission to execute a deployment in a Gnosis Safe. Normally, deployments will be executed by Sphinx's backend, but the Gnosis Safe owners can specify any executor that they'd like.
@@ -15,16 +16,27 @@ locked so that nobody can deploy directly through it.
 
 ## Table of Contents
 
-TODO(end)
+- [Relevant Files](#relevant-files)
+- [Overview](#overview)
+- [Merkle Leaf Types](#merkle-leaf-types)
+- [Deployment Process](#deployment-process)
+- [High-Level Invariants](#high-level-invariants)
+- [Function-Level Invariants](#function-level-invariants)
+- [Assumptions](#assumptions)
+  - [Buggy Executor](#buggy-executor)
+  - [Malicious Executor](#malicious-executor)
+  - [Malicious Gnosis Safe owner(s)](#malicious-gnosis-safe-owners)
+  - [Dependencies](#dependencies)
+- [Footnotes](#footnotes)
 
 ## Relevant Files
 
-- The interface: [`ISphinxModule.sol`](TODO(end))
-- The implementation contract: [`SphinxModule.sol`](TODO(end))
-- Unit tests: [`SphinxModuleProxy.t.sol`](TODO(end))
-- Key data structures: [`SphinxDataTypes.sol`](TODO(end))
+- The interface: [`ISphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/interfaces/ISphinxModule.sol)
+- The implementation contract: [`SphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol)
+- Unit tests: [`SphinxModuleProxy.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol)
+- Key data structures: [`SphinxDataTypes.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol)
 
-_Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](TODO(end)) for deploying EIP-1167 proxies.
+_Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Clones.sol) for deploying EIP-1167 proxies.
 
 ## Overview
 
@@ -44,7 +56,7 @@ Each leaf in the Merkle tree represents a single action on a single chain. There
 - **`APPROVE`**: Approve a new deployment on a chain. This leaf must be submitted in the `approve` function on the `SphinxModuleProxy`.
 - **`EXECUTE`**: Execute a transaction in the deployment. These leaves must be submitted in the `execute` function on the `SphinxModuleProxy`.
 
-On-chain, both leaf types are represented as a [`SphinxLeaf`](TODO(end)). You'll notice that the `SphinxLeaf` type has a `data` field, which is arbitrary data that's encoded based on the leaf type.
+On-chain, both leaf types are represented as a [`SphinxLeaf`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L17-L30). You'll notice that the `SphinxLeaf` type has a `data` field, which is arbitrary data that's encoded based on the leaf type.
 
 The `data` field of an `APPROVE` leaf consists of the following fields, which are ABI encoded:
 * `address safeProxy`: The address of the Gnosis Safe.
@@ -103,7 +115,7 @@ graph TD
 - The leaves in a Merkle tree must be submitted in ascending order on each chain according to the leaf's index.
 - The Gnosis Safe owners must be able to cancel an active Merkle root in the `SphinxModuleProxy`.
 - The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
-- The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](TODO(end)).
+- The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](#function-_getleafhashsphinxleaf-memory-_leaf-internal-pure-returns-bytes32).
 - It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy` that is also owned by the Gnosis Safe.[^2]
 - All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](TODO(end)).
 
