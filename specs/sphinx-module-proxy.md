@@ -53,7 +53,7 @@ graph TD
     style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
     style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
     style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
-    style I fill:#6699cc,stroke:#0066cc,stroke-width:2px
+    style I fill:#6699cc,stroke:#336699,stroke-width:2px
     Z["approve(...)"] --> H[Is there an existing deployment?]
     H -->|Yes| I[Cancel existing deployment]
     H -->|No| A[Is there one leaf in the new merkle tree for the current chain?]
