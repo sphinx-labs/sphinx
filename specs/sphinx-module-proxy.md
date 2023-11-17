@@ -31,14 +31,41 @@ _Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZ
 Here are the steps of a standard deployment:
 
 1. The Gnosis Safe owners sign a Merkle root off-chain with a meta transaction.
-2. The executor calls the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, and sets the Merkle root as "active".
-3. The executor calls the `execute` function on the Gnosis Safe's `SphinxModuleProxy`. The `SphinxModuleProxy` routes the user's transactions through the Gnosis Safe. This step may involve multiple transactions for larger deployments.
+2. The executor initiates the deployment by calling the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, and sets the Merkle root as "active".
+3. The executor submits the user's transactions by calling the `execute` function on the Gnosis Safe's `SphinxModuleProxy`, which forwards the calls to the Gnosis Safe. This step may involve multiple transactions for larger deployments.
 
-Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step. There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` contract at a time.
+Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step.
 
 **It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.**
 
-A Merkle root will always exist in one of the five following states:
+## Merkle Leaf Types
+
+Each leaf in the Merkle tree represents a single action on a single chain. There are two types of actions:
+- **`APPROVE`**: Approve a new deployment on a chain. This leaf must be submitted in the `approve` function on the `SphinxModuleProxy`.
+- **`EXECUTE`**: Execute a transaction in the deployment. These leafs must be submitted in the `execute` function on the `SphinxModuleProxy`.
+
+On-chain, both leaf types are represented as a [`SphinxLeaf`](TODO(end)). You'll notice that the `SphinxLeaf` type has a `data` field, which is arbitrary data that's encoded based on the leaf type.
+
+The `data` field of an `APPROVE` leaf consists of the following fields, which are ABI encoded:
+* `address safeProxy`: The address of the Gnosis Safe.
+* `address moduleProxy`: The address of the `SphinxModuleProxy` that is coordinating the deployment.
+* `uint256 nonce`: The nonce of the deployment in the `SphinxModuleProxy`.
+* `uint256 numLeafs`: The total number of leafs in the Merkle tree on the current chain. There must be at least one leaf (the `APPROVE` leaf).
+* `address executor`: The address of the caller, which is the only account that is allowed to execute the deployment.
+* `string uri`: The IPFS URI of the deployment. This contains information such as the Solidity compiler inputs, which allows the executor to verify the user's smart contracts on Etherscan. This can be an empty string if is only an `APPROVE` leaf (i.e. the deployment is empty).
+* `bool arbitraryChain`: If this is `true`, the Merkle root can be executed on any chain without the explicit permission of the Gnosis Safe owners. This is useful if the owners want their system to be permissionlessly deployed on new chains. By default, this is disabled, which means that the Gnosis Safe owners must explicitly approve the deployment on individual chains.
+
+The `data` field of an `EXECUTE` leaf primary contains data to forward to the Gnosis Safe. It consists of the following fields, which are ABI encoded:
+* `address to`: The target address of the transaction. This is _not_ the address of the Gnosis Safe.
+* `uint256 value`: The amount of native gas token to transfer from the Gnosis Safe to the target address. This value is not transferred from the `SphinxModuleProxy`.
+* `uint256 gas`: The amount of gas that is forwarded to the Gnosis Safe to execute the transaction.
+* `bytes txData`: The transaction's data.
+* `Enum.Operation operation`: The type of transaction to execute in the Gnosis Safe, i.e. `Call` or `DelegateCall`.
+* `bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment be marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails.
+
+## Deployment Process
+
+There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` contract at a time. A Merkle root will always exist in one of the five following states:
 
 1. **Empty**: The Merkle root has not been approved.
 2. **Approved**: The Merkle root has been approved by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
@@ -70,7 +97,7 @@ graph TD
 
 ## High-Level Invariants
 
-- There can only be one active Merkle root in a `SphinxModuleProxy` at a time.
+- There must be at most one active Merkle root in a `SphinxModuleProxy` at a time.
 - A Merkle root must contain at most one deployment per chain.
 - Each leaf in a Merkle tree must be submitted exactly once.
 - The leafs in a Merkle tree must be submitted in ascending order on each chain according to the leaf's index.
@@ -211,4 +238,4 @@ The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library 
 
 [^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root that has the same nonce, then approving it on-chain. This prevents the old Merkle root from ever being approved.
 
-[^2]: We prevent the same Merkle root from being approved in more than one `SphinxModuleProxy` by including the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and checking that this field matches the current address in the `SphinxModuleProxy`'s `approval` function.
+[^2]: We prevent the same Merkle root from being approved in more than one `SphinxModuleProxy` by including the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and checking that this field matches the current address in the `SphinxModuleProxy`'s `approve` function.
