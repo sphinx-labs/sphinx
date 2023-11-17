@@ -1,11 +1,10 @@
 # `SphinxModuleProxy` Contract Specification
 
 The `SphinxModuleProxy` handles the deployment lifecycle for a Gnosis Safe. This includes verifying
-Gnosis Safe owner signatures and executing transactions through the Gnosis Safe. There is one
-`SphinxModuleProxy` per Gnosis Safe.
+Gnosis Safe owner signatures and executing transactions through the Gnosis Safe. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
 
 A `SphinxModuleProxy` is a minimal, non-upgradeable [EIP-1167](TODO(end)) proxy that delegates calls
-to a `SphinxModule` implementation contract. In production, end users will interact with a
+to a `SphinxModule` implementation contract. In production, users will interact with a
 `SphinxModuleProxy` instead of the `SphinxModule` implementation contract, which is why this
 specification describes the expected behavior of the proxy. The implementation contract will be
 locked so that nobody can deploy directly through it.
@@ -25,7 +24,7 @@ TODO(end)
 - Unit tests: [`SphinxModuleProxy.t.sol`](TODO(end))
 - Key data structures: [`SphinxDataTypes.sol`](TODO(end))
 
-_Note:_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](TODO(end)) for deploying EIP-1167 proxies.
+_Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](TODO(end)) for deploying EIP-1167 proxies.
 
 ## Overview
 
@@ -33,9 +32,9 @@ Here are the steps of a standard deployment:
 
 1. The Gnosis Safe owners sign a Merkle root off-chain with a meta transaction.
 2. The executor calls the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, and sets the Merkle root as "active".
-3. The executor calls the `execute` function on the Gnosis Safe's `SphinxModuleProxy`. The `SphinxModuleProxy` routes the user's transactions through the Gnosis Safe. This step may involve multiple transactions for large deployments.
+3. The executor calls the `execute` function on the Gnosis Safe's `SphinxModuleProxy`. The `SphinxModuleProxy` routes the user's transactions through the Gnosis Safe. This step may involve multiple transactions for larger deployments.
 
-Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step. There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` at a time.
+Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step. There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` contract at a time.
 
 **It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.**
 
@@ -45,7 +44,7 @@ A Merkle root will always exist in one of the five following states:
 2. **Approved**: The Merkle root has been approved by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
 3. **Cancelled**: An active Merkle root that has been cancelled by the Gnosis Safe owners cannot ever be re-approved or executed.
 4. **Failed**: A Merkle root will fail if one of the transactions reverts in the Gnosis Safe. This prevents it from being re-approved or executed.
-5. **Completed**: A Merkle root is considered complete after all of the Merkle leafs have been executed on the target chain. This prevents it from being re-approved or executed.
+5. **Completed**: A Merkle root is considered complete after all of the Merkle leafs have been executed on the target chain. Completed Merkle roots can never be re-approved or executed.
 
 We've included a flow chart that explains the deployment process in more detail:
 
@@ -54,7 +53,7 @@ graph TD
     style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
     style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
     style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
-    style I fill:#99ccff,stroke:#0066cc,stroke-width:2px
+    style I fill:#6699cc,stroke:#0066cc,stroke-width:2px
     Z["approve(...)"] --> H[Is there an existing deployment?]
     H -->|Yes| I[Cancel existing deployment]
     H -->|No| A[Is there one leaf in the new merkle tree for the current chain?]
