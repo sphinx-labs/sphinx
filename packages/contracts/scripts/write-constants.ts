@@ -11,6 +11,7 @@ import {
   getGnosisSafeAddress,
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
+  getSphinxModuleImplAddress,
 } from '../src/addresses'
 import { GnosisSafeProxyArtifact, SphinxModuleArtifact } from '../src/ifaces'
 
@@ -47,6 +48,10 @@ const writeConstants = async () => {
     safeSingletonAddress: {
       type: 'address',
       value: getGnosisSafeAddress(),
+    },
+    sphinxModuleImplAddress: {
+      type: 'address',
+      value: getSphinxModuleImplAddress(),
     },
     safeProxyBytecode: {
       type: 'bytes',

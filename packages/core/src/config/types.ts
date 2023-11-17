@@ -85,6 +85,7 @@ export type ParsedConfig = {
   moduleAddress: string
   executorAddress: string
   safeInitData: string
+  safeInitSaltNonce: string
   nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
@@ -103,6 +104,7 @@ export type DeploymentInfo = {
   nonce: string
   chainId: string
   safeInitData: string
+  safeInitSaltNonce: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -145,7 +147,6 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   mainnets: Array<N>
   testnets: Array<N>
   threshold: string
-  version: SemVer
 }
 
 export interface RawDeployContractActionInput {

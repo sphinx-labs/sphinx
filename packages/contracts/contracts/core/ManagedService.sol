@@ -31,7 +31,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      * @param to       The address of the remote contract.
      * @param dataHash A keccak256 hash of the input data.
      */
-    event Called(address indexed relayer, address indexed to, bytes32 dataHash);
+    event Called(address indexed relayer, address indexed to, bytes32 indexed dataHash);
 
     /**
      * @notice Emitted when funds are transferred to this contract.
@@ -60,6 +60,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      *               multisig owned by the Sphinx team.
      */
     constructor(address _owner) {
+        require(_owner != address(0), "ManagedService: admin cannot be address(0)");
         _grantRole(bytes32(0), _owner);
     }
 

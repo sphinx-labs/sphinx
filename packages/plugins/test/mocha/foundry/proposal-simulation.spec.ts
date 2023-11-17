@@ -4,35 +4,18 @@ import { resolve } from 'path'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  CURRENT_SPHINX_MANAGER_VERSION,
   SphinxConfig,
   SphinxJsonRpcProvider,
   execAsync,
-  getAuthAddress,
-  getSphinxManagerAddress,
   spawnAsync,
-  AUTH_FACTORY_ADDRESS,
-  DEFAULT_CREATE3_ADDRESS,
   doDeterministicDeploy,
   getImpersonatedSigner,
-  getManagedServiceAddress,
-  getSphinxRegistry,
-  getSphinxRegistryAddress,
-  getSphinxRegistryReadOnly,
-  getSphinxManagerReadOnly,
   getEIP1967ProxyImplementationAddress,
-  getSphinxManagerImplAddress,
-  CURRENT_SPHINX_AUTH_VERSION,
-  getAuthImplAddress,
+  getBundleInfo,
 } from '@sphinx-labs/core'
 import {
-  AuthABI,
-  AuthArtifact,
-  AuthFactoryABI,
   EXECUTION_LOCK_TIME,
   OWNER_MULTISIG_ADDRESS,
-  SphinxManagerABI,
-  SphinxManagerArtifact,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
@@ -42,7 +25,10 @@ import {
   FoundryToml,
   getFoundryConfigOptions,
 } from '../../../src/foundry/options'
-import { getBundleInfoArray } from '../../../src/foundry/utils'
+import {
+  getSphinxModuleAddressFromScript,
+  getSphinxSafeAddressFromScript,
+} from '../../../src/foundry/utils'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -69,13 +55,12 @@ const sphinxConfig: SphinxConfig = {
   mainnets: [],
   testnets: ['goerli', 'optimism_goerli'],
   orgId: '1111',
-  version: CURRENT_SPHINX_MANAGER_VERSION,
 }
 
 describe('Simulate proposal', () => {
   let foundryToml: FoundryToml
-  let authAddress: string
-  let managerAddress: string
+  let moduleAddress: string
+  let safeAddress: string
   before(async () => {
     await execAsync('yarn test:kill')
 
@@ -84,14 +69,15 @@ describe('Simulate proposal', () => {
     exec('anvil --silent --chain-id 10200 --port 42200 &')
     exec('anvil --silent --chain-id 421613 --port 42613 &')
 
-    authAddress = getAuthAddress(
-      sphinxConfig.owners,
-      Number(sphinxConfig.threshold),
-      sphinxConfig.projectName
+    safeAddress = await getSphinxSafeAddressFromScript(
+      scriptPath,
+      'http://localhost:42005',
+      'Proposal_Initial_Test'
     )
-    managerAddress = getSphinxManagerAddress(
-      authAddress,
-      sphinxConfig.projectName
+    moduleAddress = await getSphinxModuleAddressFromScript(
+      scriptPath,
+      'http://localhost:42005',
+      'Proposal_Initial_Test'
     )
     foundryToml = await getFoundryConfigOptions()
   })
@@ -109,7 +95,8 @@ describe('Simulate proposal', () => {
       }
       const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-      expect(await provider.getCode(authAddress)).equals('0x')
+      expect(await provider.getCode(moduleAddress)).equals('0x')
+      expect(await provider.getCode(safeAddress)).equals('0x')
     }
 
     await testProposalSimulation('Proposal_Initial_Test', foundryToml)
@@ -140,189 +127,44 @@ describe('Simulate proposal', () => {
         }
         const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-        expect(await provider.getCode(authAddress)).does.not.equal('0x')
+        expect(await provider.getCode(moduleAddress)).does.not.equal('0x')
+        expect(await provider.getCode(safeAddress)).does.not.equal('0x')
       }
 
       await testProposalSimulation('Proposal_AddContract_Test', foundryToml)
     })
 
-    it('Simulates proposal for project that has a SphinxManager version upgrade', async () => {
-      let newAuthImplAddress: string | undefined
-      let newManagerImplAddressStandard: string | undefined
-      let newManagerImplAddressOptimismGoerli: string | undefined
-      for (const network of sphinxConfig.testnets) {
-        newAuthImplAddress = ''
-        const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
-        // Narrow the type of `rpcUrl` to string
-        if (!rpcUrl) {
-          throw new Error(`Could not find RPC. Should never happen.`)
-        }
-        const provider = new SphinxJsonRpcProvider(rpcUrl)
+    // it('Tests a proposal for a project with a previously failed deployment', async () => {
+    //   for (const network of sphinxConfig.testnets) {
+    //     const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
+    //     // Narrow the type of `rpcUrl` to string
+    //     if (!rpcUrl) {
+    //       throw new Error(`Could not find RPC. Should never happen.`)
+    //     }
 
-        const auth = new ethers.Contract(authAddress, AuthABI, provider)
-        const manager = getSphinxManagerReadOnly(managerAddress, provider)
-        const registry = getSphinxRegistryReadOnly(provider)
-        const authFactory = new ethers.Contract(
-          AUTH_FACTORY_ADDRESS,
-          AuthFactoryABI,
-          provider
-        )
+    //     // Run the test that that cancels a previous deployment. First, we set the storage value of the
+    //     // `activeDeploymentId` in the SphinxManager to be non-zero. This replicates what happens when a
+    //     // previous deployment is 'stuck' and needs to be cancelled.
+    //     await execAsync(
+    //       `cast rpc --rpc-url ${rpcUrl} anvil_setStorageAt ${managerAddress} 0x0000000000000000000000000000000000000000000000000000000000000099 0x1111111111111111111111111111111111111111111111111111111111111111`
+    //     )
+    //     // Bump the block number. Necessary to make the previous RPC methods take effect.
+    //     await execAsync(`cast rpc --rpc-url ${rpcUrl} anvil_mine`)
 
-        expect(await provider.getCode(authAddress)).does.not.equal('0x')
+    //     const provider = new SphinxJsonRpcProvider(rpcUrl)
+    //     const manager = getSphinxManagerReadOnly(managerAddress, provider)
+    //     const auth = new ethers.Contract(authAddress, AuthABI, provider)
+    //     expect(await manager.isExecuting()).equals(true)
+    //     expect(await auth.firstProposalOccurred()).equals(true)
+    //   }
 
-        const { newManagerImpl, newAuthImpl } = await deployNewVersion(provider)
-        newAuthImplAddress = newAuthImpl
-        if (network === 'optimism_goerli') {
-          newManagerImplAddressOptimismGoerli = newManagerImpl
-        } else {
-          newManagerImplAddressStandard = newManagerImpl
-        }
-
-        expect(await registry.managerImplementations(newManagerImpl)).equals(
-          true
-        )
-        expect(await authFactory.authImplementations(newAuthImpl)).equals(true)
-
-        const chainId = await provider.getNetwork().then((n) => n.chainId)
-        const currentManagerImpl = getSphinxManagerImplAddress(
-          chainId,
-          CURRENT_SPHINX_MANAGER_VERSION
-        )
-        const currentAuthImpl = getAuthImplAddress(CURRENT_SPHINX_AUTH_VERSION)
-
-        const authVersion: Array<bigint> = await auth.version()
-        const managerVersion: Array<bigint> = await manager.version()
-        const expectedAuthVersion = Object.values(
-          CURRENT_SPHINX_AUTH_VERSION
-        ).map((v) => BigInt(v))
-        const expectedManagerVersion = Object.values(
-          CURRENT_SPHINX_MANAGER_VERSION
-        ).map((v) => BigInt(v))
-        expect(authVersion).deep.equals(expectedAuthVersion)
-        expect(managerVersion).deep.equals(expectedManagerVersion)
-
-        expect(
-          await getEIP1967ProxyImplementationAddress(provider, authAddress)
-        ).equals(currentAuthImpl)
-        expect(
-          await getEIP1967ProxyImplementationAddress(provider, managerAddress)
-        ).equals(currentManagerImpl)
-      }
-
-      if (
-        !newAuthImplAddress ||
-        !newManagerImplAddressStandard ||
-        !newManagerImplAddressOptimismGoerli
-      ) {
-        throw new Error(
-          `Did not load upgraded impl addresses. Should never happen.`
-        )
-      }
-
-      process.env['SPHINX_INTERNAL__TEST_VERSION_UPGRADE'] = 'true'
-      await testProposalSimulation(
-        'Proposal_VersionUpgrade_Test',
-        foundryToml,
-        {
-          NEW_AUTH_IMPL_ADDR: newAuthImplAddress,
-          NEW_MANAGER_IMPL_ADDR_STANDARD: newManagerImplAddressStandard,
-          NEW_MANAGER_IMPL_ADDR_OPTIMISM_GOERLI:
-            newManagerImplAddressOptimismGoerli,
-        }
-      )
-    })
-
-    it('Tests a proposal for a project with a previously failed deployment', async () => {
-      for (const network of sphinxConfig.testnets) {
-        const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
-        // Narrow the type of `rpcUrl` to string
-        if (!rpcUrl) {
-          throw new Error(`Could not find RPC. Should never happen.`)
-        }
-
-        // Run the test that that cancels a previous deployment. First, we set the storage value of the
-        // `activeDeploymentId` in the SphinxManager to be non-zero. This replicates what happens when a
-        // previous deployment is 'stuck' and needs to be cancelled.
-        await execAsync(
-          `cast rpc --rpc-url ${rpcUrl} anvil_setStorageAt ${managerAddress} 0x0000000000000000000000000000000000000000000000000000000000000099 0x1111111111111111111111111111111111111111111111111111111111111111`
-        )
-        // Bump the block number. Necessary to make the previous RPC methods take effect.
-        await execAsync(`cast rpc --rpc-url ${rpcUrl} anvil_mine`)
-
-        const provider = new SphinxJsonRpcProvider(rpcUrl)
-        const manager = getSphinxManagerReadOnly(managerAddress, provider)
-        const auth = new ethers.Contract(authAddress, AuthABI, provider)
-        expect(await manager.isExecuting()).equals(true)
-        expect(await auth.firstProposalOccurred()).equals(true)
-      }
-
-      await testProposalSimulation(
-        'Proposal_CancelExistingDeployment_Test',
-        foundryToml
-      )
-    })
+    //   await testProposalSimulation(
+    //     'Proposal_CancelExistingDeployment_Test',
+    //     foundryToml
+    //   )
+    // })
   })
 })
-
-const deployNewVersion = async (
-  provider: SphinxJsonRpcProvider
-): Promise<{
-  newAuthImpl: string
-  newManagerImpl: string
-}> => {
-  const systemOwner = await getImpersonatedSigner(
-    OWNER_MULTISIG_ADDRESS,
-    provider
-  )
-
-  // Deploy new auth and manager implementations on all chains for testing upgrades
-  const NewManagerImplementation = await doDeterministicDeploy(provider, {
-    signer: systemOwner,
-    contract: {
-      abi: SphinxManagerABI,
-      bytecode: SphinxManagerArtifact.bytecode,
-    },
-    args: [
-      getSphinxRegistryAddress(),
-      DEFAULT_CREATE3_ADDRESS,
-      getManagedServiceAddress(
-        await provider.getNetwork().then((n) => n.chainId)
-      ),
-      EXECUTION_LOCK_TIME,
-      [9, 9, 9],
-    ],
-    salt: ethers.ZeroHash,
-  })
-
-  const NewAuthImplementation = await doDeterministicDeploy(provider, {
-    signer: systemOwner,
-    contract: {
-      abi: AuthABI,
-      bytecode: AuthArtifact.bytecode,
-    },
-    args: [[9, 9, 9]],
-    salt: ethers.ZeroHash,
-  })
-
-  const SphinxRegistry = getSphinxRegistry(systemOwner)
-  await (
-    await SphinxRegistry.addVersion(await NewManagerImplementation.getAddress())
-  ).wait()
-
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    systemOwner
-  )
-  await (
-    await AuthFactory.addVersion(await NewAuthImplementation.getAddress())
-  ).wait()
-
-  return {
-    newManagerImpl: await NewManagerImplementation.getAddress(),
-    newAuthImpl: await NewAuthImplementation.getAddress(),
-  }
-}
 
 const testProposalSimulation = async (
   testContractName: string,
@@ -331,13 +173,12 @@ const testProposalSimulation = async (
 ) => {
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
-    proposerAddress,
     isTestnet,
     testContractName,
     undefined // No spinner.
   )
 
-  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
+  const { root, bundleInfo, configUri } = await getBundleInfo(
     configArtifacts,
     parsedConfigArray
   )
@@ -348,24 +189,25 @@ const testProposalSimulation = async (
       `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
   const iface = new ethers.Interface(sphinxPluginTypesABI)
-  const bundleInfoArrayFragment = iface.fragments
+  const bundleInfoFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxBundleType')
-  if (!bundleInfoArrayFragment) {
+  if (!bundleInfoFragment) {
     throw new Error(`'sphinxBundleType' not found in ABI. Should never happen.`)
   }
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedBundleInfoArray = coder.encode(bundleInfoArrayFragment.outputs, [
-    bundleInfoArray,
+  const encodedBundleInfo = coder.encode(bundleInfoFragment.outputs, [
+    bundleInfo.bundle,
   ])
 
   const { code, stdout, stderr } = await spawnAsync(
     `forge`,
     ['test', '--match-contract', testContractName, '-vvvvv'],
     {
-      AUTH_ROOT: authRoot,
-      BUNDLE_INFO_ARRAY: encodedBundleInfoArray,
+      ROOT: root,
+      BUNDLE: encodedBundleInfo,
+      CONFIG_URI: configUri,
       ...envVars,
     }
   )
