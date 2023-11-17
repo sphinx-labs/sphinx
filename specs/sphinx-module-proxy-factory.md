@@ -16,7 +16,6 @@ TODO(end)
 - The interface: [`ISphinxModuleProxyFactory.sol`](TODO(end))
 - The contract: [`SphinxModuleProxyFactory.sol`](TODO(end))
 - Unit tests: [`SphinxModuleProxyFactory.t.sol`](TODO(end))
-- TODO(end): E2E tests?
 
 ## Use Cases
 
@@ -104,11 +103,3 @@ The `SphinxModuleProxyFactory` calls a couple external contracts. We test that t
 - OpenZeppelin's `Clones.sol` library vTODO(end), which deploys the `SphinxModuleProxy` contracts (via `Clones.cloneDeterministic`) and computes their addresses (via `Clones.predictDeterministicAddress`).
 - Gnosis Safe's `enableModule` function, which enables a `SphinxModuleProxy` within the user's Gnosis Safe.
 
-        // TODO(spec): we include the address of the safe in this leaf to protect against a
-        // vulnerability where you could attack a Safe with the same owners using a
-        // tree that was signed for a previous deployment through a different Safe.
-        // TODO(spec): We include the address of the `SphinxModule` to prevent a vulnerability where
-        // every deployment in a Safe could be re-executed if it adds a new SphinxModule after
-        // executing deployments in a different SphinxModule.
-
-TODO: explain arbitrary chain

@@ -3,6 +3,10 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 
+// TODO(docs): in this entire file
+// TODO(docs): the URI can be an empty string
+
+
 /**
  * @custom:value APPROVE Approve a deployment. This must occur before a deployment can
  *               can be executed.

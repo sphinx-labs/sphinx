@@ -1,53 +1,73 @@
 # `SphinxModuleProxy` Contract Specification
 
-TODO: explain why SphinxModuleProxy
+The `SphinxModuleProxy` handles the deployment lifecycle for a Gnosis Safe. This includes verifying
+Gnosis Safe owner signatures and executing transactions through the Gnosis Safe. There is one
+`SphinxModuleProxy` per Gnosis Safe.
 
-TODO: explain key data structures, e.g. whichever data structure has the numLeafs field
+A `SphinxModuleProxy` is a minimal, non-upgradeable [EIP-1167](TODO(end)) proxy that delegates calls
+to a `SphinxModule` implementation contract. In production, end users will interact with a
+`SphinxModuleProxy` instead of the `SphinxModule` implementation contract, which is why this
+specification describes the expected behavior of the proxy. The implementation contract will be
+locked so that nobody can deploy directly through it.
 
-The Merkle root is analogous to a Git commit hash in the sense that it encompasses a large amount of data into a single hash. Instead of
+**Vocabulary notes**:
+* An _executor_ is an address that has sole permission to execute a deployment in a Gnosis Safe. Normally, deployments will be executed by Sphinx's backend, but the Gnosis Safe owners can specify any executor that they'd like.
+* A _user_ is a set of Gnosis Safe owners. We use these terms interchangeably throughout this document.
 
-TODO: the URI can be an empty string
+## Table of Contents
 
-TODO: displayed from left to right to reduce the horizontal length of the tree
+TODO(end)
+
+## Relevant Files
+
+- The interface: [`ISphinxModuleProxy.sol`](TODO(end))
+- The implementation contract: [`SphinxModule.sol`](TODO(end))
+- Unit tests: [`SphinxModuleProxy.t.sol`](TODO(end))
+- Key data structures: [`SphinxDataTypes.sol`](TODO(end))
+
+_Note:_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](TODO(end)) for deploying EIP-1167 proxies.
+
+## Overview
+
+Here are the steps of a standard deployment:
+
+1. The Gnosis Safe owners sign a Merkle root off-chain with a meta transaction.
+2. The executor calls the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, and sets the Merkle root as "active".
+3. The executor calls the `execute` function on the Gnosis Safe's `SphinxModuleProxy`. The `SphinxModuleProxy` routes the user's transactions through the Gnosis Safe. This step may involve multiple transactions for large deployments.
+
+Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step. There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` at a time.
+
+**It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.**
+
+A Merkle root will always exist in one of the five following states:
+
+1. **Empty**: The Merkle root has not been approved.
+2. **Approved**: The Merkle root has been approved by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
+3. **Cancelled**: An active Merkle root that has been cancelled by the Gnosis Safe owners cannot ever be re-approved or executed.
+4. **Failed**: A Merkle root will fail if one of the transactions reverts in the Gnosis Safe. This prevents it from being re-approved or executed.
+5. **Completed**: A Merkle root is considered complete after all of the Merkle leafs have been executed on the target chain. This prevents it from being re-approved or executed.
+
+We've included a flow chart that explains the deployment process in more detail:
+
 ```mermaid
-graph LR
-    A[Root] --> B[Hash 1]
-    A[Root] --> C[Hash 2]
-    B[Hash 1] --> D[Hash 3]
-    B[Hash 1] --> E[Hash 4]
-    C[Hash 2] --> F[Hash 5]
-    C[Hash 2] --> G[Hash 6]
-    D[Hash 3] --> H["Approve: Chain ID: 5, Index: 0"]
-    D[Hash 3] --> I["Execute: Chain ID: 5, Index: 1, Data: 0xaa..."]
-    E[Hash 4] --> J["Execute: Chain ID: 5, Index: 2, Data: 0xbb..."]
-    E[Hash 4] --> K["Execute: Chain ID: 5, Index: 3, Data: 0xcc..."]
-    F[Hash 5] --> L["Approve: Chain ID: 420, Index: 0"]
-    F[Hash 5] --> M["Execute: Chain ID: 420, Index: 1, Data: 0xdd..."]
-    G[Hash 6] --> N["Execute: Chain ID: 420, Index: 2, Data: 0xee..."]
+graph TD
+    style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
+    style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
+    style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
+    style I fill:#99ccff,stroke:#0066cc,stroke-width:2px
+    Z["approve(...)"] --> H[Is there an existing deployment?]
+    H -->|Yes| I[Cancel existing deployment]
+    H -->|No| A[Is there one leaf in the new merkle tree for the current chain?]
+    I -->A
+    A -->|Yes| B[Completed]
+    A -->|No| C[Approved]
+    C --> D["execute(...)"]
+    D --> E[Did the Safe txn fail and does the leaf specify that it must succeed?]
+    E -->|Yes| F[Failed]
+    E -->|No| G[Are there any more leafs to execute for the current chain in this deployment?]
+    G -->|Yes| D
+    G -->|No| B
 ```
-
-    // ```mermaid
-    // graph TD
-    //     style C fill:#ffff99,stroke:#cccc00,stroke-width:2px
-    //     style B fill:#99ff99,stroke:#00cc00,stroke-width:2px
-    //     style F fill:#ff9999,stroke:#cc0000,stroke-width:2px
-    //     style I fill:#99ccff,stroke:#0066cc,stroke-width:2px
-    //     Z["approve(...)"] --> H[Is there an existing deployment?]
-    //     H -->|Yes| I[Cancel existing deployment]
-    //     H -->|No| A[Is there one leaf in the new merkle tree for the current chain?]
-    //     I -->A
-    //     A -->|Yes| B[Completed]
-    //     A -->|No| C[Approved]
-    //     C --> D["execute(...)"]
-    //     D --> E[Did the Safe txn fail and does the leaf specify that it must succeed?]
-    //     E -->|Yes| F[Failed]
-    //     E -->|No| G[Are there any more leafs to execute for the current chain in this
-    // deployment?]
-    //     G -->|Yes| D
-    //     G -->|No| B
-    // ```
-
-
 
 ## High-Level Invariants
 
@@ -56,8 +76,9 @@ graph LR
 - Each leaf in a Merkle tree must be submitted exactly once.
 - The leafs in a Merkle tree must be submitted in ascending order on each chain according to the leaf's index.
 - The Gnosis Safe owners must be able to cancel an active Merkle root in the `SphinxModuleProxy`.
-- The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`. (TODO(somewhere): explain how this is possible)
+- The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](TODO(end)).
+- It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy` that is also owned by the Gnosis Safe.[^2]
 - All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](TODO(end)).
 
 ## Function-Level Invariants
@@ -82,7 +103,7 @@ graph LR
   - Must revert if the leaf data contains a nonce that does not equal the current nonce in the `SphinxModuleProxy`.
   - Must revert if the leaf data contains a `numLeafs` field that equals `0`.
   - Must revert if the leaf data contains an `executor` field that does not equal the caller's address.
-  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO(end)) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
   - Emit a `SphinxDeploymentApproved` event in the `SphinxModuleProxy`.
@@ -109,13 +130,13 @@ graph LR
 - For each element of the `_leafsWithProofs` array:
   - Must revert if the current Merkle leaf does not yield the active Merkle root, given the current Merkle proof.
   - Must revert if the current Merkle leaf's type does not equal `EXECUTE`.
-  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root cannot be [executed on an arbitrary chain](TODO(end)) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
   - Must revert if the current Merkle leaf is executed in the incorrect order (i.e. its index isn't correct).
-  - Must revert if the transaction has an [insufficient amount of gas](TODO).
+  - Must revert if the transaction has an [insufficient amount of gas](TODO(end)).
   - A successful iteration must:
     - Increment the number of leafs executed for the active Merkle root by `1`.
     - Attempt to execute a transaction in the user's Gnosis Safe using the data in the current Merkle leaf.
-    - The call to the user's Gnosis Safe must never revert[TODO(^A)].
+    - The call to the user's Gnosis Safe must never revert.
       - Rationale: This would cause the user's deployment to be active indefinitely until they manually cancel it.
     - If the call to the Gnosis Safe is successful:
       - Must emit a `SphinxActionSucceeded` event in the `SphinxModuleProxy`.
@@ -139,44 +160,58 @@ graph LR
 - Must double-hash the ABI-encoded Merkle leaf.
   - Rationale: We double-hash to prevent second preimage attacks, as recommended by [OpenZeppelin's Merkle Tree library](https://github.com/OpenZeppelin/merkle-tree#standard-merkle-trees).
 
+## Assumptions
 
-// TODO(assumption): the executor cannot lose money on a deployment. We can assume this because
-// we have off-chain billing logic that ensures we're reimbursed for all deployment costs.
+### Executor
 
+It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
 
-// TODO(assumption): actors:
-// - buggy executor (finished): the first two bullet points of 'malicious executor'
-// - malicious executor:
-//      - wait an arbitrary amount of time to approve then execute a deployment.
-//      - partially execute a deployment.
-//      - users can cancel deployments, but it's possible for the executor to approve a deployment
-//        once the user has signaled intent to cancel the deployment. i.e. the executor can watch
-//        for the 'cancel' transaction in the mempool, and submit the 'approve' transaction before
-//        it.
-//      - if a deployment relies on the state of an existing smart contract, and if the executor is
-//        able to manipulate the state of that smart contract, then it could be possible for the
-//        executor to execute the deployment in a manner that is detrimental to the user. a simple
-//        example: a deployment relies on `existingContract.myBoolean() == true`, otherwise it
-//        fails. if the executor is able to set `existingContract.myBoolean() == false`, then the
-//        deployment will fail.
-//      - the executor can interact with a contract in the same transaction that it's deployed,
-//        which can be an "unfair advantage" for the executor. for example, if a deployed contract
-//        has an open token airdrop, the executor can deploy the contract then claim the airdropped
-//        tokens in the same transaction, before any other account has a chance to claim them.
+#### Buggy Executor
 
-    // TODO(assumption):
-    // - (is this true?) a malicious Safe could grief the executor by causing execution to revert.
-    //   they could do this by doing `address(0).call{ gas: 10000000000}()` one of the transactions
-    //   being executed. this is fine; the user will be billed for all of the executor's gas costs.
-    //   another way that the user can grief the executor is by returning a large amount of data in
-    //   a "return bomb" attack. this is also fine for the same reason. in the situation that the
-    //   gas amount is so high that the transaction cannot be executed at all, the deployment will
-    //   remain active until the user cancels it.
+A buggy executor can:
+* Wait an arbitrary amount of time to approve or execute a deployment that has been signed by the Gnosis Safe owners.
+  * Remedy: The Gnosis Safe owners can [cancel the deployment](TODO(end)) at any time.
+* Partially execute a deployment.
+  * Remedy: Users can batch critical actions into a single call using `Multicall`(TODO(end)) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
 
+#### Malicious Executor
 
-            // TODO(somewhere): we use traces to recover any error messages that occur
+A malicious executor is subject to the same two limitations as a buggy executor. In addition, a malicious executor can take advantage of its privilege as the sole executor of a deployment. There are a variety of ways that it can do this.
+
+Some examples:
+* If a deployment relies on the state of an existing smart contract, and if the executor is able to
+   manipulate the state of that smart contract, then it could be possible for the executor to
+   execute the deployment in a manner that is detrimental to the user. For example, say a deployment
+   relies on `existingContract.myBoolean() == true`, otherwise it fails. if the executor is able to
+   set `existingContract.myBoolean() == false`, then the deployment will fail.
+* The executor can interact with a contract in the same transaction that it's deployed, which can be
+   an "unfair advantage" for the executor. For example, if a deployed contract has an open token
+   airdrop, the executor can deploy the contract then claim the airdropped tokens in the same
+   transaction, before any other account has a chance to claim them.
+
+It's worth reiterating that the Gnosis Safe owners can choose anybody to be an executor, including themselves.
+
+### Malicious Gnosis Safe owner(s)
+
+* A user could attempt to grief the executor by specifying an arbitrarily large gas amount for a transaction,
+which would prevent the deployment from being executable.
+  * Remedy: This is not a concern because Sphinx has off-chain logic that checks if the gas amount for a transaction is too high.
+* A malicious user could pay Sphinx less than the cost of the deployment.
+  * Remedy: In practice, this is not a concern because Sphinx has off-chain billing that ensures we're reimbursed for all deployment costs.
+
+### Dependencies
+
+The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](TODO(end)), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These contracts are:
+- OpenZeppelin vTODO(end):
+  - [`ReentrancyGuard`](TODO(end)): Prevents re-entrancy attacks in the `approve` and `execute` function in the `SphinxModuleProxy`.
+  - [`Initializable`](TODO(end)): Prevents the `SphinxModuleProxy`'s `initialize` function from being called more than once.
+  - [`MerkleProof`](TODO(end)): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
+- Gnosis Safe:
+  - `Enum` ([v1.3.0](TODO(end)), [v1.4.1](TODO(end))): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
+  - [`GnosisSafe`](TODO(end): link to our list of supported Safes): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
 
 ## Footnotes
 
+[^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root that has the same nonce, then approving it on-chain. This prevents the old Merkle root from ever being approved.
 
-^A: Technically, it's possible for the call to the user's Gnosis Safe to revert if the user supplies a `gas` amount that is extremely high (e.g. above the block gas limit). However, we assume that the off-chain logic will detect this before the executor attempts to execute a Merkle leaf like this. (TODO(assumption): add this last sentence as an assumption, then link to it in this footnote).
+[^2]: We prevent the same Merkle root from being approved in more than one `SphinxModuleProxy` by including the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and checking that this field matches the current address in the `SphinxModuleProxy`'s `approval` function.

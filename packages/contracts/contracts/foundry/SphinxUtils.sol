@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
-import { console } from "sphinx-forge-std/console.sol";
 
 import { ISphinxAccessControl } from "../core/interfaces/ISphinxAccessControl.sol";
 // TODO - use interfaces
@@ -1041,7 +1040,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint _threshold
     ) public pure returns (bytes memory safeInitializerData) {
-        SphinxModuleFactory moduleFactory = SphinxModuleFactory(sphinxModuleFactoryAddress);
+        SphinxModuleProxyFactory moduleProxyFactory = SphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)

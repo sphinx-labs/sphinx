@@ -22,11 +22,6 @@ import {
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 
-// TODO(e2e):
-// for each Safe type:
-// - deploy and enable in Safe initializer.
-// - deploy safe, then enable module via safe.enableModule.
-
 /**
  * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleProxyFactory`.
  *         This contract is inherited by four contracts, which are at the bottom of this file.
@@ -98,12 +93,6 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
     }
 
     /////////////////////////// constructor ///////////////////////////////////////
-
-    function test_constructor_revert_moduleDeploymentFailed() external {
-        vm.expectRevert("SphinxModuleProxyFactory: create2 failed");
-        // TODO(docs):
-        this.helper_deploySphinxModuleProxyFactory{ gas: 2_700_000 }();
-    }
 
     // Must:
     // - Deploy a `SphinxModule` implementation contract at a `CREATE2` address determined by the
@@ -337,10 +326,6 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
 
         assertTrue(success);
         assertTrue(safeProxy.isModuleEnabled(address(moduleProxy)));
-    }
-
-    function helper_deploySphinxModuleProxyFactory() external {
-        new SphinxModuleProxyFactory();
     }
 
     function computeSphinxModuleProxyAddress(

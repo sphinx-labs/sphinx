@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console } from "sphinx-forge-std/console.sol"; // TODO(end): rm this from all files
 import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";

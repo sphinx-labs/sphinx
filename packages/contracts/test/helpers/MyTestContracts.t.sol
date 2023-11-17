@@ -12,6 +12,26 @@ pragma solidity ^0.8.0;
 // - We should probably validate that the `gas` for a leaf isn't extremely high (e.g. above the
 //   block gas limit).
 
+// TODO(bundling):
+// TODO(bundling): displayed from left to right to reduce the horizontal length of the tree
+// ```mermaid
+// graph LR
+//     A[Root] --> B[Hash 1]
+//     A[Root] --> C[Hash 2]
+//     B[Hash 1] --> D[Hash 3]
+//     B[Hash 1] --> E[Hash 4]
+//     C[Hash 2] --> F[Hash 5]
+//     C[Hash 2] --> G[Hash 6]
+//     D[Hash 3] --> H["Approve: Chain ID: 5, Index: 0"]
+//     D[Hash 3] --> I["Execute: Chain ID: 5, Index: 1, Data: 0xaa..."]
+//     E[Hash 4] --> J["Execute: Chain ID: 5, Index: 2, Data: 0xbb..."]
+//     E[Hash 4] --> K["Execute: Chain ID: 5, Index: 3, Data: 0xcc..."]
+//     F[Hash 5] --> L["Approve: Chain ID: 420, Index: 0"]
+//     F[Hash 5] --> M["Execute: Chain ID: 420, Index: 1, Data: 0xdd..."]
+//     G[Hash 6] --> N["Execute: Chain ID: 420, Index: 2, Data: 0xee..."]
+// ```
+
+
 contract MyContract {
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
     // call/delegatecall fails.

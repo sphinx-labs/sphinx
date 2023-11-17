@@ -14,13 +14,11 @@ import {
     DeploymentStatus
 } from "./SphinxDataTypes.sol";
 import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
-import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @title SphinxModule
- * @notice The `SphinxModule` is responsible for executing deployments in a Gnosis Safe and
- *         verifying that the Gnosis Safe owners have approved the deployments. All deployments
- *         on a Gnosis Safe are routed through its `SphinxModule`.
+ * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
+ *         verifies that the Gnosis Safe owners have approved the deployments.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
@@ -176,7 +174,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         }
 
         // Check that a sufficient number of Gnosis Safe owners have signed the Merkle root (or,
-        // more specifically, the EIP-712 data that includes the Merkle root). We do this last to
+        // more specifically, EIP-712 data that includes the Merkle root). We do this last to
         // follow the checks-effects-interactions pattern, since it's possible for `checkSignatures`
         // to call into another contract if it's validating an EIP-1271 contract signature.
         bytes memory typedData = abi.encodePacked(
