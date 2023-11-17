@@ -73,7 +73,7 @@ The `data` field of an `EXECUTE` leaf primary contains data to forward to the Gn
 * `uint256 gas`: The amount of gas that's included in the call from the `SphinxModuleProxy` to the Gnosis Safe.
 * `bytes txData`: The transaction's data.
 * `Enum.Operation operation`: The type of transaction to execute in the Gnosis Safe, i.e. `Call` or `DelegateCall`.
-* `bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment be marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails.
+* <span id="requireSuccess">`bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment be marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails.</span>
 
 ## Deployment Process
 
@@ -117,7 +117,7 @@ graph TD
 - The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](#function-_getleafhashsphinxleaf-memory-_leaf-internal-pure-returns-bytes32).
 - It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy` that is also owned by the Gnosis Safe.[^2]
-- All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](TODO(end)).
+- All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions).
 
 ## Function-Level Invariants
 
