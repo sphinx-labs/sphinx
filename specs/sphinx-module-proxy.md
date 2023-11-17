@@ -19,7 +19,7 @@ TODO(end)
 
 ## Relevant Files
 
-- The interface: [`ISphinxModuleProxy.sol`](TODO(end))
+- The interface: [`ISphinxModule.sol`](TODO(end))
 - The implementation contract: [`SphinxModule.sol`](TODO(end))
 - Unit tests: [`SphinxModuleProxy.t.sol`](TODO(end))
 - Key data structures: [`SphinxDataTypes.sol`](TODO(end))
