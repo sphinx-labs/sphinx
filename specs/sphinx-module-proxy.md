@@ -258,4 +258,4 @@ The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library 
 
 [^2]: It's not possible to reuse a signed Merkle root in a different `SphinxModuleProxy` because we include the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and we check that this field matches `address(this)` in the `SphinxModuleProxy`'s `approve` function.
 
-[^3]: It's not possible to reuse a signed Merkle root in a diferent Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`[^2] (TODO: see footnote 2?), and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.
+[^3]: It's not possible to reuse a signed Merkle root in a diferent Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`, and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.
