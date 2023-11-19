@@ -52,7 +52,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     /**
      * @inheritdoc ISphinxModule
      */
-    uint256 public override currentNonce;
+    uint256 public override deploymentNonce;
 
     /**
      * @inheritdoc ISphinxModule
@@ -106,40 +106,43 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         );
 
         require(leaf.leafType == SphinxLeafType.APPROVE, "SphinxModule: invalid leaf type");
-        // The `APPROVE` leaf must always have an index of 1.
+        // The `APPROVE` leaf must always have an index of 0.
         require(leaf.index == 0, "SphinxModule: invalid leaf index");
 
         // Decode the `APPROVE` leaf data.
         (
-            address safeProxy_,
+            address leafSafeProxy,
             address moduleProxy,
-            uint256 nonce,
+            uint256 leafDeploymentNonce,
             uint256 numLeaves,
             address executor,
             string memory uri,
             bool arbitraryChain
         ) = abi.decode(leaf.data, (address, address, uint256, uint256, address, string, bool));
 
-        require(safeProxy_ == address(safeProxy), "SphinxModule: invalid SafeProxy");
+        require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
-        require(nonce == currentNonce, "SphinxModule: invalid nonce");
+        require(leafDeploymentNonce == deploymentNonce, "SphinxModule: invalid nonce");
         // The `numLeaves` must be at least `1` because there must always at least be an `APPROVE` leaf.
         require(numLeaves > 0, "SphinxModule: numLeaves cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID, or the Merkle root must
-        // be executable on an arbitrary chain, in which case we ignore the chain ID.
+        // be executable on an arbitrary chain.
         require(leaf.chainId == block.chainid || arbitraryChain, "SphinxModule: invalid chain id");
+        // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
+        // of 0. This isn't strictly necessary; it just enforces a convention.
+        require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
         // We don't validate the `uri` because it may be empty if there aren't any `EXECUTE` leaves.
 
         // Check if there's an existing active Merkle root.
         if (activeMerkleRoot != bytes32(0)) {
             // Cancel the existing Merkle root. We don't need to assign a new `activeMerkleRoot` here
             // because we do it later in this function.
-            deployments[activeMerkleRoot].status = DeploymentStatus.CANCELLED;
-            emit SphinxDeploymentCancelled(activeMerkleRoot);
+            deployments[activeMerkleRoot].status = DeploymentStatus.CANCELED;
+            emit SphinxDeploymentCanceled(activeMerkleRoot);
         }
 
-        emit SphinxDeploymentApproved(_root, activeMerkleRoot, nonce, executor, numLeaves, uri);
+        emit SphinxDeploymentApproved(_root, activeMerkleRoot, deploymentNonce, executor, numLeaves, uri);
 
         DeploymentState storage state = deployments[_root];
         // Assign values to all fields of the new Merkle root's `DeploymentState` except for the
@@ -150,7 +153,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         state.executor = executor;
         state.arbitraryChain = arbitraryChain;
 
-        currentNonce += 1;
+        deploymentNonce += 1;
 
         // If there is only an `APPROVE` leaf, mark the deployment as completed.
         if (numLeaves == 1) {
@@ -213,11 +216,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
             // Revert if the current leaf is being executed in the incorrect order.
             require(leaf.index == state.leavesExecuted, "SphinxModule: invalid leaf index");
             // The current chain ID must match the leaf's chain ID, or the Merkle root must
-            // be executable on an arbitrary chain, in which case we ignore the chain ID.
-            require(
-                leaf.chainId == block.chainid || state.arbitraryChain,
-                "SphinxModule: invalid chain id"
-            );
+            // be executable on an arbitrary chain.
+            require(leaf.chainId == block.chainid || state.arbitraryChain, "SphinxModule: invalid chain id");
+            // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
+            // of 0. This isn't strictly necessary; it just enforces a convention.
+            require(!state.arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
 
             // Decode the Merkle leaf's data.
             (

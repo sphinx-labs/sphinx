@@ -144,7 +144,7 @@ describe('Simulate proposal', () => {
 
     //     // Run the test that that cancels a previous deployment. First, we set the storage value of the
     //     // `activeDeploymentId` in the SphinxManager to be non-zero. This replicates what happens when a
-    //     // previous deployment is 'stuck' and needs to be cancelled.
+    //     // previous deployment is 'stuck' and needs to be canceled.
     //     await execAsync(
     //       `cast rpc --rpc-url ${rpcUrl} anvil_setStorageAt ${managerAddress} 0x0000000000000000000000000000000000000000000000000000000000000099 0x1111111111111111111111111111111111111111111111111111111111111111`
     //     )

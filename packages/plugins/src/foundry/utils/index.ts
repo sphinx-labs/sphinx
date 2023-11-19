@@ -25,7 +25,10 @@ import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import { SupportedNetworkName, networkEnumToName } from '@sphinx-labs/core'
 import ora from 'ora'
-import { ContractArtifact, parseFoundryArtifact } from '@sphinx-labs/contracts'
+import {
+  FoundryContractArtifact,
+  parseFoundryArtifact,
+} from '@sphinx-labs/contracts'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -92,10 +95,10 @@ export const messageMultipleArtifactsFound = (
 
 // TODO - handle searching recursively for the correct artifact in cases where
 //        the fully qualified name is not unique
-export const getContractArtifact = async (
+export const getFoundryContractArtifact = async (
   fullyQualifiedName: string,
   artifactFolder: string
-): Promise<ContractArtifact> => {
+): Promise<FoundryContractArtifact> => {
   // The basename will be in the format `SomeFile.sol:MyContract`.
   const basename = path.basename(fullyQualifiedName)
 
@@ -290,7 +293,7 @@ export const makeGetConfigArtifacts = (
 
     const fullyQualifiedNamePromises = fullyQualifiedNames.map(
       async (fullyQualifiedName) => {
-        const artifact = await getContractArtifact(
+        const artifact = await getFoundryContractArtifact(
           fullyQualifiedName,
           artifactFolder
         )
@@ -334,7 +337,7 @@ export const makeGetConfigArtifacts = (
                 toReadFiles.push(cachedFile.name)
               }
 
-              const artifact = await getContractArtifact(
+              const artifact = await getFoundryContractArtifact(
                 fullyQualifiedName,
                 artifactFolder
               )
@@ -436,7 +439,7 @@ export const getConfigArtifactForContractName = (
 ): {
   fullyQualifiedName: string
   buildInfo: BuildInfo
-  artifact: ContractArtifact
+  artifact: FoundryContractArtifact
 } => {
   for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
     configArtifacts

@@ -22,6 +22,7 @@ const arbitraryChain = argv[9] === 'true'
 const forceNumLeavesValue = argv[10] === 'true'
 const overridingNumLeavesValue = argv[11]
 const forceApprovalLeafIndexNonZero = argv[12] === 'true'
+const forceApprovalLeafChainIdZero = argv[13] === 'true'
 
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
@@ -76,6 +77,9 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
   }
   if (forceApprovalLeafIndexNonZero) {
     leaves[0].index = 1n
+  }
+  if (forceApprovalLeafChainIdZero) {
+    leaves[0].chainId = 0n
   }
 
   const { root, leavesWithProofs } = makeSphinxMerkleTree(leaves)

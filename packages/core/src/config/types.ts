@@ -7,7 +7,7 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
-  ContractArtifact,
+  FoundryContractArtifact,
   SphinxBundle,
 } from '@sphinx-labs/contracts'
 
@@ -225,7 +225,7 @@ export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
-    artifact: ContractArtifact
+    artifact: FoundryContractArtifact
   }
 }
 
@@ -236,7 +236,7 @@ export type BuildInfoRemote = BuildInfo & {
 export type ConfigArtifactsRemote = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfoRemote
-    artifact: ContractArtifact
+    artifact: FoundryContractArtifact
   }
 }
 

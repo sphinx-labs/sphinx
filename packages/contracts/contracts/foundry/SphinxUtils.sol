@@ -1049,7 +1049,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_module).code.length == 0) {
             return 0;
         } else {
-            return _module.currentNonce();
+            return _module.deploymentNonce();
         }
     }
 }

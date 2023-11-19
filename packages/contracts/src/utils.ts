@@ -1,14 +1,16 @@
 import { ethers } from 'ethers'
 
-import { ContractArtifact } from './types'
+import { FoundryContractArtifact } from './types'
 
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
  *
  * @param artifact Raw artifact object.
- * @returns ContractArtifact
+ * @returns FoundryContractArtifact
  */
-export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
+export const parseFoundryArtifact = (
+  artifact: any
+): FoundryContractArtifact => {
   const abi = artifact.abi
   const bytecode = add0x(artifact.bytecode.object)
   const deployedBytecode = add0x(artifact.deployedBytecode.object)

@@ -17,7 +17,7 @@ export const DeploymentStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
   COMPLETED: 2n,
-  CANCELLED: 3n,
+  CANCELED: 3n,
   FAILED: 4n,
 }
 

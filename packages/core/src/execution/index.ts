@@ -36,7 +36,7 @@ import { ParsedConfig } from '../config'
 //   const totalNumActions = bundles.actionBundle.actions.length
 //   while (
 //     deploymentState.status !== DeploymentStatus.COMPLETED &&
-//     deploymentState.status !== DeploymentStatus.CANCELLED &&
+//     deploymentState.status !== DeploymentStatus.CANCELED &&
 //     deploymentState.status !== DeploymentStatus.FAILED
 //   ) {
 //     if (Number(deploymentState.actionsExecuted) === totalNumActions) {
@@ -65,9 +65,9 @@ import { ParsedConfig } from '../config'
 //     )
 //     spinner.succeed('Retrieved deployment info.')
 //     return deploymentEvents
-//   } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
-//     spinner.fail(`Deployment was cancelled.`)
-//     throw new Error(`Deployment was cancelled.`)
+//   } else if (deploymentState.status === DeploymentStatus.CANCELED) {
+//     spinner.fail(`Deployment was canceled.`)
+//     throw new Error(`Deployment was canceled.`)
 //   } else if (deploymentState.status === DeploymentStatus.FAILED) {
 //     spinner.fail(`Deployment failed.`)
 //     throw new Error(`Deployment failed.`)

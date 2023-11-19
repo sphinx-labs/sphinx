@@ -22,7 +22,7 @@ import {
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
-import { ContractArtifact, add0x } from '@sphinx-labs/contracts'
+import { FoundryContractArtifact, add0x } from '@sphinx-labs/contracts'
 
 import {
   CompilerConfig,
@@ -352,11 +352,11 @@ export const isUserContractKind = (
 /**
  * Retrieves an artifact by name from the local file system.
  */
-export const readContractArtifact = (
+export const readFoundryContractArtifact = (
   contractArtifactPath: string,
   integration: Integration
-): ContractArtifact => {
-  const artifact: ContractArtifact = JSON.parse(
+): FoundryContractArtifact => {
+  const artifact: FoundryContractArtifact = JSON.parse(
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
 

@@ -546,7 +546,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     function test_approve_revert_invalidNonce() external {
         MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
-        treeInputs.nonceInModuleProxy = moduleProxy.currentNonce() + 1;
+        treeInputs.nonceInModuleProxy = moduleProxy.deploymentNonce() + 1;
         ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
 
         vm.prank(executor);
@@ -590,6 +590,22 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         vm.chainId(block.chainid + 1);
         vm.prank(executor);
         vm.expectRevert("SphinxModule: invalid chain id");
+        moduleProxy.approve(
+            moduleInputs.merkleRoot,
+            moduleInputs.approvalLeafWithProof,
+            moduleInputs.ownerSignatures
+        );
+    }
+
+    function test_approve_revert_leafChainIdMustBeZero() external {
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        // We set `arbitraryChain` to `true`, but we don't set the chain ID of the approval leaf to
+        // be zero.
+        treeInputs.arbitraryChain = true;
+        ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+
+        vm.prank(executor);
+        vm.expectRevert("SphinxModule: leaf chain id must be 0");
         moduleProxy.approve(
             moduleInputs.merkleRoot,
             moduleInputs.approvalLeafWithProof,
@@ -695,7 +711,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             )
         );
 
-        emit SphinxDeploymentCancelled(initialModuleInputs.merkleRoot);
+        emit SphinxDeploymentCanceled(initialModuleInputs.merkleRoot);
         helper_test_approve({
             _moduleInputs: newModuleInputs,
             _expectedInitialActiveMerkleRoot: initialModuleInputs.merkleRoot,
@@ -707,7 +723,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         (, , , , DeploymentStatus initialRootStatus, ) = moduleProxy.deployments(
             initialModuleInputs.merkleRoot
         );
-        assertEq(initialRootStatus, DeploymentStatus.CANCELLED);
+        assertEq(initialRootStatus, DeploymentStatus.CANCELED);
     }
 
     function test_approve_success_emptyDeployment() external {
@@ -932,21 +948,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         moduleProxy.execute(approvalLeavesWithProofs);
     }
 
-    function test_execute_revert_invalidChainID() external {
-        ModuleInputs memory moduleInputs = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
-        helper_test_approve({
-            _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
-            _expectedStatus: DeploymentStatus.APPROVED,
-            _expectedDeploymentUri: defaultDeploymentUri,
-            _expectedArbitraryChain: false
-        });
-        vm.chainId(block.chainid + 1);
-        vm.prank(executor);
-        vm.expectRevert("SphinxModule: invalid chain id");
-        moduleProxy.execute(moduleInputs.executionLeavesWithProofs);
-    }
-
     function test_execute_revert_invalidLeafIndex() external {
         ModuleInputs memory moduleInputs = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
         helper_test_approve({
@@ -963,6 +964,41 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         SphinxLeafWithProof[] memory executionLeafWithProof = new SphinxLeafWithProof[](1);
         executionLeafWithProof[0] = moduleInputs.executionLeavesWithProofs[1];
         moduleProxy.execute(executionLeafWithProof);
+    }
+
+    function test_execute_revert_invalidChainID() external {
+        ModuleInputs memory moduleInputs = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+        helper_test_approve({
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedStatus: DeploymentStatus.APPROVED,
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: false
+        });
+        vm.chainId(block.chainid + 1);
+        vm.prank(executor);
+        vm.expectRevert("SphinxModule: invalid chain id");
+        moduleProxy.execute(moduleInputs.executionLeavesWithProofs);
+    }
+
+    function test_execute_revert_leafChainIdMustBeZero() external {
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        // We set `arbitraryChain` to `true`, and we set the chain ID of the approval leaf to zero,
+        // but the chain ID of the execution leaves remain equal to the `block.chainid`.
+        treeInputs.arbitraryChain = true;
+        treeInputs.forceApprovalLeafChainIdZero = true;
+        ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+
+        helper_test_approve({
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedStatus: DeploymentStatus.APPROVED,
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: true
+        });
+        vm.prank(executor);
+        vm.expectRevert("SphinxModule: leaf chain id must be 0");
+        moduleProxy.execute(moduleInputs.executionLeavesWithProofs);
     }
 
     function test_execute_revert_insufficientGas() external {
@@ -1152,10 +1188,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
     }
 
-    function test_execute_withArbitraryChainAndIncorrectChainId() external {
+    // Test that we can execute a deployment where `arbitraryChain` is `true` and the chain ID is 0.
+    // There seems to be broad social consensus that a network shouldn't have a chain ID of zero,
+    // but we test this just to be thorough.
+    function test_execute_success_withArbitraryChainAndChainIdZero() external {
         MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
         treeInputs.arbitraryChain = true;
         treeInputs.chainId = 0;
+        vm.chainId(0);
         ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
@@ -1167,9 +1207,13 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
     }
 
-    function test_execute_withArbitraryChainAndCorrectChainId() external {
+    // Test that we can execute a deployment where `arbitraryChain` is `false` and the chain ID is
+    // 0. There seems to be broad social consensus that a network shouldn't have a chain ID of zero,
+    // but we test this just to be thorough.
+    function test_execute_success_withoutArbitraryChainAndChainIdZero() external {
         MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
-        treeInputs.arbitraryChain = true;
+        treeInputs.chainId = 0;
+        vm.chainId(0);
         ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
@@ -1177,7 +1221,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
-            _expectedArbitraryChain: true
+            _expectedArbitraryChain: false
         });
     }
 
@@ -1199,7 +1243,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         string memory _expectedDeploymentUri,
         bool _expectedArbitraryChain
     ) internal {
-        uint256 initialNonce = moduleProxy.currentNonce();
+        uint256 initialNonce = moduleProxy.deploymentNonce();
         uint256 expectedNumLeaves = _moduleInputs.executionLeavesWithProofs.length + 1;
         assertEq(moduleProxy.activeMerkleRoot(), _expectedInitialActiveMerkleRoot);
 
@@ -1255,7 +1299,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         } else {
             assertEq(moduleProxy.activeMerkleRoot(), _moduleInputs.merkleRoot);
         }
-        assertEq(moduleProxy.currentNonce(), initialNonce + 1);
+        assertEq(moduleProxy.deploymentNonce(), initialNonce + 1);
     }
 
     function helper_test_approveThenExecuteBatch(
@@ -1371,14 +1415,15 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
                 ownerWallets: ownerWallets,
                 chainId: block.chainid,
                 moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.currentNonce(),
+                nonceInModuleProxy: moduleProxy.deploymentNonce(),
                 executor: executor,
                 safeProxy: address(safeProxy),
                 deploymentUri: defaultDeploymentUri,
                 arbitraryChain: false,
                 forceNumLeavesValue: false,
                 overridingNumLeavesValue: 0,
-                forceApprovalLeafIndexNonZero: false
+                forceApprovalLeafIndexNonZero: false,
+                forceApprovalLeafChainIdZero: false
             });
     }
 

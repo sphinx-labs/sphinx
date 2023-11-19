@@ -13,7 +13,7 @@ import {
   SimulateTxAccessorArtifact,
   SphinxModuleProxyFactoryArtifact,
 } from './ifaces'
-import { ContractArtifact } from './types'
+import { FoundryContractArtifact, GnosisSafeContractArtifact } from './types'
 import {
   getCompatibilityFallbackHandlerAddress,
   getCreateCallAddress,
@@ -39,7 +39,7 @@ export const USDC_ADDRESSES: { [chainId: string]: string } = {
 }
 
 export const getSphinxConstants = (): Array<{
-  artifact: ContractArtifact
+  artifact: FoundryContractArtifact | GnosisSafeContractArtifact
   expectedAddress: string
   constructorArgs: any[]
 }> => {

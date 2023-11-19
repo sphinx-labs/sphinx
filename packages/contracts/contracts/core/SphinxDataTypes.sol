@@ -41,15 +41,16 @@ struct SphinxLeafWithProof {
 /**
  * @notice The deployment state that corresponds to a Merkle root.
  *
- * @custom:field numLeaves       The total number of leaves in the Merkle tree on the current chain.
+ * @custom:field numLeaves      The total number of leaves in the Merkle tree on the current chain.
  *                              There must be at least one leaf (the `APPROVE` leaf).
- * @custom:field leavesExecuted  The number of Merkle leaves that have been executed on the current
+ * @custom:field leavesExecuted The number of Merkle leaves that have been executed on the current
  *                              chain for the current Merkle root.
- * @custom:field uri            The IPFS URI of the deployment. This contains information such as
- *                              the Solidity compiler inputs, which allow the executor to verify
- *                              the user's smart contracts on Etherscan. This can be an empty string
- *                              if there is only a single leaf on the current network (the `APPROVE`
- *                              leaf).
+ * @custom:field uri            An optional field that contains the URI of the deployment. Its
+ *                              purpose is to provide a public record that allows anyone to
+ *                              re-assemble the entire deployment from scratch. This may include the
+ *                              Solidity compiler inputs, which are required for Etherscan
+ *                              verification. The format, location, and contents of the URI are
+ *                              determined by off-chain tooling.
  * @custom:field executor       The address of the caller, which is the only account that is allowed
  *                              to execute the deployment.
  * @custom:field status         The status of the deployment.
@@ -77,7 +78,7 @@ struct DeploymentState {
  *                         `approve` function has been called on the `SphinxModuleProxy`. This
  *                         Merkle root is now "active".
  * @custom:value COMPLETED The deployment has been completed on this network.
- * @custom:value CANCELLED The deployment has been canceled by the Gnosis Safe owner(s).
+ * @custom:value CANCELED The deployment has been canceled by the Gnosis Safe owner(s).
  * @custom:value FAILED    The deployment has failed due to a transaction reverting in the Gnosis
  *                         Safe.
  */
@@ -85,6 +86,6 @@ enum DeploymentStatus {
     EMPTY,
     APPROVED,
     COMPLETED,
-    CANCELLED,
+    CANCELED,
     FAILED
 }

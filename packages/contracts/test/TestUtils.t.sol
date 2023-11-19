@@ -33,6 +33,9 @@ import {
     MultiSendCallOnly as MultiSendCallOnly_1_3_0
 } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSendCallOnly.sol";
 import {
+    SignMessageLib as SignMessageLib_1_3_0
+} from "@gnosis.pm/safe-contracts-1.3.0/libraries/SignMessageLib.sol";
+import {
     GnosisSafeL2 as GnosisSafeL2_1_3_0
 } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafeL2.sol";
 import { GnosisSafe as GnosisSafe_1_3_0 } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
@@ -75,6 +78,7 @@ contract TestUtils is SphinxUtils, Enum {
         CreateCall_1_3_0 createCall;
         MultiSend_1_3_0 multiSend;
         MultiSendCallOnly_1_3_0 multiSendCallOnly;
+        SignMessageLib_1_3_0 signMessageLib;
         GnosisSafeL2_1_3_0 safeL2Singleton;
         GnosisSafe_1_3_0 safeL1Singleton;
     }
@@ -146,7 +150,7 @@ contract TestUtils is SphinxUtils, Enum {
     function getMerkleTreeFFI(
         MerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
-        string[] memory inputs = new string[](15);
+        string[] memory inputs = new string[](16);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-merkle-tree.ts";
@@ -161,7 +165,8 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[11] = vm.toString(_treeInputs.forceNumLeavesValue);
         inputs[12] = vm.toString(_treeInputs.overridingNumLeavesValue);
         inputs[13] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
-        inputs[14] = "--swc"; // Speeds up ts-node considerably
+        inputs[14] = vm.toString(_treeInputs.forceApprovalLeafChainIdZero);
+        inputs[15] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -183,6 +188,7 @@ contract TestUtils is SphinxUtils, Enum {
         bool forceNumLeavesValue;
         uint256 overridingNumLeavesValue;
         bool forceApprovalLeafIndexNonZero;
+        bool forceApprovalLeafChainIdZero;
     }
 
     // TODO: mv
@@ -228,6 +234,7 @@ contract TestUtils is SphinxUtils, Enum {
                 createCall: new CreateCall_1_3_0(),
                 multiSend: new MultiSend_1_3_0(),
                 multiSendCallOnly: new MultiSendCallOnly_1_3_0(),
+                signMessageLib: new SignMessageLib_1_3_0(),
                 // Deploy singletons
                 safeL2Singleton: new GnosisSafeL2_1_3_0(),
                 safeL1Singleton: new GnosisSafe_1_3_0()

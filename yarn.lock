@@ -993,10 +993,14 @@
   version "1.4.1-build.0"
   resolved "https://github.com/safe-global/safe-contracts.git#192c7dc67290940fcbc75165522bb86a37187069"
 
-"@gnosis.pm/safe-contracts@1.3.0":
+"@gnosis.pm/safe-contracts@https://github.com/safe-global/safe-contracts.git#767ef36bba88bdbc0c9fe3708a4290cabef4c376":
   version "1.3.0"
-  resolved "https://registry.yarnpkg.com/@gnosis.pm/safe-contracts/-/safe-contracts-1.3.0.tgz#316741a7690d8751a1f701538cfc9ec80866eedc"
-  integrity sha512-1p+1HwGvxGUVzVkFjNzglwHrLNA67U/axP0Ct85FzzH8yhGJb4t9jDjPYocVMzLorDoWAfKicGy1akPY9jXRVw==
+  resolved "https://github.com/safe-global/safe-contracts.git#767ef36bba88bdbc0c9fe3708a4290cabef4c376"
+
+"@graphql-typed-document-node/core@^3.1.1":
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/@graphql-typed-document-node/core/-/core-3.2.0.tgz#5f3d96ec6b2354ad6d8a28bf216a1d97b5426861"
+  integrity sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==
 
 "@humanwhocodes/config-array@^0.11.13":
   version "0.11.13"
@@ -1445,7 +1449,7 @@
   resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-ethers/-/hardhat-ethers-2.2.3.tgz#b41053e360c31a32c2640c9a45ee981a7e603fe0"
   integrity sha512-YhzPdzb612X591FOe68q+qXVXGG2ANZRvDo0RRUtimev85rCrAlv/TLMEZw5c+kq9AbzocLTVX/h2jVIFPL9Xg==
 
-"@nomiclabs/hardhat-etherscan@^3.1.7":
+"@nomiclabs/hardhat-etherscan@^3.1.3", "@nomiclabs/hardhat-etherscan@^3.1.7":
   version "3.1.7"
   resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-etherscan/-/hardhat-etherscan-3.1.7.tgz#72e3d5bd5d0ceb695e097a7f6f5ff6fcbf062b9a"
   integrity sha512-tZ3TvSgpvsQ6B6OGmo1/Au6u8BrAkvs1mIC/eURA3xgIfznUZBhmpne8hv7BXUzw9xNL3fXdpOYgOQlVMTcoHQ==
@@ -2954,9 +2958,9 @@ camelcase@^6.0.0:
   integrity sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==
 
 caniuse-lite@^1.0.30001541:
-  version "1.0.30001562"
-  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001562.tgz#9d16c5fd7e9c592c4cd5e304bc0f75b0008b2759"
-  integrity sha512-kfte3Hym//51EdX4239i+Rmp20EsLIYGdPkERegTgU19hQWCRhsRFGKHTliUlsry53tv17K7n077Kqa0WJU4ng==
+  version "1.0.30001563"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001563.tgz#aa68a64188903e98f36eb9c56e48fba0c1fe2a32"
+  integrity sha512-na2WUmOxnwIZtwnFI2CZ/3er0wdNzU7hN+cPYz/z2ajHThnkWjNBOpEPP4n+4r2WPM847JaMotaJE3bnfzjyKw==
 
 case@^1.6.3:
   version "1.6.3"
@@ -3418,6 +3422,13 @@ create-require@^1.1.0:
   resolved "https://registry.yarnpkg.com/create-require/-/create-require-1.1.1.tgz#c1d7e8f1e5f6cfc9ff65f9cd352d37348756c333"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
+cross-fetch@^3.1.5:
+  version "3.1.8"
+  resolved "https://registry.yarnpkg.com/cross-fetch/-/cross-fetch-3.1.8.tgz#0327eba65fd68a7d119f8fb2bf9334a1a7956f82"
+  integrity sha512-cvA+JwZoU0Xq+h6WkMvAUqPEYy92Obet6UdKLfW60qn99ftItKjB5T+BkyWOFWe2pUyfQ+IJHmpOTznqk1M6Kg==
+  dependencies:
+    node-fetch "^2.6.12"
+
 cross-spawn@^5.1.0:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/cross-spawn/-/cross-spawn-5.1.0.tgz#e8bd0efee58fcff6f8f94510a0a554bbfa235449"
@@ -3700,9 +3711,9 @@ electron-fetch@^1.7.2:
     encoding "^0.1.13"
 
 electron-to-chromium@^1.4.535:
-  version "1.4.586"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.586.tgz#68683163ed52a111213e2482ff847e76a5c6e891"
-  integrity sha512-qMa+E6yf1fNQbg3G66pHLXeJUP5CCCzNat1VPczOZOqgI2w4u+8y9sQnswMdGs5m4C1rOePq37EVBr/nsPQY7w==
+  version "1.4.588"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.588.tgz#d553f3c008e73488fb181fdf2601fdb0b1ffbb78"
+  integrity sha512-soytjxwbgcCu7nh5Pf4S2/4wa6UIu+A3p03U2yVr53qGxi1/VTR3ENI+p50v+UxqqZAfl48j3z55ud7VHIOr9w==
 
 elliptic@6.5.4, elliptic@^6.5.2, elliptic@^6.5.4:
   version "6.5.4"
@@ -4465,6 +4476,11 @@ external-editor@^3.0.3, external-editor@^3.1.0:
     iconv-lite "^0.4.24"
     tmp "^0.0.33"
 
+extract-files@^9.0.0:
+  version "9.0.0"
+  resolved "https://registry.yarnpkg.com/extract-files/-/extract-files-9.0.0.tgz#8a7744f2437f81f5ed3250ed9f1550de902fe54a"
+  integrity sha512-CvdFfHkC95B4bBBk36hcEmvdR2awOdhhVUYH6S/zrVj3477zven/fJMYg7121h4T1xHZC+tetUpubpAhxwI7hQ==
+
 extsprintf@1.3.0:
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/extsprintf/-/extsprintf-1.3.0.tgz#96918440e3041a7a414f8c52e3c574eb3c3e1e05"
@@ -4670,6 +4686,10 @@ forever-agent@~0.6.1:
   resolved "https://registry.yarnpkg.com/forever-agent/-/forever-agent-0.6.1.tgz#fbc71f0c41adeb37f96c577ad1ed42d8fdacca91"
   integrity sha512-j0KLYPhm6zeac4lz3oJ3o65qvgQCcPubiyotZrXqEaG4hNagNYO8qdlUrX5vwqv9ohqeT/Z3j6+yW067yWWdUw==
 
+"forge-std@https://github.com/foundry-rs/forge-std.git#v1.6.1":
+  version "1.6.0"
+  resolved "https://github.com/foundry-rs/forge-std.git#1d9650e951204a0ddce9ff89c32f1997984cef4d"
+
 "forge-std@https://github.com/foundry-rs/forge-std.git#v1.7.1", "sphinx-forge-std@https://github.com/foundry-rs/forge-std.git#v1.7.1":
   version "1.7.1"
   resolved "https://github.com/foundry-rs/forge-std.git#f73c73d2018eb6a111f35e4dae7b4f27401e9421"
@@ -4681,6 +4701,15 @@ form-data@^2.2.0:
   dependencies:
     asynckit "^0.4.0"
     combined-stream "^1.0.6"
+    mime-types "^2.1.12"
+
+form-data@^3.0.0:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/form-data/-/form-data-3.0.1.tgz#ebd53791b78356a99af9a300d4282c4d5eb9755f"
+  integrity sha512-RHkBKtLWUVwd7SqRIvCZMEvAMoGUp0XU+seQiZejj0COz3RI3hWP4sCv3gZWWLjJTd7rGwcsF5eKZGii0r/hbg==
+  dependencies:
+    asynckit "^0.4.0"
+    combined-stream "^1.0.8"
     mime-types "^2.1.12"
 
 form-data@^4.0.0:
@@ -4990,6 +5019,21 @@ graphemer@^1.4.0:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/graphemer/-/graphemer-1.4.0.tgz#fb2f1d55e0e3a1849aeffc90c4fa0dd53a0e66c6"
   integrity sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==
+
+graphql-request@^5.1.0:
+  version "5.2.0"
+  resolved "https://registry.yarnpkg.com/graphql-request/-/graphql-request-5.2.0.tgz#a05fb54a517d91bb2d7aefa17ade4523dc5ebdca"
+  integrity sha512-pLhKIvnMyBERL0dtFI3medKqWOz/RhHdcgbZ+hMMIb32mEPa5MJSzS4AuXxfI4sRAu6JVVk5tvXuGfCWl9JYWQ==
+  dependencies:
+    "@graphql-typed-document-node/core" "^3.1.1"
+    cross-fetch "^3.1.5"
+    extract-files "^9.0.0"
+    form-data "^3.0.0"
+
+graphql@^16.6.0:
+  version "16.8.1"
+  resolved "https://registry.yarnpkg.com/graphql/-/graphql-16.8.1.tgz#1930a965bef1170603702acdb68aedd3f3cf6f07"
+  integrity sha512-59LZHPdGZVh695Ud9lRzPBVTtlX9ZCV150Er2W43ro37wVof0ctenSaskPPjN7lVTIN8mSZt8PHUNKZuNQUuxw==
 
 growl@1.10.5:
   version "1.10.5"
@@ -6963,7 +7007,7 @@ node-addon-api@^2.0.0:
   resolved "https://registry.yarnpkg.com/node-addon-api/-/node-addon-api-2.0.2.tgz#432cfa82962ce494b132e9d72a15b29f71ff5d32"
   integrity sha512-Ntyt4AIXyaLIuMHF6IOoTakB3K+RWxwtsHNRxllEoA6vPwP9o4866g6YWDLUdnucilZhmkxiHwHr11gAENw+QA==
 
-node-fetch@^2.6.0, node-fetch@^2.6.1, node-fetch@^2.6.7, node-fetch@^2.6.8:
+node-fetch@^2.6.0, node-fetch@^2.6.1, node-fetch@^2.6.12, node-fetch@^2.6.7, node-fetch@^2.6.8:
   version "2.7.0"
   resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.7.0.tgz#d0f0fa6e3e2dc1d27efcd8ad99d550bda94d187d"
   integrity sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==
@@ -6971,9 +7015,9 @@ node-fetch@^2.6.0, node-fetch@^2.6.1, node-fetch@^2.6.7, node-fetch@^2.6.8:
     whatwg-url "^5.0.0"
 
 node-gyp-build@^4.2.0, node-gyp-build@^4.3.0:
-  version "4.6.1"
-  resolved "https://registry.yarnpkg.com/node-gyp-build/-/node-gyp-build-4.6.1.tgz#24b6d075e5e391b8d5539d98c7fc5c210cac8a3e"
-  integrity sha512-24vnklJmyRS8ViBNI8KbtK/r/DmXQMRiOMXTNz2nrTnAYUwjmEEbnnpB/+kt+yWRv73bPsSPRFddrcIbAxSiMQ==
+  version "4.7.0"
+  resolved "https://registry.yarnpkg.com/node-gyp-build/-/node-gyp-build-4.7.0.tgz#749f0033590b2a89ac8edb5e0775f95f5ae86d15"
+  integrity sha512-PbZERfeFdrHQOOXiAKOY0VPbykZy90ndPKk0d+CFDegTKmWp1VgOTz2xACVbr1BjCWxrQp68CXtvNsveFhqDJg==
 
 node-preload@^0.2.1:
   version "0.2.1"
@@ -9086,7 +9130,7 @@ undici-types@~5.26.4:
   resolved "https://registry.yarnpkg.com/undici-types/-/undici-types-5.26.5.tgz#bcd539893d00b56e964fd2657a4866b221a65617"
   integrity sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==
 
-undici@^5.14.0, undici@^5.21.1:
+undici@^5.12.0, undici@^5.14.0, undici@^5.21.1:
   version "5.27.2"
   resolved "https://registry.yarnpkg.com/undici/-/undici-5.27.2.tgz#a270c563aea5b46cc0df2550523638c95c5d4411"
   integrity sha512-iS857PdOEy/y3wlM3yRp+6SNQQ6xU0mmZcwRSriqk+et/cwWAtwmIGf6WkoDN2EK/AMdCO/dfXzIwi+rFMrjjQ==

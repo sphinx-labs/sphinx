@@ -12,7 +12,17 @@ export interface SolidityStorageObj {
   type: string
 }
 
-export type ContractArtifact = {
+export type GnosisSafeContractArtifact = {
+  contractName: string
+  sourceName: string
+  abi: Array<any>
+  bytecode: string
+  deployedBytecode: string
+  linkReferences: any
+  deployedLinkReferences: any
+}
+
+export type FoundryContractArtifact = {
   abi: Array<any>
   sourceName: string
   contractName: string

@@ -52,7 +52,7 @@ interface ISphinxModule {
      *
      * @param merkleRoot The Merkle root of the deployment that was canceled.
      */
-    event SphinxDeploymentCancelled(bytes32 indexed merkleRoot);
+    event SphinxDeploymentCanceled(bytes32 indexed merkleRoot);
 
     /**
      * @notice Emitted when a deployment is completed.
@@ -106,7 +106,7 @@ interface ISphinxModule {
      *         owners, then approved far into the future, even after other Merkle roots have been
      *         approved.
      */
-    function currentNonce() external view returns (uint256);
+    function deploymentNonce() external view returns (uint256);
 
     /**
      * @notice Mapping from a Merkle root to its `DeploymentState` struct.
