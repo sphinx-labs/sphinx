@@ -149,6 +149,8 @@ graph TD
   - Must revert if the leaf data contains a `numLeaves` field that equals `0`.
   - Must revert if the leaf data contains an `executor` field that does not equal the caller's address.
   - Must revert if the Merkle root cannot be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root can be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf's chain ID field is not `0`.
+    - Rationale: This is just a convention. When `arbitraryChain` is `true`, the leaf's chain ID must be `0`.
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
   - Emit a `SphinxDeploymentApproved` event in the `SphinxModuleProxy`.
@@ -176,6 +178,8 @@ graph TD
   - Must revert if the current Merkle leaf does not yield the active Merkle root, given the current Merkle proof.
   - Must revert if the current Merkle leaf's type does not equal `EXECUTE`.
   - Must revert if the Merkle root cannot be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf data contains a `chainId` field that does not match the current chain ID.
+  - Must revert if the Merkle root can be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf's chain ID field is not `0`.
+    - Rationale: This is just a convention. When `arbitraryChain` is `true`, the leaf's chain ID must be `0`.
   - Must revert if the current Merkle leaf is executed in the incorrect order (i.e. its index isn't correct).
   - Must revert if the transaction has an [insufficient amount of gas](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol#L241-L256).
   - A successful iteration must:
@@ -183,6 +187,9 @@ graph TD
     - Attempt to execute a transaction in the user's Gnosis Safe using the data in the current Merkle leaf.
     - The call to the user's Gnosis Safe must never revert.
       - Rationale: This would cause the user's deployment to be active indefinitely until they manually cancel it.
+      - Assumptions:
+        - The user-supplied `gas` amount is low enough to execute on the current network (e.g. it's not greater than the current block gas limit).
+        - The account at the Gnosis Safe's address is one of the [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions).
     - If the call to the Gnosis Safe is successful:
       - Must emit a `SphinxActionSucceeded` event in the `SphinxModuleProxy`.
     - If the call to the Gnosis Safe is unsuccessful for any reason:
@@ -238,9 +245,9 @@ It's worth reiterating that the Gnosis Safe owners can choose anybody to be an e
 
 * A user could attempt to grief the executor by specifying an arbitrarily large gas amount for a transaction,
 which would prevent the deployment from being executable.
-  * Remedy: This is not a concern because Sphinx has off-chain logic that checks if the gas amount for a transaction is too high.
-* A malicious user could pay Sphinx less than the cost of the deployment.
-  * Remedy: In practice, this is not a concern because Sphinx has off-chain billing that ensures we're reimbursed for all deployment costs.
+  * Remedy: The executor should resolve this off-chain by determining if the gas amount for a transaction is too high. This is not a concern of the protocol.
+* A malicious user could pay less than the cost of the deployment.
+  * Remedy: Billing should be handled off-chain, so it is not a concern of the protocol.
 
 ### Dependencies
 
