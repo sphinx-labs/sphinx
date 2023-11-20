@@ -1,6 +1,6 @@
 export * from './ifaces'
 export * from './constants'
-export * from './module'
+export * from './merkle-tree'
 export * from './contract-info'
 export * from './addresses'
 export * from './types'

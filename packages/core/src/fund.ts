@@ -1,4 +1,4 @@
-import { SphinxBundle } from '@sphinx-labs/contracts'
+import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 import { AbiCoder } from 'ethers'
 
 import { SphinxJsonRpcProvider } from './provider'
@@ -11,10 +11,10 @@ export const decodeExecuteLeafData = (data: string) => {
 }
 
 export const estimateExecutionGas = async (
-  bundle: SphinxBundle,
+  bundle: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const gas = bundle.leaves
+  const gas = bundle.leavesWithProofs
     .slice(actionsExecuted)
     .map((action) => {
       const values = decodeExecuteLeafData(action.leaf.data)
@@ -27,7 +27,7 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: SphinxJsonRpcProvider,
-  bundle: SphinxBundle,
+  bundle: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
   const estExecutionGas = await estimateExecutionGas(bundle, actionsExecuted)

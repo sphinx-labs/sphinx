@@ -6,7 +6,8 @@ import { create } from 'ipfs-http-client'
 import {
   DeploymentData,
   SphinxTransaction,
-  makeSphinxBundle,
+  makeSphinxLeaves,
+  makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -14,7 +15,7 @@ import {
   ConfigArtifacts,
   CompilerConfig,
   ParsedConfig,
-  BundleInfo,
+  MerkleTreeInfo,
 } from '../config/types'
 import { getMinimumCompilerInput } from '../languages'
 
@@ -145,19 +146,20 @@ export const makeDeploymentData = (
       moduleProxy: compilerConfig.moduleAddress,
       deploymentURI: configUri,
       txs,
+      arbitraryChain: compilerConfig.arbitraryChain,
     }
   }
 
   return data
 }
 
-export const getBundleInfo = async (
+export const getMerkleTreeInfo = async (
   configArtifacts: ConfigArtifacts,
   parsedConfigArray: Array<ParsedConfig>
 ): Promise<{
   configUri: string
   root: string
-  bundleInfo: BundleInfo
+  merkleTreeInfo: MerkleTreeInfo
 }> => {
   const { configUri, compilerConfigs } = await sphinxCommitAbstractSubtask(
     parsedConfigArray,
@@ -166,12 +168,13 @@ export const getBundleInfo = async (
   )
 
   const deploymentData = makeDeploymentData(configUri, compilerConfigs)
-  const bundle = makeSphinxBundle(deploymentData)
+  const leaves = makeSphinxLeaves(deploymentData)
+  const merkleTree = makeSphinxMerkleTree(leaves)
   return {
     configUri,
-    root: bundle.root,
-    bundleInfo: {
-      bundle,
+    root: merkleTree.root,
+    merkleTreeInfo: {
+      merkleTree,
       compilerConfigs,
     },
   }

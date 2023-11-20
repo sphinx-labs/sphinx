@@ -8,9 +8,9 @@ struct HumanReadableAction {
     uint256 actionIndex;
 }
 
-struct SphinxBundle {
+struct SphinxMerkleTree {
     bytes32 root;
-    SphinxLeafWithProof[] leaves;
+    SphinxLeafWithProof[] leavesWithProofs;
 }
 
 struct FoundryConfig {
@@ -119,6 +119,7 @@ struct DeploymentInfo {
     bool isLiveNetwork;
     InitialChainState initialState;
     Label[] labels;
+    bool arbitraryChain;
 }
 
 /**
@@ -223,7 +224,7 @@ struct NetworkInfo {
 struct ProposalOutput {
     address proposerAddress;
     bytes metaTxnSignature;
-    SphinxBundle bundle;
+    SphinxMerkleTree bundle;
     bytes32 authRoot;
 }
 
@@ -232,7 +233,7 @@ struct ProposalOutput {
  *         needing to hard-code them.
  */
 contract SphinxPluginTypes {
-    function sphinxBundleType() external pure returns (SphinxBundle memory bundleInfo) {}
+    function sphinxMerkleTreeType() external pure returns (SphinxMerkleTree memory bundleInfo) {}
 
     function humanReadableActionsType()
         external

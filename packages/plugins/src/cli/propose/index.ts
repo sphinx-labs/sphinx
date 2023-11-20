@@ -7,7 +7,7 @@ import {
   ProposalRequest,
   WEBSITE_URL,
   elementsEqual,
-  getBundleInfo,
+  getMerkleTreeInfo,
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
@@ -238,7 +238,7 @@ export const propose = async (
     spinner
   )
 
-  const { root, bundleInfo, configUri } = await getBundleInfo(
+  const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
     configArtifacts,
     parsedConfigArray
   )
@@ -261,7 +261,7 @@ export const propose = async (
 
   const proposalSimulationData = sphinxIface.encodeFunctionData(
     simulateProposalFragment,
-    [isTestnet, root, bundleInfo.bundle]
+    [isTestnet, root, merkleTreeInfo.merkleTree]
   )
 
   const proposalSimulationArgs = [
@@ -289,7 +289,7 @@ export const propose = async (
 
   spinner.succeed(`Simulation succeeded.`)
 
-  const preview = getPreview(bundleInfo.compilerConfigs)
+  const preview = getPreview(merkleTreeInfo.compilerConfigs)
   if (confirm) {
     spinner.info(`Skipping preview.`)
   } else {
@@ -301,7 +301,7 @@ export const propose = async (
     ? spinner.start('Dry running proposal...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = bundleInfo.compilerConfigs.map((compilerConfig) => {
+  const shouldBeEqual = merkleTreeInfo.compilerConfigs.map((compilerConfig) => {
     return {
       newConfig: compilerConfig.newConfig,
       safeAddress: compilerConfig.safeAddress,
@@ -324,19 +324,19 @@ export const propose = async (
     moduleAddress,
     safeInitData,
     safeInitSaltNonce,
-  } = bundleInfo.compilerConfigs[0]
+  } = merkleTreeInfo.compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   // const compilerConfigs: {
   //   [ipfsHash: string]: string
   // } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const compilerConfig of bundleInfo.compilerConfigs) {
+  for (const compilerConfig of merkleTreeInfo.compilerConfigs) {
     const { actionInputs } = compilerConfig
 
-    const {} = bundleInfo.compilerConfigs
+    const {} = merkleTreeInfo.compilerConfigs
 
-    bundleInfo.bundle.leaves
+    merkleTreeInfo.merkleTree.leavesWithProofs
 
     let estimatedGas = 0
     estimatedGas += actionInputs
@@ -357,7 +357,7 @@ export const propose = async (
 
     const projectDeployment = getProjectDeploymentForChain(
       configUri,
-      bundleInfo.bundle,
+      merkleTreeInfo.merkleTree,
       compilerConfig
     )
     if (projectDeployment) {
@@ -365,7 +365,7 @@ export const propose = async (
     }
   }
 
-  const emptyBundle = bundleInfo.bundle.leaves.length === 0
+  const emptyBundle = merkleTreeInfo.merkleTree.leavesWithProofs.length === 0
   if (emptyBundle) {
     spinner.succeed(
       `Skipping proposal because there is nothing to propose on any chain.`
@@ -373,7 +373,7 @@ export const propose = async (
     return { proposalRequest: undefined, ipfsData: undefined }
   }
 
-  const chainStatus = bundleInfo.compilerConfigs
+  const chainStatus = merkleTreeInfo.compilerConfigs
     .map((compilerConfig) => ({
       chainId: Number(compilerConfig.chainId),
       numLeaves: compilerConfig.actionInputs.length + 1,
@@ -384,7 +384,7 @@ export const propose = async (
     apiKey,
     orgId: newConfig.orgId,
     isTestnet,
-    chainIds: bundleInfo.compilerConfigs.map((compilerConfig) =>
+    chainIds: merkleTreeInfo.compilerConfigs.map((compilerConfig) =>
       Number(compilerConfig.chainId)
     ),
     deploymentName: newConfig.projectName,
@@ -398,12 +398,12 @@ export const propose = async (
     gasEstimates,
     diff: preview,
     tree: {
-      root: bundleInfo.bundle.root,
+      root: merkleTreeInfo.merkleTree.root,
       chainStatus,
     },
   }
 
-  const ipfsData = JSON.stringify(bundleInfo.compilerConfigs, null, 2)
+  const ipfsData = JSON.stringify(merkleTreeInfo.compilerConfigs, null, 2)
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {

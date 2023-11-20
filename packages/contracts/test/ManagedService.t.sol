@@ -36,7 +36,7 @@ contract Endpoint {
     }
 }
 
-contract ManagedService_Test is Test {
+contract ManagedService_Test is Test, ManagedService {
     ManagedService service;
     Endpoint endpoint;
     address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -44,8 +44,7 @@ contract ManagedService_Test is Test {
     address invalidSender = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
     bytes invalidCallerError = "ManagedService: invalid caller";
 
-    event Called(address indexed relayer, address indexed to, bytes32 data);
-    event Withdrew(address indexed recipient, uint256 amount);
+    constructor () ManagedService(address(1)) {}
 
     function setUp() public {
         vm.startPrank(owner);

@@ -8,7 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   FoundryContractArtifact,
-  SphinxBundle,
+  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
@@ -94,6 +94,7 @@ export type ParsedConfig = {
   initialState: InitialChainState
   remoteExecution: boolean
   unlabeledAddresses: string[]
+  arbitraryChain: boolean
 }
 
 export type DeploymentInfo = {
@@ -109,6 +110,7 @@ export type DeploymentInfo = {
   isLiveNetwork: boolean
   initialState: InitialChainState
   labels: Array<Label>
+  arbitraryChain: boolean
 }
 
 export type InitialChainState = {
@@ -212,8 +214,8 @@ export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
 }
 
-export type BundleInfo = {
-  bundle: SphinxBundle
+export type MerkleTreeInfo = {
+  merkleTree: SphinxMerkleTree
   compilerConfigs: Array<CompilerConfig>
 }
 
