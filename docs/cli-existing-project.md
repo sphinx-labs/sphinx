@@ -9,8 +9,8 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 3. [Install Sphinx](#3-install-sphinx)
 4. [Update `.gitignore`](#4-update-gitignore)
 5. [Update `foundry.toml`](#5-update-foundrytoml)
-6. [Initialize a project](#6-initialize-a-project)
-7. [Add remappings](#7-add-remappings)
+6. [Add remappings](#6-add-remappings)
+7. [Initialize a project](#7-initialize-a-project)
 8. [Test the deployment](#8-test-the-deployment)
 9. [Broadcast a deployment on Anvil (optional)](#9-broadcast-a-deployment-on-anvil-optional)
 10. [Next steps](#10-next-steps)
@@ -20,7 +20,6 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
-- [Node Version >=16.16.0](https://nodejs.org/en/download)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
@@ -71,30 +70,41 @@ extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
-## 6. Initialize a project
+We also highly recommend setting `optimizer = 'false'` for development because this makes compilation happen ~5x faster. See the [Foundry docs](https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage) for more details.
 
-Next, we'll create a sample project using the init command.
+## 6. Add remappings
 
-### yarn or npm
+You probably already have remappings either in your `foundry.toml` or `remappings.txt` file. If you don't, we recommend adding a `remappings.txt` file in the root of your repository.
+
+If you're using a `remappings.txt` file, add:
+```
+@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry/
+@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/
+sphinx-forge-std/=node_modules/sphinx-forge-std/src/
+sphinx-solmate/=node_modules/sphinx-solmate/src/
+```
+
+If your remappings are in `foundry.toml`, update your `remappings` array to include:
+```
+remappings=[
+  '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/',
+  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
+  'sphinx-solmate/=node_modules/sphinx-solmate/src/'
+]
+```
+
+## 7. Initialize a project
+
+Next, we'll create a sample project using the command:
 ```
 npx sphinx init
-```
-
-### pnpm
-```
-pnpm sphinx init --pnpm
 ```
 
 This created a few files:
 - `HelloSphinx.sol`: A sample contract to deploy. This file is written to your existing contract folder, which defaults to `src/`.
 - `HelloSphinx.s.sol`: A sample deployment script. This file is written to your existing script folder, which defaults to `script/`.
 - `HelloSphinx.t.sol`: A sample test file. This file is written to your existing test folder, which defaults to `test/`.
-
-## 7. Add remappings
-
-You probably already have remappings either in your `foundry.toml` or `remappings.txt` file. If you don't, we recommend adding a `remappings.txt` file in the root of your repository.
-
-The previous command should have output a set of recommended remappings based on your installation method. You'll want to copy and paste those into either your remapping field in your `foundry.toml`, or your `remappings.txt` file.
 
 ## 8. Test the deployment
 
@@ -131,7 +141,7 @@ npx sphinx deploy <script/path>/HelloSphinx.s.sol --network anvil
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
-Sphinx will automatically generate deployment artifacts, which are in the same format as [hardhat-deploy](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
 If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 

@@ -9,8 +9,9 @@ import 'core-js/features/array/at'
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { propose } from './propose'
+// import { propose } from './propose'
 import { deploy } from './deploy'
+import { propose } from './propose'
 
 // Load environment variables from .env
 dotenv.config()
@@ -126,21 +127,15 @@ yargs(hideBin(process.argv))
     'Initialize a sample project',
     (y) =>
       y
-        .usage('Usage: npx sphinx init [--quickstart] [--pnpm]')
+        .usage('Usage: npx sphinx init [--quickstart]')
         .option('quickstart', {
           describe:
             'Initialize the project in a new repository. This writes a new foundry.toml and .env file.',
           boolean: true,
         })
-        .option('pnpm', {
-          describe:
-            'Output remappings for pnpm installations instead of npm or yarn.',
-          boolean: true,
-        })
         .hide('version'),
     async (argv) => {
       const quickstart = argv.quickstart ?? false
-      const pnpm = argv.pnpm ?? false
 
       const spinner = ora()
       spinner.start(`Initializing sample project...`)
@@ -149,15 +144,8 @@ yargs(hideBin(process.argv))
 
       const solcVersion = solc ?? (await inferSolcVersion())
 
-      writeSampleProjectFiles(
-        src,
-        test,
-        script,
-        quickstart,
-        solcVersion,
-        pnpm,
-        spinner
-      )
+      writeSampleProjectFiles(src, test, script, quickstart, solcVersion)
+      spinner.succeed('Initialized sample project.')
     }
   )
   .command(

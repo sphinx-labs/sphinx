@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { MyTypeLibrary } from "./Types.sol";
-import { MyTypeContract } from "./Types.sol";
-import { MyTopLevelType, MyTopLevelStruct, MyTopLevelEnum } from "./Types.sol";
+import {MyTypeLibrary} from "./Types.sol";
+import {MyTypeContract} from "./Types.sol";
+import {MyTopLevelType, MyTopLevelStruct, MyTopLevelEnum} from "./Types.sol";
 
 type MyLocalType is int8;
 

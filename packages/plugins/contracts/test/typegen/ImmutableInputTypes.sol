@@ -3,18 +3,18 @@ pragma solidity ^0.8.0;
 
 contract ImmutableInputTypes {
     uint8 public immutable myUint8;
-    uint public immutable myUint;
+    uint256 public immutable myUint;
     int64 public immutable myInt64;
-    int public immutable myInt;
+    int256 public immutable myInt;
     address public immutable myAddress;
     bytes32 public immutable myBytes32;
     bool public immutable myBool;
 
     constructor(
         uint8 _myUint8,
-        uint _myUint,
+        uint256 _myUint,
         int64 _myInt64,
-        int _myInt,
+        int256 _myInt,
         address _myAddress,
         bytes32 _myBytes32,
         bool _myBool

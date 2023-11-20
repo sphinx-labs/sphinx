@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 contract Fallback {
-    int public number;
+    int256 public number;
     string public myString;
 
-    constructor(int _number) {
+    constructor(int256 _number) {
         number = _number;
     }
 
@@ -13,7 +13,7 @@ contract Fallback {
         myString = "did fallback";
     }
 
-    function set(int _number) external {
+    function set(int256 _number) external {
         number = _number;
     }
 }

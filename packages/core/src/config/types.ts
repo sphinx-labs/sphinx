@@ -6,13 +6,12 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  SphinxTransaction,
+  FoundryContractArtifact,
+  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import {
-  BuildInfo,
-  CompilerOutput,
-  ContractArtifact,
-} from '../languages/solidity/types'
+import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedChainId, SupportedNetworkName } from '../networks'
 import { SemVer } from '../types'
@@ -77,19 +76,17 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput =
-  | RawDeployContractActionInput
-  | RawFunctionCallActionInput
-  | RawCreate2ActionInput
+export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
 
-export type ActionInput =
-  | DeployContractActionInput
-  | FunctionCallActionInput
-  | Create2ActionInput
+export type ActionInput = FunctionCallActionInput | Create2ActionInput
 
 export type ParsedConfig = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  executorAddress: string
+  safeInitData: string
+  safeInitSaltNonce: string
+  nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
@@ -97,16 +94,23 @@ export type ParsedConfig = {
   initialState: InitialChainState
   remoteExecution: boolean
   unlabeledAddresses: string[]
+  arbitraryChain: boolean
 }
 
 export type DeploymentInfo = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  requireSuccess: boolean
+  executorAddress: string
+  nonce: string
   chainId: string
+  safeInitData: string
+  safeInitSaltNonce: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
   labels: Array<Label>
+  arbitraryChain: boolean
 }
 
 export type InitialChainState = {
@@ -145,7 +149,6 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   mainnets: Array<N>
   testnets: Array<N>
   threshold: string
-  version: SemVer
 }
 
 export interface RawDeployContractActionInput {
@@ -167,20 +170,17 @@ export interface DeployContractActionInput
   create3Address: string
 }
 
-export interface RawCreate2ActionInput {
+export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
-  to: string
-  skip: boolean
-  data: string
   actionType: string
-  gas: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
 }
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
   contracts: ParsedContractDeployments
+  index: string
 }
 
 export type DecodedAction = {
@@ -190,23 +190,20 @@ export type DecodedAction = {
   address: string
 }
 
-export interface RawFunctionCallActionInput {
+export interface RawFunctionCallActionInput extends SphinxTransaction {
   actionType: string
-  skip: boolean
-  to: string
-  data: string
   contractName: string | null
   additionalContracts: Array<{
     transactionType: string
     address: string
     initCode: string
   }>
-  gas: string
   decodedAction: DecodedAction
 }
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
   contracts: ParsedContractDeployments
+  index: string
 }
 
 /**
@@ -217,6 +214,11 @@ export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
 }
 
+export type MerkleTreeInfo = {
+  merkleTree: SphinxMerkleTree
+  compilerConfigs: Array<CompilerConfig>
+}
+
 /**
  * @notice The `BuildInfo` object, but without the compiler ouputs.
  */
@@ -225,7 +227,7 @@ export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
-    artifact: ContractArtifact
+    artifact: FoundryContractArtifact
   }
 }
 
@@ -236,7 +238,7 @@ export type BuildInfoRemote = BuildInfo & {
 export type ConfigArtifactsRemote = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfoRemote
-    artifact: ContractArtifact
+    artifact: FoundryContractArtifact
   }
 }
 

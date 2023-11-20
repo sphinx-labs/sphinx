@@ -5,7 +5,6 @@ import { spawnSync } from 'child_process'
 import {
   displayDeploymentTable,
   isLiveNetwork,
-  remove0x,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -17,14 +16,15 @@ import {
   SUPPORTED_NETWORKS,
   ParsedConfig,
   SphinxPreview,
+  getMerkleTreeInfo,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
+import { remove0x } from '@sphinx-labs/contracts'
 
 import {
-  getBundleInfoArray,
-  getSphinxManagerAddressFromScript,
+  getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
@@ -36,6 +36,7 @@ import {
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
+// import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
@@ -55,9 +56,9 @@ export const deploy = async (
     buildInfoFolder,
     cachePath,
     rpcEndpoints,
-    deploymentFolder,
     etherscan,
     broadcastFolder,
+    deploymentFolder,
   } = await getFoundryConfigOptions()
 
   const forkUrl = rpcEndpoints[network]
@@ -95,17 +96,23 @@ export const deploy = async (
   }
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
+  // Force re-compile the contracts if this step hasn't been disabled and if we're on a live
+  // network. This ensures that we're using the correct artifacts for the deployment. This is mostly
+  // out of an abundance of caution, since using the incorrect contract artifact will prevent us
+  // from writing the deployment artifact.
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
+    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
+    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
+      stdio: 'inherit',
+    })
+    // Exit the process if the clean fails.
+    if (cleanStatus !== 0) {
+      process.exit(1)
+    }
+  }
 
   // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  // Force re-compile the contracts unless it's explicitly been disabled or if we're not on a live
-  // network. This ensures that we're using the correct artifacts for live network deployments. This
-  // is mostly out of an abundance of caution, since using an incorrect contract artifact will
-  // prevent us from writing the deployment artifact for that contract.
-  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
-    forgeBuildArgs.push('--force')
-  }
-
   const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',
   })
@@ -153,7 +160,7 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const managerAddress = await getSphinxManagerAddressFromScript(
+  const managerAddress = await getSphinxSafeAddressFromScript(
     scriptPath,
     forkUrl,
     targetContract,
@@ -219,9 +226,7 @@ export const deploy = async (
   } else {
     preview = getPreview([parsedConfig])
 
-    const emptyDeployment = parsedConfig.actionInputs.every(
-      (action) => action.skip
-    )
+    const emptyDeployment = parsedConfig.actionInputs.length === 0
 
     spinner.stop()
     if (emptyDeployment) {
@@ -235,16 +240,14 @@ export const deploy = async (
     }
   }
 
-  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
-    configArtifacts,
-    [parsedConfig]
-  )
-  if (bundleInfoArray.length !== 1) {
+  const { root, merkleTreeInfo } = await getMerkleTreeInfo(configArtifacts, [
+    parsedConfig,
+  ])
+  if (merkleTreeInfo.compilerConfigs.length !== 1) {
     throw new Error(
       `Bundle info array has incorrect length. Should never happen`
     )
   }
-  const bundleInfo = bundleInfoArray[0]
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -259,8 +262,8 @@ export const deploy = async (
 
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
-    authRoot,
-    bundleInfo,
+    root,
+    merkleTreeInfo.merkleTree,
   ])
 
   const forgeScriptDeployArgs = [
@@ -315,10 +318,10 @@ export const deploy = async (
       readFileSync(broadcastFilePath, 'utf-8')
     )
 
+    // TODO - Fix deployment artifacts
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      bundleInfo.actionBundle.actions,
       broadcast,
       deploymentFolder,
       configArtifacts

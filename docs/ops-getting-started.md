@@ -7,12 +7,11 @@ This guide will introduce you to the Sphinx DevOps platform by walking you throu
 1. [Prerequisites](#1-prerequisites)
 2. [Get testnet ETH](#2-get-testnet-eth)
 3. [Get credentials](#3-get-credentials)
-4. [Get an RPC endpoint API key](#4-get-an-rpc-endpoint-api-key)
-5. [Add environment variables](#5-add-environment-variables)
-6. [Configure your script](#6-configure-your-script)
-7. [Add RPC endpoints](#7-add-rpc-endpoints)
-8. [Propose on testnets](#8-propose-on-testnets)
-9. [Propose on mainnet (optional)](#9-propose-on-mainnet-optional)
+4. [Add your credentials](#4-add-your-credentials)
+5. [Configure your script](#5-configure-your-script)
+6. [Add RPC endpoints](#6-add-rpc-endpoints)
+7. [Propose on testnets](#7-propose-on-testnets)
+8. [Propose on mainnet (optional)](#8-propose-on-mainnet-optional)
 
 ## 1. Prerequisites
 
@@ -33,16 +32,11 @@ You'll need a small amount of testnet ETH on Optimism Goerli, which you can get 
 
 You'll need a Sphinx API key and an organization ID. You can get these on the [Sphinx UI](https://www.sphinx.dev/).
 
-## 4. Get an RPC endpoint API key
+## 4. Add your credentials
 
-We recommend getting a private API key from an RPC node provider like [Alchemy](https://www.alchemy.com/). Public RPC endpoints can be flaky, so we don't recommend them for this guide.
-
-## 5. Add environment variables
-
-In your `.env` file, add your Sphinx API key and your RPC endpoint API key from the previous steps:
+In your `.env` file, add your Sphinx API key from the previous step:
 ```
 SPHINX_API_KEY=<your API key>
-RPC_API_KEY=<your API key>
 ```
 
 Also, in your `.env` file, add the private key of your EOA:
@@ -53,46 +47,53 @@ PROPOSER_PRIVATE_KEY=<private key>
 
 We'll use this EOA to propose the deployment on the command line in a later step.
 
-> For the purpose of this guide, we'll use the same EOA to propose the deployment on the command line and approve it in the Sphinx UI. However, in a production environment, we recommend creating a new private key to use specifically for proposals, since the private key will either be stored locally in a `.env` file or as a secret in your CI process.
+## 5. Configure your script
 
-## 6. Configure your script
+Navigate to your deployment script.
 
-First, navigate to your deployment script.
-
-Add the import:
+First, add the import:
 ```
 import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
 ```
 
-Then, copy and paste the following config template into your `setUp` function:
-```
-    sphinxConfig.owners = [<your EOA address>];
-    sphinxConfig.proposers = [<your EOA address>];
-    sphinxConfig.orgId = <org ID>;
-    sphinxConfig.projectName = "My First Project";
-    sphinxConfig.threshold = 1;
-    sphinxConfig.mainnets;
-    sphinxConfig.testnets = [
-      Network.goerli,
-      Network.optimism_goerli,
-      Network.arbitrum_goerli
-    ];
-```
-
-Fill in the template with your values. The `orgId` is a public field, so you don't need to keep it secret.
-
-## 7. Add RPC endpoints
-
-Include an RPC endpoint for each network in your `foundry.toml`. For example, if you're using Alchemy, your `foundry.toml` might look like this:
+In your `setUp` function, update the `sphinxConfig.owners` array to include the address of your EOA:
 
 ```
+sphinxConfig.owners = [<your EOA address>];
+```
+
+Then, copy and paste the following config options into your `setUp` function:
+```
+sphinxConfig.orgId = <org ID>;
+sphinxConfig.proposers = [<your proposer address>];
+sphinxConfig.mainnets = [];
+sphinxConfig.testnets = [
+  Network.goerli,
+  Network.optimism_goerli,
+  Network.arbitrum_goerli,
+  Network.polygon_mumbai,
+  Network.bnb_testnet,
+  Network.gnosis_chiado
+];
+```
+
+Set the `sphinxConfig.orgId` field to the organization ID that you got from the Sphinx UI, and set the `sphinxConfig.proposers` array to include the address of your EOA.
+
+## 6. Add RPC endpoints
+
+You'll need to update your `foundry.toml` to include an RPC endpoint for each network. You can use these public RPC endpoints:
+
+```toml
 [rpc_endpoints]
-goerli = "https://eth-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
-optimism_goerli = "https://opt-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
-arbitrum_goerli = "https://arb-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
+goerli = "https://rpc.ankr.com/eth_goerli"
+optimism_goerli = "https://rpc.ankr.com/optimism_testnet/"
+arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
+bnb_testnet = "https://bsc-testnet.publicnode.com"
+gnosis_chiado = "https://rpc.chiadochain.net"
+polygon_mumbai = "https://rpc.ankr.com/polygon_mumbai"
 ```
 
-## 8. Propose on testnets
+## 7. Propose on testnets
 
 Copy and paste the following command, replacing `<path/to/your-script.s.sol>` with the actual path to your deployment script:
 
@@ -104,10 +105,9 @@ Sphinx will propose all transactions that are broadcasted by Foundry.
 
 Follow the instructions in the terminal to finish the rest of the deployment.
 
-## 9. Propose on mainnet (optional)
+## 8. Propose on mainnet (optional)
 
 To propose a deployment on mainnet, you simply need to add a `sphinxConfig.mainnets` option to the `setUp` function in your deployment script. For example:
-
 ```
 sphinxConfig.mainnets = [
   Network.optimism

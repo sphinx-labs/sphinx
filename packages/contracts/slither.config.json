@@ -1,13 +1,10 @@
 {
   "detectors_to_exclude": "assembly-usage,low-level-calls,naming-convention,solc-version",
-  "fail_low": true,
-  "fail_pedantic": true,
   "exclude_optimization": true,
   "exclude_informational": true,
   "solc_disable_warnings": false,
-  "hardhat_ignore_compile": false,
   "disable_color": false,
   "exclude_dependencies": true,
-  "filter_paths": "test,node_modules",
-  "foundry_out_directory": "forge-artifacts"
+  "filter_paths": "test,node_modules,contracts/foundry",
+  "foundry_out_directory": "out"
 }

@@ -18,7 +18,6 @@ This guide will show you how to setup Sphinx's Foundry CLI plugin in a fresh rep
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 - [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
-- [Node Version >=16.16.0](https://nodejs.org/en/download)
 
 You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
 * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
@@ -59,14 +58,8 @@ pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.
 
 ## 5. Initialize a project
 
-### yarn or npm
 ```
 npx sphinx init --quickstart
-```
-
-### pnpm
-```
-pnpm sphinx init --quickstart --pnpm
 ```
 
 This command created a few files:
@@ -100,7 +93,7 @@ npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
 
 You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
 
-Sphinx will automatically generate deployment artifacts, which are in the same format as [hardhat-deploy](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+Sphinx will automatically generate deployment artifacts, which are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
 
 If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
 

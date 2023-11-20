@@ -15,7 +15,7 @@ import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/option
 const deploymentArtifactDir = 'deployments'
 
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0x67AA37B2fb458501C3bB1Db312017a12AC3fD8cD'
+const contractAddress = '0xbd0DB8399aBE4EbC7247561C43a395E190633e07'
 
 describe('Init CLI command', () => {
   let contractPath: string

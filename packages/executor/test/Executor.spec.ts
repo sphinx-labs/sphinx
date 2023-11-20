@@ -5,7 +5,7 @@ import {
   makeAuthBundle,
   getProjectBundleInfo,
   getDeploymentId,
-  getAuthLeafsForChain,
+  getAuthLeavesForChain,
   monitorExecution,
   sphinxCommitAbstractSubtask,
   SphinxJsonRpcProvider,
@@ -70,25 +70,25 @@ describe('Remote executor', () => {
       configArtifacts
     )
 
-    const leafs = await getAuthLeafsForChain(parsedConfig, configArtifacts)
+    const leaves = await getAuthLeavesForChain(parsedConfig, configArtifacts)
 
     // Set the proposer to be the owner. Currently, the proposer is the address that corresponds to
     // the private key returned by `SphinxUtils.getSphinxDeployerPrivateKey(0)`. This is default
     // behavior in the Solidity `sphinxDeployTask`, which we called above. If we don't replace this
     // private key, we won't be able to propose the deployment.
-    ;(leafs.find((l) => l.index === 0) as Setup).proposers[0].member =
+    ;(leaves.find((l) => l.index === 0) as Setup).proposers[0].member =
       owner.address
 
-    const authBundle = makeAuthBundle(leafs)
+    const authBundle = makeAuthBundle(leaves)
 
     const signature = await signAuthRootMetaTxn(owner, authBundle.root)
     if (!signature) {
       throw new Error(`Meta transaction signature not found`)
     }
 
-    const { leaf: setupLeaf, proof: setupProof } = authBundle.leafs[0]
-    const { leaf: proposalLeaf, proof: proposalProof } = authBundle.leafs[1]
-    const { leaf: approvalLeaf, proof: approvalProof } = authBundle.leafs[2]
+    const { leaf: setupLeaf, proof: setupProof } = authBundle.leaves[0]
+    const { leaf: proposalLeaf, proof: proposalProof } = authBundle.leaves[1]
+    const { leaf: approvalLeaf, proof: approvalProof } = authBundle.leaves[2]
 
     // Check that the contract hasn't been deployed yet.
     contract = getContract()

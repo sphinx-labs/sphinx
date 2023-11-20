@@ -9,22 +9,23 @@
       "packages/contracts",
       "packages/core",
       "packages/plugins",
-      "packages/executor",
-      "packages/demo"
+      "packages/demo",
+      "packages/executor"
     ],
     "nohoist": [
-      "@sphinx-labs/contracts/@connext/interfaces",
       "@sphinx-labs/contracts/solmate",
-      "@sphinx-labs/{contracts,plugins,demo,executor}/forge-std",
-      "@sphinx-labs/{contracts,plugins,executor,demo}/ds-test",
+      "@sphinx-labs/{contracts,plugins,demo}/forge-std",
+      "@sphinx-labs/{contracts,plugins,demo}/ds-test",
       "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts",
-      "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
+      "@sphinx-labs/plugins/@openzeppelin/contracts-upgradeable",
       "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts",
-      "@sphinx-labs/{plugins,demo,executor}/@sphinx-labs/contracts",
-      "@sphinx-labs/plugins/sphinx-forge-std",
+      "@sphinx-labs/{plugins,demo}/@sphinx-labs/contracts",
+      "@sphinx-labs/contracts/sphinx-forge-std",
       "@sphinx-labs/{plugins,demo}/sphinx-solmate",
       "@sphinx-labs/plugins/solidity-stringutils",
-      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
+      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples",
+      "@sphinx-labs/contracts/@gnosis.pm/safe-contracts",
+      "@sphinx-labs/contracts/@gnosis.pm/safe-contracts-1.4.1"
     ]
   },
   "scripts": {
@@ -60,7 +61,7 @@
     "mocha": "^8.4.0",
     "nyc": "^15.1.0",
     "prettier": "^2.3.1",
-    "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "prettier-plugin-solidity": "^1.2.0",
     "ts-node": "^10.8.1",
     "typescript": "^4.7.4"
   }

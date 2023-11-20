@@ -1,32 +1,36 @@
+import { SphinxMerkleTree } from '@sphinx-labs/contracts'
+import { AbiCoder } from 'ethers'
+
 import { SphinxJsonRpcProvider } from './provider'
-import { SphinxBundles } from './actions'
+
+export const decodeExecuteLeafData = (data: string) => {
+  return AbiCoder.defaultAbiCoder().decode(
+    ['address', 'uint', 'uint', 'bytes', 'uint'],
+    data
+  )
+}
 
 export const estimateExecutionGas = async (
-  managerAddress: string,
-  provider: SphinxJsonRpcProvider,
-  bundles: SphinxBundles,
+  bundle: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const gas = bundles.actionBundle.actions
+  const gas = bundle.leavesWithProofs
     .slice(actionsExecuted)
-    .map((action) => action.gas)
+    .map((action) => {
+      const values = decodeExecuteLeafData(action.leaf.data)
+      return values[2]
+    })
     .reduce((a, b) => a + b, BigInt(0))
 
   return gas
 }
 
 export const estimateExecutionCost = async (
-  managerAddress: string,
   provider: SphinxJsonRpcProvider,
-  bundles: SphinxBundles,
+  bundle: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const estExecutionGas = await estimateExecutionGas(
-    managerAddress,
-    provider,
-    bundles,
-    actionsExecuted
-  )
+  const estExecutionGas = await estimateExecutionGas(bundle, actionsExecuted)
   const feeData = await provider.getFeeData()
 
   // Use the `maxFeePerGas` if it exists, otherwise use the `gasPrice`. The `maxFeePerGas` is not

@@ -37,9 +37,7 @@
     "@rari-capital/solmate": "7.0.0-alpha.3",
     "chai": "^4.3.6",
     "dotenv": "^16.0.3",
-    "hardhat": "^2.17.1",
-    "solhint": "^3.3.6",
-    "solhint-plugin-prettier": "^0.0.5"
+    "hardhat": "^2.17.1"
   },
   "dependencies": {
     "@sphinx-labs/contracts": "^0.13.3",

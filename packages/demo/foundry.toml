@@ -6,6 +6,10 @@ build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 allow_paths = ["../.."]
+# We highly recommend setting the optimizer to 'false' for development because
+# this makes compilation happen ~5x faster. See here for more details:
+# https://book.getfoundry.sh/reference/forge/forge-build?highlight=optimizer#conditional-optimizer-usage
+optimizer = false
 remappings=[
   'forge-std/=node_modules/forge-std/src',
   'ds-test/=node_modules/ds-test/src/',

@@ -289,7 +289,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         // Do not retry the deployment since it will be handled by another executor
         process.send({ action: 'discard', payload: executorEvent })
       } else {
-        // A different error occurred. This most likely means the owner cancelled the deployment
+        // A different error occurred. This most likely means the owner canceled the deployment
         // before it could be claimed. We'll log the error message.
         logger.error(
           '[Sphinx]: error: claiming deployment error',
@@ -374,7 +374,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   await trackExecuted(await manager.owner(), network, undefined)
 
   // If we make it to this point, we know that the executor has executed the deployment (or that it
-  // has been cancelled by the owner).
+  // has been canceled by the owner).
   logger.info('[Sphinx]: execution successful')
   process.send({ action: 'success', payload: executorEvent })
 }

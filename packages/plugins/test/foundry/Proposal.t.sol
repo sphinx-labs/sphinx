@@ -5,25 +5,15 @@ import { console } from "sphinx-forge-std/console.sol";
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Test } from "sphinx-forge-std/Test.sol";
-import {
-    ISphinxAuthFactory
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
-import { AuthState, AuthStatus } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
-import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
-import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
-import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import {
-    ISphinxAccessControlEnumerable
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControlEnumerable.sol";
-
-import { Network, DeployOptions, NetworkInfo, OptionalAddress, BundleInfo, SphinxConfig, Version } from "../../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, DeployOptions, NetworkInfo, OptionalAddress, SphinxMerkleTree, SphinxConfig, Version } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
-import { SphinxConstants } from "../../contracts/foundry/SphinxConstants.sol";
+import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
-import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
+import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
+import { GnosisSafe } from "@sphinx-labs/contracts/node_modules/@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import { SphinxModule, DeploymentStatus } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 
 /**
  * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
@@ -40,8 +30,8 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
 
     MyOwnable ownable;
 
-    ISphinxAuth auth;
-    ISphinxManager manager;
+    GnosisSafe safe;
+    SphinxModule module;
 
     address proposer = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
 
@@ -58,7 +48,6 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
             0x90F79bf6EB2c4f870365E785982E1f101E93b906
         ];
         // Account #4 on Anvil
-        sphinxConfig.proposers = [proposer];
         sphinxConfig.threshold = 3;
         sphinxConfig.testnets = initialTestnets;
         sphinxConfig.orgId = "1111";
@@ -73,10 +62,10 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
             vm.toString(proposerPrivateKey)
         );
 
-        auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        manager = ISphinxManager(sphinxManager());
+        safe = GnosisSafe(payable(sphinxSafe()));
+        module = SphinxModule(sphinxModule());
 
-        bytes memory initCode = abi.encodePacked(type(MyOwnable).creationCode, abi.encode(address(manager), 500));
+        bytes memory initCode = abi.encodePacked(type(MyOwnable).creationCode, abi.encode(address(safe), 500));
 
         // We must set the address here because the `run` function is not called in this process.
         // Instead, it's called during the collection phase, which occurs in a separate process
@@ -84,32 +73,42 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         ownable = MyOwnable(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
     }
 
-    function assertAuthContractInitialized() internal {
-        ISphinxAccessControlEnumerable authAccessControl = ISphinxAccessControlEnumerable(address(auth));
-        assertEq(authAccessControl.getRoleMemberCount(bytes32(0)), sphinxConfig.owners.length);
+    function assertSafeInitialized() internal {
+        address[] memory owners = safe.getOwners();
+        assertEq(owners.length, sphinxConfig.owners.length);
         for (uint j = 0; j < sphinxConfig.owners.length; j++) {
-            assertTrue(authAccessControl.hasRole(bytes32(0), sphinxConfig.owners[j]));
+            assertTrue(safe.isOwner(sphinxConfig.owners[j]), "missing owner");
         }
-        assertEq(auth.projectName(), sphinxConfig.projectName);
         assertEq(
-            address(auth.manager()),
-            address(manager)
+            address(module.safeProxy()),
+            address(safe),
+            "safe address in module is not correct"
         );
-        assertEq(auth.threshold(), sphinxConfig.threshold);
-        assertTrue(authAccessControl.hasRole(keccak256("ProposerRole"), proposer));
+        assertEq(
+            safe.isModuleEnabled(address(module)),
+            true,
+            "module is not enabled"
+        );
     }
 
-    function assertAuthBundleCompleted(uint256 _expectedNumLeafs, bytes32 _authRoot) internal {
-        assertTrue(auth.firstProposalOccurred());
-        (AuthStatus status, uint256 leafsExecuted, uint256 numLeafs) = auth.authStates(_authRoot);
-        assertEq(uint8(status), uint8(AuthStatus.COMPLETED));
-        assertEq(numLeafs, _expectedNumLeafs);
-        assertEq(leafsExecuted, numLeafs);
-        assertFalse(manager.isExecuting());
+    function assertBundleCompleted(uint256 _expectedNumLeaves, bytes32 _activeRoot, string memory _configUri) internal {
+        (
+            uint256 numLeaves,
+            uint256 leavesExecuted,
+            string memory uri,
+            address executor,
+            DeploymentStatus status,
+            bool arbitraryChain
+        ) = module.deployments(_activeRoot);
+        assertEq(uint8(status), uint8(DeploymentStatus.COMPLETED), "status is not COMPLETED");
+        assertEq(numLeaves, _expectedNumLeaves, "numLeaves is incorrect");
+        assertEq(leavesExecuted, numLeaves, "leavesExecuted is incorrect");
+        assertEq(uri, _configUri, "uri is incorrect");
+        assertEq(module.activeMerkleRoot(), bytes32(0), "activeRoot is incorrect");
     }
 
     function initialDeployment() internal {
-        new MyOwnable{ salt: bytes32(0) }(address(manager), 500);
+        new MyOwnable{ salt: bytes32(0) }(address(safe), 500);
         ownable.set(8);
         ownable.increment();
         ownable.increment();
@@ -128,12 +127,13 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
     }
 
     function test_initial_proposal() public {
-        bytes32 authRoot = vm.envBytes32("AUTH_ROOT");
+        bytes32 root = vm.envBytes32("ROOT");
+        string memory configUri = vm.envString("CONFIG_URI");
 
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
-            _authRoot: authRoot,
-            _bundleInfoArray: abi.decode(vm.envBytes("BUNDLE_INFO_ARRAY"), (BundleInfo[]))
+            _root: root,
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
         });
 
         assertEq(forkIds.length, sphinxConfig.testnets.length);
@@ -147,10 +147,10 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
             // chain ID matches the expected testnet's chain ID.
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-            assertAuthContractInitialized();
+            assertSafeInitialized();
 
-            // Three leafs were executed: `setup`, `propose`, and `approveDeployment`.
-            assertAuthBundleCompleted(3, authRoot);
+            // Six leaves were executed: `approve`, deploy `MyOwnable`, and `ownable.set`, `ownable.increment` x 2, `ownable.transferOwnership`
+            assertBundleCompleted(6, root, configUri);
 
             // Check that the contract was deployed correctly.
             assertEq(ownable.value(), 10);
@@ -181,15 +181,16 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
     }
 
     function test_add_contract_between_proposals() external {
-        bytes32 authRoot = vm.envBytes32("AUTH_ROOT");
+        bytes32 root = vm.envBytes32("ROOT");
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
-            _authRoot: authRoot,
-            _bundleInfoArray: abi.decode(vm.envBytes("BUNDLE_INFO_ARRAY"), (BundleInfo[]))
+            _root: root,
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
         });
+        string memory configUri = vm.envString("CONFIG_URI");
 
-        assertEq(forkIds.length, sphinxConfig.testnets.length);
-        assertEq(sphinxConfig.testnets.length, 2);
+        assertEq(forkIds.length, sphinxConfig.testnets.length, "incorrect number of forks");
+        assertEq(sphinxConfig.testnets.length, 2, "incorrect number of testnets");
 
         for (uint256 i = 0; i < forkIds.length; i++) {
             vm.selectFork(forkIds[i]);
@@ -198,91 +199,14 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
             // chain ID matches the expected testnet's chain ID.
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
 
-            // Two leafs were executed: `propose` and `approveDeployment`
-            assertAuthBundleCompleted(2, authRoot);
+            // Two leaves were executed: `approve` and deploy `MyContract1`
+            assertBundleCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.
-            assertEq(myNewContract.intArg(), 5);
-            assertEq(myNewContract.uintArg(), 6);
-            assertEq(myNewContract.addressArg(), address(7));
-            assertEq(myNewContract.otherAddressArg(), address(8));
-        }
-    }
-}
-
-/**
- * @notice Tests a proposal for a project that was previously deployed on some initial networks.
- *         In this test, a contract is added to the deployment, and an upgrade is performed to
- *         a new version of the SphinxManager and SphinxAuth contracts. Then, the project is
- *         proposed on the same networks that it was previously deployed on.
- */
-contract Proposal_VersionUpgrade_Test is AbstractProposal_Test, Script, SphinxConstants {
-
-    MyContract1 myNewContract;
-
-    Version newVersion = Version({ major: 9, minor: 9, patch: 9 });
-
-    function setUp() external {
-        sphinxConfig.version = newVersion;
-
-        // We must set the address here because the `run` function is not called during the test.
-        // Instead, it's called during the collection phase, which occurs in a separate process
-        // that's invoked by TypeScript before the test is executed.
-        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(5, 6, address(7), address(8)));
-        myNewContract = MyContract1(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
-    }
-
-    function run() public override virtual sphinx {
-        new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));
-    }
-
-    function test_version_upgrade_proposal() external {
-        address newAuthImplAddr = vm.envAddress("NEW_AUTH_IMPL_ADDR");
-        address newManagerImplAddrStandard = vm.envAddress("NEW_MANAGER_IMPL_ADDR_STANDARD");
-        address newManagerImplAddrOptimismGoerli = vm.envAddress("NEW_MANAGER_IMPL_ADDR_OPTIMISM_GOERLI");
-
-        bytes32 authRoot = vm.envBytes32("AUTH_ROOT");
-        uint256[] memory forkIds = this.sphinxSimulateProposal({
-            _testnets: true,
-            _authRoot: authRoot,
-            _bundleInfoArray: abi.decode(vm.envBytes("BUNDLE_INFO_ARRAY"), (BundleInfo[]))
-        });
-
-        assertEq(forkIds.length, sphinxConfig.testnets.length);
-        assertEq(sphinxConfig.testnets.length, 2);
-
-        for (uint256 i = 0; i < sphinxConfig.testnets.length; i++) {
-            Network network = sphinxConfig.testnets[i];
-            vm.selectFork(forkIds[i]);
-
-            // Check that the upgrade occurred
-            Version memory authVersion = ISphinxSemver(address(auth)).version();
-            Version memory managerVersion = ISphinxSemver(address(manager)).version();
-            assertEq(authVersion.major, newVersion.major);
-            assertEq(authVersion.minor, newVersion.minor);
-            assertEq(authVersion.patch, newVersion.patch);
-            assertEq(managerVersion.major, newVersion.major);
-            assertEq(managerVersion.minor, newVersion.minor);
-            assertEq(managerVersion.patch, newVersion.patch);
-            bytes32 authImplBytes32 = vm.load(address(auth), testUtils.EIP1967_IMPLEMENTATION_KEY());
-            bytes32 managerImplBytes32 = vm.load(address(manager), testUtils.EIP1967_IMPLEMENTATION_KEY());
-            assertEq(newAuthImplAddr, address(uint160(uint256(authImplBytes32))));
-            address newManagerImpl = network == Network.optimism_goerli ? newManagerImplAddrOptimismGoerli : newManagerImplAddrStandard;
-            assertEq(newManagerImpl, address(uint160(uint256(managerImplBytes32))));
-
-            // Check that we're on the correct network. In other words, check that the active fork's
-            // chain ID matches the expected testnet's chain ID.
-            assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
-
-            // Three leafs were executed: `propose`, `upgradeManagerAndAuth`, and
-            // `approveDeployment`.
-            assertAuthBundleCompleted(3, authRoot);
-
-            // Check that the contract was deployed correctly.
-            assertEq(myNewContract.intArg(), 5);
-            assertEq(myNewContract.uintArg(), 6);
-            assertEq(myNewContract.addressArg(), address(7));
-            assertEq(myNewContract.otherAddressArg(), address(8));
+            assertEq(myNewContract.intArg(), 5, "intArg incorrect");
+            assertEq(myNewContract.uintArg(), 6, "uintArg incorrect");
+            assertEq(myNewContract.addressArg(), address(7), "addressArg incorrect");
+            assertEq(myNewContract.otherAddressArg(), address(8), "otherAddressArg incorrect");
         }
     }
 }
@@ -310,12 +234,13 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
     }
 
     function test_cancel_existing_deployment_proposal() external {
-        bytes32 authRoot = vm.envBytes32("AUTH_ROOT");
+        bytes32 root = vm.envBytes32("ROOT");
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
-            _authRoot: authRoot,
-            _bundleInfoArray: abi.decode(vm.envBytes("BUNDLE_INFO_ARRAY"), (BundleInfo[]))
+            _root: root,
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
         });
+        string memory configUri = vm.envString("CONFIG_URI");
 
         assertEq(forkIds.length, sphinxConfig.testnets.length);
         assertEq(sphinxConfig.testnets.length, 2);
@@ -328,9 +253,8 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
             // chain ID matches the expected testnet's chain ID.
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-            // Three leafs were executed: `propose`, `cancelActiveDeployment`, and
-            // `approveDeployment`.
-            assertAuthBundleCompleted(3, authRoot);
+            // Two leaves were executed: `approve` and deploy `MyContract1`
+            assertBundleCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.
             assertEq(myNewContract.intArg(), 5);
