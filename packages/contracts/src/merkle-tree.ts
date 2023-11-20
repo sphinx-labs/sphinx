@@ -199,6 +199,7 @@ export const makeSphinxMerkleTreeFromLeaves = (
 
 /**
  * @notice Generates the complete `SphinxMerkleTree` object from the raw `DeploymentData`
+ * This is the *only* function we consider to satisfy the invariants defined in the Sphinx Merkle tree spec.
  *
  * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
  * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.

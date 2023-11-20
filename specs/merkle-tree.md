@@ -23,7 +23,7 @@ Sphinx uses a custom Merkle tree data structure to allow teams to approve arbitr
 
 ## Merkle Tree Architecture
 
-There are two types of Merkle leaves:
+There are three types of Merkle leaves:
 - **Approve**: Approve a new deployment on a chain.
 - **Execute**: Execute a transaction in the deployment.
 - **Cancel**: Cancel an active deployment.
@@ -93,7 +93,9 @@ TODO
 ## Sphinx Merkle Tree Standard Invariants
 Sphinx uses the custom Merkle tree structure defined above which is intended to be valid across multiple networks. It is possible to construct Sphinx Merkle trees that are invalid, only partially valid, or valid but not executable by an arbitrary relayer implementation due to their structure or content. Therefore, we impose a standard set of invariants that should be true about any Sphinx Merkle tree. We expect relayer implementations to rely on Sphinx Merkle trees following the invariants set out in this standard, and that they will refuse to execute Sphinx Merkle trees that do not follow these invariants.
 
-### There must be no gaps in `index` in the leaves which have the same chain id [^1]
+Generally speaking, the goal of these invariants is to clearly define what a valid Sphinx Merkle tree looks like and to ensure that trees that appear to be valid are in fact executable on all chains they contain leaves for (unless the underlying user-defined transactions themselves fail such as if the gas specified is incorrect, the chain id is invalid, the transaction simply reverts, etc).
+
+### There must be no gaps in `index` in leaves that have the same chain ID [^1]
 A Sphinx Merkle tree that contains leaves that have gaps in their index such as a set of leaves with the indexes: `[0, 1, 3, 4]` would not be executable on-chain. Therefore we impose the standard that there be no gaps in the leaf indexes on a given chain.
 
 ### Merkle tree leaves must be ordered in the tree by index and chain ID ascending [^2]
