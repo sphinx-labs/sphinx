@@ -119,6 +119,7 @@ struct DeploymentInfo {
     bool isLiveNetwork;
     InitialChainState initialState;
     Label[] labels;
+    bool arbitraryChain;
 }
 
 /**

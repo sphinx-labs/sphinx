@@ -72,6 +72,7 @@ export const decodeDeploymentInfo = (
     requireSuccess,
     safeInitData,
     safeInitSaltNonce,
+    arbitraryChain,
   } = deploymentInfoBigInt
 
   return {
@@ -94,6 +95,7 @@ export const decodeDeploymentInfo = (
       mainnets: newConfig.mainnets.map(networkEnumToName),
       threshold: newConfig.threshold.toString(),
     },
+    arbitraryChain,
   }
 }
 
@@ -313,6 +315,7 @@ export const makeParsedConfig = (
     labels,
     safeInitData,
     safeInitSaltNonce,
+    arbitraryChain,
   } = deploymentInfo
 
   let actionIndex = 1
@@ -444,6 +447,7 @@ export const makeParsedConfig = (
     actionInputs,
     remoteExecution,
     unlabeledAddresses,
+    arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
   }
 }

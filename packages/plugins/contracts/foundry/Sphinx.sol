@@ -125,6 +125,7 @@ abstract contract Sphinx {
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, SphinxModule(module));
         deploymentInfo.nonce = sphinxUtils.getDeploymentNonce(SphinxModule(module));
+        deploymentInfo.arbitraryChain = true;
         // TODO - support configuring this? Not sure if it's necessary in the first version.
         deploymentInfo.requireSuccess = true;
 

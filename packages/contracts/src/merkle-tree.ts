@@ -2,7 +2,7 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 import { AbiCoder } from 'ethers'
 
 /**
- * @notice TypeScript represention of [SphinxLeafType](TODO(end)).
+ * @notice TypeScript represention of SphinxLeafType.
  */
 export enum SphinxLeafType {
   APPROVE,
@@ -10,7 +10,7 @@ export enum SphinxLeafType {
 }
 
 /**
- * @notice TypeScript representation of [SphinxLeaf](TODO(end)).
+ * @notice TypeScript representation of SphinxLeaf.
  */
 export type SphinxLeaf = {
   chainId: bigint
@@ -20,7 +20,7 @@ export type SphinxLeaf = {
 }
 
 /**
- * @notice TypeScript representation of [SphinxLeafWithProof](TODO(end)).
+ * @notice TypeScript representation of SphinxLeafWithProof.
  */
 export type SphinxLeafWithProof = {
   leaf: SphinxLeaf

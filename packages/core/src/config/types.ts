@@ -94,6 +94,7 @@ export type ParsedConfig = {
   initialState: InitialChainState
   remoteExecution: boolean
   unlabeledAddresses: string[]
+  arbitraryChain: boolean
 }
 
 export type DeploymentInfo = {
@@ -109,6 +110,7 @@ export type DeploymentInfo = {
   isLiveNetwork: boolean
   initialState: InitialChainState
   labels: Array<Label>
+  arbitraryChain: boolean
 }
 
 export type InitialChainState = {
