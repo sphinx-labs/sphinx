@@ -16,7 +16,7 @@ import {
   SUPPORTED_NETWORKS,
   ParsedConfig,
   SphinxPreview,
-  getBundleInfo,
+  getMerkleTreeInfo,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -240,10 +240,10 @@ export const deploy = async (
     }
   }
 
-  const { root, bundleInfo } = await getBundleInfo(configArtifacts, [
+  const { root, merkleTreeInfo } = await getMerkleTreeInfo(configArtifacts, [
     parsedConfig,
   ])
-  if (bundleInfo.compilerConfigs.length !== 1) {
+  if (merkleTreeInfo.compilerConfigs.length !== 1) {
     throw new Error(
       `Bundle info array has incorrect length. Should never happen`
     )
@@ -263,7 +263,7 @@ export const deploy = async (
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
     root,
-    bundleInfo.bundle,
+    merkleTreeInfo.merkleTree,
   ])
 
   const forgeScriptDeployArgs = [

@@ -68,11 +68,6 @@ export interface CreateAction {
   initCode: string
 }
 
-export interface SphinxBundles {
-  actionBundle: SphinxActionBundle
-  targetBundle: SphinxTargetBundle
-}
-
 /**
  * Sphinx action.
  */

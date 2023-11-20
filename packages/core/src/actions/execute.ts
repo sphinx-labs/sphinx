@@ -2,9 +2,9 @@ import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
-  LeafWithProof,
+  SphinxLeafWithProof,
   ManagedServiceABI,
-  SphinxBundle,
+  SphinxMerkleTree,
   getManagedServiceAddress,
 } from '@sphinx-labs/contracts'
 
@@ -16,7 +16,7 @@ import { decodeExecuteLeafData } from '../fund'
 
 export const executeDeployment = async (
   module: ethers.Contract,
-  bundle: SphinxBundle,
+  merkleTree: SphinxMerkleTree,
   signatures: string[],
   humanReadableActions: Array<HumanReadableAction>,
   blockGasLimit: bigint,
@@ -45,7 +45,7 @@ export const executeDeployment = async (
     await (
       await provider.getNetwork()
     ).chainId,
-    bundle.leaves
+    merkleTree.leavesWithProofs
   )
 
   // execute the auth leaf with signatures
@@ -62,7 +62,7 @@ export const executeDeployment = async (
     signer
   )
   const approveData = module.interface.encodeFunctionData('approve', [
-    bundle.root,
+    merkleTree.root,
     authLeaf.leaf,
     authLeaf.proof,
     packedSignatures,
@@ -112,7 +112,7 @@ export const executeDeployment = async (
  * @returns Maximum number of actions that can be executed.
  */
 const findMaxBatchSize = async (
-  leaves: LeafWithProof[],
+  leaves: SphinxLeafWithProof[],
   maxGasLimit: bigint
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
@@ -150,7 +150,7 @@ const findMaxBatchSize = async (
  * @param actions List of actions to execute.
  */
 const executeBatchActions = async (
-  leaves: LeafWithProof[],
+  leaves: SphinxLeafWithProof[],
   module: ethers.Contract,
   managedService: ethers.Contract,
   maxGasLimit: bigint,
@@ -255,7 +255,7 @@ const executeBatchActions = async (
  * @returns True if the batch is executable, false otherwise.
  */
 export const executable = async (
-  selected: LeafWithProof[],
+  selected: SphinxLeafWithProof[],
   maxGasLimit: bigint
 ): Promise<boolean> => {
   const estGasUsed = selected

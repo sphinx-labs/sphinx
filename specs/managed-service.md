@@ -42,7 +42,8 @@ The Sphinx DevOps platform backend relies on sending transactions via the `Manag
 
 #### `constructor(address _owner)`
 
-- Must grant the `DEFAULT_ADMIN_ROLE` to the specified owner address
+- Must grant the `DEFAULT_ADMIN_ROLE` to the specified owner address.
+- Must revert if the `_owner` address is address(0).
 
 #### `receive() external payable`
 

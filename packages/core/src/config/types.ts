@@ -8,7 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   ContractArtifact,
-  SphinxBundle,
+  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
@@ -212,8 +212,8 @@ export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
 }
 
-export type BundleInfo = {
-  bundle: SphinxBundle
+export type MerkleTreeInfo = {
+  merkleTree: SphinxMerkleTree
   compilerConfigs: Array<CompilerConfig>
 }
 
