@@ -117,7 +117,9 @@ export const makeSphinxLeaves = (
 
   const coder = AbiCoder.defaultAbiCoder()
 
-  for (const [chainId, data] of Object.entries(deploymentData)) {
+  for (const [chainIdStr, data] of Object.entries(deploymentData)) {
+    const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
+
     // generate approval leaf data
     const approvalData = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
@@ -134,7 +136,7 @@ export const makeSphinxLeaves = (
 
     // push approval leaf
     merkleLeaves.push({
-      chainId: BigInt(chainId),
+      chainId,
       index: BigInt(0),
       leafType: SphinxLeafType.APPROVE,
       data: approvalData,
@@ -157,7 +159,7 @@ export const makeSphinxLeaves = (
       )
 
       merkleLeaves.push({
-        chainId: BigInt(chainId),
+        chainId,
         index,
         leafType: SphinxLeafType.EXECUTE,
         data: transactionLeafData,

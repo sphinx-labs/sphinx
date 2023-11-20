@@ -224,9 +224,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     )
         public
         pure
-        returns (address to, uint256 value, uint256 gas, bytes memory uri, uint256 operation)
+        returns (address to, uint256 value, uint256 gas, bytes memory uri, uint256 operation, bool requireSuccess)
     {
-        return abi.decode(leaf.data, (address, uint256, uint256, bytes, uint256));
+        return abi.decode(leaf.data, (address, uint256, uint256, bytes, uint256, bool));
     }
 
     /**
@@ -239,7 +239,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) public pure returns (bool) {
         uint256 estGasUsed = 0;
         for (uint256 i = 0; i < selected.length; i++) {
-            (, , uint256 gas, , ) = decodeExecutionLeafData(selected[i].leaf);
+            (, , uint256 gas, , , ) = decodeExecutionLeafData(selected[i].leaf);
             estGasUsed += gas;
         }
         return maxGasLimit > estGasUsed;
@@ -289,12 +289,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return bytes32(uint256(uint160(_addr)));
     }
 
+    // TODO: implement this w/o the chainId == 0 shortcut.
     function filterActionsOnNetwork(
         SphinxLeafWithProof[] memory leaves
     ) external view returns (SphinxLeafWithProof[] memory) {
         uint256 numLeavesOnNetwork = 0;
         for (uint256 i = 0; i < leaves.length; i++) {
-            if (leaves[i].leaf.chainId == block.chainid) {
+            if (leaves[i].leaf.chainId == block.chainid || leaves[i].leaf.chainId == 0) {
                 numLeavesOnNetwork += 1;
             }
         }
@@ -304,7 +305,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
         uint256 leafIndex = 0;
         for (uint256 i = 0; i < leaves.length; i++) {
-            if (leaves[i].leaf.chainId == block.chainid) {
+            if (leaves[i].leaf.chainId == block.chainid || leaves[i].leaf.chainId == 0) {
                 leavesOnNetwork[leafIndex] = leaves[i];
                 leafIndex += 1;
             }
