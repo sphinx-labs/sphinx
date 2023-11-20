@@ -124,10 +124,10 @@ Sphinx Merkle trees should follow a consistent ordering scheme to ensure they ca
 
 So for example, if we intended to run some set of transactions on Goerli (5), OP Goerli (420), and Polygon Mumbai (80001). Then the leaves are expected to be ordered with the approval leaf for Goerli first, then all of the transaction leaves on Goerli in ascending order, then the approval leaf for OP Goerli, all the transaction leaves on OP Goerli in ascending order, and so on.
 
-### 3. Every chain ID and index combination must be unique within the tree [^3]
+### 3. Every chain ID and index combination must be unique within the tree
 Since the Sphinx Merkle tree leaves contain explicit indexes, it is also possible to construct trees that contain multiple leaves with the same index value and chain ID. However, only one of the leaves would be executable on-chain. Therefore, constructing a tree with multiple leaves with the same chain ID and index would make it ambiguous to the relayer which leaf should be executed, and would result in a tree that cannot be fully executed. So we impose the standard that in a given Sphinx Merkle tree there must be at most one leaf with each chain ID and index combination.
 
-### 4. There must be exactly one approval leaf or cancel leaf per chain [^4]
+### 4. There must be exactly one approval leaf or cancel leaf per chain
 Since Sphinx Merkle trees can contain an arbitrary set of leaves, it is possible to construct a single tree that contains `APPROVE` or `CANCEL` leaves that approve or cancel multiple separate deployments on a single chain. However, this leads to an ambiguous situation for the relayer where it is unclear which deployment should be approved or canceled.
 
 Additionally, The `SphinxModuleProxy` does not support both canceling an existing deployment and approving a new deployment in the same tree, therefore any tree that contains both a `CANCEL` and `APPROVE` leaf for a given chain would not be executable on that chain. So we impose the standard, that in a given Sphinx Merkle tree there should be exactly one `APPROVE` or `CANCEL` leaf per chain.
@@ -147,12 +147,12 @@ A Sphinx Merkle tree that follows the above specification and invariants. See th
 We export three separate functions `makeSphinxLeaves`, `makeSphinxMerkleTreeFromLeaves`, and `makeSphinxMerkleTree`. We provide three separate functions for convenience and modularity to enable testing. However, for this specification and the below invariants we assume the use of the `makeSphinxMerkleTree`. We *only* recommend using that function when generating Sphinx Merkle trees in production and therefore only consider it to satisfy the invariants listed above.
 
 ### It is impossible to specify multiple `NetworkDeploymentData` objects for a given network
-The Merkle tree generation logic relies on the fact that it is not possible to submit multiple `NetworkDeploymentData` objects to guarantee that there is exactly one `APPROVE` or `CANCEL` leaf [4](#4-there-must-be-exactly-one-approval-leaf-or-cancel-leaf-per-chain-4).
+The Merkle tree generation logic relies on the fact that it is not possible to submit multiple `NetworkDeploymentData` objects to guarantee that there is exactly one `APPROVE` or `CANCEL` leaf ([4](#4-there-must-be-exactly-one-approval-leaf-or-cancel-leaf-per-chain-4)).
 
 ### The index of all leaves is generated internally and cannot be specified by the input data
-The Merkle tree generation logic relies on calculating the indexes for all leaves internally to guarantee that the leaves are ordered properly [2](#2-merkle-tree-leaves-must-be-ordered-in-the-tree-by-index-and-chain-id-ascending) and that there are no index gaps [1](#1-there-must-be-no-gaps-in-index-in-leaves-that-have-the-same-chain-id).
+The Merkle tree generation logic relies on calculating the indexes for all leaves internally to guarantee that the leaves are ordered properly ([2](#2-merkle-tree-leaves-must-be-ordered-in-the-tree-by-index-and-chain-id-ascending)) and that there are no index gaps ([1](#1-there-must-be-no-gaps-in-index-in-leaves-that-have-the-same-chain-id)).
 
-This invariant works together with the above invariant, so that it is not possible to specify multiple `NetworkDeploymentData` objects for a given network, to ensure each index + chain ID combination is unique [3](#3-every-chain-id-and-index-combination-must-be-unique-within-the-tree-3).
+This invariant works together with the above invariant, it is not possible to specify multiple `NetworkDeploymentData` objects for a given network, to ensure each index + chain ID combination is unique ([3](#3-every-chain-id-and-index-combination-must-be-unique-within-the-tree-3)).
 
 ## Dependencies
 The Sphinx standard Merkle tree generation logic makes calls to two popular external libraries. We use `ethers` version 6.7.0 to handle ABI encoding tree leaf `data`, and we use `@openzeppelin/merkle-tree` to assemble the Merkle tree. We test that interactions with these libraries work properly in our higher-level unit tests which ensure that Merkle trees generated by this logic have data that is encoded properly and that they are executable on-chain. However, we do not test the internals of these libraries and instead rely on the assumption that they are robust and bug-free.
