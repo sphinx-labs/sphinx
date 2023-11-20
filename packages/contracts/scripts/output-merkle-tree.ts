@@ -6,7 +6,7 @@ import {
   DeploymentData,
   SphinxTransaction,
   makeSphinxLeaves,
-  makeSphinxMerkleTree,
+  makeSphinxMerkleTreeFromLeaves,
 } from '../src/merkle-tree'
 import { recursivelyConvertResult } from '../src/utils'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
@@ -82,7 +82,7 @@ const forceApprovalLeafChainIdZero = argv[13] === 'true'
     leaves[0].chainId = 0n
   }
 
-  const { root, leavesWithProofs } = makeSphinxMerkleTree(leaves)
+  const { root, leavesWithProofs } = makeSphinxMerkleTreeFromLeaves(leaves)
 
   const abiEncodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
     [root, leavesWithProofs],
