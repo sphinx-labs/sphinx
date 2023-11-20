@@ -91,18 +91,18 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         );
     }
 
-    function assertBundleCompleted(uint256 _expectedNumLeafs, bytes32 _activeRoot, string memory _configUri) internal {
+    function assertBundleCompleted(uint256 _expectedNumLeaves, bytes32 _activeRoot, string memory _configUri) internal {
         (
-            uint256 numLeafs,
-            uint256 leafsExecuted,
+            uint256 numLeaves,
+            uint256 leavesExecuted,
             string memory uri,
             address executor,
             DeploymentStatus status,
             bool arbitraryChain
         ) = module.deployments(_activeRoot);
         assertEq(uint8(status), uint8(DeploymentStatus.COMPLETED), "status is not COMPLETED");
-        assertEq(numLeafs, _expectedNumLeafs, "numLeafs is incorrect");
-        assertEq(leafsExecuted, numLeafs, "leafsExecuted is incorrect");
+        assertEq(numLeaves, _expectedNumLeaves, "numLeaves is incorrect");
+        assertEq(leavesExecuted, numLeaves, "leavesExecuted is incorrect");
         assertEq(uri, _configUri, "uri is incorrect");
         assertEq(module.activeMerkleRoot(), bytes32(0), "activeRoot is incorrect");
     }
@@ -149,7 +149,7 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
 
             assertSafeInitialized();
 
-            // Six leafs were executed: `approve`, deploy `MyOwnable`, and `ownable.set`, `ownable.increment` x 2, `ownable.transferOwnership`
+            // Six leaves were executed: `approve`, deploy `MyOwnable`, and `ownable.set`, `ownable.increment` x 2, `ownable.transferOwnership`
             assertBundleCompleted(6, root, configUri);
 
             // Check that the contract was deployed correctly.
@@ -199,7 +199,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
             // chain ID matches the expected testnet's chain ID.
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
 
-            // Two leafs were executed: `approve` and deploy `MyContract1`
+            // Two leaves were executed: `approve` and deploy `MyContract1`
             assertBundleCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.
@@ -253,7 +253,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
             // chain ID matches the expected testnet's chain ID.
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
-            // Two leafs were executed: `approve` and deploy `MyContract1`
+            // Two leaves were executed: `approve` and deploy `MyContract1`
             assertBundleCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.

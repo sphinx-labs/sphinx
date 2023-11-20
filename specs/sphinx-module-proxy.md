@@ -45,7 +45,7 @@ _Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZ
 Here are the steps of a standard deployment:
 
 1. The Gnosis Safe owners sign a Merkle root off-chain with a meta transaction.
-2. The executor initiates the deployment by calling the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, and sets the Merkle root as "active".
+2. The executor initiates the deployment by calling the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, then sets the Merkle root as "active".
 3. The executor submits the user's transactions by calling the `execute` function on the Gnosis Safe's `SphinxModuleProxy`, which forwards the calls to the Gnosis Safe. This step may involve multiple transactions for larger deployments.
 
 Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step.
@@ -220,7 +220,7 @@ A buggy executor can:
 * Wait an arbitrary amount of time to approve or execute a deployment that has been signed by the Gnosis Safe owners.
   * Remedy: The Gnosis Safe owners can cancel the deployment at any time.
 * Partially execute a deployment.
-  * Remedy: Users can batch critical actions into a single call using [`Multicall`](https://github.com/mds1/multicall) or Gnosis Safe's [`MultiSend`](TODO(end)). If a deployment stalls, the executor will either execute the batched call, or not.
+  * Remedy: Users can batch critical actions into a single call using [`Multicall`](https://github.com/mds1/multicall) or Gnosis Safe's [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol). If a deployment stalls, the executor will either execute the batched call or not.
 
 ### Malicious Executor
 
@@ -236,7 +236,7 @@ Some examples:
    set `existingContract.myBoolean() == false`, then the deployment will fail.
 * The executor can interact with a contract in the same transaction that it's deployed, which can be
    an "unfair advantage" for the executor. For example, if a deployed contract has an open token
-   airdrop, the executor can deploy the contract then claim the airdropped tokens in the same
+   airdrop, the executor can deploy the contract and claim the airdropped tokens in the same
    transaction, before any other account has a chance to claim them.
 
 It's worth reiterating that the Gnosis Safe owners can choose anybody to be an executor, including themselves.
@@ -251,18 +251,18 @@ which would prevent the deployment from being executable.
 
 ### Dependencies
 
-The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](TODO(end)), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These contracts are:
-- OpenZeppelin vTODO(end):
-  - [`ReentrancyGuard`](TODO(end)): Prevents re-entrancy attacks in the `approve` and `execute` function in the `SphinxModuleProxy`.
-  - [`MerkleProof`](TODO(end)): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
+The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These contracts are:
+- OpenZeppelin v4.9.3:
+  - [`ReentrancyGuard`](https://docs.openzeppelin.com/contracts/4.x/api/security#ReentrancyGuard): Prevents re-entrancy attacks in the `approve` and `execute` function in the `SphinxModuleProxy`.
+  - [`MerkleProof`](https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
 - Gnosis Safe:
-  - `Enum` ([v1.3.0](TODO(end)), [v1.4.1](TODO(end))): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
-  - [`GnosisSafe`](TODO(end)): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
+  - `Enum` ([v1.3.0](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/common/Enum.sol), [v1.4.1](https://github.com/safe-global/safe-contracts/blob/v1.4.1-build.0/contracts/common/Enum.sol)): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
+  - [`GnosisSafe`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
 
 ## Footnotes
 
-[^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root that has the same deployment nonce, then approving it on-chain. This prevents the old Merkle root from ever being approved.
+[^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root that has the same deployment nonce and approving it on-chain. This prevents the old Merkle root from ever being approved.
 
 [^2]: It's not possible to reuse a signed Merkle root in a different `SphinxModuleProxy` because we include the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and we check that this field matches `address(this)` in the `SphinxModuleProxy`'s `approve` function.
 
-[^3]: It's not possible to reuse a signed Merkle root in a diferent Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`, and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.
+[^3]: It's not possible to reuse a signed Merkle root in a different Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`, and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.

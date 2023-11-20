@@ -307,7 +307,7 @@ describe('Deployment Cases', () => {
   })
 
   after(async () => {
-    killGoerli()
+    await killGoerli()
   })
 
   it('Can call fallback function on contract', async () => {

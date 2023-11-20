@@ -1,20 +1,20 @@
 # Sphinx: DevOps for Deployments
 
-Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
-
-> Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
+Sphinx is a protocol and Foundry plugin that automates the smart contract deployment process.
 
 ## Key features:
 
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO: off chain billing. (mention free testnet deployments?).
+
+* **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel, then verify your smart contracts on Etherscan.
+
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). If you'd rather not use a CI process, you can propose deployments from your local machine instead.
+
+- **Powered by Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve deployments across an arbitrary number of chains by signing a single meta transaction.
+
+- **Secure `CREATE3` Deployments**: You can use your multisig as your permissioned `CREATE3` deployer instead of relying on a single private key to get consistent addresses across networks.
+
 * **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
-
-* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
-
-* **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks with a single click. Sphinx will execute the deployment on each chain in parallel.
-
-* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd rather not use a CI process, you can propose deployments from your local machine instead.
-
-* **Automatic Etherscan verification**
 
 ## Request access
 
@@ -36,6 +36,14 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/main/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md)
+
+### Specifications
+
+- [Introduction](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md)
+- [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md)
+- [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy-factory.md)
+- [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/managed-service.md)
+- [TODO: Merkle tree encoding](TODO)
 
 ## Current limitations
 

@@ -6,17 +6,16 @@ The `ManagedService` contract is owned by the Sphinx team.
 
 ## Table of Contents
 
-- [Relevant Files](#relevant-files)
-- [Consistent Executor Address](#allow-the-user-to-specify-a-consistent-executor-address-when-deploying-via-the-sphinx-devops-platform)
-- [Store Funds for Execution](#store-the-funds-used-for-executing-transactions-on-each-chain)
+- [Relevant files](#relevant-files)
+- [Use Cases](#use-cases)
 - [High-Level Invariants](#high-level-invariants)
-- [Function Level Invariants](#function-level-invariants)
+- [Function-Level Invariants](#function-level-invariants)
 - [Assumptions](#assumptions)
 
 ## Relevant Files
 
-- The contract: [`ManagedService.sol`](TODO(end))
-- Unit tests: [`ManagedService.t.sol`](TODO(end))
+- The contract: [`ManagedService.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/ManagedService.sol)
+- Unit tests: [`ManagedService.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/ManagedService.t.sol)
 
 ## Use Cases
 
@@ -28,7 +27,7 @@ There are use cases for the `ManagedService` contract:
 We'll describe these in more detail below.
 
 ### Allow the user to specify a consistent `executor` address when deploying via the Sphinx DevOps platform
-When deploying via Sphinx, the user must specify an `executor` field in their deployment approval leaf (see the [SphinxModule spec](TODO(end)) for more information). When deploying via the Sphinx DevOps platform, the individual addresses used to execute transactions may vary and may be rotated regularly. Therefore, we use the `ManagedService` contract to allow the user to specify a single address whenever they are deploying via the Sphinx DevOps platform.
+When deploying via Sphinx, the user must specify an `executor` field in their deployment approval leaf (see the [`SphinxModuleProxy` specification](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md#approve-leaf-data) for more information). When deploying via the Sphinx DevOps platform, the individual addresses used to execute transactions may vary and may be rotated regularly. Therefore, we use the `ManagedService` contract to allow the user to specify a single address whenever they are deploying via the Sphinx DevOps platform.
 
 ### Store the funds used for executing transactions on each chain
 The Sphinx DevOps platform backend relies on sending transactions via the `ManagedService` contract from an arbitrary set of accounts to execute deployments. To make funding management easy, the cost of each call should be refunded to the caller from the `ManagedService` contracts balance.
@@ -70,8 +69,8 @@ The Sphinx DevOps platform backend relies on sending transactions via the `Manag
   - Emit a `Withdrew` event in the `ManagedService` contract.
 
 ## Assumptions
-The `ManagedService` relies on the OpenZeppelin `AccessControl` contract to manage access and the `ReentrancyGuard` contract to protect against reentrancy attacks. We test that the interactions with these contracts work properly in the [unit tests for the `ManagedService`](TODO(end)), but we don't thoroughly test these contracts. Instead, we rely on the assumption that they are secure and have been thoroughly tested by their authors.
+The `ManagedService` relies on the OpenZeppelin `AccessControl` contract to manage access and the `ReentrancyGuard` contract to protect against reentrancy attacks. We test that the interactions with these contracts work properly in the [unit tests for the `ManagedService`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/ManagedService.t.sol), but we don't thoroughly test these contracts. Instead, we rely on the assumption that they are secure and have been thoroughly tested by their authors.
 
 The `ManagedService` uses EOAs with the `RELAYER_ROLE` to withdraw funds and execute transactions. These EOAs are intended to be owned and controlled by the Sphinx team, so we assume they are securely managed.
 
-The Sphinx DevOps platform relies on sending transactions via the `ManagedService` from arbitrary EOAs to execute deployments on behalf of the user using their `SphinxModuleProxy`. From the perspective of the `ManagedService` contract, we assume that the `SphinxModuleProxy` is secure. If an EOA with the RELAYER_ROLE is compromised, we expect it will not be able to execute transactions that have not been explicitly approved by the end user as specified by the invariants of the `SphinxModule`.
+The Sphinx DevOps platform relies on sending transactions via the `ManagedService` from arbitrary EOAs to execute deployments on behalf of the user using their `SphinxModuleProxy`. From the perspective of the `ManagedService` contract, we assume that the `SphinxModuleProxy` is secure. If an EOA with the RELAYER_ROLE is compromised, we expect it will not be able to execute transactions that have not been explicitly approved by the end user as specified by the invariants of the `SphinxModuleProxy`.

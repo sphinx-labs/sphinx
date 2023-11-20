@@ -1,5 +1,3 @@
-Error.stackTraceLimit = Infinity // TODO(end): rm
-
 import { ethers } from 'ethers'
 
 import { getSphinxConstants } from '../src/contract-info'
