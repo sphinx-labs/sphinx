@@ -14,7 +14,7 @@ import {
 contract SphinxUtils_Test is Test, SphinxUtils {
     function setUp() public {}
 
-    function test_getUniqueAddresses_succeeds_allUnique() external {
+    function test_getUniqueAddresses_success_allUnique() external {
         address[] memory addresses = new address[](3);
         addresses[0] = address(0x1);
         addresses[1] = address(0x2);
@@ -28,7 +28,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertEq(uniqueAddresses[2], address(0x3));
     }
 
-    function test_getUniqueAddresses_succeeds_allDuplicates() external {
+    function test_getUniqueAddresses_success_allDuplicates() external {
         address[] memory addresses = new address[](3);
         addresses[0] = address(0);
         addresses[1] = address(0);
@@ -40,7 +40,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertEq(uniqueAddresses[0], address(0));
     }
 
-    function test_getUniqueAddresses_succeeds_mixed() external {
+    function test_getUniqueAddresses_success_mixed() external {
         address[] memory addresses = new address[](8);
         addresses[0] = address(0);
         addresses[1] = address(0x1);
@@ -64,4 +64,6 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         uint256 expected = uint8(type(Network).max) + 1;
         assertEq(numSupportedNetworks, expected);
     }
+
+    function test_filterActionsOnNetwork_success
 }
