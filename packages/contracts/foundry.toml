@@ -3,7 +3,7 @@ src = 'contracts'
 fs_permissions = [{ access = "read", path = "./"}]
 verbosity = 2
 ffi = true
-solc = '0.8.4' # TODO: this should be 0.8.2, but ManagedService.t.sol will fail b/c it uses a custom error, which isn't available in 0.8.2
+solc = '0.8.4'
 optimizer = false
 test = 'test'
 script = 'scripts'

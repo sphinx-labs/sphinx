@@ -744,6 +744,19 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
     }
 
+    function test_approve_success_withArbitraryChain() external {
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        treeInputs.arbitraryChain = true;
+        ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        helper_test_approve({
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedStatus: DeploymentStatus.APPROVED,
+            _expectedDeploymentUri: defaultDeploymentUri,
+            _expectedArbitraryChain: true
+        });
+    }
+
     //////////////////////////////// execute ////////////////////////////////////
 
     function test_execute_revert_noReentrancy() external {
@@ -1185,6 +1198,20 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _expectedSuccesses: expectedSuccesses,
             _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
             _expectedArbitraryChain: false
+        });
+    }
+
+    function test_execute_success_withArbitraryChain() external {
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        treeInputs.arbitraryChain = true;
+        ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        helper_test_approveThenExecuteBatch({
+            _txs: defaultTxs,
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedSuccesses: defaultExpectedSuccesses,
+            _expectedFinalDeploymentStatus: DeploymentStatus.COMPLETED,
+            _expectedArbitraryChain: true
         });
     }
 

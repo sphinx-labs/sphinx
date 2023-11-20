@@ -4,7 +4,7 @@ Sphinx is a protocol and Foundry plugin that automates the smart contract deploy
 
 ## Key features:
 
-* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO: off chain billing. (mention free testnet deployments?).
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO(md): off chain billing. (mention free testnet deployments?).
 
 * **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel, then verify your smart contracts on Etherscan.
 
@@ -43,7 +43,7 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md)
 - [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy-factory.md)
 - [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/managed-service.md)
-- [TODO: Merkle tree encoding](TODO)
+- [TODO(md): Merkle tree encoding](TODO(md))
 
 ## Current limitations
 

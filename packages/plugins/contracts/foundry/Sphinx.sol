@@ -5,7 +5,6 @@ import {VmSafe, Vm} from "sphinx-forge-std/Vm.sol";
 import {console} from "sphinx-forge-std/console.sol";
 
 // TODO - fix contracts remappings so everything can just be @sphinx-labs/contracts/* instead of @sphinx-labs/contracts/(core or foundry)/*
-import {ISphinxAccessControl} from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxAccessControl.sol";
 import {
     DeploymentStatus,
     DeploymentState,SphinxLeafWithProof
