@@ -1,13 +1,13 @@
 import {
-  BundleInfo,
   FoundryBroadcastTransaction,
   FoundryDryRunTransaction,
+  MerkleTreeInfo,
 } from '@sphinx-labs/core'
 
 export type ProposalOutput = {
   proposerAddress: string
   metaTxnSignature: string
-  bundleInfoArray: Array<BundleInfo>
+  merkleTreeInfoArray: Array<MerkleTreeInfo>
   authRoot: string
 }
 

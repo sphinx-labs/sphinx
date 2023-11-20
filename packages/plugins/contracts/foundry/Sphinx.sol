@@ -12,7 +12,7 @@ import {
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import { SphinxModule } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 import {
-    SphinxBundle,
+    SphinxMerkleTree,
     HumanReadableAction,
     Network,
     SphinxConfig,
@@ -143,7 +143,7 @@ abstract contract Sphinx {
     /**
      * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
      */
-    function sphinxDeployTask(string memory _networkName, bytes32 _root, SphinxBundle memory _bundle) external {
+    function sphinxDeployTask(string memory _networkName, bytes32 _root, SphinxMerkleTree memory _merkleTree) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
@@ -170,7 +170,7 @@ abstract contract Sphinx {
         bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _root);
 
         vm.startBroadcast(privateKey);
-        sphinxDeployOnNetwork(SphinxModule(sphinxModule()), _root, _bundle, metaTxnSignature, rpcUrl, _networkName);
+        sphinxDeployOnNetwork(SphinxModule(sphinxModule()), _root, _merkleTree, metaTxnSignature, rpcUrl, _networkName);
         vm.stopBroadcast();
     }
 
@@ -180,7 +180,7 @@ abstract contract Sphinx {
      */
     function setupPropose() internal virtual {}
 
-    function sphinxSimulateProposal(bool _testnets, bytes32 _root, SphinxBundle memory _bundleInfo)
+    function sphinxSimulateProposal(bool _testnets, bytes32 _root, SphinxMerkleTree memory _merkleTree)
         external
         returns (uint256[] memory)
     {
@@ -210,7 +210,7 @@ abstract contract Sphinx {
             sphinxDeployOnNetwork(
                 SphinxModule(sphinxModule()),
                 _root,
-                _bundleInfo,
+                _merkleTree,
                 "",
                 rpcUrl,
                 networkInfo.name
@@ -290,7 +290,7 @@ abstract contract Sphinx {
 
     function sphinxExecuteDeployment(
         SphinxModule _module,
-        SphinxBundle memory _bundle,
+        SphinxMerkleTree memory _merkleTree,
         uint256 blockGasLimit,
         bytes memory _signatures
     ) private returns (bool, HumanReadableAction memory) {
@@ -298,13 +298,13 @@ abstract contract Sphinx {
         HumanReadableAction memory emptyAction;
 
         // Filter out any leaves that aren't intended to be executed on this network
-        SphinxLeafWithProof[] memory leaves = sphinxUtils.filterActionsOnNetwork(_bundle.leaves);
+        SphinxLeafWithProof[] memory leaves = sphinxUtils.filterActionsOnNetwork(_merkleTree.leavesWithProofs);
 
         // The auth leaf is always first
         SphinxLeafWithProof memory authLeaf = leaves[0];
 
         // Execute auth leaf
-        _module.approve{gas: 1000000}(_bundle.root, authLeaf, _signatures);
+        _module.approve{gas: 1000000}(_merkleTree.root, authLeaf, _signatures);
 
         // Execute the rest of the actions
         uint256 bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
@@ -382,14 +382,14 @@ abstract contract Sphinx {
     function sphinxDeployOnNetwork(
         SphinxModule _module,
         bytes32 _root,
-        SphinxBundle memory _bundle,
+        SphinxMerkleTree memory _merkleTree,
         bytes memory _metaTxnSignature,
         string memory _rpcUrl,
         string memory _networkName
     ) private {
         (, address msgSender,) = vm.readCallers();
 
-        if (_bundle.leaves.length == 0) {
+        if (_merkleTree.leavesWithProofs.length == 0) {
             console.log(string(abi.encodePacked("Sphinx: Nothing to execute on ", _networkName, ". Exiting early.")));
             return;
         }
@@ -433,7 +433,7 @@ abstract contract Sphinx {
         }
 
         (bool executionSuccess, HumanReadableAction memory readableAction) =
-            sphinxExecuteDeployment(_module, _bundle, block.gaslimit, ownerSignatures);
+            sphinxExecuteDeployment(_module, _merkleTree, block.gaslimit, ownerSignatures);
 
         if (!executionSuccess) {
             bytes memory revertMessage = abi.encodePacked(

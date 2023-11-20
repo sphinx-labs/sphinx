@@ -1,7 +1,11 @@
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
-import { LeafType, LeafWithProof, SphinxBundle } from '@sphinx-labs/contracts'
+import {
+  SphinxLeafType,
+  SphinxLeafWithProof,
+  SphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
 import { ActionInput, CompilerConfig } from '../config/types'
 import { toHexString, fromHexString } from '../utils'
@@ -82,8 +86,8 @@ export const getDeployContractActions = (
 
 export const getTargetNetworkLeaves = (
   chainId: bigint,
-  leaves: Array<LeafWithProof>
-): Array<LeafWithProof> => {
+  leaves: Array<SphinxLeafWithProof>
+): Array<SphinxLeafWithProof> => {
   return leaves.filter((leaf) => leaf.leaf.chainId === chainId)
 }
 
@@ -533,14 +537,15 @@ export const findBundledLeaf = (
 
 export const getProjectDeploymentForChain = (
   configUri: string,
-  bundle: SphinxBundle,
+  merkleTree: SphinxMerkleTree,
   compilerConfig: CompilerConfig
 ): ProjectDeployment | undefined => {
   const { newConfig, initialState, chainId } = compilerConfig
 
-  const approvalLeaves = bundle.leaves.filter(
+  const approvalLeaves = merkleTree.leavesWithProofs.filter(
     (l) =>
-      l.leaf.leafType === LeafType.APPROVE && l.leaf.chainId === BigInt(chainId)
+      l.leaf.leafType === SphinxLeafType.APPROVE &&
+      l.leaf.chainId === BigInt(chainId)
   )
 
   if (approvalLeaves.length === 0) {
@@ -551,7 +556,7 @@ export const getProjectDeploymentForChain = (
     )
   }
 
-  const deploymentId = bundle.root
+  const deploymentId = merkleTree.root
 
   return {
     chainId: Number(chainId),

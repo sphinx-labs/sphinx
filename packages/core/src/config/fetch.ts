@@ -1,10 +1,10 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
-import { SphinxBundle } from '@sphinx-labs/contracts'
+import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { HumanReadableAction } from '../actions/types'
 import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
-import { getBundleInfo } from '../tasks'
+import { getMerkleTreeInfo } from '../tasks'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -61,7 +61,7 @@ export const compileRemoteBundles = async (
   configUri: string,
   ipfsUrl?: string
 ): Promise<{
-  bundle: SphinxBundle
+  merkleTree: SphinxMerkleTree
   compilerConfigs: Array<CompilerConfig>
   configArtifacts: ConfigArtifacts
   humanReadableActions: Array<HumanReadableAction>
@@ -74,10 +74,13 @@ export const compileRemoteBundles = async (
 
   const configArtifacts = await getConfigArtifactsRemote(compilerConfigs)
 
-  const { bundleInfo } = await getBundleInfo(configArtifacts, compilerConfigs)
+  const { merkleTreeInfo } = await getMerkleTreeInfo(
+    configArtifacts,
+    compilerConfigs
+  )
 
   return {
-    bundle: bundleInfo.bundle,
+    merkleTree: merkleTreeInfo.merkleTree,
     compilerConfigs,
     configArtifacts,
     // TODO - do something with human readable actions

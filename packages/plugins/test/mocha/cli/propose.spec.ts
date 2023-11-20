@@ -3,7 +3,6 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  CompilerConfig,
   DecodedAction,
   execAsync,
   sleep,

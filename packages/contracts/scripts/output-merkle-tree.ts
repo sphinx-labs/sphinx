@@ -7,7 +7,7 @@ import {
   SphinxTransaction,
   makeSphinxLeaves,
   makeSphinxMerkleTree,
-} from '../src/module'
+} from '../src/merkle-tree'
 import { recursivelyConvertResult } from '../src/utils'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
@@ -48,7 +48,7 @@ const forceApprovalLeafIndexNonZero = argv[12] === 'true'
 
   const deploymentData: DeploymentData = {
     [chainId]: {
-      nonce: BigInt(nonce),
+      nonce,
       executor,
       safeProxy,
       moduleProxy,

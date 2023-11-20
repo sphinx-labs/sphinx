@@ -10,7 +10,7 @@ import { SphinxModule } from "../core/SphinxModule.sol";
 import { SphinxModuleProxyFactory } from "../core/SphinxModuleProxyFactory.sol";
 import { SphinxLeafWithProof, SphinxLeaf } from "../core/SphinxDataTypes.sol";
 import {
-    SphinxBundle,
+    SphinxMerkleTree,
     DeploymentInfo,
     HumanReadableAction,
     NetworkInfo,

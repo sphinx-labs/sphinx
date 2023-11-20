@@ -8,15 +8,8 @@ import {
   SphinxJsonRpcProvider,
   execAsync,
   spawnAsync,
-  doDeterministicDeploy,
-  getImpersonatedSigner,
-  getEIP1967ProxyImplementationAddress,
-  getBundleInfo,
+  getMerkleTreeInfo,
 } from '@sphinx-labs/core'
-import {
-  EXECUTION_LOCK_TIME,
-  OWNER_MULTISIG_ADDRESS,
-} from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
 import { deploy } from '../../../src/cli/deploy'
@@ -178,7 +171,7 @@ const testProposalSimulation = async (
     undefined // No spinner.
   )
 
-  const { root, bundleInfo, configUri } = await getBundleInfo(
+  const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
     configArtifacts,
     parsedConfigArray
   )
@@ -191,14 +184,16 @@ const testProposalSimulation = async (
   const iface = new ethers.Interface(sphinxPluginTypesABI)
   const bundleInfoFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxBundleType')
+    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
   if (!bundleInfoFragment) {
-    throw new Error(`'sphinxBundleType' not found in ABI. Should never happen.`)
+    throw new Error(
+      `'sphinxMerkleTreeType' not found in ABI. Should never happen.`
+    )
   }
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const encodedBundleInfo = coder.encode(bundleInfoFragment.outputs, [
-    bundleInfo.bundle,
+    merkleTreeInfo.merkleTree,
   ])
 
   const { code, stdout, stderr } = await spawnAsync(
@@ -206,7 +201,7 @@ const testProposalSimulation = async (
     ['test', '--match-contract', testContractName, '-vvvvv'],
     {
       ROOT: root,
-      BUNDLE: encodedBundleInfo,
+      MERKLE_TREE: encodedBundleInfo,
       CONFIG_URI: configUri,
       ...envVars,
     }
