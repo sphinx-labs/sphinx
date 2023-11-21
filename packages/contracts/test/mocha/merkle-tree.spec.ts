@@ -11,16 +11,16 @@ import {
 } from '../../dist'
 
 /**
- * @notice This test suite covers generating Merkle trees that satisfy the invariants defined in the Sphinx Merkle tree specification.
- * Note that in this test suite, we do not confirm that the actual encoding is correct or that the Merkle tree is actually executable on
- * chain.
+ * @notice This test suite covers generating Merkle trees that satisfy invariants 2-5 defined in the Sphinx Merkle tree specification.
+ * Note that in this test suite we do not confirm that the actual encoding is correct or that the Merkle tree is executable on
+ * chain (invariant 1).
  *
  * For tests that cover the encoding logic and that the generated Merkle tree is executable, see the `SphinxModule.t.sol` where we use
- * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI`.
+ * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI` and test executing them on-chain.
  */
 
 /**
- * @notice Checks that the leaves in the tree are ordered properly such that the tree satisfies invariants 1, 2, and 3 of the
+ * @notice Checks that the leaves in the tree are ordered properly such that the tree satisfies invariants 2, 3, and 5 of the
  * Sphinx Merkle tree specification.
  */
 const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
