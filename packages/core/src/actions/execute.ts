@@ -6,13 +6,13 @@ import {
   ManagedServiceABI,
   SphinxMerkleTree,
   getManagedServiceAddress,
+  decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 
 import { MerkleRootState, MerkleRootStatus, HumanReadableAction } from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getTargetNetworkLeaves } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
-import { decodeExecuteLeafData } from '../fund'
 
 export const executeDeployment = async (
   module: ethers.Contract,

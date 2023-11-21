@@ -8,6 +8,7 @@ import {
   SphinxMerkleTree,
   SphinxTransaction,
   makeSphinxMerkleTree,
+  decodeApproveLeafData,
 } from '../../dist'
 
 /**
@@ -72,36 +73,52 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
 }
 
 /**
- * @notice Checks that the tree contains exactly one APPROVAL or CANCEL leaf per chain such that invariant 4 is satisfied.
+ * @notice Checks that the tree contains exactly one APPROVAL or CANCEL leaf per chain such that invariant 2 is satisfied.
  */
-const assertOneApprovalOrCancellationLeafPerChain = (
-  tree: SphinxMerkleTree
-) => {
-  const approvalLeafChainIds: BigInt[] = []
-  const cancelLeafChainIds: BigInt[] = []
+const assertInvariantTwo = (tree: SphinxMerkleTree) => {
+  let detectedArbitraryApproval = false
+  const detectedChainId: BigInt[] = []
 
   for (let i = 1; i < tree.leavesWithProofs.length; i++) {
     const leaf = tree.leavesWithProofs[i]
-    if (leaf.leaf.leafType === SphinxLeafType.APPROVE) {
+
+    if (leaf.leaf.leafType !== SphinxLeafType.EXECUTE) {
+      // Expect that we have not already detected an arbitrary approval
+      expect(detectedArbitraryApproval).to.be.false
+
+      // If the leaf is an approval leaf, then check if it is arbitrary and if so update `detectedArbitraryApproval`
+      if (leaf.leaf.leafType === SphinxLeafType.APPROVE) {
+        const values = decodeApproveLeafData(leaf.leaf.data)
+        const isArbitraryLeaf = values[6]
+        if (isArbitraryLeaf) {
+          detectedArbitraryApproval = true
+
+          // If this APPROVE leaf is arbitrary, then we must expect that we have not previously seen any CANCEL or APPROVE leafs for any chain
+          expect(detectedChainId.length).to.eq(0)
+        }
+      }
+
+      // Expect that we have not already detected an APPROVE or CANCEL leaf for this leafs chainId
       expect(
-        approvalLeafChainIds.includes(leaf.leaf.chainId),
-        'Found extra APPROVE leaf for chain'
+        detectedChainId.includes(leaf.leaf.chainId),
+        'Found extra CANCEL or APPROVAL leaf for chain'
       ).to.not.eq(true)
-      approvalLeafChainIds.push(leaf.leaf.chainId)
-    } else if (leaf.leaf.leafType === SphinxLeafType.CANCEL) {
-      expect(
-        cancelLeafChainIds.includes(leaf.leaf.chainId),
-        'Found extra CANCEL leaf for chain'
-      ).to.not.eq(true)
-      cancelLeafChainIds.push(leaf.leaf.chainId)
-    } else if (leaf.leaf.leafType === SphinxLeafType.EXECUTE) {
-      expect(
-        cancelLeafChainIds.includes(leaf.leaf.chainId),
-        'Detected execution leaf for chain that also has cancelation leaf'
-      ).to.not.eq(true)
+
+      // Mark this chain id as detected
+      detectedChainId.push(leaf.leaf.chainId)
     }
   }
 }
+
+const assertInvariantThree = (tree: SphinxMerkleTree) => {}
+
+const assertInvariantFour = (tree: SphinxMerkleTree) => {}
+
+const assertInvariantFive = (tree: SphinxMerkleTree) => {}
+
+const assertInvariantSix = (tree: SphinxMerkleTree) => {}
+
+const assertInvariantSeven = (tree: SphinxMerkleTree) => {}
 
 describe('Merkle tree satisfies invariants', () => {
   it('Cancel on all networks', () => {
@@ -143,8 +160,8 @@ describe('Merkle tree satisfies invariants', () => {
     // Check tree is ordered properly
     assertTreeOrderedProperly(tree)
 
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+    // Check that invariant 2 is satisfied
+    assertInvariantTwo(tree)
   })
 
   it('Send transactions on all networks', () => {
@@ -197,8 +214,8 @@ describe('Merkle tree satisfies invariants', () => {
     // Check tree is ordered properly
     assertTreeOrderedProperly(tree)
 
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+    // Check that invariant 2 is satisfied
+    assertInvariantTwo(tree)
   })
 
   it('Cancel on one network, transactions on other networks', () => {
@@ -262,7 +279,7 @@ describe('Merkle tree satisfies invariants', () => {
     // Check tree is ordered properly
     assertTreeOrderedProperly(tree)
 
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+    // Check that invariant 2 is satisfied
+    assertInvariantTwo(tree)
   })
 })
