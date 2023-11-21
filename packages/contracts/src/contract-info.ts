@@ -29,15 +29,6 @@ import {
 } from './addresses'
 import { getOwnerAddress } from './constants'
 
-// Maps a chain ID to the USDC address on the network.
-export const USDC_ADDRESSES: { [chainId: string]: string } = {
-  // Optimism Goerli:
-  420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
-  // Optimism Mainnet:
-  10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
-  31337: ZeroAddress,
-}
-
 export const getSphinxConstants = (): Array<{
   artifact: FoundryContractArtifact | GnosisSafeContractArtifact
   expectedAddress: string

@@ -7,6 +7,7 @@ import { AbiCoder } from 'ethers'
 export enum SphinxLeafType {
   APPROVE,
   EXECUTE,
+  CANCEL,
 }
 
 /**
