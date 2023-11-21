@@ -83,7 +83,7 @@ export const decodeDeploymentInfo = (
     safeInitSaltNonce: safeInitSaltNonce.toString(),
     executorAddress,
     requireSuccess,
-    nonce,
+    nonce: nonce.toString(),
     chainId: chainId.toString(),
     initialState: {
       ...initialState,

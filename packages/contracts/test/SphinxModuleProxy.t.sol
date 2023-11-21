@@ -925,18 +925,26 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
     }
 
-    // TODO: rm
-    // function test_cancel_revert_invalidLeafType() external {
-    //     CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(helper_makeCancellationMerkleTreeInputs());
-    //     vm.prank(executor);
-    //     vm.expectRevert("SphinxModule: invalid leaf type");
-    //     // Attempt to approve an `EXECUTE` leaf instead of an `APPROVE` leaf.
-    //     moduleProxy.approve(
-    //         moduleInputs.merkleRoot,
-    //         moduleInputs.executionLeavesWithProofs[0],
-    //         moduleInputs.ownerSignatures
-    //     );
-    // }
+    function test_cancel_revert_invalidLeafType() external {
+        helper_test_approveDefaultDeployment();
+
+        // We'll create a new deployment Merkle tree, then we'll attempt to cancel the active
+        // deployment using a valid `APPROVE` leaf instead of a `CANCEL` leaf.
+        MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
+        // Remove the transactions in the new Merkle tree. This ensures that the new Merkle root is
+        // different from the active Merkle root. If we don't do this, the `cancel` function will
+        // revert early because we've already approved the Merkle root.
+        delete treeInputs.txs;
+        ModuleInputs memory moduleInputs = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
+
+        vm.prank(executor);
+        vm.expectRevert("SphinxModule: invalid leaf type");
+        moduleProxy.cancel(
+            moduleInputs.merkleRoot,
+            moduleInputs.approvalLeafWithProof,
+            moduleInputs.ownerSignatures
+        );
+    }
 
     //////////////////////////////// execute ////////////////////////////////////
 

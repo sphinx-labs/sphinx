@@ -244,6 +244,7 @@ export const deploy = async (
     parsedConfig,
   ])
   if (merkleTreeInfo.compilerConfigs.length !== 1) {
+    // TODO: remove the word "bundle" everywhere in the codebase
     throw new Error(
       `Bundle info array has incorrect length. Should never happen`
     )
