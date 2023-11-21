@@ -407,7 +407,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
 
         vm.prank(executor);
-        vm.expectRevert("SphinxModule: root already approved");
+        vm.expectRevert("SphinxModule: root already used");
         moduleProxy.approve(
             moduleInputs.merkleRoot,
             moduleInputs.approvalLeafWithProof,
@@ -546,7 +546,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     function test_approve_revert_invalidNonce() external {
         MerkleTreeInputs memory treeInputs = helper_makeMerkleTreeInputs(defaultTxs);
-        treeInputs.nonceInModuleProxy = moduleProxy.deploymentNonce() + 1;
+        treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
         ModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
 
         vm.prank(executor);
@@ -1270,7 +1270,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         string memory _expectedDeploymentUri,
         bool _expectedArbitraryChain
     ) internal {
-        uint256 initialNonce = moduleProxy.deploymentNonce();
+        uint256 initialNonce = moduleProxy.merkleRootNonce();
         uint256 expectedNumLeaves = _moduleInputs.executionLeavesWithProofs.length + 1;
         assertEq(moduleProxy.activeMerkleRoot(), _expectedInitialActiveMerkleRoot);
 
@@ -1326,7 +1326,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         } else {
             assertEq(moduleProxy.activeMerkleRoot(), _moduleInputs.merkleRoot);
         }
-        assertEq(moduleProxy.deploymentNonce(), initialNonce + 1);
+        assertEq(moduleProxy.merkleRootNonce(), initialNonce + 1);
     }
 
     function helper_test_approveThenExecuteBatch(
@@ -1442,7 +1442,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
                 ownerWallets: ownerWallets,
                 chainId: block.chainid,
                 moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.deploymentNonce(),
+                nonceInModuleProxy: moduleProxy.merkleRootNonce(),
                 executor: executor,
                 safeProxy: address(safeProxy),
                 deploymentUri: defaultDeploymentUri,

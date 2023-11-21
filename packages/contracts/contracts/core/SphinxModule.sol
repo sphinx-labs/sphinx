@@ -12,7 +12,7 @@ import {
     SphinxLeafType,
     SphinxLeaf,
     SphinxLeafWithProof,
-    DeploymentState,
+    MerkleRootState,
     DeploymentStatus
 } from "./SphinxDataTypes.sol";
 import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
@@ -47,12 +47,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     /**
      * @inheritdoc ISphinxModule
      */
-    mapping(bytes32 => DeploymentState) public override deployments;
+    mapping(bytes32 => MerkleRootState) public override deployments;
 
     /**
      * @inheritdoc ISphinxModule
      */
-    uint256 public override deploymentNonce;
+    uint256 public override merkleRootNonce;
 
     /**
      * @inheritdoc ISphinxModule
@@ -93,10 +93,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     {
         require(_root != bytes32(0), "SphinxModule: invalid root");
 
-        // Check if the Merkle root was ever approved before. This also ensures that it's
-        // impossible to approve the same Merkle root twice by including two `APPROVE` leaves
-        // in the same Merkle tree.
-        require(deployments[_root].numLeaves == 0, "SphinxModule: root already approved");
+        // Check that the Merkle root hasn't been used before.
+        MerkleRootState storage state = deployments[_root];
+        require(state.status == DeploymentStatus.EMPTY, "SphinxModule: root already used");
 
         SphinxLeaf memory leaf = _leafWithProof.leaf;
         // Revert if the Merkle leaf does not yield the Merkle root, given the Merkle proof.
@@ -113,7 +112,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         (
             address leafSafeProxy,
             address moduleProxy,
-            uint256 leafDeploymentNonce,
+            uint256 leafMerkleRootNonce,
             uint256 numLeaves,
             address executor,
             string memory uri,
@@ -122,7 +121,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
 
         require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
-        require(leafDeploymentNonce == deploymentNonce, "SphinxModule: invalid nonce");
+        require(leafMerkleRootNonce == merkleRootNonce, "SphinxModule: invalid nonce");
         // The `numLeaves` must be at least `1` because there must always at least be an `APPROVE` leaf.
         require(numLeaves > 0, "SphinxModule: numLeaves cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
@@ -132,7 +131,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
         // of 0. This isn't strictly necessary; it just enforces a convention.
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
-        // We don't validate the `uri` because it may be empty if there aren't any `EXECUTE` leaves.
+        // We don't validate the `uri` because it we allow it to be empty.
 
         // Check if there's an existing active Merkle root.
         if (activeMerkleRoot != bytes32(0)) {
@@ -142,10 +141,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
             emit SphinxDeploymentCanceled(activeMerkleRoot);
         }
 
-        emit SphinxDeploymentApproved(_root, activeMerkleRoot, deploymentNonce, executor, numLeaves, uri);
+        emit SphinxDeploymentApproved(_root, activeMerkleRoot, merkleRootNonce, executor, numLeaves, uri);
 
-        DeploymentState storage state = deployments[_root];
-        // Assign values to all fields of the new Merkle root's `DeploymentState` except for the
+        // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
         // `status` field, which will be assigned below.
         state.numLeaves = numLeaves;
         state.leavesExecuted = 1;
@@ -153,7 +151,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         state.executor = executor;
         state.arbitraryChain = arbitraryChain;
 
-        deploymentNonce += 1;
+        merkleRootNonce += 1;
 
         // If there is only an `APPROVE` leaf, mark the deployment as completed.
         if (numLeaves == 1) {
@@ -180,6 +178,107 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
+    // TODO(ask-ryan):
+    // - no `uri` field
+
+
+    // TODO(spec):
+    // - it's technically not necessary to check that the Gnosis Safe owners have signed a Merkle
+    //   root in the `approve` function if we already checked that it was signed in the `cancel`
+    //   function. We do it anyways to reduce the complexity of the `approve` function.
+    // - "Also I removed the leaf types and tree architecture sections from the SphinxModuleProxy
+    //   spec and introduction respectively. I added in brief references to the merkle tree spec,
+    //   but we might want to add in more specific references to it"
+    // - Answer: "Why can't a `cancel` leaf and an `approve`/`execute` leaf occur on the same chain
+    //   in the same Merkle tree"?
+
+    // TODO:
+    // - we may want to include a definition for the word _deployment_ in the spec, or perhaps scrap
+    //   it altogether in the module contract and spec. i.e. is a Merkle root with a single `cancel`
+    //   leaf a "deployment"? what about a single `approve` leaf?
+    // - Natspec docs in ISphinxModule
+    // - Inline docs
+    // - update docs in the `approve` function.
+    /**
+     * @inheritdoc ISphinxModule
+     */
+    function cancel(
+        bytes32 _root,
+        SphinxLeafWithProof memory _leafWithProof,
+        bytes memory _signatures
+    )
+        public
+        override
+        // We add a re-entrancy guard out of an abundance of caution. It's possible for the call to
+        // the Gnosis Safe's `checkSignatures` function to call into another contract when
+        // validating an EIP-1271 contract signature.
+        nonReentrant
+     {
+        require(activeMerkleRoot != bytes32(0), "SphinxModule: TODO");
+
+        require(_root != bytes32(0), "SphinxModule: invalid root");
+
+        // Check that the Merkle root hasn't been used before.
+        MerkleRootState storage state = deployments[_root];
+        require(state.status == DeploymentStatus.EMPTY, "SphinxModule: root already used");
+
+        SphinxLeaf memory leaf = _leafWithProof.leaf;
+        // Revert if the Merkle leaf does not yield the Merkle root, given the Merkle proof.
+        require(
+            MerkleProof.verify(_leafWithProof.proof, _root, _getLeafHash(leaf)),
+            "SphinxModule: failed to verify leaf"
+        );
+
+        require(leaf.leafType == SphinxLeafType.CANCEL, "SphinxModule: invalid leaf type");
+        // The `CANCEL` leaf must always have an index of 0.
+        require(leaf.index == 0, "SphinxModule: invalid leaf index");
+
+        // Decode the `CANCEL` leaf data.
+        (
+            address leafSafeProxy,
+            address moduleProxy,
+            uint256 leafMerkleRootNonce,
+            bytes32 merkleRootToCancel,
+            address executor,
+            string memory uri
+        ) = abi.decode(leaf.data, (address, address, bytes32, string, address));
+
+        require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
+        require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
+        require(merkleRootToCancel == activeMerkleRoot, "SphinxModule: invalid root to cancel");
+        require(executor == msg.sender, "SphinxModule: caller isn't executor");
+        // The current chain ID must match the leaf's chain ID. We don't allow `arbitraryChain` to
+        // be `true` here because we don't think there's a use case for cancelling deployments
+        // across arbitrary networks.
+        require(leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
+
+        // Cancel the existing Merkle root.
+        deployments[activeMerkleRoot].status = DeploymentStatus.CANCELED;
+        emit SphinxDeploymentCanceled(activeMerkleRoot);
+        activeMerkleRoot = bytes32(0);
+
+        MerkleRootState storage state = deployments[_root];
+        // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
+        // `uri` and `arbitraryChain` fields, which are unused here.
+        state.numLeaves = 1;
+        state.leavesExecuted = 1;
+        state.executor = executor;
+        state.status = DeploymentStatus.COMPLETED;
+
+        emit SphinxDeploymentCompleted(_root); // TODO: does it make sense to emit this event?
+
+        // Check that a sufficient number of Gnosis Safe owners have signed the Merkle root (or,
+        // more specifically, EIP-712 data that includes the Merkle root). We do this last to
+        // follow the checks-effects-interactions pattern, since it's possible for `checkSignatures`
+        // to call into another contract if it's validating an EIP-1271 contract signature.
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _root))
+        );
+        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
+    }
+
     /**
      * @inheritdoc ISphinxModule
      */
@@ -190,7 +289,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(numActions > 0, "SphinxModule: no leaves to execute");
         require(activeMerkleRoot != bytes32(0), "SphinxModule: no active root");
 
-        DeploymentState storage state = deployments[activeMerkleRoot];
+        MerkleRootState storage state = deployments[activeMerkleRoot];
 
         require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
