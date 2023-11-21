@@ -17,14 +17,6 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
-     * @notice Emitted when funds are withdrawn from this contract.
-     *
-     * @param recipient The recipient that withdrew the funds.
-     * @param amount    Amount of ETH withdrawn.
-     */
-    event Withdrew(address indexed recipient, uint256 amount);
-
-    /**
      * @notice Emitted when a call is made.
      *
      * @param relayer  The address of the account that made the call.
@@ -32,28 +24,6 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      * @param dataHash A keccak256 hash of the input data.
      */
     event Called(address indexed relayer, address indexed to, bytes32 indexed dataHash);
-
-    /**
-     * @notice Emitted when funds are transferred to this contract.
-     *
-     * @param sender The address that sent the funds.
-     * @param amount The amount of funds sent to this contract.
-     */
-    event Deposited(address indexed sender, uint256 amount);
-
-    /**
-     * @notice A modifier that refunds the caller for the gas spent in the function call.
-     *
-     *         Includes a conservative 40k buffer to cover the cost of the refund modifier
-     *         which is not included in the gas usage calculation.
-     */
-    modifier refund() {
-        uint256 start = gasleft();
-        _;
-        uint256 spent = start - gasleft() + 42000;
-        (bool success, ) = payable(msg.sender).call{ value: spent * tx.gasprice }(new bytes(0));
-        require(success, "ManagedService: failed to refund caller");
-    }
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
@@ -65,38 +35,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Allows for this contract to receive ETH.
-     */
-    receive() external payable {
-        emit Deposited(msg.sender, msg.value);
-    }
-
-    /**
-     * @notice Allows for the relayers or admin to send ETH from the contract to a recipient.
-     *
-     * @param _amount    The amount of ETH to withdraw.
-     * @param _recipient The address that will receive the ETH.
-     */
-    function withdrawTo(uint256 _amount, address _recipient) public nonReentrant {
-        require(
-            hasRole(RELAYER_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "ManagedService: invalid caller"
-        );
-        require(_amount <= address(this).balance, "ManagedService: insufficient funds");
-        require(_recipient != address(0), "ManagedService: recipient is zero address");
-
-        emit Withdrew(_recipient, _amount);
-
-        // slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = payable(_recipient).call{ value: _amount }(new bytes(0));
-        require(success, "ManagedService: failed to send funds");
-    }
-
-    /**
-     * @notice Allows for the relayers to make arbitrary calls using this contract. The relayers
-     *         will be automatically refunded for the gas spent on the call.
-     *
-     *         If the underlying call reverts, then we decode and forward the revert reason.
+     * @notice Allows for the relayers to make arbitrary calls using this contract.
      *
      * @param  _to   The target address.
      * @param  _data The data that will be sent.
@@ -106,9 +45,11 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     function exec(
         address _to,
         bytes calldata _data
-    ) public payable nonReentrant refund returns (bytes memory) {
+    ) public payable nonReentrant returns (bytes memory) {
         require(hasRole(RELAYER_ROLE, msg.sender), "ManagedService: invalid caller");
         require(_to != address(0), "ManagedService: target is address(0)");
+
+        emit Called(msg.sender, _to, keccak256(_data));
 
         // slither-disable-next-line arbitrary-send-eth
         (bool success, bytes memory res) = _to.call{ value: msg.value }(_data);
@@ -120,7 +61,6 @@ contract ManagedService is AccessControl, ReentrancyGuard {
                 revert(add(32, res), mload(res))
             }
         } else {
-            emit Called(msg.sender, _to, keccak256(_data));
             return res;
         }
     }

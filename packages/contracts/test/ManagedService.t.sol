@@ -55,16 +55,6 @@ contract ManagedService_Test is Test, ManagedService {
         service.grantRole(service.RELAYER_ROLE(), sender);
     }
 
-    function test_RevertIfBalanceToLow() external {
-        vm.startPrank(sender);
-        vm.txGasPrice(2);
-
-        vm.expectRevert("ManagedService: failed to refund caller");
-        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.set.selector, 2));
-
-        assertEq(endpoint.x(), 1);
-    }
-
     function test_RevertCallerIsNotRelayer() external {
         vm.startPrank(invalidSender);
         vm.expectRevert(invalidCallerError);
@@ -129,52 +119,6 @@ contract ManagedService_Test is Test, ManagedService {
 
         // Check that the response was returned
         assertEq(abi.decode(res, (uint)), 2);
-    }
-
-    function test_WithdrawRevertsIfNotRelayer() external {
-        vm.startPrank(invalidSender);
-        vm.deal(address(service), 1 ether);
-
-        vm.expectRevert(invalidCallerError);
-        service.withdrawTo(0.5 ether, msg.sender);
-    }
-
-    function test_WithdrawRevertsIfNotEnoughFunds() external {
-        vm.startPrank(sender);
-
-        vm.expectRevert("ManagedService: insufficient funds");
-        service.withdrawTo(2 ether, msg.sender);
-    }
-
-    function test_WithdrawRevertsIfRecipientZeroAddress() external {
-        vm.startPrank(sender);
-        vm.deal(address(service), 1 ether);
-
-        vm.expectRevert("ManagedService: recipient is zero address");
-        service.withdrawTo(0.5 ether, address(0));
-    }
-
-    function test_WithdrawRevertsSendingFundsToContract() external {
-        vm.startPrank(sender);
-        vm.deal(address(service), 1 ether);
-
-        vm.expectRevert("ManagedService: failed to send funds");
-        service.withdrawTo(0.5 ether, address(endpoint));
-    }
-
-    function test_depositeAndSuccessfulWithdrawTo() external {
-        vm.startPrank(sender);
-        uint depositeAmount = 1 ether;
-
-        vm.deal(address(sender), depositeAmount);
-        payable(address(service)).transfer(depositeAmount);
-
-        uint withdrawAmount = 0.5 ether;
-        vm.expectEmit(address(service));
-        emit Withdrew(invalidSender, withdrawAmount);
-
-        service.withdrawTo(withdrawAmount, invalidSender);
-        assertEq(invalidSender.balance, withdrawAmount);
     }
 
     function test_RevertIfOwnerIsAddressZero() external {
