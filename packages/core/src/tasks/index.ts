@@ -143,7 +143,7 @@ export const makeDeploymentData = (
       executor: compilerConfig.executorAddress,
       safeProxy: compilerConfig.safeAddress,
       moduleProxy: compilerConfig.moduleAddress,
-      deploymentURI: configUri,
+      uri: configUri,
       txs,
       arbitraryChain: compilerConfig.arbitraryChain,
     }
