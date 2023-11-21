@@ -4,7 +4,7 @@ Sphinx uses a custom Merkle tree data structure to allow teams to approve arbitr
 **Vocabulary notes**:
 - An _executor_ is the specific account that needs to submit the transactions to the `SphinxModuleProxy` to execute a deployment on-chain. In some cases the executor may be a contract which forwards transactions to the `SphinxModuleProxy` from many different EOAs. This is the case with the Sphinx DevOps platform which uses `ManagedService.sol` as it's primary executor.
 - A _relayer_ is an off-chain process that is responsible for executing deployments using a Sphinx Merkle tree and signed root. Note that the relayer may be a complex system using multiple EOAs such as is the case with the Sphinx DevOps platform.
-- A _Valid Merkle Tree_ is a Sphinx Merkle tree that conforms to the [Merkle Tree Invariants](#standard-merkle-tree-invariants). Any other Merkle tree that matches the data structure of the Sphinx Merkle tree, but that does not adhere to those invariants, we refer to as invalid even if the tree may still be executable on-chain.
+- A _Valid Merkle Tree_ is a Sphinx Merkle tree that conforms to the [Merkle Tree Invariants](#high-level-merkle-tree-invariants). Any other Merkle tree that matches the data structure of the Sphinx Merkle tree, but that does not adhere to those invariants, we refer to as invalid even if the tree may still be executable on-chain.
 - A leaf _index_ refers to the explicit `index` field on the SphinxLeaf data type. It does _not_ refer to the leafs position within the tree. [^1]
 
 ### Relevant Files
@@ -18,11 +18,9 @@ Sphinx uses a custom Merkle tree data structure to allow teams to approve arbitr
   - [`EXECUTE` Leaf Data](#execute-leaf-data)
 - [Valid Merkle Trees](#valid-merkle-trees)
 - [High-Level Merkle Tree Invariants](#high-level-merkle-tree-invariants)
-- [Function-Level Invariants](#function-level-invariants)
 - [Merkle Tree Generation Logic](#merkle-tree-generation-logic)
-- [Function-Level Invariants](#function-level-invariants)
-- [Assumptions](#assumptions)
 - [Dependencies](#dependencies)
+- [Assumptions](#assumptions)
 - [Footnotes](#footnotes)
 
 ## Merkle Tree Architecture
@@ -102,10 +100,10 @@ Assumption: The input Merkle leaf(s) data satisfies the on-chain conditions in t
 To ensure that `EXECUTE` leaves are executed in the correct order, all Merkle tree leaves must have an `index` field that starts at 0 on each chain and sequentially increments by 1.
 
 ### 3. Every leaf `chainId` and `index` combination must be unique within the tree
-Since the Sphinx Merkle tree leaves contain explicit indexes, it is possible to construct a tree which contains multiple leaves with the same index value and chain ID. Only one of the leaves would be executable on-chain. Therefore, constructing a tree with multiple leaves with the same chain ID and index would make it ambiguous which leaf should be executed, and would result in a tree that cannot be fully executed. We impose the restriction that in a valid Merkle tree there must be at most one leaf with each chain ID and index combination which ensures there is unambiguous ordering of leaves within the tree.
+Constructing a tree with multiple leaves with the same chain ID and index would make it ambiguous which leaf should be executed, and would result in a tree that cannot be fully executed. So we impose the restriction that in a valid Merkle tree there must be at most one leaf with each chain ID and index combination which ensures there is unambiguous ordering of leaves within the tree.
 
 ### 4. There must be exactly one `APPROVE` leaf or `CANCEL` leaf per chain
-Since Sphinx Merkle trees can contain an arbitrary set of leaves, it is possible to construct a single tree that contains `APPROVE` or `CANCEL` leaves that approve or cancel multiple separate deployments on a single chain. However, this leads to an ambiguous situation for the relayer where it is unclear which deployment should be approved or canceled. So we impose the restriction that in a valid Merkle tree there must be exactly one `APPROVE` or `CANCEL` leaf per chain.
+Constructing a tree that contains `APPROVE` or `CANCEL` leaves that approve or cancel multiple separate deployments on a single chain would lead to an ambiguous situation for the relayer where it is unclear which deployment should be approved or canceled. So we impose the restriction that in a valid Merkle tree there must be exactly one `APPROVE` or `CANCEL` leaf per chain.
 
 If the `arbitraryChain` field is set to true, then we consider this approval leaf to apply to all chains. Therefore if `arbitraryChain` = true, there should be exactly one `APPROVE` leaf in the entire tree and no `CANCEL` leaves.
 
