@@ -47,12 +47,13 @@ interface ISphinxModule {
         string uri
     );
 
-    /**
-     * @notice Emitted when an active Merkle root is canceled by the Gnosis Safe owners.
-     *
-     * @param merkleRoot The Merkle root of the deployment that was canceled.
-     */
-    event SphinxDeploymentCanceled(bytes32 indexed merkleRoot);
+    event SphinxDeploymentCanceled(
+        bytes32 indexed completedMerkleRoot,
+        bytes32 indexed canceledMerkleRoot,
+        uint256 indexed nonce,
+        address executor,
+        string uri
+    );
 
     /**
      * @notice Emitted when a deployment is completed.

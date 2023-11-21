@@ -182,6 +182,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     // - Answer: "Why can't a `cancel` leaf and an `approve`/`execute` leaf occur on the same chain
     //   in the same Merkle tree"?
 
+    // TODO: deploymentUri -> uri
+
     // TODO:
     // - we may want to include a definition for the word _deployment_ in the spec, or perhaps scrap
     //   it altogether in the module contract and spec. i.e. is a Merkle root with a single `cancel`
@@ -246,7 +248,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
 
         // Cancel the existing Merkle root.
         deployments[activeMerkleRoot].status = MerkleRootStatus.CANCELED;
-        emit SphinxDeploymentCanceled(activeMerkleRoot); // TODO: add more event args
+        emit SphinxDeploymentCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
         activeMerkleRoot = bytes32(0);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the

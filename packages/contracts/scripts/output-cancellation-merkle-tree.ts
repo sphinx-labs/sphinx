@@ -16,6 +16,7 @@ const safeProxy = argv[5]
 const moduleProxy = argv[6]
 const uri = argv[7]
 const merkleRootToCancel = argv[8]
+const forceCancellationLeafIndexNonZero = argv[9] === 'true'
 
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
@@ -43,6 +44,10 @@ const merkleRootToCancel = argv[8]
   }
 
   const leaves = makeSphinxLeaves(deploymentData)
+
+  if (forceCancellationLeafIndexNonZero) {
+    leaves[0].index = 1n
+  }
 
   const { root, leavesWithProofs } = makeSphinxMerkleTreeFromLeaves(leaves)
 

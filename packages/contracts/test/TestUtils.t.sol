@@ -150,7 +150,7 @@ contract TestUtils is SphinxUtils, Enum {
     function getMerkleTreeFFI(
         MerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
-        string[] memory inputs = new string[](16);
+        string[] memory inputs = new string[](17);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-merkle-tree.ts";
@@ -165,8 +165,9 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[11] = vm.toString(_treeInputs.forceNumLeavesValue);
         inputs[12] = vm.toString(_treeInputs.overridingNumLeavesValue);
         inputs[13] = vm.toString(_treeInputs.forceApprovalLeafIndexNonZero);
-        inputs[14] = vm.toString(_treeInputs.forceApprovalLeafChainIdZero);
-        inputs[15] = "--swc"; // Speeds up ts-node considerably
+        inputs[14] = vm.toString(_treeInputs.forceExecutionLeavesChainIdNonZero);
+        inputs[15] = vm.toString(_treeInputs.forceApprovalLeafChainIdNonZero);
+        inputs[16] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -177,7 +178,7 @@ contract TestUtils is SphinxUtils, Enum {
     function getCancellationMerkleTreeFFI(
         CancellationMerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
-        string[] memory inputs = new string[](11);
+        string[] memory inputs = new string[](12);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-cancellation-merkle-tree.ts";
@@ -188,7 +189,8 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[7] = vm.toString(address(_treeInputs.moduleProxy));
         inputs[8] = _treeInputs.uri;
         inputs[9] = vm.toString(abi.encode(_treeInputs.merkleRootToCancel));
-        inputs[10] = "--swc"; // Speeds up ts-node considerably
+        inputs[10] = vm.toString(_treeInputs.forceCancellationLeafIndexNonZero);
+        inputs[11] = "--swc"; // Speeds up ts-node considerably
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -206,6 +208,7 @@ contract TestUtils is SphinxUtils, Enum {
         address executor;
         address safeProxy;
         string uri;
+        bool forceCancellationLeafIndexNonZero;
     }
 
     // TODO: mv
@@ -222,7 +225,8 @@ contract TestUtils is SphinxUtils, Enum {
         bool forceNumLeavesValue;
         uint256 overridingNumLeavesValue;
         bool forceApprovalLeafIndexNonZero;
-        bool forceApprovalLeafChainIdZero;
+        bool forceExecutionLeavesChainIdNonZero;
+        bool forceApprovalLeafChainIdNonZero;
     }
 
     // TODO: mv
