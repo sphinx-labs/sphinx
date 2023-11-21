@@ -7,6 +7,7 @@ import { AbiCoder } from 'ethers'
 export enum SphinxLeafType {
   APPROVE,
   EXECUTE,
+  CANCEL,
 }
 
 /**
@@ -92,7 +93,6 @@ export type SphinxTransaction = {
   requireSuccess: boolean
 }
 
-// TODO(md)
 /**
  * @notice The complete SphinxMerkleTree ready to be executed (pending signatures on the root).
  *
@@ -146,7 +146,7 @@ export const makeSphinxLeaves = (
     let index = BigInt(1)
     for (const tx of data.txs) {
       // generate transaction leaf data
-      const transactionLeafData = AbiCoder.defaultAbiCoder().encode(
+      const transactionLeafData = coder.encode(
         ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
         [
           tx.to,
@@ -173,12 +173,12 @@ export const makeSphinxLeaves = (
 }
 
 /**
- * @notice Generates the complete `SphinxMerkleTree` object.
+ * @notice Generates the complete `SphinxMerkleTree` object from a set of `SphinxLeaves`.
  *
- * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
- * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
+ * @param leaves The raw leaves which should be included in the tree
+ * @returns      The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
  */
-export const makeSphinxMerkleTree = (
+export const makeSphinxMerkleTreeFromLeaves = (
   leaves: SphinxLeaf[]
 ): SphinxMerkleTree => {
   const rawLeafArray = leaves.map((leaf) => [Object.values(leaf)])
@@ -196,4 +196,16 @@ export const makeSphinxMerkleTree = (
       return leafWithProof
     }),
   }
+}
+
+/**
+ * @notice Generates the complete `SphinxMerkleTree` object from the raw `DeploymentData`
+ * This is the *only* function we consider to satisfy the invariants defined in the Sphinx Merkle tree spec.
+ *
+ * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
+ * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
+ */
+export const makeSphinxMerkleTree = (deploymentData: DeploymentData) => {
+  const leaves = makeSphinxLeaves(deploymentData)
+  return makeSphinxMerkleTreeFromLeaves(leaves)
 }

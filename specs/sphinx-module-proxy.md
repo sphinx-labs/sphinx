@@ -18,9 +18,6 @@ through it.
 
 - [Relevant Files](#relevant-files)
 - [Overview](#overview)
-- [Merkle Leaf Types](#merkle-leaf-types)
-  - [`APPROVE` Leaf Data](#approve-leaf-data)
-  - [`EXECUTE` Leaf Data](#execute-leaf-data)
 - [Deployment Process](#deployment-process)
 - [High-Level Invariants](#high-level-invariants)
 - [Function-Level Invariants](#function-level-invariants)
@@ -37,6 +34,7 @@ through it.
 - The implementation contract: [`SphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol)
 - Unit tests: [`SphinxModuleProxy.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol)
 - Key data structures: [`SphinxDataTypes.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol)
+- Sphinx Merkle Tree Specification: [`merkle-tree.md``](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/merkle-tree.md)
 
 _Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Clones.sol) for deploying EIP-1167 proxies.
 

@@ -3003,7 +3003,7 @@ chai-as-promised@^7.1.1:
   dependencies:
     check-error "^1.0.2"
 
-chai@^4.2.0, chai@^4.3.4, chai@^4.3.6, chai@^4.3.7, chai@^4.3.8:
+chai@^4.2.0, chai@^4.3.10, chai@^4.3.4, chai@^4.3.6, chai@^4.3.7, chai@^4.3.8:
   version "4.3.10"
   resolved "https://registry.yarnpkg.com/chai/-/chai-4.3.10.tgz#d784cec635e3b7e2ffb66446a63b4e33bd390384"
   integrity sha512-0UXG04VuVbruMUYbJ6JctvH0YnC/4q3/AkT18q4NaITo91CUm0liMS9VqzT9vZhVQ/1eqPanMWjBM+Juhfb/9g==

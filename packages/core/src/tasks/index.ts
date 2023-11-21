@@ -6,7 +6,6 @@ import { create } from 'ipfs-http-client'
 import {
   DeploymentData,
   SphinxTransaction,
-  makeSphinxLeaves,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
@@ -168,8 +167,7 @@ export const getMerkleTreeInfo = async (
   )
 
   const deploymentData = makeDeploymentData(configUri, compilerConfigs)
-  const leaves = makeSphinxLeaves(deploymentData)
-  const merkleTree = makeSphinxMerkleTree(leaves)
+  const merkleTree = makeSphinxMerkleTree(deploymentData)
   return {
     configUri,
     root: merkleTree.root,
