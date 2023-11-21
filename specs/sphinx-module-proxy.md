@@ -50,35 +50,6 @@ Since a Merkle root can contain deployments across an arbitrary number of chains
 
 **It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.**
 
-## Merkle Leaf Types
-
-Each leaf in the Merkle tree represents a single action on a single chain. There are two types of actions:
-- **`APPROVE`**: Approve a new deployment on a chain. This leaf must be submitted in the `approve` function on the `SphinxModuleProxy`.
-- **`EXECUTE`**: Execute a transaction in the deployment. These leaves must be submitted in the `execute` function on the `SphinxModuleProxy`.
-
-On-chain, both leaf types are represented as a [`SphinxLeaf`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L17-L30). You'll notice that the `SphinxLeaf` type has a `data` field, which is arbitrary data that's encoded based on the leaf type. We'll describe the fields of the decoded data for each leaf type below.
-
-### `APPROVE` Leaf Data
-
-The `data` field of an `APPROVE` leaf consists of the following fields, which are ABI encoded:
-* `address safeProxy`: The address of the Gnosis Safe.
-* `address moduleProxy`: The address of the `SphinxModuleProxy` that is coordinating the deployment.
-* `uint256 merkleRootNonce`: The nonce of the Merkle root in the `SphinxModuleProxy`.
-* `uint256 numLeaves`: The total number of leaves in the Merkle tree on the current chain. There must be at least one leaf (the `APPROVE` leaf).
-* `address executor`: The address of the caller, which is the only account that is allowed to execute the deployment.
-* `string uri`: The IPFS URI of the deployment. This contains information such as the Solidity compiler inputs, which allows the executor to verify the user's smart contracts on Etherscan. This can be an empty string if there is only a single leaf on the current network (the `APPROVE` leaf).
-* `bool arbitraryChain`: If this is `true`, the Merkle root can be executed on any chain without the explicit permission of the Gnosis Safe owners. This is useful if the owners want their system to be permissionlessly deployed on new chains. By default, this is disabled, which means that the Gnosis Safe owners must explicitly approve the deployment on individual chains.
-
-### `EXECUTE` Leaf Data
-
-The `data` field of an `EXECUTE` leaf primarily contains data to forward to the Gnosis Safe. It consists of the following fields, which are ABI encoded:
-* `address to`: The target address of the transaction. This is _not_ the address of the Gnosis Safe.
-* `uint256 value`: The amount of native gas token to transfer from the Gnosis Safe to the target address. This value is not transferred from the `SphinxModuleProxy`.
-* `uint256 gas`: The amount of gas that's included in the call from the `SphinxModuleProxy` to the Gnosis Safe.
-* `bytes txData`: The transaction's data.
-* `Enum.Operation operation`: The type of transaction to execute in the Gnosis Safe, i.e. `Call` or `DelegateCall`.
-* `bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment is marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails.
-
 ## Deployment Process
 
 There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` contract at a time. A Merkle root will always exist in one of the five following states:
