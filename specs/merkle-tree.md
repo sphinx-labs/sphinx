@@ -121,7 +121,7 @@ So for example, if we intended to run a single transaction on Goerli (5), OP Goe
 ## Merkle Tree Generation Logic
 We provide utility for generating Sphinx Merkle trees. This utility is used by the official Sphinx Foundry plugin. We expect it to generate Merkle trees that adhere to the above invariants.
 
-### `const makeSphinxMerkleTree = (deploymentData: DeploymentData): SphinxMerkleTree`
+#### `const makeSphinxMerkleTree = (deploymentData: DeploymentData): SphinxMerkleTree`
 
 #### Input
 Accepts a [DeploymentData](https://github.com/sphinx-labs/sphinx/blob/591ff8a33578ecf61f184f4afc83a551397009f9/packages/contracts/src/merkle-tree.ts#L45C23-L45C23) object where the keys are canonical chain ids and the values are deployment data objects which contain all of the necessary info to assemble a SphinxMerkleTree. The Sphinx Merkle tree generation function should be agnostic to the source of the transaction data so it can be used to assemble a tree based on transactions generated from any scripting framework (i.e Foundry, Hardhat Ignition, some arbitrary future framework).
