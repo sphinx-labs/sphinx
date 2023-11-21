@@ -96,7 +96,7 @@ The `data` field of an `CANCEL` leaf consists of the following fields, which are
 
 
 ## High-Level Merkle Tree Invariants
-The purpose of these invariants is to define an unambiguous, consistent structure for Sphinx Merkle trees. This ensures that it's easy for off-chain tooling to recreate the exact Merkle tree signed by the user, and to check that a given Merkle tree is valid. It's worth mentioning that it's possible to construct Merkle trees that do not adhere to this spec, but are executable on-chain. We discuss this possibility and the expected executor behavior in more detail in the [Assumptions section](#assumptions)."
+The purpose of these invariants is to define an unambiguous, consistent structure for Sphinx Merkle trees. This ensures that it's easy for off-chain tooling to recreate the exact Merkle tree signed by the user, and to check that a given Merkle tree is valid. It's worth mentioning that it's possible to construct Merkle trees that do not adhere to this spec, but are executable on-chain. We discuss this possibility and the expected executor behavior in more detail in the [Assumptions section](#assumptions).
 
 ### 1. Must be executable on all chains for which there is at least one Merkle leaf.
 We assume that the input Merkle leaf(s) data satisfies the on-chain conditions in the corresponding `SphinxModuleProxy` contract(s) and that the executor is not buggy. See the [Assumptions section](#assumptions) for more information.
