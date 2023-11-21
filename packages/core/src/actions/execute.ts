@@ -8,7 +8,7 @@ import {
   getManagedServiceAddress,
 } from '@sphinx-labs/contracts'
 
-import { DeploymentState, DeploymentStatus, HumanReadableAction } from './types'
+import { MerkleRootState, MerkleRootStatus, HumanReadableAction } from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getTargetNetworkLeaves } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -91,7 +91,7 @@ export const executeDeployment = async (
     logger
   )
 
-  if (status === DeploymentStatus.FAILED) {
+  if (status === MerkleRootStatus.FAILED) {
     logger?.error(`[Sphinx]: failed during execution`)
     return { success: false, receipts, failureAction }
   } else {
@@ -163,9 +163,9 @@ const executeBatchActions = async (
   receipts: ethers.TransactionReceipt[]
   failureAction?: HumanReadableAction
 }> => {
-  // Pull the deployment state from the contract so we're guaranteed to be up to date.
+  // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await module.activeMerkleRoot()
-  let state: DeploymentState = await module.deployments(activeRoot)
+  let state: MerkleRootState = await module.deployments(activeRoot)
 
   // Remove the actions that have already been executed.
   const filtered = leaves.filter((leaf) => {
@@ -180,10 +180,10 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
-    const mostRecentState: DeploymentState = await module.deployments(
+    const mostRecentState: MerkleRootState = await module.deployments(
       activeRoot
     )
-    if (mostRecentState.status === DeploymentStatus.FAILED) {
+    if (mostRecentState.status === MerkleRootStatus.FAILED) {
       return { status: mostRecentState.status, receipts }
     }
 
@@ -226,7 +226,7 @@ const executeBatchActions = async (
       //   logger?.error(`[Sphinx]: failed to execute initial actions`)
       //   if (decodedError?.args[0] !== undefined) {
       //     const failureAction = humanReadableActions[decodedError.args[0]]
-      //     return { status: DeploymentStatus.FAILED, receipts, failureAction }
+      //     return { status: MerkleRootStatus.FAILED, receipts, failureAction }
       //   }
       // } else {
       //   // Otherwise, rethrow the error
@@ -236,7 +236,7 @@ const executeBatchActions = async (
 
     // Return early if the deployment failed.
     state = await module.deployments(activeRoot)
-    if (state.status === DeploymentStatus.FAILED) {
+    if (state.status === MerkleRootStatus.FAILED) {
       return { status: state.status, receipts }
     }
 

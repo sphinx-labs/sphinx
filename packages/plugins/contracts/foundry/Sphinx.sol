@@ -6,8 +6,8 @@ import {console} from "sphinx-forge-std/console.sol";
 
 // TODO - fix contracts remappings so everything can just be @sphinx-labs/contracts/* instead of @sphinx-labs/contracts/(core or foundry)/*
 import {
-    DeploymentStatus,
-    DeploymentState,SphinxLeafWithProof
+    MerkleRootStatus,
+    MerkleRootState,SphinxLeafWithProof
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 import { SphinxModule } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 import {
@@ -123,7 +123,7 @@ abstract contract Sphinx {
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, SphinxModule(module));
-        deploymentInfo.nonce = sphinxUtils.getDeploymentNonce(SphinxModule(module));
+        deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(SphinxModule(module));
         deploymentInfo.arbitraryChain = false;
         // TODO - support configuring this? Not sure if it's necessary in the first version.
         deploymentInfo.requireSuccess = true;
@@ -260,7 +260,7 @@ abstract contract Sphinx {
         SphinxLeafWithProof[] memory _leaves,
         uint256 _bufferedGasLimit
     ) private returns (bool, uint256) {
-        // Pull the deployment state from the contract to make sure we're up to date
+        // Pull the Merkle root state from the contract to make sure we're up to date
         bytes32 activeRoot = _module.activeMerkleRoot();
 
         // We can return early if there are no actions to execute (outside the approval action).
@@ -277,7 +277,7 @@ abstract contract Sphinx {
                 sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leaves, executed, _leaves.length), maxGasLimit);
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leaves, executed, executed + batchSize);
 
-            DeploymentStatus status = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
+            MerkleRootStatus status = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
             // TODO - do something with the status
 
             // Move to next batch if necessary
@@ -402,7 +402,7 @@ abstract contract Sphinx {
             uint256 leavesExecuted,
             string memory uri,
             address executor,
-            DeploymentStatus status,
+            MerkleRootStatus status,
         ) = _module.deployments(_root);
 
         if (numLeaves == leavesExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {

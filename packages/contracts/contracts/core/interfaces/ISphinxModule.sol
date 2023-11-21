@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import { SphinxLeafWithProof, DeploymentStatus } from "../SphinxDataTypes.sol";
+import { SphinxLeafWithProof, MerkleRootStatus } from "../SphinxDataTypes.sol";
 
 /**
  * @notice The interface of the `SphinxModule` contract.
@@ -29,7 +29,7 @@ interface ISphinxModule {
      * @param merkleRoot         The Merkle root of the deployment.
      * @param previousActiveRoot The previous active Merkle root. This is `bytes32(0)` if there
      *                           was no active root.
-     * @param nonce              The nonce of the deployment in the `SphinxModule`.
+     * @param nonce              The nonce of the Merkle root in the `SphinxModule`.
      * @param executor           The address of the caller.
      * @param numLeaves          The total number of leaves in the Merkle tree on the current chain.
      * @param uri                The IPFS URI of the deployment. This contains information such as
@@ -97,6 +97,15 @@ interface ISphinxModule {
     ) external;
 
     /**
+     * TODO
+     */
+    function cancel(
+        bytes32 _root,
+        SphinxLeafWithProof memory _leafWithProof,
+        bytes memory _signatures
+    ) external;
+
+    /**
      * @notice The current nonce in this contract. Each time a Merkle root is approved, this nonce
      *         is incremented. The main purpose is to allow the Gnosis Safe owners to cancel a
      *         Merkle root that has been signed off-chain, but has not been approved on-chain. In
@@ -106,10 +115,10 @@ interface ISphinxModule {
      *         owners, then approved far into the future, even after other Merkle roots have been
      *         approved.
      */
-    function deploymentNonce() external view returns (uint256);
+    function merkleRootNonce() external view returns (uint256);
 
     /**
-     * @notice Mapping from a Merkle root to its `DeploymentState` struct.
+     * @notice Mapping from a Merkle root to its `MerkleRootState` struct.
      */
     function deployments(
         bytes32
@@ -121,7 +130,7 @@ interface ISphinxModule {
             uint256 leavesExecuted,
             string memory uri,
             address executor,
-            DeploymentStatus status,
+            MerkleRootStatus status,
             bool arbitraryChain
         );
 
@@ -135,7 +144,7 @@ interface ISphinxModule {
      */
     function execute(
         SphinxLeafWithProof[] memory _leavesWithProofs
-    ) external returns (DeploymentStatus);
+    ) external returns (MerkleRootStatus);
 
     /**
      * @notice Initializes this contract. It's necessary to use an initializer function instead of a

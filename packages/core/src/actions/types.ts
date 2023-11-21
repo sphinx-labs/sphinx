@@ -13,7 +13,7 @@ export const SphinxActionType = {
 /**
  * The status of a given Sphinx action.
  */
-export const DeploymentStatus = {
+export const MerkleRootStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
   COMPLETED: 2n,
@@ -149,7 +149,7 @@ export interface SphinxTargetBundle {
 /**
  * The state of a Sphinx bundle.
  */
-export type DeploymentState = {
+export type MerkleRootState = {
   numLeaves: bigint
   leavesExecuted: bigint
   uri: string

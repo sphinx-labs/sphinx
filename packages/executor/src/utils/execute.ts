@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 import { ManagedServiceABI, SphinxManagerABI } from '@sphinx-labs/contracts'
 import {
-  DeploymentState,
+  MerkleRootState,
   compileRemoteBundles,
   executeDeployment,
   getGasPriceOverrides,
@@ -173,11 +173,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // get active deployment ID for this project
   const activeDeploymentId = await manager.activeDeploymentId()
 
-  const deploymentState: DeploymentState = await manager.deployments(
+  const merkleRootState: MerkleRootState = await manager.deployments(
     activeDeploymentId
   )
 
-  if (!deploymentState.remoteExecution) {
+  if (!merkleRootState.remoteExecution) {
     logger.info('[Sphinx]: skipping local deployment')
     process.send({ action: 'discard', payload: executorEvent })
     return
@@ -198,7 +198,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Handle if the config cannot be fetched
   try {
     ;({ bundles, compilerConfig, configArtifacts, humanReadableActions } =
-      await compileRemoteBundles(deploymentState.configUri))
+      await compileRemoteBundles(merkleRootState.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
@@ -248,7 +248,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   const expectedDeploymentId = getDeploymentId(
     bundles.actionBundle,
     bundles.targetBundle,
-    deploymentState.configUri
+    merkleRootState.configUri
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
@@ -269,7 +269,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   const deploymentTransactionReceipts: ethers.TransactionReceipt[] = []
 
-  if (deploymentState.selectedExecutor === ethers.ZeroAddress) {
+  if (merkleRootState.selectedExecutor === ethers.ZeroAddress) {
     try {
       deploymentTransactionReceipts.push(
         await (
@@ -305,7 +305,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       // Since we can't execute the deployment, return
       return
     }
-  } else if (deploymentState.selectedExecutor !== wallet.address) {
+  } else if (merkleRootState.selectedExecutor !== wallet.address) {
     logger.info(
       '[Sphinx]: a different executor has already claimed the deployment'
     )
@@ -338,10 +338,10 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
   } catch (e) {
     // check if the error was due to the deployment being claimed by another executor, and discard if so
-    const errorDeploymentState: DeploymentState = await manager.deployments(
+    const errorMerkleRootState: MerkleRootState = await manager.deployments(
       activeDeploymentId
     )
-    if (errorDeploymentState.selectedExecutor !== wallet.address) {
+    if (errorMerkleRootState.selectedExecutor !== wallet.address) {
       logger.info(
         '[Sphinx]: execution failed due to deployment being claimed by another executor'
       )

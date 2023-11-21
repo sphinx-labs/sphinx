@@ -42,7 +42,10 @@ export type SphinxLeafWithProof = {
  * The keys are canonical chain ids (bigint strings), and the value are `NetworkDeploymentData`
  * objects containing metadata on each network.
  */
-export type DeploymentData = Record<string, NetworkDeploymentData>
+export type DeploymentData = Record<
+  string,
+  NetworkDeploymentData | NetworkCancellationData
+>
 
 /**
  * @notice Contains data on each individual network which should be included in the MerkleTree
@@ -63,6 +66,16 @@ export type NetworkDeploymentData = {
   deploymentURI: string
   arbitraryChain: boolean
   txs: SphinxTransaction[]
+}
+
+// TODO(audit-docs):
+export type NetworkCancellationData = {
+  nonce: string
+  executor: string
+  safeProxy: string
+  moduleProxy: string
+  merkleRootToCancel: string
+  uri: string
 }
 
 /**
@@ -118,58 +131,112 @@ export const makeSphinxLeaves = (
   const coder = AbiCoder.defaultAbiCoder()
 
   for (const [chainIdStr, data] of Object.entries(deploymentData)) {
-    const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
+    if (isNetworkDeploymentData(data)) {
+      const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
 
-    // generate approval leaf data
-    const approvalData = coder.encode(
-      ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
-      [
-        data.safeProxy,
-        data.moduleProxy,
-        data.nonce,
-        data.txs.length + 1, // We add one to account for the approval leaf
-        data.executor,
-        data.deploymentURI,
-        data.arbitraryChain,
-      ]
-    )
-
-    // push approval leaf
-    merkleLeaves.push({
-      chainId,
-      index: BigInt(0),
-      leafType: SphinxLeafType.APPROVE,
-      data: approvalData,
-    })
-
-    // push transaction leaves
-    let index = BigInt(1)
-    for (const tx of data.txs) {
-      // generate transaction leaf data
-      const transactionLeafData = coder.encode(
-        ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+      // generate approval leaf data
+      const approvalData = coder.encode(
+        ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
         [
-          tx.to,
-          BigInt(tx.value),
-          BigInt(tx.gas),
-          tx.txData,
-          BigInt(tx.operation),
-          tx.requireSuccess,
+          data.safeProxy,
+          data.moduleProxy,
+          data.nonce,
+          data.txs.length + 1, // We add one to account for the approval leaf
+          data.executor,
+          data.deploymentURI,
+          data.arbitraryChain,
         ]
       )
 
+      // push approval leaf
       merkleLeaves.push({
         chainId,
-        index,
-        leafType: SphinxLeafType.EXECUTE,
-        data: transactionLeafData,
+        index: BigInt(0),
+        leafType: SphinxLeafType.APPROVE,
+        data: approvalData,
       })
 
-      index += BigInt(1)
+      // push transaction leaves
+      let index = BigInt(1)
+      for (const tx of data.txs) {
+        // generate transaction leaf data
+        const transactionLeafData = coder.encode(
+          ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+          [
+            tx.to,
+            BigInt(tx.value),
+            BigInt(tx.gas),
+            tx.txData,
+            BigInt(tx.operation),
+            tx.requireSuccess,
+          ]
+        )
+
+        merkleLeaves.push({
+          chainId,
+          index,
+          leafType: SphinxLeafType.EXECUTE,
+          data: transactionLeafData,
+        })
+
+        index += BigInt(1)
+      }
+    } else if (isNetworkCancellationData(data)) {
+      // Encode `CANCEL` leaf data.
+      const cancellationData = coder.encode(
+        ['address', 'address', 'uint256', 'bytes32', 'address', 'string'],
+        [
+          data.safeProxy,
+          data.moduleProxy,
+          data.nonce,
+          data.merkleRootToCancel,
+          data.executor,
+          data.uri,
+        ]
+      )
+
+      // Push `CANCEL` leaf.
+      merkleLeaves.push({
+        chainId: BigInt(chainIdStr),
+        index: BigInt(0),
+        leafType: SphinxLeafType.CANCEL,
+        data: cancellationData,
+      })
+    } else {
+      throw new Error(`Unknown network data type. Should never happen.`)
     }
   }
 
   return merkleLeaves
+}
+
+export const isNetworkDeploymentData = (
+  networkData: NetworkDeploymentData | NetworkCancellationData
+): networkData is NetworkDeploymentData => {
+  const networkDeploymentData = networkData as NetworkDeploymentData
+  return (
+    typeof networkDeploymentData.nonce === 'string' &&
+    typeof networkDeploymentData.executor === 'string' &&
+    typeof networkDeploymentData.safeProxy === 'string' &&
+    typeof networkDeploymentData.moduleProxy === 'string' &&
+    typeof networkDeploymentData.deploymentURI === 'string' &&
+    typeof networkDeploymentData.arbitraryChain === 'boolean' &&
+    Array.isArray(networkDeploymentData.txs)
+  )
+}
+
+export const isNetworkCancellationData = (
+  networkData: NetworkDeploymentData | NetworkCancellationData
+): networkData is NetworkCancellationData => {
+  const networkCancellationData = networkData as NetworkCancellationData
+  return (
+    typeof networkCancellationData.nonce === 'string' &&
+    typeof networkCancellationData.executor === 'string' &&
+    typeof networkCancellationData.safeProxy === 'string' &&
+    typeof networkCancellationData.moduleProxy === 'string' &&
+    typeof networkCancellationData.merkleRootToCancel === 'string' &&
+    typeof networkCancellationData.uri === 'string'
+  )
 }
 
 /**

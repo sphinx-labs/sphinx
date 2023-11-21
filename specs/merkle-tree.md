@@ -71,7 +71,7 @@ Each leaf in the Merkle tree represents a single action on a single chain. There
 The `data` field of an `APPROVE` leaf consists of the following fields, which are ABI encoded:
 * `address safeProxy`: The address of the Gnosis Safe.
 * `address moduleProxy`: The address of the `SphinxModuleProxy` that is coordinating the deployment.
-* `uint256 deploymentNonce`: The nonce of the deployment in the `SphinxModuleProxy`.
+* `uint256 merkleRootNonce`: The nonce of the Merkle root in the `SphinxModuleProxy`.
 * `uint256 numLeaves`: The total number of leaves in the Merkle tree on the current chain. There must be at least one leaf (the `APPROVE` leaf).
 * `address executor`: The address of the caller, which is the only account that is allowed to execute the deployment.
 * `string uri`: The IPFS URI of the deployment. This contains information such as the Solidity compiler inputs, which allows the executor to verify the user's smart contracts on Etherscan. This can be an empty string if there is only a single leaf on the current network (the `APPROVE` leaf).

@@ -13,7 +13,7 @@ import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
 import { GnosisSafe } from "@sphinx-labs/contracts/node_modules/@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
-import { SphinxModule, DeploymentStatus } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
+import { SphinxModule, MerkleRootStatus } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
 
 /**
  * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
@@ -97,10 +97,10 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
             uint256 leavesExecuted,
             string memory uri,
             address executor,
-            DeploymentStatus status,
+            MerkleRootStatus status,
             bool arbitraryChain
         ) = module.deployments(_activeRoot);
-        assertEq(uint8(status), uint8(DeploymentStatus.COMPLETED), "status is not COMPLETED");
+        assertEq(uint8(status), uint8(MerkleRootStatus.COMPLETED), "status is not COMPLETED");
         assertEq(numLeaves, _expectedNumLeaves, "numLeaves is incorrect");
         assertEq(leavesExecuted, numLeaves, "leavesExecuted is incorrect");
         assertEq(uri, _configUri, "uri is incorrect");

@@ -1042,11 +1042,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return packBytes(signatures);
     }
 
-    function getDeploymentNonce(ISphinxModule _module) public view returns (uint) {
+    function getMerkleRootNonce(ISphinxModule _module) public view returns (uint) {
         if (address(_module).code.length == 0) {
             return 0;
         } else {
-            return _module.deploymentNonce();
+            return _module.merkleRootNonce();
         }
     }
 }

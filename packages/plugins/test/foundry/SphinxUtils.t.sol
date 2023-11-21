@@ -64,6 +64,4 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         uint256 expected = uint8(type(Network).max) + 1;
         assertEq(numSupportedNetworks, expected);
     }
-
-    function test_filterActionsOnNetwork_success
 }

@@ -11,7 +11,8 @@ import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
  */
 enum SphinxLeafType {
     APPROVE,
-    EXECUTE
+    EXECUTE,
+    CANCEL
 }
 
 /**
@@ -39,7 +40,7 @@ struct SphinxLeafWithProof {
 }
 
 /**
- * @notice The deployment state that corresponds to a Merkle root.
+ * @notice The Merkle root state that corresponds to a Merkle root.
  *
  * @custom:field numLeaves      The total number of leaves in the Merkle tree on the current chain.
  *                              There must be at least one leaf (the `APPROVE` leaf).
@@ -61,12 +62,12 @@ struct SphinxLeafWithProof {
  *                              that the Gnosis Safe owners must explicitly approve the deployment
  *                              on individual chains.
  */
-struct DeploymentState {
+struct MerkleRootState {
     uint256 numLeaves;
     uint256 leavesExecuted;
     string uri;
     address executor;
-    DeploymentStatus status;
+    MerkleRootStatus status;
     bool arbitraryChain;
 }
 
@@ -82,7 +83,7 @@ struct DeploymentState {
  * @custom:value FAILED    The deployment has failed due to a transaction reverting in the Gnosis
  *                         Safe.
  */
-enum DeploymentStatus {
+enum MerkleRootStatus {
     EMPTY,
     APPROVED,
     COMPLETED,

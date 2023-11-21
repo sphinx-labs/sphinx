@@ -174,6 +174,40 @@ contract TestUtils is SphinxUtils, Enum {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
+    function getCancellationMerkleTreeFFI(
+        CancellationMerkleTreeInputs memory _treeInputs
+    ) public returns (SphinxMerkleTree memory) {
+        string[] memory inputs = new string[](11);
+        inputs[0] = "npx";
+        inputs[1] = "ts-node";
+        inputs[2] = "scripts/output-cancellation-merkle-tree.ts";
+        inputs[3] = vm.toString(_treeInputs.chainId);
+        inputs[4] = vm.toString(_treeInputs.nonceInModuleProxy);
+        inputs[5] = vm.toString(_treeInputs.executor);
+        inputs[6] = vm.toString(_treeInputs.safeProxy);
+        inputs[7] = vm.toString(address(_treeInputs.moduleProxy));
+        inputs[8] = _treeInputs.uri;
+        inputs[9] = vm.toString(abi.encode(_treeInputs.merkleRootToCancel));
+        inputs[10] = "--swc"; // Speeds up ts-node considerably
+        Vm.FfiResult memory result = vm.tryFfi(inputs);
+        if (result.exitCode != 0) {
+            revert(string(result.stderr));
+        }
+        return abi.decode(result.stdout, (SphinxMerkleTree));
+    }
+
+    // TODO: mv
+    struct CancellationMerkleTreeInputs {
+        Wallet[] ownerWallets;
+        uint256 chainId;
+        SphinxModule moduleProxy;
+        uint256 nonceInModuleProxy;
+        bytes32 merkleRootToCancel;
+        address executor;
+        address safeProxy;
+        string uri;
+    }
+
     // TODO: mv
     struct MerkleTreeInputs {
         SphinxTransaction[] txs;
@@ -192,6 +226,14 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     // TODO: mv
+    struct CancellationModuleInputs {
+        bytes32 merkleRoot;
+        SphinxLeafWithProof cancellationLeafWithProof;
+        bytes ownerSignatures;
+    }
+
+    // TODO: mv
+    // TODO: rename to DeploymentModuleInputs (and rename corresponding function)
     struct ModuleInputs {
         bytes32 merkleRoot;
         SphinxLeafWithProof approvalLeafWithProof;
@@ -218,6 +260,22 @@ contract TestUtils is SphinxUtils, Enum {
                 merkleRoot,
                 approvalLeafWithProof,
                 executionLeavesWithProofs,
+                ownerSignatures
+            );
+    }
+
+    function getCancellationModuleInputs(
+        CancellationMerkleTreeInputs memory _treeInputs
+    ) internal returns (CancellationModuleInputs memory) {
+        SphinxMerkleTree memory tree = getCancellationMerkleTreeFFI(_treeInputs);
+
+        bytes32 merkleRoot = tree.root;
+        SphinxLeafWithProof memory cancellationLeafWithProof = tree.leaves[0];
+        bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
+        return
+            CancellationModuleInputs(
+                merkleRoot,
+                cancellationLeafWithProof,
                 ownerSignatures
             );
     }
