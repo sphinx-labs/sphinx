@@ -272,7 +272,9 @@ export const makeSphinxMerkleTreeFromLeaves = (
  * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
  * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
  */
-export const makeSphinxMerkleTree = (deploymentData: DeploymentData) => {
+export const makeSphinxMerkleTree = (
+  deploymentData: DeploymentData
+): SphinxMerkleTree => {
   const leaves = makeSphinxLeaves(deploymentData)
   return makeSphinxMerkleTreeFromLeaves(leaves)
 }
