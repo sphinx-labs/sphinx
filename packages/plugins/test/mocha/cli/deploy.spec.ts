@@ -203,7 +203,7 @@ describe('Deploy CLI command', () => {
         MyContract2Artifact.abi,
         provider
       )
-      expect(await provider.getCode(expectedContractAddress)).to.equal('0x')
+      expect(await provider.getCode(expectedContractAddress)).to.not.equal('0x')
       expect(await contract.number()).to.equal(2n)
 
       expect(preview).to.deep.equal({
