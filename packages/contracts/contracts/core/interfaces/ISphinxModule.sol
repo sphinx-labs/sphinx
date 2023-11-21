@@ -8,9 +8,9 @@ import { SphinxLeafWithProof, MerkleRootStatus } from "../SphinxDataTypes.sol";
  */
 interface ISphinxModule {
     /**
-     * @notice Emitted when an `EXECUTE` Merkle leaf fails in the Gnosis Safe.
+     * @notice Emitted when an `EXECUTE` leaf fails in the Gnosis Safe.
      *
-     * @param merkleRoot The Merkle root of the deployment.
+     * @param merkleRoot The Merkle root that contains the failing action.
      * @param leafIndex  The index of the leaf in the Merkle tree.
      */
     event SphinxActionFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
@@ -18,7 +18,7 @@ interface ISphinxModule {
     /**
      * @notice Emitted when an `EXECUTE` Merkle leaf succeeds in the Gnosis Safe.
      *
-     * @param merkleRoot The Merkle root of the deployment.
+     * @param merkleRoot The Merkle root that contains the action that succeeded.
      * @param leafIndex  The index of the leaf in the Merkle tree.
      */
     event SphinxActionSucceeded(bytes32 indexed merkleRoot, uint256 leafIndex);
@@ -26,19 +26,16 @@ interface ISphinxModule {
     /**
      * @notice Emitted when a Merkle root is approved.
      *
-     * @param merkleRoot         The Merkle root of the deployment.
+     * @param merkleRoot         The Merkle root that was approved.
      * @param previousActiveRoot The previous active Merkle root. This is `bytes32(0)` if there
      *                           was no active root.
-     * @param nonce              The nonce of the Merkle root in the `SphinxModule`.
+     * @param nonce              The `nonce` field in the `APPROVE` leaf. This matches the nonce
+     *                           in the `SphinxModuleProxy` before the approval occurred.
      * @param executor           The address of the caller.
      * @param numLeaves          The total number of leaves in the Merkle tree on the current chain.
-     * @param uri                The IPFS URI of the deployment. This contains information such as
-     *                           the Solidity compiler inputs, which allow the executor to verify
-     *                           the user's smart contracts on Etherscan. This can be an empty
-     *                           string if there is only a single leaf on the current network (the
-     *                           `APPROVE` leaf).
+     * @param uri                The URI of the Merkle root. This may be an empty string.
      */
-    event SphinxDeploymentApproved(
+    event SphinxMerkleRootApproved(
         bytes32 indexed merkleRoot,
         bytes32 indexed previousActiveRoot,
         uint256 indexed nonce,
@@ -47,7 +44,19 @@ interface ISphinxModule {
         string uri
     );
 
-    event SphinxDeploymentCanceled(
+    /**
+     * @notice Emitted when an active Merkle root is canceled.
+     *
+     * @param completedMerkleRoot The Merkle root that contains the `CANCEL` leaf which canceled the
+                                  active Merkle root.
+     * @param canceledMerkleRoot  The Merkle root that was canceled.
+     * @param nonce               The `nonce` field in the `CANCEL` leaf. This matches the nonce
+     *                            in the `SphinxModuleProxy` before the cancellation occurred.
+     * @param executor            The address of the caller.
+     * @param uri                 The URI of the Merkle root that contains the `CANCEL` leaf (not
+     *                            the Merkle root that was cancelled). This may be an empty string.
+     */
+    event SphinxMerkleRootCanceled(
         bytes32 indexed completedMerkleRoot,
         bytes32 indexed canceledMerkleRoot,
         uint256 indexed nonce,
@@ -56,19 +65,19 @@ interface ISphinxModule {
     );
 
     /**
-     * @notice Emitted when a deployment is completed.
+     * @notice Emitted when a Merkle root is completed.
      *
-     * @param merkleRoot The Merkle root of the deployment.
+     * @param merkleRoot The Merkle root that was completed.
      */
-    event SphinxDeploymentCompleted(bytes32 indexed merkleRoot);
+    event SphinxMerkleRootCompleted(bytes32 indexed merkleRoot);
 
     /**
-     * @notice Emitted when a deployment fails due to a transaction reverting in the Gnosis Safe.
+     * @notice Emitted when an action fails due to a transaction reverting in the Gnosis Safe.
      *
-     * @param merkleRoot The Merkle root of the deployment that failed.
+     * @param merkleRoot The Merkle root that contains the failed action.
      * @param leafIndex  The index of the leaf in the Merkle tree that caused the failure.
      */
-    event SphinxDeploymentFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
+    event SphinxMerkleRootFailed(bytes32 indexed merkleRoot, uint256 leafIndex);
 
     /**
      * @notice The version of the `SphinxModule`.
@@ -76,15 +85,15 @@ interface ISphinxModule {
     function VERSION() external view returns (string memory);
 
     /**
-     * @notice The Merkle root that is currently approved. This is `bytes32(0)` if there
-     *         is no active deployment.
+     * @notice The Merkle root that is currently active. This means that it has been signed
+     *         off-chain by the Gnosis Safe owner(s) and approved on-chain. This is `bytes32(0)` if there
+     *         is no active Merkle root.
      */
     function activeMerkleRoot() external view returns (bytes32);
 
     /**
      * @notice Approve a new Merkle root, which must be signed by a sufficient number of Gnosis Safe
-     *         owners. Will revert if the Merkle root has ever been approved in this contract
-     *         before.
+     *         owners.
      *
      * @param _root          The Merkle root to approve.
      * @param _leafWithProof The `APPROVE` Merkle leaf and its Merkle proof, which must yield the
@@ -98,7 +107,16 @@ interface ISphinxModule {
     ) external;
 
     /**
-     * TODO
+     * @notice Cancel an active Merkle root. The Gnosis Safe owners(s) can cancel an active Merkle
+     *         root by signing a different Merkle root that contains a `CANCEL` Merkle leaf. This
+     *         new Merkle root is submitted to this function.
+     *
+     * @param _root          The Merkle root that contains the `CANCEL` leaf. This is _not_ the
+     *                       active Merkle root.
+     * @param _leafWithProof The `CANCEL` Merkle leaf and its Merkle proof, which must yield the
+     *                       `_root` supplied to this function (not the active Merkle root).
+     * @param _signatures    The signatures of the Gnosis Safe owners that signed the Merkle root
+     *                       that contains the `CANCEL` leaf.
      */
     function cancel(
         bytes32 _root,
@@ -107,21 +125,22 @@ interface ISphinxModule {
     ) external;
 
     /**
-     * @notice The current nonce in this contract. Each time a Merkle root is approved, this nonce
-     *         is incremented. The main purpose is to allow the Gnosis Safe owners to cancel a
-     *         Merkle root that has been signed off-chain, but has not been approved on-chain. In
-     *         this situation, the owners can approve a new Merkle root that has the same nonce,
-     *         then approve it on-chain, preventing the old Merkle root from ever being approved.
-     *         The nonce also removes the possibility that a Merkle root can be signed by the
-     *         owners, then approved far into the future, even after other Merkle roots have been
-     *         approved.
+     * @notice The current nonce in this contract. This is incremented each time a Merkle root is
+     *         used for the first time in the current contract. This can occur by using the Merkle
+     *         root to approve a deployment, or cancel an active one. The nonce removes the
+     *         possibility that a Merkle root can be signed by the owners, then submitted on-chain
+     *         far into the future, even after other Merkle roots have been submitted. The nonce
+     *         also allows the Gnosis Safe owners to cancel a Merkle root that has been signed
+     *         off-chain, but has not been approved on-chain. In this situation, the owners can
+     *         approve a new Merkle root that has the same nonce, then approve it on-chain,
+     *         preventing the old Merkle root from ever being approved.
      */
     function merkleRootNonce() external view returns (uint256);
 
     /**
      * @notice Mapping from a Merkle root to its `MerkleRootState` struct.
      */
-    function deployments(
+    function merkleRootStates(
         bytes32
     )
         external
@@ -141,7 +160,7 @@ interface ISphinxModule {
      *
      * @param _leavesWithProofs An array of `EXECUTE` Merkle leaves, along with their Merkle proofs.
      *
-     * @return The status of the deployment for the active Merkle root at the end of this call.
+     * @return The status of the Merkle root at the end of this call.
      */
     function execute(
         SphinxLeafWithProof[] memory _leavesWithProofs

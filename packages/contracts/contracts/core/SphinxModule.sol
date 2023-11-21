@@ -20,7 +20,8 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
 /**
  * @title SphinxModule
  * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
- *         verifies that the Gnosis Safe owners have approved the deployments.
+ *         verifies that the Gnosis Safe owners have approved the Merkle root that contains
+ *         the deployment.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
@@ -47,7 +48,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
     /**
      * @inheritdoc ISphinxModule
      */
-    mapping(bytes32 => MerkleRootState) public override deployments;
+    mapping(bytes32 => MerkleRootState) public override merkleRootStates;
 
     /**
      * @inheritdoc ISphinxModule
@@ -96,7 +97,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(_root != bytes32(0), "SphinxModule: invalid root");
 
         // Check that the Merkle root hasn't been used before.
-        MerkleRootState storage state = deployments[_root];
+        MerkleRootState storage state = merkleRootStates[_root];
         require(state.status == MerkleRootStatus.EMPTY, "SphinxModule: root already used");
 
         SphinxLeaf memory leaf = _leafWithProof.leaf;
@@ -135,7 +136,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
         // We don't validate the `uri` because it we allow it to be empty.
 
-        emit SphinxDeploymentApproved(_root, activeMerkleRoot, merkleRootNonce, executor, numLeaves, uri);
+        emit SphinxMerkleRootApproved(_root, activeMerkleRoot, merkleRootNonce, executor, numLeaves, uri);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
         // `status` field, which will be assigned below.
@@ -147,13 +148,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
 
         merkleRootNonce += 1;
 
-        // If there is only an `APPROVE` leaf, mark the deployment as completed.
+        // If there is only an `APPROVE` leaf, mark the Merkle root as completed.
         if (numLeaves == 1) {
             state.status = MerkleRootStatus.COMPLETED;
             // Set the active Merkle root to be `bytes32(0)` so that a new approval can occur in the
             // future.
             activeMerkleRoot = bytes32(0);
-            emit SphinxDeploymentCompleted(_root);
+            emit SphinxMerkleRootCompleted(_root);
         } else {
             // We set the status to `APPROVED` because there are `EXECUTE` leaves in this Merkle tree.
             state.status = MerkleRootStatus.APPROVED;
@@ -211,7 +212,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(_root != bytes32(0), "SphinxModule: invalid root");
 
         // Check that the Merkle root hasn't been used before.
-        MerkleRootState storage state = deployments[_root];
+        MerkleRootState storage state = merkleRootStates[_root];
         require(state.status == MerkleRootStatus.EMPTY, "SphinxModule: root already used");
 
         SphinxLeaf memory leaf = _leafWithProof.leaf;
@@ -241,14 +242,14 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(merkleRootToCancel == activeMerkleRoot, "SphinxModule: invalid root to cancel");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID. We don't allow `arbitraryChain` to
-        // be `true` here because we don't think there's a use case for cancelling deployments
+        // be `true` here because we don't think there's a use case for cancelling Merkle roots
         // across arbitrary networks.
         require(leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         // We don't validate the `uri` because it we allow it to be empty.
 
         // Cancel the existing Merkle root.
-        deployments[activeMerkleRoot].status = MerkleRootStatus.CANCELED;
-        emit SphinxDeploymentCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
+        merkleRootStates[activeMerkleRoot].status = MerkleRootStatus.CANCELED;
+        emit SphinxMerkleRootCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
         activeMerkleRoot = bytes32(0);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
@@ -261,7 +262,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
 
         merkleRootNonce += 1;
 
-        emit SphinxDeploymentCompleted(_root);
+        emit SphinxMerkleRootCompleted(_root);
 
         // Check that a sufficient number of Gnosis Safe owners have signed the Merkle root (or,
         // more specifically, EIP-712 data that includes the Merkle root). We do this last to
@@ -285,7 +286,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         require(numActions > 0, "SphinxModule: no leaves to execute");
         require(activeMerkleRoot != bytes32(0), "SphinxModule: no active root");
 
-        MerkleRootState storage state = deployments[activeMerkleRoot];
+        MerkleRootState storage state = merkleRootStates[activeMerkleRoot];
 
         require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
@@ -390,17 +391,17 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
             // Mark the active Merkle root as failed if the Gnosis Safe transaction failed and the
             // current leaf requires that it must succeed.
             if (!success && requireSuccess) {
-                emit SphinxDeploymentFailed(activeMerkleRoot, leaf.index);
+                emit SphinxMerkleRootFailed(activeMerkleRoot, leaf.index);
                 state.status = MerkleRootStatus.FAILED;
                 activeMerkleRoot = bytes32(0);
                 return MerkleRootStatus.FAILED;
             }
         }
 
-        // Mark the deployment as completed if all of the Merkle leaves have been executed.
+        // Mark the Merkle root as completed if all of the Merkle leaves have been executed.
         if (state.leavesExecuted == state.numLeaves) {
             state.status = MerkleRootStatus.COMPLETED;
-            emit SphinxDeploymentCompleted(activeMerkleRoot);
+            emit SphinxMerkleRootCompleted(activeMerkleRoot);
             activeMerkleRoot = bytes32(0);
             return MerkleRootStatus.COMPLETED;
         } else {

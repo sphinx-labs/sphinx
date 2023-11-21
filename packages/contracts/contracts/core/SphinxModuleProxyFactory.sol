@@ -35,7 +35,7 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
 
     /**
      * @notice Deploys the `SphinxModule` contract and initializes it so that nobody
-       can deploy directly through it.
+     *         can deploy directly through it.
      */
     constructor() {
         SphinxModule module = new SphinxModule{ salt: bytes32(0) }();

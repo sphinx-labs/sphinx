@@ -54,7 +54,7 @@ export type DeploymentData = Record<
  * @field executor       The address of the account expected to execute this deployment.
  * @field safeProxy      The address of the target GnosisSafeProxy.
  * @field moduleProxy    The address of the target SphinxModuleProxy.
- * @field deploymentURI  The URI where the deployment data is stored.
+ * @field uri            The URI where the deployment data is stored.
  * @field arbitraryChain Indicates If this deployment data is for execution on an arbitrary network. See [SphinxDataTypes.sol](TODO(end)) for more information.
  * @field txs            The transactions which should be executed on this network in the order in which they should be executed.
  */
@@ -63,7 +63,7 @@ export type NetworkDeploymentData = {
   executor: string
   safeProxy: string
   moduleProxy: string
-  deploymentURI: string
+  uri: string
   arbitraryChain: boolean
   txs: SphinxTransaction[]
 }
@@ -74,8 +74,8 @@ export type NetworkCancellationData = {
   executor: string
   safeProxy: string
   moduleProxy: string
-  merkleRootToCancel: string
   uri: string
+  merkleRootToCancel: string
 }
 
 /**
@@ -143,7 +143,7 @@ export const makeSphinxLeaves = (
           data.nonce,
           data.txs.length + 1, // We add one to account for the approval leaf
           data.executor,
-          data.deploymentURI,
+          data.uri,
           data.arbitraryChain,
         ]
       )
@@ -219,7 +219,7 @@ export const isNetworkDeploymentData = (
     typeof networkDeploymentData.executor === 'string' &&
     typeof networkDeploymentData.safeProxy === 'string' &&
     typeof networkDeploymentData.moduleProxy === 'string' &&
-    typeof networkDeploymentData.deploymentURI === 'string' &&
+    typeof networkDeploymentData.uri === 'string' &&
     typeof networkDeploymentData.arbitraryChain === 'boolean' &&
     Array.isArray(networkDeploymentData.txs)
   )
@@ -234,8 +234,8 @@ export const isNetworkCancellationData = (
     typeof networkCancellationData.executor === 'string' &&
     typeof networkCancellationData.safeProxy === 'string' &&
     typeof networkCancellationData.moduleProxy === 'string' &&
-    typeof networkCancellationData.merkleRootToCancel === 'string' &&
-    typeof networkCancellationData.uri === 'string'
+    typeof networkCancellationData.uri === 'string' &&
+    typeof networkCancellationData.merkleRootToCancel === 'string'
   )
 }
 
@@ -272,7 +272,9 @@ export const makeSphinxMerkleTreeFromLeaves = (
  * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
  * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
  */
-export const makeSphinxMerkleTree = (deploymentData: DeploymentData) => {
+export const makeSphinxMerkleTree = (
+  deploymentData: DeploymentData
+): SphinxMerkleTree => {
   const leaves = makeSphinxLeaves(deploymentData)
   return makeSphinxMerkleTreeFromLeaves(leaves)
 }

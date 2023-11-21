@@ -1061,6 +1061,21 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
     }
 
+    function test_cancel_revert_checkSignatures_emptyOwnerSignatures() external {
+        helper_test_approveDefaultDeployment();
+
+        CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(helper_makeCancellationMerkleTreeInputs());
+
+        // This error is thrown by the Gnosis Safe. It means "Signatures data too short".
+        vm.expectRevert("GS020");
+        vm.prank(cancellationExecutor);
+        moduleProxy.cancel(
+            moduleInputs.merkleRoot,
+            moduleInputs.cancellationLeafWithProof,
+            new bytes(0)
+        );
+    }
+
     function test_cancel_success() external {
         ModuleInputs memory moduleInputsToCancel = getModuleInputs(helper_makeMerkleTreeInputs(defaultTxs));
         helper_test_approve({
@@ -1086,7 +1101,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             )
         );
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentCanceled({
+        emit SphinxMerkleRootCanceled({
             completedMerkleRoot: cancellationInputs.merkleRoot,
             canceledMerkleRoot: moduleInputsToCancel.merkleRoot,
             nonce: initialNonce,
@@ -1094,7 +1109,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             uri: defaultCancellationUri
         });
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentCompleted(cancellationInputs.merkleRoot);
+        emit SphinxMerkleRootCompleted(cancellationInputs.merkleRoot);
         vm.prank(cancellationExecutor);
         moduleProxy.cancel(
             cancellationInputs.merkleRoot,
@@ -1103,7 +1118,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
 
         (, , , , MerkleRootStatus canceledMerkleRootStatus, ) = moduleProxy
-            .deployments(moduleInputsToCancel.merkleRoot);
+            .merkleRootStates(moduleInputsToCancel.merkleRoot);
         assertEq(canceledMerkleRootStatus, MerkleRootStatus.CANCELED);
         assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
 
@@ -1114,7 +1129,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             address cancellationExecutorOnChain,
             MerkleRootStatus cancellationRootStatus,
             bool cancellationArbitraryChain
-        ) = moduleProxy.deployments(cancellationInputs.merkleRoot);
+        ) = moduleProxy.merkleRootStates(cancellationInputs.merkleRoot);
         assertEq(cancellationNumLeaves, 1);
         assertEq(cancellationLeavesExecuted, 1);
         assertEq(cancellationUri, defaultCancellationUri);
@@ -1414,7 +1429,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             leafIndex: 2 // Second execution leaf
         });
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentFailed({
+        emit SphinxMerkleRootFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 2 // Second execution leaf
         });
@@ -1424,7 +1439,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
 
         (, uint256 leavesExecuted, , , MerkleRootStatus merkleRootStateStatus, ) = moduleProxy
-            .deployments(moduleInputs.merkleRoot);
+            .merkleRootStates(moduleInputs.merkleRoot);
         assertEq(executionFinalStatus, MerkleRootStatus.FAILED);
         assertEq(executionFinalStatus, merkleRootStateStatus);
         assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
@@ -1458,7 +1473,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             leafIndex: 1 // First execution leaf
         });
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentFailed({
+        emit SphinxMerkleRootFailed({
             merkleRoot: moduleInputs.merkleRoot,
             leafIndex: 1 // First execution leaf
         });
@@ -1468,7 +1483,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
 
         (, uint256 leavesExecuted, , , MerkleRootStatus merkleRootStateStatus, ) = moduleProxy
-            .deployments(moduleInputs.merkleRoot);
+            .merkleRootStates(moduleInputs.merkleRoot);
         assertEq(merkleRootStateStatus, MerkleRootStatus.FAILED);
         assertEq(executionFinalStatus, MerkleRootStatus.FAILED);
         assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
@@ -1655,7 +1670,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             )
         );
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentApproved({
+        emit SphinxMerkleRootApproved({
             merkleRoot: _moduleInputs.merkleRoot,
             previousActiveRoot: _expectedInitialActiveMerkleRoot,
             nonce: initialNonce,
@@ -1665,7 +1680,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
         if (_expectedStatus == MerkleRootStatus.COMPLETED) {
             vm.expectEmit(address(moduleProxy));
-            emit SphinxDeploymentCompleted(_moduleInputs.merkleRoot);
+            emit SphinxMerkleRootCompleted(_moduleInputs.merkleRoot);
         }
         vm.prank(deploymentExecutor);
         moduleProxy.approve(
@@ -1681,7 +1696,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             address approvedExecutor,
             MerkleRootStatus approvedStatus,
             bool approvedArbitraryChain
-        ) = moduleProxy.deployments(_moduleInputs.merkleRoot);
+        ) = moduleProxy.merkleRootStates(_moduleInputs.merkleRoot);
         assertEq(approvedNumLeaves, expectedNumLeaves);
         assertEq(approvedLeavesExecuted, 1);
         assertEq(approvedUri, _expectedDeploymentUri);
@@ -1729,7 +1744,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             }
         }
         vm.expectEmit(address(moduleProxy));
-        emit SphinxDeploymentCompleted(_moduleInputs.merkleRoot);
+        emit SphinxMerkleRootCompleted(_moduleInputs.merkleRoot);
         vm.prank(deploymentExecutor);
         MerkleRootStatus status = moduleProxy.execute(_moduleInputs.executionLeavesWithProofs);
         assertEq(status, _expectedFinalMerkleRootStatus);
@@ -1770,7 +1785,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             address actualExecutor,
             MerkleRootStatus status,
             bool arbitraryChain
-        ) = moduleProxy.deployments(_moduleInputs.merkleRoot);
+        ) = moduleProxy.merkleRootStates(_moduleInputs.merkleRoot);
         assertEq(expectedNumLeaves, numLeaves);
         assertEq(leavesExecuted, numLeaves);
         assertEq(expectedUri, uri);
@@ -1845,7 +1860,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         for (uint256 i = 0; i < numExecutionLeaves; i++) {
             SphinxLeafWithProof memory executionLeafWithProof = _moduleInputs
                 .executionLeavesWithProofs[i];
-            (, uint256 initialLeavesExecuted, , , , ) = moduleProxy.deployments(
+            (, uint256 initialLeavesExecuted, , , , ) = moduleProxy.merkleRootStates(
                 _moduleInputs.merkleRoot
             );
 
@@ -1853,7 +1868,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             emit SphinxActionSucceeded(_moduleInputs.merkleRoot, executionLeafWithProof.leaf.index);
             if (i == finalExecutionLeafIndex) {
                 vm.expectEmit(address(moduleProxy));
-                emit SphinxDeploymentCompleted(_moduleInputs.merkleRoot);
+                emit SphinxMerkleRootCompleted(_moduleInputs.merkleRoot);
             }
 
             SphinxLeafWithProof[] memory executionLeafWithProofArray = new SphinxLeafWithProof[](1);
@@ -1865,7 +1880,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             } else {
                 assertEq(status, MerkleRootStatus.APPROVED);
             }
-            (, uint256 leavesExecuted, , , , ) = moduleProxy.deployments(_moduleInputs.merkleRoot);
+            (, uint256 leavesExecuted, , , , ) = moduleProxy.merkleRootStates(_moduleInputs.merkleRoot);
             assertEq(leavesExecuted, initialLeavesExecuted + 1);
         }
     }

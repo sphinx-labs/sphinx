@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { parseUnits } from 'ethers'
+import { ethers, parseUnits } from 'ethers'
 
 import {
   DeploymentData,
@@ -11,16 +11,16 @@ import {
 } from '../../dist'
 
 /**
- * @notice This test suite covers generating Merkle trees that satisfy the invariants defined in the Sphinx Merkle tree specification.
- * Note that in this test suite, we do not confirm that the actual encoding is correct or that the Merkle tree is actually executable on
- * chain.
+ * @notice This test suite covers generating Merkle trees that satisfy invariants 2-5 defined in the Sphinx Merkle tree specification.
+ * Note that in this test suite we do not confirm that the actual encoding is correct or that the Merkle tree is executable on
+ * chain (invariant 1).
  *
  * For tests that cover the encoding logic and that the generated Merkle tree is executable, see the `SphinxModule.t.sol` where we use
- * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI`.
+ * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI` and test executing them on-chain.
  */
 
 /**
- * @notice Checks that the leaves in the tree are ordered properly such that the tree satisfies invariants 1, 2, and 3 of the
+ * @notice Checks that the leaves in the tree are ordered properly such that the tree satisfies invariants 2, 3, and 5 of the
  * Sphinx Merkle tree specification.
  */
 const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
@@ -38,6 +38,9 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
       expect(leaf.leaf.index, 'Detected incorrect leaf index').to.eq(
         previousLeaf.leaf.index + BigInt(1)
       )
+
+      // Check that the current leaf is EXECUTE (otherwise there are multiple APPROVE or CANCEL leafs for this chain)
+      expect(leaf.leaf.leafType).to.eq(SphinxLeafType.EXECUTE)
     } else {
       // If the chain ids are different, then we must be switching to a new set of a leaves for a new chain
 
@@ -48,15 +51,15 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
         'Network order is not correct'
       ).to.be.greaterThan(Number(previousLeaf.leaf.chainId))
 
-      // Check that the first leaf is an approval leaf
-      expect(leaf.leaf.leafType, 'Approval leaf is not first').to.eq(
-        SphinxLeafType.APPROVE
-      )
-
-      // TODO - or that the first leaf is a CANCEL leaf
+      // Check that the first leaf is either an approval leaf or cancel
+      expect(
+        leaf.leaf.leafType,
+        'CANCEL or APPROVE leaf is not first'
+      ).to.not.eq(SphinxLeafType.EXECUTE)
 
       // Check that the new chain id has not been seen before.
       // We expect all the leaves for a given network to be grouped together, so each chain should only be switched to exactly one time.
+      // If we switch to a chain more than one time, then there must be multiple CANCEL or APPROVE leafs for that chain.
       expect(
         seenChainIds.includes(leaf.leaf.chainId),
         'found duplicate chain id'
@@ -108,9 +111,9 @@ describe('Merkle tree satisfies invariants', () => {
     const executor = '0x' + '00'.repeat(19) + '11'
     const safeProxy = '0x' + '00'.repeat(19) + '22'
     const moduleProxy = '0x' + '00'.repeat(19) + '33'
-    const deploymentURI = 'http://localhost'
+    const uri = 'http://localhost'
     const arbitraryChain = false
-    const txs: SphinxTransaction[] = []
+    const merkleRootToCancel = ethers.keccak256(ethers.toUtf8Bytes('1'))
 
     for (const chainId of chainIds) {
       deploymentData[chainId] = {
@@ -118,9 +121,9 @@ describe('Merkle tree satisfies invariants', () => {
         executor,
         safeProxy,
         moduleProxy,
-        deploymentURI,
+        uri,
         arbitraryChain,
-        txs,
+        merkleRootToCancel,
       }
     }
 
@@ -132,9 +135,9 @@ describe('Merkle tree satisfies invariants', () => {
     // Check that all three leaves are APPROVAL leaves
     for (const leaf of tree.leavesWithProofs) {
       expect(
-        leaf.leaf.leafType === SphinxLeafType.EXECUTE,
-        'Found EXECUTION leaf which should not be included in the tree'
-      )
+        leaf.leaf.leafType,
+        'Found EXECUTION or APPROVE leaf which should not be included in the tree'
+      ).to.eq(SphinxLeafType.CANCEL)
     }
 
     // Check tree is ordered properly
@@ -151,7 +154,7 @@ describe('Merkle tree satisfies invariants', () => {
     const executor = '0x' + '00'.repeat(19) + '11'
     const safeProxy = '0x' + '00'.repeat(19) + '22'
     const moduleProxy = '0x' + '00'.repeat(19) + '33'
-    const deploymentURI = 'http://localhost'
+    const uri = 'http://localhost'
     const arbitraryChain = false
 
     const to = '0x' + '11'.repeat(20)
@@ -177,7 +180,7 @@ describe('Merkle tree satisfies invariants', () => {
         executor,
         safeProxy,
         moduleProxy,
-        deploymentURI,
+        uri,
         arbitraryChain,
         txs,
       }
@@ -205,7 +208,7 @@ describe('Merkle tree satisfies invariants', () => {
     const executor = '0x' + '00'.repeat(19) + '11'
     const safeProxy = '0x' + '00'.repeat(19) + '22'
     const moduleProxy = '0x' + '00'.repeat(19) + '33'
-    const deploymentURI = 'http://localhost'
+    const uri = 'http://localhost'
     const arbitraryChain = false
 
     for (const chainId of chainIds) {
@@ -216,29 +219,38 @@ describe('Merkle tree satisfies invariants', () => {
       const operation = Operation.Call
       const requireSuccess = true
 
-      // No transactions on goerli
-      const txs: SphinxTransaction[] =
-        chainId === '5'
-          ? []
-          : [
-              {
-                to,
-                value,
-                txData,
-                gas,
-                operation,
-                requireSuccess,
-              },
-            ]
+      // On Goerli, only generate a cancel leaf
+      if (chainId === '5') {
+        deploymentData[chainId] = {
+          nonce,
+          executor,
+          safeProxy,
+          moduleProxy,
+          uri,
+          merkleRootToCancel: ethers.keccak256(ethers.toUtf8Bytes('1')),
+        }
+      } else {
+        // On other networks, generate a deployment
+        const txs: SphinxTransaction[] = [
+          {
+            to,
+            value,
+            txData,
+            gas,
+            operation,
+            requireSuccess,
+          },
+        ]
 
-      deploymentData[chainId] = {
-        nonce,
-        executor,
-        safeProxy,
-        moduleProxy,
-        deploymentURI,
-        arbitraryChain,
-        txs,
+        deploymentData[chainId] = {
+          nonce,
+          executor,
+          safeProxy,
+          moduleProxy,
+          uri,
+          arbitraryChain,
+          txs,
+        }
       }
     }
 
