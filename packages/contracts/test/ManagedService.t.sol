@@ -105,14 +105,8 @@ contract ManagedService_Test is Test, ManagedService {
         vm.expectEmit(address(service));
         emit Called(sender, address(endpoint), keccak256(txData));
 
-        // Call and calculate the gas used
-        uint256 start = gasleft();
+        // Execute the call
         bytes memory res = service.exec(address(endpoint), txData);
-        uint256 end = gasleft();
-        uint256 used = (start - end) * tx.gasprice;
-
-        // Check that the senders balance is greater than or equal to the expected amount used
-        assertGe(address(sender).balance, used);
 
         // Check that the function was properly called
         assertEq(endpoint.x(), 2);

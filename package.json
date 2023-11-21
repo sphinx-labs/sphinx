@@ -9,8 +9,7 @@
       "packages/contracts",
       "packages/core",
       "packages/plugins",
-      "packages/demo",
-      "packages/executor"
+      "packages/demo"
     ],
     "nohoist": [
       "@sphinx-labs/contracts/solmate",

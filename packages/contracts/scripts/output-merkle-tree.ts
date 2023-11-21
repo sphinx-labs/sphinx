@@ -19,7 +19,7 @@ const nonce = argv[3]
 const executor = argv[4]
 const safeProxy = argv[5]
 const moduleProxy = argv[6]
-const deploymentURI = argv[7]
+const uri = argv[7]
 const abiEncodedTxs = argv[8]
 const arbitraryChain = argv[9] === 'true'
 const forceNumLeavesValue = argv[10] === 'true'
@@ -56,7 +56,7 @@ const forceApprovalLeafChainIdZero = argv[13] === 'true'
       executor,
       safeProxy,
       moduleProxy,
-      deploymentURI,
+      uri,
       txs: txArray,
       arbitraryChain,
     },
@@ -73,7 +73,7 @@ const forceApprovalLeafChainIdZero = argv[13] === 'true'
         nonce,
         overridingNumLeavesValue, // Override the `numLeaves`
         executor,
-        deploymentURI,
+        uri,
         arbitraryChain,
       ]
     )
