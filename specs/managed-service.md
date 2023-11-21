@@ -27,6 +27,9 @@ When deploying via Sphinx, the user must specify an `executor` field in their de
 - It should *not* be possible to execute a `delegatecall` via the `ManagedService` contract.
 - If the underlying `call` reverts, then the entire transaction should revert.
 
+## Security Impact on the SphinxModuleProxy
+The Sphinx DevOps platform relies on sending transactions via the `ManagedService` from arbitrary EOAs with the `RELAYER_ROLE` to execute deployments on behalf of the user via their `SphinxModuleProxy`. It is worth noting that we operate under the assumption that these EOAs will inevitably be compromised and we intend to have mitigation strategies in place to deal with that. We expect that a compromised EOA with the `RELAYER_ROLE` will have no impact on the fundamental security properties of the `SphinxModuleProxy`. Likewise we expect that to also be true if the `ManagedService` contract is compromised in some other way.
+
 ## Function-Level Invariants
 
 #### `constructor(address _owner)`
@@ -36,7 +39,7 @@ When deploying via Sphinx, the user must specify an `executor` field in their de
 
 #### `function exec(address _to, bytes calldata _data) public payable returns (bytes memory)`
 
-- Must revert if the caller does not have the `RELAYER_ROLE` role [^1].
+- Must revert if the caller does not have the `RELAYER_ROLE` role.
 - Must revert if the underlying call reverts.
 - Must revert if the destination address is address(0).
 - A successful call:
@@ -47,6 +50,3 @@ When deploying via Sphinx, the user must specify an `executor` field in their de
 
 ## Assumptions
 The `ManagedService` relies on the OpenZeppelin `AccessControl` contract to manage access and the `ReentrancyGuard` contract to protect against reentrancy attacks. We test that the interactions with these contracts work properly in the [unit tests for the `ManagedService`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/ManagedService.t.sol), but we don't thoroughly test these contracts. Instead, we rely on the assumption that they are secure and have been thoroughly tested by their authors.
-
-## Footnotes
-[^1]: The Sphinx DevOps platform relies on sending transactions via the `ManagedService` from arbitrary EOAs with the `RELAYER_ROLE` to execute deployments on behalf of the user using their `SphinxModuleProxy`. We operate under the assumption that these EOAs will inevitably be compromised and we expect to have mitigation strategies in place to prevent attackers from griefing us or our users with a compromised account. However, we expect that a compromised EOA with the `RELAYER_ROLE` will have no impact on the security properties of the `SphinxModuleProxy`.
