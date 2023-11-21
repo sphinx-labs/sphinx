@@ -1,6 +1,24 @@
-import { ethers } from 'ethers'
+import { AbiCoder, ethers } from 'ethers'
 
 import { FoundryContractArtifact } from './types'
+
+export const decodeApproveLeafData = (
+  data: string
+): [string, string, BigInt, BigInt, string, string, boolean] => {
+  return AbiCoder.defaultAbiCoder().decode(
+    ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
+    data
+  ) as any
+}
+
+export const decodeExecuteLeafData = (
+  data: string
+): [string, BigInt, BigInt, string, BigInt, boolean] => {
+  return AbiCoder.defaultAbiCoder().decode(
+    ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+    data
+  ) as any
+}
 
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
