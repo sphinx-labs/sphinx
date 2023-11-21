@@ -11,7 +11,6 @@ export const SphinxModuleArtifact = parseFoundryArtifact(
 export const SphinxModuleProxyFactoryArtifact = parseFoundryArtifact(
   require('../out/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
-export const ERC20Artifact = require('../node_modules/@openzeppelin/contracts/build/contracts/ERC20.json')
 
 // Gnosis Safe contract artifacts. This is the exhaustive list of contracts that are deployed in the
 // deployment scripts of Gnosis Safe v1.3.0-libs.0 (commit 767ef36).
@@ -32,7 +31,6 @@ export const GnosisSafeProxyArtifact: GnosisSafeContractArtifact = require('../s
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
-export const ERC20ABI = ERC20Artifact.abi // TODO(ask-ryan): what's this for?
 
 // TODO - do we need any of this?
 // const directoryPath = path.join(__dirname, '../artifacts/build-info')
