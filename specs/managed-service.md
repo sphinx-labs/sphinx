@@ -9,6 +9,7 @@ The `ManagedService` contract is owned by the Sphinx team.
 - [Relevant files](#relevant-files)
 - [Use Cases](#use-cases)
 - [High-Level Invariants](#high-level-invariants)
+- [Security Impact on the SphinxModuleProxy](#security-impact-on-the-sphinxmoduleproxy)
 - [Function-Level Invariants](#function-level-invariants)
 - [Assumptions](#assumptions)
 
