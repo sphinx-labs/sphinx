@@ -8,24 +8,132 @@ import {
   SphinxMerkleTree,
   SphinxTransaction,
   makeSphinxMerkleTree,
+  decodeApproveLeafData,
 } from '../../dist'
 
 /**
- * @notice This test suite covers generating Merkle trees that satisfy invariants 2-5 defined in the Sphinx Merkle tree specification.
- * Note that in this test suite we do not confirm that the actual encoding is correct or that the Merkle tree is executable on
- * chain (invariant 1).
+ * @notice This test suite covers generating Merkle trees that satisfy invariants 2-7 defined in the Sphinx Merkle tree specification.
+ * Note that in this test suite we do not confirm that the actual encoding is correct or that the Merkle tree is necessarily executable
+ * on-chain (invariant 1).
  *
  * For tests that cover the encoding logic and that the generated Merkle tree is executable, see the `SphinxModule.t.sol` where we use
- * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI` and test executing them on-chain.
+ * the `makeSphinxMerkleTree` function to generate Merkle trees via the `getMerkleTreeFFI` and test executing them.
  */
 
 /**
- * @notice Checks that the leaves in the tree are ordered properly such that the tree satisfies invariants 2, 3, and 5 of the
- * Sphinx Merkle tree specification.
+ * @notice Checks that the tree contains exactly one APPROVAL or CANCEL leaf per chain so that invariant 2 is satisfied.
  */
-const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
+const assertInvariantTwo = (tree: SphinxMerkleTree) => {
+  let detectedArbitraryApproval = false
+  const detectedChainId: BigInt[] = []
+
+  for (let i = 1; i < tree.leavesWithProofs.length; i++) {
+    const leaf = tree.leavesWithProofs[i]
+
+    if (leaf.leaf.leafType !== SphinxLeafType.EXECUTE) {
+      // Expect that we have not already detected an arbitrary approval
+      expect(detectedArbitraryApproval).to.be.false
+
+      // If the leaf is an approval leaf, then check if it is arbitrary and if so update `detectedArbitraryApproval`
+      if (leaf.leaf.leafType === SphinxLeafType.APPROVE) {
+        const values = decodeApproveLeafData(leaf.leaf.data)
+        const isArbitraryLeaf = values[6]
+        if (isArbitraryLeaf) {
+          detectedArbitraryApproval = true
+
+          // If this APPROVE leaf is arbitrary, then we must expect that we have not previously seen any CANCEL or APPROVE leafs for any chain
+          expect(detectedChainId.length).to.eq(0)
+        }
+      }
+
+      // Expect that we have not already detected an APPROVE or CANCEL leaf for this leafs chainId
+      expect(
+        detectedChainId.includes(leaf.leaf.chainId),
+        'Found extra CANCEL or APPROVAL leaf for chain'
+      ).to.not.eq(true)
+
+      // Mark this chain id as detected
+      detectedChainId.push(leaf.leaf.chainId)
+    }
+  }
+}
+
+/**
+ * @notice Checks that all the EXECUTE leaves in the tree follow an APPROVE leaf on the same chain so that invariant 3 is satisfied.
+ */
+const assertInvariantThree = (tree: SphinxMerkleTree) => {
+  const seenApprovalChainIds: BigInt[] = []
+
+  for (const leafWithProof of tree.leavesWithProofs) {
+    const leaf = leafWithProof.leaf
+
+    if (leaf.leafType === SphinxLeafType.APPROVE) {
+      // Keep track of all the chains that have APPROVE leafs
+      if (!seenApprovalChainIds.includes(leaf.chainId)) {
+        seenApprovalChainIds.push(leaf.chainId)
+      }
+    } else if (leaf.leafType === SphinxLeafType.EXECUTE) {
+      // Expect that we have seen an APPROVE leaf for this chainId
+      expect(seenApprovalChainIds.includes(leaf.chainId)).to.be.true
+    }
+  }
+}
+
+/**
+ * @notice Checks that all chains with a CANCEL leaf also has no EXECUTE leafs for it so that invariant 4 is satisfied.
+ */
+const assertInvariantFour = (tree: SphinxMerkleTree) => {
+  const seenCancelChainIds: BigInt[] = []
+
+  for (const leafWithProof of tree.leavesWithProofs) {
+    const leaf = leafWithProof.leaf
+
+    if (leaf.leafType === SphinxLeafType.CANCEL) {
+      // Keep track of all the chains that have APPROVE leafs
+      if (!seenCancelChainIds.includes(leaf.chainId)) {
+        seenCancelChainIds.push(leaf.chainId)
+      }
+    }
+  }
+
+  for (const leafWithProof of tree.leavesWithProofs) {
+    const leaf = leafWithProof.leaf
+
+    if (leaf.leafType === SphinxLeafType.EXECUTE) {
+      // Expect that there was no CANCEL leaf for
+    }
+  }
+}
+
+/**
+ * @notice Checks that every leaf in the tree has a unique `index` and `chainId` combination so that invariant 5 is satisfied.
+ */
+const assertInvariantFive = (tree: SphinxMerkleTree) => {
+  const indexChainIdSets: Record<string, Record<string, true | undefined>> = {}
+
+  for (const leafWithProof of tree.leavesWithProofs) {
+    const index = leafWithProof.leaf.index.toString()
+    const chainId = leafWithProof.leaf.chainId.toString()
+
+    if (indexChainIdSets[index] === undefined) {
+      indexChainIdSets[index] = {}
+    }
+
+    // Expect index and chainId combination is undefined (has not been seen before)
+    expect(indexChainIdSets[index][chainId]).to.be.undefined
+
+    // Mark this combination as having been seen before
+    indexChainIdSets[index][chainId] = true
+  }
+}
+
+/**
+ * @notice Checks that all the leaves for each chain start with an `index` of 0 and sequentially increment by 1 so that invariant 6 is satisfied.
+ * Also checks that all the leafs are properly ordered by `index` and `chainId` ascending so that invariant 7 is satisfied.
+ */
+const assertInvariantSixAndSeven = (tree: SphinxMerkleTree) => {
   const seenChainIds: BigInt[] = []
-  // Check that the leaves are ordered by index and chain id ascending
+
   for (let i = 1; i < tree.leavesWithProofs.length; i++) {
     const leaf = tree.leavesWithProofs[i]
     const previousLeaf = tree.leavesWithProofs[i - 1]
@@ -34,18 +142,13 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
       // If the chain ids are the same, then we must be iterating through all the leaves for a specific chain
 
       // Check that individual leafs are ordered by index ascending within each chain
-      // This implicitly confirms that there are no duplicate indexes for this chain
       expect(leaf.leaf.index, 'Detected incorrect leaf index').to.eq(
         previousLeaf.leaf.index + BigInt(1)
       )
-
-      // Check that the current leaf is EXECUTE (otherwise there are multiple APPROVE or CANCEL leafs for this chain)
-      expect(leaf.leaf.leafType).to.eq(SphinxLeafType.EXECUTE)
     } else {
       // If the chain ids are different, then we must be switching to a new set of a leaves for a new chain
 
       // Check that the new chain id is greater than the current one so that the order of the leafs is ascending by the chain id
-      // This combined with the above check implicitly shows that there are no duplicate index + chain id combinations
       expect(
         Number(leaf.leaf.chainId),
         'Network order is not correct'
@@ -58,8 +161,8 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
       ).to.not.eq(SphinxLeafType.EXECUTE)
 
       // Check that the new chain id has not been seen before.
-      // We expect all the leaves for a given network to be grouped together, so each chain should only be switched to exactly one time.
-      // If we switch to a chain more than one time, then there must be multiple CANCEL or APPROVE leafs for that chain.
+      // If the leaves are sorted by index and chainId ascending, then all leaves for a given chain will be grouped together.
+      // So if we switched to a given chain more than one time, then the leafs must not be ordered by index and chain id ascending.
       expect(
         seenChainIds.includes(leaf.leaf.chainId),
         'found duplicate chain id'
@@ -71,36 +174,12 @@ const assertTreeOrderedProperly = (tree: SphinxMerkleTree) => {
   }
 }
 
-/**
- * @notice Checks that the tree contains exactly one APPROVAL or CANCEL leaf per chain such that invariant 4 is satisfied.
- */
-const assertOneApprovalOrCancellationLeafPerChain = (
-  tree: SphinxMerkleTree
-) => {
-  const approvalLeafChainIds: BigInt[] = []
-  const cancelLeafChainIds: BigInt[] = []
-
-  for (let i = 1; i < tree.leavesWithProofs.length; i++) {
-    const leaf = tree.leavesWithProofs[i]
-    if (leaf.leaf.leafType === SphinxLeafType.APPROVE) {
-      expect(
-        approvalLeafChainIds.includes(leaf.leaf.chainId),
-        'Found extra APPROVE leaf for chain'
-      ).to.not.eq(true)
-      approvalLeafChainIds.push(leaf.leaf.chainId)
-    } else if (leaf.leaf.leafType === SphinxLeafType.CANCEL) {
-      expect(
-        cancelLeafChainIds.includes(leaf.leaf.chainId),
-        'Found extra CANCEL leaf for chain'
-      ).to.not.eq(true)
-      cancelLeafChainIds.push(leaf.leaf.chainId)
-    } else if (leaf.leaf.leafType === SphinxLeafType.EXECUTE) {
-      expect(
-        cancelLeafChainIds.includes(leaf.leaf.chainId),
-        'Detected execution leaf for chain that also has cancelation leaf'
-      ).to.not.eq(true)
-    }
-  }
+const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
+  assertInvariantTwo(tree)
+  assertInvariantThree(tree)
+  assertInvariantFour(tree)
+  assertInvariantFive(tree)
+  assertInvariantSixAndSeven(tree)
 }
 
 describe('Merkle tree satisfies invariants', () => {
@@ -112,17 +191,16 @@ describe('Merkle tree satisfies invariants', () => {
     const safeProxy = '0x' + '00'.repeat(19) + '22'
     const moduleProxy = '0x' + '00'.repeat(19) + '33'
     const uri = 'http://localhost'
-    const arbitraryChain = false
     const merkleRootToCancel = ethers.keccak256(ethers.toUtf8Bytes('1'))
 
     for (const chainId of chainIds) {
       deploymentData[chainId] = {
+        type: 'cancellation',
         nonce,
         executor,
         safeProxy,
         moduleProxy,
         uri,
-        arbitraryChain,
         merkleRootToCancel,
       }
     }
@@ -140,11 +218,8 @@ describe('Merkle tree satisfies invariants', () => {
       ).to.eq(SphinxLeafType.CANCEL)
     }
 
-    // Check tree is ordered properly
-    assertTreeOrderedProperly(tree)
-
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+    // Assert invariants are satisfied
+    assertSatisfiesInvariants(tree)
   })
 
   it('Send transactions on all networks', () => {
@@ -176,6 +251,7 @@ describe('Merkle tree satisfies invariants', () => {
 
     for (const chainId of chainIds) {
       deploymentData[chainId] = {
+        type: 'deployment',
         nonce,
         executor,
         safeProxy,
@@ -194,11 +270,8 @@ describe('Merkle tree satisfies invariants', () => {
       numLeaves
     )
 
-    // Check tree is ordered properly
-    assertTreeOrderedProperly(tree)
-
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+    // Assert invariants are satisfied
+    assertSatisfiesInvariants(tree)
   })
 
   it('Cancel on one network, transactions on other networks', () => {
@@ -222,6 +295,7 @@ describe('Merkle tree satisfies invariants', () => {
       // On Goerli, only generate a cancel leaf
       if (chainId === '5') {
         deploymentData[chainId] = {
+          type: 'cancellation',
           nonce,
           executor,
           safeProxy,
@@ -243,6 +317,7 @@ describe('Merkle tree satisfies invariants', () => {
         ]
 
         deploymentData[chainId] = {
+          type: 'deployment',
           nonce,
           executor,
           safeProxy,
@@ -259,10 +334,98 @@ describe('Merkle tree satisfies invariants', () => {
     // Check that there are 5 leaves in the tree (1 cancel, 2 approval, 2 transactions)
     expect(tree.leavesWithProofs.length, 'Incorrect number of leaves').to.eq(5)
 
-    // Check tree is ordered properly
-    assertTreeOrderedProperly(tree)
+    // Assert invariants are satisfied
+    assertSatisfiesInvariants(tree)
+  })
 
-    // Check tree has only one CANCEL or APPROVAL leaf per network
-    assertOneApprovalOrCancellationLeafPerChain(tree)
+  it('Errors if input DeploymentData that contains object which has valid field from both NetworkDeploymentData and NetworkCancellationData', () => {
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = false
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    // Deployment data contains an entry with fields that make it both a valid
+    // NetworkDeploymentData and a valid NetworkCancellationData
+    const deploymentData: DeploymentData = {
+      '5': {
+        type: 'cancellation',
+        nonce,
+        executor,
+        safeProxy,
+        moduleProxy,
+        uri,
+        merkleRootToCancel: ethers.keccak256(ethers.toUtf8Bytes('1')),
+        arbitraryChain,
+        txs,
+      } as any,
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Unknown network data type. Should never happen.'
+    )
+  })
+
+  it('Errors if arbitraryChain = true for multiple DeploymentData entries', () => {
+    const deploymentData: DeploymentData = {}
+    const chainIds = ['421613', '420', '5']
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = true
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    for (const chainId of chainIds) {
+      deploymentData[chainId] = {
+        type: 'deployment',
+        nonce,
+        executor,
+        safeProxy,
+        moduleProxy,
+        uri,
+        arbitraryChain,
+        txs,
+      }
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Detected arbitraryChain = true in multiple DeploymentData entries'
+    )
   })
 })

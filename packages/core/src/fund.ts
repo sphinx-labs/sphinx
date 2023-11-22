@@ -1,14 +1,6 @@
-import { SphinxMerkleTree } from '@sphinx-labs/contracts'
-import { AbiCoder } from 'ethers'
+import { SphinxMerkleTree, decodeExecuteLeafData } from '@sphinx-labs/contracts'
 
 import { SphinxJsonRpcProvider } from './provider'
-
-export const decodeExecuteLeafData = (data: string) => {
-  return AbiCoder.defaultAbiCoder().decode(
-    ['address', 'uint', 'uint', 'bytes', 'uint'],
-    data
-  )
-}
 
 export const estimateExecutionGas = async (
   bundle: SphinxMerkleTree,
