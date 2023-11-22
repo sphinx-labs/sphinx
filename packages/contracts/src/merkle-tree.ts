@@ -48,33 +48,46 @@ export type DeploymentData = Record<
 >
 
 /**
- * @notice Contains data on each individual network which should be included in the MerkleTree
+ * @notice Contains the base data on each individual network which should be included in the MerkleTree. These
+ * fields are shared between the NetworkDeploymentData type and NetworkCancellationData type.
  *
  * @field nonce          The `currentNonce` in the `SphinxModuleProxy` on this chain, bigint string.
  * @field executor       The address of the account expected to execute this deployment.
  * @field safeProxy      The address of the target GnosisSafeProxy.
  * @field moduleProxy    The address of the target SphinxModuleProxy.
  * @field uri            The URI where the deployment data is stored.
- * @field arbitraryChain Indicates If this deployment data is for execution on an arbitrary network. See [SphinxDataTypes.sol](TODO(end)) for more information.
- * @field txs            The transactions which should be executed on this network in the order in which they should be executed.
  */
-export type NetworkDeploymentData = {
+type BaseNetworkData = {
   nonce: string
   executor: string
   safeProxy: string
   moduleProxy: string
   uri: string
+}
+
+/**
+ * @notice Contains data on each individual network which should be included in the MerkleTree and is specific to
+ * deployments.
+ *
+ * @field type           Differentiates this object type from the `NetworkCancellationData` type.
+ * @field arbitraryChain Indicates If this deployment data is for execution on an arbitrary network. See [SphinxDataTypes.sol](TODO(end)) for more information.
+ * @field txs            The transactions which should be executed on this network in the order in which they should be executed.
+ */
+export type NetworkDeploymentData = BaseNetworkData & {
+  type: 'deployment'
   arbitraryChain: boolean
   txs: SphinxTransaction[]
 }
 
-// TODO(audit-docs):
-export type NetworkCancellationData = {
-  nonce: string
-  executor: string
-  safeProxy: string
-  moduleProxy: string
-  uri: string
+/**
+ * @notice Contains data on each individual network which should be included in the MerkleTree and is specific to
+ * deployment cancellations.
+ *
+ * @field type               Differentiates this object type from the `NetworkDeploymentData` type.
+ * @field merkleRootToCancel The Merkle root of the deployment that will be cancelled.
+ */
+export type NetworkCancellationData = BaseNetworkData & {
+  type: 'cancellation'
   merkleRootToCancel: string
 }
 
@@ -126,13 +139,24 @@ export interface SphinxMerkleTree {
 export const makeSphinxLeaves = (
   deploymentData: DeploymentData
 ): Array<SphinxLeaf> => {
+  let arbitraryApprovalIncluded = false
+
   const merkleLeaves: Array<SphinxLeaf> = []
 
   const coder = AbiCoder.defaultAbiCoder()
 
   for (const [chainIdStr, data] of Object.entries(deploymentData)) {
-    if (isNetworkDeploymentData(data)) {
+    if (isNetworkDeploymentData(data) && !isNetworkCancellationData(data)) {
       const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
+
+      // If there has already been an arbitrary approval leaf then throw an error
+      if (arbitraryApprovalIncluded === true) {
+        throw new Error(
+          'Detected arbitraryChain = true in multiple DeploymentData entries'
+        )
+      } else if (data.arbitraryChain === true) {
+        arbitraryApprovalIncluded = true
+      }
 
       // generate approval leaf data
       const approvalData = coder.encode(
@@ -181,7 +205,10 @@ export const makeSphinxLeaves = (
 
         index += BigInt(1)
       }
-    } else if (isNetworkCancellationData(data)) {
+    } else if (
+      isNetworkCancellationData(data) &&
+      !isNetworkDeploymentData(data)
+    ) {
       // Encode `CANCEL` leaf data.
       const cancellationData = coder.encode(
         ['address', 'address', 'uint256', 'bytes32', 'address', 'string'],
@@ -210,6 +237,13 @@ export const makeSphinxLeaves = (
   return merkleLeaves
 }
 
+/**
+ * @notice Checks if an input networkData object is a valid NetworkDeploymentData object with the correct fields and types
+ * and that the object does not simultaneously satisfy the requirements to be a NetworkCancellationData object.
+ *
+ * @param networkData The object to check.
+ * @returns boolean indicating if the input object is a NetworkDeploymentData object.
+ */
 export const isNetworkDeploymentData = (
   networkData: NetworkDeploymentData | NetworkCancellationData
 ): networkData is NetworkDeploymentData => {
@@ -225,6 +259,13 @@ export const isNetworkDeploymentData = (
   )
 }
 
+/**
+ * @notice Checks if an input networkData object is a valid NetworkCancellationData object with the correct fields and types.
+ * and that the object does not simultaneously satisfy the requirements to be a NetworkDeploymentData object.
+ *
+ * @param networkData The object to check.
+ * @returns boolean indicating if the input object is a NetworkCancellationData object.
+ */
 export const isNetworkCancellationData = (
   networkData: NetworkDeploymentData | NetworkCancellationData
 ): networkData is NetworkCancellationData => {
