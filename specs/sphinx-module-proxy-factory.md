@@ -46,7 +46,20 @@ We can do this by calling the [Gnosis Safe Proxy Factory's `createProxyWithNonce
 
 Since the `initializer` data determines the address of the Gnosis Safe, it cannot include the address of the Gnosis Safe, since this would cause a circular dependency. To be specific, the circular dependency would occur because the `initializer` data would need to include the address of the Gnosis Safe, which is calculated based on the `initializer` data, which would need to include the address of the Gnosis Safe, etc. For this same reason, we cannot include the address of the `SphinxModuleProxy` in the `initializer` data, since the address of the module depends on the address of the Gnosis Safe.
 
-To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying and enabling a `SphinxModuleProxy` without using the address of the Gnosis Safe or the address of the `SphinxModuleProxy` as input parameters. The `initializer` data must include a [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol) call that executes two function calls on the `SphinxModuleProxyFactory`: `deploySphinxModuleProxyProxyFactoryFromSafe` and `enableSphinxModuleProxyFromSafe`. More details on these functions are below. To see an example of this deployment process, see [the `setUp` function in the `SphinxModuleProxy` unit test file](TODO(end)).
+To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying and enabling a `SphinxModuleProxy` without using the address of the Gnosis Safe or the address of the `SphinxModuleProxy` as input parameters. The `initializer` data should include a [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol) call that executes two function calls on the `SphinxModuleProxyFactory`: `deploySphinxModuleProxyProxyFactoryFromSafe` and `enableSphinxModuleProxyFromSafe`. More details on these functions are below. To see an example of this deployment process, see [the `setUp` function in the `SphinxModuleProxy` unit test file](TODO(end)).
+
+(TODO: table of contents) for the below 3 sections:
+## Design Considerations
+
+### The `enableSphinxModuleProxyFromSafe` Function
+
+The `enableSphinxModuleProxyFromSafe` function on the `SphinxModuleProxyFactory` does not involve deploying `SphinxModuleProxy` contracts, so it would be reasonable to put this function in a different contract. However, we include it in the `SphinxModuleProxyFactory` anyways to reduce the number of contracts involved in the Gnosis Safe initialization process described in the previous section. Also, this slightly reduces the overall complexity of our system by reducing the number of contracts.
+
+### Disabling a `SphinxModuleProxy` in a Gnosis Safe
+
+The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxModuleProxy` in a Gnosis Safe for two reasons:
+1. This logic [exists in the Gnosis Safe contract itself](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/base/ModuleManager.sol#L42-L54). We encourage users to call this function on the Gnosis Safe if they'd like to disable the `SphinxModuleProxy`.
+2. The only reason that we include logic in the `SphinxModuleProxyFactory` for enabling `SphinxModuleProxy` contracts is because this allows us to enable the module during the Gnosis Safe's initialization. A user will never need to disable the module during the Gnosis Safe's initialization, so it's not necessary to include this logic in the `SphinxModuleProxyFactory`.
 
 ## High-Level Invariants
 
@@ -75,8 +88,9 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 - Must revert if the input Gnosis Safe proxy is `address(0)`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
   - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
+  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
+  - Never succeed without successfully deploying the `SphinxModule` implementation.
   - Initialize the `SphinxModuleProxy` using the correct Gnosis Safe address.
   - Return the address of the `SphinxModuleProxy`.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy` contracts by calling this function multiple times.
@@ -85,8 +99,8 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
   - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
+  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
   - Initialize the `SphinxModuleProxy` using the _caller's address_ as the Gnosis Safe address.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy`s by calling this function multiple times.
 

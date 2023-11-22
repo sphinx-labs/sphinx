@@ -23,6 +23,9 @@ src = 'contracts/core'
 [profile.lite]
 optimizer = false
 
+[fuzz]
+runs=1024
+
 [fmt]
 line_length=100
 multiline_func_header="all"

@@ -53,9 +53,11 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         uint256 _saltNonce
     ) public override returns (address sphinxModuleProxy) {
         require(_safeProxy != address(0), "SphinxModuleProxyFactory: invalid Safe");
-        bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
-        sphinxModuleProxy = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
         emit SphinxModuleProxyDeployed(sphinxModuleProxy, _safeProxy);
+        bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
+        // Deploy the `SphinxModuleProxy`. This line will revert if a contract already exists at its
+        // `CREATE2` address.
+        sphinxModuleProxy = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
         SphinxModule(sphinxModuleProxy).initialize(_safeProxy);
     }
 

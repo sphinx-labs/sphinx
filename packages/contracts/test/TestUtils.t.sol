@@ -237,7 +237,6 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     // TODO: mv
-    // TODO: rename to DeploymentModuleInputs (and rename corresponding function)
     struct DeploymentModuleInputs {
         bytes32 merkleRoot;
         SphinxLeafWithProof approvalLeafWithProof;
@@ -245,7 +244,7 @@ contract TestUtils is SphinxUtils, Enum {
         bytes ownerSignatures;
     }
 
-    function getModuleInputs(
+    function getDeploymentModuleInputs(
         DeploymentMerkleTreeInputs memory _treeInputs
     ) internal returns (DeploymentModuleInputs memory) {
         SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(_treeInputs);

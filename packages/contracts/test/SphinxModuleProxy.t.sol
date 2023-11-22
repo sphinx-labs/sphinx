@@ -339,7 +339,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // `reenter` function on `MyContract`, which will then call the `approve` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory defaultModuleInputs = getModuleInputs(
+        DeploymentModuleInputs memory defaultModuleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory approvalData = abi.encodePacked(
@@ -350,7 +350,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
                 defaultModuleInputs.ownerSignatures
             )
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
@@ -385,7 +385,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_activeMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -406,7 +406,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_zeroHashMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -420,7 +420,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_rootAlreadyUsed() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -442,7 +442,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -457,7 +457,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.index += 1;
@@ -471,7 +471,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.leafType = SphinxLeafType.EXECUTE;
@@ -485,7 +485,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafData() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.data = abi.encodePacked(
@@ -502,7 +502,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidMerkleProof() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.proof[0] = bytes32(0);
@@ -516,7 +516,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_merkleProofVerify_invalidMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.prank(deploymentExecutor);
@@ -529,7 +529,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.prank(deploymentExecutor);
@@ -547,7 +547,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.forceApprovalLeafIndexNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid leaf index");
@@ -563,7 +563,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.safeProxy = address(0x1234);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid SafeProxy");
@@ -579,7 +579,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.moduleProxy = SphinxModule(address(0x1234));
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid SphinxModuleProxy");
@@ -595,7 +595,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid nonce");
@@ -612,7 +612,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         treeInputs.forceNumLeavesValue = true;
         treeInputs.overridingNumLeavesValue = 0;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: numLeaves cannot be 0");
@@ -624,7 +624,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_invalidExecutor() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         // Prank an address that isn't the executor
@@ -638,7 +638,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_invalidChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.chainId(block.chainid + 1);
@@ -659,7 +659,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // 31337.
         treeInputs.arbitraryChain = true;
         treeInputs.forceApprovalLeafChainIdNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: leaf chain id must be 0");
@@ -671,7 +671,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_checkSignatures_emptyOwnerSignatures() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         // This error is thrown by the Gnosis Safe. It means "Signatures data too short".
@@ -685,7 +685,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_success() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -702,7 +702,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.deploymentUri = "";
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approve({
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
@@ -714,7 +714,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     // This tests that it's possible to execute a Merkle root, then approve another one.
     function test_approve_success_multipleApprovals() external {
-        DeploymentModuleInputs memory firstModuleInputs = getModuleInputs(
+        DeploymentModuleInputs memory firstModuleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approveThenExecuteBatch({
@@ -725,7 +725,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _expectedArbitraryChain: false
         });
 
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(
                 SphinxTransaction({
                     to: address(myContract),
@@ -753,7 +753,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         delete treeInputs.txs;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         // Run some sanity checks before submitting the approval.
         assertEq(moduleInputs.executionLeavesWithProofs.length, 0);
@@ -773,7 +773,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.arbitraryChain = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approve({
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
@@ -792,7 +792,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // `reenter` function on `MyContract`, which will then call the `cancel` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory moduleInputsToCancel = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputsToCancel = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory cancellationData = abi.encodePacked(
@@ -803,7 +803,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
                 moduleInputsToCancel.ownerSignatures
             )
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
@@ -870,7 +870,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // the `cancel` function. The call to the `cancel` function will fail because the Merkle
         // root is already in the `APPROVED` state.
 
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -1004,7 +1004,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // different from the active Merkle root. If we don't do this, the `cancel` function will
         // revert early because we've already approved the Merkle root.
         delete treeInputs.txs;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -1149,7 +1149,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_cancel_success() external {
-        DeploymentModuleInputs memory moduleInputsToCancel = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputsToCancel = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1226,14 +1226,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // `reenter` function on `MyContract`, which will then call the `execute` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory defaultModuleInputs = getModuleInputs(
+        DeploymentModuleInputs memory defaultModuleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory executionData = abi.encodePacked(
             moduleProxy.execute.selector,
             abi.encode(defaultModuleInputs.executionLeavesWithProofs)
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
@@ -1273,7 +1273,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_noactiveMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.expectRevert("SphinxModule: no active root");
@@ -1281,7 +1281,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_invalidExecutor() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1305,7 +1305,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // Set the overriding `numLeaves` to be equal to the number of `EXECUTE` leaves. This is one
         // less than its normal value, since `numLeaves` normally includes the `APPROVE` leaf.
         treeInputs.overridingNumLeavesValue = defaultTxs.length;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         vm.prank(deploymentExecutor);
         // Call the `approve` function. We don't use `helper_test_approve` here because we've
         // modified the `numLeaves` in this test, which would cause this helper function to fail.
@@ -1323,7 +1323,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1341,7 +1341,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1359,7 +1359,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1377,7 +1377,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafData() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1398,7 +1398,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_merkleProofVerify_invalidMerkleProof() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1421,7 +1421,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     // In other words, we can't pass an invalid Merkle root into the `execute` function.
 
     function test_execute_revert_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1440,7 +1440,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1460,7 +1460,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_invalidChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1484,7 +1484,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // equal to 31337.
         treeInputs.arbitraryChain = true;
         treeInputs.forceExecutionLeavesChainIdNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
@@ -1499,7 +1499,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_execute_revert_insufficientGas() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1517,7 +1517,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     function test_execute_fail_userTransactionReverted() external {
         defaultTxs[1].txData = abi.encodePacked(myContract.reverter.selector);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({
@@ -1559,7 +1559,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_preExecution();
 
         defaultTxs[0].gas = 1_000;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -1597,7 +1597,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     // Execute all of the user's transactions in a single call.
     function test_execute_success_batchExecute() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approveThenExecuteBatch({
@@ -1611,7 +1611,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     // Execute the user's transactions one at a time.
     function test_execute_success_oneByOne() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
@@ -1634,7 +1634,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         assertEq(myContract.myNum(), 0);
         SphinxTransaction[] memory txn = new SphinxTransaction[](1);
         txn[0] = defaultTxs[0];
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(txn)
         );
 
@@ -1679,7 +1679,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             txs[i + 1].requireSuccess = false;
             expectedSuccesses[i + 1] = true;
         }
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(txs)
         );
         helper_test_approveThenExecuteBatch({
@@ -1696,7 +1696,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.arbitraryChain = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
@@ -1716,7 +1716,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         treeInputs.arbitraryChain = true;
         treeInputs.chainId = 0;
         vm.chainId(0);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
@@ -1735,7 +1735,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         treeInputs.chainId = 0;
         vm.chainId(0);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
@@ -1748,7 +1748,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     //////////////////////////////// _getLeafHash ////////////////////////////////////
 
     function test__getLeafHash_success() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         SphinxLeaf memory approvalLeaf = moduleInputs.approvalLeafWithProof.leaf;
@@ -2000,7 +2000,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function helper_test_approveDefaultDeployment() internal {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         helper_test_approve({

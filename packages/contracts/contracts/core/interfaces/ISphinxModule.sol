@@ -48,7 +48,7 @@ interface ISphinxModule {
      * @notice Emitted when an active Merkle root is canceled.
      *
      * @param completedMerkleRoot The Merkle root that contains the `CANCEL` leaf which canceled the
-                                  active Merkle root.
+     *                            active Merkle root.
      * @param canceledMerkleRoot  The Merkle root that was canceled.
      * @param nonce               The `nonce` field in the `CANCEL` leaf. This matches the nonce
      *                            in the `SphinxModuleProxy` before the cancellation occurred.
