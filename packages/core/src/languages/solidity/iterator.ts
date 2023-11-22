@@ -7,7 +7,6 @@ import {
   zeroPadValue,
 } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
-
 import 'core-js/features/array/at'
 import {
   SolidityStorageObj,
