@@ -4,7 +4,7 @@ import { FoundryContractArtifact } from './types'
 
 export const decodeApproveLeafData = (
   data: string
-): [string, string, BigInt, BigInt, string, string, boolean] => {
+): [string, string, bigint, bigint, string, string, boolean] => {
   return AbiCoder.defaultAbiCoder().decode(
     ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
     data
@@ -13,7 +13,7 @@ export const decodeApproveLeafData = (
 
 export const decodeExecuteLeafData = (
   data: string
-): [string, BigInt, BigInt, string, BigInt, boolean] => {
+): [string, bigint, bigint, string, BigInt, boolean] => {
   return AbiCoder.defaultAbiCoder().decode(
     ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
     data
