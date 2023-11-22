@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Version} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
+import { Version } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
 contract Stateless {
     uint256 public immutable immutableUint;
@@ -14,15 +14,17 @@ contract Stateless {
         contractVersion = _version;
     }
 
-    function fetchStrings(string memory _a, string memory _b) external pure returns (string memory, string memory) {
+    function fetchStrings(
+        string memory _a,
+        string memory _b
+    ) external pure returns (string memory, string memory) {
         return (_a, _b);
     }
 
-    function fetchStringArray(string[] memory _a, string[] memory _b)
-        external
-        pure
-        returns (string[] memory, string[] memory)
-    {
+    function fetchStringArray(
+        string[] memory _a,
+        string[] memory _b
+    ) external pure returns (string[] memory, string[] memory) {
         return (_a, _b);
     }
 

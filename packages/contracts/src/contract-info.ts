@@ -1,5 +1,3 @@
-import { ZeroAddress } from 'ethers'
-
 import {
   CompatibilityFallbackHandlerArtifact,
   CreateCallArtifact,

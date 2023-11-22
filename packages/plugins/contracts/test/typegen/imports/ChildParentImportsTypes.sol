@@ -11,7 +11,16 @@ contract ChildParentImportsTypes is LocalParentTypes {
         MyLocalTypeContract.MyEnumInContract _contractEnum,
         MyLocalTypeContract.MyStructInContract memory _contractStruct,
         MyLocalTypeContract.MyTypeInContract _contractType
-    ) LocalParentTypes(_libraryEnum, _libraryStruct, _libraryType, _contractEnum, _contractStruct, _contractType) {}
+    )
+        LocalParentTypes(
+            _libraryEnum,
+            _libraryStruct,
+            _libraryType,
+            _contractEnum,
+            _contractStruct,
+            _contractType
+        )
+    {}
 
     function updateValues(
         MyLocalTypeLibrary.MyEnumInLibrary _libraryEnum,

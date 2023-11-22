@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+import '@nomicfoundation/hardhat-ethers'
+
 import * as dotenv from 'dotenv'
 import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
-import '@nomicfoundation/hardhat-ethers'
-
-import ora from 'ora'
 import { Logger } from '@eth-optimism/common-ts'
 
-import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
 import { SphinxSystemConfig, initializeSafeAndSphinx } from './src/languages'

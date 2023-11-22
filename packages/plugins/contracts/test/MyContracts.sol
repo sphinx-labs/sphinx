@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 struct TopLevelStruct {
     int256 a;
@@ -61,7 +61,7 @@ contract MyContract1 {
     }
 
     function myPureFunction() external pure returns (MyStruct memory) {
-        return MyStruct({a: 42, b: 123, c: MyNestedStruct({d: address(256)})});
+        return MyStruct({ a: 42, b: 123, c: MyNestedStruct({ d: address(256) }) });
     }
 
     function reverter() external pure {

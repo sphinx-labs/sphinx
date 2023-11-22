@@ -145,7 +145,6 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
   owners: Array<string>
-  proposers: Array<string>
   mainnets: Array<N>
   testnets: Array<N>
   threshold: string

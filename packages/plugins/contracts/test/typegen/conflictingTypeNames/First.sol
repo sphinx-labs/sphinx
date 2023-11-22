@@ -38,7 +38,11 @@ contract ConflictingTypeNameContractFirst {
         conflictingEnum = _conflictingEnum;
     }
 
-    function pureConflictingTypes() public pure returns (ConflictingType, ConflictingStruct memory, ConflictingEnum) {
+    function pureConflictingTypes()
+        public
+        pure
+        returns (ConflictingType, ConflictingStruct memory, ConflictingEnum)
+    {
         return (ConflictingType.wrap(true), ConflictingStruct(true), ConflictingEnum.First);
     }
 }

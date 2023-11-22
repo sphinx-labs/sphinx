@@ -70,7 +70,7 @@ type BaseNetworkData = {
  * deployments.
  *
  * @field type           Differentiates this object type from the `NetworkCancellationData` type.
- * @field arbitraryChain Indicates If this deployment data is for execution on an arbitrary network. See [SphinxDataTypes.sol](TODO(end)) for more information.
+ * @field arbitraryChain Indicates If this deployment data is for execution on an arbitrary network.
  * @field txs            The transactions which should be executed on this network in the order in which they should be executed.
  */
 export type NetworkDeploymentData = BaseNetworkData & {
@@ -108,7 +108,7 @@ export enum Operation {
  * @field txData          Arbitrary calldata to forward to the Safe.
  * @field gas             The amount of gas included in the call from the `SphinxModuleProxy` to the Gnosis Safe for the transaction, bigint string.
  * @field operation       The type of transaction operation.
- * @field requiredSuccess Whether or not to require this transaction to succeed. See [SphinxDataTypes.sol](TODO(end)) for more information.
+ * @field requireSuccess Whether or not to require this transaction to succeed.
  */
 export type SphinxTransaction = {
   to: string

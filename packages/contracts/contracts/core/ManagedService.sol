@@ -8,7 +8,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  * @title ManagedService
  * @notice Contract controlled by the Sphinx managed service. This contract is used by
  *         the managed service to remotely execute deployments. Users can opt into this
- *         functionality if they choose to do so.
+ *         functionality.
  */
 contract ManagedService is AccessControl, ReentrancyGuard {
     /**

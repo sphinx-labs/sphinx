@@ -1,6 +1,6 @@
 # `SphinxModuleProxy` Contract Specification
 
-> This document assumes that you have read the [Sphinx Merkle Tree specification](TODO(end)). Please read it before continuing.
+> This document assumes that you have read the [Sphinx Merkle Tree specification](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/merkle-tree.md). Please read it before continuing.
 
 The `SphinxModuleProxy` submits transactions in a Gnosis Safe and verifies that the transactions have
 been approved by the Gnosis Safe owners. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
@@ -140,7 +140,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
   - Emit a `SphinxMerkleRootApproved` event in the `SphinxModuleProxy`.
-  - Set all of the fields in the [`MerkleRootState` struct](TODO(end)).
+  - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L68).
   - Increment the Merkle root nonce in the `SphinxModuleProxy`.
 - If there is a single leaf in the Merkle tree for the current chain, a successful call must also:
   - Emit a `SphinxMerkleRootCompleted` event in the `SphinxModuleProxy` using the input Merkle root.

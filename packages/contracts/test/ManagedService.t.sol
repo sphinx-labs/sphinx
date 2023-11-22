@@ -19,15 +19,15 @@ contract Endpoint {
         return x;
     }
 
-    function doRevert() public {
+    function doRevert() pure public {
         revert("did revert");
     }
 
-    function doRevertCustom() public {
+    function doRevertCustom() pure public {
         revert CustomError(10, address(1), address(2), address(3), bytes32(uint(1)));
     }
 
-    function doSilentRevert() public {
+    function doSilentRevert() pure public {
         revert();
     }
 
