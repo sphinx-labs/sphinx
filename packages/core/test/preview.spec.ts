@@ -298,6 +298,7 @@ describe('Preview', () => {
         expectedFunctionCallOne.decodedAction
       )
       expect(callPolygon).to.deep.equal(expectedCall.decodedAction)
+      expect(skippingPolygon.length).to.equal(0)
 
       expect(networkTagsArbitrum).to.deep.equal(['arbitrum'])
       expect(executingArbitrum.length).to.equal(4)
