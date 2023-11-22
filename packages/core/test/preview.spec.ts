@@ -1,5 +1,6 @@
 import { expect } from 'chai'
 import { ethers } from 'ethers'
+import { Operation } from '@sphinx-labs/contracts'
 
 import { Create2ActionInput, ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
@@ -23,11 +24,14 @@ const expectedCreate2: Create2ActionInput = {
     },
     address: '0x' + 'aa'.repeat(20),
   },
-  skip: false,
   // These fields are unused:
   create2Address: '',
+  index: '0',
+  value: '',
+  operation: Operation.Call,
+  requireSuccess: false,
+  txData: '',
   to: '',
-  data: '',
   contractName: '',
   contracts: {},
   gas: '0',
@@ -35,7 +39,6 @@ const expectedCreate2: Create2ActionInput = {
 }
 const expectedFunctionCallOne: FunctionCallActionInput = {
   actionType: SphinxActionType.CALL.toString(),
-  skip: false,
   decodedAction: {
     referenceName: 'MySecondContract',
     functionName: 'myFunction',
@@ -45,7 +48,11 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
     address: '0x' + '11'.repeat(20),
   },
   // These fields are unused:
-  data: '',
+  index: '0',
+  value: '',
+  operation: Operation.Call,
+  requireSuccess: false,
+  txData: '',
   to: '',
   contracts: {},
   contractName: '',
@@ -55,7 +62,6 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
 
 const expectedCall: FunctionCallActionInput = {
   actionType: SphinxActionType.CALL.toString(),
-  skip: false,
   decodedAction: {
     referenceName: '0x' + '11'.repeat(20),
     functionName: 'call',
@@ -63,7 +69,11 @@ const expectedCall: FunctionCallActionInput = {
     address: '0x' + '11'.repeat(20),
   },
   // These fields are unused:
-  data: '',
+  index: '0',
+  value: '',
+  operation: Operation.Call,
+  requireSuccess: false,
+  txData: '',
   to: '',
   contracts: {},
   contractName: '',
@@ -88,22 +98,21 @@ const originalParsedConfig: ParsedConfig = {
     isExecuting: false,
   },
   // The rest of the variables are unused:
-  authAddress: ethers.ZeroAddress,
-  managerAddress: ethers.ZeroAddress,
+  executorAddress: ethers.ZeroAddress,
+  safeInitData: ethers.ZeroHash,
+  safeInitSaltNonce: ethers.ZeroHash,
+  nonce: '0',
+  arbitraryChain: false,
+  safeAddress: ethers.ZeroAddress,
+  moduleAddress: ethers.ZeroAddress,
   remoteExecution: true,
   newConfig: {
     mainnets: [],
     projectName: '',
     orgId: '',
     owners: [],
-    proposers: [],
     testnets: [],
     threshold: '0',
-    version: {
-      major: '0',
-      minor: '0',
-      patch: '0',
-    },
   },
 }
 
@@ -144,30 +153,6 @@ describe('Preview', () => {
       expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
       expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(skipping.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
-    })
-
-    it('returns preview for single network that is skipping everything', () => {
-      const parsedConfig = structuredClone(originalParsedConfig)
-      parsedConfig.initialState.isManagerDeployed = true
-      parsedConfig.actionInputs = parsedConfig.actionInputs.map((action) => ({
-        ...action,
-        skip: true,
-      }))
-
-      const { networks, unlabeledAddresses } = getPreview([parsedConfig])
-
-      expect(networks.length).to.equal(1)
-      const { networkTags, executing, skipping } = networks[0]
-      expect(networkTags).to.deep.equal(['optimism'])
-      expect(executing.length).to.equal(0)
-      expect(skipping.length).to.equal(3)
-      const [create2, functionCall, call] = skipping
-      expect(create2).to.deep.equal(expectedCreate2.decodedAction)
-      expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
-      expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(unlabeledAddresses).to.deep.equal(
         new Set(originalParsedConfig.unlabeledAddresses)
       )
@@ -253,7 +238,6 @@ describe('Preview', () => {
       parsedConfigPolygon.chainId = '137'
 
       // Skip the SphinxManager and the first action on Polygon
-      parsedConfigPolygon.actionInputs[0].skip = true
       parsedConfigPolygon.initialState.isManagerDeployed = true
 
       // Use different variables for the first action on Arbitrum
@@ -306,15 +290,14 @@ describe('Preview', () => {
       expect(skippingOptimism.length).to.equal(0)
 
       expect(networkTagsPolygon).to.deep.equal(['polygon'])
-      expect(executingPolygon.length).to.equal(2)
-      const [functionCallPolygon, callPolygon] = executingPolygon
+      expect(executingPolygon.length).to.equal(3)
+      const [create2Polygon, functionCallPolygon, callPolygon] =
+        executingPolygon
+      expect(create2Polygon).to.deep.equal(expectedCreate2.decodedAction)
       expect(functionCallPolygon).to.deep.equal(
         expectedFunctionCallOne.decodedAction
       )
       expect(callPolygon).to.deep.equal(expectedCall.decodedAction)
-      expect(skippingPolygon.length).to.equal(1)
-      const [create2Polygon] = skippingPolygon
-      expect(create2Polygon).to.deep.equal(expectedCreate2.decodedAction)
 
       expect(networkTagsArbitrum).to.deep.equal(['arbitrum'])
       expect(executingArbitrum.length).to.equal(4)
