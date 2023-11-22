@@ -139,6 +139,7 @@ export const makeDeploymentData = (
     )
 
     data[compilerConfig.chainId] = {
+      type: 'deployment',
       nonce: compilerConfig.nonce,
       executor: compilerConfig.executorAddress,
       safeProxy: compilerConfig.safeAddress,
