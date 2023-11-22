@@ -1750,11 +1750,45 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         });
     }
 
-    // // Test that we can generate and execute a multichain tree with identical leaves across multiple networks
-    // // Does *not* use arbitraryChain = true
-    // function test_execute_success_multichain_identical() external {
+    //////////////////////////////// Multichain ////////////////////////////////////
 
-    // }
+    // Test generating and executing a multichain tree with identical leaves across multiple networks
+    function test_multichain_execute_success_identical() external {
+        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
+            defaultTxs
+        );
+        treeInputs.chainIds = new uint[](1);
+        treeInputs.chainIds[0] = 0;
+        vm.chainId(0);
+        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        helper_test_approveThenExecuteBatch({
+            _txs: defaultTxs,
+            _moduleInputs: moduleInputs,
+            _expectedInitialActiveMerkleRoot: bytes32(0),
+            _expectedSuccesses: defaultExpectedSuccesses,
+            _expectedArbitraryChain: false
+        });
+    }
+
+    // Test generating and executing a multichain tree across multiple networks with different leaves on each network
+    function test_multichain_execute_success_different() external {
+        // assertEq(1, 2);
+    }
+
+    // Test cancelling the same root on multiple networks
+    function test_multichain_cancel_identical() external {
+        // assertEq(1, 2);
+    }
+
+    // Test cancelling different roots on multiple networks
+    function test_multichain_cancel_different() external {
+        // assertEq(1, 2);
+    }
+
+    // Test cancelling a root on one network and executing on other networks
+    function test_multichain_cancelOneNetworkExecuteOtherNetworks() external {
+        // assertEq(1, 2);
+    }
 
     //////////////////////////////// _getLeafHash ////////////////////////////////////
 

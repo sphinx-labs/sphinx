@@ -5,7 +5,7 @@ import { Vm } from "sphinx-forge-std/Vm.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxLeafWithProof } from "../contracts/core/SphinxDataTypes.sol";
+import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDataTypes.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 // Gnosis Safe v1.3.0
 import {
@@ -262,29 +262,95 @@ contract TestUtils is SphinxUtils, Enum {
         SphinxLeafWithProof approvalLeafWithProof;
         SphinxLeafWithProof[] executionLeavesWithProofs;
         bytes ownerSignatures;
+        uint256 chainId;
     }
 
     function getModuleInputs(
         DeploymentMerkleTreeInputs memory _treeInputs
-    ) internal returns (DeploymentModuleInputs memory) {
+    ) internal returns(DeploymentModuleInputs memory) {
+        uint[] memory chainIds = new uint[](1);
+        chainIds[0] = block.chainid;
+        DeploymentModuleInputs[] memory inputs = getModuleInputs(_treeInputs, chainIds);
+        console.log("returning input[0]");
+        return inputs[0];
+    }
+
+    function getModuleInputs(
+        DeploymentMerkleTreeInputs memory _treeInputs,
+        uint256[] memory _chainIds
+    ) internal returns (DeploymentModuleInputs[] memory) {
         SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(_treeInputs);
 
+        DeploymentModuleInputs[] memory inputs = new DeploymentModuleInputs[](_chainIds.length);
         bytes32 merkleRoot = tree.root;
-        SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
-        SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
-            tree.leaves.length - 1
-        );
-        for (uint256 i = 1; i < tree.leaves.length; i++) {
-            executionLeavesWithProofs[i - 1] = tree.leaves[i];
-        }
         bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
-        return
-            DeploymentModuleInputs(
+
+        uint moduleInputIndex = 0;
+        for (uint i = 0; i < tree.leaves.length; i++) {
+            console.log("a");
+            SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[i];
+            console.log("b");
+
+            uint numExecutionLeaves = 0;
+            console.log("c");
+            console.log("value:");
+            console.log(i + numExecutionLeaves);
+            console.log(tree.leaves.length);
+            console.log("starting loop");
+            i += 1;
+            while (
+                i + numExecutionLeaves < tree.leaves.length &&
+                tree.leaves[i + numExecutionLeaves].leaf.leafType == SphinxLeafType.EXECUTE
+            ) {
+                numExecutionLeaves += 1;
+                console.log("while looping");
+                console.log(i + numExecutionLeaves);
+                console.log(tree.leaves.length);
+            }
+
+            SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
+                numExecutionLeaves - 1
+            );
+
+            for (uint executionLeafIndex = 0; i < numExecutionLeaves; executionLeafIndex++) {
+                i += 1;
+                console.log("adding leaf to execution array");
+                console.log(executionLeafIndex);
+                console.log(executionLeavesWithProofs.length);
+                executionLeavesWithProofs[executionLeafIndex] = tree.leaves[i + numExecutionLeaves];
+                console.log("done");
+            }
+
+            console.log("adding input to array");
+            console.log(moduleInputIndex);
+            console.log(inputs.length);
+            inputs[moduleInputIndex] = DeploymentModuleInputs(
                 merkleRoot,
                 approvalLeafWithProof,
                 executionLeavesWithProofs,
-                ownerSignatures
+                ownerSignatures,
+                _chainIds[moduleInputIndex]
             );
+            moduleInputIndex += 1;
+            console.log("done");
+        }
+
+        return inputs;
+        // SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
+        // SphinxLeafWithProof[] memory executionLeavesWithProofs = new SphinxLeafWithProof[](
+        //     tree.leaves.length - 1
+        // );
+        // for (uint256 i = 1; i < tree.leaves.length; i++) {
+        //     executionLeavesWithProofs[i - 1] = tree.leaves[i];
+        // }
+        // bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
+        // return
+        //     DeploymentModuleInputs(
+        //         merkleRoot,
+        //         approvalLeafWithProof,
+        //         executionLeavesWithProofs,
+        //         ownerSignatures
+        //     );
     }
 
     function getCancellationModuleInputs(
