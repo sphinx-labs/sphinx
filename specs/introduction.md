@@ -14,7 +14,7 @@ We wanted teams to be able to approve deployments from their multisignature wall
 
 To facilitate this trustless execution process, Sphinx uses a custom mechanism to verify the signatures of the Gnosis Safe owners. When a team approves a deployment, they sign the deployment's unique identifier using a meta transaction. This unique identifier is the root of a [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree). The Merkle tree's leaves contain all of the transaction data for the deployment, across every chain where it will be executed. We use a Merkle tree because it provides an efficient and secure way to trustlessly execute large deployments across many chains. See the [Sphinx Merkle tree specification](TODO(end)) to learn more about the architecture and content of the Sphinx Merkle tree.
 
-Each leaf in the Merkle tree is a single action on a single chain. The module verifies that each leaf submitted by the executor corresponds to the Merkle root signed by the Gnosis Safe owners. It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
+Each leaf in the Merkle tree is a single action on a single chain. Sphinx's module verifies that each leaf submitted by the executor corresponds to the Merkle root signed by the Gnosis Safe owners. It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
 
 ## Supported Gnosis Safe Versions
 

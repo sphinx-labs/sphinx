@@ -147,13 +147,13 @@ contract TestUtils is SphinxUtils, Enum {
         return packBytes(signatures);
     }
 
-    function getMerkleTreeFFI(
-        MerkleTreeInputs memory _treeInputs
+    function getDeploymentMerkleTreeFFI(
+        DeploymentMerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
         string[] memory inputs = new string[](17);
         inputs[0] = "npx";
         inputs[1] = "ts-node";
-        inputs[2] = "scripts/output-merkle-tree.ts";
+        inputs[2] = "scripts/output-deployment-merkle-tree.ts";
         inputs[3] = vm.toString(_treeInputs.chainId);
         inputs[4] = vm.toString(_treeInputs.nonceInModuleProxy);
         inputs[5] = vm.toString(_treeInputs.executor);
@@ -212,7 +212,7 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     // TODO: mv
-    struct MerkleTreeInputs {
+    struct DeploymentMerkleTreeInputs {
         SphinxTransaction[] txs;
         Wallet[] ownerWallets;
         uint256 chainId;
@@ -238,7 +238,7 @@ contract TestUtils is SphinxUtils, Enum {
 
     // TODO: mv
     // TODO: rename to DeploymentModuleInputs (and rename corresponding function)
-    struct ModuleInputs {
+    struct DeploymentModuleInputs {
         bytes32 merkleRoot;
         SphinxLeafWithProof approvalLeafWithProof;
         SphinxLeafWithProof[] executionLeavesWithProofs;
@@ -246,9 +246,9 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     function getModuleInputs(
-        MerkleTreeInputs memory _treeInputs
-    ) internal returns (ModuleInputs memory) {
-        SphinxMerkleTree memory tree = getMerkleTreeFFI(_treeInputs);
+        DeploymentMerkleTreeInputs memory _treeInputs
+    ) internal returns (DeploymentModuleInputs memory) {
+        SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(_treeInputs);
 
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
@@ -260,7 +260,7 @@ contract TestUtils is SphinxUtils, Enum {
         }
         bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
         return
-            ModuleInputs(
+            DeploymentModuleInputs(
                 merkleRoot,
                 approvalLeafWithProof,
                 executionLeavesWithProofs,

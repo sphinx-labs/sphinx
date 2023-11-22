@@ -639,7 +639,7 @@ export const getDeploymentEvents = async (
   // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
     await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentApproved(deploymentId)
+      SphinxManager.filters.SphinxMerkleRootApproved(deploymentId)
     )
   ).at(-1)
 
@@ -651,7 +651,7 @@ export const getDeploymentEvents = async (
 
   const completedEvent = (
     await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentCompleted(deploymentId)
+      SphinxManager.filters.SphinxMerkleRootCompleted(deploymentId)
     )
   ).at(-1)
 

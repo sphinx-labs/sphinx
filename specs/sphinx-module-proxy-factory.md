@@ -67,8 +67,8 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 
 #### `constructor()`
 
-- Must deploy a `SphinxModuleProxy` contract at a `CREATE2` address determined by the address of the `SphinxModuleProxyFactory` and a `bytes32(0)` salt.
-- Must initialize the `SphinxModuleProxy` so that nobody has permission to call its `approve` function.
+- Must deploy a `SphinxModule` contract at a `CREATE2` address determined by the address of the `SphinxModuleProxyFactory` and a `bytes32(0)` salt.
+- Must initialize the `SphinxModule` so that nobody has permission to submit transactions directly on it.
 
 #### `function deploySphinxModuleProxy(address _safeProxy, uint256 _saltNonce) external returns (address sphinxModuleProxy)`
 

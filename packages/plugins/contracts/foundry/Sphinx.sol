@@ -9,7 +9,7 @@ import {
     MerkleRootStatus,
     MerkleRootState,SphinxLeafWithProof
 } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
-import { SphinxModule } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
+import { ISphinxModule } from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxModule.sol";
 import {
     SphinxMerkleTree,
     HumanReadableAction,
@@ -122,8 +122,8 @@ abstract contract Sphinx {
         deploymentInfo.safeInitSaltNonce = sphinxUtils.fetchSafeSaltNonce(sphinxConfig.projectName);
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
-        deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, SphinxModule(module));
-        deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(SphinxModule(module));
+        deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, ISphinxModule(module));
+        deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(ISphinxModule(module));
         deploymentInfo.arbitraryChain = false;
         // TODO - support configuring this? Not sure if it's necessary in the first version.
         deploymentInfo.requireSuccess = true;
@@ -170,7 +170,7 @@ abstract contract Sphinx {
         bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _root);
 
         vm.startBroadcast(privateKey);
-        sphinxDeployOnNetwork(SphinxModule(sphinxModule()), _root, _merkleTree, metaTxnSignature, rpcUrl, _networkName);
+        sphinxDeployOnNetwork(ISphinxModule(sphinxModule()), _root, _merkleTree, metaTxnSignature, rpcUrl, _networkName);
         vm.stopBroadcast();
     }
 
@@ -208,7 +208,7 @@ abstract contract Sphinx {
             // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
             vm.startPrank(constants.managedServiceAddress());
             sphinxDeployOnNetwork(
-                SphinxModule(sphinxModule()),
+                ISphinxModule(sphinxModule()),
                 _root,
                 _merkleTree,
                 "",
@@ -256,7 +256,7 @@ abstract contract Sphinx {
      * @notice Helper function for executing a list of actions in batches.
      */
     function sphinxExecuteBatchActions(
-        SphinxModule _module,
+        ISphinxModule _module,
         SphinxLeafWithProof[] memory _leaves,
         uint256 _bufferedGasLimit
     ) private returns (bool, uint256) {
@@ -277,7 +277,7 @@ abstract contract Sphinx {
                 sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leaves, executed, _leaves.length), maxGasLimit);
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leaves, executed, executed + batchSize);
 
-            MerkleRootStatus status = SphinxModule(_module).execute{gas: maxGasLimit}(batch);
+            MerkleRootStatus status = ISphinxModule(_module).execute{gas: maxGasLimit}(batch);
             // TODO - do something with the status
 
             // Move to next batch if necessary
@@ -289,7 +289,7 @@ abstract contract Sphinx {
     }
 
     function sphinxExecuteDeployment(
-        SphinxModule _module,
+        ISphinxModule _module,
         SphinxMerkleTree memory _merkleTree,
         uint256 blockGasLimit,
         bytes memory _signatures
@@ -380,7 +380,7 @@ abstract contract Sphinx {
      *         deployment to fail.
      */
     function sphinxDeployOnNetwork(
-        SphinxModule _module,
+        ISphinxModule _module,
         bytes32 _root,
         SphinxMerkleTree memory _merkleTree,
         bytes memory _metaTxnSignature,
@@ -403,7 +403,7 @@ abstract contract Sphinx {
             string memory uri,
             address executor,
             MerkleRootStatus status,
-        ) = _module.deployments(_root);
+        ) = _module.merkleRootStates(_root);
 
         if (numLeaves == leavesExecuted && keccak256(abi.encodePacked(uri)) != keccak256(abi.encodePacked(""))) {
             console.log(

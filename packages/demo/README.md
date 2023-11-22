@@ -40,10 +40,10 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 ### Specifications
 
 - [Introduction](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md)
+- [TODO(md): Merkle tree encoding](TODO(md))
 - [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md)
 - [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy-factory.md)
 - [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/managed-service.md)
-- [TODO(md): Merkle tree encoding](TODO(md))
 
 ## Current limitations
 

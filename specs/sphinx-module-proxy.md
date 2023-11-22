@@ -1,6 +1,8 @@
 # `SphinxModuleProxy` Contract Specification
 
-The `SphinxModuleProxy` executes deployments in a Gnosis Safe and verifies that the deployments have
+> This document assumes that you have read the [Sphinx Merkle Tree specification](TODO(end)). Please read it before continuing.
+
+The `SphinxModuleProxy` submits transactions in a Gnosis Safe and verifies that the transactions have
 been approved by the Gnosis Safe owners. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
 
 A `SphinxModuleProxy` is a minimal, non-upgradeable
@@ -34,7 +36,6 @@ through it.
 - The implementation contract: [`SphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol)
 - Unit tests: [`SphinxModuleProxy.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol)
 - Key data structures: [`SphinxDataTypes.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol)
-- Sphinx Merkle Tree Specification: [`merkle-tree.md``](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/merkle-tree.md)
 
 _Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Clones.sol) for deploying EIP-1167 proxies.
 
@@ -52,43 +53,46 @@ Since a Merkle root can contain deployments across an arbitrary number of chains
 
 ## Deployment Process
 
-There can only be one active Merkle root (i.e. active deployment) in a `SphinxModuleProxy` contract at a time. A Merkle root will always exist in one of the five following states:
+There can only be one active Merkle root in a `SphinxModuleProxy` contract at a time. A Merkle root will always exist in one of the five following states:
 
-1. **Empty**: The Merkle root has not been approved.
-2. **Approved**: The Merkle root has been approved by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
-3. **Canceled**: An active Merkle root that has been canceled by the Gnosis Safe owners. Canceled Merkle roots can never be re-approved or executed.
+1. **Empty**: The Merkle root has not been used in the `SphinxModuleProxy` before.
+2. **Approved**: The Merkle root has been signed by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
+3. **Canceled**: A Merkle root that was previously active, but has been canceled by the Gnosis Safe owners. Canceled Merkle roots can never be re-approved or executed.
 4. **Failed**: A Merkle root will fail if one of the transactions reverts in the Gnosis Safe _and_ the transaction must succeed (i.e. `requireSuccess == true`). Failed Merkle roots can never be re-approved or executed.
 5. **Completed**: A Merkle root is considered complete after all of the Merkle leaves have been executed on the target chain. Completed Merkle roots can never be re-approved or executed.
 
-We've included a flow chart that explains the deployment process in more detail:
+We've included a flow chart that highlights the deployment process:
 
 ```mermaid
 graph TD
     style C fill:#cccc66,stroke:#cccc00,stroke-width:2px,color:black
     style B fill:#66cc66,stroke:#00cc00,stroke-width:2px,color:black
     style F fill:#cc6666,stroke:#cc0000,stroke-width:2px,color:black
-    style I fill:#6699cc,stroke:#336699,stroke-width:2px,color:black
-    Z["approve(...)"] --> H[Is there an existing deployment?]
-    H -->|Yes| I[Cancel existing deployment]
-    H -->|No| A[Is there one leaf in the new Merkle tree for the current chain?]
-    I -->A
+    style K fill:#6699cc,stroke:#336699,stroke-width:2px,color:black
+    Z["approve(...)"] --> A[Is there one leaf in the new Merkle tree for the current chain?]
     A -->|Yes| B[Completed]
     A -->|No| C[Approved]
     C --> D["execute(...)"]
-    D --> E[Did the Gnosis Safe transaction fail?]
+    D --> L[Was the Merkle root canceled?]
+    L -->|Yes| M[Revert]
+    L -->|No| N[Execute transaction in the Gnosis Safe]
+    N --> E[Did the transaction fail?]
     E -->|Yes| F[Failed]
     E -->|No| G[Are there any more leaves to execute for the current chain in this deployment?]
     G -->|Yes| D
     G -->|No| B
+    H["cancel(...)"] --> I[Is there an active Merkle root?]
+    I -->|No| J[Revert]
+    I -->|Yes| K[Canceled]
 ```
 
 ## High-Level Invariants
 
 - Each `SphinxModuleProxy` must only be able to execute transactions on one Gnosis Safe.
 - There must be at most one active Merkle root in a `SphinxModuleProxy` at a time.
-- Each leaf in a Merkle tree must be submitted exactly once on its target chain.
+- Each leaf in a Merkle tree must be submitted exactly once on its target chain in order for the Merkle root to be considered "complete" on that chain.
 - The leaves in a Merkle tree must be submitted in ascending order on each chain according to the leaf's index.
-- The Gnosis Safe owners must be able to cancel an active Merkle root in the `SphinxModuleProxy`.
+- On a given network, a Merkle root can either contain a single `CANCEL` leaf _or_ a single `APPROVE` leaf optionally followed by `EXECUTE` leaves.
 - The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](#function-_getleafhashsphinxleaf-memory-_leaf-internal-pure-returns-bytes32).
 - It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy`.[^2]
@@ -106,8 +110,9 @@ graph TD
 #### `function approve(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) public`
 
 - Must revert if the `SphinxModuleProxy` calls this function, either directly or indirectly (i.e. re-entrancy is not allowed).
+- Must revert if there is an active Merkle root in the `SphinxModuleProxy`.
 - Must revert if the input Merkle root is `bytes32(0)`.
-- Must revert if the Merkle root has ever been approved before.
+- Must revert if the input Merkle root has been used before (i.e. its `status` must be `EMPTY`).
 - Must revert if the input Merkle leaf does not yield the input Merkle root, given the input Merkle proof.
 - Must revert if the Merkle leaf's type does not equal `APPROVE`.
 - Must revert if the Merkle leaf's index does not equal `0`.
@@ -122,19 +127,41 @@ graph TD
     - Rationale: This is just a convention. When `arbitraryChain` is `true`, the leaf's chain ID must be `0`.
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
-  - Emit a `SphinxDeploymentApproved` event in the `SphinxModuleProxy`.
+  - Emit a `SphinxMerkleRootApproved` event in the `SphinxModuleProxy`.
   - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L41-L70).
   - Increment the Merkle root nonce in the `SphinxModuleProxy`.
-- If there is an existing active Merkle root in the `SphinxModuleProxy`, a successful call must also:
-  - Set the `MerkleRootStatus` of the _existing_ Merkle root to `CANCELED`.
-  - Emit a `SphinxDeploymentCanceled` event in the `SphinxModuleProxy` using the _existing_ Merkle root.
 - If there is a single leaf in the Merkle tree for the current chain, a successful call must also:
   - Set the `MerkleRootStatus` of the input Merkle root to be `COMPLETED`.
   - Remove the active Merkle root, preventing it from being approved in the future.
-  - Emit a `SphinxDeploymentCompleted` event in the `SphinxModuleProxy` using the input Merkle root.
+  - Emit a `SphinxMerkleRootCompleted` event in the `SphinxModuleProxy` using the input Merkle root.
 - If there is more than one leaf in the Merkle tree for the current chain, a successful call must also:
   - Set the `MerkleRootStatus` of the input Merkle root to be `APPROVED`.
   - Set the active Merkle root equal to the input Merkle root.
+
+#### `function cancel(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) external`
+
+- Must revert if the `SphinxModuleProxy` calls this function, either directly or indirectly (i.e. re-entrancy is not allowed).
+- Must revert if there is no active Merkle root in the `SphinxModuleProxy`.
+- Must revert if the input Merkle root is `bytes32(0)`.
+- Must revert if the input Merkle root has been used before (i.e. its `status` must be `EMPTY`).
+- Must revert if the input Merkle leaf does not yield the input Merkle root, given the input Merkle proof.
+- Must revert if the input Merkle leaf's type does not equal `CANCEL`.
+- Must revert if the input Merkle leaf's index does not equal `0`.
+- The following conditions apply to the ABI decoded Merkle leaf data:
+  - Must revert if the leaf data contains a Gnosis Safe address that does not equal the Gnosis Safe address in the `SphinxModuleProxy`.
+  - Must revert if the leaf data contains a `SphinxModuleProxy` address that does not equal the current contract's address (i.e. `address(this)`).
+  - Must revert if the leaf data contains a Merkle root nonce that does not equal the current Merkle root nonce in the `SphinxModuleProxy`.
+  - Must revert if the Merkle root to cancel does not equal the active Merkle root in the `SphinxModuleProxy`.
+  - Must revert if the leaf data contains an `executor` field that does not equal the caller's address.
+  - Must revert if the leaf data contains a `chainId` field that does not match the current chain ID.
+- Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
+- A successful call must:
+  - Set the active Merkle root's status to `CANCELED`.
+  - Emit a `SphinxMerkleRootCanceled` event.
+  - Set the active Merkle root to `bytes32(0)`.
+  - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L41-L70) for the input Merkle root.
+  - Increment the Merkle root nonce in the `SphinxModuleProxy`.
+  - Emit a `SphinxMerkleRootCompleted` event.
 
 #### `function execute(SphinxLeafWithProof[] memory _leavesWithProofs) public returns (MerkleRootStatus)`
 
@@ -155,7 +182,7 @@ graph TD
     - Increment the number of leaves executed for the active Merkle root by `1`.
     - Attempt to execute a transaction in the user's Gnosis Safe using the data in the current Merkle leaf.
     - The call to the user's Gnosis Safe must never revert.
-      - Rationale: This would cause the user's deployment to be active indefinitely until they manually cancel it.
+      - Rationale: This would cause the Merkle root to be active indefinitely until they manually cancel it.
       - Assumptions:
         - The user-supplied `gas` amount is low enough to execute on the current network (e.g. it's not greater than the current block gas limit).
         - The account at the Gnosis Safe's address is one of the [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions).
@@ -164,13 +191,13 @@ graph TD
     - If the call to the Gnosis Safe is unsuccessful for any reason:
       - Must emit a `SphinxActionFailed` event in the `SphinxModuleProxy`.
     - If the call to the Gnosis Safe is unsuccessful for any reason _and_ the current leaf requires a success:
-      - Must emit a `SphinxDeploymentFailed` event in the `SphinxModuleProxy`.
+      - Must emit a `SphinxMerkleRootFailed` event in the `SphinxModuleProxy`.
       - Must set the active Merkle root's `MerkleRootStatus` equal to `FAILED`.
       - Must remove the active Merkle root, preventing it from being approved in the future.
       - Must exit the `execute` function immediately, returning a `MerkleRootStatus` equal to `FAILED`.
 - If there are no more leaves to execute for the active Merkle root:
   - Must set the active Merkle root's `MerkleRootStatus` equal to `COMPLETED`.
-  - Must emit a `SphinxDeploymentCompleted` event in the `SphinxModuleProxy` using the active Merkle root.
+  - Must emit a `SphinxMerkleRootCompleted` event in the `SphinxModuleProxy` using the active Merkle root.
   - Must remove the active Merkle root, preventing it from being approved in the future.
   - Must return a `MerkleRootStatus` equal to `COMPLETED`.
 - If there are more leaves to execute for the active Merkle root:
@@ -186,7 +213,7 @@ graph TD
 ### Buggy Executor
 
 A buggy executor can:
-* Wait an arbitrary amount of time to approve or execute a deployment that has been signed by the Gnosis Safe owners.
+* Wait an arbitrary amount of time to approve or execute a Merkle root that has been signed by the Gnosis Safe owners.
   * Remedy: The Gnosis Safe owners can cancel the deployment at any time.
 * Partially execute a deployment.
   * Remedy: Users can batch critical actions into a single call using [`Multicall`](https://github.com/mds1/multicall) or Gnosis Safe's [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol). If a deployment stalls, the executor will either execute the batched call or not.

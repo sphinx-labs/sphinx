@@ -86,8 +86,8 @@ interface ISphinxModule {
 
     /**
      * @notice The Merkle root that is currently active. This means that it has been signed
-     *         off-chain by the Gnosis Safe owner(s) and approved on-chain. This is `bytes32(0)` if there
-     *         is no active Merkle root.
+     *         off-chain by the Gnosis Safe owner(s) and approved on-chain. This is `bytes32(0)` if
+     *         there is no active Merkle root.
      */
     function activeMerkleRoot() external view returns (bytes32);
 

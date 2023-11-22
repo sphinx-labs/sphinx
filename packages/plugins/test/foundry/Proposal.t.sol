@@ -99,7 +99,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
             address executor,
             MerkleRootStatus status,
             bool arbitraryChain
-        ) = module.deployments(_activeRoot);
+        ) = module.merkleRootStates(_activeRoot);
         assertEq(uint8(status), uint8(MerkleRootStatus.COMPLETED), "status is not COMPLETED");
         assertEq(numLeaves, _expectedNumLeaves, "numLeaves is incorrect");
         assertEq(leavesExecuted, numLeaves, "leavesExecuted is incorrect");

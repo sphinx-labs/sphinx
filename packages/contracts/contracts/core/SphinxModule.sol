@@ -20,8 +20,8 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
 /**
  * @title SphinxModule
  * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
- *         verifies that the Gnosis Safe owners have approved the Merkle root that contains
- *         the deployment.
+ *         verifies that the Gnosis Safe owners have signed the Merkle root that contains
+ *         the deployment. It also contains logic for cancelling active Merkle roots.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
@@ -173,25 +173,6 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule {
         GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
     }
 
-    // TODO(spec):
-    // - it's technically not necessary to check that the Gnosis Safe owners have signed a Merkle
-    //   root in the `approve` function if we already checked that it was signed in the `cancel`
-    //   function. We do it anyways to reduce the complexity of the `approve` function.
-    // - "Also I removed the leaf types and tree architecture sections from the SphinxModuleProxy
-    //   spec and introduction respectively. I added in brief references to the merkle tree spec,
-    //   but we might want to add in more specific references to it"
-    // - Answer: "Why can't a `cancel` leaf and an `approve`/`execute` leaf occur on the same chain
-    //   in the same Merkle tree"?
-
-    // TODO: deploymentUri -> uri
-
-    // TODO:
-    // - we may want to include a definition for the word _deployment_ in the spec, or perhaps scrap
-    //   it altogether in the module contract and spec. i.e. is a Merkle root with a single `cancel`
-    //   leaf a "deployment"? what about a single `approve` leaf?
-    // - Natspec docs in ISphinxModule
-    // - Inline docs
-    // - update docs in the `approve` function.
     /**
      * @inheritdoc ISphinxModule
      */
