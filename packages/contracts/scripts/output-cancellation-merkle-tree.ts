@@ -34,6 +34,7 @@ const forceCancellationLeafIndexNonZero = argv[9] === 'true'
 
   const deploymentData: DeploymentData = {
     [chainId]: {
+      type: 'cancellation',
       nonce,
       executor,
       safeProxy,

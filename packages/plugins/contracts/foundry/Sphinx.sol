@@ -277,7 +277,7 @@ abstract contract Sphinx {
                 sphinxUtils.findMaxBatchSize(sphinxUtils.inefficientSlice(_leaves, executed, _leaves.length), maxGasLimit);
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(_leaves, executed, executed + batchSize);
 
-            MerkleRootStatus status = ISphinxModule(_module).execute{gas: maxGasLimit}(batch);
+            ISphinxModule(_module).execute{gas: maxGasLimit}(batch);
             // TODO - do something with the status
 
             // Move to next batch if necessary

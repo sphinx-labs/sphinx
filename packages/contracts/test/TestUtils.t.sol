@@ -276,12 +276,7 @@ contract TestUtils is SphinxUtils, Enum {
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory cancellationLeafWithProof = tree.leaves[0];
         bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
-        return
-            CancellationModuleInputs(
-                merkleRoot,
-                cancellationLeafWithProof,
-                ownerSignatures
-            );
+        return CancellationModuleInputs(merkleRoot, cancellationLeafWithProof, ownerSignatures);
     }
 
     function deployGnosisSafeContracts_1_3_0() public returns (GnosisSafeContracts_1_3_0 memory) {

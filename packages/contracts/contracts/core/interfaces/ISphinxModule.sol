@@ -159,12 +159,8 @@ interface ISphinxModule {
      *         which must have been approved by the Gnosis Safe owners in the `approve` function.
      *
      * @param _leavesWithProofs An array of `EXECUTE` Merkle leaves, along with their Merkle proofs.
-     *
-     * @return The status of the Merkle root at the end of this call.
      */
-    function execute(
-        SphinxLeafWithProof[] memory _leavesWithProofs
-    ) external returns (MerkleRootStatus);
+    function execute(SphinxLeafWithProof[] memory _leavesWithProofs) external;
 
     /**
      * @notice Initializes this contract. It's necessary to use an initializer function instead of a

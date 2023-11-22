@@ -2,9 +2,6 @@ import { argv } from 'process'
 
 import { ethers } from 'ethers'
 
-// TODO: change this and the solidity logic to be explicit about the fact that it's for deployment
-// data.
-
 import {
   DeploymentData,
   SphinxTransaction,
@@ -53,6 +50,7 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
 
   const deploymentData: DeploymentData = {
     [chainId]: {
+      type: 'deployment',
       nonce,
       executor,
       safeProxy,

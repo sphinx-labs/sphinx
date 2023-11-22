@@ -112,7 +112,7 @@ struct DeploymentInfo {
     address executorAddress;
     uint256 nonce;
     uint256 chainId;
-    bytes   safeInitData;
+    bytes safeInitData;
     uint256 safeInitSaltNonce;
     bool requireSuccess;
     SphinxConfig newConfig;

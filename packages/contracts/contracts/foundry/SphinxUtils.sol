@@ -21,9 +21,7 @@ import {
     Label
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
-import {
-    IGnosisSafeProxyFactory
-} from "./interfaces/IGnosisSafeProxyFactory.sol";
+import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
@@ -224,7 +222,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     )
         public
         pure
-        returns (address to, uint256 value, uint256 gas, bytes memory uri, uint256 operation, bool requireSuccess)
+        returns (
+            address to,
+            uint256 value,
+            uint256 gas,
+            bytes memory uri,
+            uint256 operation,
+            bool requireSuccess
+        )
     {
         return abi.decode(leaf.data, (address, uint256, uint256, bytes, uint256, bool));
     }
@@ -896,7 +901,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         bytes memory safeInitializerData = fetchSafeInitializerData(sortedOwners, _threshold);
         uint safeSaltNonce = fetchSafeSaltNonce(_projectName);
         bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), safeSaltNonce));
-        bytes memory deploymentData = abi.encodePacked(safeProxyBytecode, uint256(uint160(safeSingletonAddress)));
+        bytes memory deploymentData = abi.encodePacked(
+            safeProxyBytecode,
+            uint256(uint160(safeSingletonAddress))
+        );
         address addr = computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
         return addr;
     }
@@ -909,7 +917,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold, _projectName);
         bytes32 saltNonce = bytes32(0);
         bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, saltNonce));
-        address addr = Clones.predictDeterministicAddress(sphinxModuleImplAddress, salt, sphinxModuleProxyFactoryAddress);
+        address addr = Clones.predictDeterministicAddress(
+            sphinxModuleImplAddress,
+            salt,
+            sphinxModuleProxyFactoryAddress
+        );
         return addr;
     }
 
@@ -921,7 +933,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint _threshold
     ) public view returns (bytes memory safeInitializerData) {
-        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(sphinxModuleProxyFactoryAddress);
+        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
+            sphinxModuleProxyFactoryAddress
+        );
         bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             bytes32(0)
@@ -964,11 +978,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function sphinxModuleProxyFactoryDeploy(address[] memory _owners, uint _threshold, string memory _projectName) external returns (address) {
+    function sphinxModuleProxyFactoryDeploy(
+        address[] memory _owners,
+        uint _threshold,
+        string memory _projectName
+    ) external returns (address) {
         bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
 
         IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
-        return address(safeProxyFactory.createProxyWithNonce(safeSingletonAddress, safeInitializerData, fetchSafeSaltNonce(_projectName)));
+        return
+            address(
+                safeProxyFactory.createProxyWithNonce(
+                    safeSingletonAddress,
+                    safeInitializerData,
+                    fetchSafeSaltNonce(_projectName)
+                )
+            );
     }
 
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
@@ -1016,7 +1041,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[3] = vm.toString(
             abi.encodePacked(
                 IGnosisSafeProxyFactory.createProxyWithNonce.selector,
-                abi.encode(safeSingletonAddress, safeInitializerData, fetchSafeSaltNonce(_projectName))
+                abi.encode(
+                    safeSingletonAddress,
+                    safeInitializerData,
+                    fetchSafeSaltNonce(_projectName)
+                )
             )
         );
         inputs[4] = "--rpc-url";

@@ -15,7 +15,7 @@
     "build": "forge clean && forge build --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
-    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",
     "test:coverage": "yarn test",
     "test": "yarn test:solc && yarn test:ts &&forge test",
     "test:ts": "npx mocha --require ts-node/register --timeout 500000 'test/mocha/**/*.ts'",

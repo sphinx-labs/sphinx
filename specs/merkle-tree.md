@@ -57,7 +57,7 @@ You'll notice that each Merkle leaf has an index. On any given chain, the Merkle
 
 ### Merkle Leaf Types
 
-On-chain, both leaf types are represented as a [`SphinxLeaf`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L17-L30). Each leaf in the Merkle tree contains the following fields:
+On-chain, both leaf types are represented as a [`SphinxLeaf`](TODO(end)). Each leaf in the Merkle tree contains the following fields:
 * `uint256 chainId`: The target chain id
 * `uint256 index`: The index of the leaf
 * `SphinxLeafType leafType`: The type of the leaf, either `APPROVE`, `EXECUTE`, or `CANCEL`.

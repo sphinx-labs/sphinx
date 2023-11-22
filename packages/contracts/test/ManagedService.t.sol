@@ -44,7 +44,7 @@ contract ManagedService_Test is Test, ManagedService {
     address invalidSender = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
     bytes invalidCallerError = "ManagedService: invalid caller";
 
-    constructor () ManagedService(address(1)) {}
+    constructor() ManagedService(address(1)) {}
 
     function setUp() public {
         vm.startPrank(owner);

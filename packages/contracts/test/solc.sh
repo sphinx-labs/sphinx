@@ -8,7 +8,7 @@ set -e
 # Without this, it'd be possible for us to accidentally write contracts that don't compile with this
 # Solidity version. We don't compile with the earliest version by default because we use certain
 # features in our test suite that are only available in newer versions of Solidity.
-forge build --use '0.8.2' --deny-warnings --contracts contracts/core --skip test --skip script
+forge build --use '0.8.2' --contracts contracts/core --skip test --skip script
 
 # Compile the core contracts with and without the optimizer. This ensures that we don't release
 # contracts that lead to a "Stack too deep" error. In rare situations, it's possible for this error
