@@ -1,7 +1,8 @@
 import { expect } from 'chai'
 import { ethers } from 'ethers'
+import { recursivelyConvertResult } from '@sphinx-labs/contracts'
 
-import { arraysEqual, equal, recursivelyConvertResult } from '../src/utils'
+import { arraysEqual, equal } from '../src/utils'
 
 describe('Utils', () => {
   describe('equal', () => {

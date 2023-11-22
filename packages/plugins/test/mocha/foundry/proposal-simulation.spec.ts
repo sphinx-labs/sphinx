@@ -32,7 +32,6 @@ const mockPrompt = async (q: string) => {}
 const scriptPath = 'test/foundry/Proposal.t.sol'
 const isTestnet = true
 
-const proposerAddress = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65'
 const sphinxConfig: SphinxConfig = {
   projectName: 'Multisig project',
   // Accounts #0-3 on Anvil
@@ -42,8 +41,6 @@ const sphinxConfig: SphinxConfig = {
     '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
     '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
   ],
-  // Account #4 on Anvil
-  proposers: [proposerAddress],
   threshold: '3',
   mainnets: [],
   testnets: ['goerli', 'optimism_goerli'],
