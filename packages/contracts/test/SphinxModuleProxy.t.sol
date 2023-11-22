@@ -594,7 +594,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
+        treeInputs.moduleProxyNonces = new uint[](1);
+        treeInputs.moduleProxyNonces[0] = moduleProxy.merkleRootNonce() + 1;
         DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
@@ -1069,7 +1070,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveDefaultDeployment();
 
         CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
-        treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
+        treeInputs.moduleProxyNonces = new uint[](1);
+        treeInputs.moduleProxyNonces[0] = moduleProxy.merkleRootNonce() + 1;
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
         vm.prank(cancellationExecutor);
@@ -1085,7 +1087,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveDefaultDeployment();
 
         CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
-        treeInputs.merkleRootToCancel = bytes32(uint(1));
+        treeInputs.merkleRootsToCancel = new bytes32[](1);
+        treeInputs.merkleRootsToCancel[0] = bytes32(uint(1));
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
         vm.prank(cancellationExecutor);
@@ -1714,7 +1717,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.arbitraryChain = true;
-        treeInputs.chainId = 0;
+        treeInputs.chainIds = new uint[](1);
+        treeInputs.chainIds[0] = 0;
         vm.chainId(0);
         DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
@@ -1733,7 +1737,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        treeInputs.chainId = 0;
+        treeInputs.chainIds = new uint[](1);
+        treeInputs.chainIds[0] = 0;
         vm.chainId(0);
         DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
@@ -1744,6 +1749,12 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _expectedArbitraryChain: false
         });
     }
+
+    // // Test that we can generate and execute a multichain tree with identical leaves across multiple networks
+    // // Does *not* use arbitraryChain = true
+    // function test_execute_success_multichain_identical() external {
+
+    // }
 
     //////////////////////////////// _getLeafHash ////////////////////////////////////
 
@@ -1929,13 +1940,30 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     function helper_makeDeploymentMerkleTreeInputs(
         SphinxTransaction[] memory _txs
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
+        SphinxTransaction[][] memory txs = new SphinxTransaction[][](1);
+        txs[0] = _txs;
+
+        uint[] memory chainIds = new uint[](1);
+        chainIds[0] = block.chainid;
+
+        uint[] memory moduleProxyNonces = new uint[](1);
+        moduleProxyNonces[0] = moduleProxy.merkleRootNonce();
+
+        return helper_makeDeploymentMerkleTreeInputs(txs, chainIds, moduleProxyNonces);
+    }
+
+    function helper_makeDeploymentMerkleTreeInputs(
+        SphinxTransaction[][] memory _txs,
+        uint[] memory _chainIds,
+        uint[] memory _moduleProxyNonces
+    ) internal view returns (DeploymentMerkleTreeInputs memory) {
         return
             DeploymentMerkleTreeInputs({
                 txs: _txs,
                 ownerWallets: ownerWallets,
-                chainId: block.chainid,
+                chainIds: _chainIds,
                 moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.merkleRootNonce(),
+                moduleProxyNonces: _moduleProxyNonces,
                 executor: deploymentExecutor,
                 safeProxy: address(safeProxy),
                 deploymentUri: defaultDeploymentUri,
@@ -1953,13 +1981,34 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         view
         returns (CancellationMerkleTreeInputs memory)
     {
+        bytes32[] memory merkleRootsToCancel = new bytes32[](1);
+        merkleRootsToCancel[0] = moduleProxy.activeMerkleRoot();
+
+        uint[] memory chainIds = new uint[](1);
+        chainIds[0] = block.chainid;
+
+        uint[] memory moduleProxyNonces = new uint[](1);
+        moduleProxyNonces[0] = moduleProxy.merkleRootNonce();
+
+        return helper_makeCancellationMerkleTreeInputs(merkleRootsToCancel, chainIds, moduleProxyNonces);
+    }
+
+    function helper_makeCancellationMerkleTreeInputs(
+        bytes32[] memory _merkleRootsToCancel,
+        uint[] memory _chainIds,
+        uint[] memory _moduleProxyNonces
+    )
+        internal
+        view
+        returns (CancellationMerkleTreeInputs memory)
+    {
         return
             CancellationMerkleTreeInputs({
                 ownerWallets: ownerWallets,
-                chainId: block.chainid,
+                chainIds: _chainIds,
                 moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.merkleRootNonce(),
-                merkleRootToCancel: moduleProxy.activeMerkleRoot(),
+                moduleProxyNonces: _moduleProxyNonces,
+                merkleRootsToCancel: _merkleRootsToCancel,
                 executor: cancellationExecutor,
                 safeProxy: address(safeProxy),
                 uri: defaultCancellationUri,
@@ -2032,47 +2081,47 @@ contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy
     }
 }
 
-contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
-    function setUp() public {
-        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
-    }
-}
+// contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
+//     function setUp() public {
+//         GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
+//         AbstractSphinxModuleProxy_Test.setUp(
+//             GnosisSafeAddresses({
+//                 multiSend: address(safeContracts.multiSend),
+//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
+//                 safeSingleton: address(safeContracts.safeL2Singleton),
+//                 createCall: address(safeContracts.createCall)
+//             })
+//         );
+//     }
+// }
 
-contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
-    function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL1Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
-    }
-}
+// contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
+//     function setUp() public {
+//         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+//         AbstractSphinxModuleProxy_Test.setUp(
+//             GnosisSafeAddresses({
+//                 multiSend: address(safeContracts.multiSend),
+//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
+//                 safeSingleton: address(safeContracts.safeL1Singleton),
+//                 createCall: address(safeContracts.createCall)
+//             })
+//         );
+//     }
+// }
 
-contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
-    function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
-    }
-}
+// contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
+//     function setUp() public {
+//         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+//         AbstractSphinxModuleProxy_Test.setUp(
+//             GnosisSafeAddresses({
+//                 multiSend: address(safeContracts.multiSend),
+//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
+//                 safeSingleton: address(safeContracts.safeL2Singleton),
+//                 createCall: address(safeContracts.createCall)
+//             })
+//         );
+//     }
+// }

@@ -66,6 +66,7 @@ import {
 } from "@gnosis.pm/safe-contracts-1.4.1/libraries/SignMessageLib.sol";
 import { SafeL2 as SafeL2_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/SafeL2.sol";
 import { Safe as Safe_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/Safe.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 contract TestUtils is SphinxUtils, Enum {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -147,6 +148,22 @@ contract TestUtils is SphinxUtils, Enum {
         return packBytes(signatures);
     }
 
+    function toChainIdString(uint256[] memory chainIds) internal returns (string memory) {
+        string memory chainIdString = vm.toString(chainIds[0]);
+        for (uint i = 1; i < chainIds.length; i++) {
+            chainIdString = string(bytes.concat(bytes(chainIdString), ",", bytes(vm.toString(chainIds[i]))));
+        }
+        return chainIdString;
+    }
+
+    function printCommand(string[] memory inputs) internal {
+        string memory command = inputs[0];
+        for (uint i = 1; i < inputs.length; i++) {
+            command = string(bytes.concat(bytes(command), " ", bytes(inputs[i])));
+        }
+        console.log(command);
+    }
+
     function getDeploymentMerkleTreeFFI(
         DeploymentMerkleTreeInputs memory _treeInputs
     ) public returns (SphinxMerkleTree memory) {
@@ -154,8 +171,8 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-deployment-merkle-tree.ts";
-        inputs[3] = vm.toString(_treeInputs.chainId);
-        inputs[4] = vm.toString(_treeInputs.nonceInModuleProxy);
+        inputs[3] = vm.toString(abi.encode(_treeInputs.chainIds));
+        inputs[4] = vm.toString(abi.encode(_treeInputs.moduleProxyNonces));
         inputs[5] = vm.toString(_treeInputs.executor);
         inputs[6] = vm.toString(_treeInputs.safeProxy);
         inputs[7] = vm.toString(address(_treeInputs.moduleProxy));
@@ -168,6 +185,7 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[14] = vm.toString(_treeInputs.forceExecutionLeavesChainIdNonZero);
         inputs[15] = vm.toString(_treeInputs.forceApprovalLeafChainIdNonZero);
         inputs[16] = "--swc"; // Speeds up ts-node considerably
+
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -182,15 +200,16 @@ contract TestUtils is SphinxUtils, Enum {
         inputs[0] = "npx";
         inputs[1] = "ts-node";
         inputs[2] = "scripts/output-cancellation-merkle-tree.ts";
-        inputs[3] = vm.toString(_treeInputs.chainId);
-        inputs[4] = vm.toString(_treeInputs.nonceInModuleProxy);
+        inputs[3] = vm.toString(abi.encode(_treeInputs.chainIds));
+        inputs[4] = vm.toString(abi.encode(_treeInputs.moduleProxyNonces));
         inputs[5] = vm.toString(_treeInputs.executor);
         inputs[6] = vm.toString(_treeInputs.safeProxy);
         inputs[7] = vm.toString(address(_treeInputs.moduleProxy));
         inputs[8] = _treeInputs.uri;
-        inputs[9] = vm.toString(abi.encode(_treeInputs.merkleRootToCancel));
+        inputs[9] = vm.toString(abi.encode(_treeInputs.merkleRootsToCancel));
         inputs[10] = vm.toString(_treeInputs.forceCancellationLeafIndexNonZero);
         inputs[11] = "--swc"; // Speeds up ts-node considerably
+
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) {
             revert(string(result.stderr));
@@ -201,10 +220,10 @@ contract TestUtils is SphinxUtils, Enum {
     // TODO: mv
     struct CancellationMerkleTreeInputs {
         Wallet[] ownerWallets;
-        uint256 chainId;
+        uint256[] chainIds;
         SphinxModule moduleProxy;
-        uint256 nonceInModuleProxy;
-        bytes32 merkleRootToCancel;
+        uint256[] moduleProxyNonces;
+        bytes32[] merkleRootsToCancel;
         address executor;
         address safeProxy;
         string uri;
@@ -213,11 +232,11 @@ contract TestUtils is SphinxUtils, Enum {
 
     // TODO: mv
     struct DeploymentMerkleTreeInputs {
-        SphinxTransaction[] txs;
+        SphinxTransaction[][] txs;
         Wallet[] ownerWallets;
-        uint256 chainId;
+        uint256[] chainIds;
         SphinxModule moduleProxy;
-        uint256 nonceInModuleProxy;
+        uint256[] moduleProxyNonces;
         address executor;
         address safeProxy;
         string deploymentUri;
@@ -320,5 +339,5 @@ contract TestUtils is SphinxUtils, Enum {
     // TODO(docs)
     function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
 
-    function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) {}
+    function sphinxTransactionArrayType() external returns (SphinxTransaction[][] memory) {}
 }
