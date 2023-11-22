@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {SimpleStorage} from "./SimpleStorage.sol";
+import { SimpleStorage } from "./SimpleStorage.sol";
 
 library Types {
     enum TestEnum {
