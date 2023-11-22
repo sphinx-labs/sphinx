@@ -31,7 +31,6 @@ jobs:
             - packages/contracts/node_modules
             - packages/core/node_modules
             - packages/demo/node_modules
-            - packages/executor/node_modules
             - packages/plugins/node_modules
       - run:
           name: Build monorepo
@@ -90,10 +89,6 @@ jobs:
           command: npx depcheck
           working_directory: packages/demo
       - run:
-          name: Check executor
-          command: npx depcheck
-          working_directory: packages/executor
-      - run:
           name: Check plugins
           command: npx depcheck
           working_directory: packages/plugins
@@ -117,12 +112,6 @@ workflows:
           name: demo-tests
           package_name: demo
           dependencies: "(core|contracts|plugins)"
-          requires:
-            - yarn-monorepo
-      - js-lint-test:
-          name: executor-tests
-          package_name: executor
-          dependencies: "(core|contracts)"
           requires:
             - yarn-monorepo
       - js-lint-test:
