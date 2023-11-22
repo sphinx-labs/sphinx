@@ -88,8 +88,8 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
 - Must revert if the input Gnosis Safe proxy is `address(0)`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
   - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
+  - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
   - Never succeed without successfully deploying the `SphinxModule` implementation.
   - Initialize the `SphinxModuleProxy` using the correct Gnosis Safe address.
   - Return the address of the `SphinxModuleProxy`.
@@ -99,8 +99,8 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
 
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
   - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the correct `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
+  - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
   - Initialize the `SphinxModuleProxy` using the _caller's address_ as the Gnosis Safe address.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy`s by calling this function multiple times.
 
