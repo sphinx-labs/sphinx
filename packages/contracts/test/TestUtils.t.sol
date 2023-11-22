@@ -118,7 +118,53 @@ contract TestUtils is SphinxUtils, Enum {
         SphinxLeafWithProof[] leaves;
     }
 
-    // TODO(docs): wallets must be sorted in ascending order according to their addresses.
+    struct CancellationMerkleTreeInputs {
+        Wallet[] ownerWallets;
+        uint256 chainId;
+        SphinxModule moduleProxy;
+        uint256 nonceInModuleProxy;
+        bytes32 merkleRootToCancel;
+        address executor;
+        address safeProxy;
+        string uri;
+        bool forceCancellationLeafIndexNonZero;
+    }
+
+    struct DeploymentMerkleTreeInputs {
+        SphinxTransaction[] txs;
+        Wallet[] ownerWallets;
+        uint256 chainId;
+        SphinxModule moduleProxy;
+        uint256 nonceInModuleProxy;
+        address executor;
+        address safeProxy;
+        string deploymentUri;
+        bool arbitraryChain;
+        bool forceNumLeavesValue;
+        uint256 overridingNumLeavesValue;
+        bool forceApprovalLeafIndexNonZero;
+        bool forceExecutionLeavesChainIdNonZero;
+        bool forceApprovalLeafChainIdNonZero;
+    }
+
+    struct CancellationModuleInputs {
+        bytes32 merkleRoot;
+        SphinxLeafWithProof cancellationLeafWithProof;
+        bytes ownerSignatures;
+    }
+
+    struct DeploymentModuleInputs {
+        bytes32 merkleRoot;
+        SphinxLeafWithProof approvalLeafWithProof;
+        SphinxLeafWithProof[] executionLeavesWithProofs;
+        bytes ownerSignatures;
+    }
+
+    /**
+     * @param _ownerWallets An array of `Wallet` structs for the Gnosis Safe owners. These
+     *                      must be sorted in ascending order according to the addresses of the
+     *                      owners.
+     */
     function signSafeTransaction(
         Wallet[] memory _ownerWallets,
         GnosisSafe_1_3_0 _safe,
@@ -198,52 +244,6 @@ contract TestUtils is SphinxUtils, Enum {
         return abi.decode(result.stdout, (SphinxMerkleTree));
     }
 
-    // TODO: mv
-    struct CancellationMerkleTreeInputs {
-        Wallet[] ownerWallets;
-        uint256 chainId;
-        SphinxModule moduleProxy;
-        uint256 nonceInModuleProxy;
-        bytes32 merkleRootToCancel;
-        address executor;
-        address safeProxy;
-        string uri;
-        bool forceCancellationLeafIndexNonZero;
-    }
-
-    // TODO: mv
-    struct DeploymentMerkleTreeInputs {
-        SphinxTransaction[] txs;
-        Wallet[] ownerWallets;
-        uint256 chainId;
-        SphinxModule moduleProxy;
-        uint256 nonceInModuleProxy;
-        address executor;
-        address safeProxy;
-        string deploymentUri;
-        bool arbitraryChain;
-        bool forceNumLeavesValue;
-        uint256 overridingNumLeavesValue;
-        bool forceApprovalLeafIndexNonZero;
-        bool forceExecutionLeavesChainIdNonZero;
-        bool forceApprovalLeafChainIdNonZero;
-    }
-
-    // TODO: mv
-    struct CancellationModuleInputs {
-        bytes32 merkleRoot;
-        SphinxLeafWithProof cancellationLeafWithProof;
-        bytes ownerSignatures;
-    }
-
-    // TODO: mv
-    struct DeploymentModuleInputs {
-        bytes32 merkleRoot;
-        SphinxLeafWithProof approvalLeafWithProof;
-        SphinxLeafWithProof[] executionLeavesWithProofs;
-        bytes ownerSignatures;
-    }
-
     function getDeploymentModuleInputs(
         DeploymentMerkleTreeInputs memory _treeInputs
     ) internal returns (DeploymentModuleInputs memory) {
@@ -316,8 +316,9 @@ contract TestUtils is SphinxUtils, Enum {
             });
     }
 
-    // TODO(docs)
+    // Used off-chain to get the ABI of the `SphinxMerkleTree` struct.
     function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
 
+    // Used off-chain to get the ABI of the `SphinxTransaction` struct.
     function sphinxTransactionArrayType() external returns (SphinxTransaction[] memory) {}
 }
