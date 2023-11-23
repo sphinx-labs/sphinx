@@ -11,20 +11,23 @@ import {
 import { recursivelyConvertResult } from '../src/utils'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
-const abiEncodedChainIds = argv[2]
-const abiEncodedNonces = argv[3]
-const executor = argv[4]
-const safeProxy = argv[5]
-const moduleProxy = argv[6]
-const uri = argv[7]
-const abiEncodedTxs = argv[8]
-const arbitraryChain = argv[9] === 'true'
-const forceNumLeavesValue = argv[10] === 'true'
-const overridingNumLeavesValue = argv[11]
-const forceApprovalLeafIndexNonZero = argv[12] === 'true'
-const forceExecutionLeavesChainIdNonZero = argv[13] === 'true'
-const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
+const abiEncodedNetworks = argv[2]
+const executor = argv[3]
+const safeProxy = argv[4]
+const moduleProxy = argv[5]
+const uri = argv[6]
+const arbitraryChain = argv[7] === 'true'
+const forceNumLeavesValue = argv[8] === 'true'
+const overridingNumLeavesValue = argv[9]
+const forceApprovalLeafIndexNonZero = argv[10] === 'true'
+const forceExecutionLeavesChainIdNonZero = argv[11] === 'true'
+const forceApprovalLeafChainIdNonZero = argv[12] === 'true'
 
+type NetworkDeploymentMerkleTreeInputs = {
+  chainId: bigint
+  txs: Array<SphinxTransaction>
+  moduleProxyNonce: bigint
+}
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
@@ -39,48 +42,41 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
     throw new Error('Missing type in ABI. Should never happen.')
   }
 
-  const txArrayResult = coder.decode(
+  const networkArrayResult = coder.decode(
     sphinxTransactionArrayType.outputs,
-    abiEncodedTxs
+    abiEncodedNetworks
   )
-  const [txArray] = recursivelyConvertResult(
+  const [networkArray] = recursivelyConvertResult(
     sphinxTransactionArrayType.outputs,
-    txArrayResult
-  ) as [Array<Array<SphinxTransaction>>]
-
-  const chainIdArray = coder
-    .decode(['uint[]'], abiEncodedChainIds)
-    .map((e) => e.toString()) as Array<string>
-
-  const nonceArray = coder
-    .decode(['uint[]'], abiEncodedNonces)
-    .map((e) => e.toString()) as Array<string>
+    networkArrayResult
+  ) as [Array<NetworkDeploymentMerkleTreeInputs>]
 
   const deploymentData: DeploymentData = {}
-  let chainIndex = 0
-  for (const chainId of chainIdArray) {
-    deploymentData[chainId] = {
+  for (const { chainId, moduleProxyNonce, txs } of networkArray) {
+    deploymentData[chainId.toString()] = {
       type: 'deployment',
-      nonce: nonceArray[chainIndex],
+      nonce: moduleProxyNonce.toString(),
       executor,
       safeProxy,
       moduleProxy,
       uri,
-      txs: txArray[chainIndex] !== undefined ? txArray[chainIndex] : [],
+      txs,
       arbitraryChain,
     }
-    chainIndex += 1
   }
 
   const leaves = makeSphinxLeaves(deploymentData)
 
   if (forceNumLeavesValue) {
+    if (networkArray.length !== 1) {
+      throw new Error(`TODO(docs). Should never happen.`)
+    }
     leaves[0].data = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
         safeProxy,
         moduleProxy,
-        nonceArray[0],
+        networkArray[0].moduleProxyNonce,
         overridingNumLeavesValue, // Override the `numLeaves`
         executor,
         uri,

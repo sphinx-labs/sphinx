@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// TODO: rm console.logs
+
 import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { StdStorage } from "sphinx-forge-std/StdStorage.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
@@ -43,6 +46,9 @@ import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.
  *         each type.
  */
 abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, SphinxModule {
+
+    using stdStorage for StdStorage;
+
     /**
      * @notice The addresses of several Gnosis Safe contracts that'll be used in this
      *         test suite.
@@ -68,6 +74,18 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     // Whether we expect a success or failure for each default transaction. There is one element in
     // this array for each element in `defaultTxs`.
     bool[] defaultExpectedSuccesses;
+    // TODO(docs)
+    uint256 defaultMyNum;
+
+    // TODO(docs): State variables for the multi-chain tests
+    uint256[] defaultChainIds = [1, 5, 10];
+    string[] rpcUrls = [
+        "http://127.0.0.1:42001",
+        "http://127.0.0.1:42005",
+        "http://127.0.0.1:42010"
+    ];
+    uint256[] expectedMyNumArray = [111, 222, 333];
+    uint256[] moduleProxyNonceArray = [10, 20, 30];
 
     Wallet[] ownerWallets;
     address[] owners;
@@ -85,9 +103,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     address deployedViaCreate2;
     address deployedViaCreate3;
 
-    function setUp(GnosisSafeAddresses memory _gnosisSafeAddresses) internal {
-        SphinxModuleProxyFactory moduleProxyFactory = new SphinxModuleProxyFactory();
+    // TODO(docs)
+    GnosisSafeAddresses gnosisSafeAddresses;
 
+    function setUp(GnosisSafeAddresses memory _gnosisSafeAddresses) internal {
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
         // We can't assign the wallets directly to the `owners` array because Solidity throws an
         // error if we try to assign a memory array to a storage array. So, instead, we have to
@@ -97,82 +116,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             owners.push(wallets[i].addr);
         }
 
-        // In a single transaction, we'll deploy the Gnosis Safe, deploy the `SphinxModuleProxy`,
-        // and enable the `SphinxModuleProxy` in the Gnosis Safe. We'll do this by encoding all of
-        // this information into the `initializer` data that'll be submitted to the Gnosis Safe
-        // Proxy Factory. Specifically, we'll use Gnosis Safe's `MultiSend` contract to execute
-        // two transactions on the `SphinxModuleProxyFactory`:
-        // 1. `deploySphinxModuleProxyFromSafe`
-        // 2. `enableSphinxModuleProxyFromSafe`
+        (safeProxy, moduleProxy) = initializeGnosisSafeWithModule();
 
-        // Create the first transaction, `SphinxModuleProxyFactory.deploySphinxModuleProxyFromSafe`.
-        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
-            // Use the zero-hash as the salt.
-            bytes32(0)
-        );
-        // Encode the first transaction data in a format that can be executed using `MultiSend`.
-        bytes memory firstMultiSendData = abi.encodePacked(
-            // We use `Call` so that the deployer of the `SphinxModuleProxy` is the
-            // `SphinxModuleProxyFactory`. This makes it easier for off-chain tooling to calculate
-            // the deployed `SphinxModuleProxy` address.
-            uint8(Operation.Call),
-            moduleProxyFactory,
-            uint256(0),
-            encodedDeployModuleCall.length,
-            encodedDeployModuleCall
-        );
-        // Create the second transaction,
-        // `SphinxModuleProxyFactory.enableSphinxModuleProxyFromSafe`.
-        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
-            // Use the zero-hash as the salt.
-            bytes32(0)
-        );
-        // Encode the second transaction data in a format that can be executed using `MultiSend`.
-        bytes memory secondMultiSendData = abi.encodePacked(
-            uint8(Operation.DelegateCall),
-            moduleProxyFactory,
-            uint256(0),
-            encodedEnableModuleCall.length,
-            encodedEnableModuleCall
-        );
-        // Encode the entire `MultiSend` data.
-        bytes memory multiSendData = abi.encodeWithSelector(
-            MultiSend.multiSend.selector,
-            abi.encodePacked(firstMultiSendData, secondMultiSendData)
-        );
-
-        // Encode the call to the Gnosis Safe's `setup` function, which we'll submit to the Gnosis
-        // Safe Proxy Factory. This data contains the `MultiSend` data that we created above.
-        bytes memory safeInitializerData = abi.encodePacked(
-            GnosisSafe.setup.selector,
-            abi.encode(
-                owners,
-                3, // Gnosis Safe owner threshold
-                _gnosisSafeAddresses.multiSend,
-                multiSendData,
-                _gnosisSafeAddresses.compatibilityFallbackHandler,
-                address(0),
-                0,
-                address(0)
-            )
-        );
-
-        // This is the transaction that deploys the Gnosis Safe, deploys the `SphinxModuleProxy`, and
-        // enables the `SphinxModuleProxy` in the Gnosis Safe.
-        GnosisSafeProxy deployedSafeProxy = GnosisSafeProxyFactory(
-            _gnosisSafeAddresses.safeProxyFactory
-        ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
-
-        safeProxy = payable(address(deployedSafeProxy));
-        moduleProxy = SphinxModule(
-            moduleProxyFactory.computeSphinxModuleProxyAddress(
-                address(safeProxy),
-                address(safeProxy),
-                0
-            )
-        );
         // Give the Gnosis Safe 2 ether
         vm.deal(address(safeProxy), 2 ether);
 
@@ -429,7 +374,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
 
         vm.prank(deploymentExecutor);
@@ -594,8 +540,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        treeInputs.moduleProxyNonces = new uint[](1);
-        treeInputs.moduleProxyNonces[0] = moduleProxy.merkleRootNonce() + 1;
+        treeInputs.networks[0].moduleProxyNonce = moduleProxy.merkleRootNonce() + 1;
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
@@ -702,7 +647,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        treeInputs.deploymentUri = "";
+        treeInputs.uri = "";
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approve({
             _moduleInputs: moduleInputs,
@@ -723,7 +668,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: firstModuleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
 
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
@@ -753,7 +699,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        delete treeInputs.txs;
+        delete treeInputs.networks[0].txs;
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         // Run some sanity checks before submitting the approval.
@@ -1004,7 +950,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // Remove the transactions in the new Merkle tree. This ensures that the new Merkle root is
         // different from the active Merkle root. If we don't do this, the `cancel` function will
         // revert early because we've already approved the Merkle root.
-        delete treeInputs.txs;
+        delete treeInputs.networks[0].txs;
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
@@ -1070,8 +1016,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveDefaultDeployment();
 
         CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
-        treeInputs.moduleProxyNonces = new uint[](1);
-        treeInputs.moduleProxyNonces[0] = moduleProxy.merkleRootNonce() + 1;
+        treeInputs.networks[0].moduleProxyNonce = moduleProxy.merkleRootNonce() + 1;
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
         vm.prank(cancellationExecutor);
@@ -1087,8 +1032,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveDefaultDeployment();
 
         CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
-        treeInputs.merkleRootsToCancel = new bytes32[](1);
-        treeInputs.merkleRootsToCancel[0] = bytes32(uint(1));
+        treeInputs.networks[0].merkleRootToCancel = bytes32(uint(1));
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
         vm.prank(cancellationExecutor);
@@ -1608,7 +1552,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1630,7 +1575,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_execute_oneByOne(moduleInputs);
 
-        helper_test_postExecution(moduleInputs);
+        helper_test_postExecution({
+            _moduleInputs: moduleInputs,
+            _expectedMyNum: defaultMyNum
+        });
     }
 
     function test_execute_success_oneExecutionLeaf() external {
@@ -1690,7 +1638,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: expectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1705,7 +1654,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: true
+            _expectedArbitraryChain: true,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1717,8 +1667,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             defaultTxs
         );
         treeInputs.arbitraryChain = true;
-        treeInputs.chainIds = new uint[](1);
-        treeInputs.chainIds[0] = 0;
+        treeInputs.networks[0].chainId = 0;
         vm.chainId(0);
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
@@ -1726,7 +1675,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: true
+            _expectedArbitraryChain: true,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1737,8 +1687,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
             defaultTxs
         );
-        treeInputs.chainIds = new uint[](1);
-        treeInputs.chainIds[0] = 0;
+        treeInputs.networks[0].chainId = 0;
         vm.chainId(0);
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         helper_test_approveThenExecuteBatch({
@@ -1746,33 +1695,118 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _moduleInputs: moduleInputs,
             _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
     }
 
-    //////////////////////////////// Multichain ////////////////////////////////////
+    //////////////////////////////// Multi-chain ////////////////////////////////////
 
-    // Test generating and executing a multichain tree with identical leaves across multiple networks
-    function test_multichain_execute_success_identical() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
-        treeInputs.chainIds = new uint[](1);
-        treeInputs.chainIds[0] = 0;
-        vm.chainId(0);
-        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
-        helper_test_approveThenExecuteBatch({
-            _txs: defaultTxs,
-            _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
-            _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
-        });
-    }
+    // This section tests that the TypeScript Merkle tree encoding logic works correctly for
+    // multi-chain deployments. This section does not test anything in the `SphinxModule` that isn't
+    // already covered by the other tests in this file.
 
-    // Test generating and executing a multichain tree across multiple networks with different leaves on each network
+    // Test executing a multichain tree with identical leaves across multiple networks
+    // function test_multichain_execute_success_identical() external {
+    //     uint256[] memory chainIds = [1, 5, 10];
+    //     string[] memory rpcUrls = [
+    //         "http://127.0.0.1:42001",
+    //         "http://127.0.0.1:42005",
+    //         "http://127.0.0.1:42010"
+    //     ];
+
+
+    //     DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
+    //         defaultTxs
+    //     );
+    //     treeInputs.networks[0].chainId = [1];
+    //     treeInputs.networks[1].chainId = [5];
+    //     treeInputs.networks[2].chainId = [10];
+    //     DeploymentModuleInputs[] memory moduleInputArray = getDeploymentModuleInputs(treeInputs);
+
+    //     // Sanity check that there's an element in the `moduleInputsArray` for each chain.
+    //     assertEq(moduleInputArray.length, 3);
+
+    //     // Test each chain.
+    //     for (uint256 i = 0; i < moduleInputsArray.length; i++) {
+    //         DeploymentModuleInputs memory moduleInputs = moduleInputArray[i];
+    //         vm.chainId(moduleInputs.chainId);
+    //         helper_test_approveThenExecuteBatch({
+    //             _txs: defaultTxs,
+    //             _moduleInputs: moduleInputs,
+    //             _expectedInitialActiveMerkleRoot: bytes32(0),
+    //             _expectedSuccesses: defaultExpectedSuccesses,
+    //             _expectedArbitraryChain: false
+    //         });
+    //     }
+    // }
+
+    // Test executing a multichain tree across multiple networks with different leaves on each network
     function test_multichain_execute_success_different() external {
-        // assertEq(1, 2);
+        GnosisSafeAddresses memory gnosisSafeAddressesInMemory = gnosisSafeAddresses;
+
+        NetworkDeploymentMerkleTreeInputs[] memory networks = new NetworkDeploymentMerkleTreeInputs[](3);
+        SphinxTransaction[][] memory txArray = new SphinxTransaction[][](3);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            txArray[i] = defaultTxs;
+            SphinxTransaction[] memory txs = txArray[i];
+            uint256 txDataArgument = expectedMyNumArray[i];
+            txs[0].txData = abi.encodePacked(myContract.setMyNum.selector, abi.encode(txDataArgument));
+
+            uint256 moduleProxyNonce = moduleProxyNonceArray[i];
+            uint256 chainId = defaultChainIds[i];
+            string memory rpcUrl = rpcUrls[i];
+            console.log(address(moduleProxy).code.length); // TODO: rm
+            vm.createSelectFork(rpcUrl);
+
+            console.log('a'); // TODO: rm
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+            console.log(address(moduleProxy).code.length); // TODO: rm
+            moduleProxy.merkleRootNonce(); // TODO(docs). TODO: rm?
+            stdstore
+                .target(address(moduleProxy))
+                .sig("merkleRootNonce()")
+                .checked_write(moduleProxyNonce);
+            assertEq(moduleProxy.merkleRootNonce(), moduleProxyNonce);
+            console.log('a'); // TODO: rm
+            console.log('a'); // TODO: rm
+        }
+
+        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
+            networks
+        );
+
+        // TODO: somewhere, check that the txData is different on each network. you may need to deep
+        // copy.
+
+        DeploymentModuleInputs[] memory moduleInputArray = getMultiChainDeploymentModuleInputs(treeInputs);
+
+        // Sanity check that there's an element in the `moduleInputsArray` for each chain.
+        assertEq(moduleInputArray.length, 3);
+
+        // Test each chain.
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            DeploymentModuleInputs memory moduleInputs = moduleInputArray[i];
+            SphinxTransaction[] memory txs = txArray[i];
+            string memory rpcUrl = rpcUrls[i];
+            uint256 chainId = defaultChainIds[i];
+            uint256 expectedMyNum = expectedMyNumArray[i];
+
+            vm.createSelectFork(rpcUrl);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            helper_test_approveThenExecuteBatch({
+                _txs: txs,
+                _moduleInputs: moduleInputs,
+                _expectedInitialActiveMerkleRoot: bytes32(0),
+                _expectedSuccesses: defaultExpectedSuccesses,
+                _expectedArbitraryChain: false,
+                _expectedMyNum: expectedMyNum
+            });
+        }
     }
 
     // Test cancelling the same root on multiple networks
@@ -1874,9 +1908,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentModuleInputs memory _moduleInputs,
         bool[] memory _expectedSuccesses,
         bytes32 _expectedInitialActiveMerkleRoot,
-        bool _expectedArbitraryChain
+        bool _expectedArbitraryChain,
+        uint256 _expectedMyNum
     ) internal {
-        // Sanity check
         assertEq(_txs.length, _expectedSuccesses.length);
 
         helper_test_preExecution();
@@ -1904,7 +1938,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         vm.prank(deploymentExecutor);
         moduleProxy.execute(_moduleInputs.executionLeavesWithProofs);
 
-        helper_test_postExecution(_moduleInputs);
+        helper_test_postExecution(_moduleInputs, _expectedMyNum);
     }
 
     function helper_test_preExecution() internal {
@@ -1917,7 +1951,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         assertEq(address(myContract).balance, 0);
     }
 
-    function helper_test_postExecution(DeploymentModuleInputs memory _moduleInputs) internal {
+    function helper_test_postExecution(DeploymentModuleInputs memory _moduleInputs, uint256 _expectedMyNum) internal {
         (
             ,
             ,
@@ -1949,7 +1983,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         assertEq(expectedArbitraryChain, arbitraryChain);
 
         // The first transaction sets the `myNum` variable in `MyContract`.
-        assertEq(myContract.myNum(), 123);
+        assertEq(myContract.myNum(), _expectedMyNum);
         // The second transaction just returned data, which we checked earlier.
         // The third transaction triggered a delegatecall in `MyDelegateCallContract`.
         assertTrue(myDelegateCallContract.wasDelegateCalled());
@@ -1974,33 +2008,27 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     function helper_makeDeploymentMerkleTreeInputs(
         SphinxTransaction[] memory _txs
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
-        SphinxTransaction[][] memory txs = new SphinxTransaction[][](1);
-        txs[0] = _txs;
+        NetworkDeploymentMerkleTreeInputs[] memory networkArray = new NetworkDeploymentMerkleTreeInputs[](1);
+        networkArray[0] = NetworkDeploymentMerkleTreeInputs({
+            chainId: block.chainid,
+            txs: _txs,
+            moduleProxyNonce: moduleProxy.merkleRootNonce()
+        });
 
-        uint[] memory chainIds = new uint[](1);
-        chainIds[0] = block.chainid;
-
-        uint[] memory moduleProxyNonces = new uint[](1);
-        moduleProxyNonces[0] = moduleProxy.merkleRootNonce();
-
-        return helper_makeDeploymentMerkleTreeInputs(txs, chainIds, moduleProxyNonces);
+        return helper_makeDeploymentMerkleTreeInputs(networkArray);
     }
 
     function helper_makeDeploymentMerkleTreeInputs(
-        SphinxTransaction[][] memory _txs,
-        uint[] memory _chainIds,
-        uint[] memory _moduleProxyNonces
+        NetworkDeploymentMerkleTreeInputs[] memory _networks
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
         return
             DeploymentMerkleTreeInputs({
-                txs: _txs,
+                networks: _networks,
                 ownerWallets: ownerWallets,
-                chainIds: _chainIds,
                 moduleProxy: moduleProxy,
-                moduleProxyNonces: _moduleProxyNonces,
                 executor: deploymentExecutor,
                 safeProxy: address(safeProxy),
-                deploymentUri: defaultDeploymentUri,
+                uri: defaultDeploymentUri,
                 arbitraryChain: false,
                 forceNumLeavesValue: false,
                 overridingNumLeavesValue: 0,
@@ -2015,22 +2043,18 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         view
         returns (CancellationMerkleTreeInputs memory)
     {
-        bytes32[] memory merkleRootsToCancel = new bytes32[](1);
-        merkleRootsToCancel[0] = moduleProxy.activeMerkleRoot();
+        NetworkCancellationMerkleTreeInputs[] memory networkArray = new NetworkCancellationMerkleTreeInputs[](1);
+        networkArray[0] = NetworkCancellationMerkleTreeInputs({
+            chainId: block.chainid,
+            merkleRootToCancel: moduleProxy.activeMerkleRoot(),
+            moduleProxyNonce: moduleProxy.merkleRootNonce()
+        });
 
-        uint[] memory chainIds = new uint[](1);
-        chainIds[0] = block.chainid;
-
-        uint[] memory moduleProxyNonces = new uint[](1);
-        moduleProxyNonces[0] = moduleProxy.merkleRootNonce();
-
-        return helper_makeCancellationMerkleTreeInputs(merkleRootsToCancel, chainIds, moduleProxyNonces);
+        return helper_makeCancellationMerkleTreeInputs(networkArray);
     }
 
     function helper_makeCancellationMerkleTreeInputs(
-        bytes32[] memory _merkleRootsToCancel,
-        uint[] memory _chainIds,
-        uint[] memory _moduleProxyNonces
+        NetworkCancellationMerkleTreeInputs[] memory _networks
     )
         internal
         view
@@ -2039,10 +2063,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         return
             CancellationMerkleTreeInputs({
                 ownerWallets: ownerWallets,
-                chainIds: _chainIds,
+                networks: _networks,
                 moduleProxy: moduleProxy,
-                moduleProxyNonces: _moduleProxyNonces,
-                merkleRootsToCancel: _merkleRootsToCancel,
                 executor: cancellationExecutor,
                 safeProxy: address(safeProxy),
                 uri: defaultCancellationUri,
@@ -2098,6 +2120,88 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     function assertEq(MerkleRootStatus a, MerkleRootStatus b) internal pure {
         require(uint256(a) == uint256(b), "MerkleRootStatus mismatch");
     }
+
+    // TODO(docs)
+    // In a single transaction, we'll deploy the Gnosis Safe, deploy the `SphinxModuleProxy`,
+    // and enable the `SphinxModuleProxy` in the Gnosis Safe. We'll do this by encoding all of
+    // this information into the `initializer` data that'll be submitted to the Gnosis Safe
+    // Proxy Factory. Specifically, we'll use Gnosis Safe's `MultiSend` contract to execute
+    // two transactions on the `SphinxModuleProxyFactory`:
+    // 1. `deploySphinxModuleProxyFromSafe`
+    // 2. `enableSphinxModuleProxyFromSafe`
+    function initializeGnosisSafeWithModule(SphinxModule) internal {
+        // Create the first transaction, `SphinxModuleProxyFactory.deploySphinxModuleProxyFromSafe`.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the first transaction data in a format that can be executed using `MultiSend`.
+        bytes memory firstMultiSendData = abi.encodePacked(
+            // We use `Call` so that the deployer of the `SphinxModuleProxy` is the
+            // `SphinxModuleProxyFactory`. This makes it easier for off-chain tooling to calculate
+            // the deployed `SphinxModuleProxy` address.
+            uint8(Operation.Call),
+            moduleProxyFactory,
+            uint256(0),
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+        // Create the second transaction,
+        // `SphinxModuleProxyFactory.enableSphinxModuleProxyFromSafe`.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the second transaction data in a format that can be executed using `MultiSend`.
+        bytes memory secondMultiSendData = abi.encodePacked(
+            uint8(Operation.DelegateCall),
+            moduleProxyFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+        // Encode the entire `MultiSend` data.
+        bytes memory multiSendData = abi.encodeWithSelector(
+            MultiSend.multiSend.selector,
+            abi.encodePacked(firstMultiSendData, secondMultiSendData)
+        );
+
+        // Encode the call to the Gnosis Safe's `setup` function, which we'll submit to the Gnosis
+        // Safe Proxy Factory. This data contains the `MultiSend` data that we created above.
+        bytes memory safeInitializerData = abi.encodePacked(
+            GnosisSafe.setup.selector,
+            abi.encode(
+                owners,
+                3, // Gnosis Safe owner threshold
+                _gnosisSafeAddresses.multiSend,
+                multiSendData,
+                _gnosisSafeAddresses.compatibilityFallbackHandler,
+                address(0),
+                0,
+                address(0)
+            )
+        );
+
+        // This is the transaction that deploys the Gnosis Safe, deploys the `SphinxModuleProxy`, and
+        // enables the `SphinxModuleProxy` in the Gnosis Safe.
+        GnosisSafeProxy deployedSafeProxy = GnosisSafeProxyFactory(
+            _gnosisSafeAddresses.safeProxyFactory
+        ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
+
+        // Return the Gnosis Safe proxy and the `SphinxModuleProxy`.
+        return (payable(address(deployedSafeProxy), );
+        SphinxModule = moduleProxy = SphinxModule(
+            moduleProxyFactory.computeSphinxModuleProxyAddress(
+                address(safeProxy),
+                address(safeProxy),
+                0
+            )
+        );
+
+        return
+    }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy_Test {
@@ -2115,47 +2219,48 @@ contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy
     }
 }
 
-// contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
-//     function setUp() public {
-//         GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-//         AbstractSphinxModuleProxy_Test.setUp(
-//             GnosisSafeAddresses({
-//                 multiSend: address(safeContracts.multiSend),
-//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
-//                 safeSingleton: address(safeContracts.safeL2Singleton),
-//                 createCall: address(safeContracts.createCall)
-//             })
-//         );
-//     }
-// }
+contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
+    function setUp() public {
+        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
+        AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL2Singleton),
+                createCall: address(safeContracts.createCall)
+            })
+        );
+    }
+}
 
-// contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
-//     function setUp() public {
-//         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-//         AbstractSphinxModuleProxy_Test.setUp(
-//             GnosisSafeAddresses({
-//                 multiSend: address(safeContracts.multiSend),
-//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
-//                 safeSingleton: address(safeContracts.safeL1Singleton),
-//                 createCall: address(safeContracts.createCall)
-//             })
-//         );
-//     }
-// }
+contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
+    function setUp() public {
+        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+        AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL1Singleton),
+                createCall: address(safeContracts.createCall)
+            })
+        );
+    }
+}
 
-// contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
-//     function setUp() public {
-//         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-//         AbstractSphinxModuleProxy_Test.setUp(
-//             GnosisSafeAddresses({
-//                 multiSend: address(safeContracts.multiSend),
-//                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-//                 safeProxyFactory: address(safeContracts.safeProxyFactory),
-//                 safeSingleton: address(safeContracts.safeL2Singleton),
-//                 createCall: address(safeContracts.createCall)
-//             })
-//         );
-//     }
-// }
+contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
+
+    function setUp() public {
+        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+        AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL2Singleton),
+                createCall: address(safeContracts.createCall)
+            })
+        );
+    }
+}
