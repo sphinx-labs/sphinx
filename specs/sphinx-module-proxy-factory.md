@@ -40,26 +40,13 @@ It must be possible to submit a single transaction that:
 2. Deploys a `SphinxModuleProxy` at a deterministic address
 3. Enables the `SphinxModuleProxy` within the Gnosis Safe
 
-This makes it possible for a third party (like Sphinx) to _permissionlessly_ deploy and set up a Gnosis Safe on behalf of the Safe owners without requiring their signatures. If the Safe owners are confident that their Safe has been deployed correctly at a given address on one chain, then they can be confident that a Safe at the **same address** on any other chain has also been deployed correctly. To achieve this, the address of the Gnosis Safe must not rely on the deployer.
+This process allows a third party (like Sphinx) to _permissionlessly_ deploy and set up a Gnosis Safe on behalf of the Safe owners without requiring their signatures. If the Safe owners are confident that their Safe has been deployed correctly at a given address on one chain, then they can be confident that a Safe at the **same address** on any other chain has also been deployed correctly. To achieve this, the address of the Gnosis Safe must not rely on the deployer.
 
-We can do this by calling the [Gnosis Safe Proxy Factory's `createProxyWithNonce`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/proxies/GnosisSafeProxyFactory.sol#L57-L75) function, which uses `CREATE2`. The `initializer` input parameter contains all of the information necessary to set up the Gnosis Safe, including the Safe owner addresses, the signature threshold, and the `SphinxModuleProxy` info.
+We can do this by calling the [Gnosis Safe Proxy Factory's `createProxyWithNonce`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/proxies/GnosisSafeProxyFactory.sol#L57-L75) function, which uses `CREATE2`. The `initializer` input parameter contains all the information necessary to set up the Gnosis Safe, including the Safe owner addresses, the signature threshold, and the `SphinxModuleProxy` info.
 
-Since the `initializer` data determines the address of the Gnosis Safe, it cannot include the address of the Gnosis Safe, since this would cause a circular dependency. To be specific, the circular dependency would occur because the `initializer` data would need to include the address of the Gnosis Safe, which is calculated based on the `initializer` data, which would need to include the address of the Gnosis Safe, etc. For this same reason, we cannot include the address of the `SphinxModuleProxy` in the `initializer` data, since the address of the module depends on the address of the Gnosis Safe.
+Since the `initializer` data determines the address of the Gnosis Safe, it cannot include the address of the Gnosis Safe since this would cause a circular dependency. Specifically, the circular dependency would occur because the `initializer` data would need to include the address of the Gnosis Safe, which is calculated based on the `initializer` data, which would need to include the address of the Gnosis Safe, etc. For this same reason, we cannot include the address of the `SphinxModuleProxy` in the `initializer` data since the module's address depends on the address of the Gnosis Safe.
 
-To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying and enabling a `SphinxModuleProxy` without using the address of the Gnosis Safe or the address of the `SphinxModuleProxy` as input parameters. The `initializer` data should include a [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol) call that executes two function calls on the `SphinxModuleProxyFactory`: `deploySphinxModuleProxyProxyFactoryFromSafe` and `enableSphinxModuleProxyFromSafe`. More details on these functions are below. To see an example of this deployment process, see [the `setUp` function in the `SphinxModuleProxy` unit test file](TODO(end)).
-
-(TODO: table of contents) for the below 3 sections:
-## Design Considerations
-
-### The `enableSphinxModuleProxyFromSafe` Function
-
-The `enableSphinxModuleProxyFromSafe` function on the `SphinxModuleProxyFactory` does not involve deploying `SphinxModuleProxy` contracts, so it would be reasonable to put this function in a different contract. However, we include it in the `SphinxModuleProxyFactory` anyways to reduce the number of contracts involved in the Gnosis Safe initialization process described in the previous section. Also, this slightly reduces the overall complexity of our system by reducing the number of contracts.
-
-### Disabling a `SphinxModuleProxy` in a Gnosis Safe
-
-The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxModuleProxy` in a Gnosis Safe for two reasons:
-1. This logic [exists in the Gnosis Safe contract itself](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/base/ModuleManager.sol#L42-L54). We encourage users to call this function on the Gnosis Safe if they'd like to disable the `SphinxModuleProxy`.
-2. The only reason that we include logic in the `SphinxModuleProxyFactory` for enabling `SphinxModuleProxy` contracts is because this allows us to enable the module during the Gnosis Safe's initialization. A user will never need to disable the module during the Gnosis Safe's initialization, so it's not necessary to include this logic in the `SphinxModuleProxyFactory`.
+To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying and enabling a `SphinxModuleProxy` without using the address of the Gnosis Safe or the address of the `SphinxModuleProxy` as input parameters. The `initializer` data must include a [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol) call that executes two function calls on the `SphinxModuleProxyFactory`: `deploySphinxModuleProxyProxyFactoryFromSafe` and `enableSphinxModuleProxyFromSafe`. More details on these functions are below. To see an example of this deployment process, see [the `setUp` function in the `SphinxModuleProxy` unit test file](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxy.t.sol#L101-L167).
 
 ## High-Level Invariants
 
@@ -88,7 +75,7 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
 - Must revert if the input Gnosis Safe proxy is `address(0)`.
 - Must revert if a contract already exists at the `CREATE2` address.
 - A successful call must:
-  - Deploy an EIP-1167 proxy at the correct `CREATE2` address, using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`'s constructor.
+  - Deploy an EIP-1167 proxy at the correct `CREATE2` address using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`s constructor.
   - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
   - Never succeed without successfully deploying the `SphinxModule` implementation.
   - Initialize the `SphinxModuleProxy` using the correct Gnosis Safe address.
@@ -117,7 +104,6 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
 
 ## Assumptions
 
-The `SphinxModuleProxyFactory` calls a couple of external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxyFactory`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxyFactory.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These external contracts are:
-- [`Clones`](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Clones) in OpenZeppelin's Contracts v4.9.3. This deploys the `SphinxModuleProxy` contracts (via `Clones.cloneDeterministic`) and computes their addresses (via `Clones.predictDeterministicAddress`).
-- Gnosis Safe's `enableModule` function, which enables a `SphinxModuleProxy` within the user's Gnosis Safe.
-
+The `SphinxModuleProxyFactory` calls a couple of external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxyFactory`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxyFactory.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we assume that they're secure and have been thoroughly tested by their authors. These external contracts are:
+- [`Clones`](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Clones) in OpenZeppelin's Contracts v4.9.3. This library deploys the `SphinxModuleProxy` contracts (via `Clones.cloneDeterministic`) and computes their addresses (via `Clones.predictDeterministicAddress`).
+- Gnosis Safe's `enableModule` function enables a `SphinxModuleProxy` within the user's Gnosis Safe.
