@@ -7,8 +7,8 @@ Sphinx uses a custom Merkle tree data structure to allow teams to approve arbitr
 - A leaf _index_ refers to the explicit `index` field on the `SphinxLeaf` data type. It does _not_ refer to the leaf's position within the tree. [^1]
 
 ### Relevant Files
-- Merkle Tree Generation Logic: [`merkle-tree.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/src/merkle-tree.ts)
-- Unit tests: [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/mocha/merkle-tree.spec.ts)
+- Merkle Tree Generation Logic: [`merkle-tree.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/src/merkle-tree.ts)
+- Unit tests: [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/test/mocha/merkle-tree.spec.ts)
 
 ## Table of Contents
 - [Merkle Tree Architecture](#merkle-tree-architecture)
@@ -56,7 +56,7 @@ You'll notice that each Merkle leaf has an `index`. The Merkle leaves must be ex
 
 ### Merkle Leaf Types
 
-On-chain, all leaf types are represented as a [`SphinxLeaf`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L28). Each leaf in the Merkle tree contains the following fields:
+On-chain, all leaf types are represented as a [`SphinxLeaf`](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L28). Each leaf in the Merkle tree contains the following fields:
 * `uint256 chainId`: The target chain id.
 * `uint256 index`: The index of the leaf.
 * `SphinxLeafType leafType`: The type of the leaf, either `APPROVE`, `EXECUTE`, or `CANCEL`.
@@ -80,8 +80,8 @@ An `EXECUTE` leaf's `data` field primarily contains data to forward to the Gnosi
 * `uint256 value`: The amount of native gas token to transfer from the Gnosis Safe to the target address. This value is not transferred from the `SphinxModuleProxy`.
 * `uint256 gas`: The amount of gas to include in the call from the `SphinxModuleProxy` to the Gnosis Safe.
 * `bytes txData`: The transaction's data.
-* `Enum.Operation operation`: The type of transaction to execute in the Gnosis Safe, i.e., `Call` or `DelegateCall`.
-* `bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment is marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails.
+* `Enum.Operation operation`: The type of transaction to execute in the Gnosis Safe, i.e. `Call` or `DelegateCall`.
+* `bool requireSuccess`: If this is `true` and the transaction in the Gnosis Safe fails, the deployment is marked as "failed" and will end immediately. If this is `false`, the deployment will continue regardless of whether the transaction fails. [^2]
 
 ### `CANCEL` Leaf Data
 
@@ -99,7 +99,7 @@ These invariants aim to define an unambiguous, consistent structure for Sphinx M
 ### 1. Must be executable on all chains for which there is at least one Merkle leaf.
 We assume that the input Merkle leaf data satisfies the on-chain conditions in the corresponding `SphinxModuleProxy` contract and that the executor is not buggy. See the [Assumptions section](#assumptions) for more information.
 
-Notice this invariant is not tested in [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/mocha/merkle-tree.spec.ts). Instead, we test this invariant by using our Merkle tree generation logic for the [main `SphinxModuleProxy` tests](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol). These tests cover a wide variety of single and multichain cases.
+Notice this invariant is not tested in [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/test/mocha/merkle-tree.spec.ts). Instead, we test this invariant by using our Merkle tree generation logic for the [main `SphinxModuleProxy` tests](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/test/SphinxModuleProxy.t.sol). These tests cover a wide variety of single and multichain cases.
 
 ### 2. If `arbitraryChain` is false in every `APPROVE` leaf, then there must be exactly one `APPROVE` leaf or `CANCEL` leaf per `chainId`
 Constructing a tree that contains `APPROVE` or `CANCEL` leaves that approve or cancel multiple separate deployments on a single chain would lead to an ambiguous situation for the executor. It would be unclear which leaf should be approved or canceled. So we impose the restriction that in a valid Merkle tree, there must be exactly one `APPROVE` or `CANCEL` leaf per chain.
@@ -139,13 +139,13 @@ We provide a utility for generating Sphinx Merkle trees used by the official Sph
 #### `const makeSphinxMerkleTree = (deploymentData: DeploymentData): SphinxMerkleTree`
 
 #### Input
-Accepts a [DeploymentData](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/src/merkle-tree.ts#L45) object where the keys are canonical chain ids, and the values are deployment data objects which contain all of the necessary info to assemble a `SphinxMerkleTree`. The Merkle tree generation function should be agnostic to the transaction data source so anyone can generate a tree based on transactions from any scripting framework (i.e., Foundry, Hardhat Ignition, some arbitrary future framework).
+Accepts a [DeploymentData](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/src/merkle-tree.ts#L45) object where the keys are canonical chain ids, and the values are deployment data objects which contain all of the necessary info to assemble a `SphinxMerkleTree`. The Merkle tree generation function should be agnostic to the transaction data source so anyone can generate a tree based on transactions from any scripting framework (i.e. Foundry, Hardhat Ignition, some arbitrary future framework).
 
 #### Output
-Outputs a [SphinxMerkleTree](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/src/merkle-tree.ts#L128) object that follows the above [architecture](#merkle-tree-architecture) and [invariants](#high-level-merkle-tree-invariants).
+Outputs a [SphinxMerkleTree](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/src/merkle-tree.ts#L128) object that follows the above [architecture](#merkle-tree-architecture) and [invariants](#high-level-merkle-tree-invariants).
 
 ## Dependencies
-The Merkle tree generation utility makes calls to external libraries. We use `ethers` version 6.7.0 to handle ABI encoding tree leaf `data` and `@openzeppelin/merkle-tree` version 1.0.5 to assemble the Merkle tree. We test that interactions with these libraries work correctly in our [SphinxModuleProxy tests](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol) which test that Merkle trees generated by this logic have data that is encoded correctly and that they are executable on-chain. However, we do not test the internals of these libraries and instead rely on the assumption that they are robust and bug-free.
+The Merkle tree generation utility makes calls to external libraries. We use `ethers` version 6.7.0 to handle ABI encoding tree leaf `data` and `@openzeppelin/merkle-tree` version 1.0.5 to assemble the Merkle tree. We test that interactions with these libraries work correctly in our [SphinxModuleProxy tests](https://github.com/sphinx-labs/sphinx/blob/feature/audit/packages/contracts/test/SphinxModuleProxy.t.sol) which test that Merkle trees generated by this logic have data that is encoded correctly and that they are executable on-chain. However, we do not test the internals of these libraries and instead rely on the assumption that they are robust and bug-free.
 
 ## Assumptions
 
@@ -159,10 +159,11 @@ Likewise, it is possible to use alternative generation logic to construct Merkle
 We assume that executors like the Sphinx DevOps platform will use the invariants defined in this document to determine whether or not a given Merkle tree is valid. Furthermore, we assume they will refuse to execute Merkle trees that are not valid according to the invariants defined in this document, even if it may theoretically be possible to partially or fully execute the Merkle tree.
 
 ### Input Data
-Merkle trees generated with this logic are only valid to the extent that the data used to create them is accurate. We assume that the input data is correct with respect to the current state of the `SphinxModuleProxy` on any given network. I.e., we assume that the input `safeProxy` and `moduleProxy` addresses are valid, that the `nonce` is correct, etc. Furthermore, we assume that the input transaction data itself is valid.
+Merkle trees generated with this logic are only valid to the extent that the data used to create them is accurate. We assume that the input data is correct with respect to the current state of the `SphinxModuleProxy` on any given network. I.e. we assume that the input `safeProxy` and `moduleProxy` addresses are valid, that the `nonce` is correct, etc. Furthermore, we assume that the input transaction data itself is valid.
 
 ### Bug-Free Executors
-The Merkle trees generated with this logic are executable to the extent that the process used to execute them is bug-free. For example, a buggy executor could take a valid Merkle tree leaf and attempt to execute it on the incorrect chain or against the incorrect `SphinxModuleProxy`. This would result in the transaction reverting. So, for this document, we assume that the executor is bug-free. For more information on buggy executors, see the [Assumptions section of the SphinxModuleProxy specification](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md#assumptions).
+The Merkle trees generated with this logic are executable to the extent that the process used to execute them is bug-free. For example, a buggy executor could take a valid Merkle tree leaf and attempt to execute it on the incorrect chain or against the incorrect `SphinxModuleProxy`. This would result in the transaction reverting. So, for this document, we assume that the executor is bug-free. For more information on buggy executors, see the [Assumptions section of the SphinxModuleProxy specification](https://github.com/sphinx-labs/sphinx/blob/feature/audit/specs/sphinx-module-proxy.md#assumptions).
 
 ## Footnotes
 [^1]: Because the Sphinx Merkle tree contains leaves intended to be executed across multiple networks and not all leaves will be executed on all networks, we cannot rely on the position of the leaves within the tree to determine the leaf index. Instead, we use an explicit `index` field on each leaf.
+[^2]: The default value for `requireSuccess` is `true` in the Sphinx Foundry plugin. We recommend using `true` in most cases since it's safest to immediately halt a deployment if one of the transactions fails. However, there are some legitimate situations where you would want to use `false`. For example, if you were deploying using a permissionless CREATE2 factory like [Arachnid's deterministic deployment proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If somebody deploys your contract ahead of time using that proxy, they could cause your deployment to fail since the transaction attempting to deploy the contract again would fail. In this case, it is perfectly reasonable to ignore the failure.

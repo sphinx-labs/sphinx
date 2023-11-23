@@ -2,7 +2,7 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 import { AbiCoder } from 'ethers'
 
 /**
- * @notice TypeScript represention of SphinxLeafType.
+ * @notice TypeScript representation of SphinxLeafType.
  */
 export enum SphinxLeafType {
   APPROVE,
@@ -31,15 +31,15 @@ export type SphinxLeafWithProof = {
 /**
  * @notice Object containing all of the necessary info to assemble a SphinxMerkleTree
  *
- * We expect that this input data may be converted to JSON for storage in IPFS, S3, etc. So we chose not to
+ * We expect this input data will be converted to JSON for storage in IPFS, S3, etc. So, we chose not to
  * use any BigInt values as they are a new type and not currently natively supported by JSON.stringify()
  * and/or JSON.parse().
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
  *
- * We accept all values that would normally use a BigInt as strings and then convert them to BigInts internally.
- * Any value that falls into this category are labeled with 'bigint string'
+ * Because of this, we do not accept any BigInts as input to this function. Instead, we use strings to for all
+ * values that would typically use BigInts. Any values that fall into this category are labeled with 'bigint string'.
  *
- * The keys are canonical chain ids (bigint strings), and the value are `NetworkDeploymentData`
+ * The keys are canonical chain IDs (bigint strings), and the values are `NetworkDeploymentData`
  * objects containing metadata on each network.
  */
 export type DeploymentData = Record<
@@ -48,7 +48,7 @@ export type DeploymentData = Record<
 >
 
 /**
- * @notice Contains the base data on each individual network which should be included in the MerkleTree. These
+ * @notice Contains the base data on each network, which should be included in the MerkleTree. These
  * fields are shared between the NetworkDeploymentData type and NetworkCancellationData type.
  *
  * @field nonce          The `currentNonce` in the `SphinxModuleProxy` on this chain, bigint string.
@@ -66,7 +66,7 @@ type BaseNetworkData = {
 }
 
 /**
- * @notice Contains data on each individual network which should be included in the MerkleTree and is specific to
+ * @notice Contains data on each network which should be included in the MerkleTree and is specific to
  * deployments.
  *
  * @field type           Differentiates this object type from the `NetworkCancellationData` type.
@@ -80,11 +80,11 @@ export type NetworkDeploymentData = BaseNetworkData & {
 }
 
 /**
- * @notice Contains data on each individual network which should be included in the MerkleTree and is specific to
+ * @notice Contains data on each network which should be included in the MerkleTree and is specific to
  * deployment cancellations.
  *
  * @field type               Differentiates this object type from the `NetworkDeploymentData` type.
- * @field merkleRootToCancel The Merkle root of the deployment that will be cancelled.
+ * @field merkleRootToCancel The Merkle root of the deployment that will be canceled.
  */
 export type NetworkCancellationData = BaseNetworkData & {
   type: 'cancellation'
@@ -120,7 +120,7 @@ export type SphinxTransaction = {
 }
 
 /**
- * @notice The complete SphinxMerkleTree ready to be executed (pending signatures on the root).
+ * @notice The complete SphinxMerkleTree that is ready to be executed (pending signatures on the root).
  *
  * @field root             The root hash of the MerkleTree.
  * @field leavesWithProofs The individual tree leaves and their proofs.
@@ -131,9 +131,9 @@ export interface SphinxMerkleTree {
 }
 
 /**
- * @notice Generates a set of `SphinxLeaf` objects, ready to be used to generate the Merkle tree.
+ * @notice Generates a set of `SphinxLeaf` objects, ready to generate the Merkle tree.
  *
- * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
+ * @param deploymentData All the data required to generate the Merkle tree leaves.
  * @returns              An array of `SphinxLeaf` objects.
  */
 export const makeSphinxLeaves = (
@@ -149,7 +149,7 @@ export const makeSphinxLeaves = (
     if (isNetworkDeploymentData(data) && !isNetworkCancellationData(data)) {
       const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
 
-      // If there has already been an arbitrary approval leaf then throw an error
+      // If there has already been an arbitrary approval leaf, then throw an error
       if (arbitraryApprovalIncluded === true) {
         throw new Error(
           'Detected arbitraryChain = true in multiple DeploymentData entries'
@@ -209,7 +209,7 @@ export const makeSphinxLeaves = (
       isNetworkCancellationData(data) &&
       !isNetworkDeploymentData(data)
     ) {
-      // Encode `CANCEL` leaf data.
+      // Encode CANCEL leaf data.
       const cancellationData = coder.encode(
         ['address', 'address', 'uint256', 'bytes32', 'address', 'string'],
         [
@@ -222,7 +222,7 @@ export const makeSphinxLeaves = (
         ]
       )
 
-      // Push `CANCEL` leaf.
+      // Push CANCEL leaf.
       merkleLeaves.push({
         chainId: BigInt(chainIdStr),
         index: BigInt(0),
@@ -283,8 +283,8 @@ export const isNetworkCancellationData = (
 /**
  * @notice Generates the complete `SphinxMerkleTree` object from a set of `SphinxLeaves`.
  *
- * @param leaves The raw leaves which should be included in the tree
- * @returns      The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
+ * @param leaves The raw leaves that should be included in the tree
+ * @returns      The `SphinxMerkleTree` object, which is ready to be executed, pending signatures.
  */
 export const makeSphinxMerkleTreeFromLeaves = (
   leaves: SphinxLeaf[]
@@ -307,11 +307,11 @@ export const makeSphinxMerkleTreeFromLeaves = (
 }
 
 /**
- * @notice Generates the complete `SphinxMerkleTree` object from the raw `DeploymentData`
+ * @notice Generates the complete `SphinxMerkleTree` object from the raw DeploymentData
  * This is the *only* function we consider to satisfy the invariants defined in the Sphinx Merkle tree spec.
  *
- * @param deploymentData All of the data required to generate the set of Merkle tree leaves.
- * @returns              The `SphinxMerkleTree` object which is ready to be executed, pending signatures.
+ * @param deploymentData All the data required to generate the Merkle tree.
+ * @returns              The `SphinxMerkleTree` object, which is ready to be executed, pending signatures.
  */
 export const makeSphinxMerkleTree = (
   deploymentData: DeploymentData
