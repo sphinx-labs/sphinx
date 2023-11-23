@@ -51,7 +51,7 @@ struct SphinxLeafWithProof {
  *                              chain for the current Merkle root.
  * @custom:field uri            An optional field that contains the URI of the Merkle root. Its
  *                              purpose is to provide a public record that allows anyone to
- *                              reassemble the deployment from scratch. This may include the
+ *                              re-assemble the deployment from scratch. This may include the
  *                              Solidity compiler inputs, which are required for Etherscan
  *                              verification. The format, location, and contents of the URI are
  *                              determined by off-chain tooling.

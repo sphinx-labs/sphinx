@@ -96,23 +96,17 @@ export const deploy = async (
   }
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
-  // Force re-compile the contracts if this step hasn't been disabled and if we're on a live
-  // network. This ensures that we're using the correct artifacts for the deployment. This is mostly
-  // out of an abundance of caution, since using the incorrect contract artifact will prevent us
-  // from writing the deployment artifact.
-  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
-    const forgeCleanArgs = silent ? ['clean', '--silent'] : ['clean']
-    const { status: cleanStatus } = spawnSync(`forge`, forgeCleanArgs, {
-      stdio: 'inherit',
-    })
-    // Exit the process if the clean fails.
-    if (cleanStatus !== 0) {
-      process.exit(1)
-    }
-  }
 
   // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
+  // Force re-compile the contracts unless it's explicitly been disabled or if we're not on a live
+  // network. This ensures that we're using the correct artifacts for live network deployments. This
+  // is mostly out of an abundance of caution, since using an incorrect contract artifact will
+  // prevent us from writing the deployment artifact for that contract.
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
+    forgeBuildArgs.push('--force')
+  }
+
   const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',
   })

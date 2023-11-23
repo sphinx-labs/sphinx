@@ -54,7 +54,7 @@ interface ISphinxModule {
      *                            in the `SphinxModuleProxy` before the cancellation occurred.
      * @param executor            The address of the caller.
      * @param uri                 The URI of the Merkle root that contains the `CANCEL` leaf (not
-     *                            the Merkle root that was canceled). This may be an empty string.
+     *                            the Merkle root that was cancelled). This may be an empty string.
      */
     event SphinxMerkleRootCanceled(
         bytes32 indexed completedMerkleRoot,

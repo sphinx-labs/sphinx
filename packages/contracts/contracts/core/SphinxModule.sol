@@ -22,7 +22,7 @@ import { ISphinxModule } from "./interfaces/ISphinxModule.sol";
  * @title SphinxModule
  * @notice The `SphinxModule` contains the logic that executes deployments in a Gnosis Safe and
  *         verifies that the Gnosis Safe owners have signed the Merkle root that contains
- *         the deployment. It also contains logic for canceling active Merkle roots.
+ *         the deployment. It also contains logic for cancelling active Merkle roots.
  *
  *         The `SphinxModule` exists as an implementation contract, which is delegatecalled
  *         by minimal, non-upgradeable EIP-1167 proxy contracts. We use this architecture
@@ -152,13 +152,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         merkleRootNonce += 1;
 
-        // If there is only an `APPROVE` leaf, mark the Merkle root as completed. This allows the
-        // Gnosis Safe owners to cancel a different Merkle root that has been signed off-chain, but
-        // has not been approved in this contract. The owners can do this by signing a new Merkle
-        // root that has the same Merkle root nonce and approving it on-chain. This prevents the old
-        // Merkle root from ever being approved. If the Gnosis Safe owners want to cancel a Merkle
-        // root without approving a new deployment, they can simply approve a Merkle root that
-        // contains a single `APPROVE` leaf.
+        // If there is only an `APPROVE` leaf, mark the Merkle root as completed. The purpose of
+        // this is to allow the Gnosis Safe owners to cancel a different Merkle root that has been
+        // signed off-chain, but has not been approved in this contract. The owners can do this by
+        // by signing a new Merkle root that has the same Merkle root nonce and approving it
+        // on-chain. This prevents the old Merkle root from ever being approved. In the event that
+        // the Gnosis Safe owners want to cancel a Merkle root without approving a new deployment,
+        // they can simply approve a Merkle root that contains a single `APPROVE` leaf.
         if (numLeaves == 1) {
             emit SphinxMerkleRootCompleted(_root);
             state.status = MerkleRootStatus.COMPLETED;
@@ -233,7 +233,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(merkleRootToCancel == activeMerkleRoot, "SphinxModule: invalid root to cancel");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID. We don't allow `arbitraryChain` to
-        // be `true` here because we don't think there's a use case for canceling Merkle roots
+        // be `true` here because we don't think there's a use case for cancelling Merkle roots
         // across arbitrary networks.
         require(leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
         // We don't validate the `uri` because we allow it to be empty.

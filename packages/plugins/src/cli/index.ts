@@ -127,15 +127,21 @@ yargs(hideBin(process.argv))
     'Initialize a sample project',
     (y) =>
       y
-        .usage('Usage: npx sphinx init [--quickstart]')
+        .usage('Usage: npx sphinx init [--quickstart] [--pnpm]')
         .option('quickstart', {
           describe:
             'Initialize the project in a new repository. This writes a new foundry.toml and .env file.',
           boolean: true,
         })
+        .option('pnpm', {
+          describe:
+            'Output remappings for pnpm installations instead of npm or yarn.',
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
       const quickstart = argv.quickstart ?? false
+      const pnpm = argv.pnpm ?? false
 
       const spinner = ora()
       spinner.start(`Initializing sample project...`)
@@ -144,8 +150,15 @@ yargs(hideBin(process.argv))
 
       const solcVersion = solc ?? (await inferSolcVersion())
 
-      writeSampleProjectFiles(src, test, script, quickstart, solcVersion)
-      spinner.succeed('Initialized sample project.')
+      writeSampleProjectFiles(
+        src,
+        test,
+        script,
+        quickstart,
+        solcVersion,
+        pnpm,
+        spinner
+      )
     }
   )
   .command(

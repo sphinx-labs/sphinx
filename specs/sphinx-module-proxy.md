@@ -1,19 +1,18 @@
 # `SphinxModuleProxy` Contract Specification
 
-> This document assumes that you have read the [Sphinx Merkle Tree specification](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/merkle-tree.md). Please read it before continuing.
+> This document assumes that you have read the [Sphinx Merkle Tree specification](https://github.com/sphinx-labs/sphinx/blob/develop/specs/merkle-tree.md). Please read it before continuing.
 
-The `SphinxModuleProxy` submits transactions in a Gnosis Safe and verifies that the transactions have
-been approved by the Gnosis Safe owners. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
+The `SphinxModuleProxy` submits transactions in a Gnosis Safe and verifies that the Gnosis Safe owners have approved the transactions. Each `SphinxModuleProxy` belongs to a single Gnosis Safe.
 
 A `SphinxModuleProxy` is a minimal, non-upgradeable
 [EIP-1167](https://eips.ethereum.org/EIPS/eip-1167) proxy that delegates calls to a `SphinxModule`
 implementation contract. In production, users will interact with a `SphinxModuleProxy` instead of
 the `SphinxModule` implementation contract, which is why this specification describes the expected
-behavior of the proxy. The implementation contract will be locked so that nobody can deploy directly
+behavior of the proxy. The implementation contract will be locked so nobody can deploy directly
 through it.
 
 **Vocabulary notes**:
-* An _executor_ is an address that has sole permission to execute a deployment in a Gnosis Safe. Normally, deployments will be executed by Sphinx's backend, but the Gnosis Safe owners can specify any executor that they'd like.
+* An _executor_ is an address with sole permission to execute a deployment in a Gnosis Safe. Normally, deployments will be executed by Sphinx's backend, but the Gnosis Safe owners can specify any executor they'd like.
 * A _user_ is a set of Gnosis Safe owners. We use these terms interchangeably throughout this document.
 
 ## Table of Contents
@@ -32,10 +31,10 @@ through it.
 
 ## Relevant Files
 
-- The interface: [`ISphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/interfaces/ISphinxModule.sol)
-- The implementation contract: [`SphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModule.sol)
-- Unit tests: [`SphinxModuleProxy.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol)
-- Key data structures: [`SphinxDataTypes.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol)
+- The interface: [`ISphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/interfaces/ISphinxModule.sol)
+- The implementation contract: [`SphinxModule.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxModule.sol)
+- Unit tests: [`SphinxModuleProxy.t.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxy.t.sol)
+- Key data structures: [`SphinxDataTypes.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxDataTypes.sol)
 
 _Note_: There is no source file for the `SphinxModuleProxy` because we use OpenZeppelin's [`Clones.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Clones.sol) for deploying EIP-1167 proxies.
 
@@ -47,7 +46,7 @@ Here are the steps of a standard deployment:
 2. The executor initiates the deployment by calling the `approve` function on the Gnosis Safe's `SphinxModuleProxy`. This verifies that a sufficient number of Gnosis Safe owners have signed the Merkle root, then sets the Merkle root as "active".
 3. The executor submits the user's transactions by calling the `execute` function on the Gnosis Safe's `SphinxModuleProxy`, which forwards the calls to the Gnosis Safe. This step may involve multiple transactions for larger deployments.
 
-Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain that the owners approved in the first step.
+Since a Merkle root can contain deployments across an arbitrary number of chains, this process will occur on every chain the owners approved in the first step.
 
 **It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.**
 
@@ -57,9 +56,9 @@ There can only be one active Merkle root in a `SphinxModuleProxy` contract at a 
 
 1. **Empty**: The Merkle root has not been used in the `SphinxModuleProxy` before.
 2. **Approved**: The Merkle root has been signed by the Gnosis Safe owners, and the `approve` function has been called on the `SphinxModuleProxy`. This Merkle root is now "active".
-3. **Canceled**: A Merkle root that was previously active, but has been canceled by the Gnosis Safe owners. Canceled Merkle roots can never be re-approved or executed.
+3. **Canceled**: A Merkle root that was previously active but has been canceled by the Gnosis Safe owners. Canceled Merkle roots can never be re-approved or executed.
 4. **Failed**: A Merkle root will fail if one of the transactions reverts in the Gnosis Safe _and_ the transaction must succeed (i.e. `requireSuccess == true`). Failed Merkle roots can never be re-approved or executed.
-5. **Completed**: A Merkle root is considered complete after all of the Merkle leaves have been executed on the target chain. Completed Merkle roots can never be re-approved or executed.
+5. **Completed**: A Merkle root is considered complete after all the Merkle leaves have been executed on the target chain. Completed Merkle roots can never be re-approved or executed.
 
 We've included a flow chart that highlights the deployment process:
 
@@ -86,7 +85,7 @@ graph TD
     I -->|Yes| K[Canceled]
 ```
 
-In this flow chart, you'll notice that it's possible to approve a Merkle root that just contains a single leaf, in which case the Merkle root is marked as `COMPLETED` immediately. This allows the Gnosis Safe owners to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
+In this flow chart, you'll notice that it's possible to approve a Merkle root that contains a single leaf, in which case the Merkle root is marked as `COMPLETED` immediately. This allows the Gnosis Safe owners to cancel a Merkle root that has been signed off-chain but is not yet active in the `SphinxModuleProxy`.[^1]
 
 ## High-Level Invariants
 
@@ -121,14 +120,14 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 
 #### `function approve(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) public`
 
-- Must revert if the `SphinxModuleProxy` calls this function, either directly or indirectly (i.e. re-entrancy is not allowed).
+- Must revert if the `SphinxModuleProxy` calls this function directly or indirectly (i.e. re-entrancy is not allowed).
 - Must revert if there is an active Merkle root in the `SphinxModuleProxy`.
 - Must revert if the input Merkle root is `bytes32(0)`.
 - Must revert if the input Merkle root has been used before (i.e. its `status` must be `EMPTY`).
 - Must revert if the input Merkle leaf does not yield the input Merkle root, given the input Merkle proof.
 - Must revert if the Merkle leaf's type does not equal `APPROVE`.
 - Must revert if the Merkle leaf's index does not equal `0`.
-- The following conditions apply to the ABI decoded Merkle leaf data:
+- The following conditions apply to the ABI-decoded Merkle leaf data:
   - Must revert if the leaf data contains a Gnosis Safe address that does not equal the Gnosis Safe address in the `SphinxModuleProxy`.
   - Must revert if the leaf data contains a `SphinxModuleProxy` address that does not equal the current contract's address (i.e. `address(this)`).
   - Must revert if the leaf data contains a Merkle root nonce that does not equal the current Merkle root nonce in the `SphinxModuleProxy`.
@@ -140,7 +139,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 - Must revert if an insufficient number of Gnosis Safe owners have signed the EIP-712 data that contains the input Merkle root.
 - A successful call must:
   - Emit a `SphinxMerkleRootApproved` event in the `SphinxModuleProxy`.
-  - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxDataTypes.sol#L68).
+  - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxDataTypes.sol#L68).
   - Increment the Merkle root nonce in the `SphinxModuleProxy`.
 - If there is a single leaf in the Merkle tree for the current chain, a successful call must also:
   - Emit a `SphinxMerkleRootCompleted` event in the `SphinxModuleProxy` using the input Merkle root.
@@ -152,14 +151,14 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 
 #### `function cancel(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) external`
 
-- Must revert if the `SphinxModuleProxy` calls this function, either directly or indirectly (i.e. re-entrancy is not allowed).
+- Must revert if the `SphinxModuleProxy` calls this function directly or indirectly (i.e. re-entrancy is not allowed).
 - Must revert if there is no active Merkle root in the `SphinxModuleProxy`.
 - Must revert if the input Merkle root is `bytes32(0)`.
 - Must revert if the input Merkle root has been used before (i.e. its `status` must be `EMPTY`).
 - Must revert if the input Merkle leaf does not yield the input Merkle root, given the input Merkle proof.
 - Must revert if the input Merkle leaf's type does not equal `CANCEL`.
 - Must revert if the input Merkle leaf's index does not equal `0`.
-- The following conditions apply to the ABI decoded Merkle leaf data:
+- The following conditions apply to the ABI-decoded Merkle leaf data:
   - Must revert if the leaf data contains a Gnosis Safe address that does not equal the Gnosis Safe address in the `SphinxModuleProxy`.
   - Must revert if the leaf data contains a `SphinxModuleProxy` address that does not equal the current contract's address (i.e. `address(this)`).
   - Must revert if the leaf data contains a Merkle root nonce that does not equal the current Merkle root nonce in the `SphinxModuleProxy`.
@@ -177,7 +176,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 
 #### `function execute(SphinxLeafWithProof[] memory _leavesWithProofs) public`
 
-- Must revert if the `SphinxModuleProxy` calls this function, either directly or indirectly (i.e. re-entrancy is not allowed).
+- Must revert if the `SphinxModuleProxy` calls this function directly or indirectly (i.e. re-entrancy is not allowed).
 - Must revert if the input `_leavesWithProofs` array does not contain any elements.
 - Must revert if there is no active Merkle root.
 - Must revert if the caller is not the executor specified in the `approve` function.
@@ -189,7 +188,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
   - Must revert if the Merkle root can be executed on an arbitrary chain (as indicated by the `arbitraryChain` field) _and_ the leaf's chain ID field is not `0`.
     - Rationale: This is just a convention. When `arbitraryChain` is `true`, the leaf's chain ID must be `0`.
   - Must revert if the current Merkle leaf is executed in the incorrect order (i.e. its index isn't correct).
-  - Must revert if the transaction has an [insufficient amount of gas](TODO(end)).
+  - Must revert if the transaction has an [insufficient amount of gas](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxModule.sol#L335-L352).
   - A successful iteration must:
     - Increment the number of leaves executed for the active Merkle root by `1`.
     - Attempt to execute a transaction in the user's Gnosis Safe using the data in the current Merkle leaf.
@@ -197,7 +196,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
       - Rationale: This would cause the Merkle root to be active indefinitely until they manually cancel it.
       - Assumptions:
         - The user-supplied `gas` amount is low enough to execute on the current network (e.g. it's not greater than the current block gas limit).
-        - The account at the Gnosis Safe's address is one of the [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions).
+        - The account at the Gnosis Safe's address is one of the [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).
     - If the call to the Gnosis Safe is successful:
       - Must emit a `SphinxActionSucceeded` event in the `SphinxModuleProxy`.
     - If the call to the Gnosis Safe is unsuccessful for any reason:
@@ -222,8 +221,8 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 ### Buggy Executor
 
 A buggy executor can:
-* Wait an arbitrary amount of time to approve or execute a Merkle root that has been signed by the Gnosis Safe owners.
-  * Remedy: The Gnosis Safe owners can cancel the deployment at any time.
+* Wait an arbitrary amount of time to approve or execute a Merkle root that the Gnosis Safe owners have already signed.
+  * Remedy: The Gnosis Safe owners can cancel the deployment anytime.
 * Partially execute a deployment.
   * Remedy: Users can batch critical actions into a single call using [`Multicall`](https://github.com/mds1/multicall) or Gnosis Safe's [`MultiSend`](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/libraries/MultiSend.sol). If a deployment stalls, the executor will either execute the batched call or not.
 
@@ -231,18 +230,11 @@ A buggy executor can:
 
 _Note_: It's impossible for the executor to submit anything that the Gnosis Safe owners have not explicitly approved.
 
-A malicious executor is subject to the same two limitations as a buggy executor. In addition, a malicious executor can take advantage of its privilege as the sole executor of a deployment. There are a variety of ways that it can do this.
+A malicious executor has the same two limitations as a buggy executor. In addition, a malicious executor can take advantage of its privilege as the sole executor of a deployment. There are a variety of ways that it can do this.
 
 Some examples:
-* If a deployment relies on the state of an existing smart contract, and if the executor is able to
-   manipulate the state of that smart contract, then it could be possible for the executor to
-   execute the deployment in a manner that is detrimental to the user. For example, say a deployment
-   relies on `existingContract.myBoolean() == true`, otherwise it fails. If the executor is able to
-   set `existingContract.myBoolean() == false`, then the deployment will fail.
-* The executor can interact with a contract in the same transaction that it's deployed, which can be
-   an "unfair advantage" for the executor. For example, if a deployed contract has an open token
-   airdrop, the executor can deploy the contract and claim the airdropped tokens in the same
-   transaction, before any other account has a chance to claim them.
+* If a deployment relies on the state of an existing smart contract, and if the executor can manipulate the state of that smart contract, then it could be possible for the executor to execute the deployment in a manner that is detrimental to the user. For example, say a deployment relies on `existingContract.myBoolean() == true`; otherwise it fails. If the executor can set `existingContract.myBoolean() == false`, then the deployment will fail.
+* The executor can interact with a contract in the same transaction it's deployed, which can be an "unfair advantage" for the executor. For example, suppose a deployed contract has an open token airdrop. In that case, the executor can deploy the contract and claim the airdropped tokens in the same transaction before any other account has a chance to claim them.
 
 It's worth reiterating that the Gnosis Safe owners can choose anybody to be an executor, including themselves.
 
@@ -256,18 +248,18 @@ which would prevent the deployment from being executable.
 
 ### Dependencies
 
-The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we rely on the assumption that they're secure and have been thoroughly tested by their authors. These contracts are:
+The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxy.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we assume that they're secure and have been thoroughly tested by their authors. These contracts are:
 - OpenZeppelin v4.9.3:
   - [`Initializable`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/utils/Initializable.sol): Initializes the `SphinxModuleProxy`.
-  - [`ReentrancyGuard`](https://docs.openzeppelin.com/contracts/4.x/api/security#ReentrancyGuard): Prevents re-entrancy attacks in the `approve` and `execute` function in the `SphinxModuleProxy`.
+  - [`ReentrancyGuard`](https://docs.openzeppelin.com/contracts/4.x/api/security#ReentrancyGuard): Prevents re-entrancy attacks in the `approve` and `execute` functions in the `SphinxModuleProxy`.
   - [`MerkleProof`](https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
 - Gnosis Safe:
   - `Enum` ([v1.3.0](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/common/Enum.sol), [v1.4.1](https://github.com/safe-global/safe-contracts/blob/v1.4.1-build.0/contracts/common/Enum.sol)): Contains the types of operations that can occur in a Gnosis Safe (i.e. `Call` and `DelegateCall`).
-  - [`GnosisSafe`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
+  - [`GnosisSafe`](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions): Contains the logic for verifying Gnosis Safe owner signature and executing the user's transactions.
 
 ## Footnotes
 
-[^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root that has the same Merkle root nonce and approving it on-chain. This prevents the old Merkle root from ever being approved. In the event that the Gnosis Safe owners want to cancel a Merkle root without approving a new deployment, they can simply approve a Merkle root that contains a single `APPROVE` leaf. This will cause the new Merkle root to be marked as `COMPLETED` immediately.
+[^1]: The Gnosis Safe owners can cancel a Merkle root that hasn't been approved on-chain by signing a new Merkle root with the same Merkle root nonce and approving it on-chain. This prevents the old Merkle root from ever being approved. If the Gnosis Safe owners want to cancel a Merkle root without approving a new deployment, they can simply approve a Merkle root that contains a single `APPROVE` leaf. This will cause the new Merkle root to be marked as `COMPLETED` immediately.
 
 [^2]: It's not possible to reuse a signed Merkle root in a different `SphinxModuleProxy` because we include the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and we check that this field matches `address(this)` in the `SphinxModuleProxy`'s `approve` function.
 

@@ -17,9 +17,9 @@ The `SphinxModuleProxyFactory` deploys minimal, non-upgradeable [EIP-1167](https
 
 ## Relevant Files
 
-- The interface: [`ISphinxModuleProxyFactory.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/interfaces/ISphinxModuleProxyFactory.sol)
-- The contract: [`SphinxModuleProxyFactory.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/contracts/core/SphinxModuleProxyFactory.sol)
-- Unit tests: [`SphinxModuleProxyFactory.t.sol`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxyFactory.t.sol)
+- The interface: [`ISphinxModuleProxyFactory.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/interfaces/ISphinxModuleProxyFactory.sol)
+- The contract: [`SphinxModuleProxyFactory.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxModuleProxyFactory.sol)
+- Unit tests: [`SphinxModuleProxyFactory.t.sol`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxyFactory.t.sol)
 
 ## Use Cases
 
@@ -74,7 +74,7 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
   - The address of the Gnosis Safe contract that the `SphinxModuleProxy` belongs to.
   - The address of the caller that deploys the `SphinxModuleProxy` through the `SphinxModuleProxyFactory`.
   - An arbitrary `uint256` nonce.
-- All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md#supported-gnosis-safe-versions).
+- All of the behavior described in this specification must apply to [all Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).
 
 ## Function-Level Invariants
 
@@ -108,7 +108,7 @@ The `SphinxModuleProxyFactory` does not include logic for disabling a `SphinxMod
 
 - Must revert if not delegatecalled.
 - A successful call must:
-  - Must enable the correct `SphinxModuleProxy` as a module in the Gnosis Safe that triggered the delegatecall.
+  - Must enable the correct `SphinxModuleProxy` as a module in the Gnosis Safe that triggered the `delegatecall`.
   - A single Gnosis Safe must be able to enable more than one `SphinxModuleProxy` by calling this function multiple times.
 
 #### `function computeSphinxModuleProxyAddress(address _safeProxy, address _caller, uint256 _saltNonce) external view returns (address);`

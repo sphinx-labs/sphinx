@@ -3,8 +3,12 @@ export * from './sample-contracts'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import ora from 'ora'
+
 import {
-  forgeConfig,
+  fetchForgeConfig,
+  fetchNPMRemappings,
+  fetchPNPMRemappings,
   sampleDotEnvFile,
   sampleGitIgnoreFile,
 } from './sample-foundry-config'
@@ -23,7 +27,9 @@ export const writeSampleProjectFiles = (
   testDirPath: string,
   scriptDirPath: string,
   quickstart: boolean,
-  solcVersion: string
+  solcVersion: string,
+  pnpm: boolean,
+  spinner: ora.Ora
 ) => {
   // Create the script folder if it doesn't exist
   if (!fs.existsSync(scriptDirPath)) {
@@ -59,11 +65,40 @@ export const writeSampleProjectFiles = (
     fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
   }
 
+  let pnpmContractsPackage: string | undefined
+  let pnpmPluginsPackage: string | undefined
+  if (pnpm) {
+    pnpmContractsPackage = fs
+      .readdirSync('./node_modules/.pnpm')
+      .find((dir) => dir.startsWith('@sphinx-labs+contracts'))
+    pnpmPluginsPackage = fs
+      .readdirSync('./node_modules/.pnpm')
+      .find((dir) => dir.startsWith('@sphinx-labs+plugins'))
+  }
+
   // Lastly, we'll create the config and environment related files.
   if (quickstart) {
-    fs.writeFileSync('foundry.toml', forgeConfig)
+    fs.writeFileSync(
+      'foundry.toml',
+      fetchForgeConfig(pnpm, pnpmPluginsPackage, pnpmContractsPackage, true)
+    )
     fs.writeFileSync('.env', sampleDotEnvFile)
     fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
+  }
+
+  spinner.succeed('Initialized sample project.')
+
+  if (!quickstart) {
+    const remappings = pnpm
+      ? fetchPNPMRemappings(pnpmPluginsPackage, pnpmContractsPackage, false)
+      : fetchNPMRemappings(false)
+
+    spinner.info(
+      `Please add the following remappings to your foundry.toml or remappings.txt file:
+
+${remappings.join('\n')}
+`
+    )
   }
 
   // Check if the sample test file exists.
