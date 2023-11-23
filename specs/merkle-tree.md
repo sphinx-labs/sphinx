@@ -34,7 +34,7 @@ Each leaf in the Merkle tree represents a single action on a single chain. There
 A diagram of a typical Merkle tree is shown below (displayed from left to right to reduce horizontal space):
 
 ```mermaid
-graph TD
+graph LR
     A[Root] --> B[Hash]
     A[Root] --> C[Hash]
     B[Hash] --> D[Hash]
