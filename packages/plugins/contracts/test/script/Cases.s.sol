@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
-import { Network } from "../../../contracts/foundry/SphinxPluginTypes.sol";
+import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 import { ConstructorDeploysContract } from "../../../contracts/test/ConstructorDeploysContract.sol";
@@ -17,7 +17,6 @@ contract Simple is Script, Sphinx {
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.proposers = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
         sphinxConfig.testnets = [Network.goerli];
         sphinxConfig.orgId = "test-org-id";

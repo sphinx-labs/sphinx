@@ -1,46 +1,56 @@
-# Sphinx (formerly ChugSplash)
-Sphinx is a [Foundry](https://github.com/foundry-rs/foundry) plugin for easily writing Solidity deployment scripts that are transparent, predictable, and multi-chain. Sphinx scripts can also be executed using the Sphinx DevOps platform which is a CI platform designed to help teams deploy smart contracts at scale.
+# Sphinx: DevOps for Deployments
 
-## Key features of the Sphinx Plugin
+Sphinx is a protocol and Foundry plugin that automates the smart contract deployment process.
 
-### Deployment Preview
-Sphinx has a “planning” step where it generates a deployment plan. Sphinx then provides you with a detailed preview of every action Sphinx will take during the deployment. This helps you avoid any surprises when Sphinx deploys and interacts with your contracts.
+## Key features:
 
-### Idempotent & Deterministic
-Sphinx deploys your contracts to predictable addresses using create3. It intelligently detects which parts of your script have already been executed on a given network and automatically skips them, simplifying the process of extending your scripts.
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO(md): off chain billing. (mention free testnet deployments?).
 
-### Multi-chain
-Sphinx provides an intuitive interface for customizing your scripts to suit different networks, and makes it easy to replicate those network-specific configurations locally.
+* **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel, then verify your smart contracts on Etherscan.
 
-## key features of the Sphinx DevOps Platform
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). If you'd rather not use a CI process, you can propose deployments from your local machine instead.
 
-### Automated Deployments
-With Sphinx, you can effortlessly trigger gasless deployments from your local machine or CI process. Approve deployments via the UI with a single meta transaction, and let the Sphinx Platform execute your deployment automatically on your behalf.
+- **Powered by Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve deployments across an arbitrary number of chains by signing a single meta transaction.
 
-### Payments in USDC
-Simplify the payment process by settling deployment costs on all networks in USDC on a single chain. Enjoy free deployments on testnets.
+- **Secure `CREATE3` Deployments**: You can use your multisig as your permissioned `CREATE3` deployer instead of relying on a single private key to get consistent addresses across networks.
 
-### Multichain Deployments
-Sphinx empowers you to deploy and verify your contracts on up to 11 supported networks simultaneously, streamlining your deployment workflow.
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
-You can request access to the DevOps platform [here](https://sphinx.dev).
+## Request access
+
+Sphinx is currently invite-only. [Request access on our website.](https://sphinx.dev)
 
 ## Documentation
 
-### Getting Started
+### Getting started
 
-  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-quickstart.md)
-  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-existing-project.md)
-- DevOps Platform:
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-getting-started.md)
-  - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-proposals.md)
+- [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-quickstart.md)
+- [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-existing-project.md)
+- [The Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md)
 
-### References
+### Reference guides
 
-- [Writing Sphinx Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/develop/docs/writing-sphinx-scripts.md)
-- [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/troubleshooting-guide.md)
-- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md)
-- [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
+- [Writing Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md)
+- [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md)
+- [Overview of the Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-overview.md)
+- [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
+- [FAQ](https://github.com/sphinx-labs/sphinx/blob/main/docs/faq.md)
+- [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md)
+
+### Specifications
+
+- [Introduction](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/introduction.md)
+- [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy.md)
+- [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/sphinx-module-proxy-factory.md)
+- [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/managed-service.md)
+- [Sphinx Merkle Tree](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/specs/merkle-tree.md)
+
+## Current limitations
+
+- Sphinx supports `CREATE2` and `CREATE3`, but not the `CREATE` opcode, i.e. `new MyContract(...)`.
+- You cannot send ETH as part of a deployment.
+
+Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
 
 ## Supported Networks
 
@@ -81,7 +91,7 @@ More networks are on the way! Please feel free to reach out in our [Discord](htt
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/main/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
 
 ## Reach Out
 

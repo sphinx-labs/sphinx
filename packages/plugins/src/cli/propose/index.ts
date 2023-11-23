@@ -5,17 +5,14 @@ import { spawnSync } from 'child_process'
 import {
   ProjectDeployment,
   ProposalRequest,
-  ProposalRequestLeaf,
-  RoleType,
   WEBSITE_URL,
   elementsEqual,
-  getAuthLeafSignerInfo,
+  getMerkleTreeInfo,
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
   relayIPFSCommit,
   relayProposal,
-  signAuthRootMetaTxn,
   spawnAsync,
   userConfirmation,
 } from '@sphinx-labs/core'
@@ -36,16 +33,14 @@ import {
 } from '../../foundry/decode'
 import { getFoundryConfigOptions } from '../../foundry/options'
 import {
-  getBundleInfoArray,
   getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
-  getSphinxManagerAddressFromScript,
+  getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../../foundry/utils'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
-  proposerAddress: string,
   isTestnet: boolean,
   targetContract?: string,
   spinner?: ora.Ora
@@ -102,8 +97,7 @@ export const buildParsedConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(address,string,string)',
-      proposerAddress,
+      'sphinxCollectProposal(string,string)',
       network,
       deploymentInfoPath,
     ]
@@ -111,16 +105,18 @@ export const buildParsedConfigArray = async (
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
 
-    const managerAddress = await getSphinxManagerAddressFromScript(
+    const safeAddress = await getSphinxSafeAddressFromScript(
       scriptPath,
       rpcUrl,
       targetContract,
       spinner
     )
 
+    // TODO - remove all references to `SphinxManager` or `SphinxAuth` in comments
+
     // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
-    // variable to set the SphinxManager as the `msg.sender` to ensure that it's the caller for all
-    // transactions. We need to do this even though we also broadcast from the SphinxManager's
+    // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
+    // transactions. We need to do this even though we also broadcast from the Safe's
     // address in the script. Specifically, this is necessary if the user is deploying a contract
     // via CREATE2 that uses a linked library. In this scenario, the caller that deploys the library
     // would be Foundry's default sender if we don't set this environment variable. Note that
@@ -129,11 +125,11 @@ export const buildParsedConfigArray = async (
     // user defining it in their `.env` file.
     // It's worth mentioning that we can't run a single Forge script for all networks using
     // cheatcodes like `vm.createSelectFork`. This is because we use the `FOUNDRY_SENDER`.
-    // Specifically, the state of the SphinxManager on the first fork is persisted across all forks
-    // when using `FOUNDRY_SENDER`. This is problematic if the SphinxManager doesn't have the same
+    // Specifically, the state of the Safe on the first fork is persisted across all forks
+    // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
     // state across networks. This is a Foundry quirk; it may be a bug.
     const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-      FOUNDRY_SENDER: managerAddress,
+      FOUNDRY_SENDER: safeAddress,
     })
 
     if (spawnOutput.code !== 0) {
@@ -201,20 +197,13 @@ export const propose = async (
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest: ProposalRequest | undefined
-  ipfsData: string[] | undefined
+  ipfsData: string | undefined
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
     process.exit(1)
   }
-  const proposerPrivateKey = process.env.PROPOSER_PRIVATE_KEY
-  if (!proposerPrivateKey) {
-    throw new Error(
-      `You must set the 'PROPOSER_PRIVATE_KEY' environment variable to propose a deployment.`
-    )
-  }
-  const proposer = new ethers.Wallet(proposerPrivateKey)
 
   // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
@@ -241,13 +230,12 @@ export const propose = async (
 
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
-    proposer.address,
     isTestnet,
     targetContract,
     spinner
   )
 
-  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
+  const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
     configArtifacts,
     parsedConfigArray
   )
@@ -270,7 +258,7 @@ export const propose = async (
 
   const proposalSimulationData = sphinxIface.encodeFunctionData(
     simulateProposalFragment,
-    [isTestnet, authRoot, bundleInfoArray]
+    [isTestnet, root, merkleTreeInfo.merkleTree]
   )
 
   const proposalSimulationArgs = [
@@ -298,7 +286,7 @@ export const propose = async (
 
   spinner.succeed(`Simulation succeeded.`)
 
-  const preview = getPreview(bundleInfoArray.map((b) => b.compilerConfig))
+  const preview = getPreview(merkleTreeInfo.compilerConfigs)
   if (confirm) {
     spinner.info(`Skipping preview.`)
   } else {
@@ -310,62 +298,71 @@ export const propose = async (
     ? spinner.start('Dry running proposal...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = bundleInfoArray.map(({ compilerConfig }) => {
+  const shouldBeEqual = merkleTreeInfo.compilerConfigs.map((compilerConfig) => {
     return {
       newConfig: compilerConfig.newConfig,
-      authAddress: compilerConfig.authAddress,
-      managerAddress: compilerConfig.managerAddress,
+      safeAddress: compilerConfig.safeAddress,
+      moduleAddress: compilerConfig.moduleAddress,
+      safeInitData: compilerConfig.safeInitData,
+      safeInitSaltNonce: compilerConfig.safeInitSaltNonce,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
     throw new Error(
-      `Detected different SphinxConfig values for different chains. This is currently unsupported.` +
-        `Please use the same config on all chains.`
+      `Detected different Safe or SphinxModule addresses for different chains. This is currently unsupported.` +
+        `Please use the same Safe and SphinxModule on all chains.`
     )
   }
   // Since we know that the following fields are the same for each `compilerConfig`, we get their
   // values here.
-  const { newConfig, authAddress, managerAddress } =
-    bundleInfoArray[0].compilerConfig
+  const {
+    newConfig,
+    safeAddress,
+    moduleAddress,
+    safeInitData,
+    safeInitSaltNonce,
+  } = merkleTreeInfo.compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
-  const compilerConfigs: {
-    [ipfsHash: string]: string
-  } = {}
+  // const compilerConfigs: {
+  //   [ipfsHash: string]: string
+  // } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const bundleInfoOnChain of bundleInfoArray) {
-    const { authLeafs, configUri, compilerConfig, actionBundle, targetBundle } =
-      bundleInfoOnChain
+  for (const compilerConfig of merkleTreeInfo.compilerConfigs) {
+    const { actionInputs } = compilerConfig
+
+    const {} = merkleTreeInfo.compilerConfigs
+
+    merkleTreeInfo.merkleTree.leavesWithProofs
 
     let estimatedGas = 0
-    estimatedGas += actionBundle.actions
+    estimatedGas += actionInputs
       .map((a) => Number(a.gas))
       .reduce((a, b) => a + b, 0)
-    estimatedGas += targetBundle.targets.length * 200_000
-    // Add a constant amount of gas to account for the cost of executing each auth leaf. For
-    // context, it costs ~350k gas to execute a Setup leaf that adds a single proposer and manager,
-    // using a single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
-    estimatedGas += authLeafs.length * 450_000
+
+    // TODO - Get a more accurate estimate, or use the actual gas cost from the simulation.
+    // Add a constant amount of gas to account for the overhead of the `execute` function
+    estimatedGas += actionInputs.length * 200_000
+
+    // Add a constant amount of gas to account for the cost of executing the `approve` function
+    estimatedGas += 200_000
+
     gasEstimates.push({
       estimatedGas: estimatedGas.toString(),
       chainId: Number(compilerConfig.chainId),
     })
 
     const projectDeployment = getProjectDeploymentForChain(
-      authLeafs,
-      compilerConfig,
       configUri,
-      actionBundle,
-      targetBundle
+      merkleTreeInfo.merkleTree,
+      compilerConfig
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
-
-    compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
   }
 
-  const emptyBundle = bundleInfoArray.every((b) => b.authLeafs.length === 0)
+  const emptyBundle = merkleTreeInfo.merkleTree.leavesWithProofs.length === 0
   if (emptyBundle) {
     spinner.succeed(
       `Skipping proposal because there is nothing to propose on any chain.`
@@ -373,98 +370,47 @@ export const propose = async (
     return { proposalRequest: undefined, ipfsData: undefined }
   }
 
-  const chainStatus = bundleInfoArray
-    .map((b) => ({
-      chainId: Number(b.compilerConfig.chainId),
-      numLeaves: b.authLeafs.length,
+  const chainStatus = merkleTreeInfo.compilerConfigs
+    .map((compilerConfig) => ({
+      chainId: Number(compilerConfig.chainId),
+      numLeaves: compilerConfig.actionInputs.length + 1,
     }))
     .filter((b) => b.numLeaves > 0)
-
-  const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
-  for (const { compilerConfig, authLeafs } of bundleInfoArray) {
-    for (const { leaf, leafFunctionName, proof } of authLeafs) {
-      const { data, chainId, index, to } = leaf
-      const { owners, threshold } = newConfig
-
-      const proposers = compilerConfig.initialState.firstProposalOccurred
-        ? compilerConfig.initialState.proposers
-        : newConfig.proposers
-
-      const { leafThreshold, roleType } = getAuthLeafSignerInfo(
-        threshold,
-        leafFunctionName
-      )
-
-      let signerAddresses: string[]
-      if (roleType === RoleType.OWNER) {
-        signerAddresses = owners
-      } else if (roleType === RoleType.PROPOSER) {
-        signerAddresses = proposers
-      } else {
-        throw new Error(`Invalid role type: ${roleType}. Should never happen.`)
-      }
-
-      const metaTxnSignature = await signAuthRootMetaTxn(proposer, authRoot)
-      const signers = signerAddresses.map((addr) => {
-        const signature =
-          addr === proposer.address ? metaTxnSignature : undefined
-        return {
-          address: addr,
-          signature,
-          isProposer: proposers.includes(addr),
-        }
-      })
-
-      proposalRequestLeafs.push({
-        chainId: Number(chainId),
-        index: Number(index),
-        to,
-        leafType: leafFunctionName,
-        data,
-        siblings: proof,
-        threshold: Number(leafThreshold),
-        signers,
-      })
-    }
-  }
-
-  const managerVersionString = `v${newConfig.version.major}.${newConfig.version.minor}.${newConfig.version.patch}`
 
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId: newConfig.orgId,
     isTestnet,
-    chainIds: bundleInfoArray.map(({ compilerConfig }) =>
+    chainIds: merkleTreeInfo.compilerConfigs.map((compilerConfig) =>
       Number(compilerConfig.chainId)
     ),
     deploymentName: newConfig.projectName,
     owners: newConfig.owners,
     threshold: Number(newConfig.threshold),
-    canonicalConfig: '{}', // Deprecated field
-    authAddress,
-    managerAddress,
-    managerVersion: managerVersionString,
+    safeAddress,
+    moduleAddress,
+    safeInitData,
+    safeInitSaltNonce,
     projectDeployments,
     gasEstimates,
     diff: preview,
     tree: {
-      root: authRoot,
+      root: merkleTreeInfo.merkleTree.root,
       chainStatus,
-      leaves: proposalRequestLeafs,
     },
   }
 
-  const compilerConfigArray = Object.values(compilerConfigs)
+  const ipfsData = JSON.stringify(merkleTreeInfo.compilerConfigs, null, 2)
   if (dryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
     await relayProposal(proposalRequest)
-    await relayIPFSCommit(apiKey, newConfig.orgId, compilerConfigArray)
+    await relayIPFSCommit(apiKey, newConfig.orgId, [ipfsData])
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData: compilerConfigArray }
+  return { proposalRequest, ipfsData }
 }

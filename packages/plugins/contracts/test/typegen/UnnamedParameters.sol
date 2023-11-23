@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract UnnamedParameters {
-    uint public number;
+    uint256 public number;
 
     constructor(uint256 myNumber, uint256) {
         number = myNumber;

@@ -1,7 +1,7 @@
 import {
-  ensureSphinxInitialized,
   SphinxJsonRpcProvider,
   isLiveNetwork,
+  ensureSafeAndSphinxInitialized,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -12,8 +12,6 @@ const command = args[0]
   switch (command) {
     case 'deployOnAnvil': {
       const rpcUrl = args[1]
-      const executor = args[2]
-      const executorArray = executor !== ethers.ZeroAddress ? [executor] : []
       const provider = new SphinxJsonRpcProvider(rpcUrl)
 
       // Next, we create and fund a couple auto-generated addresses. We don't use the default
@@ -49,7 +47,7 @@ const command = args[0]
         ethers.toBeHex(ethers.parseEther('100')),
       ])
 
-      await ensureSphinxInitialized(provider, wallet, executorArray, [], [])
+      await ensureSafeAndSphinxInitialized(provider, wallet, [])
 
       break
     }

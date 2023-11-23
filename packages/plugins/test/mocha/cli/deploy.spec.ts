@@ -177,7 +177,7 @@ describe('Deploy CLI command', () => {
       // a fresh compilation process.
       await execAsync(`forge clean`)
 
-      expect((await provider.getCode(expectedContractAddress)) === '0x')
+      expect(await provider.getCode(expectedContractAddress)).to.equal('0x')
 
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactFilePath)).to.be.false
@@ -203,7 +203,7 @@ describe('Deploy CLI command', () => {
         MyContract2Artifact.abi,
         provider
       )
-      expect((await provider.getCode(expectedContractAddress)) !== '0x')
+      expect(await provider.getCode(expectedContractAddress)).to.not.equal('0x')
       expect(await contract.number()).to.equal(2n)
 
       expect(preview).to.deep.equal({
@@ -241,7 +241,7 @@ describe('Deploy CLI command', () => {
     })
 
     it(`Displays preview then exits when there's nothing to deploy`, async () => {
-      expect((await provider.getCode(expectedContractAddress)) === '0x')
+      expect(await provider.getCode(expectedContractAddress)).to.equal('0x')
 
       const { preview } = await deploy(
         emptyScriptPath,
@@ -307,7 +307,7 @@ describe('Deployment Cases', () => {
   })
 
   after(async () => {
-    killGoerli()
+    await killGoerli()
   })
 
   it('Can call fallback function on contract', async () => {

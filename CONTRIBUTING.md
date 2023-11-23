@@ -62,10 +62,11 @@ yarn lint
 ```
 
 ### Testing
-We currently have automated tests in our plugins and executor packages. To run the complete automated test suite, you'll need to create an `.env` file in the `packages/executor` directory with two environment variables:
+We currently have automated tests in our contracts, core, and plugins packages.
+
+To run the complete automated test suite, you'll need to create an `.env` file in the `packages/plugins` directory with an environment variable:
 ```
-IPFS_PROJECT_ID=<Infura ipfs project id to retrieve config file>
-IPFS_API_KEY_SECRET=<Infura ipfs api key to retrieve config file>
+DEV_FILE_PATH=./
 ```
 
 Once you've define those environment variables, run the tests:
@@ -81,7 +82,6 @@ We use the following scopes for conventional commits:
 - packages/contracts: `ct`
 - packages/core: `core`
 - packages/demo: `demo`
-- packages/executor: `ex`
 - packages/plugins: `pg`
 - ci: `ci`
 - meta: `meta`

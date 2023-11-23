@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Version } from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { Version } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
 contract Stateless {
-    uint public immutable immutableUint;
+    uint256 public immutable immutableUint;
     address public immutable immutableAddress;
     Version contractVersion;
 
-    constructor(uint _immutableUint, address _immutableAddress, Version memory _version) {
+    constructor(uint256 _immutableUint, address _immutableAddress, Version memory _version) {
         immutableUint = _immutableUint;
         immutableAddress = _immutableAddress;
         contractVersion = _version;

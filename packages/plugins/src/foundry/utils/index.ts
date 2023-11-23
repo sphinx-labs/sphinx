@@ -2,15 +2,10 @@ import * as fs from 'fs'
 import path, { join } from 'path'
 import { promisify } from 'util'
 
+import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
-  BuildInfo,
-  ContractArtifact,
-} from '@sphinx-labs/core/dist/languages/solidity/types'
-import {
-  parseFoundryArtifact,
   execAsync,
   getNetworkNameForChainId,
-  isRawDeployContractActionInput,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -19,7 +14,6 @@ import {
   DeploymentInfo,
   GetConfigArtifacts,
   GetProviderForChainId,
-  ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -29,17 +23,12 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import {
-  AuthLeaf,
-  SupportedNetworkName,
-  getAuthLeafsForChain,
-  getProjectBundleInfo,
-  makeAuthBundle,
-  networkEnumToName,
-} from '@sphinx-labs/core'
+import { SupportedNetworkName, networkEnumToName } from '@sphinx-labs/core'
 import ora from 'ora'
-
-import { BundleInfo } from '../types'
+import {
+  FoundryContractArtifact,
+  parseFoundryArtifact,
+} from '@sphinx-labs/contracts'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -104,10 +93,12 @@ export const messageMultipleArtifactsFound = (
   )
 }
 
-export const getContractArtifact = async (
+// TODO - handle searching recursively for the correct artifact in cases where
+//        the fully qualified name is not unique
+export const getFoundryContractArtifact = async (
   fullyQualifiedName: string,
   artifactFolder: string
-): Promise<ContractArtifact> => {
+): Promise<FoundryContractArtifact> => {
   // The basename will be in the format `SomeFile.sol:MyContract`.
   const basename = path.basename(fullyQualifiedName)
 
@@ -173,9 +164,7 @@ export const getUniqueNames = (
   const fullyQualifiedNamesSet = new Set<string>()
   for (const actionInputs of actionInputArray) {
     for (const rawInput of actionInputs) {
-      if (isRawDeployContractActionInput(rawInput)) {
-        fullyQualifiedNamesSet.add(rawInput.fullyQualifiedName)
-      } else if (typeof rawInput.contractName === 'string') {
+      if (typeof rawInput.contractName === 'string') {
         rawInput.contractName.includes(':')
           ? fullyQualifiedNamesSet.add(rawInput.contractName)
           : contractNamesSet.add(rawInput.contractName)
@@ -304,7 +293,7 @@ export const makeGetConfigArtifacts = (
 
     const fullyQualifiedNamePromises = fullyQualifiedNames.map(
       async (fullyQualifiedName) => {
-        const artifact = await getContractArtifact(
+        const artifact = await getFoundryContractArtifact(
           fullyQualifiedName,
           artifactFolder
         )
@@ -348,7 +337,7 @@ export const makeGetConfigArtifacts = (
                 toReadFiles.push(cachedFile.name)
               }
 
-              const artifact = await getContractArtifact(
+              const artifact = await getFoundryContractArtifact(
                 fullyQualifiedName,
                 artifactFolder
               )
@@ -444,59 +433,13 @@ export const inferSolcVersion = async (): Promise<string> => {
   }
 }
 
-export const getBundleInfoArray = async (
-  configArtifacts: ConfigArtifacts,
-  parsedConfigArray: Array<ParsedConfig>
-): Promise<{
-  authRoot: string
-  bundleInfoArray: Array<BundleInfo>
-}> => {
-  const allAuthLeafs: Array<AuthLeaf> = []
-  for (const parsedConfig of parsedConfigArray) {
-    const authLeafsForChain = await getAuthLeafsForChain(
-      parsedConfig,
-      configArtifacts
-    )
-    allAuthLeafs.push(...authLeafsForChain)
-  }
-
-  const authBundle = makeAuthBundle(allAuthLeafs)
-
-  const bundleInfoArray: Array<BundleInfo> = []
-  for (const parsedConfig of parsedConfigArray) {
-    const networkName = getNetworkNameForChainId(BigInt(parsedConfig.chainId))
-
-    const authLeafsForChain = authBundle.leafs.filter(
-      (l) => l.leaf.chainId === BigInt(parsedConfig.chainId)
-    )
-
-    const { configUri, bundles, compilerConfig, humanReadableActions } =
-      await getProjectBundleInfo(parsedConfig, configArtifacts)
-
-    bundleInfoArray.push({
-      configUri,
-      networkName,
-      authLeafs: authLeafsForChain,
-      actionBundle: bundles.actionBundle,
-      targetBundle: bundles.targetBundle,
-      humanReadableActions,
-      compilerConfig,
-    })
-  }
-
-  return {
-    bundleInfoArray,
-    authRoot: authBundle.root,
-  }
-}
-
 export const getConfigArtifactForContractName = (
   targetContractName: string,
   configArtifacts: ConfigArtifacts
 ): {
   fullyQualifiedName: string
   buildInfo: BuildInfo
-  artifact: ContractArtifact
+  artifact: FoundryContractArtifact
 } => {
   for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
     configArtifacts
@@ -557,7 +500,7 @@ export const getSphinxConfigNetworksFromScript = async (
   }
 }
 
-export const getSphinxManagerAddressFromScript = async (
+export const getSphinxModuleAddressFromScript = async (
   scriptPath: string,
   forkUrl: string,
   targetContract?: string,
@@ -569,7 +512,7 @@ export const getSphinxManagerAddressFromScript = async (
     '--rpc-url',
     forkUrl,
     '--sig',
-    'sphinxManager()',
+    'sphinxModule()',
     '--silent', // Silence compiler output
     '--json',
   ]
@@ -590,7 +533,45 @@ export const getSphinxManagerAddressFromScript = async (
 
   const json = JSON.parse(stdout)
 
-  const managerAddress = json.returns[0].value
+  const safeAddress = json.returns[0].value
 
-  return managerAddress
+  return safeAddress
+}
+
+export const getSphinxSafeAddressFromScript = async (
+  scriptPath: string,
+  forkUrl: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<string> => {
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--rpc-url',
+    forkUrl,
+    '--sig',
+    'sphinxSafe()',
+    '--silent', // Silence compiler output
+    '--json',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const json = JSON.parse(stdout)
+
+  const safeAddress = json.returns[0].value
+
+  return safeAddress
 }

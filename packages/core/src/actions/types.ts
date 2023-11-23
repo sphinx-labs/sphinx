@@ -13,15 +13,12 @@ export const SphinxActionType = {
 /**
  * The status of a given Sphinx action.
  */
-export const DeploymentStatus = {
+export const MerkleRootStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
-  PROXIES_INITIATED: 2n,
-  COMPLETED: 3n,
-  CANCELLED: 4n,
-  FAILED: 5n,
-  INITIAL_ACTIONS_EXECUTED: 6n,
-  SET_STORAGE_ACTIONS_EXECUTED: 7n,
+  COMPLETED: 2n,
+  CANCELED: 3n,
+  FAILED: 4n,
 }
 
 /**
@@ -69,11 +66,6 @@ export interface CallAction {
 export interface CreateAction {
   index: number
   initCode: string
-}
-
-export interface SphinxBundles {
-  actionBundle: SphinxActionBundle
-  targetBundle: SphinxTargetBundle
 }
 
 /**
@@ -139,11 +131,11 @@ export interface BundledAuthLeafWithPrettyLeaf extends BundledAuthLeaf {
 }
 
 /**
- * Bundle of auth leafs.
+ * Bundle of auth leaves.
  */
 export interface AuthLeafBundle {
   root: string
-  leafs: BundledAuthLeaf[]
+  leaves: BundledAuthLeaf[]
 }
 
 /**
@@ -157,18 +149,12 @@ export interface SphinxTargetBundle {
 /**
  * The state of a Sphinx bundle.
  */
-export type DeploymentState = {
+export type MerkleRootState = {
+  numLeaves: bigint
+  leavesExecuted: bigint
+  uri: string
+  executor: string
   status: bigint
-  numInitialActions: bigint
-  numSetStorageActions: bigint
-  actionRoot: string
-  targetRoot: string
-  targets: bigint
-  actionsExecuted: bigint
-  timeClaimed: bigint
-  selectedExecutor: string
-  remoteExecution: boolean
-  configUri: string
 }
 
 export interface BaseAuthLeaf {
@@ -246,15 +232,15 @@ export const AuthStatus = {
 
 export type AuthState = {
   status: typeof AuthStatus
-  leafsExecuted: bigint
-  numLeafs: bigint
+  leavesExecuted: bigint
+  numLeaves: bigint
 }
 
 export interface Setup extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.SETUP
   leafTypeEnum: bigint
   proposers: Array<SetRoleMember>
-  numLeafs: number
+  numLeaves: number
 }
 
 interface ExportProxy extends BaseAuthLeaf {
@@ -328,7 +314,7 @@ export interface CancelActiveDeployment extends BaseAuthLeaf {
 interface Propose extends BaseAuthLeaf {
   functionName: AuthLeafFunctions.PROPOSE
   leafTypeEnum: bigint
-  numLeafs: number
+  numLeaves: number
 }
 
 export type AuthLeaf =
@@ -364,12 +350,12 @@ export type ProposalRequest = {
   isTestnet: boolean
   owners: string[]
   threshold: number
-  authAddress: string
-  managerAddress: string
-  managerVersion: string
+  safeAddress: string
+  moduleAddress: string
+  safeInitData: string
+  safeInitSaltNonce: string
   deploymentName: string
   chainIds: Array<number>
-  canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   diff: SphinxPreview
@@ -379,7 +365,6 @@ export type ProposalRequest = {
       numLeaves: number
       chainId: number
     }>
-    leaves: Array<ProposalRequestLeaf>
   }
 }
 
@@ -393,6 +378,7 @@ export type ProjectDeployment = {
   deploymentId: string
   name: string
   isExecuting: boolean
+  configUri: string
 }
 
 export type ProposalRequestLeaf = {
