@@ -237,14 +237,6 @@ export const MinimumWalletBalance: Record<
   ...MinimumWalletBalanceMainnets,
 }
 
-// Maps a chain ID to the USDC address on the network.
-export const USDC_ADDRESSES: { [chainId: string]: string } = {
-  // Optimism Goerli:
-  420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
-  // Optimism Mainnet:
-  10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
-}
-
 export const fetchCurrencyForNetwork = (chainId: number) => {
   switch (chainId) {
     // mainnet

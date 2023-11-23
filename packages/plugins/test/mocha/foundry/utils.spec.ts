@@ -6,19 +6,19 @@ const expect = chai.expect
 
 import {
   messageArtifactNotFound,
-  getContractArtifact,
+  getFoundryContractArtifact,
 } from '../../../src/foundry/utils'
 import { getFoundryConfigOptions } from '../../../src/foundry/options'
 
 describe('Utils', async () => {
-  describe('getContractArtifact', async () => {
+  describe('getFoundryContractArtifact', async () => {
     it('Errors if artifact is not found', async () => {
       const { artifactFolder } = await getFoundryConfigOptions()
 
       const fullyQualifiedName =
         'contracts/DoesNotExist.sol:NonExistentContract'
       await expect(
-        getContractArtifact(fullyQualifiedName, artifactFolder)
+        getFoundryContractArtifact(fullyQualifiedName, artifactFolder)
       ).to.be.rejectedWith(messageArtifactNotFound(fullyQualifiedName))
     })
 
@@ -26,7 +26,7 @@ describe('Utils', async () => {
       const { artifactFolder } = await getFoundryConfigOptions()
 
       const fullyQualifiedName = 'script/BridgeFunds.s.sol:SphinxScript'
-      const artifact = await getContractArtifact(
+      const artifact = await getFoundryContractArtifact(
         fullyQualifiedName,
         artifactFolder
       )

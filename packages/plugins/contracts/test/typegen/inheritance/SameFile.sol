@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract ParentInSameFile {
-    uint public myNumber;
+    uint256 public myNumber;
 
     constructor(uint256 _myNumber) {
         myNumber = _myNumber;

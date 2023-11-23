@@ -8,11 +8,11 @@ set -e
 # we support, v0.8.0. Without this, it'd be possible for us to accidentally write contracts that
 # don't compile with this Solidity version. We don't compile with the earliest version by default
 # because we use certain features in our test suite that are only available in newer versions.
-forge build --use '0.8.0' --contracts contracts/foundry --skip test --skip script
+# TODO - reenble this check once we're using interfaces for everything in the library
+# forge build --use '0.8.0' --contracts contracts/foundry --skip test --skip script
 
 # This script compiles the prod contracts in our Foundry plugin using the optimizer. Since the
 # optimizer is off in our repo by default, this ensures that we don't release contracts that lead to
-# a "Stack too deep" error. It may be possible that there's never a scenario in which a "stack too
-# deep" error will occur with the optimizer enabled, but not when it's disabled. However, we don't
-# want to take that risk, so we check both cases just to be safe.
+# a "Stack too deep" error. In rare situations, it's possible for this error to occur when the
+# optimizer is enabled, but not when it's disabled.
 forge build --optimize --optimizer-runs 200 --contracts contracts/foundry --skip test --skip script

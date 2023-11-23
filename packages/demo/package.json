@@ -14,7 +14,8 @@
     "build:contracts": "forge build",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
-    "test": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
+    "test": "echo 'no tests'",
+    "test:quickstart": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:ts:check",
     "lint:fix": "yarn lint:ts:fix",
@@ -37,9 +38,7 @@
     "@rari-capital/solmate": "7.0.0-alpha.3",
     "chai": "^4.3.6",
     "dotenv": "^16.0.3",
-    "hardhat": "^2.17.1",
-    "solhint": "^3.3.6",
-    "solhint-plugin-prettier": "^0.0.5"
+    "hardhat": "^2.17.1"
   },
   "dependencies": {
     "@sphinx-labs/contracts": "^0.13.3",

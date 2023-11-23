@@ -7,13 +7,12 @@ import {
   zeroPadValue,
 } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
-
+import 'core-js/features/array/at'
 import {
   SolidityStorageObj,
   SolidityStorageType,
   SolidityStorageTypes,
-} from './types'
-import 'core-js/features/array/at'
+} from '@sphinx-labs/contracts'
 
 /**
  * Adds two storage slot keys. Each input key will be interpreted as hexadecimal if 0x-prefixed, and

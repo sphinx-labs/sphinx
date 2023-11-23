@@ -5,22 +5,22 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 struct TopLevelStruct {
-    int a;
+    int256 a;
 }
 
 contract MyContract1 {
-    int public intArg;
-    int public secondIntArg;
-    int public thirdIntArg;
+    int256 public intArg;
+    int256 public secondIntArg;
+    int256 public thirdIntArg;
 
-    uint public uintArg;
+    uint256 public uintArg;
 
     address public addressArg;
     address public otherAddressArg;
 
     struct MyStruct {
-        int a;
-        int b;
+        int256 a;
+        int256 b;
         MyNestedStruct c;
     }
 
@@ -28,7 +28,7 @@ contract MyContract1 {
         address d;
     }
 
-    constructor(int _intArg, uint _uintArg, address _addressArg, address _otherAddressArg) {
+    constructor(int256 _intArg, uint256 _uintArg, address _addressArg, address _otherAddressArg) {
         intArg = _intArg;
         uintArg = _uintArg;
         addressArg = _addressArg;
@@ -39,7 +39,7 @@ contract MyContract1 {
         uintArg += 1;
     }
 
-    function set(int _int) external {
+    function set(int256 _int) external {
         intArg = _int;
     }
 
@@ -48,7 +48,7 @@ contract MyContract1 {
         otherAddressArg = _otherAddr;
     }
 
-    function setInts(int _a, int _b, int _c) external {
+    function setInts(int256 _a, int256 _b, int256 _c) external {
         intArg = _a;
         secondIntArg = _b;
         thirdIntArg = _c;
@@ -70,9 +70,9 @@ contract MyContract1 {
 }
 
 contract MyContract2 {
-    uint public number;
+    uint256 public number;
 
-    function incrementMyContract2(uint _num) external {
+    function incrementMyContract2(uint256 _num) external {
         number += _num;
     }
 }
