@@ -99,28 +99,28 @@ These invariants aim to define an unambiguous, consistent structure for Sphinx M
 ### 1. Must be executable on all chains for which there is at least one Merkle leaf.
 We assume that the input Merkle leaf data satisfies the on-chain conditions in the corresponding `SphinxModuleProxy` contract and that the executor is not buggy. See the [Assumptions section](#assumptions) for more information.
 
-Notice this invariant is not tested in [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/mocha/merkle-tree.spec.ts). Instead, we test this invariant by using our Merkle tree generation logic to for our [main `SphinxModuleProxy` tests](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol). These tests cover a wide variety of single and multichain cases.
+Notice this invariant is not tested in [`merkle-tree.spec.ts`](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/mocha/merkle-tree.spec.ts). Instead, we test this invariant by using our Merkle tree generation logic for the [main `SphinxModuleProxy` tests](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/packages/contracts/test/SphinxModuleProxy.t.sol). These tests cover a wide variety of single and multichain cases.
 
-### 2. If `arbitraryChain` is false in every `APPROVE` leaf, then there must be exactly one `APPROVE` leaf or `CANCEL` leaf per chain
+### 2. If `arbitraryChain` is false in every `APPROVE` leaf, then there must be exactly one `APPROVE` leaf or `CANCEL` leaf per `chainId`
 Constructing a tree that contains `APPROVE` or `CANCEL` leaves that approve or cancel multiple separate deployments on a single chain would lead to an ambiguous situation for the executor. It would be unclear which leaf should be approved or canceled. So we impose the restriction that in a valid Merkle tree, there must be exactly one `APPROVE` or `CANCEL` leaf per chain.
 
 ### 3. If `arbitraryChain` is true in *any* `APPROVE` leaf, then there must be exactly one `APPROVE` leaf in the entire tree, and no `CANCEL` leaves
 If the `arbitraryChain` field is set to true in an `APPROVE` leaf, then we consider this leaf to apply to all chains. Therefore, if `arbitraryChain` is set to true, there must be exactly one `APPROVE` leaf in the entire tree and no `CANCEL` leaves to ensure there is no ambiguity in precisely which leaf should be executed.
 
-### 4. `EXECUTE` leaves must always follow an `APPROVE` leaf on the same chain according to their `index` field
+### 4. `EXECUTE` leaves must always follow an `APPROVE` leaf with the same `chainId`
 All `EXECUTE` leaves must follow an `APPROVE` leaf on the same chain, verifying that the owners of the `SphinxModuleProxy` have approved them.
 
-### 5. `EXECUTE` leaves must *never* exist in a tree with a `CANCEL` leaf on the same chain
+### 5. `EXECUTE` leaves must *never* exist in a tree with a `CANCEL` leaf with the same `chainId`
 To ensure that all `EXECUTE` leaves are executable, they must *never* follow a `CANCEL` leaf on the same chain. The presence of a `CANCEL` leaf for a given chain [implies there is no `APPROVE` leaf](#2-if-arbitrarychain-is-false-in-every-approve-leaf-then-there-must-be-exactly-one-approve-leaf-or-cancel-leaf-per-chain), and therefore any `EXECUTE` leaves on that chain [will not be executable](#4-execute-leaves-must-always-follow-an-approve-leaf-on-the-same-chain-according-to-their-index-field).
 
 ### 6. Every leaf `chainId` and `index` combination must be unique within the tree
-Constructing a tree with multiple leaves with the same chain ID and index would make it ambiguous which leaf should be executed, resulting in a tree that cannot be fully executed. So, we impose the restriction that there must be at most one leaf with each chain ID and index combination in a valid Merkle tree. This restriction ensures there is an unambiguous ordering of leaves within the tree.
+Constructing a tree with multiple leaves with the same `chainId` and `index` would make it ambiguous which leaf should be executed, resulting in a tree that cannot be fully executed. So, we impose the restriction that there must be at most one leaf with each `chainId` and `index` combination in a valid Merkle tree. This restriction ensures there is an unambiguous ordering of leaves within the tree.
 
-### 7. Each APPROVE or CANCEL leaf on a chain must have an index of 0
-To ensure that `APPROVE` and `CANCEL` leaves always happen first on a given chain, their `index` must always be 0.
+### 7. Each APPROVE or CANCEL leaf must have an index of `0`
+To ensure that `APPROVE` and `CANCEL` leaves always happen first on a given chain, their `index` must always be `0`.
 
-### 8. Each sequence of EXECUTE leaves on a chain must have the index of the first leaf be `1` and the index of the following leaves sequentially increment by 1
-To ensure that all the `EXECUTE` leaves are executed in the correct order, they must have an `index` field that starts at `1` on each chain and sequentially increments by 1.
+### 8. Each sequence of EXECUTE leaves with the same `chainId` must have the index of the first leaf be `1` and the index of the following leaves sequentially increment by `1`
+To ensure that all the `EXECUTE` leaves are executed in the correct order, they must have an `index` field that starts at `1` on each chain and sequentially increments by `1`.
 
 ### 9. Merkle tree leaves must be ordered in the tree by the leaf's `index` and `chainId` fields ascending
 Sphinx Merkle tree leaves use an explicit `index` field in the leaf rather than an implicit index determined by the leaf's position in the tree. This is because the Sphinx Merkle tree is intended to be executed across multiple networks, and not all leaves will be executed on all networks. We impose the restriction that tree leaves must be ordered by their `index` and `chainId` fields ascending starting at the leftmost position within the tree.

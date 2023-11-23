@@ -138,7 +138,7 @@ const assertInvariantSeven = (tree: SphinxMerkleTree) => {
       leaf.leaf.leafType === SphinxLeafType.APPROVE ||
       leaf.leaf.leafType === SphinxLeafType.CANCEL
     ) {
-      expect(leaf.leaf.index).to.eq(0)
+      expect(leaf.leaf.index).to.eq(BigInt(0))
     }
   }
 }
@@ -182,7 +182,7 @@ const assertInvariantEightAndNine = (tree: SphinxMerkleTree) => {
         const nextLeaf = tree.leavesWithProofs[i + 1]
         if (leaf.leaf.chainId === nextLeaf.leaf.chainId) {
           expect(nextLeaf.leaf.leafType).to.eq(SphinxLeafType.EXECUTE)
-          expect(nextLeaf.leaf.index).to.eq(1)
+          expect(nextLeaf.leaf.index).to.eq(BigInt(1))
         }
       }
 
