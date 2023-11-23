@@ -23,6 +23,7 @@ import {
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleProxy`.

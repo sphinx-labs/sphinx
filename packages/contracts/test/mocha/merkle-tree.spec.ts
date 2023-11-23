@@ -21,9 +21,11 @@ import {
  */
 
 /**
- * @notice Checks that the tree contains exactly one APPROVAL or CANCEL leaf per chain so that invariant 2 is satisfied.
+ * @notice Checks that the tree contains exactly one APPROVE or CANCEL leaf per chain so that invariant 2 is satisfied.
+ * Also checks that if there is any APPROVE leaf where `arbitraryChain` is true, then it is the only `APPROVE` or `CANCEL` leaf in the
+ * tree such that invariant 3 is satisfied.
  */
-const assertInvariantTwo = (tree: SphinxMerkleTree) => {
+const assertInvariantTwoAndThree = (tree: SphinxMerkleTree) => {
   let detectedArbitraryApproval = false
   const detectedChainId: BigInt[] = []
 
@@ -59,9 +61,9 @@ const assertInvariantTwo = (tree: SphinxMerkleTree) => {
 }
 
 /**
- * @notice Checks that all the EXECUTE leaves in the tree follow an APPROVE leaf on the same chain so that invariant 3 is satisfied.
+ * @notice Checks that all the EXECUTE leaves in the tree follow an APPROVE leaf on the same chain so that invariant 4 is satisfied.
  */
-const assertInvariantThree = (tree: SphinxMerkleTree) => {
+const assertInvariantFour = (tree: SphinxMerkleTree) => {
   const seenApprovalChainIds: BigInt[] = []
 
   for (const leafWithProof of tree.leavesWithProofs) {
@@ -80,9 +82,9 @@ const assertInvariantThree = (tree: SphinxMerkleTree) => {
 }
 
 /**
- * @notice Checks that all chains with a CANCEL leaf also has no EXECUTE leafs for it so that invariant 4 is satisfied.
+ * @notice Checks that all chains with a CANCEL leaf also has no EXECUTE leafs for it so that invariant 5 is satisfied.
  */
-const assertInvariantFour = (tree: SphinxMerkleTree) => {
+const assertInvariantFive = (tree: SphinxMerkleTree) => {
   const seenCancelChainIds: BigInt[] = []
 
   for (const leafWithProof of tree.leavesWithProofs) {
@@ -108,7 +110,7 @@ const assertInvariantFour = (tree: SphinxMerkleTree) => {
 /**
  * @notice Checks that every leaf in the tree has a unique `index` and `chainId` combination so that invariant 5 is satisfied.
  */
-const assertInvariantFive = (tree: SphinxMerkleTree) => {
+const assertInvariantSix = (tree: SphinxMerkleTree) => {
   const indexChainIdSets: Record<string, Record<string, true | undefined>> = {}
 
   for (const leafWithProof of tree.leavesWithProofs) {
@@ -128,10 +130,24 @@ const assertInvariantFive = (tree: SphinxMerkleTree) => {
 }
 
 /**
- * @notice Checks that all the leaves for each chain start with an `index` of 0 and sequentially increment by 1 so that invariant 6 is satisfied.
- * Also checks that all the leafs are properly ordered by `index` and `chainId` ascending so that invariant 7 is satisfied.
+ * @notice Checks that all APPROVE and CANCEL leaves in the tree have an index of 0 such that invariant 7 is satisfied.
  */
-const assertInvariantSixAndSeven = (tree: SphinxMerkleTree) => {
+const assertInvariantSeven = (tree: SphinxMerkleTree) => {
+  for (const leaf of tree.leavesWithProofs) {
+    if (
+      leaf.leaf.leafType === SphinxLeafType.APPROVE ||
+      leaf.leaf.leafType === SphinxLeafType.CANCEL
+    ) {
+      expect(leaf.leaf.index).to.eq(0)
+    }
+  }
+}
+
+/**
+ * @notice Checks that all the `EXECUTE` leaves for each chain start with an `index` of 1 and sequentially increment by 1 so that invariant 8 is satisfied.
+ * Also checks that all the leafs are properly ordered by `index` and `chainId` ascending so that invariant 9 is satisfied.
+ */
+const assertInvariantEightAndNine = (tree: SphinxMerkleTree) => {
   const seenChainIds: BigInt[] = []
 
   for (let i = 1; i < tree.leavesWithProofs.length; i++) {
@@ -141,7 +157,7 @@ const assertInvariantSixAndSeven = (tree: SphinxMerkleTree) => {
     if (leaf.leaf.chainId === previousLeaf.leaf.chainId) {
       // If the chain ids are the same, then we must be iterating through all the leaves for a specific chain
 
-      // Check that individual leafs are ordered by index ascending within each chain
+      // Check that individual leafs are ordered by index ascending within each chain and increment sequentially by 1
       expect(leaf.leaf.index, 'Detected incorrect leaf index').to.eq(
         previousLeaf.leaf.index + BigInt(1)
       )
@@ -154,11 +170,21 @@ const assertInvariantSixAndSeven = (tree: SphinxMerkleTree) => {
         'Network order is not correct'
       ).to.be.greaterThan(Number(previousLeaf.leaf.chainId))
 
-      // Check that the first leaf is either an approval leaf or cancel
+      // Check that the first leaf is either an approval or cancel leaf
       expect(
         leaf.leaf.leafType,
         'CANCEL or APPROVE leaf is not first'
       ).to.not.eq(SphinxLeafType.EXECUTE)
+
+      // If we changed to an `APPROVE` leaf, and there is a leaf after it, and that leaf has the same chain id
+      // then check it is an EXECUTE leaf, and that it's index is 1
+      if (i + 1 < tree.leavesWithProofs.length) {
+        const nextLeaf = tree.leavesWithProofs[i + 1]
+        if (leaf.leaf.chainId === nextLeaf.leaf.chainId) {
+          expect(nextLeaf.leaf.leafType).to.eq(SphinxLeafType.EXECUTE)
+          expect(nextLeaf.leaf.index).to.eq(1)
+        }
+      }
 
       // Check that the new chain id has not been seen before.
       // If the leaves are sorted by index and chainId ascending, then all leaves for a given chain will be grouped together.
@@ -175,11 +201,12 @@ const assertInvariantSixAndSeven = (tree: SphinxMerkleTree) => {
 }
 
 const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
-  assertInvariantTwo(tree)
-  assertInvariantThree(tree)
+  assertInvariantTwoAndThree(tree)
   assertInvariantFour(tree)
   assertInvariantFive(tree)
-  assertInvariantSixAndSeven(tree)
+  assertInvariantSix(tree)
+  assertInvariantSeven(tree)
+  assertInvariantEightAndNine(tree)
 }
 
 describe('Merkle tree satisfies invariants', () => {
