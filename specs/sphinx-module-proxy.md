@@ -101,7 +101,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 - On a given network, a Merkle root can either contain a single `CANCEL` leaf _or_ a single `APPROVE` leaf optionally followed by `EXECUTE` leaves.
   - Rationale:
     - While a user might reasonably wish to cancel an old deployment and approve a new one using a single Merkle root, keeping these operations separate reduces complexity in the `SphinxModule`.
-    - An `APPROVE` leaf is _optionally_ followed by `EXECUTE` leaves because users may omit the `EXECUTE` leaves if they are cancelling a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
+    - An `APPROVE` leaf is _optionally_ followed by `EXECUTE` leaves because users may omit the `EXECUTE` leaves if they are canceling a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Gnosis Safe owners must be able to cancel a Merkle root that has been signed off-chain, but is not yet active in the `SphinxModuleProxy`.[^1]
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](#function-_getleafhashsphinxleaf-memory-_leaf-internal-pure-returns-bytes32).
   - Rationale: This function double hashes the Merkle leaf to prevent second preimage attacks.

@@ -17,5 +17,42 @@
   "eslint.nodePath": "./node_modules/eslint/bin/",
   "eslint.format.enable": true,
   "editorconfig.generateAuto": false,
-  "files.trimTrailingWhitespace": true
+  "files.trimTrailingWhitespace": true,
+  "grammarly.selectors": [
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/interfaces/ISphinxModuleProxyFactory.sol"
+    },
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/SphinxDataTypes.sol"
+    },
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/SphinxModule.sol"
+    },
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/SphinxModuleProxyFactory.sol"
+    },
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/ManagedService.sol"
+    },
+    {
+      "language": "solidity",
+      "scheme": "file",
+      "pattern": "packages/contracts/contracts/core/interfaces/ISphinxModule.sol"
+    },
+    {
+      "language": "markdown",
+      "scheme": "file",
+      "pattern": "specs/merkle-tree.md"
+    }
+  ]
 }

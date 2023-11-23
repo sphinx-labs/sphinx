@@ -58,7 +58,7 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         // `CREATE2` address.
         sphinxModuleProxy = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
         // Emit an event for the deployment. It's worth mentioning that we're violating the
-        // checks-effects-interactions pattern by deploying the `SphinxModuleProxy` then emitting an
+        // checks-effects-interactions pattern by deploying the `SphinxModuleProxy`, then emitting an
         // event. However, this is harmless because the call to `Clones` simply deploys an EIP-1167
         // proxy, which isn't able to make external calls. By deploying first, we can use the
         // returned value of `cloneDeterministic` when we emit the event.

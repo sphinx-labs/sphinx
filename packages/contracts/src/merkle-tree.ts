@@ -84,7 +84,7 @@ export type NetworkDeploymentData = BaseNetworkData & {
  * deployment cancellations.
  *
  * @field type               Differentiates this object type from the `NetworkDeploymentData` type.
- * @field merkleRootToCancel The Merkle root of the deployment that will be cancelled.
+ * @field merkleRootToCancel The Merkle root of the deployment that will be canceled.
  */
 export type NetworkCancellationData = BaseNetworkData & {
   type: 'cancellation'

@@ -4,11 +4,11 @@ Sphinx is a protocol and Foundry plugin that automates the smart contract deploy
 
 ## Key features:
 
-* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO(md): off chain billing. (mention free testnet deployments?).
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO(md): off-chain billing. (mention free testnet deployments?).
 
 * **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel, then verify your smart contracts on Etherscan.
 
-* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). If you'd rather not use a CI process, you can propose deployments from your local machine instead.
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve them in our UI (all gaslessly, of course). If you'd rather not use a CI process, you can propose deployments from your local machine instead.
 
 - **Powered by Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve deployments across an arbitrary number of chains by signing a single meta transaction.
 
