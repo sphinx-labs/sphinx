@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 contract ConstructorArgsValidationPartTwo {
     struct SimpleStruct {
-        uint a;
-        uint b;
+        uint256 a;
+        uint256 b;
     }
 
     bytes8 public immutable longBytes8;
@@ -12,10 +12,10 @@ contract ConstructorArgsValidationPartTwo {
     bool public immutable intBoolean;
     bool public immutable stringBoolean;
     bool public immutable arrayBoolean;
-    uint[] public invalidBaseTypeArray;
-    uint[][] public invalidNestedBaseTypeArray;
-    uint[2] public incorrectlySizedArray;
-    uint[2][2] public incorrectlySizedNestedArray;
+    uint256[] public invalidBaseTypeArray;
+    uint256[][] public invalidNestedBaseTypeArray;
+    uint256[2] public incorrectlySizedArray;
+    uint256[2][2] public incorrectlySizedNestedArray;
     SimpleStruct public structMissingMembers;
 
     constructor(
@@ -24,10 +24,10 @@ contract ConstructorArgsValidationPartTwo {
         bool _intBoolean,
         bool _stringBoolean,
         bool _arrayBoolean,
-        uint[] memory _invalidBaseTypeArray,
-        uint[][] memory _invalidNestedBaseTypeArray,
-        uint[2] memory _incorrectlySizedArray,
-        uint[2][2] memory _incorrectlySizedNestedArray,
+        uint256[] memory _invalidBaseTypeArray,
+        uint256[][] memory _invalidNestedBaseTypeArray,
+        uint256[2] memory _incorrectlySizedArray,
+        uint256[2][2] memory _incorrectlySizedNestedArray,
         SimpleStruct memory _structMissingMembers
     ) {
         longBytes8 = _longBytes8;

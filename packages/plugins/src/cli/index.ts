@@ -9,8 +9,9 @@ import 'core-js/features/array/at'
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
-import { propose } from './propose'
+// import { propose } from './propose'
 import { deploy } from './deploy'
+import { propose } from './propose'
 
 // Load environment variables from .env
 dotenv.config()

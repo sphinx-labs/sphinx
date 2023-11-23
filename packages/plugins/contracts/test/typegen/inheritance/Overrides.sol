@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract ParentOverrides {
-    uint public myNumber;
+    uint256 public myNumber;
 
     constructor(uint256 _myNumber) {
         myNumber = _myNumber;
@@ -16,7 +16,7 @@ contract ParentOverrides {
 contract ChildOverrides is ParentOverrides {
     constructor(uint256 _myNumber) ParentOverrides(_myNumber) {}
 
-    function add(uint _value) public override {
+    function add(uint256 _value) public override {
         myNumber = myNumber * _value;
     }
 }

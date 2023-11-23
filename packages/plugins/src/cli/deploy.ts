@@ -5,7 +5,6 @@ import { spawnSync } from 'child_process'
 import {
   displayDeploymentTable,
   isLiveNetwork,
-  remove0x,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -17,14 +16,15 @@ import {
   SUPPORTED_NETWORKS,
   ParsedConfig,
   SphinxPreview,
+  getMerkleTreeInfo,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
+import { remove0x } from '@sphinx-labs/contracts'
 
 import {
-  getBundleInfoArray,
-  getSphinxManagerAddressFromScript,
+  getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
@@ -36,6 +36,7 @@ import {
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
+// import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
@@ -55,9 +56,9 @@ export const deploy = async (
     buildInfoFolder,
     cachePath,
     rpcEndpoints,
-    deploymentFolder,
     etherscan,
     broadcastFolder,
+    deploymentFolder,
   } = await getFoundryConfigOptions()
 
   const forkUrl = rpcEndpoints[network]
@@ -153,7 +154,7 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const managerAddress = await getSphinxManagerAddressFromScript(
+  const managerAddress = await getSphinxSafeAddressFromScript(
     scriptPath,
     forkUrl,
     targetContract,
@@ -219,9 +220,7 @@ export const deploy = async (
   } else {
     preview = getPreview([parsedConfig])
 
-    const emptyDeployment = parsedConfig.actionInputs.every(
-      (action) => action.skip
-    )
+    const emptyDeployment = parsedConfig.actionInputs.length === 0
 
     spinner.stop()
     if (emptyDeployment) {
@@ -235,16 +234,15 @@ export const deploy = async (
     }
   }
 
-  const { authRoot, bundleInfoArray } = await getBundleInfoArray(
-    configArtifacts,
-    [parsedConfig]
-  )
-  if (bundleInfoArray.length !== 1) {
+  const { root, merkleTreeInfo } = await getMerkleTreeInfo(configArtifacts, [
+    parsedConfig,
+  ])
+  if (merkleTreeInfo.compilerConfigs.length !== 1) {
+    // TODO: remove the word "bundle" everywhere in the codebase
     throw new Error(
       `Bundle info array has incorrect length. Should never happen`
     )
   }
-  const bundleInfo = bundleInfoArray[0]
 
   const sphinxABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -259,8 +257,8 @@ export const deploy = async (
 
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
-    authRoot,
-    bundleInfo,
+    root,
+    merkleTreeInfo.merkleTree,
   ])
 
   const forgeScriptDeployArgs = [
@@ -315,10 +313,10 @@ export const deploy = async (
       readFileSync(broadcastFilePath, 'utf-8')
     )
 
+    // TODO - Fix deployment artifacts
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      bundleInfo.actionBundle.actions,
       broadcast,
       deploymentFolder,
       configArtifacts

@@ -9,7 +9,7 @@ contract ComplexConstructorArgs {
         uint128 b;
         uint128 c;
         uint64[2] d;
-        uint[][] e;
+        uint256[][] e;
     }
 
     string public str;

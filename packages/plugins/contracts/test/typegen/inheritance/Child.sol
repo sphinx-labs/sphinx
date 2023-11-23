@@ -22,7 +22,7 @@ contract Child is Parent {
         myNumber += _value;
     }
 
-    function add(uint256 _value, uint _value2) public {
+    function add(uint256 _value, uint256 _value2) public {
         myNumber += (_value + _value2);
     }
 }

@@ -2,25 +2,25 @@
 pragma solidity ^0.8.0;
 
 contract ConflictingQualifiedNames {
-    uint public x;
+    uint256 public x;
 
-    constructor(uint _x) {
+    constructor(uint256 _x) {
         x = _x;
     }
 
-    function add(uint _y) public {
+    function add(uint256 _y) public {
         x += _y;
     }
 }
 
 contract ConflictingQualifiedNameChildInSameFile is ConflictingQualifiedNames {
-    uint public y;
+    uint256 public y;
 
-    constructor(uint _y, uint _x) ConflictingQualifiedNames(_x) {
+    constructor(uint256 _y, uint256 _x) ConflictingQualifiedNames(_x) {
         y = _y;
     }
 
-    function addY(uint _y) public {
+    function addY(uint256 _y) public {
         y += _y;
     }
 }

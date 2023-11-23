@@ -1,15 +1,16 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
-import { HumanReadableAction, SphinxBundles } from '../actions/types'
+import { HumanReadableAction } from '../actions/types'
 import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
-import { makeBundlesFromConfig } from '../actions/bundle'
+import { getMerkleTreeInfo } from '../tasks'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
   ipfsUrl?: string
-}): Promise<CompilerConfig> => {
-  let config: CompilerConfig
+}): Promise<Array<CompilerConfig>> => {
+  let config: Array<CompilerConfig>
   let ipfs: IPFSHTTPClient
   if (args.ipfsUrl) {
     ipfs = create({
@@ -60,25 +61,29 @@ export const compileRemoteBundles = async (
   configUri: string,
   ipfsUrl?: string
 ): Promise<{
-  bundles: SphinxBundles
-  compilerConfig: CompilerConfig
+  merkleTree: SphinxMerkleTree
+  compilerConfigs: Array<CompilerConfig>
   configArtifacts: ConfigArtifacts
   humanReadableActions: Array<HumanReadableAction>
 }> => {
-  const compilerConfig = await callWithTimeout<CompilerConfig>(
+  const compilerConfigs = await callWithTimeout<Array<CompilerConfig>>(
     sphinxFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
+  const configArtifacts = await getConfigArtifactsRemote(compilerConfigs)
 
-  const { bundles, humanReadableActions } =
-    makeBundlesFromConfig(compilerConfig)
-  return {
-    bundles,
-    compilerConfig,
+  const { merkleTreeInfo } = await getMerkleTreeInfo(
     configArtifacts,
-    humanReadableActions,
+    compilerConfigs
+  )
+
+  return {
+    merkleTree: merkleTreeInfo.merkleTree,
+    compilerConfigs,
+    configArtifacts,
+    // TODO - do something with human readable actions
+    humanReadableActions: [],
   }
 }

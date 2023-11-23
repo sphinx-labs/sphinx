@@ -177,13 +177,8 @@ export const getPreview = (
     }
 
     for (const action of actionInputs) {
-      const { decodedAction, skip } = action
-
-      if (skip) {
-        skipping.push(decodedAction)
-      } else {
-        executing.push(decodedAction)
-      }
+      const { decodedAction } = action
+      executing.push(decodedAction)
     }
 
     const networkName = getNetworkNameForChainId(BigInt(chainId))

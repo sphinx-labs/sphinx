@@ -1,18 +1,20 @@
 # Sphinx: DevOps for Deployments
 
-Sphinx automates the smart contract deployment process by funding, executing, and verifying deployments on your behalf.
-
-> Sphinx is not audited yet, so you should **always** check that your deployments were executed correctly.
+Sphinx is a protocol and Foundry plugin that automates the smart contract deployment process.
 
 ## Key features:
 
-* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, simply maintain a balance of USDC on a single chain to fund deployments across all chains.
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll handle the fees and bill you in fiat or USDC after your deployment is completed.
 
-* **One-Click Multichain Deployments**: Your project owners can approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx will execute the deployment on each chain in parallel.
+* **One-Click Multichain Deployments**: Approve deployments across 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel and then verify your smart contracts on Etherscan.
 
-* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process, then approve it in our UI (all gaslessly, of course). Sphinx's backend will execute the deployment on your behalf. If you'd rather not use a CI process, you can propose deployments from your local machine instead.
+* **Deployments in CI**: Initiating deployments from a CI process has obvious benefits, such as reproducibility and consistency, but it hasn't been practical until now. With Sphinx, you can propose deployments from your CI process and then approve them in our UI (all gaslessly, of course). If you'd rather not use a CI process, you can propose deployments from your local machine.
 
-* **Automatic Etherscan verification**
+- **Powered by Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve deployments across an arbitrary number of chains by signing a single meta transaction.
+
+- **Secure `CREATE3` Deployments**: You can use your multisig as your permissioned `CREATE3` deployer instead of relying on a single private key to get consistent contract addresses across networks.
+
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
 * **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
 
@@ -36,6 +38,14 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [Using Sphinx in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/main/docs/faq.md)
 - [Troubleshooting Guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md)
+
+### Specifications
+
+- [Introduction](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md)
+- [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy.md)
+- [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy-factory.md)
+- [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/managed-service.md)
+- [Sphinx Merkle Tree](https://github.com/sphinx-labs/sphinx/blob/develop/specs/merkle-tree.md)
 
 ## Current limitations
 
@@ -83,13 +93,13 @@ More networks are on the way! Please feel free to reach out in our [Discord](htt
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/main/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
+Contributions to Sphinx are greatly appreciated! Please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/main/CONTRIBUTING.md) to get started. Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
 
 ## Reach Out
 
 If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
+We use the Gnosis Safe contracts as a library, licensed under [LGPL v3](https://github.com/safe-global/safe-contracts/blob/main/LICENSE). You can access the Gnosis Safe contracts in their [public repo](https://github.com/safe-global/safe-contracts).
 
-MIT © 2023
-
+The Sphinx Safe Module and all other code in this repository is licensed under [MIT](https://github.com/sphinx-labs/sphinx/blob/develop/LICENSE).

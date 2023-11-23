@@ -7,21 +7,7 @@ import yesno from 'yesno'
 import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
-import {
-  Signer,
-  Contract,
-  ethers,
-  AbiCoder,
-  Provider,
-  JsonRpcSigner,
-} from 'ethers'
-import {
-  ProxyArtifact,
-  SphinxRegistryABI,
-  SphinxManagerABI,
-  ProxyABI,
-  AuthFactoryABI,
-} from '@sphinx-labs/contracts'
+import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import { ProxyDeployment } from '@openzeppelin/upgrades-core'
@@ -36,6 +22,7 @@ import {
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
+import { FoundryContractArtifact, add0x } from '@sphinx-labs/contracts'
 
 import {
   CompilerConfig,
@@ -43,11 +30,9 @@ import {
   userContractKinds,
   ContractKind,
   ParsedVariable,
-  DeployContractActionInput,
   BuildInfoRemote,
   ConfigArtifactsRemote,
   RawFunctionCallActionInput,
-  RawDeployContractActionInput,
   ActionInput,
   RawCreate2ActionInput,
   RawActionInput,
@@ -65,13 +50,8 @@ import {
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import { AUTH_FACTORY_ADDRESS, getSphinxRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
-import {
-  BuildInfo,
-  CompilerOutput,
-  ContractArtifact,
-} from './languages/solidity/types'
+import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import { fromRawSphinxAction, isSetStorageAction } from './actions/bundle'
 import {
@@ -125,75 +105,6 @@ export const writeSnapshotId = async (
   fs.writeFileSync(snapshotIdPath, snapshotId)
 }
 
-export const getDefaultProxyInitCode = (managerAddress: string): string => {
-  const bytecode = ProxyArtifact.bytecode
-  const iface = new ethers.Interface(ProxyABI)
-
-  const initCode = bytecode.concat(
-    remove0x(iface.encodeDeploy([managerAddress]))
-  )
-
-  return initCode
-}
-
-/**
- * Finalizes the registration of a project.
- *
- * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param ownerAddress Owner of the SphinxManager contract deployed by this call.
- */
-export const registerOwner = async (
-  projectName: string,
-  registryAddress: string,
-  managerAddress: string,
-  ownerAddress: string,
-  signer: Signer,
-  spinner: ora.Ora
-): Promise<void> => {
-  spinner.start(`Registering the project...`)
-
-  const registry = new Contract(registryAddress, SphinxRegistryABI, signer)
-  const manager = new Contract(managerAddress, SphinxManagerABI, signer)
-
-  if (!(await registry.isManagerDeployed(managerAddress))) {
-    await (
-      await registry.register(
-        ownerAddress,
-        projectName,
-        '0x', // We don't pass any extra initializer data to this version of the SphinxManager.
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-    spinner.succeed(`Project registered.`)
-  } else {
-    const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== ownerAddress) {
-      throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
-    } else {
-      spinner.succeed(`Project was already registered by the caller.`)
-    }
-  }
-}
-
-export const getSphinxRegistry = (signer: Signer): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, signer)
-}
-
-export const getSphinxRegistryReadOnly = (provider: Provider): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
-}
-
-export const getSphinxManager = (manager: string, signer: Signer): Contract => {
-  return new Contract(manager, SphinxManagerABI, signer)
-}
-
-export const getSphinxManagerReadOnly = (
-  manager: string,
-  provider: Provider
-): Contract => {
-  return new Contract(manager, SphinxManagerABI, provider)
-}
-
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
   title: string,
@@ -226,10 +137,6 @@ export const createSphinxLog = (
   }
 
   return parts.join('\n') + '\n'
-}
-
-export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
-  return new Contract(proxyAddress, ProxyABI, signer)
 }
 
 export const getCurrentSphinxActionType = (
@@ -445,18 +352,18 @@ export const isUserContractKind = (
 /**
  * Retrieves an artifact by name from the local file system.
  */
-export const readContractArtifact = (
+export const readFoundryContractArtifact = (
   contractArtifactPath: string,
   integration: Integration
-): ContractArtifact => {
-  const artifact: ContractArtifact = JSON.parse(
+): FoundryContractArtifact => {
+  const artifact: FoundryContractArtifact = JSON.parse(
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
 
   if (integration === 'hardhat') {
     return artifact
   } else if (integration === 'foundry') {
-    return parseFoundryArtifact(artifact)
+    return artifact
   } else {
     throw new Error('Unknown integration')
   }
@@ -496,40 +403,6 @@ export const validateBuildInfo = (
         `Did you forget to set the "storageLayout" compiler option in your Hardhat config file?`
       )
     }
-  }
-}
-
-// TODO(ryan): (This is the `getConfigArtifact` bug we discussed on the call. You already have this
-// in your notes, so feel free to disregard). Say we have contracts/MyContracts.sol:MyContract1.sol
-// and contracts/test/MyContracts.sol:MyContract1.sol. The artifact file for the latter will be in
-// out/artifacts/test/, but it seems we assume that the artifact directory structure is "flat" in
-// `getConfigArtifact`.
-
-/**
- * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
- *
- * @param artifact Raw artifact object.
- * @returns ContractArtifact
- */
-export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
-  const abi = artifact.abi
-  const bytecode = add0x(artifact.bytecode.object)
-  const deployedBytecode = add0x(artifact.deployedBytecode.object)
-
-  const compilationTarget = artifact.metadata.settings.compilationTarget
-  const sourceName = Object.keys(compilationTarget)[0]
-  const contractName = compilationTarget[sourceName]
-  const metadata = artifact.metadata
-
-  return {
-    abi,
-    bytecode,
-    sourceName,
-    contractName,
-    deployedBytecode,
-    metadata,
-    methodIdentifiers: artifact.methodIdentifiers,
-    storageLayout: artifact.storageLayout,
   }
 }
 
@@ -675,85 +548,87 @@ export const toOpenZeppelinContractKind = (
 // }
 
 export const getConfigArtifactsRemote = async (
-  compilerConfig: CompilerConfig
+  compilerConfigs: Array<CompilerConfig>
 ): Promise<ConfigArtifactsRemote> => {
   const solcArray: BuildInfoRemote[] = []
-  // Get the compiler output for each compiler input.
-  for (const sphinxInput of compilerConfig.inputs) {
-    const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
-    let compilerOutput: CompilerOutput
-    if (solcBuild.isSolcJs) {
-      const compiler = new Compiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
-    } else {
-      const compiler = new NativeCompiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
-    }
-
-    if (compilerOutput.errors) {
-      const formattedErrorMessages: string[] = []
-      compilerOutput.errors.forEach((error) => {
-        // Ignore warnings thrown by the compiler.
-        if (error.type.toLowerCase() !== 'warning') {
-          formattedErrorMessages.push(error.formattedMessage)
-        }
-      })
-
-      if (formattedErrorMessages.length > 0) {
-        throw new Error(
-          `Failed to compile. Please report this error to Sphinx.\n` +
-            `${formattedErrorMessages}`
-        )
-      }
-    }
-
-    solcArray.push({
-      input: sphinxInput.input,
-      output: compilerOutput,
-      id: sphinxInput.id,
-      solcLongVersion: sphinxInput.solcLongVersion,
-      solcVersion: sphinxInput.solcVersion,
-    })
-  }
-
   const artifacts: ConfigArtifactsRemote = {}
-  const unskipped = compilerConfig.actionInputs.filter((a) => !a.skip)
-  for (const actionInput of unskipped) {
-    for (const address of Object.keys(actionInput.contracts)) {
-      const { fullyQualifiedName } = actionInput.contracts[address]
-
-      // Split the contract's fully qualified name into its source name and contract name.
-      const [sourceName, contractName] = fullyQualifiedName.split(':')
-
-      const buildInfo = solcArray.find(
-        (e) => e.output.contracts[sourceName][contractName]
-      )
-      if (!buildInfo) {
-        throw new Error(
-          `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
-        )
+  // Get the compiler output for each compiler input.
+  for (const compilerConfig of compilerConfigs) {
+    for (const sphinxInput of compilerConfig.inputs) {
+      const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
+      let compilerOutput: CompilerOutput
+      if (solcBuild.isSolcJs) {
+        const compiler = new Compiler(solcBuild.compilerPath)
+        compilerOutput = await compiler.compile(sphinxInput.input)
+      } else {
+        const compiler = new NativeCompiler(solcBuild.compilerPath)
+        compilerOutput = await compiler.compile(sphinxInput.input)
       }
-      const contractOutput =
-        buildInfo.output.contracts[sourceName][contractName]
 
-      const metadata =
-        typeof contractOutput.metadata === 'string'
-          ? JSON.parse(contractOutput.metadata)
-          : contractOutput.metadata
-      artifacts[fullyQualifiedName] = {
-        buildInfo,
-        artifact: {
-          abi: contractOutput.abi,
-          sourceName,
-          contractName,
-          bytecode: add0x(contractOutput.evm.bytecode.object),
-          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-          methodIdentifiers: contractOutput.evm.methodIdentifiers,
-          metadata,
-        },
+      if (compilerOutput.errors) {
+        const formattedErrorMessages: string[] = []
+        compilerOutput.errors.forEach((error) => {
+          // Ignore warnings thrown by the compiler.
+          if (error.type.toLowerCase() !== 'warning') {
+            formattedErrorMessages.push(error.formattedMessage)
+          }
+        })
+
+        if (formattedErrorMessages.length > 0) {
+          throw new Error(
+            `Failed to compile. Please report this error to Sphinx.\n` +
+              `${formattedErrorMessages}`
+          )
+        }
+      }
+
+      solcArray.push({
+        input: sphinxInput.input,
+        output: compilerOutput,
+        id: sphinxInput.id,
+        solcLongVersion: sphinxInput.solcLongVersion,
+        solcVersion: sphinxInput.solcVersion,
+      })
+    }
+
+    for (const actionInput of compilerConfig.actionInputs) {
+      for (const address of Object.keys(actionInput.contracts)) {
+        const { fullyQualifiedName } = actionInput.contracts[address]
+
+        // Split the contract's fully qualified name into its source name and contract name.
+        const [sourceName, contractName] = fullyQualifiedName.split(':')
+
+        const buildInfo = solcArray.find(
+          (e) => e.output.contracts[sourceName][contractName]
+        )
+        if (!buildInfo) {
+          throw new Error(
+            `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
+          )
+        }
+        const contractOutput =
+          buildInfo.output.contracts[sourceName][contractName]
+
+        const metadata =
+          typeof contractOutput.metadata === 'string'
+            ? JSON.parse(contractOutput.metadata)
+            : contractOutput.metadata
+        artifacts[fullyQualifiedName] = {
+          buildInfo,
+          artifact: {
+            abi: contractOutput.abi,
+            sourceName,
+            contractName,
+            bytecode: add0x(contractOutput.evm.bytecode.object),
+            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+            methodIdentifiers: contractOutput.evm.methodIdentifiers,
+            metadata,
+          },
+        }
       }
     }
   }
+
   return artifacts
 }
 
@@ -764,7 +639,7 @@ export const getDeploymentEvents = async (
   // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
     await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentApproved(deploymentId)
+      SphinxManager.filters.SphinxMerkleRootApproved(deploymentId)
     )
   ).at(-1)
 
@@ -776,7 +651,7 @@ export const getDeploymentEvents = async (
 
   const completedEvent = (
     await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentCompleted(deploymentId)
+      SphinxManager.filters.SphinxMerkleRootCompleted(deploymentId)
     )
   ).at(-1)
 
@@ -951,19 +826,6 @@ export const relayIPFSCommit = async (
   }
 }
 
-export const isProjectCreated = async (
-  provider: Provider,
-  authAddress: string
-): Promise<boolean> => {
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    provider
-  )
-  const isCreated: boolean = await AuthFactory.isDeployed(authAddress)
-  return isCreated
-}
-
 export const findNetwork = (chainId: number): string => {
   const network = Object.keys(SUPPORTED_NETWORKS).find(
     (n) => SUPPORTED_NETWORKS[n] === chainId
@@ -1136,32 +998,6 @@ export const sortHexStrings = (arr: Array<string>): void => {
       return 0
     }
   })
-}
-
-/**
- * Removes "0x" from start of a string if it exists.
- *
- * @param str String to modify.
- * @returns the string without "0x".
- */
-export const remove0x = (str: string): string => {
-  if (str === undefined) {
-    return str
-  }
-  return str.startsWith('0x') ? str.slice(2) : str
-}
-
-/**
- * Adds "0x" to the start of a string if necessary.
- *
- * @param str String to modify.
- * @returns the string with "0x".
- */
-export const add0x = (str: string): string => {
-  if (str === undefined) {
-    return str
-  }
-  return str.startsWith('0x') ? str : '0x' + str
 }
 
 /**
@@ -1341,22 +1177,9 @@ export const isRawFunctionCallActionInput = (
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
     callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.skip !== undefined &&
     callActionInput.to !== undefined &&
-    callActionInput.data !== undefined
+    callActionInput.txData !== undefined
   )
-}
-
-export const isDeployContractActionInput = (
-  actionInput: ActionInput
-): actionInput is DeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
-}
-
-export const isRawDeployContractActionInput = (
-  actionInput: RawActionInput
-): actionInput is RawDeployContractActionInput => {
-  return actionInput.actionType === SphinxActionType.DEPLOY_CONTRACT.toString()
 }
 
 export const isRawCreate2ActionInput = (
@@ -1367,8 +1190,7 @@ export const isRawCreate2ActionInput = (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
-    rawCreate2.skip !== undefined &&
-    rawCreate2.data !== undefined &&
+    rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
   )
 }
@@ -1410,85 +1232,6 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   if (Object.keys(deployments).length > 0) {
     console.table(deployments)
   }
-}
-
-/**
- * @notice This function recursively converts an `ethers.Result` into a plain object. We do this
- * because `ethers.Result`s are essentially arrays, which makes it difficult to work with them
- * because we can't access the fields by name. Converting these into objects also allows us to
- * display function arguments in a more readable format in the deployment preview.
- *
- * If the `Result` contains any unnamed variables, then the returned value will be an array instead
- * of an object. For example, if `values = [1, true]`, then the returned value will also be `[1,
- * true]`. However, if one of the elements is a complex data type, like a struct, then it will
- * convert its fields into an object. For example, if `value = [1, true, [2, 3]]`, where `[2, 3]`
- * are the fields of a struct, then the result would look something like: `[1, true, { myField: 2,
- * myOtherField: 3}]`.
- *
- * @param types The types of the variables in the `Result`. This can be retrieved from an
- * `ethers.Interface` object.
- * @param values The `Result` to convert.
- */
-export const recursivelyConvertResult = (
-  types: readonly ethers.ParamType[],
-  values: ethers.Result
-): unknown => {
-  const containsUnnamedValue = types.some((t) => t.name === '')
-
-  // If the `Result` contains any unnamed variables, then we return an array. Otherwise, we return
-  // an object.
-  const converted: Array<any> | { [key: string]: any } = containsUnnamedValue
-    ? []
-    : {}
-
-  for (let i = 0; i < types.length; i++) {
-    const paramType = types[i]
-    const value = values[i]
-    // Structs are represented as tuples.
-    if (paramType.isTuple()) {
-      const convertedTuple = recursivelyConvertResult(
-        paramType.components,
-        value
-      )
-      // Add the converted tuple to the array or object.
-      if (containsUnnamedValue) {
-        converted.push(convertedTuple)
-      } else {
-        converted[paramType.name] = convertedTuple
-      }
-    } else if (paramType.isArray()) {
-      // Recursively convert the elements of the array.
-      const convertedElements = value.map((e) => {
-        if (paramType.arrayChildren.isTuple()) {
-          const elementResult = ethers.Result.fromItems(e)
-          return recursivelyConvertResult(
-            paramType.arrayChildren.components,
-            elementResult
-          )
-        } else if (paramType.arrayChildren.isArray()) {
-          // The element is itself an array.
-          const elementResult = ethers.Result.fromItems(e)
-          return recursivelyConvertResult(
-            // Create an array of `ParamType` objects of the same length as the element array.
-            Array(e.length).fill(paramType.arrayChildren.arrayChildren),
-            elementResult
-          )
-        } else {
-          return e
-        }
-      })
-      if (containsUnnamedValue) {
-        converted.push(convertedElements)
-      } else {
-        converted[paramType.name] = convertedElements
-      }
-    } else if (containsUnnamedValue) {
-      converted.push(value)
-    } else {
-      converted[paramType.name] = value
-    }
-  }
-  return converted
 }
 
 /**

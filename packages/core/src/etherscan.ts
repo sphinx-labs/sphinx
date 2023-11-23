@@ -22,19 +22,15 @@ import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/e
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
-import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { buildInfo as sphinxBuildInfo } from '@sphinx-labs/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
+import { remove0x } from '@sphinx-labs/contracts'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { getSphinxConstants } from './contract-info'
-import { CompilerOutputMetadata } from './languages'
-import { remove0x } from './utils'
 
 export interface EtherscanResponseBody {
   status: string
@@ -142,57 +138,6 @@ export const verifySphinxConfig = async (
       //   )
       // }
     }
-  }
-}
-
-export const verifySphinx = async (
-  provider: ethers.Provider,
-  networkName: string,
-  apiKey: string
-) => {
-  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
-    Number((await provider.getNetwork()).chainId)
-  )
-
-  for (const {
-    artifact,
-    expectedAddress,
-    constructorArgs,
-  } of await getSphinxConstants(provider)) {
-    const { sourceName, contractName, abi } = artifact
-
-    const contractOutput =
-      sphinxBuildInfo.output.contracts[sourceName][contractName]
-    const metadata: CompilerOutputMetadata =
-      typeof contractOutput.metadata === 'string'
-        ? JSON.parse(contractOutput.metadata)
-        : contractOutput.metadata
-
-    const minimumCompilerInput = getMinimumCompilerInput(
-      sphinxBuildInfo.input,
-      metadata
-    )
-
-    const encodedConstructorArgs = await encodeArguments(
-      abi,
-      sourceName,
-      contractName,
-      constructorArgs
-    )
-
-    await attemptVerification(
-      provider,
-      networkName,
-      etherscanApiEndpoints.urls,
-      expectedAddress,
-      sourceName,
-      contractName,
-      abi,
-      apiKey,
-      minimumCompilerInput,
-      sphinxBuildInfo.solcVersion,
-      encodedConstructorArgs
-    )
   }
 }
 
