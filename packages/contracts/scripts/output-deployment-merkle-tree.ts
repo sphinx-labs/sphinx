@@ -11,8 +11,8 @@ import {
 import { recursivelyConvertResult } from '../src/utils'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
-const chainId = argv[2]
-const nonce = argv[3]
+const abiEncodedChainIds = argv[2]
+const abiEncodedNonces = argv[3]
 const executor = argv[4]
 const safeProxy = argv[5]
 const moduleProxy = argv[6]
@@ -46,19 +46,30 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
   const [txArray] = recursivelyConvertResult(
     sphinxTransactionArrayType.outputs,
     txArrayResult
-  ) as [Array<SphinxTransaction>]
+  ) as [Array<Array<SphinxTransaction>>]
 
-  const deploymentData: DeploymentData = {
-    [chainId]: {
+  const chainIdArray = coder
+    .decode(['uint[]'], abiEncodedChainIds)
+    .map((e) => e.toString()) as Array<string>
+
+  const nonceArray = coder
+    .decode(['uint[]'], abiEncodedNonces)
+    .map((e) => e.toString()) as Array<string>
+
+  const deploymentData: DeploymentData = {}
+  let chainIndex = 0
+  for (const chainId of chainIdArray) {
+    deploymentData[chainId] = {
       type: 'deployment',
-      nonce,
+      nonce: nonceArray[chainIndex],
       executor,
       safeProxy,
       moduleProxy,
       uri,
-      txs: txArray,
+      txs: txArray[chainIndex] !== undefined ? txArray[chainIndex] : [],
       arbitraryChain,
-    },
+    }
+    chainIndex += 1
   }
 
   const leaves = makeSphinxLeaves(deploymentData)
@@ -69,7 +80,7 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
       [
         safeProxy,
         moduleProxy,
-        nonce,
+        nonceArray[0],
         overridingNumLeavesValue, // Override the `numLeaves`
         executor,
         uri,

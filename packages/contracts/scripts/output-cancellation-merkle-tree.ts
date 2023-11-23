@@ -9,13 +9,13 @@ import {
 } from '../src/merkle-tree'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
-const chainId = argv[2]
-const nonce = argv[3]
+const abiEncodedChainIds = argv[2]
+const abiEncodedNonces = argv[3]
 const executor = argv[4]
 const safeProxy = argv[5]
 const moduleProxy = argv[6]
 const uri = argv[7]
-const merkleRootToCancel = argv[8]
+const abiEncodedMerkleRootsToCancel = argv[8]
 const forceCancellationLeafIndexNonZero = argv[9] === 'true'
 
 ;(async () => {
@@ -32,16 +32,31 @@ const forceCancellationLeafIndexNonZero = argv[9] === 'true'
     throw new Error('Missing type in ABI. Should never happen.')
   }
 
-  const deploymentData: DeploymentData = {
-    [chainId]: {
+  const merkleRootArray = coder
+    .decode(['bytes32[]'], abiEncodedMerkleRootsToCancel)
+    .map((e) => e.toString()) as Array<string>
+
+  const chainIdArray = coder
+    .decode(['uint[]'], abiEncodedChainIds)
+    .map((e) => e.toString()) as Array<string>
+
+  const nonceArray = coder
+    .decode(['uint[]'], abiEncodedNonces)
+    .map((e) => e.toString()) as Array<string>
+
+  const deploymentData: DeploymentData = {}
+  let chainIndex = 0
+  for (const chainId of chainIdArray) {
+    deploymentData[chainId] = {
       type: 'cancellation',
-      nonce,
+      nonce: nonceArray[chainIndex],
       executor,
       safeProxy,
       moduleProxy,
-      merkleRootToCancel,
       uri,
-    },
+      merkleRootToCancel: merkleRootArray[chainIndex],
+    }
+    chainIndex += 1
   }
 
   const leaves = makeSphinxLeaves(deploymentData)
