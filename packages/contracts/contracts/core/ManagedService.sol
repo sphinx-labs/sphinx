@@ -35,7 +35,9 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Allows for the relayers to make arbitrary calls using this contract.
+     * @notice Allows for the relayers to make arbitrary calls using this contract. We forward
+     * the return value of the underlying function call to allow maximum flexibility in future
+     * uses of this contract.
      *
      * @param  _to   The target address.
      * @param  _data The data that will be sent.

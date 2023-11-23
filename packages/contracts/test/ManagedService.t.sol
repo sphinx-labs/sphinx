@@ -5,6 +5,11 @@ import "sphinx-forge-std/Test.sol";
 import { ManagedService } from "contracts/core/ManagedService.sol";
 
 contract Endpoint {
+    // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
+    // call/delegatecall fails.
+    bytes constant ERROR_SELECTOR = hex"08c379a0";
+    bool public reentrancyBlocked;
+
     uint public x;
 
     error CustomError(uint256 value, address a, address b, address c, bytes32 d);
@@ -17,6 +22,19 @@ contract Endpoint {
         x = _x;
 
         return x;
+    }
+
+    function reenter(address _to, bytes memory _data) external {
+        (bool success, bytes memory retdata) = _to.call(_data);
+        require(!success, "Endpoint: reentrancy succeeded");
+        require(
+            keccak256(retdata) ==
+                keccak256(
+                    abi.encodePacked(ERROR_SELECTOR, abi.encode("ReentrancyGuard: reentrant call"))
+                ),
+            "Endpoint: incorrect error"
+        );
+        reentrancyBlocked = true;
     }
 
     function doRevert() pure public {
@@ -94,10 +112,30 @@ contract ManagedService_Test is Test, ManagedService {
         service.exec(address(0), abi.encodeWithSelector(Endpoint.set.selector, 2));
     }
 
+    function test_RevertNoReentrancy() external {
+        assertFalse(endpoint.reentrancyBlocked());
+        vm.startPrank(sender);
+
+        bytes memory setData = abi.encodeWithSelector(Endpoint.set.selector, 2);
+        bytes memory execData = abi.encodeWithSelector(ManagedService.exec.selector, address(endpoint), setData);
+        bytes memory txData = abi.encodeWithSelector(Endpoint.reenter.selector, address(service), execData);
+
+        // Expect the correct event is emitted
+        vm.expectEmit(address(service));
+        emit Called(sender, address(endpoint), keccak256(txData));
+
+        // Execute the call
+        bytes memory res = service.exec(address(endpoint), txData);
+
+        // Check that the set function was not called (via reentrancy)
+        assertEq(endpoint.x(), 1);
+
+        // Expect that the reentrancy was blocked
+        assertTrue(endpoint.reentrancyBlocked());
+    }
+
     function test_SuccessfulCall() external {
         vm.startPrank(sender);
-        vm.txGasPrice(2);
-        vm.deal(address(service), 1 ether);
 
         bytes memory txData = abi.encodeWithSelector(Endpoint.set.selector, 2);
 
