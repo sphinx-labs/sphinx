@@ -35,19 +35,22 @@ type NetworkDeploymentMerkleTreeInputs = {
   const merkleTreeFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
-  const sphinxTransactionArrayType = iface.fragments
+  const networkArrayType = iface.fragments
     .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxTransactionArrayType')
-  if (!merkleTreeFragment || !sphinxTransactionArrayType) {
+    .find(
+      (fragment) =>
+        fragment.name === 'networkDeploymentMerkleTreeInputsArrayType'
+    )
+  if (!merkleTreeFragment || !networkArrayType) {
     throw new Error('Missing type in ABI. Should never happen.')
   }
 
   const networkArrayResult = coder.decode(
-    sphinxTransactionArrayType.outputs,
+    networkArrayType.outputs,
     abiEncodedNetworks
   )
   const [networkArray] = recursivelyConvertResult(
-    sphinxTransactionArrayType.outputs,
+    networkArrayType.outputs,
     networkArrayResult
   ) as [Array<NetworkDeploymentMerkleTreeInputs>]
 

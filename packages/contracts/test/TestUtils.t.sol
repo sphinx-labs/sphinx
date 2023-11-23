@@ -73,6 +73,14 @@ import { console } from "sphinx-forge-std/console.sol";
 contract TestUtils is SphinxUtils, Enum {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+    // TODO(docs)
+    enum GnosisSafeVersion {
+        L1_1_3_0,
+        L2_1_3_0,
+        L1_1_4_1,
+        L2_1_4_1
+    }
+
     struct GnosisSafeContracts_1_3_0 {
         SimulateTxAccessor_1_3_0 simulateTxAccessor;
         GnosisSafeProxyFactory_1_3_0 safeProxyFactory;
@@ -125,6 +133,18 @@ contract TestUtils is SphinxUtils, Enum {
         uint256 chainId;
         bytes32 merkleRootToCancel;
         uint256 moduleProxyNonce;
+    }
+
+    /**
+     * @notice The addresses of several Gnosis Safe contracts that'll be used in this
+     *         test suite.
+     */
+    struct GnosisSafeAddresses {
+        address multiSend;
+        address compatibilityFallbackHandler;
+        address safeProxyFactory;
+        address safeSingleton;
+        address createCall;
     }
 
     struct CancellationMerkleTreeInputs {
@@ -273,7 +293,9 @@ contract TestUtils is SphinxUtils, Enum {
     function getDeploymentModuleInputs(
         DeploymentMerkleTreeInputs memory _treeInputs
     ) internal returns(DeploymentModuleInputs memory) {
+        console.log('b');
         SphinxMerkleTree memory tree = getDeploymentMerkleTreeFFI(_treeInputs);
+        console.log('c');
 
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory approvalLeafWithProof = tree.leaves[0];
@@ -399,9 +421,55 @@ contract TestUtils is SphinxUtils, Enum {
             });
     }
 
+    function deployGnosisSafeContracts(GnosisSafeVersion _gnosisSafeVersion) internal returns (GnosisSafeAddresses memory) {
+        if (_gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0) {
+            GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
+            return
+                GnosisSafeAddresses({
+                    multiSend: address(safeContracts.multiSend),
+                    compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                    safeProxyFactory: address(safeContracts.safeProxyFactory),
+                    safeSingleton: address(safeContracts.safeL1Singleton),
+                    createCall: address(safeContracts.createCall)
+                });
+        } else if (_gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0) {
+            GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
+                return GnosisSafeAddresses({
+                    multiSend: address(safeContracts.multiSend),
+                    compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                    safeProxyFactory: address(safeContracts.safeProxyFactory),
+                    safeSingleton: address(safeContracts.safeL2Singleton),
+                    createCall: address(safeContracts.createCall)
+                });
+        } else if (_gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1) {
+            GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+                return GnosisSafeAddresses({
+                    multiSend: address(safeContracts.multiSend),
+                    compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                    safeProxyFactory: address(safeContracts.safeProxyFactory),
+                    safeSingleton: address(safeContracts.safeL1Singleton),
+                    createCall: address(safeContracts.createCall)
+                });
+        } else if (_gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1) {
+        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
+            return GnosisSafeAddresses({
+                multiSend: address(safeContracts.multiSend),
+                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
+                safeProxyFactory: address(safeContracts.safeProxyFactory),
+                safeSingleton: address(safeContracts.safeL2Singleton),
+                createCall: address(safeContracts.createCall)
+            });
+        } else {
+            revert("TODO(docs). Should never happen.");
+        }
+    }
+
     // Used off-chain to get the ABI of the `SphinxMerkleTree` struct.
     function sphinxMerkleTreeType() external returns (SphinxMerkleTree memory) {}
 
     // Used off-chain to get the ABI of the `SphinxTransaction` struct.
     function sphinxTransactionArrayType() external returns (SphinxTransaction[][] memory) {}
+
+    // Used off-chain to get the ABI of `NetworkDeploymentMerkleTreeInputs[]`.
+    function networkDeploymentMerkleTreeInputsArrayType() external returns (NetworkDeploymentMerkleTreeInputs[] memory) {}
 }

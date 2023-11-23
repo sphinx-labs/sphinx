@@ -49,18 +49,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     using stdStorage for StdStorage;
 
-    /**
-     * @notice The addresses of several Gnosis Safe contracts that'll be used in this
-     *         test suite.
-     */
-    struct GnosisSafeAddresses {
-        address multiSend;
-        address compatibilityFallbackHandler;
-        address safeProxyFactory;
-        address safeSingleton;
-        address createCall;
-    }
-
     bytes internal constant CREATE3_PROXY_BYTECODE = hex"67363d3d37363d34f03d5260086018f3";
 
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
@@ -75,7 +63,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     // this array for each element in `defaultTxs`.
     bool[] defaultExpectedSuccesses;
     // TODO(docs)
-    uint256 defaultMyNum;
+    uint256 defaultMyNum = 123;
 
     // TODO(docs): State variables for the multi-chain tests
     uint256[] defaultChainIds = [1, 5, 10];
@@ -89,6 +77,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     Wallet[] ownerWallets;
     address[] owners;
+    GnosisSafeVersion gnosisSafeVersion;
     address deploymentExecutor = address(0x1000);
     address cancellationExecutor = address(0x2000);
     string defaultDeploymentUri = "ipfs://Qm1234";
@@ -103,10 +92,15 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     address deployedViaCreate2;
     address deployedViaCreate3;
 
-    // TODO(docs)
-    GnosisSafeAddresses gnosisSafeAddresses;
 
-    function setUp(GnosisSafeAddresses memory _gnosisSafeAddresses) internal {
+    function setUp(GnosisSafeVersion _gnosisSafeVersion) internal {
+        gnosisSafeVersion = _gnosisSafeVersion;
+
+        SphinxModuleProxyFactory moduleProxyFactory = new SphinxModuleProxyFactory();
+        GnosisSafeAddresses memory gnosisSafeAddresses = deployGnosisSafeContracts(_gnosisSafeVersion);
+
+        (safeProxy, moduleProxy) = initializeGnosisSafeWithModule(moduleProxyFactory, gnosisSafeAddresses);
+
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
         // We can't assign the wallets directly to the `owners` array because Solidity throws an
         // error if we try to assign a memory array to a storage array. So, instead, we have to
@@ -116,11 +110,11 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             owners.push(wallets[i].addr);
         }
 
-        (safeProxy, moduleProxy) = initializeGnosisSafeWithModule();
 
         // Give the Gnosis Safe 2 ether
         vm.deal(address(safeProxy), 2 ether);
 
+        // Next, we'll TODO(docs).
         deployedViaCreate = computeCreateAddress(
             address(safeProxy),
             vm.getNonce(address(safeProxy))
@@ -134,7 +128,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             _deployer: address(safeProxy),
             _salt: bytes32(uint256(0))
         });
-
         // Standard function call:
         defaultTxs.push(
             SphinxTransaction({
@@ -171,7 +164,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // Contract deployment via `CREATE`:
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.createCall,
+                to: gnosisSafeAddresses.createCall,
                 value: 0,
                 txData: abi.encodePacked(
                     CreateCall.performCreate.selector,
@@ -185,7 +178,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // Contract deployment via `CREATE2`:
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.createCall,
+                to: gnosisSafeAddresses.createCall,
                 value: 0,
                 txData: abi.encodePacked(
                     CreateCall.performCreate2.selector,
@@ -207,7 +200,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         bytes memory firstCreate3MultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
-            _gnosisSafeAddresses.createCall,
+            gnosisSafeAddresses.createCall,
             uint256(0),
             create3ProxyDeploymentData.length,
             create3ProxyDeploymentData
@@ -225,7 +218,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.multiSend,
+                to: gnosisSafeAddresses.multiSend,
                 value: 0,
                 txData: abi.encodeWithSelector(
                     MultiSend.multiSend.selector,
@@ -351,9 +344,11 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_approve_revert_zeroHashMerkleRoot() external {
+        console.log('a');
         DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
             helper_makeDeploymentMerkleTreeInputs(defaultTxs)
         );
+        console.log('z');
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid root");
@@ -1743,11 +1738,21 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     // Test executing a multichain tree across multiple networks with different leaves on each network
     function test_multichain_execute_success_different() external {
-        GnosisSafeAddresses memory gnosisSafeAddressesInMemory = gnosisSafeAddresses;
+        uint256[] memory forkIds = new uint256[](rpcUrls.length);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            string memory rpcUrl = rpcUrls[i];
+            forkIds[i] = vm.createSelectFork(rpcUrl);
+
+            SphinxModuleProxyFactory moduleProxyFactory = new SphinxModuleProxyFactory();
+            GnosisSafeAddresses memory gnosisSafeAddresses = deployGnosisSafeContracts(gnosisSafeVersion);
+
+            (safeProxy, moduleProxy) = initializeGnosisSafeWithModule(moduleProxyFactory, gnosisSafeAddresses);
+        }
 
         NetworkDeploymentMerkleTreeInputs[] memory networks = new NetworkDeploymentMerkleTreeInputs[](3);
         SphinxTransaction[][] memory txArray = new SphinxTransaction[][](3);
         for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 forkId = forkIds[i];
             txArray[i] = defaultTxs;
             SphinxTransaction[] memory txs = txArray[i];
             uint256 txDataArgument = expectedMyNumArray[i];
@@ -1755,11 +1760,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
             uint256 moduleProxyNonce = moduleProxyNonceArray[i];
             uint256 chainId = defaultChainIds[i];
-            string memory rpcUrl = rpcUrls[i];
-            console.log(address(moduleProxy).code.length); // TODO: rm
-            vm.createSelectFork(rpcUrl);
+            vm.selectFork(forkId);
 
-            console.log('a'); // TODO: rm
             // Sanity check that we're on the correct chain.
             assertEq(chainId, block.chainid);
             console.log(address(moduleProxy).code.length); // TODO: rm
@@ -1769,7 +1771,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
                 .sig("merkleRootNonce()")
                 .checked_write(moduleProxyNonce);
             assertEq(moduleProxy.merkleRootNonce(), moduleProxyNonce);
-            console.log('a'); // TODO: rm
             console.log('a'); // TODO: rm
         }
 
@@ -2008,12 +2009,16 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     function helper_makeDeploymentMerkleTreeInputs(
         SphinxTransaction[] memory _txs
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
+        console.log('d');
+        console.log(address(moduleProxy));
+        console.log(address(moduleProxy).code.length);
         NetworkDeploymentMerkleTreeInputs[] memory networkArray = new NetworkDeploymentMerkleTreeInputs[](1);
         networkArray[0] = NetworkDeploymentMerkleTreeInputs({
             chainId: block.chainid,
             txs: _txs,
             moduleProxyNonce: moduleProxy.merkleRootNonce()
         });
+        console.log('e');
 
         return helper_makeDeploymentMerkleTreeInputs(networkArray);
     }
@@ -2129,10 +2134,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     // two transactions on the `SphinxModuleProxyFactory`:
     // 1. `deploySphinxModuleProxyFromSafe`
     // 2. `enableSphinxModuleProxyFromSafe`
-    function initializeGnosisSafeWithModule(SphinxModule) internal {
+    function initializeGnosisSafeWithModule(SphinxModuleProxyFactory _moduleProxyFactory, GnosisSafeAddresses memory _gnosisSafeAddresses) internal returns (address payable deployedSafeProxy, SphinxModule deployedModuleProxy) {
         // Create the first transaction, `SphinxModuleProxyFactory.deploySphinxModuleProxyFromSafe`.
         bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
             // Use the zero-hash as the salt.
             bytes32(0)
         );
@@ -2142,7 +2147,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
             // `SphinxModuleProxyFactory`. This makes it easier for off-chain tooling to calculate
             // the deployed `SphinxModuleProxy` address.
             uint8(Operation.Call),
-            moduleProxyFactory,
+            _moduleProxyFactory,
             uint256(0),
             encodedDeployModuleCall.length,
             encodedDeployModuleCall
@@ -2150,14 +2155,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         // Create the second transaction,
         // `SphinxModuleProxyFactory.enableSphinxModuleProxyFromSafe`.
         bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
             // Use the zero-hash as the salt.
             bytes32(0)
         );
         // Encode the second transaction data in a format that can be executed using `MultiSend`.
         bytes memory secondMultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
-            moduleProxyFactory,
+            _moduleProxyFactory,
             uint256(0),
             encodedEnableModuleCall.length,
             encodedEnableModuleCall
@@ -2186,65 +2191,42 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         // This is the transaction that deploys the Gnosis Safe, deploys the `SphinxModuleProxy`, and
         // enables the `SphinxModuleProxy` in the Gnosis Safe.
-        GnosisSafeProxy deployedSafeProxy = GnosisSafeProxyFactory(
+        GnosisSafeProxy deployedGnosisSafeProxy = GnosisSafeProxyFactory(
             _gnosisSafeAddresses.safeProxyFactory
         ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
 
         // Return the Gnosis Safe proxy and the `SphinxModuleProxy`.
-        return (payable(address(deployedSafeProxy), );
-        SphinxModule = moduleProxy = SphinxModule(
-            moduleProxyFactory.computeSphinxModuleProxyAddress(
-                address(safeProxy),
-                address(safeProxy),
+        deployedSafeProxy = payable(address(deployedGnosisSafeProxy));
+        deployedModuleProxy = SphinxModule(
+            _moduleProxyFactory.computeSphinxModuleProxyAddress(
+                address(deployedSafeProxy),
+                address(deployedSafeProxy),
                 0
             )
         );
-
-        return
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
         AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL1Singleton),
-                createCall: address(safeContracts.createCall)
-            })
+            GnosisSafeVersion.L1_1_3_0
         );
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
         AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
+            GnosisSafeVersion.L2_1_3_0
         );
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
         AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL1Singleton),
-                createCall: address(safeContracts.createCall)
-            })
+            GnosisSafeVersion.L1_1_4_1
         );
     }
 }
@@ -2252,15 +2234,8 @@ contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy
 contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
 
     function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
         AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
+            GnosisSafeVersion.L2_1_4_1
         );
     }
 }
