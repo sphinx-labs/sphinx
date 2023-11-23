@@ -4,7 +4,7 @@ Sphinx is a protocol and Foundry plugin that automates the smart contract deploy
 
 ## Key features:
 
-* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. Instead, TODO(md): off chain billing. (mention free testnet deployments?).
+* **Gasless deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll handle the fees and bill you in fiat or USDC after your deployment completes.
 
 * **One-Click Multichain Deployments**: Approve deployments across up to 11 supported networks by signing a single meta transaction. Sphinx's backend will trustlessly execute the deployment on each network in parallel, then verify your smart contracts on Etherscan.
 
@@ -98,6 +98,6 @@ Contributions to Sphinx are greatly appreciated! To get started, please read our
 If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
+We use the Gnosis Safe contracts as a library which are licensed under [LGPL v3](https://github.com/safe-global/safe-contracts/blob/main/LICENSE). You can access the Gnosis Safe contracts in their [public repo](https://github.com/safe-global/safe-contracts).
 
-MIT © 2023
-
+The Sphinx Safe Module and all other code in this repository is licensed under [MIT](https://github.com/sphinx-labs/sphinx/blob/feature/pre-audit/LICENSE).
