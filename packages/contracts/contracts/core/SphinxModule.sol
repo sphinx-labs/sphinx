@@ -150,7 +150,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.executor = executor;
         state.arbitraryChain = arbitraryChain;
 
-        merkleRootNonce += 1;
+        unchecked {
+            merkleRootNonce = leafMerkleRootNonce + 1;
+        }
 
         // If there is only an `APPROVE` leaf, mark the Merkle root as completed. The purpose of
         // this is to allow the Gnosis Safe owners to cancel a different Merkle root that has been
@@ -253,7 +255,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.executor = executor;
         state.status = MerkleRootStatus.COMPLETED;
 
-        merkleRootNonce += 1;
+        unchecked {
+            merkleRootNonce = leafMerkleRootNonce + 1;
+        }
 
         // Check that a sufficient number of Gnosis Safe owners have signed the Merkle root (or,
         // more specifically, EIP-712 data that includes the Merkle root). We do this last to
