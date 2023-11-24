@@ -133,14 +133,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
         // We don't validate the `uri` because it we allow it to be empty.
 
-        emit SphinxMerkleRootApproved(
-            _root,
-            activeMerkleRoot,
-            merkleRootNonce,
-            executor,
-            numLeaves,
-            uri
-        );
+        emit SphinxMerkleRootApproved(_root, merkleRootNonce, executor, numLeaves, uri);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
         // `status` field, which will be assigned below.
