@@ -182,7 +182,15 @@ export const makeSphinxLeaves = (
 
       // generate approval leaf data
       const approvalData = coder.encode(
-        ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
+        [
+          'address',
+          'address',
+          'uint256',
+          'uint256',
+          'address',
+          'string',
+          'bool',
+        ],
         [
           data.safeProxy,
           data.moduleProxy,
@@ -207,7 +215,7 @@ export const makeSphinxLeaves = (
       for (const tx of data.txs) {
         // generate transaction leaf data
         const transactionLeafData = coder.encode(
-          ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+          ['address', 'uint256', 'uint256', 'bytes', 'uint256', 'bool'],
           [
             tx.to,
             BigInt(tx.value),
