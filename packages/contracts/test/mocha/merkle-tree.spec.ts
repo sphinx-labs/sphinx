@@ -452,7 +452,7 @@ describe('Merkle tree satisfies invariants', () => {
     }
 
     expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
-      'Detected arbitraryChain = true in multiple DeploymentData entries'
+      'Detected `arbitraryChain` = true in multiple DeploymentData entries'
     )
   })
 })

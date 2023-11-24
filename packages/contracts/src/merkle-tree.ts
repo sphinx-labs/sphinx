@@ -140,6 +140,7 @@ export const makeSphinxLeaves = (
   deploymentData: DeploymentData
 ): Array<SphinxLeaf> => {
   let arbitraryApprovalIncluded = false
+  let cancellationLeafInclued = false
 
   const merkleLeaves: Array<SphinxLeaf> = []
 
@@ -152,10 +153,17 @@ export const makeSphinxLeaves = (
       // If there has already been an arbitrary approval leaf, then throw an error
       if (arbitraryApprovalIncluded === true) {
         throw new Error(
-          'Detected arbitraryChain = true in multiple DeploymentData entries'
+          'Detected `arbitraryChain` = true in multiple DeploymentData entries'
         )
       } else if (data.arbitraryChain === true) {
         arbitraryApprovalIncluded = true
+
+        // If there has already been a cancellation leaf, then throw an error
+        if (cancellationLeafInclued) {
+          throw new Error(
+            'Detected conflicting cancellation and `arbitraryChain` = true DeploymentData entries.'
+          )
+        }
       }
 
       // generate approval leaf data
@@ -221,6 +229,15 @@ export const makeSphinxLeaves = (
           data.uri,
         ]
       )
+
+      // If there has already been an arbitrary approval leaf, then throw an error
+      if (arbitraryApprovalIncluded) {
+        throw new Error(
+          'Detected conflicting cancellation and `arbitraryChain` = true DeploymentData entries.'
+        )
+      } else {
+        cancellationLeafInclued = true
+      }
 
       // Push CANCEL leaf.
       merkleLeaves.push({
