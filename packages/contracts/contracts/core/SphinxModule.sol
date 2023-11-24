@@ -89,9 +89,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // validating an EIP-1271 contract signature.
         nonReentrant
     {
-        require(activeMerkleRoot == bytes32(0), "SphinxModule: active merkle root");
-
         require(_root != bytes32(0), "SphinxModule: invalid root");
+
+        require(activeMerkleRoot == bytes32(0), "SphinxModule: active merkle root");
 
         // Check that the Merkle root hasn't been used before.
         MerkleRootState storage state = merkleRootStates[_root];
@@ -198,9 +198,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // validating an EIP-1271 contract signature.
         nonReentrant
     {
-        require(activeMerkleRoot != bytes32(0), "SphinxModule: no root to cancel");
-
         require(_root != bytes32(0), "SphinxModule: invalid root");
+
+        require(activeMerkleRoot != bytes32(0), "SphinxModule: no root to cancel");
 
         // Check that the Merkle root hasn't been used before.
         MerkleRootState storage state = merkleRootStates[_root];
