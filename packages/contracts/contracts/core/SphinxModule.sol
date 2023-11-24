@@ -162,9 +162,10 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         if (numLeaves == 1) {
             emit SphinxMerkleRootCompleted(_root);
             state.status = MerkleRootStatus.COMPLETED;
-            // Set the active Merkle root to be `bytes32(0)` so that a new approval can occur in the
-            // future.
-            activeMerkleRoot = bytes32(0);
+            // We don't need to set the `activeMerkleRoot` to equal `bytes32(0)` because it already
+            // equals `bytes32(0)`. At the beginning of this function, we checked that the
+            // `activeMerkleRoot` equals `bytes32(0)`, and we never set it to a non-zero value. This
+            // is because the Merkle root is approved and completed in this call.
         } else {
             // We set the status to `APPROVED` because there are `EXECUTE` leaves in this Merkle tree.
             state.status = MerkleRootStatus.APPROVED;
