@@ -131,7 +131,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
         // of 0. This isn't strictly necessary; it just enforces a convention.
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
-        // We don't validate the `uri` because it we allow it to be empty.
+        // We don't validate the `uri` because we allow it to be empty.
 
         emit SphinxMerkleRootApproved(
             _root,
@@ -236,7 +236,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // be `true` here because we don't think there's a use case for cancelling Merkle roots
         // across arbitrary networks.
         require(leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
-        // We don't validate the `uri` because it we allow it to be empty.
+        // We don't validate the `uri` because we allow it to be empty.
 
         // Cancel the active Merkle root.
         emit SphinxMerkleRootCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
