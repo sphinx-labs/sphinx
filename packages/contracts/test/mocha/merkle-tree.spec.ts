@@ -102,7 +102,8 @@ const assertInvariantFive = (tree: SphinxMerkleTree) => {
     const leaf = leafWithProof.leaf
 
     if (leaf.leafType === SphinxLeafType.EXECUTE) {
-      // Expect that there was no CANCEL leaf for
+      // Expect that there was no CANCEL leaf for the chain
+      expect(seenCancelChainIds.includes(leaf.chainId)).to.be.false
     }
   }
 }
@@ -200,7 +201,7 @@ const assertInvariantEightAndNine = (tree: SphinxMerkleTree) => {
   }
 }
 
-const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
+export const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
   assertInvariantTwoAndThree(tree)
   assertInvariantFour(tree)
   assertInvariantFive(tree)
