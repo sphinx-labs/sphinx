@@ -152,7 +152,7 @@ export const makeSphinxLeaves = (
       const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
 
       // If this DeploymentData entry is for an arbitrary approval, then throw errors related to prior conflicting leaves
-      if (data.arbitraryChain === true) {
+      if (data.arbitraryChain) {
         if (cancellationLeafIncluded) {
           // If there has already been a cancellation leaf, then throw an error
           throw new Error(
