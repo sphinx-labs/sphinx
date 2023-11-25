@@ -24,6 +24,10 @@ contract Endpoint {
         return x;
     }
 
+    function acceptPayment() external payable returns (uint) {
+        return msg.value;
+    }
+
     function reenter(address _to, bytes memory _data) external {
         (bool success, bytes memory retdata) = _to.call(_data);
         require(!success, "Endpoint: reentrancy succeeded");
@@ -37,15 +41,15 @@ contract Endpoint {
         reentrancyBlocked = true;
     }
 
-    function doRevert() pure public {
+    function doRevert() public pure {
         revert("did revert");
     }
 
-    function doRevertCustom() pure public {
+    function doRevertCustom() public pure {
         revert CustomError(10, address(1), address(2), address(3), bytes32(uint(1)));
     }
 
-    function doSilentRevert() pure public {
+    function doSilentRevert() public pure {
         revert();
     }
 
@@ -76,13 +80,16 @@ contract ManagedService_Test is Test, ManagedService {
     function test_RevertCallerIsNotRelayer() external {
         vm.startPrank(invalidSender);
         vm.expectRevert(invalidCallerError);
-        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.set.selector, 2));
+        service.exec(payable(address(endpoint)), abi.encodeWithSelector(Endpoint.set.selector, 2));
     }
 
     function test_RevertIfUnderlyingCallReverts() external {
         vm.startPrank(sender);
         vm.expectRevert("did revert");
-        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doRevert.selector));
+        service.exec(
+            payable(address(endpoint)),
+            abi.encodeWithSelector(Endpoint.doRevert.selector)
+        );
     }
 
     function test_RevertIfUnderlyingCallRevertsWithCustomError() external {
@@ -97,19 +104,25 @@ contract ManagedService_Test is Test, ManagedService {
                 bytes32(uint(1))
             )
         );
-        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doRevertCustom.selector));
+        service.exec(
+            payable(address(endpoint)),
+            abi.encodeWithSelector(Endpoint.doRevertCustom.selector)
+        );
     }
 
     function test_RevertSilently() external {
         vm.startPrank(sender);
         vm.expectRevert("ManagedService: Transaction reverted silently");
-        service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.doSilentRevert.selector));
+        service.exec(
+            payable(address(endpoint)),
+            abi.encodeWithSelector(Endpoint.doSilentRevert.selector)
+        );
     }
 
     function test_RevertIfTargetZeroAddress() external {
         vm.startPrank(sender);
         vm.expectRevert("ManagedService: target is address(0)");
-        service.exec(address(0), abi.encodeWithSelector(Endpoint.set.selector, 2));
+        service.exec(payable(address(0)), abi.encodeWithSelector(Endpoint.set.selector, 2));
     }
 
     function test_RevertNoReentrancy() external {
@@ -117,15 +130,23 @@ contract ManagedService_Test is Test, ManagedService {
         vm.startPrank(sender);
 
         bytes memory setData = abi.encodeWithSelector(Endpoint.set.selector, 2);
-        bytes memory execData = abi.encodeWithSelector(ManagedService.exec.selector, address(endpoint), setData);
-        bytes memory txData = abi.encodeWithSelector(Endpoint.reenter.selector, address(service), execData);
+        bytes memory execData = abi.encodeWithSelector(
+            ManagedService.exec.selector,
+            address(endpoint),
+            setData
+        );
+        bytes memory txData = abi.encodeWithSelector(
+            Endpoint.reenter.selector,
+            address(service),
+            execData
+        );
 
         // Expect the correct event is emitted
         vm.expectEmit(address(service));
-        emit Called(sender, address(endpoint), keccak256(txData));
+        emit Called(sender, payable(address(endpoint)), 0, keccak256(txData));
 
         // Execute the call
-        bytes memory res = service.exec(address(endpoint), txData);
+        service.exec(payable(address(endpoint)), txData);
 
         // Check that the set function was not called (via reentrancy)
         assertEq(endpoint.x(), 1);
@@ -141,16 +162,41 @@ contract ManagedService_Test is Test, ManagedService {
 
         // Expect the correct event is emitted
         vm.expectEmit(address(service));
-        emit Called(sender, address(endpoint), keccak256(txData));
+        emit Called(sender, payable(address(endpoint)), 0, keccak256(txData));
 
         // Execute the call
-        bytes memory res = service.exec(address(endpoint), txData);
+        bytes memory res = service.exec(payable(address(endpoint)), txData);
 
         // Check that the function was properly called
         assertEq(endpoint.x(), 2);
 
         // Check that the response was returned
         assertEq(abi.decode(res, (uint)), 2);
+    }
+
+    function test_SuccessfulCallWithValue() external {
+        vm.startPrank(sender);
+
+        // Check that the `Endpoint` has an initial balance of 0.
+        assertEq(address(endpoint).balance, 0);
+
+        // Give the `sender` 1 ETH.
+        vm.deal(sender, 1 ether);
+
+        bytes memory txData = abi.encodePacked(Endpoint.acceptPayment.selector);
+
+        // Expect the correct event is emitted
+        vm.expectEmit(address(service));
+        emit Called(sender, payable(address(endpoint)), 1 ether, keccak256(txData));
+
+        // Execute the call
+        bytes memory res = service.exec{ value: 1 ether }(payable(address(endpoint)), txData);
+
+        // Check that the ETH was transferred
+        assertEq(address(endpoint).balance, 1 ether);
+
+        // Check that the response was returned
+        assertEq(abi.decode(res, (uint)), 1 ether);
     }
 
     function test_RevertIfOwnerIsAddressZero() external {
