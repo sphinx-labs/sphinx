@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "sphinx-forge-std/Test.sol";
 import { ManagedService } from "contracts/core/ManagedService.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract Endpoint {
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
@@ -37,15 +38,15 @@ contract Endpoint {
         reentrancyBlocked = true;
     }
 
-    function doRevert() pure public {
+    function doRevert() public pure {
         revert("did revert");
     }
 
-    function doRevertCustom() pure public {
+    function doRevertCustom() public pure {
         revert CustomError(10, address(1), address(2), address(3), bytes32(uint(1)));
     }
 
-    function doSilentRevert() pure public {
+    function doSilentRevert() public pure {
         revert();
     }
 
@@ -75,7 +76,14 @@ contract ManagedService_Test is Test, ManagedService {
 
     function test_RevertCallerIsNotRelayer() external {
         vm.startPrank(invalidSender);
-        vm.expectRevert(invalidCallerError);
+        vm.expectRevert(
+            abi.encodePacked(
+                "AccessControl: account ",
+                Strings.toHexString(invalidSender),
+                " is missing role ",
+                Strings.toHexString(uint256(service.RELAYER_ROLE()), 32)
+            )
+        );
         service.exec(address(endpoint), abi.encodeWithSelector(Endpoint.set.selector, 2));
     }
 
@@ -117,8 +125,16 @@ contract ManagedService_Test is Test, ManagedService {
         vm.startPrank(sender);
 
         bytes memory setData = abi.encodeWithSelector(Endpoint.set.selector, 2);
-        bytes memory execData = abi.encodeWithSelector(ManagedService.exec.selector, address(endpoint), setData);
-        bytes memory txData = abi.encodeWithSelector(Endpoint.reenter.selector, address(service), execData);
+        bytes memory execData = abi.encodeWithSelector(
+            ManagedService.exec.selector,
+            address(endpoint),
+            setData
+        );
+        bytes memory txData = abi.encodeWithSelector(
+            Endpoint.reenter.selector,
+            address(service),
+            execData
+        );
 
         // Expect the correct event is emitted
         vm.expectEmit(address(service));
