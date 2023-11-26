@@ -277,8 +277,23 @@ export const makeSphinxLeaves = (
 }
 
 /**
- * @notice Checks if an input networkData object is a valid NetworkDeploymentData object with the correct fields and types
- * and that the object does not simultaneously satisfy the requirements to be a NetworkCancellationData object.
+ * @notice Checks if an input networkData object is a valid BaseNetworkData object with the correct fields and types
+ *
+ * @param networkData The object to check.
+ * @returns boolean indicating if the input object is a BaseNetworkData object.
+ */
+export const isBaseNetworkData = (networkData: BaseNetworkData) => {
+  return (
+    typeof networkData.nonce === 'string' &&
+    typeof networkData.executor === 'string' &&
+    typeof networkData.safeProxy === 'string' &&
+    typeof networkData.moduleProxy === 'string' &&
+    typeof networkData.uri === 'string'
+  )
+}
+
+/**
+ * @notice Checks if an input networkData object is a valid NetworkDeploymentData object with the correct fields and types.
  *
  * @param networkData The object to check.
  * @returns boolean indicating if the input object is a NetworkDeploymentData object.
@@ -288,11 +303,7 @@ export const isNetworkDeploymentData = (
 ): networkData is NetworkDeploymentData => {
   const networkDeploymentData = networkData as NetworkDeploymentData
   return (
-    typeof networkDeploymentData.nonce === 'string' &&
-    typeof networkDeploymentData.executor === 'string' &&
-    typeof networkDeploymentData.safeProxy === 'string' &&
-    typeof networkDeploymentData.moduleProxy === 'string' &&
-    typeof networkDeploymentData.uri === 'string' &&
+    isBaseNetworkData(networkData) &&
     typeof networkDeploymentData.arbitraryChain === 'boolean' &&
     Array.isArray(networkDeploymentData.txs) &&
     networkDeploymentData.txs.every(
@@ -309,7 +320,6 @@ export const isNetworkDeploymentData = (
 
 /**
  * @notice Checks if an input networkData object is a valid NetworkCancellationData object with the correct fields and types.
- * and that the object does not simultaneously satisfy the requirements to be a NetworkDeploymentData object.
  *
  * @param networkData The object to check.
  * @returns boolean indicating if the input object is a NetworkCancellationData object.
@@ -319,11 +329,7 @@ export const isNetworkCancellationData = (
 ): networkData is NetworkCancellationData => {
   const networkCancellationData = networkData as NetworkCancellationData
   return (
-    typeof networkCancellationData.nonce === 'string' &&
-    typeof networkCancellationData.executor === 'string' &&
-    typeof networkCancellationData.safeProxy === 'string' &&
-    typeof networkCancellationData.moduleProxy === 'string' &&
-    typeof networkCancellationData.uri === 'string' &&
+    isBaseNetworkData(networkData) &&
     typeof networkCancellationData.merkleRootToCancel === 'string'
   )
 }
