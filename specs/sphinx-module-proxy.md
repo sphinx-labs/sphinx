@@ -98,6 +98,10 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 - The Merkle proof verification logic must hash the Merkle leaf using the internal [`_getLeafHash` function](#function-_getleafhashsphinxleaf-memory-_leaf-internal-pure-returns-bytes32).
 - It must be impossible to reuse a signed Merkle root in a different `SphinxModuleProxy`.[^2]
 - It must be impossible to reuse a signed Merkle root in a different Gnosis Safe.[^3]
+- It must be impossible to initialize the `SphinxModule` implementation contract directly (i.e., it must only be initializable through a proxy).
+  - Rationale: This prevents the possibility that an attacker could take over an uninitialized `SphinxModule` implementation contract.
+- The `SphinxModuleProxy` must be initialized with a valid Gnosis Safe proxy and a valid Gnosis Safe singleton.[^4]
+  - Rationale: This prevents the user from mistakenly adding a `SphinxModuleProxy` to an incompatible Gnosis Safe, which could potentially lead to vulnerabilities in the Gnosis Safe.
 - All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).
 
 ## Function-Level Invariants
@@ -106,6 +110,8 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 
 - Must revert if this function has already been successfully called.
 - Must revert if the input Gnosis Safe proxy is the zero address.
+- Must revert if the input Gnosis Safe proxy has a code hash that does not equal the code hash of a Gnosis Safe Proxy [v1.3.0](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/proxies/GnosisSafeProxy.sol) or [v1.4.1](https://github.com/safe-global/safe-contracts/blob/v1.4.1-build.0/contracts/proxies/SafeProxy.sol).[^5]
+- Must revert if the input Gnosis Safe proxy's singleton has a code hash that does not equal the code hash of a [Gnosis Safe contract supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).[^6]
 - A successful call must set the Gnosis Safe proxy address in the `SphinxModuleProxy`.
 
 #### `function approve(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) public`
@@ -240,7 +246,7 @@ which would prevent the deployment from being executable.
 
 The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library and Gnosis Safe's contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxy`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxy.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we assume that they're secure and have been thoroughly tested by their authors. These contracts are:
 - OpenZeppelin v4.9.3:
-  - [`Initializable`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/utils/Initializable.sol): Initializes the `SphinxModuleProxy`.
+  - [`Initializable`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/utils/Initializable.sol): Initializes the `SphinxModuleProxy` and prevents the `SphinxModule` implementation from being initialized directly.
   - [`ReentrancyGuard`](https://docs.openzeppelin.com/contracts/4.x/api/security#ReentrancyGuard): Prevents re-entrancy attacks in the `approve` and `execute` functions in the `SphinxModuleProxy`.
   - [`MerkleProof`](https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof): Verifies that a Merkle leaf belongs to a Merkle root, given a Merkle proof.
 - Gnosis Safe:
@@ -254,3 +260,26 @@ The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library 
 [^2]: It's not possible to reuse a signed Merkle root in a different `SphinxModuleProxy` because we include the address of the `SphinxModuleProxy` in the `APPROVE` Merkle leaf, and we check that this field matches `address(this)` in the `SphinxModuleProxy`'s `approve` function.
 
 [^3]: It's not possible to reuse a signed Merkle root in a different Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`, and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.
+
+[^4]: We check that a Gnosis Safe proxy and its singleton are valid by checking their code hashes when the `SphinxModuleProxy` is initialized. Checking the code hash isn't a foolproof method because a code hash could be valid even if the state variables of the contract have been initialized incorrectly. However, this is sufficient to prevent users from accidentally enabling a `SphinxModuleProxy` in a Gnosis Safe with a different version or a Gnosis Safe that has been modified significantly.
+
+[^5]: Valid code hashes for the Gnosis Safe proxies can be found by following these steps:
+1. Go to Gnosis Safe's official deployments page for the Gnosis Safe Proxy Factory: [v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/proxy_factory.json) and [v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe_proxy_factory.json).
+2. Copy and paste a factory address into Etherscan.
+3. Navigate to the "Transactions" panel, then select one of the transactions.
+4. Navigate to the "Logs" panel, where you'll find the address of a deployed Gnosis Safe proxy.
+5. Navigate to the Gnosis Safe proxy's Etherscan page.
+6. Navigate to the "Contracts" panel for the proxy.
+7. Scroll down to the "Deployed Bytecode" section.
+8. Use `keccak256` to hash the deployed bytecode. If Foundry is installed on your machine, you can run `cast keccak <code>` from the CLI.
+
+[^6]: Valid code hashes for the Gnosis Safe singletons can be found by following these steps:
+1. Go to Gnosis Safe's official deployments page for the singletons:
+  - [L1 v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/gnosis_safe.json)
+  - [L2 v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/gnosis_safe_l2.json)
+  - [L1 v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe.json)
+  - [L2 v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe_l2.json)
+2. Copy and paste a singleton address into Etherscan.
+3. Navigate to the "Contracts" panel.
+4. Scroll down to the "Deployed Bytecode" section.
+5. Use `keccak256` to hash the deployed bytecode. If Foundry is installed on your machine, you can run `cast keccak <code>` from the CLI.

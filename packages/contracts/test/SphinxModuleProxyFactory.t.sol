@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "sphinx-forge-std/Test.sol";
 import {
     ISphinxModuleProxyFactory
 } from "../contracts/core/interfaces/ISphinxModuleProxyFactory.sol";
@@ -30,7 +29,6 @@ import { TestUtils } from "./TestUtils.t.sol";
  *         each type.
  */
 abstract contract AbstractSphinxModuleProxyFactory_Test is
-    Test,
     Enum,
     TestUtils,
     ISphinxModuleProxyFactory
@@ -90,8 +88,6 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
     // Must:
     // - Deploy a `SphinxModule` implementation contract at a `CREATE2` address determined by the
     //   address of the `SphinxModuleProxyFactory` and a `bytes32(0)` salt.
-    // - Initialize the `SphinxModule` implementation so that nobody has permission to call its
-    //   `approve` function.
     function test_constructor_success() external {
         address expectedModuleImpl = computeCreate2Address({
             salt: bytes32(0),
@@ -100,7 +96,6 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
         });
         address actualModule = moduleProxyFactory.SPHINX_MODULE_IMPL();
         assertEq(actualModule, expectedModuleImpl);
-        assertEq(address(SphinxModule(actualModule).safeProxy()), address(1));
     }
 
     /////////////////////////// deploySphinxModuleProxy ///////////////////////////////////////

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Test } from "sphinx-forge-std/Test.sol";
 import { Vm } from "sphinx-forge-std/Vm.sol";
+import { StdCheats } from "sphinx-forge-std/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
@@ -67,8 +69,14 @@ import {
 import { SafeL2 as SafeL2_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/SafeL2.sol";
 import { Safe as Safe_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/Safe.sol";
 
-contract TestUtils is SphinxUtils, Enum {
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+contract TestUtils is SphinxUtils, Enum, Test {
+    enum GnosisSafeVersion {
+        NONE,
+        L1_1_3_0,
+        L2_1_3_0,
+        L1_1_4_1,
+        L2_1_4_1
+    }
 
     struct GnosisSafeContracts_1_3_0 {
         SimulateTxAccessor_1_3_0 simulateTxAccessor;
@@ -280,10 +288,23 @@ contract TestUtils is SphinxUtils, Enum {
     }
 
     function deployGnosisSafeContracts_1_3_0() public returns (GnosisSafeContracts_1_3_0 memory) {
+        // Deploy the Gnosis Safe Proxy Factory and the Gnosis Safe singletons using the exact
+        // initcode in the artifact files. This ensures that they produce contracts with correct
+        // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
+        address safeProxyFactoryAddr = deployCode(
+            "safe-artifacts/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json"
+        );
+        address safeSingletonL1Addr = deployCode(
+            "safe-artifacts/v1.3.0/GnosisSafe.sol/GnosisSafe.json"
+        );
+        address safeSingletonL2Addr = deployCode(
+            "safe-artifacts/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json"
+        );
+
         return
             GnosisSafeContracts_1_3_0({
                 simulateTxAccessor: new SimulateTxAccessor_1_3_0(),
-                safeProxyFactory: new GnosisSafeProxyFactory_1_3_0(),
+                safeProxyFactory: GnosisSafeProxyFactory_1_3_0(safeProxyFactoryAddr),
                 // Deploy handlers
                 defaultCallbackHandler: new DefaultCallbackHandler_1_3_0(),
                 compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_3_0(),
@@ -293,16 +314,25 @@ contract TestUtils is SphinxUtils, Enum {
                 multiSendCallOnly: new MultiSendCallOnly_1_3_0(),
                 signMessageLib: new SignMessageLib_1_3_0(),
                 // Deploy singletons
-                safeL2Singleton: new GnosisSafeL2_1_3_0(),
-                safeL1Singleton: new GnosisSafe_1_3_0()
+                safeL1Singleton: GnosisSafe_1_3_0(payable(safeSingletonL1Addr)),
+                safeL2Singleton: GnosisSafeL2_1_3_0(payable(safeSingletonL2Addr))
             });
     }
 
     function deployGnosisSafeContracts_1_4_1() public returns (GnosisSafeContracts_1_4_1 memory) {
+        // Deploy the Gnosis Safe Proxy Factory and the Gnosis Safe singletons using the exact
+        // initcode in the artifact files. This ensures that they produce contracts with correct
+        // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
+        address safeProxyFactoryAddr = deployCode(
+            "safe-artifacts/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json"
+        );
+        address safeSingletonL1Addr = deployCode("safe-artifacts/v1.4.1/Safe.sol/Safe.json");
+        address safeSingletonL2Addr = deployCode("safe-artifacts/v1.4.1/SafeL2.sol/SafeL2.json");
+
         return
             GnosisSafeContracts_1_4_1({
                 simulateTxAccessor: new SimulateTxAccessor_1_4_1(),
-                safeProxyFactory: new SafeProxyFactory_1_4_1(),
+                safeProxyFactory: SafeProxyFactory_1_4_1(safeProxyFactoryAddr),
                 // Deploy handlers
                 tokenCallbackHandler: new TokenCallbackHandler_1_4_1(),
                 compatibilityFallbackHandler: new CompatibilityFallbackHandler_1_4_1(),
@@ -312,8 +342,8 @@ contract TestUtils is SphinxUtils, Enum {
                 multiSendCallOnly: new MultiSendCallOnly_1_4_1(),
                 signMessageLib: new SignMessageLib_1_4_1(),
                 // Deploy singletons
-                safeL2Singleton: new SafeL2_1_4_1(),
-                safeL1Singleton: new Safe_1_4_1()
+                safeL1Singleton: Safe_1_4_1(payable(safeSingletonL1Addr)),
+                safeL2Singleton: SafeL2_1_4_1(payable(safeSingletonL2Addr))
             });
     }
 
