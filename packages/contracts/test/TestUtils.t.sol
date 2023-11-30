@@ -327,7 +327,9 @@ contract TestUtils is SphinxUtils, Enum, Test {
             "safe-artifacts/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json"
         );
         address safeSingletonL1Addr = deployCode("safe-artifacts/v1.4.1/Safe.sol/Safe.json");
-        address safeSingletonL2Addr = deployCode("safe-artifacts/v1.4.1/SafeL2.sol/SafeL2.json");
+        // TODO: undo
+        // address safeSingletonL2Addr = deployCode("safe-artifacts/v1.4.1/SafeL2.sol/SafeL2.json");
+        address safeSingletonL2Addr = address(new SafeL2_1_4_1());
 
         return
             GnosisSafeContracts_1_4_1({

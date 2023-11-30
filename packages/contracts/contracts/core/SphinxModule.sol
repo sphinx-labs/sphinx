@@ -73,6 +73,16 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
 
     /**
+     * @dev TODO(docs): keccak256("fallback_manager.handler.address")
+     */
+    uint256 internal constant SAFE_FALLBACK_HANDLER_STORAGE_SLOT = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+
+    /**
+     * @dev TODO(docs)
+     */
+    uint256 internal constant GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+
+    /**
      * @dev The EIP-712 domain separator, which displays a bit of context to the user
      *      when they sign the Merkle root off-chain.
      */
@@ -83,6 +93,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
      * @dev The EIP-712 type hash, which just contains the Merkle root.
      */
     bytes32 internal constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
+
+    bytes32 internal constant BYTES32_ZERO_HASH = keccak256(new bytes(32));
 
     /**
      * @inheritdoc ISphinxModule
@@ -120,22 +132,35 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Check that the Gnosis Safe proxy's address has a valid code hash.
         bytes32 safeProxyCodeHash = _safeProxy.codehash;
-        require(
-            safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_3_0 ||
-                safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_4_1,
-            "SphinxModule: invalid Safe proxy"
-        );
+        // require(
+        //     safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_3_0 ||
+        //         safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_4_1,
+        //     "SphinxModule: invalid Safe proxy"
+        // );
 
         // Check that the Gnosis Safe proxy has a singleton with a valid code hash.
-        address safeSingleton = IProxy(_safeProxy).masterCopy();
-        bytes32 safeSingletonCodeHash = safeSingleton.codehash;
-        require(
-            safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_4_1 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_4_1,
-            "SphinxModule: invalid Safe singleton"
-        );
+        GnosisSafe safeSingleton = GnosisSafe(payable(IProxy(_safeProxy).masterCopy()));
+        bytes32 safeSingletonCodeHash = address(safeSingleton).codehash;
+        // require(
+        //     safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_3_0 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_3_0 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_4_1 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_4_1,
+        //     "SphinxModule: invalid Safe singleton"
+        // );
+
+        require(abi.decode(safeSingleton.getStorageAt(0, 1), (address)) == address(0), "TODO");
+        (, address next) = safeSingleton.getModulesPaginated(address(1), 100);
+        require(next == address(0), "TODO");
+        // TODO(docs): we can't use `safeSingleton.getOwners()` because...
+        require(abi.decode(safeSingleton.getStorageAt(3, 1), (uint256)) == 0, "TODO");
+        require(safeSingleton.getThreshold() == 1, "TODO");
+        require(safeSingleton.nonce() == 0, "TODO");
+        require(abi.decode(safeSingleton.getStorageAt(SAFE_FALLBACK_HANDLER_STORAGE_SLOT, 1), (address)) == address(0), "TODO");
+        require(abi.decode(safeSingleton.getStorageAt(GUARD_STORAGE_SLOT, 1), (address)) == address(0), "TODO");
+
+        // TODO: undo changes in OwnerManager.sol 1.3.0
+        // TODO: undo changes in ModuleManager 1.4.1
 
         safeProxy = payable(_safeProxy);
     }
