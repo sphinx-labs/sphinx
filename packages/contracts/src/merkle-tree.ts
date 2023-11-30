@@ -353,6 +353,10 @@ export const makeSphinxMerkleTreeFromLeaves = (
     leavesWithProofs: leaves.map((leaf) => {
       const leafWithProof = {
         leaf,
+        // Note that the `getProof` function fetches the last leaf in the tree which contains the passed in information.
+        // This could cause issues for a tree which contains multiple leaves with the same information. However, this
+        // limitation does not effect us because the Sphinx Merkle tree leaves must have unique `chainId` and `index`
+        // combinations. Therefore, there will be no leaves in the tree with the same information.
         proof: tree.getProof([Object.values(leaf)]),
       }
       return leafWithProof
