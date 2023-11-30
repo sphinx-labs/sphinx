@@ -294,7 +294,16 @@ export const isNetworkDeploymentData = (
     typeof networkDeploymentData.moduleProxy === 'string' &&
     typeof networkDeploymentData.uri === 'string' &&
     typeof networkDeploymentData.arbitraryChain === 'boolean' &&
-    Array.isArray(networkDeploymentData.txs)
+    Array.isArray(networkDeploymentData.txs) &&
+    networkDeploymentData.txs.every(
+      (tx) =>
+        typeof tx.gas === 'string' &&
+        typeof tx.operation === 'number' &&
+        typeof tx.requireSuccess === 'boolean' &&
+        typeof tx.to === 'string' &&
+        typeof tx.txData === 'string' &&
+        typeof tx.value === 'string'
+    )
   )
 }
 
