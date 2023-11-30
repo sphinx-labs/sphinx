@@ -82,8 +82,11 @@ export type SphinxAction =
  */
 export type HumanReadableAction = {
   reason: string
-  actionType: bigint
   actionIndex: bigint
+}
+
+export type HumanReadableActions = {
+  [chainId: number]: Array<HumanReadableAction>
 }
 
 /**
