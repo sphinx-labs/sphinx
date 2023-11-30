@@ -75,6 +75,7 @@ export const getPreviewString = (
             3
           )
 
+          // TODO - update this
           let executingStr: string
           if (referenceName === 'SphinxManager') {
             executingStr =
