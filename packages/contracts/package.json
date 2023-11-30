@@ -50,6 +50,7 @@
     "@openzeppelin/contracts": "4.9.3",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^6.7.0",
-    "solmate": "6.2.0"
+    "solmate": "6.2.0",
+    "@eth-optimism/contracts-bedrock": "^0.16.2"
   }
 }

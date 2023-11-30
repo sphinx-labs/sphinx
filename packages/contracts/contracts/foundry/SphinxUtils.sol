@@ -897,8 +897,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint256 _threshold,
         string memory _projectName
     ) public view returns (address) {
-        address[] memory sortedOwners = sortAddresses(_owners);
-        bytes memory safeInitializerData = fetchSafeInitializerData(sortedOwners, _threshold);
+        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
         uint safeSaltNonce = fetchSafeSaltNonce(_projectName);
         bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), safeSaltNonce));
         bytes memory deploymentData = abi.encodePacked(
@@ -933,6 +932,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint _threshold
     ) public view returns (bytes memory safeInitializerData) {
+        address[] memory sortedOwners = sortAddresses(_owners);
         ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
             sphinxModuleProxyFactoryAddress
         );
@@ -966,7 +966,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         safeInitializerData = abi.encodePacked(
             IGnosisSafe.setup.selector,
             abi.encode(
-                _owners,
+                sortedOwners,
                 _threshold,
                 multiSendAddress,
                 multiSendData,
