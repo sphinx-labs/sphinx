@@ -37,7 +37,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      */
     constructor(address _owner) {
         require(_owner != address(0), "ManagedService: admin cannot be address(0)");
-        _grantRole(bytes32(0), _owner);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
 
     /**
