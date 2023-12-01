@@ -34,14 +34,10 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
     address private immutable MODULE_FACTORY = address(this);
 
     /**
-     * @notice Deploys the `SphinxModule` contract and initializes it so that nobody
-     *         can deploy directly through it.
+     * @notice Deploys the `SphinxModule` implementation contract via `CREATE2`.
      */
     constructor() {
         SphinxModule module = new SphinxModule{ salt: bytes32(0) }();
-        // We initialize the implementation using `address(1)` because its initializer checks that
-        // the Gnosis Safe address isn't `address(0)`.
-        module.initialize(address(1));
         SPHINX_MODULE_IMPL = address(module);
     }
 

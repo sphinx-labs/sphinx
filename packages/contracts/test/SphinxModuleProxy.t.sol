@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "sphinx-forge-std/Test.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
     GnosisSafeProxyFactory
 } from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
+import { IProxy } from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxy.sol";
 import { CreateCall } from "@gnosis.pm/safe-contracts-1.3.0/libraries/CreateCall.sol";
 import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxy.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
@@ -43,7 +43,7 @@ import { console } from "sphinx-forge-std/console.sol";
  *         version of Gnosis Safe, ensuring that the `SphinxModuleProxy` is compatible with
  *         each type.
  */
-abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, SphinxModule {
+abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModule {
     /**
      * @notice The addresses of several Gnosis Safe contracts that'll be used in this
      *         test suite.
@@ -62,7 +62,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     // call/delegatecall fails.
     bytes constant ERROR_SELECTOR = hex"08c379a0";
 
+    SphinxModuleProxyFactory moduleProxyFactory;
     SphinxModule moduleProxy;
+    GnosisSafeVersion gnosisSafeVersion;
 
     // The default set of transactions that'll be executed in the Gnosis Safe.
     SphinxTransaction[] defaultTxs;
@@ -86,8 +88,13 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     address deployedViaCreate2;
     address deployedViaCreate3;
 
-    function setUp(GnosisSafeAddresses memory _gnosisSafeAddresses) internal {
-        SphinxModuleProxyFactory moduleProxyFactory = new SphinxModuleProxyFactory();
+    function setUp(
+        GnosisSafeVersion _gnosisSafeVersion,
+        GnosisSafeAddresses memory _gnosisSafeAddresses
+    ) internal {
+        gnosisSafeVersion = _gnosisSafeVersion;
+
+        moduleProxyFactory = new SphinxModuleProxyFactory();
 
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
         // We can't assign the wallets directly to the `owners` array because Solidity throws an
@@ -311,8 +318,20 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         }
     }
 
-    function test_deploy_success() external {
-        assertEq(address(moduleProxy.safeProxy()), address(safeProxy));
+    // Test that the `SphinxModule` implementation contract can't be initialized directly.
+    function test_constructor_success() external {
+        address expectedModuleAddr = computeCreate2Address({
+            salt: bytes32(0),
+            initcodeHash: keccak256(type(SphinxModule).creationCode),
+            deployer: address(this)
+        });
+        vm.expectEmit(address(expectedModuleAddr));
+        emit Initialized(type(uint8).max);
+        SphinxModule deployedModule = new SphinxModule{ salt: bytes32(0) }();
+        assertEq(address(deployedModule), expectedModuleAddr);
+
+        vm.expectRevert("Initializable: contract is already initialized");
+        deployedModule.initialize(address(safeProxy));
     }
 
     function test_initialize_reverts_alreadyInitialized() external {
@@ -321,16 +340,86 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
     }
 
     function test_initialize_reverts_invalidSafeAddress() external {
-        SphinxModule m = new SphinxModule();
         vm.expectRevert("SphinxModule: invalid Safe address");
-        m.initialize(address(0));
+        // Deploy a `SphinxModuleProxy` with a Gnosis Safe proxy address equal to `address(0)`. We
+        // deploy via the `SphinxModuleProxyFactory` out of convenience.
+        moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: address(0), _saltNonce: 0 });
+    }
+
+    function test_initialize_reverts_invalidSafeProxy() external {
+        vm.expectRevert("SphinxModule: invalid Safe proxy");
+        // Deploy a `SphinxModuleProxy` with a Gnosis Safe proxy address that doesn't have the
+        // correct codehash. We deploy via the `SphinxModuleProxyFactory` out of convenience.
+        moduleProxyFactory.deploySphinxModuleProxy({
+            _safeProxy: address(1), // Invalid Safe proxy address (i.e. incorrect codehash)
+            _saltNonce: 0
+        });
+    }
+
+    function test_initialize_reverts_invalidSafeSingleton() external {
+        // Deploy a Gnosis Safe proxy that has the correct codehash, but has a Gnosis Safe singleton
+        // with an incorrect codehash.
+        address invalidSafeSingletonAddr = address(1);
+        bytes memory encodedSafeProxyConstructorArg = abi.encode(invalidSafeSingletonAddr);
+        address safeProxy;
+        // We deploy a different Gnosis Safe proxy depending on the Gnosis Safe version.
+        if (
+            gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0 ||
+            gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0
+        ) {
+            safeProxy = deployCode(
+                "safe-artifacts/v1.3.0/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json",
+                encodedSafeProxyConstructorArg
+            );
+        } else if (
+            gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1 ||
+            gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1
+        ) {
+            safeProxy = deployCode(
+                "safe-artifacts/v1.4.1/proxies/SafeProxy.sol/SafeProxy.json",
+                encodedSafeProxyConstructorArg
+            );
+        } else {
+            revert("Invalid Gnosis Safe version. Should never happen.");
+        }
+
+        vm.expectRevert("SphinxModule: invalid Safe singleton");
+        // Deploy a valid Gnosis Safe proxy that uses an incorrect Gnosis Safe singleton. We deploy
+        // via the `SphinxModuleProxyFactory` out of convenience.
+        moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: safeProxy, _saltNonce: 0 });
     }
 
     function test_initialize_success() external {
-        SphinxModule m = new SphinxModule();
-        assertEq(address(m.safeProxy()), address(0));
-        m.initialize(address(1234));
-        assertEq(address(m.safeProxy()), address(1234));
+        assertEq(address(moduleProxy.safeProxy()), address(safeProxy));
+
+        // Check that the Gnosis Safe proxy has a valid code hash.
+        if (
+            gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0 ||
+            gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0
+        ) {
+            assertEq(address(safeProxy).codehash, SAFE_PROXY_CODE_HASH_1_3_0);
+        } else if (
+            gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1 ||
+            gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1
+        ) {
+            assertEq(address(safeProxy).codehash, SAFE_PROXY_CODE_HASH_1_4_1);
+        } else {
+            revert("Invalid Gnosis Safe version. Should never happen.");
+        }
+
+        // Check that the Gnosis Safe singleton has a valid code hash.
+        address safeSingleton = IProxy(safeProxy).masterCopy();
+        if (gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0) {
+            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L1_1_3_0);
+        } else if (gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0) {
+            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L2_1_3_0);
+        } else if (gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1) {
+            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L1_1_4_1);
+        } else if (gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1) {
+            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L2_1_4_1);
+        } else {
+            revert("Invalid Gnosis Safe version. Should never happen.");
+        }
     }
 
     function test_approve_revert_noReentrancy() external {
@@ -1987,6 +2076,7 @@ contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy
     function setUp() public {
         GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
         AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeVersion.L1_1_3_0,
             GnosisSafeAddresses({
                 multiSend: address(safeContracts.multiSend),
                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
@@ -2002,6 +2092,7 @@ contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy
     function setUp() public {
         GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
         AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeVersion.L2_1_3_0,
             GnosisSafeAddresses({
                 multiSend: address(safeContracts.multiSend),
                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
@@ -2017,6 +2108,7 @@ contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy
     function setUp() public {
         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
         AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeVersion.L1_1_4_1,
             GnosisSafeAddresses({
                 multiSend: address(safeContracts.multiSend),
                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
@@ -2032,6 +2124,7 @@ contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy
     function setUp() public {
         GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
         AbstractSphinxModuleProxy_Test.setUp(
+            GnosisSafeVersion.L2_1_4_1,
             GnosisSafeAddresses({
                 multiSend: address(safeContracts.multiSend),
                 compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),

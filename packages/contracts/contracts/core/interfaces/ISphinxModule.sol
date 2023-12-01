@@ -45,7 +45,7 @@ interface ISphinxModule {
      * @notice Emitted when an active Merkle root is canceled.
      *
      * @param completedMerkleRoot The Merkle root that contains the `CANCEL` leaf which canceled the
-                                  active Merkle root.
+     *                            active Merkle root.
      * @param canceledMerkleRoot  The Merkle root that was canceled.
      * @param nonce               The `nonce` field in the `CANCEL` leaf. This matches the nonce
      *                            in the `SphinxModuleProxy` before the cancellation occurred.
@@ -163,6 +163,23 @@ interface ISphinxModule {
      * @notice Initializes this contract. It's necessary to use an initializer function instead of a
      *         constructor because this contract is meant to exist behind an EIP-1167 proxy, which
      *         isn't able to use constructor arguments.
+     *
+     *         This call also has a couple of requirements that prevent the user from mistakenly
+     *         adding a `SphinxModuleProxy` to an incompatible Gnosis Safe, potentially leading to
+     *         vulnerabilities in the Gnosis Safe. Specifically, this call will revert if the code
+     *         hash at the input Gnosis Safe proxy's address does not equal the code hash of a
+     *         Gnosis Safe proxy v1.3.0 or v1.4.1. This call will also revert if the Gnosis Safe
+     *         proxy's singleton does not have a code hash that equals the code hash of one of the
+     *         following Gnosis Safe singletons:
+     *         - Gnosis Safe L1 v1.3.0
+     *         - Gnosis Safe L2 v1.3.0
+     *         - Gnosis Safe L1 v1.4.1
+     *         - Gnosis Safe L2 v1.4.1
+     *         These checks do _not_ ensure that the singleton isn't malicious. The singleton can be
+     *         a metamorphic deployment, allowing somebody malicious to self-destruct the singleton,
+     *         causing the user's Gnosis Safe Proxy to be disabled permanently. However, these
+     *         checks are sufficient to prevent users from accidentally adding the module to an
+     *         incompatible Safe.
      *
      * @param _safeProxy The address of the Gnosis Safe proxy that this contract belongs to.
      */
