@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity 0.8.4;
 
 import { SphinxModule } from "./SphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "./interfaces/ISphinxModuleProxyFactory.sol";
@@ -52,7 +52,6 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         address _safeProxy,
         uint256 _saltNonce
     ) public override returns (address sphinxModuleProxy) {
-        require(_safeProxy != address(0), "SphinxModuleProxyFactory: invalid Safe");
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
         sphinxModuleProxy = Clones.cloneDeterministic(SPHINX_MODULE_IMPL, salt);
         emit SphinxModuleProxyDeployed(sphinxModuleProxy, _safeProxy);

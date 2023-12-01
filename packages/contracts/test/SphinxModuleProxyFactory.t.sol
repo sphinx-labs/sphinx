@@ -107,7 +107,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
 
     // Must revert if the Gnosis Safe's address is `address(0)`.
     function test_deploySphinxModuleProxy_revert_zeroAddress() external {
-        vm.expectRevert("SphinxModuleProxyFactory: invalid Safe");
+        vm.expectRevert("SphinxModule: invalid Safe address");
         moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: address(0), _saltNonce: 0 });
     }
 
