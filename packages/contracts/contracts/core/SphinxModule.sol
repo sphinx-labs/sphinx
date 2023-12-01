@@ -39,7 +39,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
      *      when they sign the Merkle root off-chain.
      */
     bytes32 internal constant DOMAIN_SEPARATOR =
-        keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes(VERSION))
+            )
+        );
 
     /**
      * @dev The EIP-712 type hash, which just contains the Merkle root.
@@ -122,7 +128,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
         require(leafMerkleRootNonce == merkleRootNonce, "SphinxModule: invalid nonce");
-        // The `numLeaves` must be at least `1` because there must always at least be an `APPROVE` leaf.
+        // The `numLeaves` must be at least `1` because there must always be an `APPROVE` leaf.
         require(numLeaves > 0, "SphinxModule: numLeaves cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID, or the Merkle root must
