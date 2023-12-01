@@ -39,7 +39,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
      *      when they sign the Merkle root off-chain.
      */
     bytes32 internal constant DOMAIN_SEPARATOR =
-        keccak256(abi.encode(keccak256("EIP712Domain(string name)"), keccak256(bytes("Sphinx"))));
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes(VERSION))
+            )
+        );
 
     /**
      * @dev The EIP-712 type hash, which just contains the Merkle root.
@@ -122,7 +128,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
         require(leafMerkleRootNonce == merkleRootNonce, "SphinxModule: invalid nonce");
-        // The `numLeaves` must be at least `1` because there must always at least be an `APPROVE` leaf.
+        // The `numLeaves` must be at least `1` because there must always be an `APPROVE` leaf.
         require(numLeaves > 0, "SphinxModule: numLeaves cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID, or the Merkle root must
@@ -180,7 +186,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
-        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
+        GnosisSafe(payable(leafSafeProxy)).checkSignatures(
+            keccak256(typedData),
+            typedData,
+            _signatures
+        );
     }
 
     /**
@@ -239,8 +249,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // We don't validate the `uri` because it we allow it to be empty.
 
         // Cancel the active Merkle root.
-        emit SphinxMerkleRootCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
-        merkleRootStates[activeMerkleRoot].status = MerkleRootStatus.CANCELED;
+        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, merkleRootNonce, executor, uri);
+        merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
 
         // Mark the input Merkle root as `COMPLETED`.
@@ -264,7 +274,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
-        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
+        GnosisSafe(payable(leafSafeProxy)).checkSignatures(
+            keccak256(typedData),
+            typedData,
+            _signatures
+        );
     }
 
     /**
@@ -273,9 +287,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     function execute(SphinxLeafWithProof[] memory _leavesWithProofs) public override nonReentrant {
         uint256 numActions = _leavesWithProofs.length;
         require(numActions > 0, "SphinxModule: no leaves to execute");
-        require(activeMerkleRoot != bytes32(0), "SphinxModule: no active root");
+        // We cache the active Merkle root in memory because it reduces the amount of gas used in
+        // this call.
+        bytes32 cachedActiveMerkleRoot = activeMerkleRoot;
+        require(cachedActiveMerkleRoot != bytes32(0), "SphinxModule: no active root");
 
-        MerkleRootState storage state = merkleRootStates[activeMerkleRoot];
+        MerkleRootState storage state = merkleRootStates[cachedActiveMerkleRoot];
 
         require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
@@ -297,7 +314,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             proof = _leavesWithProofs[i].proof;
 
             require(
-                MerkleProof.verify(proof, activeMerkleRoot, _getLeafHash(leaf)),
+                MerkleProof.verify(proof, cachedActiveMerkleRoot, _getLeafHash(leaf)),
                 "SphinxModule: failed to verify leaf"
             );
             require(leaf.leafType == SphinxLeafType.EXECUTE, "SphinxModule: invalid leaf type");
@@ -382,13 +399,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // slither-disable-end calls-loop
             // slither-disable-end reentrancy-no-eth
 
-            if (success) emit SphinxActionSucceeded(activeMerkleRoot, leaf.index);
-            else emit SphinxActionFailed(activeMerkleRoot, leaf.index);
+            if (success) emit SphinxActionSucceeded(cachedActiveMerkleRoot, leaf.index);
+            else emit SphinxActionFailed(cachedActiveMerkleRoot, leaf.index);
 
             // Mark the active Merkle root as failed if the Gnosis Safe transaction failed and the
             // current leaf requires that it must succeed.
             if (!success && requireSuccess) {
-                emit SphinxMerkleRootFailed(activeMerkleRoot, leaf.index);
+                emit SphinxMerkleRootFailed(cachedActiveMerkleRoot, leaf.index);
                 state.status = MerkleRootStatus.FAILED;
                 activeMerkleRoot = bytes32(0);
                 return;
@@ -397,7 +414,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Mark the Merkle root as completed if all of the Merkle leaves have been executed.
         if (state.leavesExecuted == state.numLeaves) {
-            emit SphinxMerkleRootCompleted(activeMerkleRoot);
+            emit SphinxMerkleRootCompleted(cachedActiveMerkleRoot);
             state.status = MerkleRootStatus.COMPLETED;
             activeMerkleRoot = bytes32(0);
         }

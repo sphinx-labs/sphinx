@@ -37,15 +37,15 @@ contract Endpoint {
         reentrancyBlocked = true;
     }
 
-    function doRevert() pure public {
+    function doRevert() public pure {
         revert("did revert");
     }
 
-    function doRevertCustom() pure public {
+    function doRevertCustom() public pure {
         revert CustomError(10, address(1), address(2), address(3), bytes32(uint(1)));
     }
 
-    function doSilentRevert() pure public {
+    function doSilentRevert() public pure {
         revert();
     }
 
@@ -117,8 +117,16 @@ contract ManagedService_Test is Test, ManagedService {
         vm.startPrank(sender);
 
         bytes memory setData = abi.encodeWithSelector(Endpoint.set.selector, 2);
-        bytes memory execData = abi.encodeWithSelector(ManagedService.exec.selector, address(endpoint), setData);
-        bytes memory txData = abi.encodeWithSelector(Endpoint.reenter.selector, address(service), execData);
+        bytes memory execData = abi.encodeWithSelector(
+            ManagedService.exec.selector,
+            address(endpoint),
+            setData
+        );
+        bytes memory txData = abi.encodeWithSelector(
+            Endpoint.reenter.selector,
+            address(service),
+            execData
+        );
 
         // Expect the correct event is emitted
         vm.expectEmit(address(service));

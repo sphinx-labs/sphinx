@@ -1,7 +1,9 @@
 import {
+  CheckBalanceLowArtifact,
   CompatibilityFallbackHandlerArtifact,
   CreateCallArtifact,
   DefaultCallbackHandlerArtifact,
+  DrippieArtifact,
   GnosisSafeArtifact,
   GnosisSafeL2Artifact,
   GnosisSafeProxyFactoryArtifact,
@@ -13,9 +15,11 @@ import {
 } from './ifaces'
 import { FoundryContractArtifact, GnosisSafeContractArtifact } from './types'
 import {
+  getCheckBalanceLowAddress,
   getCompatibilityFallbackHandlerAddress,
   getCreateCallAddress,
   getDefaultCallbackHandlerAddress,
+  getDrippieAddress,
   getGnosisSafeAddress,
   getGnosisSafeL2Address,
   getGnosisSafeProxyFactoryAddress,
@@ -86,6 +90,16 @@ export const getSphinxConstants = (): Array<{
     {
       artifact: GnosisSafeArtifact,
       expectedAddress: getGnosisSafeAddress(),
+      constructorArgs: [],
+    },
+    {
+      artifact: DrippieArtifact,
+      expectedAddress: getDrippieAddress(),
+      constructorArgs: [getOwnerAddress()],
+    },
+    {
+      artifact: CheckBalanceLowArtifact,
+      expectedAddress: getCheckBalanceLowAddress(),
       constructorArgs: [],
     },
   ]

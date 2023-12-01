@@ -1,8 +1,12 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
-import { HumanReadableAction } from '../actions/types'
-import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
+import { HumanReadableAction, HumanReadableActions } from '../actions/types'
+import {
+  callWithTimeout,
+  getConfigArtifactsRemote,
+  prettyFunctionCall,
+} from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
 import { getMerkleTreeInfo } from '../tasks'
 
@@ -64,7 +68,7 @@ export const compileRemoteBundles = async (
   merkleTree: SphinxMerkleTree
   compilerConfigs: Array<CompilerConfig>
   configArtifacts: ConfigArtifacts
-  humanReadableActions: Array<HumanReadableAction>
+  humanReadableActions: HumanReadableActions
 }> => {
   const compilerConfigs = await callWithTimeout<Array<CompilerConfig>>(
     sphinxFetchSubtask({ configUri, ipfsUrl }),
@@ -73,6 +77,31 @@ export const compileRemoteBundles = async (
   )
 
   const configArtifacts = await getConfigArtifactsRemote(compilerConfigs)
+
+  const humanReadableActions: {
+    [chainId: number]: Array<HumanReadableAction>
+  } = {}
+
+  for (const compilerConfig of compilerConfigs) {
+    const actions = compilerConfig.actionInputs.map((action) => {
+      const { referenceName, functionName, variables, address } =
+        action.decodedAction
+      const actionStr = prettyFunctionCall(
+        referenceName,
+        address,
+        functionName,
+        variables,
+        5,
+        3
+      )
+      return {
+        reason: actionStr,
+        actionIndex: action.index,
+      }
+    })
+
+    humanReadableActions[compilerConfig.chainId] = actions
+  }
 
   const { merkleTreeInfo } = await getMerkleTreeInfo(
     configArtifacts,
@@ -83,7 +112,6 @@ export const compileRemoteBundles = async (
     merkleTree: merkleTreeInfo.merkleTree,
     compilerConfigs,
     configArtifacts,
-    // TODO - do something with human readable actions
-    humanReadableActions: [],
+    humanReadableActions,
   }
 }
