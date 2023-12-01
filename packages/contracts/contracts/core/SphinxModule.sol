@@ -135,7 +135,6 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         emit SphinxMerkleRootApproved(
             _root,
-            activeMerkleRoot,
             leafMerkleRootNonce,
             executor,
             numLeaves,
