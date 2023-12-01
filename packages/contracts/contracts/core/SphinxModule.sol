@@ -128,7 +128,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(leafSafeProxy == address(safeProxy), "SphinxModule: invalid SafeProxy");
         require(moduleProxy == address(this), "SphinxModule: invalid SphinxModuleProxy");
         require(leafMerkleRootNonce == merkleRootNonce, "SphinxModule: invalid nonce");
-        // The `numLeaves` must be at least `1` because there must always at least be an `APPROVE` leaf.
+        // The `numLeaves` must be at least `1` because there must always be an `APPROVE` leaf.
         require(numLeaves > 0, "SphinxModule: numLeaves cannot be 0");
         require(executor == msg.sender, "SphinxModule: caller isn't executor");
         // The current chain ID must match the leaf's chain ID, or the Merkle root must
