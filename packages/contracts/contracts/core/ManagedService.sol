@@ -55,8 +55,7 @@ contract ManagedService is AccessControl, ReentrancyGuard {
     function exec(
         address payable _to,
         bytes calldata _data
-    ) public payable nonReentrant returns (bytes memory) {
-        require(hasRole(RELAYER_ROLE, msg.sender), "ManagedService: invalid caller");
+    ) public payable nonReentrant onlyRole(RELAYER_ROLE) returns (bytes memory) {
         require(_to != address(0), "ManagedService: target is address(0)");
 
         emit Called(msg.sender, _to, msg.value, keccak256(_data));
