@@ -18,6 +18,8 @@ import {
   GnosisSafeL2Artifact,
   GnosisSafeArtifact,
   SphinxModuleArtifact,
+  DrippieArtifact,
+  CheckBalanceLowArtifact,
 } from './ifaces'
 import {
   getOwnerAddress,
@@ -153,5 +155,28 @@ export const getGnosisSafeAddress = () => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
     solidityPackedKeccak256(['bytes'], [GnosisSafeArtifact.bytecode])
+  )
+}
+
+// Drippie
+export const getDrippieAddress = () => {
+  return getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    ZeroHash,
+    solidityPackedKeccak256(
+      ['bytes', 'bytes'],
+      [
+        DrippieArtifact.bytecode,
+        AbiCoder.defaultAbiCoder().encode(['address'], [getOwnerAddress()]),
+      ]
+    )
+  )
+}
+
+export const getCheckBalanceLowAddress = () => {
+  return getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    ZeroHash,
+    solidityPackedKeccak256(['bytes'], [CheckBalanceLowArtifact.bytecode])
   )
 }

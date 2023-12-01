@@ -102,7 +102,8 @@ const assertInvariantFive = (tree: SphinxMerkleTree) => {
     const leaf = leafWithProof.leaf
 
     if (leaf.leafType === SphinxLeafType.EXECUTE) {
-      // Expect that there was no CANCEL leaf for
+      // Expect that there was no CANCEL leaf for the chain
+      expect(seenCancelChainIds.includes(leaf.chainId)).to.be.false
     }
   }
 }
@@ -145,9 +146,8 @@ const assertInvariantSeven = (tree: SphinxMerkleTree) => {
 
 /**
  * @notice Checks that all the `EXECUTE` leaves for each chain start with an `index` of 1 and sequentially increment by 1 so that invariant 8 is satisfied.
- * Also checks that all the leafs are properly ordered by `index` and `chainId` ascending so that invariant 9 is satisfied.
  */
-const assertInvariantEightAndNine = (tree: SphinxMerkleTree) => {
+const assertInvariantEight = (tree: SphinxMerkleTree) => {
   const seenChainIds: BigInt[] = []
 
   for (let i = 1; i < tree.leavesWithProofs.length; i++) {
@@ -206,7 +206,7 @@ const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
   assertInvariantFive(tree)
   assertInvariantSix(tree)
   assertInvariantSeven(tree)
-  assertInvariantEightAndNine(tree)
+  assertInvariantEight(tree)
 }
 
 describe('Merkle tree satisfies invariants', () => {
@@ -411,7 +411,7 @@ describe('Merkle tree satisfies invariants', () => {
     )
   })
 
-  it('Errors if arbitraryChain = true for multiple DeploymentData entries', () => {
+  it('Errors if arbitraryChain === true for multiple DeploymentData entries', () => {
     const deploymentData: DeploymentData = {}
     const chainIds = ['421613', '420', '5']
     const nonce = '0'
@@ -452,7 +452,227 @@ describe('Merkle tree satisfies invariants', () => {
     }
 
     expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
-      'Detected arbitraryChain = true in multiple DeploymentData entries'
+      'Detected `arbitraryChain` === true in multiple DeploymentData entries'
+    )
+  })
+
+  it('Errors if arbitraryChain === true and cancel DeploymentData entry before', () => {
+    const deploymentData: DeploymentData = {}
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = true
+    const merkleRootToCancel = ethers.keccak256(ethers.toUtf8Bytes('1'))
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    // Cancel on Goerli
+    deploymentData['5'] = {
+      type: 'cancellation',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      merkleRootToCancel,
+      uri,
+    }
+
+    // Arbitrary approval
+    deploymentData['420'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain,
+      txs,
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Detected conflicting cancellation and `arbitraryChain` === true `DeploymentData` entries.'
+    )
+  })
+
+  it('Errors if arbitraryChain === true and cancel DeploymentData entry after', () => {
+    const deploymentData: DeploymentData = {}
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = true
+    const merkleRootToCancel = ethers.keccak256(ethers.toUtf8Bytes('1'))
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    // Arbitrary approval
+    deploymentData['5'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain,
+      txs,
+    }
+
+    // Cancel on OP Goerli
+    deploymentData['420'] = {
+      type: 'cancellation',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      merkleRootToCancel,
+      uri,
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Detected conflicting cancellation and `arbitraryChain` === true `DeploymentData` entries.'
+    )
+  })
+
+  it('Errors if arbitraryChain === true and approval DeploymentData entry before', () => {
+    const deploymentData: DeploymentData = {}
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = true
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    // Approve on OP Goerli
+    deploymentData['5'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain: false,
+      txs,
+    }
+
+    // Arbitrary approval
+    deploymentData['420'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain,
+      txs,
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
+    )
+  })
+
+  it('Errors if arbitrary === true and approval DeploymentData entry after', () => {
+    const deploymentData: DeploymentData = {}
+    const nonce = '0'
+    const executor = '0x' + '00'.repeat(19) + '11'
+    const safeProxy = '0x' + '00'.repeat(19) + '22'
+    const moduleProxy = '0x' + '00'.repeat(19) + '33'
+    const uri = 'http://localhost'
+    const arbitraryChain = true
+
+    const to = '0x' + '11'.repeat(20)
+    const value = parseUnits('1', 'ether').toString()
+    const txData = '0x'
+    const gas = BigInt(50_000).toString()
+    const operation = Operation.Call
+    const requireSuccess = true
+    const txs: SphinxTransaction[] = [
+      {
+        to,
+        value,
+        txData,
+        gas,
+        operation,
+        requireSuccess,
+      },
+    ]
+
+    // Arbitrary approval
+    deploymentData['5'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain,
+      txs,
+    }
+
+    // Approve on OP Goerli
+    deploymentData['420'] = {
+      type: 'deployment',
+      nonce,
+      executor,
+      safeProxy,
+      moduleProxy,
+      uri,
+      arbitraryChain: false,
+      txs,
+    }
+
+    expect(() => makeSphinxMerkleTree(deploymentData)).to.throw(
+      'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
     )
   })
 })
