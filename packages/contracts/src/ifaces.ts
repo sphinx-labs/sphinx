@@ -28,9 +28,18 @@ export const GnosisSafeArtifact: GnosisSafeContractArtifact = require('../safe-a
 // plugins package, so we include it here.
 export const GnosisSafeProxyArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json')
 
+// Drippie contract artifacts
+export const DrippieArtifact = parseFoundryArtifact(
+  require('../node_modules/@eth-optimism/contracts-bedrock/forge-artifacts/Drippie.sol/Drippie.json')
+)
+export const CheckBalanceLowArtifact = parseFoundryArtifact(
+  require('../node_modules/@eth-optimism/contracts-bedrock/forge-artifacts/CheckBalanceLow.sol/CheckBalanceLow.json')
+)
+
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
+export const DrippieABI = DrippieArtifact.abi
 
 // TODO - do we need any of this?
 // const directoryPath = path.join(__dirname, '../artifacts/build-info')

@@ -391,7 +391,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -428,7 +427,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: false
         });
@@ -691,7 +689,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -706,7 +703,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: "",
             _expectedArbitraryChain: false
@@ -721,7 +717,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: firstModuleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: false
         });
@@ -742,7 +737,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -762,7 +756,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.COMPLETED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -777,7 +770,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: true
@@ -877,7 +869,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1155,7 +1146,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputsToCancel,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1287,7 +1277,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1329,7 +1318,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1347,7 +1335,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1365,7 +1352,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1383,7 +1369,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1404,7 +1389,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1427,7 +1411,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1446,7 +1429,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1466,7 +1448,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1489,7 +1470,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: true
@@ -1505,7 +1485,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1523,7 +1502,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1566,7 +1544,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1604,7 +1581,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: false
         });
@@ -1620,7 +1596,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1641,7 +1616,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
@@ -1686,7 +1660,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: txs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: expectedSuccesses,
             _expectedArbitraryChain: false
         });
@@ -1701,7 +1674,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: true
         });
@@ -1721,7 +1693,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: true
         });
@@ -1740,7 +1711,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         helper_test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedSuccesses: defaultExpectedSuccesses,
             _expectedArbitraryChain: false
         });
@@ -1761,14 +1731,13 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
     function helper_test_approve(
         DeploymentModuleInputs memory _moduleInputs,
-        bytes32 _expectedInitialActiveMerkleRoot,
         MerkleRootStatus _expectedStatus,
         string memory _expectedDeploymentUri,
         bool _expectedArbitraryChain
     ) internal {
         uint256 initialNonce = moduleProxy.merkleRootNonce();
         uint256 expectedNumLeaves = _moduleInputs.executionLeavesWithProofs.length + 1;
-        assertEq(moduleProxy.activeMerkleRoot(), _expectedInitialActiveMerkleRoot);
+        assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
 
         bytes memory typedData = abi.encodePacked(
             "\x19\x01",
@@ -1785,7 +1754,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         vm.expectEmit(address(moduleProxy));
         emit SphinxMerkleRootApproved({
             merkleRoot: _moduleInputs.merkleRoot,
-            previousActiveRoot: _expectedInitialActiveMerkleRoot,
             nonce: initialNonce,
             executor: deploymentExecutor,
             numLeaves: expectedNumLeaves,
@@ -1829,7 +1797,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         SphinxTransaction[] memory _txs,
         DeploymentModuleInputs memory _moduleInputs,
         bool[] memory _expectedSuccesses,
-        bytes32 _expectedInitialActiveMerkleRoot,
         bool _expectedArbitraryChain
     ) internal {
         // Sanity check
@@ -1839,7 +1806,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
 
         helper_test_approve({
             _moduleInputs: _moduleInputs,
-            _expectedInitialActiveMerkleRoot: _expectedInitialActiveMerkleRoot,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: _expectedArbitraryChain
@@ -2006,7 +1972,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Test, Enum, TestUtils, Sphin
         );
         helper_test_approve({
             _moduleInputs: moduleInputs,
-            _expectedInitialActiveMerkleRoot: bytes32(0),
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
