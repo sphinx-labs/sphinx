@@ -303,6 +303,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             "SphinxModule: extra leaves not allowed"
         );
 
+        // Cache the `arbitraryChain` boolean. This reduces the amount of SLOADs in this function.
+        bool arbitraryChain = state.arbitraryChain;
+
         SphinxLeaf memory leaf;
         bytes32[] memory proof;
         // Iterate through each of the Merkle leaves in the array.
@@ -320,15 +323,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // The current chain ID must match the leaf's chain ID, or the Merkle root must
             // be executable on an arbitrary chain.
             require(
-                leaf.chainId == block.chainid || state.arbitraryChain,
+                leaf.chainId == block.chainid || arbitraryChain,
                 "SphinxModule: invalid chain id"
             );
             // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
             // of 0. This isn't strictly necessary; it just enforces a convention.
-            require(
-                !state.arbitraryChain || leaf.chainId == 0,
-                "SphinxModule: leaf chain id must be 0"
-            );
+            require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
 
             // Decode the Merkle leaf's data.
             (
