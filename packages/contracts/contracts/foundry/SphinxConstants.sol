@@ -19,7 +19,6 @@ contract SphinxConstants {
   address public constant managedServiceAddress = 0x4debf6f3a49603f92f747830C748118aE7149575;
   address public constant safeFactoryAddress = 0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2;
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
-  address public constant sphinxModuleImplAddress = 0x74E72d0d2D7185FD7f3c0dBfFb3bb8A1f45d67aA;
 
   function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {
     SphinxContractInfo[] memory contracts = new SphinxContractInfo[](11);
