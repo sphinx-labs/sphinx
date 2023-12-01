@@ -186,7 +186,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
-        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
+        GnosisSafe(payable(leafSafeProxy)).checkSignatures(
+            keccak256(typedData),
+            typedData,
+            _signatures
+        );
     }
 
     /**
@@ -270,7 +274,11 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
-        GnosisSafe(safeProxy).checkSignatures(keccak256(typedData), typedData, _signatures);
+        GnosisSafe(payable(leafSafeProxy)).checkSignatures(
+            keccak256(typedData),
+            typedData,
+            _signatures
+        );
     }
 
     /**
