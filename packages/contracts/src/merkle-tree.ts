@@ -139,7 +139,9 @@ export interface SphinxMerkleTree {
 export const makeSphinxLeaves = (
   deploymentData: DeploymentData
 ): Array<SphinxLeaf> => {
+  let approvalIncluded = false
   let arbitraryApprovalIncluded = false
+  let cancellationLeafIncluded = false
 
   const merkleLeaves: Array<SphinxLeaf> = []
 
@@ -149,18 +151,46 @@ export const makeSphinxLeaves = (
     if (isNetworkDeploymentData(data) && !isNetworkCancellationData(data)) {
       const chainId = data.arbitraryChain ? BigInt(0) : BigInt(chainIdStr)
 
-      // If there has already been an arbitrary approval leaf, then throw an error
-      if (arbitraryApprovalIncluded === true) {
-        throw new Error(
-          'Detected arbitraryChain = true in multiple DeploymentData entries'
-        )
-      } else if (data.arbitraryChain === true) {
+      // If this DeploymentData entry is for an arbitrary approval, then throw errors related to prior conflicting leaves
+      if (data.arbitraryChain) {
+        if (cancellationLeafIncluded) {
+          // If there has already been a cancellation leaf, then throw an error
+          throw new Error(
+            'Detected conflicting cancellation and `arbitraryChain` === true `DeploymentData` entries.'
+          )
+        } else if (arbitraryApprovalIncluded) {
+          // If there has already been another arbitrary approval leaf, then throw an error
+          throw new Error(
+            'Detected `arbitraryChain` === true in multiple DeploymentData entries'
+          )
+        } else if (approvalIncluded) {
+          // If there has already been any other approval leaf, then throw an error
+          throw new Error(
+            'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
+          )
+        }
+
         arbitraryApprovalIncluded = true
+      } else if (arbitraryApprovalIncluded) {
+        // If this DeploymentData entry is for a normal approval and there was a previous arbitrary approval, then throw an error
+        throw new Error(
+          'Detected conflicting approval and `arbitraryChain` === true `DeploymentData` entries.'
+        )
       }
+
+      approvalIncluded = true
 
       // generate approval leaf data
       const approvalData = coder.encode(
-        ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
+        [
+          'address',
+          'address',
+          'uint256',
+          'uint256',
+          'address',
+          'string',
+          'bool',
+        ],
         [
           data.safeProxy,
           data.moduleProxy,
@@ -185,7 +215,7 @@ export const makeSphinxLeaves = (
       for (const tx of data.txs) {
         // generate transaction leaf data
         const transactionLeafData = coder.encode(
-          ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+          ['address', 'uint256', 'uint256', 'bytes', 'uint256', 'bool'],
           [
             tx.to,
             BigInt(tx.value),
@@ -222,6 +252,15 @@ export const makeSphinxLeaves = (
         ]
       )
 
+      // If there has already been an arbitrary approval leaf, then throw an error
+      if (arbitraryApprovalIncluded) {
+        throw new Error(
+          'Detected conflicting cancellation and `arbitraryChain` === true `DeploymentData` entries.'
+        )
+      } else {
+        cancellationLeafIncluded = true
+      }
+
       // Push CANCEL leaf.
       merkleLeaves.push({
         chainId: BigInt(chainIdStr),
@@ -238,8 +277,23 @@ export const makeSphinxLeaves = (
 }
 
 /**
- * @notice Checks if an input networkData object is a valid NetworkDeploymentData object with the correct fields and types
- * and that the object does not simultaneously satisfy the requirements to be a NetworkCancellationData object.
+ * @notice Checks if an input networkData object is a valid BaseNetworkData object with the correct fields and types
+ *
+ * @param networkData The object to check.
+ * @returns boolean indicating if the input object is a BaseNetworkData object.
+ */
+export const isBaseNetworkData = (networkData: BaseNetworkData) => {
+  return (
+    typeof networkData.nonce === 'string' &&
+    typeof networkData.executor === 'string' &&
+    typeof networkData.safeProxy === 'string' &&
+    typeof networkData.moduleProxy === 'string' &&
+    typeof networkData.uri === 'string'
+  )
+}
+
+/**
+ * @notice Checks if an input networkData object is a valid NetworkDeploymentData object with the correct fields and types.
  *
  * @param networkData The object to check.
  * @returns boolean indicating if the input object is a NetworkDeploymentData object.
@@ -249,19 +303,23 @@ export const isNetworkDeploymentData = (
 ): networkData is NetworkDeploymentData => {
   const networkDeploymentData = networkData as NetworkDeploymentData
   return (
-    typeof networkDeploymentData.nonce === 'string' &&
-    typeof networkDeploymentData.executor === 'string' &&
-    typeof networkDeploymentData.safeProxy === 'string' &&
-    typeof networkDeploymentData.moduleProxy === 'string' &&
-    typeof networkDeploymentData.uri === 'string' &&
+    isBaseNetworkData(networkData) &&
     typeof networkDeploymentData.arbitraryChain === 'boolean' &&
-    Array.isArray(networkDeploymentData.txs)
+    Array.isArray(networkDeploymentData.txs) &&
+    networkDeploymentData.txs.every(
+      (tx) =>
+        typeof tx.gas === 'string' &&
+        typeof tx.operation === 'number' &&
+        typeof tx.requireSuccess === 'boolean' &&
+        typeof tx.to === 'string' &&
+        typeof tx.txData === 'string' &&
+        typeof tx.value === 'string'
+    )
   )
 }
 
 /**
  * @notice Checks if an input networkData object is a valid NetworkCancellationData object with the correct fields and types.
- * and that the object does not simultaneously satisfy the requirements to be a NetworkDeploymentData object.
  *
  * @param networkData The object to check.
  * @returns boolean indicating if the input object is a NetworkCancellationData object.
@@ -271,11 +329,7 @@ export const isNetworkCancellationData = (
 ): networkData is NetworkCancellationData => {
   const networkCancellationData = networkData as NetworkCancellationData
   return (
-    typeof networkCancellationData.nonce === 'string' &&
-    typeof networkCancellationData.executor === 'string' &&
-    typeof networkCancellationData.safeProxy === 'string' &&
-    typeof networkCancellationData.moduleProxy === 'string' &&
-    typeof networkCancellationData.uri === 'string' &&
+    isBaseNetworkData(networkData) &&
     typeof networkCancellationData.merkleRootToCancel === 'string'
   )
 }
@@ -299,6 +353,10 @@ export const makeSphinxMerkleTreeFromLeaves = (
     leavesWithProofs: leaves.map((leaf) => {
       const leafWithProof = {
         leaf,
+        // Note that the `getProof` function fetches the last leaf in the tree which contains the passed in information.
+        // This could cause issues for a tree which contains multiple leaves with the same information. However, this
+        // limitation does not effect us because the Sphinx Merkle tree leaves must have unique `chainId` and `index`
+        // combinations. Therefore, there will be no leaves in the tree with the same information.
         proof: tree.getProof([Object.values(leaf)]),
       }
       return leafWithProof
