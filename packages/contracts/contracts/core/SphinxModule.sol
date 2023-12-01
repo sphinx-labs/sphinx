@@ -142,7 +142,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         emit SphinxMerkleRootApproved(
             _root,
             leafMerkleRootNonce,
-            executor,
+            msg.sender,
             numLeaves,
             uri
         );
@@ -152,7 +152,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.numLeaves = numLeaves;
         state.leavesExecuted = 1;
         state.uri = uri;
-        state.executor = executor;
+        state.executor = msg.sender;
         state.arbitraryChain = arbitraryChain;
 
         unchecked {
@@ -251,7 +251,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // We don't validate the `uri` because we allow it to be empty.
 
         // Cancel the active Merkle root.
-        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, leafMerkleRootNonce, executor, uri);
+        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, leafMerkleRootNonce, msg.sender, uri);
         merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
 
@@ -262,7 +262,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.numLeaves = 1;
         state.leavesExecuted = 1;
         state.uri = uri;
-        state.executor = executor;
+        state.executor = msg.sender;
         state.status = MerkleRootStatus.COMPLETED;
 
         unchecked {
