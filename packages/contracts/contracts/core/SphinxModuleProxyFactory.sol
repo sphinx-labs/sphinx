@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity 0.8.4;
 
 import { SphinxModule } from "./SphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "./interfaces/ISphinxModuleProxyFactory.sol";
