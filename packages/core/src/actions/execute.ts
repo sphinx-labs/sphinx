@@ -9,7 +9,12 @@ import {
   decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 
-import { MerkleRootState, MerkleRootStatus, HumanReadableAction } from './types'
+import {
+  MerkleRootState,
+  MerkleRootStatus,
+  HumanReadableAction,
+  HumanReadableActions,
+} from './types'
 import { getGasPriceOverrides } from '../utils'
 import { getTargetNetworkLeaves } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
@@ -18,7 +23,7 @@ export const executeDeployment = async (
   module: ethers.Contract,
   merkleTree: SphinxMerkleTree,
   signatures: string[],
-  humanReadableActions: Array<HumanReadableAction>,
+  humanReadableActions: HumanReadableActions,
   blockGasLimit: bigint,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
@@ -55,7 +60,6 @@ export const executeDeployment = async (
     signatures.map(() => 'bytes'),
     signatures
   )
-  console.log(signatures)
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
     ManagedServiceABI,
@@ -63,8 +67,7 @@ export const executeDeployment = async (
   )
   const approveData = module.interface.encodeFunctionData('approve', [
     merkleTree.root,
-    authLeaf.leaf,
-    authLeaf.proof,
+    authLeaf,
     packedSignatures,
   ])
 
@@ -154,7 +157,7 @@ const executeBatchActions = async (
   module: ethers.Contract,
   managedService: ethers.Contract,
   maxGasLimit: bigint,
-  humanReadableActions: Array<HumanReadableAction>,
+  humanReadableActions: HumanReadableActions,
   signer: ethers.Signer,
   receipts: ethers.TransactionReceipt[],
   logger?: Logger | undefined
@@ -163,9 +166,11 @@ const executeBatchActions = async (
   receipts: ethers.TransactionReceipt[]
   failureAction?: HumanReadableAction
 }> => {
+  const chainId = (await signer.provider?.getNetwork())?.chainId!
+
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await module.activeMerkleRoot()
-  let state: MerkleRootState = await module.deployments(activeRoot)
+  let state: MerkleRootState = await module.merkleRootStates(activeRoot)
 
   // Remove the actions that have already been executed.
   const filtered = leaves.filter((leaf) => {
@@ -180,11 +185,18 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
-    const mostRecentState: MerkleRootState = await module.deployments(
+    const mostRecentState: MerkleRootState = await module.merkleRootStates(
       activeRoot
     )
     if (mostRecentState.status === MerkleRootStatus.FAILED) {
-      return { status: mostRecentState.status, receipts }
+      return {
+        status: mostRecentState.status,
+        receipts,
+        failureAction:
+          humanReadableActions[chainId.toString()][
+            Number(state.leavesExecuted)
+          ],
+      }
     }
 
     // Figure out the maximum number of actions that can be executed in a single batch.
@@ -203,41 +215,27 @@ const executeBatchActions = async (
       }...`
     )
 
-    try {
-      const executeData = module.interface.encodeFunctionData('execute', [
-        batch,
-      ])
-      const res = await managedService.exec(
-        await module.getAddress(),
-        executeData,
-        await getGasPriceOverrides(signer)
-      )
-      const tx = await res.wait()
-      receipts.push(tx)
-    } catch (e) {
-      throw e
-
-      // TODO - handle partial failures (or just only handle the default supported case)
-
-      // If the deployment failed due to a constructor or call reverting, handle gracefully.
-      // const revertData = e.data
-      // const decodedError = module.interface.parseError(revertData)
-      // if (decodedError?.name === 'DeploymentFailed') {
-      //   logger?.error(`[Sphinx]: failed to execute initial actions`)
-      //   if (decodedError?.args[0] !== undefined) {
-      //     const failureAction = humanReadableActions[decodedError.args[0]]
-      //     return { status: MerkleRootStatus.FAILED, receipts, failureAction }
-      //   }
-      // } else {
-      //   // Otherwise, rethrow the error
-      //   throw e
-      // }
-    }
+    const executeData = module.interface.encodeFunctionData('execute', [batch])
+    const res = await managedService.exec(
+      await module.getAddress(),
+      executeData,
+      await getGasPriceOverrides(signer)
+    )
+    const tx = await res.wait()
+    receipts.push(tx)
 
     // Return early if the deployment failed.
-    state = await module.deployments(activeRoot)
+    state = await module.merkleRootStates(activeRoot)
+
     if (state.status === MerkleRootStatus.FAILED) {
-      return { status: state.status, receipts }
+      return {
+        status: state.status,
+        receipts,
+        failureAction:
+          humanReadableActions[chainId.toString()][
+            Number(state.leavesExecuted) - 2
+          ],
+      }
     }
 
     // Move on to the next batch if necessary.

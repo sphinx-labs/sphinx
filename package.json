@@ -24,7 +24,8 @@
       "@sphinx-labs/plugins/solidity-stringutils",
       "@sphinx-labs/plugins/@layerzerolabs/solidity-examples",
       "@sphinx-labs/contracts/@gnosis.pm/safe-contracts",
-      "@sphinx-labs/contracts/@gnosis.pm/safe-contracts-1.4.1"
+      "@sphinx-labs/contracts/@gnosis.pm/safe-contracts-1.4.1",
+      "@sphinx-labs/contracts/@eth-optimism/contracts-bedrock"
     ]
   },
   "scripts": {

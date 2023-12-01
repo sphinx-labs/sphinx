@@ -249,8 +249,8 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // We don't validate the `uri` because it we allow it to be empty.
 
         // Cancel the active Merkle root.
-        emit SphinxMerkleRootCanceled(_root, activeMerkleRoot, merkleRootNonce, executor, uri);
-        merkleRootStates[activeMerkleRoot].status = MerkleRootStatus.CANCELED;
+        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, merkleRootNonce, executor, uri);
+        merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
 
         // Mark the input Merkle root as `COMPLETED`.
