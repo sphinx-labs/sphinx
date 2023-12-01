@@ -39,6 +39,8 @@ contract ManagedService is AccessControl, ReentrancyGuard {
      * the return value of the underlying function call to allow maximum flexibility in future
      * uses of this contract.
      *
+     * @notice If `_to` is an EOA then this function will still call it and return successfully.
+     *
      * @param  _to   The target address.
      * @param  _data The data that will be sent.
      *
