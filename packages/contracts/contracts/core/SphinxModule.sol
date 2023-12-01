@@ -139,13 +139,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
         // We don't validate the `uri` because we allow it to be empty.
 
-        emit SphinxMerkleRootApproved(
-            _root,
-            leafMerkleRootNonce,
-            msg.sender,
-            numLeaves,
-            uri
-        );
+        emit SphinxMerkleRootApproved(_root, leafMerkleRootNonce, msg.sender, numLeaves, uri);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
         // `status` field, which will be assigned below.
@@ -251,7 +245,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // We don't validate the `uri` because we allow it to be empty.
 
         // Cancel the active Merkle root.
-        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, leafMerkleRootNonce, msg.sender, uri);
+        emit SphinxMerkleRootCanceled(
+            _root,
+            merkleRootToCancel,
+            leafMerkleRootNonce,
+            msg.sender,
+            uri
+        );
         merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
 
