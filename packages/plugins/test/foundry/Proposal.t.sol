@@ -13,7 +13,8 @@ import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
 import { GnosisSafe } from "@sphinx-labs/contracts/node_modules/@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
-import { SphinxModule, MerkleRootStatus } from "@sphinx-labs/contracts/contracts/core/SphinxModule.sol";
+import { ISphinxModule } from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxModule.sol";
+import { MerkleRootStatus } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 
 /**
  * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
@@ -31,7 +32,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
     MyOwnable ownable;
 
     GnosisSafe safe;
-    SphinxModule module;
+    ISphinxModule module;
 
     address proposer = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
 
@@ -63,7 +64,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         );
 
         safe = GnosisSafe(payable(sphinxSafe()));
-        module = SphinxModule(sphinxModule());
+        module = ISphinxModule(sphinxModule());
 
         bytes memory initCode = abi.encodePacked(type(MyOwnable).creationCode, abi.encode(address(safe), 500));
 
