@@ -56,7 +56,16 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
       safeProxy,
       moduleProxy,
       uri,
-      txs: txArray,
+      txs: txArray.map((tx) => {
+        return {
+          to: tx.to,
+          value: tx.value.toString(),
+          txData: tx.txData,
+          gas: tx.gas.toString(),
+          operation: Number(tx.operation),
+          requireSuccess: tx.requireSuccess,
+        }
+      }),
       arbitraryChain,
     },
   }
