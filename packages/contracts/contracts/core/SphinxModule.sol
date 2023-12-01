@@ -376,8 +376,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
                 success = execSuccess;
             } catch {
                 // An EVM error occurred when making the call. This can happen if the user supplies
-                // an extremely low `gas` value (e.g. 1000).
-                success = false;
+                // an extremely low `gas` value (e.g. 1000). In this situation, we set the `success`
+                // boolean to `false`. We don't need to explicitly set it because its default value
+                // is `false`.
             }
             // slither-disable-end calls-loop
             // slither-disable-end reentrancy-no-eth
