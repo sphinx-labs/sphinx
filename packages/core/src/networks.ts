@@ -201,7 +201,7 @@ export type SupportedChainId =
   | SupportedTestnetChainId
   | SupportedLocalChainId
 
-export const MinimumWalletBalanceTestnets = {
+export const DrippieDripSizesTestnets = {
   goerli: '0.15',
   optimism_goerli: '0.15',
   arbitrum_goerli: '0.15',
@@ -215,8 +215,8 @@ export const MinimumWalletBalanceTestnets = {
   base_goerli: '0.15',
 }
 
-export const MinimumWalletBalanceMainnets = {
-  ethereum: '.05',
+export const DrippieDripSizesMainnets = {
+  ethereum: '.15',
   optimism: '.025',
   arbitrum: '.025',
   polygon: '1',
@@ -229,12 +229,12 @@ export const MinimumWalletBalanceMainnets = {
   base: '0.025',
 }
 
-export const MinimumWalletBalance: Record<
+export const DrippieDripSizes: Record<
   SupportedMainnetNetworkName | SupportedTestnetNetworkName,
   string
 > = {
-  ...MinimumWalletBalanceTestnets,
-  ...MinimumWalletBalanceMainnets,
+  ...DrippieDripSizesTestnets,
+  ...DrippieDripSizesMainnets,
 }
 
 export const fetchCurrencyForNetwork = (chainId: number) => {

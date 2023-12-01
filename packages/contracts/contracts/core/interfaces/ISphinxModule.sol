@@ -27,8 +27,6 @@ interface ISphinxModule {
      * @notice Emitted when a Merkle root is approved.
      *
      * @param merkleRoot         The Merkle root that was approved.
-     * @param previousActiveRoot The previous active Merkle root. This is `bytes32(0)` if there
-     *                           was no active root.
      * @param nonce              The `nonce` field in the `APPROVE` leaf. This matches the nonce
      *                           in the `SphinxModuleProxy` before the approval occurred.
      * @param executor           The address of the caller.
@@ -37,7 +35,6 @@ interface ISphinxModule {
      */
     event SphinxMerkleRootApproved(
         bytes32 indexed merkleRoot,
-        bytes32 indexed previousActiveRoot,
         uint256 indexed nonce,
         address executor,
         uint256 numLeaves,
