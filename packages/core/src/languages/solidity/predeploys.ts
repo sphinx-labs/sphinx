@@ -1,10 +1,13 @@
 import { assert } from 'console'
 
-import { ethers } from 'ethers'
+import { AbiCoder, ZeroHash, ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  DrippieArtifact,
   ManagedServiceArtifact,
   OWNER_MULTISIG_ADDRESS,
+  getCheckBalanceLowAddress,
+  getDrippieAddress,
   getManagedServiceAddress,
   getOwnerAddress,
   getSphinxConstants,
@@ -21,6 +24,11 @@ import {
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import { RELAYER_ROLE } from '../../constants'
+import {
+  DrippieDripSizes,
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+} from '../../networks'
 
 /**
  * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
@@ -149,6 +157,48 @@ export const initializeSafeAndSphinx = async (
     }
   }
   logger?.info('[Sphinx]: finished assigning relayers roles')
+
+  const Drippie = new ethers.Contract(
+    getDrippieAddress(),
+    DrippieArtifact.abi,
+    owner
+  )
+
+  logger?.info('[Sphinx]: creating relayer drips...')
+  for (const relayer of relayers) {
+    const chainId = (await provider.getNetwork()).chainId
+    const targetNetworkName = Object.entries(SUPPORTED_NETWORKS).find(
+      ([, id]: [string, SupportedChainId]) => BigInt(id) === chainId
+    )![0]
+
+    const reentrant = false
+    const interval = 30
+    const dripcheck = getCheckBalanceLowAddress()
+    const checkparams = AbiCoder.defaultAbiCoder().encode(
+      ['address', 'uint256'],
+      [relayer, ethers.parseEther(DrippieDripSizes[targetNetworkName])]
+    )
+    const actions = [
+      {
+        target: relayer,
+        data: ZeroHash,
+        value: ethers.parseEther(DrippieDripSizes[targetNetworkName]),
+      },
+    ]
+
+    const dripName = `sphinx_fund_${relayer}`
+    await (
+      await Drippie.create(dripName, {
+        reentrant,
+        interval,
+        dripcheck,
+        checkparams,
+        actions,
+      })
+    ).wait()
+    await (await Drippie.status(dripName, 2)).wait()
+  }
+  logger?.info('[Sphinx]: finished creating relayer drips')
 }
 
 export const getDeterministicFactoryAddress = async (
