@@ -287,9 +287,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     function execute(SphinxLeafWithProof[] memory _leavesWithProofs) public override nonReentrant {
         uint256 numActions = _leavesWithProofs.length;
         require(numActions > 0, "SphinxModule: no leaves to execute");
-        require(activeMerkleRoot != bytes32(0), "SphinxModule: no active root");
+        // We cache the active Merkle root in memory because it reduces the amount of gas used in
+        // this call.
+        bytes32 cachedActiveMerkleRoot = activeMerkleRoot;
+        require(cachedActiveMerkleRoot != bytes32(0), "SphinxModule: no active root");
 
-        MerkleRootState storage state = merkleRootStates[activeMerkleRoot];
+        MerkleRootState storage state = merkleRootStates[cachedActiveMerkleRoot];
 
         require(state.executor == msg.sender, "SphinxModule: caller isn't executor");
 
@@ -308,7 +311,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             proof = _leavesWithProofs[i].proof;
 
             require(
-                MerkleProof.verify(proof, activeMerkleRoot, _getLeafHash(leaf)),
+                MerkleProof.verify(proof, cachedActiveMerkleRoot, _getLeafHash(leaf)),
                 "SphinxModule: failed to verify leaf"
             );
             require(leaf.leafType == SphinxLeafType.EXECUTE, "SphinxModule: invalid leaf type");
@@ -396,13 +399,13 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
             // slither-disable-end calls-loop
             // slither-disable-end reentrancy-no-eth
 
-            if (success) emit SphinxActionSucceeded(activeMerkleRoot, leaf.index);
-            else emit SphinxActionFailed(activeMerkleRoot, leaf.index);
+            if (success) emit SphinxActionSucceeded(cachedActiveMerkleRoot, leaf.index);
+            else emit SphinxActionFailed(cachedActiveMerkleRoot, leaf.index);
 
             // Mark the active Merkle root as failed if the Gnosis Safe transaction failed and the
             // current leaf requires that it must succeed.
             if (!success && requireSuccess) {
-                emit SphinxMerkleRootFailed(activeMerkleRoot, leaf.index);
+                emit SphinxMerkleRootFailed(cachedActiveMerkleRoot, leaf.index);
                 state.status = MerkleRootStatus.FAILED;
                 activeMerkleRoot = bytes32(0);
                 return;
@@ -411,7 +414,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Mark the Merkle root as completed if all of the Merkle leaves have been executed.
         if (state.leavesExecuted == state.numLeaves) {
-            emit SphinxMerkleRootCompleted(activeMerkleRoot);
+            emit SphinxMerkleRootCompleted(cachedActiveMerkleRoot);
             state.status = MerkleRootStatus.COMPLETED;
             activeMerkleRoot = bytes32(0);
         }
