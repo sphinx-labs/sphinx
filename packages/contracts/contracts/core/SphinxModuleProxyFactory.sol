@@ -53,7 +53,7 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         uint256 _saltNonce
     ) public override returns (address sphinxModuleProxy) {
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
-        sphinxModuleProxy = Clones.cloneDeterministic(address(SPHINX_MODULE_IMPL), salt);
+        sphinxModuleProxy = Clones.cloneDeterministic(SPHINX_MODULE_IMPL, salt);
         emit SphinxModuleProxyDeployed(sphinxModuleProxy, _safeProxy);
         SphinxModule(sphinxModuleProxy).initialize(_safeProxy);
     }
@@ -90,7 +90,6 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         uint256 _saltNonce
     ) public view override returns (address) {
         bytes32 salt = keccak256(abi.encode(_safeProxy, _caller, _saltNonce));
-        return
-            Clones.predictDeterministicAddress(address(SPHINX_MODULE_IMPL), salt, MODULE_FACTORY);
+        return Clones.predictDeterministicAddress(SPHINX_MODULE_IMPL, salt, MODULE_FACTORY);
     }
 }

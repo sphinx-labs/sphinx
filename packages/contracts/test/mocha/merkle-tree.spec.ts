@@ -146,9 +146,8 @@ const assertInvariantSeven = (tree: SphinxMerkleTree) => {
 
 /**
  * @notice Checks that all the `EXECUTE` leaves for each chain start with an `index` of 1 and sequentially increment by 1 so that invariant 8 is satisfied.
- * Also checks that all the leafs are properly ordered by `index` and `chainId` ascending so that invariant 9 is satisfied.
  */
-const assertInvariantEightAndNine = (tree: SphinxMerkleTree) => {
+const assertInvariantEight = (tree: SphinxMerkleTree) => {
   const seenChainIds: BigInt[] = []
 
   for (let i = 1; i < tree.leavesWithProofs.length; i++) {
@@ -207,7 +206,7 @@ const assertSatisfiesInvariants = (tree: SphinxMerkleTree) => {
   assertInvariantFive(tree)
   assertInvariantSix(tree)
   assertInvariantSeven(tree)
-  assertInvariantEightAndNine(tree)
+  assertInvariantEight(tree)
 }
 
 describe('Merkle tree satisfies invariants', () => {

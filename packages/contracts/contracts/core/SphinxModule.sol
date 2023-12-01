@@ -95,9 +95,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // validating an EIP-1271 contract signature.
         nonReentrant
     {
-        require(activeMerkleRoot == bytes32(0), "SphinxModule: active merkle root");
-
         require(_root != bytes32(0), "SphinxModule: invalid root");
+
+        require(activeMerkleRoot == bytes32(0), "SphinxModule: active merkle root");
 
         // Check that the Merkle root hasn't been used before.
         MerkleRootState storage state = merkleRootStates[_root];
@@ -137,26 +137,21 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // If the Merkle root can be executable on an arbitrary chain, the leaf must have a chain ID
         // of 0. This isn't strictly necessary; it just enforces a convention.
         require(!arbitraryChain || leaf.chainId == 0, "SphinxModule: leaf chain id must be 0");
-        // We don't validate the `uri` because it we allow it to be empty.
+        // We don't validate the `uri` because we allow it to be empty.
 
-        emit SphinxMerkleRootApproved(
-            _root,
-            activeMerkleRoot,
-            merkleRootNonce,
-            executor,
-            numLeaves,
-            uri
-        );
+        emit SphinxMerkleRootApproved(_root, leafMerkleRootNonce, msg.sender, numLeaves, uri);
 
         // Assign values to all fields of the new Merkle root's `MerkleRootState` except for the
         // `status` field, which will be assigned below.
         state.numLeaves = numLeaves;
         state.leavesExecuted = 1;
         state.uri = uri;
-        state.executor = executor;
+        state.executor = msg.sender;
         state.arbitraryChain = arbitraryChain;
 
-        merkleRootNonce += 1;
+        unchecked {
+            merkleRootNonce = leafMerkleRootNonce + 1;
+        }
 
         // If there is only an `APPROVE` leaf, mark the Merkle root as completed. The purpose of
         // this is to allow the Gnosis Safe owners to cancel a different Merkle root that has been
@@ -168,9 +163,10 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         if (numLeaves == 1) {
             emit SphinxMerkleRootCompleted(_root);
             state.status = MerkleRootStatus.COMPLETED;
-            // Set the active Merkle root to be `bytes32(0)` so that a new approval can occur in the
-            // future.
-            activeMerkleRoot = bytes32(0);
+            // We don't need to set the `activeMerkleRoot` to equal `bytes32(0)` because it already
+            // equals `bytes32(0)`. At the beginning of this function, we checked that the
+            // `activeMerkleRoot` equals `bytes32(0)`, and we never set it to a non-zero value. This
+            // is because the Merkle root is approved and completed in this call.
         } else {
             // We set the status to `APPROVED` because there are `EXECUTE` leaves in this Merkle tree.
             state.status = MerkleRootStatus.APPROVED;
@@ -208,9 +204,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // validating an EIP-1271 contract signature.
         nonReentrant
     {
-        require(activeMerkleRoot != bytes32(0), "SphinxModule: no root to cancel");
-
         require(_root != bytes32(0), "SphinxModule: invalid root");
+
+        require(activeMerkleRoot != bytes32(0), "SphinxModule: no root to cancel");
 
         // Check that the Merkle root hasn't been used before.
         MerkleRootState storage state = merkleRootStates[_root];
@@ -246,10 +242,16 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         // be `true` here because we don't think there's a use case for cancelling Merkle roots
         // across arbitrary networks.
         require(leaf.chainId == block.chainid, "SphinxModule: invalid chain id");
-        // We don't validate the `uri` because it we allow it to be empty.
+        // We don't validate the `uri` because we allow it to be empty.
 
         // Cancel the active Merkle root.
-        emit SphinxMerkleRootCanceled(_root, merkleRootToCancel, merkleRootNonce, executor, uri);
+        emit SphinxMerkleRootCanceled(
+            _root,
+            merkleRootToCancel,
+            leafMerkleRootNonce,
+            msg.sender,
+            uri
+        );
         merkleRootStates[merkleRootToCancel].status = MerkleRootStatus.CANCELED;
         activeMerkleRoot = bytes32(0);
 
@@ -260,10 +262,12 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
         state.numLeaves = 1;
         state.leavesExecuted = 1;
         state.uri = uri;
-        state.executor = executor;
+        state.executor = msg.sender;
         state.status = MerkleRootStatus.COMPLETED;
 
-        merkleRootNonce += 1;
+        unchecked {
+            merkleRootNonce = leafMerkleRootNonce + 1;
+        }
 
         // Check that a sufficient number of Gnosis Safe owners have signed the Merkle root (or,
         // more specifically, EIP-712 data that includes the Merkle root). We do this last to
@@ -396,8 +400,9 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
                 success = execSuccess;
             } catch {
                 // An EVM error occurred when making the call. This can happen if the user supplies
-                // an extremely low `gas` value (e.g. 1000).
-                success = false;
+                // an extremely low `gas` value (e.g. 1000). In this situation, we set the `success`
+                // boolean to `false`. We don't need to explicitly set it because its default value
+                // is `false`.
             }
             // slither-disable-end calls-loop
             // slither-disable-end reentrancy-no-eth
