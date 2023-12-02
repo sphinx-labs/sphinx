@@ -6,7 +6,7 @@ import { Vm } from "sphinx-forge-std/Vm.sol";
 import { Script } from "sphinx-forge-std/Script.sol";
 import { Test } from "sphinx-forge-std/Test.sol";
 
-import { Network, DeployOptions, NetworkInfo, OptionalAddress, SphinxMerkleTree, SphinxConfig, Version } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
+import { Network, DeployOptions, NetworkInfo, OptionalAddress, SphinxMerkleTree, SphinxConfig, Version, HumanReadableAction } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { MyContract1, MyOwnable } from "../../contracts/test/MyContracts.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
@@ -134,7 +134,8 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
 
         assertEq(forkIds.length, sphinxConfig.testnets.length);
@@ -186,7 +187,8 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
         string memory configUri = vm.envString("CONFIG_URI");
 
@@ -239,7 +241,8 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree))
+            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
         string memory configUri = vm.envString("CONFIG_URI");
 

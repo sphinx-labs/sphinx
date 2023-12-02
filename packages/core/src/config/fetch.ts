@@ -2,13 +2,10 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { HumanReadableAction, HumanReadableActions } from '../actions/types'
-import {
-  callWithTimeout,
-  getConfigArtifactsRemote,
-  prettyFunctionCall,
-} from '../utils'
+import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
 import { getMerkleTreeInfo } from '../tasks'
+import { getReadableActions } from './utils'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -83,24 +80,9 @@ export const compileRemoteBundles = async (
   } = {}
 
   for (const compilerConfig of compilerConfigs) {
-    const actions = compilerConfig.actionInputs.map((action) => {
-      const { referenceName, functionName, variables, address } =
-        action.decodedAction
-      const actionStr = prettyFunctionCall(
-        referenceName,
-        address,
-        functionName,
-        variables,
-        5,
-        3
-      )
-      return {
-        reason: actionStr,
-        actionIndex: action.index,
-      }
-    })
-
-    humanReadableActions[compilerConfig.chainId] = actions
+    humanReadableActions[compilerConfig.chainId] = getReadableActions(
+      compilerConfig.actionInputs
+    )
   }
 
   const { merkleTreeInfo } = await getMerkleTreeInfo(

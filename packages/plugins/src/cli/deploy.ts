@@ -17,6 +17,7 @@ import {
   ParsedConfig,
   SphinxPreview,
   getMerkleTreeInfo,
+  getReadableActions,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -255,10 +256,12 @@ export const deploy = async (
     throw new Error(`'sphinxDeployTask' not found in ABI. Should never happen.`)
   }
 
+  const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
     root,
     merkleTreeInfo.merkleTree,
+    humanReadableActions,
   ])
 
   const forgeScriptDeployArgs = [

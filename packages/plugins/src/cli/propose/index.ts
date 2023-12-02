@@ -11,6 +11,7 @@ import {
   getPreview,
   getPreviewString,
   getProjectDeploymentForChain,
+  getReadableActions,
   relayIPFSCommit,
   relayProposal,
   spawnAsync,
@@ -256,9 +257,19 @@ export const propose = async (
     )
   }
 
+  const humanReadableActions: Array<
+    {
+      reason: string
+      actionIndex: string
+    }[]
+  > = []
+  for (const config of parsedConfigArray) {
+    humanReadableActions.push(getReadableActions(config.actionInputs))
+  }
+
   const proposalSimulationData = sphinxIface.encodeFunctionData(
     simulateProposalFragment,
-    [isTestnet, root, merkleTreeInfo.merkleTree]
+    [isTestnet, root, merkleTreeInfo.merkleTree, humanReadableActions]
   )
 
   const proposalSimulationArgs = [
