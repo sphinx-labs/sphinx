@@ -1,5 +1,5 @@
 import { join, resolve } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
@@ -10,7 +10,6 @@ import {
   getMerkleTreeInfo,
   getPreview,
   getPreviewString,
-  getProjectDeploymentForChain,
   getReadableActions,
   relayIPFSCommit,
   relayProposal,
@@ -21,18 +20,20 @@ import ora from 'ora'
 import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
+  CompilerConfig,
   ConfigArtifacts,
   DeploymentInfo,
   ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
+import { SphinxLeafType, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   readActionInputsOnSingleChain,
   makeParsedConfig,
   decodeDeploymentInfo,
 } from '../../foundry/decode'
-import { getFoundryConfigOptions } from '../../foundry/options'
+import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
   getSphinxSafeAddressFromScript,
@@ -43,27 +44,23 @@ import {
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
+  sphinxPluginTypesInterface: ethers.Interface,
+  merkleTreeFilePath: string,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
   parsedConfigArray: Array<ParsedConfig>
   configArtifacts: ConfigArtifacts
 }> => {
-  const foundryToml = await getFoundryConfigOptions()
+  const projectRoot = process.cwd()
+  const foundryToml = await getFoundryToml()
 
   const getConfigArtifacts = makeGetConfigArtifacts(
     foundryToml.artifactFolder,
     foundryToml.buildInfoFolder,
+    projectRoot,
     foundryToml.cachePath
   )
-
-  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-    )).abi
 
   const deploymentInfoPath = join(foundryToml.cachePath, 'deployment-info.txt')
 
@@ -87,9 +84,13 @@ export const buildParsedConfigArray = async (
       )
       process.exit(1)
     }
-    // Remove the file if it exists. This ensures that we don't accidentally use an outdated file.
+    // Remove the existing DeploymentInfo and Merkle tree files if they exist. This ensures that we
+    // don't accidentally use files from a previous deployment.
     if (existsSync(deploymentInfoPath)) {
       unlinkSync(deploymentInfoPath)
+    }
+    if (existsSync(merkleTreeFilePath)) {
+      unlinkSync(merkleTreeFilePath)
     }
 
     const forgeScriptCollectArgs = [
@@ -112,8 +113,6 @@ export const buildParsedConfigArray = async (
       targetContract,
       spinner
     )
-
-    // TODO - remove all references to `SphinxManager` or `SphinxAuth` in comments
 
     // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
     // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
@@ -145,7 +144,7 @@ export const buildParsedConfigArray = async (
     const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
     const deploymentInfo = decodeDeploymentInfo(
       abiEncodedDeploymentInfo,
-      sphinxPluginTypesABI
+      sphinxPluginTypesInterface
     )
 
     const actionInputs = readActionInputsOnSingleChain(
@@ -169,7 +168,7 @@ export const buildParsedConfigArray = async (
     uniqueContractNames
   )
   const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
-    makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts, true)
+    makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts)
   )
 
   return { parsedConfigArray, configArtifacts }
@@ -227,14 +226,38 @@ export const propose = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
-  const foundryToml = await getFoundryConfigOptions()
+  const foundryToml = await getFoundryToml()
+
+  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
+  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  const sphinxPluginTypesABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(resolve(
+      `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
+    )).abi
+  const sphinxPluginTypesInterface = new ethers.Interface(sphinxPluginTypesABI)
+
+  const merkleTreeFilePath = join(
+    foundryToml.cachePath,
+    'sphinx-merkle-tree.txt'
+  )
 
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
     isTestnet,
+    sphinxPluginTypesInterface,
+    merkleTreeFilePath,
     targetContract,
     spinner
   )
+
+  const isEmpty = parsedConfigArray.every((e) => e.actionInputs.length === 0)
+  if (isEmpty) {
+    spinner.succeed(
+      `Skipping proposal because there is nothing to execute on any chain.`
+    )
+    return { proposalRequest: undefined, ipfsData: undefined }
+  }
 
   const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
     configArtifacts,
@@ -251,25 +274,33 @@ export const propose = async (
   const simulateProposalFragment = sphinxIface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxSimulateProposal')
-  if (!simulateProposalFragment) {
+  const merkleTreeFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
+  if (!simulateProposalFragment || !merkleTreeFragment) {
     throw new Error(
       `'sphinxSimulateProposal' not found in ABI. Should never happen.`
     )
   }
 
-  const humanReadableActions: Array<
-    {
-      reason: string
-      actionIndex: string
-    }[]
-  > = []
-  for (const config of parsedConfigArray) {
-    humanReadableActions.push(getReadableActions(config.actionInputs))
-  }
+  // ABI encode the Merkle tree.
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const encodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
+    merkleTreeInfo.merkleTree,
+  ])
+  // Write the ABI encoded Merkle tree to the file system. We'll read it in the Forge script that
+  // executes the simulates the proposal. We do this instead of passing in the Merkle tree as a
+  // parameter to the Forge script because it's possible to hit Node's `spawn` input size limit if
+  // the Merkle tree is large.
+  writeFileSync(merkleTreeFilePath, encodedMerkleTree)
+
+  const humanReadableActions = parsedConfigArray.map((e) =>
+    getReadableActions(e.actionInputs)
+  )
 
   const proposalSimulationData = sphinxIface.encodeFunctionData(
     simulateProposalFragment,
-    [isTestnet, root, merkleTreeInfo.merkleTree, humanReadableActions]
+    [isTestnet, root, merkleTreeFilePath, humanReadableActions]
   )
 
   const proposalSimulationArgs = [
@@ -315,7 +346,6 @@ export const propose = async (
       safeAddress: compilerConfig.safeAddress,
       moduleAddress: compilerConfig.moduleAddress,
       safeInitData: compilerConfig.safeInitData,
-      safeInitSaltNonce: compilerConfig.safeInitSaltNonce,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -324,36 +354,34 @@ export const propose = async (
         `Please use the same Safe and SphinxModule on all chains.`
     )
   }
-  // Since we know that the following fields are the same for each `compilerConfig`, we get their
-  // values here.
-  const {
-    newConfig,
-    safeAddress,
-    moduleAddress,
-    safeInitData,
-    safeInitSaltNonce,
-  } = merkleTreeInfo.compilerConfigs[0]
+  // Since we know that the following fields are the same for each network, we get their values
+  // here.
+  const { newConfig, safeAddress, moduleAddress, safeInitData } =
+    merkleTreeInfo.compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
-  // const compilerConfigs: {
-  //   [ipfsHash: string]: string
-  // } = {}
   const gasEstimates: ProposalRequest['gasEstimates'] = []
+  const chainStatus: Array<{
+    chainId: number
+    numLeaves: number
+  }> = []
+  const chainIds: Array<number> = []
   for (const compilerConfig of merkleTreeInfo.compilerConfigs) {
-    const { actionInputs } = compilerConfig
-
-    const {} = merkleTreeInfo.compilerConfigs
-
-    merkleTreeInfo.merkleTree.leavesWithProofs
+    // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
+    // logic. From the perspective of the backend, these networks don't serve any purpose in the
+    // `ProposalRequest`.
+    if (compilerConfig.actionInputs.length === 0) {
+      continue
+    }
 
     let estimatedGas = 0
-    estimatedGas += actionInputs
+    estimatedGas += compilerConfig.actionInputs
       .map((a) => Number(a.gas))
       .reduce((a, b) => a + b, 0)
 
-    // TODO - Get a more accurate estimate, or use the actual gas cost from the simulation.
+    // TODO(gas) - Get a more accurate estimate, or use the actual gas cost from the simulation.
     // Add a constant amount of gas to account for the overhead of the `execute` function
-    estimatedGas += actionInputs.length * 200_000
+    estimatedGas += compilerConfig.actionInputs.length * 200_000
 
     // Add a constant amount of gas to account for the cost of executing the `approve` function
     estimatedGas += 200_000
@@ -371,37 +399,26 @@ export const propose = async (
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
-  }
 
-  const emptyBundle = merkleTreeInfo.merkleTree.leavesWithProofs.length === 0
-  if (emptyBundle) {
-    spinner.succeed(
-      `Skipping proposal because there is nothing to propose on any chain.`
-    )
-    return { proposalRequest: undefined, ipfsData: undefined }
-  }
-
-  const chainStatus = merkleTreeInfo.compilerConfigs
-    .map((compilerConfig) => ({
+    chainStatus.push({
       chainId: Number(compilerConfig.chainId),
       numLeaves: compilerConfig.actionInputs.length + 1,
-    }))
-    .filter((b) => b.numLeaves > 0)
+    })
+    chainIds.push(Number(compilerConfig.chainId))
+  }
 
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId: newConfig.orgId,
     isTestnet,
-    chainIds: merkleTreeInfo.compilerConfigs.map((compilerConfig) =>
-      Number(compilerConfig.chainId)
-    ),
+    chainIds,
     deploymentName: newConfig.projectName,
     owners: newConfig.owners,
     threshold: Number(newConfig.threshold),
     safeAddress,
     moduleAddress,
     safeInitData,
-    safeInitSaltNonce,
+    safeInitSaltNonce: newConfig.saltNonce,
     projectDeployments,
     gasEstimates,
     diff: preview,
@@ -424,4 +441,36 @@ export const propose = async (
     )
   }
   return { proposalRequest, ipfsData }
+}
+
+const getProjectDeploymentForChain = (
+  configUri: string,
+  merkleTree: SphinxMerkleTree,
+  compilerConfig: CompilerConfig
+): ProjectDeployment | undefined => {
+  const { newConfig, initialState, chainId } = compilerConfig
+
+  const approvalLeaves = merkleTree.leavesWithProofs.filter(
+    (l) =>
+      l.leaf.leafType === SphinxLeafType.APPROVE &&
+      l.leaf.chainId === BigInt(chainId)
+  )
+
+  if (approvalLeaves.length === 0) {
+    return undefined
+  } else if (approvalLeaves.length > 1) {
+    throw new Error(
+      `Found multiple approval leaves for chain ${chainId}. Should never happen.`
+    )
+  }
+
+  const deploymentId = merkleTree.root
+
+  return {
+    chainId: Number(chainId),
+    deploymentId,
+    name: newConfig.projectName,
+    isExecuting: initialState.isExecuting,
+    configUri,
+  }
 }

@@ -17,10 +17,9 @@ import { ISphinxModule } from "@sphinx-labs/contracts/contracts/core/interfaces/
 import { MerkleRootStatus } from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
 
 /**
- * @notice Tests the proposal logic for the Sphinx plugin. This test suite is executed from
- *         `run-proposal-tests.sh`.
+ * @notice Tests the proposal logic for the Sphinx plugin.
  */
-abstract contract AbstractProposal_Test is Sphinx, Test {
+abstract contract AbstractProposal_Test is Sphinx, Test, SphinxConstants {
 
     address finalOwner = address(0x200);
 
@@ -56,13 +55,6 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         testUtils = new SphinxTestUtils();
         vm.makePersistent(address(testUtils));
 
-        // Proposal setup
-        bytes32 proposerPrivateKey = 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a;
-        vm.setEnv(
-            "PROPOSER_PRIVATE_KEY",
-            vm.toString(proposerPrivateKey)
-        );
-
         safe = GnosisSafe(payable(sphinxSafe()));
         module = ISphinxModule(sphinxModule());
 
@@ -92,7 +84,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         );
     }
 
-    function assertBundleCompleted(uint256 _expectedNumLeaves, bytes32 _activeRoot, string memory _configUri) internal {
+    function assertMerkleRootCompleted(uint256 _expectedNumLeaves, bytes32 _activeRoot, string memory _configUri) internal {
         (
             uint256 numLeaves,
             uint256 leavesExecuted,
@@ -105,7 +97,9 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
         assertEq(numLeaves, _expectedNumLeaves, "numLeaves is incorrect");
         assertEq(leavesExecuted, numLeaves, "leavesExecuted is incorrect");
         assertEq(uri, _configUri, "uri is incorrect");
+        assertEq(executor, managedServiceAddress);
         assertEq(module.activeMerkleRoot(), bytes32(0), "activeRoot is incorrect");
+        assertFalse(arbitraryChain);
     }
 
     function initialDeployment() internal {
@@ -120,7 +114,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test {
 /**
  * @notice Tests a proposal for a project that has not been deployed on any network yet.
  */
-contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_Initial_Test is AbstractProposal_Test, Script {
 
     // This is called by our TypeScript logic. It's not called in the Forge test.
     function run() public override virtual sphinx {
@@ -134,7 +128,7 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
             _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
 
@@ -152,7 +146,7 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
             assertSafeInitialized();
 
             // Six leaves were executed: `approve`, deploy `MyOwnable`, and `ownable.set`, `ownable.increment` x 2, `ownable.transferOwnership`
-            assertBundleCompleted(6, root, configUri);
+            assertMerkleRootCompleted(6, root, configUri);
 
             // Check that the contract was deployed correctly.
             assertEq(ownable.value(), 10);
@@ -166,7 +160,7 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script, SphinxConstants
  *         is added to the project, then a new proposal is created. This occurs
  *         on the same networks that the project was previously deployed on.
  */
-contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_AddContract_Test is AbstractProposal_Test, Script {
 
     MyContract1 myNewContract;
 
@@ -187,7 +181,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
             _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
         string memory configUri = vm.envString("CONFIG_URI");
@@ -203,7 +197,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(sphinxConfig.testnets[i]).chainId);
 
             // Two leaves were executed: `approve` and deploy `MyContract1`
-            assertBundleCompleted(2, root, configUri);
+            assertMerkleRootCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.
             assertEq(myNewContract.intArg(), 5, "intArg incorrect");
@@ -220,7 +214,7 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script, SphinxConst
  *         In this test, we propose a new deployment for the same project on the same networks.
  *         This new deployment should succeed.
  */
-contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script, SphinxConstants {
+contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script {
 
     MyContract1 myNewContract;
 
@@ -241,7 +235,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
         uint256[] memory forkIds = this.sphinxSimulateProposal({
             _testnets: true,
             _root: root,
-            _merkleTree: abi.decode(vm.envBytes("MERKLE_TREE"), (SphinxMerkleTree)),
+            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
             _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
         });
         string memory configUri = vm.envString("CONFIG_URI");
@@ -258,7 +252,7 @@ contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script
             assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
 
             // Two leaves were executed: `approve` and deploy `MyContract1`
-            assertBundleCompleted(2, root, configUri);
+            assertMerkleRootCompleted(2, root, configUri);
 
             // Check that the contract was deployed correctly.
             assertEq(myNewContract.intArg(), 5);

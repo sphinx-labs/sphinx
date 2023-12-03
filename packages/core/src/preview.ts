@@ -36,9 +36,6 @@ export const getPreviewString = (
 ): string => {
   let previewString = ''
 
-  const sphinxManagerLink =
-    'https://github.com/sphinx-labs/sphinx/blob/main/docs/sphinx-manager.md'
-
   const skippingReason = `${yellow.bold(`Reason:`)} ${yellow(
     `Already executed.`
   )}`
@@ -75,16 +72,7 @@ export const getPreviewString = (
             3
           )
 
-          // TODO - update this
-          let executingStr: string
-          if (referenceName === 'SphinxManager') {
-            executingStr =
-              green(`${i + 1}. ${actionStr}. Learn more: `) +
-              blue.underline(sphinxManagerLink)
-          } else {
-            executingStr = green(`${i + 1}. ${actionStr}`)
-          }
-          executingArray.push(executingStr)
+          executingArray.push(green(`${i + 1}. ${actionStr}`))
         } else {
           const { to, data } = element
           const actionStr = prettyRawFunctionCall(to, data)
@@ -168,26 +156,40 @@ export const getPreview = (
       unlabeledAddresses,
     } = parsedConfig
 
-    if (!initialState.isManagerDeployed && actionInputs.length > 0) {
-      executing.push({
-        referenceName: 'SphinxManager',
-        functionName: 'deploy',
-        variables: [],
-        address: '',
-      })
-    }
-
-    for (const action of actionInputs) {
-      const { decodedAction } = action
-      executing.push(decodedAction)
-    }
-
     const networkName = getNetworkNameForChainId(BigInt(chainId))
     const networkTag = getNetworkTag(
       networkName,
       isLiveNetwork,
       BigInt(chainId)
     )
+
+    // If there aren't any transactions to execute on the current network, we set the current
+    // network's preview to be empty. This applies even if the Gnosis Safe and Sphinx Module haven't
+    // been deployed yet because we don't currently allow the user to deploy the Safe and Module
+    // without executing a deployment.
+    if (actionInputs.length > 0) {
+      if (!initialState.isSafeDeployed) {
+        executing.push({
+          referenceName: 'GnosisSafe',
+          functionName: 'deploy',
+          variables: [],
+          address: parsedConfig.safeAddress,
+        })
+      }
+      if (!initialState.isModuleDeployed) {
+        executing.push({
+          referenceName: 'SphinxModule',
+          functionName: 'deploy',
+          variables: [],
+          address: parsedConfig.moduleAddress,
+        })
+      }
+
+      for (const action of actionInputs) {
+        const { decodedAction } = action
+        executing.push(decodedAction)
+      }
+    }
 
     networks[networkTag] = { executing, skipping, unlabeledAddresses }
   }

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
-
 /**
  * @custom:value APPROVE Approve a new deployment on a chain. This leaf must be submitted in the
  *                       `approve` function on the `SphinxModuleProxy`.

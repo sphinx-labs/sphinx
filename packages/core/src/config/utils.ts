@@ -7,29 +7,13 @@ import {
   keccak256,
 } from 'ethers'
 
-import { ActionInput, ContractKind, ContractKindEnum } from './types'
 import { prettyFunctionCall } from '../utils'
+import { ActionInput } from './types'
+import { HumanReadableAction } from '../actions'
 
-export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
-  switch (kind) {
-    case 'oz-transparent':
-      return ContractKindEnum.OZ_TRANSPARENT
-    case 'oz-ownable-uups':
-      return ContractKindEnum.OZ_OWNABLE_UUPS
-    case 'oz-access-control-uups':
-      return ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
-    case 'external-transparent':
-      return ContractKindEnum.EXTERNAL_DEFAULT
-    case 'immutable':
-      return ContractKindEnum.IMMUTABLE
-    case 'proxy':
-      return ContractKindEnum.INTERNAL_DEFAULT
-    default:
-      throw new Error(`Invalid contract kind: ${kind}`)
-  }
-}
-
-export const getReadableActions = (actionInputs: ActionInput[]) => {
+export const getReadableActions = (
+  actionInputs: ActionInput[]
+): HumanReadableAction[] => {
   return actionInputs.map((action) => {
     const { referenceName, functionName, variables, address } =
       action.decodedAction
@@ -46,21 +30,6 @@ export const getReadableActions = (actionInputs: ActionInput[]) => {
       actionIndex: action.index,
     }
   })
-}
-
-/**
- * Returns the Create3 address of a target contract deployed by Sphinx. There is a one-to-one mapping
- * between a Create3 address and the input parameters to this function. Note that the contract may
- * not yet be deployed at this address since it's calculated via Create3.
- */
-export const getTargetAddress = (
-  managerAddress: string,
-  referenceName: string,
-  userSalt: string
-): string => {
-  const targetSalt = getCreate3Salt(referenceName, userSalt)
-
-  return getCreate3Address(managerAddress, targetSalt)
 }
 
 export const getCreate3Address = (deployer: string, salt: string): string => {

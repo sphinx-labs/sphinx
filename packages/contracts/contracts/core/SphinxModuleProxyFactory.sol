@@ -49,7 +49,14 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         uint256 _saltNonce
     ) public override returns (address sphinxModuleProxy) {
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
+        // Deploy the `SphinxModuleProxy`. This call will revert if a contract already exists at its
+        // `CREATE2` address.
         sphinxModuleProxy = Clones.cloneDeterministic(SPHINX_MODULE_IMPL, salt);
+        // Emit an event for the deployment. It's worth mentioning that we're violating the
+        // checks-effects-interactions pattern by deploying the `SphinxModuleProxy` and then
+        // emitting an event. However, this is harmless because the call to `Clones` deploys an
+        // EIP-1167 proxy, which isn't able to make external calls. By deploying first, we can use
+        // the returned value of `cloneDeterministic` when we emit the event.
         emit SphinxModuleProxyDeployed(sphinxModuleProxy, _safeProxy);
         SphinxModule(sphinxModuleProxy).initialize(_safeProxy);
     }

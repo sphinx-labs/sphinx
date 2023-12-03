@@ -9,11 +9,6 @@ export const getOwnerAddress = () => {
 }
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
-export const PROPOSER_ROLE = ethers.solidityPackedKeccak256(
-  ['string'],
-  ['ProposerRole']
-)
-
 export const DEFAULT_ADMIN_ROLE = ethers.ZeroHash
 
 export const SPHINX_PROXY_ADMIN_ADDRESS_SLOT_KEY = toBeHex(

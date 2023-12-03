@@ -15,7 +15,6 @@ import {
 
 import { FoundryBroadcast } from './types'
 
-// TODO - deployment artifacts
 export const writeDeploymentArtifacts = async (
   provider: ethers.Provider,
   parsedConfig: ParsedConfig,

@@ -52,14 +52,13 @@ export const sphinxFetchSubtask = async (args: {
 }
 
 /**
- * Compiles a remote SphinxBundle from a uri.
+ * Fetches a deployment from a URI.
  *
- * @param configUri URI of the SphinxBundle to compile.
- * @param provider JSON RPC provider.
- * @returns Compiled SphinxBundle.
+ * @param uri URI to fetch.
+ * @param ipfsUrl Optional IPFS URL to fetch the URI.
  */
-export const compileRemoteBundles = async (
-  configUri: string,
+export const fetchDeploymentFromURI = async (
+  uri: string,
   ipfsUrl?: string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -68,7 +67,7 @@ export const compileRemoteBundles = async (
   humanReadableActions: HumanReadableActions
 }> => {
   const compilerConfigs = await callWithTimeout<Array<CompilerConfig>>(
-    sphinxFetchSubtask({ configUri, ipfsUrl }),
+    sphinxFetchSubtask({ configUri: uri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )

@@ -1,26 +1,7 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-
-import { Integration } from './constants'
-
 export type SemVer = {
   major: string
   minor: string
   patch: string
-}
-
-export type SphinxRuntimeEnvironment = {
-  integration: Integration
-  compilerConfigPath: string
-  remoteExecution: boolean
-  allowUnlimitedContractSize: boolean
-  confirm: boolean
-  stream: NodeJS.WritableStream
-  silent: boolean
-  hre: HardhatRuntimeEnvironment | undefined
-  // importOpenZeppelinStorageLayout: (
-  //   hre: HardhatRuntimeEnvironment,
-  //   parsedContractConfig: ParsedContractConfig
-  // ) => Promise<StorageLayout>
 }
 
 /**
@@ -31,10 +12,4 @@ export type SphinxRuntimeEnvironment = {
 export enum FailureAction {
   EXIT,
   THROW,
-}
-
-export enum ProposalRoute {
-  RELAY,
-  REMOTE_EXECUTION,
-  LOCAL_EXECUTION,
 }

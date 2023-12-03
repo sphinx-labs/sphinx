@@ -38,9 +38,8 @@ const assertInvariantTwoAndThree = (tree: SphinxMerkleTree) => {
 
       // If the leaf is an approval leaf, then check if it is arbitrary and if so update `detectedArbitraryApproval`
       if (leaf.leaf.leafType === SphinxLeafType.APPROVE) {
-        const values = decodeApproveLeafData(leaf.leaf.data)
-        const isArbitraryLeaf = values[6]
-        if (isArbitraryLeaf) {
+        const { arbitraryChain } = decodeApproveLeafData(leaf.leaf)
+        if (arbitraryChain) {
           detectedArbitraryApproval = true
 
           // If this APPROVE leaf is arbitrary, then we must expect that we have not previously seen any CANCEL or APPROVE leafs for any chain

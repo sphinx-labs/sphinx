@@ -76,6 +76,7 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 - A successful call must:
   - Deploy an EIP-1167 proxy at the correct `CREATE2` address using the `SphinxModule` implementation deployed in the `SphinxModuleProxyFactory`s constructor.
   - Emit a `SphinxModuleProxyDeployed` event in the `SphinxModuleProxyFactory`.
+  - Never succeed without successfully deploying the `SphinxModule` implementation.
   - Initialize the `SphinxModuleProxy` using the correct Gnosis Safe address.
   - Return the address of the `SphinxModuleProxy`.
 - A single caller must be able to deploy an arbitrary number of `SphinxModuleProxy` contracts by calling this function multiple times.
@@ -105,4 +106,3 @@ To resolve this, the `SphinxModuleProxyFactory` includes functions for deploying
 The `SphinxModuleProxyFactory` calls a couple of external contracts. We test that the interactions with these contracts work properly in the [unit tests for the `SphinxModuleProxyFactory`](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxyFactory.t.sol), but we don't thoroughly test the internals of these external contracts. Instead, we assume that they're secure and have been thoroughly tested by their authors. These external contracts are:
 - [`Clones`](https://docs.openzeppelin.com/contracts/4.x/api/proxy#Clones) in OpenZeppelin's Contracts v4.9.3. This library deploys the `SphinxModuleProxy` contracts (via `Clones.cloneDeterministic`) and computes their addresses (via `Clones.predictDeterministicAddress`).
 - Gnosis Safe's `enableModule` function enables a `SphinxModuleProxy` within the user's Gnosis Safe.
-

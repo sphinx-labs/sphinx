@@ -3,15 +3,12 @@ import { SphinxMerkleTree, decodeExecuteLeafData } from '@sphinx-labs/contracts'
 import { SphinxJsonRpcProvider } from './provider'
 
 export const estimateExecutionGas = async (
-  bundle: SphinxMerkleTree,
+  merkleTree: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const gas = bundle.leavesWithProofs
+  const gas = merkleTree.leavesWithProofs
     .slice(actionsExecuted)
-    .map((action) => {
-      const values = decodeExecuteLeafData(action.leaf.data)
-      return values[2]
-    })
+    .map((action) => decodeExecuteLeafData(action.leaf).gas)
     .reduce((a, b) => a + b, BigInt(0))
 
   return gas
@@ -19,10 +16,13 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: SphinxJsonRpcProvider,
-  bundle: SphinxMerkleTree,
+  merkleTree: SphinxMerkleTree,
   actionsExecuted: number
 ): Promise<bigint> => {
-  const estExecutionGas = await estimateExecutionGas(bundle, actionsExecuted)
+  const estExecutionGas = await estimateExecutionGas(
+    merkleTree,
+    actionsExecuted
+  )
   const feeData = await provider.getFeeData()
 
   // Use the `maxFeePerGas` if it exists, otherwise use the `gasPrice`. The `maxFeePerGas` is not

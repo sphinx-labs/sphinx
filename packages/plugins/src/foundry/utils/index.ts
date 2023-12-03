@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import path, { join } from 'path'
+import path, { dirname, join } from 'path'
 import { promisify } from 'util'
 
 import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
@@ -31,6 +31,18 @@ import {
 } from '@sphinx-labs/contracts'
 
 const readFileAsync = promisify(fs.readFile)
+
+/**
+ * @field fullyQualifiedNames An array of fully qualified names, which are the keys of the
+ * `BuildInfo.output.contracts` object. The fully qualified name is in the format
+ * `path/to/SourceFile.sol:MyContract`. The source path can be an absolute path or a path relative
+ * to the Foundry project's root.
+ */
+type BuildInfoCacheEntry = {
+  name: string
+  time: number
+  fullyQualifiedNames: string[]
+}
 
 export const streamFullyQualifiedNames = async (filePath: string) => {
   const pipeline = new chain([
@@ -93,23 +105,83 @@ export const messageMultipleArtifactsFound = (
   )
 }
 
-// TODO - handle searching recursively for the correct artifact in cases where
-//        the fully qualified name is not unique
-export const getFoundryContractArtifact = async (
+/**
+ * @notice Read a Foundry contract artifact from the file system.
+ * @dev The location of an artifact file will be nested in the artifacts folder if there's more than
+ * one contract in the contract source directory with the same name. This function ensures that we
+ * retrieve the correct contract artifact in all cases. It works by checking the deepest possible
+ * file location, and searching shallower directories until the file is found or until all
+ * possibilities are exhausted.
+ *
+ * Example: Consider a project with a file structure where the project root is at
+ * '/Users/dev/myRepo', and the contract is defined in
+ * '/Users/dev/myRepo/src/tokens/MyFile.sol:MyContract'. The function will first try to find the
+ * artifact in 'myRepo/artifacts/src/tokens/MyFile/MyContract.json'. If not found, it will then try
+ * 'myRepo/artifacts/tokens/MyFile/MyContract.json' (notice that 'src/' is removed in this attempt),
+ * and finally 'myRepo/artifacts/MyFile/MyContract.json' (notice that 'src/tokens/ is removed in
+ * this attempt). If the artifact is still not found, it throws an error.
+ */
+export const readFoundryContractArtifact = async (
   fullyQualifiedName: string,
+  projectRoot: string,
   artifactFolder: string
 ): Promise<FoundryContractArtifact> => {
-  // The basename will be in the format `SomeFile.sol:MyContract`.
-  const basename = path.basename(fullyQualifiedName)
+  // Get the source file name (e.g. `MyFile.sol`) and contract name (e.g. `MyContractName`).
+  const [sourceFileName, contractName] = path
+    .basename(fullyQualifiedName)
+    .split(':')
 
-  const [sourceName, contractName] = basename.split(':')
-  const artifactPath = join(artifactFolder, sourceName, `${contractName}.json`)
-  if (!fs.existsSync(artifactPath)) {
-    throw new Error(messageArtifactNotFound(fullyQualifiedName))
+  // Removes the source file name and the contract name from the path. For example, if the fully
+  // qualified name is `/Users/dev/myRepo/src/MySourceFile.sol:MyContractName`, then the source
+  // directory path will be `/Users/dev/myRepo/src/`.
+  const sourceDirectoryPath = dirname(fullyQualifiedName)
+
+  // The source directory path can either be an absolute path or a path relative to the project
+  // root. We change it to always be a path relative to the project root because this is the only
+  // relevant segment of the path for retrieving the artifact.
+  const relativeSourceDirPath = path.relative(projectRoot, sourceDirectoryPath)
+
+  // Split the relative source directory path into parts.
+  let pathParts = relativeSourceDirPath.split(path.sep)
+  // Loop through the path parts. We start with the entire relative path on the first iteration, and
+  // we remove the base directory on each iteration. We'll keep looping until we find a path that
+  // contains a contract artifact, or until we run out of path parts. For example, if the initial
+  // relative path is 'myDir/contracts/tokens/', we'll start with this entire path on the first
+  // iteration, then 'contracts/tokens/' on the second iteration, and 'tokens/' on the third.
+  while (pathParts.length > 0) {
+    const joinedPathParts = pathParts.join(path.sep)
+    const currentPath = join(
+      artifactFolder,
+      joinedPathParts,
+      sourceFileName,
+      `${contractName}.json`
+    )
+
+    if (fs.existsSync(currentPath)) {
+      return parseFoundryArtifact(
+        JSON.parse(await readFileAsync(currentPath, 'utf8'))
+      )
+    }
+
+    // Remove the base path part.
+    pathParts = pathParts.slice(1)
   }
-  return parseFoundryArtifact(
-    JSON.parse(await readFileAsync(artifactPath, 'utf8'))
+
+  // If we make it to this point, the artifact must exist at the most shallow level of the artifacts
+  // directory, or not exist at all.
+
+  const shortestPath = join(
+    artifactFolder,
+    sourceFileName,
+    `${contractName}.json`
   )
+  if (fs.existsSync(shortestPath)) {
+    return parseFoundryArtifact(
+      JSON.parse(await readFileAsync(shortestPath, 'utf8'))
+    )
+  }
+
+  throw new Error(messageArtifactNotFound(fullyQualifiedName))
 }
 
 /**
@@ -189,19 +261,14 @@ export const getUniqueNames = (
 }
 
 /**
- * TODO: Reduce the memory footprint of this function by using a stream parser to read in the build
- * info files and only actually store the parts of the build info files which are really necessary.
- * This is important for making sure we do not run out of memory loading the build info files of large
- * projects.
- *
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
- * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
- * plugin.
+ * `getConfigArtifacts` function, which may be used by Sphinx's future Hardhat plugin.
  */
 export const makeGetConfigArtifacts = (
   artifactFolder: string,
   buildInfoFolder: string,
+  projectRoot: string,
   cachePath: string
 ): GetConfigArtifacts => {
   return async (
@@ -216,14 +283,9 @@ export const makeGetConfigArtifacts = (
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
     // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
     // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-    let buildInfoCache: Record<
-      string,
-      {
-        name: string
-        time: number
-        contracts: string[]
-      }
-    > = fs.existsSync(buildInfoCacheFilePath)
+    let buildInfoCache: Record<string, BuildInfoCacheEntry> = fs.existsSync(
+      buildInfoCacheFilePath
+    )
       ? JSON.parse(fs.readFileSync(buildInfoCacheFilePath, 'utf8'))
       : {}
 
@@ -267,15 +329,13 @@ export const makeGetConfigArtifacts = (
       ) {
         buildInfoCache[file.name].time = file.time
       } else {
-        const outputContracts = await streamFullyQualifiedNames(
-          join(buildInfoFolder, file.name)
-        )
-
         // Update the build info file dictionary in the cache
         buildInfoCache[file.name] = {
           name: file.name,
           time: file.time,
-          contracts: outputContracts,
+          fullyQualifiedNames: await streamFullyQualifiedNames(
+            join(buildInfoFolder, file.name)
+          ),
         }
       }
     }
@@ -287,20 +347,21 @@ export const makeGetConfigArtifacts = (
 
     // Look through the cache, read all the contract artifacts, and find all of the required build
     // info files names. We get the artifacts for every action, even if it'll be skipped, because the
-    // artifact is necessary when we're creating the preview, which includes skipped actions.
+    // artifact is necessary when we're creating the deployment preview, which includes skipped actions.
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
 
     const fullyQualifiedNamePromises = fullyQualifiedNames.map(
       async (fullyQualifiedName) => {
-        const artifact = await getFoundryContractArtifact(
+        const artifact = await readFoundryContractArtifact(
           fullyQualifiedName,
+          projectRoot,
           artifactFolder
         )
 
         // Look through the cache for the first build info file that contains the contract
         for (const file of sortedCachedFiles) {
-          if (file.contracts?.includes(fullyQualifiedName)) {
+          if (file.fullyQualifiedNames?.includes(fullyQualifiedName)) {
             // Keep track of if we need to read the file or not
             if (!toReadFiles.includes(file.name)) {
               toReadFiles.push(file.name)
@@ -329,7 +390,7 @@ export const makeGetConfigArtifacts = (
       async (targetContractName) => {
         // Look through the cache for the first build info file that contains the contract name.
         for (const cachedFile of sortedCachedFiles) {
-          for (const fullyQualifiedName of cachedFile.contracts) {
+          for (const fullyQualifiedName of cachedFile.fullyQualifiedNames) {
             const contractName = fullyQualifiedName.split(':')[1]
             if (contractName === targetContractName) {
               // Keep track of whether or not we need to read the build info file later
@@ -337,8 +398,9 @@ export const makeGetConfigArtifacts = (
                 toReadFiles.push(cachedFile.name)
               }
 
-              const artifact = await getFoundryContractArtifact(
+              const artifact = await readFoundryContractArtifact(
                 fullyQualifiedName,
+                projectRoot,
                 artifactFolder
               )
               return {

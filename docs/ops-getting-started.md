@@ -1,18 +1,18 @@
 # The Sphinx DevOps Platform
 
-This guide will introduce you to the Sphinx DevOps platform by walking you through a sample multi-chain deployment. First, you'll initiate a deployment on the command line by proposing it. Then, you'll fund and approve it in the Sphinx UI.
+This guide will introduce you to the Sphinx DevOps platform by walking you through a sample multi-chain deployment.
+
+Deployments are a three-step process with the DevOps platform:
+
+1. **Propose**: Initiates the deployment from the command line or a CI process. The deployment is simulated, then the transactions are submitted to Sphinx's backend. Proposals happen entirely off-chain.
+2. **Approve**: The Gnosis Safe owner(s) sign the deployment's unique identifier using a meta transaction. This occurs in the Sphinx UI.
+3. **Execute**: After the deployment has been approved by a sufficient number of owners, it's executed trustlessly by Sphinx's backend. It's impossible for Sphinx to execute anything that the Gnosis Safe owners have not explicitly approved.
+
+In this guide, you'll propose a deployment on the command line then approve it in the Sphinx UI.
 
 ## Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Get testnet ETH](#2-get-testnet-eth)
-3. [Get credentials](#3-get-credentials)
-4. [Get an RPC endpoint API key](#4-get-an-rpc-endpoint-api-key)
-5. [Add environment variables](#5-add-environment-variables)
-6. [Configure your script](#6-configure-your-script)
-7. [Add RPC endpoints](#7-add-rpc-endpoints)
-8. [Propose on testnets](#8-propose-on-testnets)
-9. [Propose on mainnet (optional)](#9-propose-on-mainnet-optional)
+TODO(md-end)
 
 ## 1. Prerequisites
 
@@ -23,11 +23,7 @@ Make sure that you've already completed one of the following guides:
 - [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-quickstart.md)
 - [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-existing-project.md)
 
-Also, you'll need an Externally Owned Account (EOA) that exists on live networks.
-
-## 2. Get testnet ETH
-
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [Optimism's faucet](https://app.optimism.io/faucet).
+TODO(md-end): line numbers in headings
 
 ## 3. Get credentials
 
@@ -39,35 +35,19 @@ We recommend getting a private API key from an RPC node provider like [Alchemy](
 
 ## 5. Add environment variables
 
-In your `.env` file, add your Sphinx API key and your RPC endpoint API key from the previous steps:
+In your `.env` file, add your Sphinx API key and your RPC endpoint API key:
 ```
 SPHINX_API_KEY=<your API key>
 RPC_API_KEY=<your API key>
 ```
 
-Also, in your `.env` file, add the private key of your EOA:
-
-```
-PROPOSER_PRIVATE_KEY=<private key>
-```
-
-We'll use this EOA to propose the deployment on the command line in a later step.
-
-> For the purpose of this guide, we'll use the same EOA to propose the deployment on the command line and approve it in the Sphinx UI. However, in a production environment, we recommend creating a new private key to use specifically for proposals, since the private key will either be stored locally in a `.env` file or as a secret in your CI process.
-
 ## 6. Configure your script
 
 First, navigate to your deployment script.
 
-Add the import:
+Copy and paste the following config template into your `setUp` function:
 ```
-import { Network } from "@sphinx-labs/plugins/SphinxPluginTypes.sol";
-```
-
-Then, copy and paste the following config template into your `setUp` function:
-```
-    sphinxConfig.owners = [<your EOA address>];
-    sphinxConfig.proposers = [<your EOA address>];
+    sphinxConfig.owners = [<your address>];
     sphinxConfig.orgId = <org ID>;
     sphinxConfig.projectName = "My First Project";
     sphinxConfig.threshold = 1;
@@ -100,13 +80,13 @@ Copy and paste the following command, replacing `<path/to/your-script.s.sol>` wi
 npx sphinx propose <path/to/your-script.s.sol> --testnets
 ```
 
-Sphinx will propose all transactions that are broadcasted by Foundry.
+Sphinx will propose all transactions in your `run()` function that are collected by Foundry. The transactions will be displayed in a preview, which you'll be prompted to confirm.
 
 Follow the instructions in the terminal to finish the rest of the deployment.
 
 ## 9. Propose on mainnet (optional)
 
-To propose a deployment on mainnet, you simply need to add a `sphinxConfig.mainnets` option to the `setUp` function in your deployment script. For example:
+To propose a deployment on a production network, you simply need to add a `sphinxConfig.mainnets` option to the `setUp` function in your deployment script. For example:
 
 ```
 sphinxConfig.mainnets = [

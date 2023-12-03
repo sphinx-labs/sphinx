@@ -1,5 +1,5 @@
 import { basename, join, resolve } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
@@ -17,19 +17,21 @@ import {
   ParsedConfig,
   SphinxPreview,
   getMerkleTreeInfo,
+  MerkleRootState,
+  MerkleRootStatus,
   getReadableActions,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { remove0x } from '@sphinx-labs/contracts'
+import { SphinxModuleABI, remove0x } from '@sphinx-labs/contracts'
 
 import {
   getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
 } from '../foundry/utils'
-import { getFoundryConfigOptions } from '../foundry/options'
+import { getFoundryToml } from '../foundry/options'
 import {
   decodeDeploymentInfo,
   readActionInputsOnSingleChain,
@@ -37,7 +39,6 @@ import {
 } from '../foundry/decode'
 import { FoundryBroadcast } from '../foundry/types'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
-// import { writeDeploymentArtifacts } from '../foundry/artifacts'
 
 export const deploy = async (
   scriptPath: string,
@@ -52,6 +53,7 @@ export const deploy = async (
   parsedConfig: ParsedConfig
   preview?: ReturnType<typeof getPreview>
 }> => {
+  const projectRoot = process.cwd()
   const {
     artifactFolder,
     buildInfoFolder,
@@ -60,7 +62,7 @@ export const deploy = async (
     etherscan,
     broadcastFolder,
     deploymentFolder,
-  } = await getFoundryConfigOptions()
+  } = await getFoundryToml()
 
   const forkUrl = rpcEndpoints[network]
   if (!forkUrl) {
@@ -118,15 +120,17 @@ export const deploy = async (
 
   // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxPluginTypesABI =
+  const sphinxPluginTypesABI: Array<any> =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
       `${artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
     )).abi
+  const sphinxPluginTypesInterface = new ethers.Interface(sphinxPluginTypesABI)
 
   const getConfigArtifacts = makeGetConfigArtifacts(
     artifactFolder,
     buildInfoFolder,
+    projectRoot,
     cachePath
   )
 
@@ -134,11 +138,15 @@ export const deploy = async (
   spinner.start(`Collecting transactions...`)
 
   const deploymentInfoPath = join(cachePath, 'deployment-info.txt')
+  const merkleTreeFilePath = join(cachePath, 'sphinx-merkle-tree.txt')
 
-  // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
-  // use an outdated file.
+  // Remove the existing DeploymentInfo and Merkle tree files if they exist. This ensures that we
+  // don't accidentally use files from a previous deployment.
   if (existsSync(deploymentInfoPath)) {
     unlinkSync(deploymentInfoPath)
+  }
+  if (existsSync(merkleTreeFilePath)) {
+    unlinkSync(merkleTreeFilePath)
   }
 
   const forgeScriptCollectArgs = [
@@ -155,7 +163,7 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const managerAddress = await getSphinxSafeAddressFromScript(
+  const safeAddress = await getSphinxSafeAddressFromScript(
     scriptPath,
     forkUrl,
     targetContract,
@@ -163,14 +171,14 @@ export const deploy = async (
   )
 
   // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
-  // SphinxManager as the `msg.sender` to ensure that it's the caller for all transactions. We need
-  // to do this even though we also broadcast from the SphinxManager's address in the script.
+  // Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We need
+  // to do this even though we also broadcast from the Safe's address in the script.
   // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
   // linked library. In this scenario, the caller that deploys the library would be Foundry's
   // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
   // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-    FOUNDRY_SENDER: managerAddress,
+    FOUNDRY_SENDER: safeAddress,
   })
 
   if (spawnOutput.code !== 0) {
@@ -185,7 +193,7 @@ export const deploy = async (
   const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
   const deploymentInfo = decodeDeploymentInfo(
     abiEncodedDeploymentInfo,
-    sphinxPluginTypesABI
+    sphinxPluginTypesInterface
   )
 
   const actionInputs = readActionInputsOnSingleChain(
@@ -207,10 +215,7 @@ export const deploy = async (
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
-    configArtifacts,
-    // On Anvil nodes, we must set `remoteExecution` to `true` because we use the remote execution
-    // flow in this case (e.g. we call `manager.claimDeployment` in Solidity).
-    !deploymentInfo.isLiveNetwork
+    configArtifacts
   )
 
   spinner.succeed(`Collected transactions.`)
@@ -226,7 +231,7 @@ export const deploy = async (
     spinner.stop()
     if (emptyDeployment) {
       if (!silent) {
-        spinner.info(`Nothing to deploy exiting early.`)
+        spinner.info(`Nothing to deploy. Exiting early.`)
       }
       return { parsedConfig, preview }
     } else {
@@ -239,9 +244,8 @@ export const deploy = async (
     parsedConfig,
   ])
   if (merkleTreeInfo.compilerConfigs.length !== 1) {
-    // TODO: remove the word "bundle" everywhere in the codebase
     throw new Error(
-      `Bundle info array has incorrect length. Should never happen`
+      `The 'compilerConfigs' array length is: ${merkleTreeInfo.compilerConfigs.length}. Expected: 1. Should never happen.`
     )
   }
 
@@ -252,15 +256,29 @@ export const deploy = async (
   const deployTaskFragment = sphinxIface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxDeployTask')
-  if (!deployTaskFragment) {
+  const merkleTreeFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
+  if (!deployTaskFragment || !merkleTreeFragment) {
     throw new Error(`'sphinxDeployTask' not found in ABI. Should never happen.`)
   }
+
+  // ABI encode the Merkle tree.
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const encodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
+    merkleTreeInfo.merkleTree,
+  ])
+  // Write the ABI encoded Merkle tree to the file system. We'll read it in the Forge script that
+  // executes the deployment. We do this instead of passing in the Merkle tree as a parameter to the
+  // Forge script because it's possible to hit Node's `spawn` input size limit if the Merkle tree is
+  // large.
+  writeFileSync(merkleTreeFilePath, encodedMerkleTree)
 
   const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
   const deployTaskData = sphinxIface.encodeFunctionData(deployTaskFragment, [
     network,
     root,
-    merkleTreeInfo.merkleTree,
+    merkleTreeFilePath,
     humanReadableActions,
   ])
 
@@ -298,6 +316,24 @@ export const deploy = async (
     console.log(stdout)
   }
 
+  spinner.start(`Checking final deployment status...`)
+
+  // Check the Merkle root's status. It's possible that the deployment succeeded during the
+  // simulation but was marked as `FAILED` when the transactions were broadcasted.
+  const sphinxModule = new ethers.Contract(
+    parsedConfig.moduleAddress,
+    SphinxModuleABI,
+    provider
+  )
+  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
+    merkleTreeInfo.merkleTree.root
+  )
+  if (merkleRootState.status === MerkleRootStatus.FAILED) {
+    spinner.fail(`Deployment failed when broadcasting the transactions.`)
+    process.exit(1)
+  }
+
+  spinner.succeed(`Deployment succeeded.`)
   spinner.start(`Writing contract deployment artifacts...`)
 
   const containsDeployment = parsedConfig.actionInputs.some(
@@ -316,7 +352,6 @@ export const deploy = async (
       readFileSync(broadcastFilePath, 'utf-8')
     )
 
-    // TODO - Fix deployment artifacts
     const deploymentArtifactPath = await writeDeploymentArtifacts(
       provider,
       parsedConfig,

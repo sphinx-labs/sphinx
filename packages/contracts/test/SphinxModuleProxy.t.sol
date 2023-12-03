@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { StdStorage, stdStorage } from "sphinx-forge-std/StdStorage.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
@@ -23,7 +24,6 @@ import {
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.sol";
-import { console } from "sphinx-forge-std/console.sol";
 
 /**
  * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleProxy`.
@@ -44,17 +44,7 @@ import { console } from "sphinx-forge-std/console.sol";
  *         each type.
  */
 abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModule {
-    /**
-     * @notice The addresses of several Gnosis Safe contracts that'll be used in this
-     *         test suite.
-     */
-    struct GnosisSafeAddresses {
-        address multiSend;
-        address compatibilityFallbackHandler;
-        address safeProxyFactory;
-        address safeSingleton;
-        address createCall;
-    }
+    using stdStorage for StdStorage;
 
     bytes internal constant CREATE3_PROXY_BYTECODE = hex"67363d3d37363d34f03d5260086018f3";
 
@@ -71,6 +61,18 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     // Whether we expect a success or failure for each default transaction. There is one element in
     // this array for each element in `defaultTxs`.
     bool[] defaultExpectedSuccesses;
+    // The default argument for `MyContract.setMyNum`.
+    uint256 defaultMyNum = 123;
+
+    // These variables are used in the multichain tests.
+    uint256[] defaultChainIds = [1, 5, 10];
+    string[] rpcUrls = [
+        "http://127.0.0.1:42001",
+        "http://127.0.0.1:42005",
+        "http://127.0.0.1:42010"
+    ];
+    uint256[] expectedMyNumArray = [111, 222, 333];
+    uint256[] moduleProxyNonceArray = [10, 20, 30];
 
     Wallet[] ownerWallets;
     address[] owners;
@@ -80,21 +82,21 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     string defaultCancellationUri = "ipfs://Qm567890";
 
     // Deploy the test contracts.
-    MyContract myContract = new MyContract();
-    MyDelegateCallContract myDelegateCallContract = new MyDelegateCallContract();
+    MyContract myContract;
+    MyDelegateCallContract myDelegateCallContract;
 
     // The following addresses correspond to contracts that will be deployed during execution.
     address deployedViaCreate;
     address deployedViaCreate2;
     address deployedViaCreate3;
 
-    function setUp(
-        GnosisSafeVersion _gnosisSafeVersion,
-        GnosisSafeAddresses memory _gnosisSafeAddresses
-    ) internal {
+    function setUp(GnosisSafeVersion _gnosisSafeVersion) internal {
         gnosisSafeVersion = _gnosisSafeVersion;
 
-        moduleProxyFactory = new SphinxModuleProxyFactory();
+        moduleProxyFactory = new SphinxModuleProxyFactory{ salt: bytes32(0) }();
+        GnosisSafeAddresses memory gnosisSafeAddresses = deployGnosisSafeContracts(
+            _gnosisSafeVersion
+        );
 
         Wallet[] memory wallets = getSphinxWalletsSortedByAddress(5);
         // We can't assign the wallets directly to the `owners` array because Solidity throws an
@@ -105,85 +107,19 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             owners.push(wallets[i].addr);
         }
 
-        // In a single transaction, we'll deploy the Gnosis Safe, deploy the `SphinxModuleProxy`,
-        // and enable the `SphinxModuleProxy` in the Gnosis Safe. We'll do this by encoding all of
-        // this information into the `initializer` data that'll be submitted to the Gnosis Safe
-        // Proxy Factory. Specifically, we'll use Gnosis Safe's `MultiSend` contract to execute
-        // two transactions on the `SphinxModuleProxyFactory`:
-        // 1. `deploySphinxModuleProxyFromSafe`
-        // 2. `enableSphinxModuleProxyFromSafe`
-
-        // Create the first transaction, `SphinxModuleProxyFactory.deploySphinxModuleProxyFromSafe`.
-        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
-            // Use the zero-hash as the salt.
-            bytes32(0)
-        );
-        // Encode the first transaction data in a format that can be executed using `MultiSend`.
-        bytes memory firstMultiSendData = abi.encodePacked(
-            // We use `Call` so that the deployer of the `SphinxModuleProxy` is the
-            // `SphinxModuleProxyFactory`. This makes it easier for off-chain tooling to calculate
-            // the deployed `SphinxModuleProxy` address.
-            uint8(Operation.Call),
+        (safeProxy, moduleProxy) = initializeGnosisSafeWithModule(
             moduleProxyFactory,
-            uint256(0),
-            encodedDeployModuleCall.length,
-            encodedDeployModuleCall
-        );
-        // Create the second transaction,
-        // `SphinxModuleProxyFactory.enableSphinxModuleProxyFromSafe`.
-        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
-            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
-            // Use the zero-hash as the salt.
-            bytes32(0)
-        );
-        // Encode the second transaction data in a format that can be executed using `MultiSend`.
-        bytes memory secondMultiSendData = abi.encodePacked(
-            uint8(Operation.DelegateCall),
-            moduleProxyFactory,
-            uint256(0),
-            encodedEnableModuleCall.length,
-            encodedEnableModuleCall
-        );
-        // Encode the entire `MultiSend` data.
-        bytes memory multiSendData = abi.encodeWithSelector(
-            MultiSend.multiSend.selector,
-            abi.encodePacked(firstMultiSendData, secondMultiSendData)
+            gnosisSafeAddresses
         );
 
-        // Encode the call to the Gnosis Safe's `setup` function, which we'll submit to the Gnosis
-        // Safe Proxy Factory. This data contains the `MultiSend` data that we created above.
-        bytes memory safeInitializerData = abi.encodePacked(
-            GnosisSafe.setup.selector,
-            abi.encode(
-                owners,
-                3, // Gnosis Safe owner threshold
-                _gnosisSafeAddresses.multiSend,
-                multiSendData,
-                _gnosisSafeAddresses.compatibilityFallbackHandler,
-                address(0),
-                0,
-                address(0)
-            )
-        );
+        myContract = new MyContract{ salt: bytes32(0) }();
+        myDelegateCallContract = new MyDelegateCallContract{ salt: bytes32(0) }();
 
-        // This is the transaction that deploys the Gnosis Safe, deploys the `SphinxModuleProxy`, and
-        // enables the `SphinxModuleProxy` in the Gnosis Safe.
-        GnosisSafeProxy deployedSafeProxy = GnosisSafeProxyFactory(
-            _gnosisSafeAddresses.safeProxyFactory
-        ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
+        // Give the Gnosis Safe 1 ether
+        vm.deal(address(safeProxy), 1 ether);
 
-        safeProxy = payable(address(deployedSafeProxy));
-        moduleProxy = SphinxModule(
-            moduleProxyFactory.computeSphinxModuleProxyAddress(
-                address(safeProxy),
-                address(safeProxy),
-                0
-            )
-        );
-        // Give the Gnosis Safe 2 ether
-        vm.deal(address(safeProxy), 2 ether);
-
+        // Next, we'll define state variables for the deployment that will be executed through the
+        // Gnosis Safe.
         deployedViaCreate = computeCreateAddress(
             address(safeProxy),
             vm.getNonce(address(safeProxy))
@@ -197,7 +133,6 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             _deployer: address(safeProxy),
             _salt: bytes32(uint256(0))
         });
-
         // Standard function call:
         defaultTxs.push(
             SphinxTransaction({
@@ -234,7 +169,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // Contract deployment via `CREATE`:
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.createCall,
+                to: gnosisSafeAddresses.createCall,
                 value: 0,
                 txData: abi.encodePacked(
                     CreateCall.performCreate.selector,
@@ -248,7 +183,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // Contract deployment via `CREATE2`:
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.createCall,
+                to: gnosisSafeAddresses.createCall,
                 value: 0,
                 txData: abi.encodePacked(
                     CreateCall.performCreate2.selector,
@@ -264,13 +199,13 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // 1. Deploy a minimal `CREATE3` proxy using `CREATE2`. The `CREATE2` logic exists on Gnosis
         //    Safe's `CreateCall` contract.
         // 2. Call the deployed `CREATE3` proxy with the relevant contract's creation code.
-        bytes memory create3ProxyDeploymentData = abi.encodeWithSelector(
+        bytes memory create3ProxyDeploymentData = abi.encodePacked(
             CreateCall.performCreate2.selector,
             abi.encode(0, CREATE3_PROXY_BYTECODE, bytes32(0))
         );
         bytes memory firstCreate3MultiSendData = abi.encodePacked(
             uint8(Operation.DelegateCall),
-            _gnosisSafeAddresses.createCall,
+            gnosisSafeAddresses.createCall,
             uint256(0),
             create3ProxyDeploymentData.length,
             create3ProxyDeploymentData
@@ -288,7 +223,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         );
         defaultTxs.push(
             SphinxTransaction({
-                to: _gnosisSafeAddresses.multiSend,
+                to: gnosisSafeAddresses.multiSend,
                 value: 0,
                 txData: abi.encodeWithSelector(
                     MultiSend.multiSend.selector,
@@ -429,8 +364,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // `reenter` function on `MyContract`, which will then call the `approve` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory defaultModuleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory defaultModuleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory approvalData = abi.encodePacked(
             moduleProxy.approve.selector,
@@ -440,8 +375,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 defaultModuleInputs.ownerSignatures
             )
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
                         to: address(myContract),
@@ -475,10 +410,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_activeMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -495,8 +430,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_zeroHashMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
         vm.prank(deploymentExecutor);
@@ -509,15 +444,16 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_rootAlreadyUsed() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
-        helper_test_approveThenExecuteBatch({
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
 
         vm.prank(deploymentExecutor);
@@ -530,8 +466,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
         moduleInputs.approvalLeafWithProof.leaf.chainId += 1;
@@ -545,8 +481,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.index += 1;
         vm.prank(deploymentExecutor);
@@ -559,8 +495,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.leafType = SphinxLeafType.EXECUTE;
         vm.prank(deploymentExecutor);
@@ -573,8 +509,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidLeafData() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.leaf.data = abi.encodePacked(
             moduleInputs.approvalLeafWithProof.leaf.data,
@@ -590,8 +526,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidMerkleProof() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         moduleInputs.approvalLeafWithProof.proof[0] = bytes32(0);
         vm.prank(deploymentExecutor);
@@ -604,8 +540,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_merkleProofVerify_invalidMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: failed to verify leaf");
@@ -617,8 +553,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid leaf type");
@@ -631,11 +567,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidLeafIndex() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.forceApprovalLeafIndexNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid leaf index");
@@ -647,11 +581,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidSafeProxy() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.safeProxy = address(0x1234);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid SafeProxy");
@@ -663,11 +595,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidModule() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.moduleProxy = SphinxModule(address(0x1234));
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid SphinxModuleProxy");
@@ -679,11 +609,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidNonce() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
-        treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
+        treeInputs.moduleProxyNonce = moduleProxy.merkleRootNonce() + 1;
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: invalid nonce");
@@ -695,12 +623,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_numLeavesIsZero() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.forceNumLeavesValue = true;
         treeInputs.overridingNumLeavesValue = 0;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: numLeaves cannot be 0");
@@ -712,8 +638,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidExecutor() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         // Prank an address that isn't the executor
         vm.prank(address(0x1234));
@@ -726,8 +652,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_invalidChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.chainId(block.chainid + 1);
         vm.prank(deploymentExecutor);
@@ -740,14 +666,12 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_leafChainIdMustBeZero() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         // We set `arbitraryChain` to `true` and we set the chain ID of the approval leaf to be
         // 31337.
         treeInputs.arbitraryChain = true;
         treeInputs.forceApprovalLeafChainIdNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         vm.prank(deploymentExecutor);
         vm.expectRevert("SphinxModule: leaf chain id must be 0");
@@ -759,8 +683,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_revert_checkSignatures_emptyOwnerSignatures() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         // This error is thrown by the Gnosis Safe. It means "Signatures data too short".
         vm.expectRevert("GS020");
@@ -773,10 +697,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_success() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -785,12 +709,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_success_emptyURI() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
-        treeInputs.deploymentUri = "";
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
-        helper_test_approve({
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
+        treeInputs.uri = "";
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: "",
@@ -800,18 +722,19 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
 
     // This tests that it's possible to execute a Merkle root, then approve another one.
     function test_approve_success_multipleApprovals() external {
-        DeploymentModuleInputs memory firstModuleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory firstModuleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approveThenExecuteBatch({
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: firstModuleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
 
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(
                 SphinxTransaction({
                     to: address(myContract),
                     value: 0,
@@ -824,7 +747,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 })
             )
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -833,17 +756,15 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_success_emptyDeployment() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         delete treeInputs.txs;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
         // Run some sanity checks before submitting the approval.
         assertEq(moduleInputs.executionLeavesWithProofs.length, 0);
         assertEq(moduleInputs.approvalLeafWithProof.proof.length, 0);
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.COMPLETED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -852,12 +773,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_approve_success_withArbitraryChain() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.arbitraryChain = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
-        helper_test_approve({
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -874,8 +793,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // `reenter` function on `MyContract`, which will then call the `cancel` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory moduleInputsToCancel = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputsToCancel = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory cancellationData = abi.encodePacked(
             moduleProxy.cancel.selector,
@@ -885,8 +804,8 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 moduleInputsToCancel.ownerSignatures
             )
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
                         to: address(myContract),
@@ -921,7 +840,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
 
     function test_cancel_revert_noRootToCancel() external {
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
         vm.expectRevert("SphinxModule: no root to cancel");
         moduleProxy.cancel(
@@ -932,10 +851,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_zeroHashMerkleRoot() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         vm.prank(cancellationExecutor);
@@ -952,11 +871,11 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // the `cancel` function. The call to the `cancel` function will fail because the Merkle
         // root is already in the `APPROVED` state.
 
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -973,10 +892,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidLeafChainID() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         moduleInputs.cancellationLeafWithProof.leaf.chainId += 1;
@@ -990,10 +909,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidLeafIndex() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         moduleInputs.cancellationLeafWithProof.leaf.index += 1;
@@ -1007,10 +926,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidLeafType() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         moduleInputs.cancellationLeafWithProof.leaf.leafType = SphinxLeafType.APPROVE;
@@ -1024,10 +943,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidLeafData() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
         moduleInputs.cancellationLeafWithProof.leaf.data = abi.encodePacked(
             moduleInputs.cancellationLeafWithProof.leaf.data,
@@ -1043,10 +962,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidMerkleProof() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
         moduleInputs.cancellationLeafWithProof.proof = new bytes32[](1);
         vm.prank(cancellationExecutor);
@@ -1059,10 +978,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_merkleProofVerify_invalidMerkleRoot() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
         vm.prank(cancellationExecutor);
         vm.expectRevert("SphinxModule: failed to verify leaf");
@@ -1074,19 +993,17 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidLeafType() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         // We'll create a new deployment Merkle tree, then we'll attempt to cancel the active
         // deployment using a valid `APPROVE` leaf instead of a `CANCEL` leaf.
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         // Remove the transactions in the new Merkle tree. This ensures that the new Merkle root is
         // different from the active Merkle root. If we don't do this, the `cancel` function will
         // revert early because we've already approved the Merkle root.
         delete treeInputs.txs;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
         vm.prank(cancellationExecutor);
@@ -1099,9 +1016,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidLeafIndex() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
-        CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
+        CancellationMerkleTreeInputs memory treeInputs = makeCancellationMerkleTreeInputs();
         treeInputs.forceCancellationLeafIndexNonZero = true;
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
@@ -1115,9 +1032,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidSafeProxy() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
-        CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
+        CancellationMerkleTreeInputs memory treeInputs = makeCancellationMerkleTreeInputs();
         treeInputs.safeProxy = address(0x1234);
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
@@ -1131,9 +1048,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidModule() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
-        CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
+        CancellationMerkleTreeInputs memory treeInputs = makeCancellationMerkleTreeInputs();
         treeInputs.moduleProxy = SphinxModule(address(0x1234));
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
@@ -1147,10 +1064,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidNonce() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
-        CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
-        treeInputs.nonceInModuleProxy = moduleProxy.merkleRootNonce() + 1;
+        CancellationMerkleTreeInputs memory treeInputs = makeCancellationMerkleTreeInputs();
+        treeInputs.moduleProxyNonce = moduleProxy.merkleRootNonce() + 1;
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
         vm.prank(cancellationExecutor);
@@ -1163,9 +1080,9 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidMerkleRootToCancel() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
-        CancellationMerkleTreeInputs memory treeInputs = helper_makeCancellationMerkleTreeInputs();
+        CancellationMerkleTreeInputs memory treeInputs = makeCancellationMerkleTreeInputs();
         treeInputs.merkleRootToCancel = bytes32(uint(1));
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(treeInputs);
 
@@ -1179,10 +1096,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidExecutor() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         // Prank an address that isn't the executor
@@ -1196,10 +1113,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_invalidChainID() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         vm.chainId(block.chainid + 1);
@@ -1213,10 +1130,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_revert_checkSignatures_emptyOwnerSignatures() external {
-        helper_test_approveDefaultDeployment();
+        test_approveDefaultDeployment();
 
         CancellationModuleInputs memory moduleInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
 
         // This error is thrown by the Gnosis Safe. It means "Signatures data too short".
@@ -1230,71 +1147,19 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_cancel_success() external {
-        DeploymentModuleInputs memory moduleInputsToCancel = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputsToCancel = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputsToCancel,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
         });
-        uint256 initialNonce = moduleProxy.merkleRootNonce();
         CancellationModuleInputs memory cancellationInputs = getCancellationModuleInputs(
-            helper_makeCancellationMerkleTreeInputs()
+            makeCancellationMerkleTreeInputs()
         );
-
-        bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, cancellationInputs.merkleRoot))
-        );
-        vm.expectCall(
-            safeProxy,
-            abi.encodePacked(
-                GnosisSafe(safeProxy).checkSignatures.selector,
-                abi.encode(keccak256(typedData), typedData, cancellationInputs.ownerSignatures)
-            )
-        );
-        vm.expectEmit(address(moduleProxy));
-        emit SphinxMerkleRootCanceled({
-            completedMerkleRoot: cancellationInputs.merkleRoot,
-            canceledMerkleRoot: moduleInputsToCancel.merkleRoot,
-            nonce: initialNonce,
-            executor: cancellationExecutor,
-            uri: defaultCancellationUri
-        });
-        vm.expectEmit(address(moduleProxy));
-        emit SphinxMerkleRootCompleted(cancellationInputs.merkleRoot);
-        vm.prank(cancellationExecutor);
-        moduleProxy.cancel(
-            cancellationInputs.merkleRoot,
-            cancellationInputs.cancellationLeafWithProof,
-            cancellationInputs.ownerSignatures
-        );
-
-        (, , , , MerkleRootStatus canceledMerkleRootStatus, ) = moduleProxy.merkleRootStates(
-            moduleInputsToCancel.merkleRoot
-        );
-        assertEq(canceledMerkleRootStatus, MerkleRootStatus.CANCELED);
-        assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
-
-        (
-            uint256 cancellationNumLeaves,
-            uint256 cancellationLeavesExecuted,
-            string memory cancellationUri,
-            address cancellationExecutorOnChain,
-            MerkleRootStatus cancellationRootStatus,
-            bool cancellationArbitraryChain
-        ) = moduleProxy.merkleRootStates(cancellationInputs.merkleRoot);
-        assertEq(cancellationNumLeaves, 1);
-        assertEq(cancellationLeavesExecuted, 1);
-        assertEq(cancellationUri, defaultCancellationUri);
-        assertEq(cancellationExecutorOnChain, cancellationExecutor);
-        assertEq(cancellationRootStatus, MerkleRootStatus.COMPLETED);
-        assertEq(cancellationArbitraryChain, false);
-
-        assertEq(moduleProxy.merkleRootNonce(), initialNonce + 1);
+        test_cancel(moduleInputsToCancel, cancellationInputs);
     }
 
     //////////////////////////////// execute ////////////////////////////////////
@@ -1306,15 +1171,15 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         // `reenter` function on `MyContract`, which will then call the `execute` function in the
         // `SphinxModule`. This should trigger a re-entrancy error.
 
-        DeploymentModuleInputs memory defaultModuleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory defaultModuleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         bytes memory executionData = abi.encodePacked(
             moduleProxy.execute.selector,
             abi.encode(defaultModuleInputs.executionLeavesWithProofs)
         );
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(
                 (
                     SphinxTransaction({
                         to: address(myContract),
@@ -1353,18 +1218,18 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_noactiveMerkleRoot() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         vm.expectRevert("SphinxModule: no active root");
         moduleProxy.execute(moduleInputs.executionLeavesWithProofs);
     }
 
     function test_execute_revert_invalidExecutor() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1377,16 +1242,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_extraLeavesNotAllowed() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.forceNumLeavesValue = true;
         // Set the overriding `numLeaves` to be equal to the number of `EXECUTE` leaves. This is one
         // less than its normal value, since `numLeaves` normally includes the `APPROVE` leaf.
         treeInputs.overridingNumLeavesValue = defaultTxs.length;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
         vm.prank(deploymentExecutor);
-        // Call the `approve` function. We don't use `helper_test_approve` here because we've
+        // Call the `approve` function. We don't use `test_approve` here because we've
         // modified the `numLeaves` in this test, which would cause this helper function to fail.
         moduleProxy.approve(
             moduleInputs.merkleRoot,
@@ -1402,10 +1265,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1419,10 +1282,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1436,10 +1299,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1453,10 +1316,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_merkleProofVerify_invalidLeafData() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1473,10 +1336,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_merkleProofVerify_invalidMerkleProof() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1495,10 +1358,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     // In other words, we can't pass an invalid Merkle root into the `execute` function.
 
     function test_execute_revert_invalidLeafType() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1513,10 +1376,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_invalidLeafIndex() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1532,10 +1395,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_invalidChainID() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1548,16 +1411,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_leafChainIdMustBeZero() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         // We set `arbitraryChain` to `true` and we set the chain ID of the execution leaves to be
         // equal to 31337.
         treeInputs.arbitraryChain = true;
         treeInputs.forceExecutionLeavesChainIdNonZero = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1569,10 +1430,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     }
 
     function test_execute_revert_insufficientGas() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1586,10 +1447,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
 
     function test_execute_fail_userTransactionReverted() external {
         defaultTxs[1].txData = abi.encodePacked(myContract.reverter.selector);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1624,14 +1485,14 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     // statement to be `false`.
     function test_execute_fail_insufficientUserTxGas() external {
         // Check that the user's transactions haven't been executed.
-        helper_test_preExecution();
+        test_preExecution();
 
         defaultTxs[0].gas = 1_000;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1659,58 +1520,59 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         assertEq(leavesExecuted, 2);
 
         // Check that the user's transactions weren't executed.
-        helper_test_preExecution();
+        test_preExecution();
     }
 
     // Execute all of the user's transactions in a single call.
     function test_execute_success_batchExecute() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approveThenExecuteBatch({
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
     }
 
     // Execute the user's transactions one at a time.
     function test_execute_success_oneByOne() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
 
-        helper_test_preExecution();
+        test_preExecution();
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
         });
 
-        helper_test_execute_oneByOne(moduleInputs);
+        test_execute_oneByOne(moduleInputs);
 
-        helper_test_postExecution(moduleInputs);
+        test_postExecution({ _moduleInputs: moduleInputs, _expectedMyNum: defaultMyNum });
     }
 
     function test_execute_success_oneExecutionLeaf() external {
         assertEq(myContract.myNum(), 0);
         SphinxTransaction[] memory txn = new SphinxTransaction[](1);
         txn[0] = defaultTxs[0];
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(txn)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(txn)
         );
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
             _expectedArbitraryChain: false
         });
 
-        helper_test_execute_oneByOne(moduleInputs);
+        test_execute_oneByOne(moduleInputs);
 
         assertEq(myContract.myNum(), 123);
     }
@@ -1743,28 +1605,28 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             txs[i + 1].requireSuccess = false;
             expectedSuccesses[i + 1] = true;
         }
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(txs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(txs)
         );
-        helper_test_approveThenExecuteBatch({
+        test_approveThenExecuteBatch({
             _txs: txs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: expectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
     }
 
     function test_execute_success_withArbitraryChain() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.arbitraryChain = true;
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
-        helper_test_approveThenExecuteBatch({
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: true
+            _expectedArbitraryChain: true,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1772,18 +1634,17 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     // There seems to be broad social consensus that a network shouldn't have a chain ID of zero,
     // but we test this just to be thorough.
     function test_execute_success_withArbitraryChainAndChainIdZero() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.arbitraryChain = true;
         treeInputs.chainId = 0;
         vm.chainId(0);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
-        helper_test_approveThenExecuteBatch({
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: true
+            _expectedArbitraryChain: true,
+            _expectedMyNum: defaultMyNum
         });
     }
 
@@ -1791,25 +1652,314 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
     // 0. There seems to be broad social consensus that a network shouldn't have a chain ID of zero,
     // but we test this just to be thorough.
     function test_execute_success_withoutArbitraryChainAndChainIdZero() external {
-        DeploymentMerkleTreeInputs memory treeInputs = helper_makeDeploymentMerkleTreeInputs(
-            defaultTxs
-        );
+        DeploymentMerkleTreeInputs memory treeInputs = makeDeploymentMerkleTreeInputs(defaultTxs);
         treeInputs.chainId = 0;
         vm.chainId(0);
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(treeInputs);
-        helper_test_approveThenExecuteBatch({
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(treeInputs);
+        test_approveThenExecuteBatch({
             _txs: defaultTxs,
             _moduleInputs: moduleInputs,
             _expectedSuccesses: defaultExpectedSuccesses,
-            _expectedArbitraryChain: false
+            _expectedArbitraryChain: false,
+            _expectedMyNum: defaultMyNum
         });
+    }
+
+    //////////////////////////////// Multi-chain ////////////////////////////////////
+
+    // This section tests that the TypeScript Merkle tree encoding logic works correctly for
+    // multi-chain deployments. This section does not test anything in the `SphinxModule` that isn't
+    // already covered by the other tests in this file.
+
+    // Test executing a multi-chain deployment where each `APPROVE` leaf is identical, except for
+    // the `chainId` field.
+    function test_multichain_execute_success_identical() external {
+        uint256[] memory forkIds = setUpMultiChainContracts();
+
+        // Create the network-specific info for each chain. The only difference will be the chain
+        // ID.
+        NetworkDeploymentMerkleTreeInputs[]
+            memory networks = new NetworkDeploymentMerkleTreeInputs[](3);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            networks[i] = NetworkDeploymentMerkleTreeInputs({
+                chainId: chainId,
+                txs: defaultTxs,
+                moduleProxyNonce: moduleProxy.merkleRootNonce()
+            });
+        }
+
+        MultiChainDeploymentMerkleTreeInputs
+            memory treeInputs = makeMultiChainDeploymentMerkleTreeInputs(networks);
+        DeploymentModuleInputs[] memory moduleInputArray = getMultiChainDeploymentModuleInputs(
+            treeInputs
+        );
+
+        // Sanity check that there's an element in the `moduleInputsArray` for each chain.
+        assertEq(moduleInputArray.length, 3);
+
+        // Test each chain.
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            DeploymentModuleInputs memory moduleInputs = moduleInputArray[i];
+            uint256 chainId = defaultChainIds[i];
+            uint256 forkId = forkIds[i];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            test_approveThenExecuteBatch({
+                _txs: defaultTxs,
+                _moduleInputs: moduleInputs,
+                _expectedSuccesses: defaultExpectedSuccesses,
+                _expectedArbitraryChain: false,
+                _expectedMyNum: defaultMyNum
+            });
+        }
+    }
+
+    // Test executing a multi-chain deployment where the `APPROVE` leaf on each chain is different.
+    // Specifically, the `chainId`, `moduleProxyNonce`, and `SphinxTransaction`s will be different
+    // on each chain.
+    function test_multichain_execute_success_different() external {
+        uint256[] memory forkIds = setUpMultiChainContracts();
+
+        // Create the network-specific info for each chain.
+        NetworkDeploymentMerkleTreeInputs[]
+            memory networks = new NetworkDeploymentMerkleTreeInputs[](3);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            // Create the `SphinxTransaction` array. The only difference between the chains is the
+            // argument to `MyContract.setMyNum`.
+            SphinxTransaction[] memory txs = defaultTxs;
+            uint256 txDataArgument = expectedMyNumArray[i];
+            // The `MyContract.setMyNum` call is the first transaction (index 0).
+            txs[0].txData = abi.encodePacked(
+                myContract.setMyNum.selector,
+                abi.encode(txDataArgument)
+            );
+
+            uint256 forkId = forkIds[i];
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            uint256 chainId = defaultChainIds[i];
+            assertEq(chainId, block.chainid);
+
+            // Update the `merkleRootNonce` in the `SphinxModuleProxy`.
+            uint256 moduleProxyNonce = moduleProxyNonceArray[i];
+            stdstore.target(address(moduleProxy)).sig("merkleRootNonce()").checked_write(
+                moduleProxyNonce
+            );
+            assertEq(moduleProxy.merkleRootNonce(), moduleProxyNonce);
+
+            networks[i] = NetworkDeploymentMerkleTreeInputs({
+                chainId: chainId,
+                txs: txs,
+                moduleProxyNonce: moduleProxyNonce
+            });
+        }
+
+        MultiChainDeploymentMerkleTreeInputs
+            memory treeInputs = makeMultiChainDeploymentMerkleTreeInputs(networks);
+        DeploymentModuleInputs[] memory moduleInputArray = getMultiChainDeploymentModuleInputs(
+            treeInputs
+        );
+
+        // Sanity check that there's an element in the `moduleInputsArray` for each chain.
+        assertEq(moduleInputArray.length, 3);
+
+        // Test each chain.
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            DeploymentModuleInputs memory moduleInputs = moduleInputArray[i];
+            SphinxTransaction[] memory txs = networks[i].txs;
+            uint256 chainId = defaultChainIds[i];
+            uint256 expectedMyNum = expectedMyNumArray[i];
+            uint256 forkId = forkIds[i];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            test_approveThenExecuteBatch({
+                _txs: txs,
+                _moduleInputs: moduleInputs,
+                _expectedSuccesses: defaultExpectedSuccesses,
+                _expectedArbitraryChain: false,
+                _expectedMyNum: expectedMyNum
+            });
+        }
+    }
+
+    // Test cancelling the same root on multiple networks
+    function test_multichain_cancel_identical() external {
+        uint256[] memory forkIds = setUpMultiChainContracts();
+
+        // Create the network-specific info for the Merkle root that will be approved.
+        NetworkDeploymentMerkleTreeInputs[]
+            memory approvalNetworks = new NetworkDeploymentMerkleTreeInputs[](3);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            approvalNetworks[i] = NetworkDeploymentMerkleTreeInputs({
+                chainId: chainId,
+                txs: defaultTxs,
+                moduleProxyNonce: moduleProxy.merkleRootNonce()
+            });
+        }
+
+        // Create the `SphinxModule` inputs for the Merkle root that will be approved.
+        MultiChainDeploymentMerkleTreeInputs
+            memory approvalTreeInputs = makeMultiChainDeploymentMerkleTreeInputs(approvalNetworks);
+        DeploymentModuleInputs[]
+            memory approvalModuleInputsArray = getMultiChainDeploymentModuleInputs(
+                approvalTreeInputs
+            );
+
+        // Sanity check that there's an approval for each chain.
+        assertEq(approvalModuleInputsArray.length, 3);
+        // Sanity check that the Merkle root is the same on all chains.
+        bytes32 merkleRootToCancel = approvalModuleInputsArray[0].merkleRoot;
+        for (uint256 i = 1; i < approvalModuleInputsArray.length; i++) {
+            assertEq(merkleRootToCancel, approvalModuleInputsArray[i].merkleRoot);
+        }
+
+        // Approve the Merkle root on each chain and collect the network-specific info for the
+        // Merkle root that will cancel the active deployments.
+        NetworkCancellationMerkleTreeInputs[]
+            memory networks = new NetworkCancellationMerkleTreeInputs[](defaultChainIds.length);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            uint256 forkId = forkIds[i];
+            DeploymentModuleInputs memory approvalModuleInputs = approvalModuleInputsArray[i];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            test_approve({
+                _moduleInputs: approvalModuleInputs,
+                _expectedStatus: MerkleRootStatus.APPROVED,
+                _expectedDeploymentUri: defaultDeploymentUri,
+                _expectedArbitraryChain: false
+            });
+
+            networks[i] = NetworkCancellationMerkleTreeInputs({
+                chainId: chainId,
+                merkleRootToCancel: merkleRootToCancel,
+                moduleProxyNonce: moduleProxy.merkleRootNonce()
+            });
+        }
+
+        // Create the `SphinxModule` inputs that will cancel the active deployments.
+        MultiChainCancellationMerkleTreeInputs
+            memory treeInputs = makeMultiChainCancellationMerkleTreeInputs(networks);
+        CancellationModuleInputs[]
+            memory cancellationModuleInputArray = getMultiChainCancellationModuleInputs(treeInputs);
+
+        // Sanity check that there's an element in the `cancellationModuleInputArray` for each chain.
+        assertEq(cancellationModuleInputArray.length, 3);
+
+        // Test each chain.
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            uint256 forkId = forkIds[i];
+            DeploymentModuleInputs memory approvalModuleInputs = approvalModuleInputsArray[i];
+            CancellationModuleInputs memory cancellationModuleInputs = cancellationModuleInputArray[
+                i
+            ];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            test_cancel(approvalModuleInputs, cancellationModuleInputs);
+        }
+    }
+
+    // Test cancelling different roots on multiple networks
+    function test_multichain_cancel_different() external {
+        uint256[] memory forkIds = setUpMultiChainContracts();
+
+        // Approve a Merkle root on each chain and collect the network-specific info that we'll use
+        // to cancel the active deployments.
+        NetworkCancellationMerkleTreeInputs[]
+            memory networks = new NetworkCancellationMerkleTreeInputs[](defaultChainIds.length);
+        DeploymentModuleInputs[] memory approvalModuleInputsArray = new DeploymentModuleInputs[](
+            defaultChainIds.length
+        );
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            uint256 forkId = forkIds[i];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            // Create and approve a Merkle root. The Merkle root will be different on each chain
+            // because each tree will have a single `APPROVE` leaf with a different `chainId` field.
+            DeploymentMerkleTreeInputs memory treeInputsToApprove = makeDeploymentMerkleTreeInputs(
+                defaultTxs
+            );
+            treeInputsToApprove.chainId = chainId;
+            DeploymentModuleInputs memory approvalModuleInputs = getDeploymentModuleInputs(
+                treeInputsToApprove
+            );
+            test_approve({
+                _moduleInputs: approvalModuleInputs,
+                _expectedStatus: MerkleRootStatus.APPROVED,
+                _expectedDeploymentUri: defaultDeploymentUri,
+                _expectedArbitraryChain: false
+            });
+
+            approvalModuleInputsArray[i] = approvalModuleInputs;
+            networks[i] = NetworkCancellationMerkleTreeInputs({
+                chainId: chainId,
+                merkleRootToCancel: approvalModuleInputs.merkleRoot,
+                moduleProxyNonce: moduleProxy.merkleRootNonce()
+            });
+        }
+
+        // Create the `SphinxModule` inputs for the Merkle tree that will cancel the active
+        // deployments.
+        MultiChainCancellationMerkleTreeInputs
+            memory treeInputs = makeMultiChainCancellationMerkleTreeInputs(networks);
+        CancellationModuleInputs[]
+            memory cancellationModuleInputArray = getMultiChainCancellationModuleInputs(treeInputs);
+
+        // Sanity check that there's an element in the `cancellationModuleInputArray` for each chain.
+        assertEq(cancellationModuleInputArray.length, 3);
+        // Sanity check that the `merkleRootToCancel` is different on each chain.
+        assertTrue(networks[0].merkleRootToCancel != networks[1].merkleRootToCancel);
+        assertTrue(networks[0].merkleRootToCancel != networks[2].merkleRootToCancel);
+        assertTrue(networks[1].merkleRootToCancel != networks[2].merkleRootToCancel);
+
+        // Test each chain.
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            uint256 chainId = defaultChainIds[i];
+            uint256 forkId = forkIds[i];
+            DeploymentModuleInputs memory moduleInputsToCancel = approvalModuleInputsArray[i];
+            CancellationModuleInputs memory cancellationModuleInputs = cancellationModuleInputArray[
+                i
+            ];
+
+            vm.selectFork(forkId);
+
+            // Sanity check that we're on the correct chain.
+            assertEq(chainId, block.chainid);
+
+            test_cancel(moduleInputsToCancel, cancellationModuleInputs);
+        }
     }
 
     //////////////////////////////// _getLeafHash ////////////////////////////////////
 
     function test__getLeafHash_success() external {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
         SphinxLeaf memory approvalLeaf = moduleInputs.approvalLeafWithProof.leaf;
         bytes32 expected = keccak256(abi.encodePacked(keccak256(abi.encode(approvalLeaf))));
@@ -1818,7 +1968,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
 
     //////////////////////////////// Helper functions ////////////////////////////////////
 
-    function helper_test_approve(
+    function test_approve(
         DeploymentModuleInputs memory _moduleInputs,
         MerkleRootStatus _expectedStatus,
         string memory _expectedDeploymentUri,
@@ -1882,18 +2032,18 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         assertEq(moduleProxy.merkleRootNonce(), initialNonce + 1);
     }
 
-    function helper_test_approveThenExecuteBatch(
+    function test_approveThenExecuteBatch(
         SphinxTransaction[] memory _txs,
         DeploymentModuleInputs memory _moduleInputs,
         bool[] memory _expectedSuccesses,
-        bool _expectedArbitraryChain
+        bool _expectedArbitraryChain,
+        uint256 _expectedMyNum
     ) internal {
-        // Sanity check
         assertEq(_txs.length, _expectedSuccesses.length);
 
-        helper_test_preExecution();
+        test_preExecution();
 
-        helper_test_approve({
+        test_approve({
             _moduleInputs: _moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -1915,10 +2065,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         vm.prank(deploymentExecutor);
         moduleProxy.execute(_moduleInputs.executionLeavesWithProofs);
 
-        helper_test_postExecution(_moduleInputs);
+        test_postExecution(_moduleInputs, _expectedMyNum);
     }
 
-    function helper_test_preExecution() internal {
+    function test_preExecution() internal {
         // Check the initial values of the contracts that'll be updated during the deployment.
         assertEq(myContract.myNum(), 0);
         assertFalse(myDelegateCallContract.wasDelegateCalled());
@@ -1928,7 +2078,10 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         assertEq(address(myContract).balance, 0);
     }
 
-    function helper_test_postExecution(DeploymentModuleInputs memory _moduleInputs) internal {
+    function test_postExecution(
+        DeploymentModuleInputs memory _moduleInputs,
+        uint256 _expectedMyNum
+    ) internal {
         (
             ,
             ,
@@ -1960,7 +2113,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         assertEq(expectedArbitraryChain, arbitraryChain);
 
         // The first transaction sets the `myNum` variable in `MyContract`.
-        assertEq(myContract.myNum(), 123);
+        assertEq(myContract.myNum(), _expectedMyNum);
         // The second transaction just returned data, which we checked earlier.
         // The third transaction triggered a delegatecall in `MyDelegateCallContract`.
         assertTrue(myDelegateCallContract.wasDelegateCalled());
@@ -1974,27 +2127,27 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         assertEq(address(myContract).balance, 1 ether);
     }
 
-    function helper_makeDeploymentMerkleTreeInputs(
+    function makeDeploymentMerkleTreeInputs(
         SphinxTransaction memory _tx
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
         SphinxTransaction[] memory txs = new SphinxTransaction[](1);
         txs[0] = _tx;
-        return helper_makeDeploymentMerkleTreeInputs(txs);
+        return makeDeploymentMerkleTreeInputs(txs);
     }
 
-    function helper_makeDeploymentMerkleTreeInputs(
+    function makeDeploymentMerkleTreeInputs(
         SphinxTransaction[] memory _txs
     ) internal view returns (DeploymentMerkleTreeInputs memory) {
         return
             DeploymentMerkleTreeInputs({
-                txs: _txs,
-                ownerWallets: ownerWallets,
                 chainId: block.chainid,
+                txs: _txs,
+                moduleProxyNonce: moduleProxy.merkleRootNonce(),
+                ownerWallets: ownerWallets,
                 moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.merkleRootNonce(),
                 executor: deploymentExecutor,
                 safeProxy: address(safeProxy),
-                deploymentUri: defaultDeploymentUri,
+                uri: defaultDeploymentUri,
                 arbitraryChain: false,
                 forceNumLeavesValue: false,
                 overridingNumLeavesValue: 0,
@@ -2004,18 +2157,38 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             });
     }
 
-    function helper_makeCancellationMerkleTreeInputs()
+    function makeMultiChainDeploymentMerkleTreeInputs(
+        NetworkDeploymentMerkleTreeInputs[] memory _networks
+    ) internal view returns (MultiChainDeploymentMerkleTreeInputs memory) {
+        return
+            MultiChainDeploymentMerkleTreeInputs({
+                networks: _networks,
+                ownerWallets: ownerWallets,
+                moduleProxy: moduleProxy,
+                executor: deploymentExecutor,
+                safeProxy: address(safeProxy),
+                uri: defaultDeploymentUri,
+                arbitraryChain: false,
+                forceNumLeavesValue: false,
+                overridingNumLeavesValue: 0,
+                forceApprovalLeafIndexNonZero: false,
+                forceExecutionLeavesChainIdNonZero: false,
+                forceApprovalLeafChainIdNonZero: false
+            });
+    }
+
+    function makeCancellationMerkleTreeInputs()
         internal
         view
         returns (CancellationMerkleTreeInputs memory)
     {
         return
             CancellationMerkleTreeInputs({
-                ownerWallets: ownerWallets,
                 chainId: block.chainid,
-                moduleProxy: moduleProxy,
-                nonceInModuleProxy: moduleProxy.merkleRootNonce(),
                 merkleRootToCancel: moduleProxy.activeMerkleRoot(),
+                moduleProxyNonce: moduleProxy.merkleRootNonce(),
+                ownerWallets: ownerWallets,
+                moduleProxy: moduleProxy,
                 executor: cancellationExecutor,
                 safeProxy: address(safeProxy),
                 uri: defaultCancellationUri,
@@ -2023,7 +2196,22 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             });
     }
 
-    function helper_test_execute_oneByOne(DeploymentModuleInputs memory _moduleInputs) internal {
+    function makeMultiChainCancellationMerkleTreeInputs(
+        NetworkCancellationMerkleTreeInputs[] memory _networks
+    ) internal view returns (MultiChainCancellationMerkleTreeInputs memory) {
+        return
+            MultiChainCancellationMerkleTreeInputs({
+                ownerWallets: ownerWallets,
+                networks: _networks,
+                moduleProxy: moduleProxy,
+                executor: cancellationExecutor,
+                safeProxy: address(safeProxy),
+                uri: defaultCancellationUri,
+                forceCancellationLeafIndexNonZero: false
+            });
+    }
+
+    function test_execute_oneByOne(DeploymentModuleInputs memory _moduleInputs) internal {
         uint256 numExecutionLeaves = _moduleInputs.executionLeavesWithProofs.length;
         uint256 finalExecutionLeafIndex = numExecutionLeaves - 1;
         for (uint256 i = 0; i < numExecutionLeaves; i++) {
@@ -2055,11 +2243,11 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         }
     }
 
-    function helper_test_approveDefaultDeployment() internal {
-        DeploymentModuleInputs memory moduleInputs = getModuleInputs(
-            helper_makeDeploymentMerkleTreeInputs(defaultTxs)
+    function test_approveDefaultDeployment() internal {
+        DeploymentModuleInputs memory moduleInputs = getDeploymentModuleInputs(
+            makeDeploymentMerkleTreeInputs(defaultTxs)
         );
-        helper_test_approve({
+        test_approve({
             _moduleInputs: moduleInputs,
             _expectedStatus: MerkleRootStatus.APPROVED,
             _expectedDeploymentUri: defaultDeploymentUri,
@@ -2067,71 +2255,213 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
         });
     }
 
+    function test_cancel(
+        DeploymentModuleInputs memory _moduleInputsToCancel,
+        CancellationModuleInputs memory _cancellationInputs
+    ) internal {
+        uint256 initialNonce = moduleProxy.merkleRootNonce();
+
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _cancellationInputs.merkleRoot))
+        );
+        vm.expectCall(
+            safeProxy,
+            abi.encodePacked(
+                GnosisSafe(safeProxy).checkSignatures.selector,
+                abi.encode(keccak256(typedData), typedData, _cancellationInputs.ownerSignatures)
+            )
+        );
+        vm.expectEmit(address(moduleProxy));
+        emit SphinxMerkleRootCanceled({
+            completedMerkleRoot: _cancellationInputs.merkleRoot,
+            canceledMerkleRoot: _moduleInputsToCancel.merkleRoot,
+            nonce: initialNonce,
+            executor: cancellationExecutor,
+            uri: defaultCancellationUri
+        });
+        vm.expectEmit(address(moduleProxy));
+        emit SphinxMerkleRootCompleted(_cancellationInputs.merkleRoot);
+        vm.prank(cancellationExecutor);
+        moduleProxy.cancel(
+            _cancellationInputs.merkleRoot,
+            _cancellationInputs.cancellationLeafWithProof,
+            _cancellationInputs.ownerSignatures
+        );
+
+        (, , , , MerkleRootStatus canceledMerkleRootStatus, ) = moduleProxy.merkleRootStates(
+            _moduleInputsToCancel.merkleRoot
+        );
+        assertEq(canceledMerkleRootStatus, MerkleRootStatus.CANCELED);
+        assertEq(moduleProxy.activeMerkleRoot(), bytes32(0));
+
+        (
+            uint256 cancellationNumLeaves,
+            uint256 cancellationLeavesExecuted,
+            string memory cancellationUri,
+            address cancellationExecutorOnChain,
+            MerkleRootStatus cancellationRootStatus,
+            bool cancellationArbitraryChain
+        ) = moduleProxy.merkleRootStates(_cancellationInputs.merkleRoot);
+        assertEq(cancellationNumLeaves, 1);
+        assertEq(cancellationLeavesExecuted, 1);
+        assertEq(cancellationUri, defaultCancellationUri);
+        assertEq(cancellationExecutorOnChain, cancellationExecutor);
+        assertEq(cancellationRootStatus, MerkleRootStatus.COMPLETED);
+        assertEq(cancellationArbitraryChain, false);
+
+        assertEq(moduleProxy.merkleRootNonce(), initialNonce + 1);
+    }
+
+    /**
+     * @notice Sets up the contracts in this test suite on forked networks.
+     */
+    function setUpMultiChainContracts() internal returns (uint256[] memory _forkIds) {
+        uint256[] memory forkIds = new uint256[](rpcUrls.length);
+        for (uint256 i = 0; i < defaultChainIds.length; i++) {
+            string memory rpcUrl = rpcUrls[i];
+            forkIds[i] = vm.createSelectFork(rpcUrl);
+
+            SphinxModuleProxyFactory deployedModuleProxyFactory = new SphinxModuleProxyFactory{
+                salt: bytes32(0)
+            }();
+            // Sanity check that the `SphinxModuleProxyFactory`'s address matches the address in the
+            // standard test suite.
+            assertEq(address(deployedModuleProxyFactory), address(moduleProxyFactory));
+
+            GnosisSafeAddresses memory gnosisSafeAddresses = deployGnosisSafeContracts(
+                gnosisSafeVersion
+            );
+
+            myContract = new MyContract{ salt: bytes32(0) }();
+            myDelegateCallContract = new MyDelegateCallContract{ salt: bytes32(0) }();
+
+            (
+                address payable deployedSafeProxy,
+                SphinxModule deployedModuleProxy
+            ) = initializeGnosisSafeWithModule(moduleProxyFactory, gnosisSafeAddresses);
+            assertEq(address(deployedSafeProxy), address(safeProxy));
+            assertEq(address(deployedModuleProxy), address(moduleProxy));
+
+            // Give the Gnosis Safe 1 ether
+            vm.deal(address(safeProxy), 1 ether);
+        }
+        return forkIds;
+    }
+
     function assertEq(MerkleRootStatus a, MerkleRootStatus b) internal pure {
         require(uint256(a) == uint256(b), "MerkleRootStatus mismatch");
+    }
+
+    /**
+     * @notice This function sets up then executes a transaction that:
+     *        - Deploys a Gnosis Safe.
+     *        - Deploys a `SphinxModuleProxy`.
+     *        - Enables the `SphinxModuleProxy` in the Gnosis Safe.
+     *
+     *        We'll do this by encoding all of this information into the `initializer` data that'll
+     *        be submitted to the Gnosis Safe Proxy Factory. Specifically, we'll use Gnosis Safe's
+     *        `MultiSend` contract to execute two transactions on the `SphinxModuleProxyFactory`:
+     *        1. `deploySphinxModuleProxyFromSafe`
+     *        2. `enableSphinxModuleProxyFromSafe`
+     */
+    function initializeGnosisSafeWithModule(
+        SphinxModuleProxyFactory _moduleProxyFactory,
+        GnosisSafeAddresses memory _gnosisSafeAddresses
+    ) internal returns (address payable deployedSafeProxy, SphinxModule deployedModuleProxy) {
+        // Create the first transaction, `SphinxModuleProxyFactory.deploySphinxModuleProxyFromSafe`.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the first transaction data in a format that can be executed using `MultiSend`.
+        bytes memory firstMultiSendData = abi.encodePacked(
+            // We use `Call` so that the deployer of the `SphinxModuleProxy` is the
+            // `SphinxModuleProxyFactory`. This makes it easier for off-chain tooling to calculate
+            // the deployed `SphinxModuleProxy` address.
+            uint8(Operation.Call),
+            _moduleProxyFactory,
+            uint256(0),
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+        // Create the second transaction,
+        // `SphinxModuleProxyFactory.enableSphinxModuleProxyFromSafe`.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the second transaction data in a format that can be executed using `MultiSend`.
+        bytes memory secondMultiSendData = abi.encodePacked(
+            uint8(Operation.DelegateCall),
+            _moduleProxyFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+        // Encode the entire `MultiSend` data.
+        bytes memory multiSendData = abi.encodeWithSelector(
+            MultiSend.multiSend.selector,
+            abi.encodePacked(firstMultiSendData, secondMultiSendData)
+        );
+
+        // Encode the call to the Gnosis Safe's `setup` function, which we'll submit to the Gnosis
+        // Safe Proxy Factory. This data contains the `MultiSend` data that we created above.
+        bytes memory safeInitializerData = abi.encodePacked(
+            GnosisSafe.setup.selector,
+            abi.encode(
+                owners,
+                3, // Gnosis Safe owner threshold
+                _gnosisSafeAddresses.multiSend,
+                multiSendData,
+                _gnosisSafeAddresses.compatibilityFallbackHandler,
+                address(0),
+                0,
+                address(0)
+            )
+        );
+
+        // This is the transaction that deploys the Gnosis Safe, deploys the `SphinxModuleProxy`, and
+        // enables the `SphinxModuleProxy` in the Gnosis Safe.
+        GnosisSafeProxy deployedGnosisSafeProxy = GnosisSafeProxyFactory(
+            _gnosisSafeAddresses.safeProxyFactory
+        ).createProxyWithNonce(_gnosisSafeAddresses.safeSingleton, safeInitializerData, 0);
+
+        // Return the Gnosis Safe proxy and the `SphinxModuleProxy`.
+        deployedSafeProxy = payable(address(deployedGnosisSafeProxy));
+        deployedModuleProxy = SphinxModule(
+            _moduleProxyFactory.computeSphinxModuleProxyAddress(
+                address(deployedSafeProxy),
+                address(deployedSafeProxy),
+                0
+            )
+        );
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L1_1_3_0_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeVersion.L1_1_3_0,
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL1Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
+        AbstractSphinxModuleProxy_Test.setUp(GnosisSafeVersion.L1_1_3_0);
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L2_1_3_0_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_3_0 memory safeContracts = deployGnosisSafeContracts_1_3_0();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeVersion.L2_1_3_0,
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
+        AbstractSphinxModuleProxy_Test.setUp(GnosisSafeVersion.L2_1_3_0);
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L1_1_4_1_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeVersion.L1_1_4_1,
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL1Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
+        AbstractSphinxModuleProxy_Test.setUp(GnosisSafeVersion.L1_1_4_1);
     }
 }
 
 contract SphinxModuleProxy_GnosisSafe_L2_1_4_1_Test is AbstractSphinxModuleProxy_Test {
     function setUp() public {
-        GnosisSafeContracts_1_4_1 memory safeContracts = deployGnosisSafeContracts_1_4_1();
-        AbstractSphinxModuleProxy_Test.setUp(
-            GnosisSafeVersion.L2_1_4_1,
-            GnosisSafeAddresses({
-                multiSend: address(safeContracts.multiSend),
-                compatibilityFallbackHandler: address(safeContracts.compatibilityFallbackHandler),
-                safeProxyFactory: address(safeContracts.safeProxyFactory),
-                safeSingleton: address(safeContracts.safeL2Singleton),
-                createCall: address(safeContracts.createCall)
-            })
-        );
+        AbstractSphinxModuleProxy_Test.setUp(GnosisSafeVersion.L2_1_4_1);
     }
 }

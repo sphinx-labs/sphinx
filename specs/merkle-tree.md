@@ -15,6 +15,7 @@ Sphinx uses a custom Merkle tree data structure to allow teams to approve arbitr
 - [Merkle Leaf Types](#merkle-leaf-types)
   - [`APPROVE` Leaf Data](#approve-leaf-data)
   - [`EXECUTE` Leaf Data](#execute-leaf-data)
+  - [TODO(md): cancel leaf]
 - [High-Level Merkle Tree Invariants](#high-level-merkle-tree-invariants)
 - [Merkle Tree Generation Logic](#merkle-tree-generation-logic)
 - [Dependencies](#dependencies)

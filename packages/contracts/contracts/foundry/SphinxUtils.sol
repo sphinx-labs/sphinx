@@ -6,7 +6,12 @@ import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";
-import { SphinxLeafWithProof, SphinxLeaf } from "../core/SphinxDataTypes.sol";
+import {
+    SphinxLeafWithProof,
+    SphinxLeaf,
+    SphinxLeafType,
+    MerkleRootStatus
+} from "../core/SphinxDataTypes.sol";
 import {
     SphinxMerkleTree,
     DeploymentInfo,
@@ -29,8 +34,7 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // These are constants thare are used when signing an EIP-712 meta transaction. They're copied
-    // from the `SphinxAuth` contract.
+    // These are constants thare are used when signing an EIP-712 meta transaction.
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(
             abi.encode(
@@ -114,7 +118,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return _data[_start:_end];
     }
 
-    // TODO - update so this deploys the Safe contracts
     function ffiDeployOnAnvil(string memory _rpcUrl) public {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
@@ -127,7 +130,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (result.exitCode != 0) {
             revert(string(result.stderr));
         }
-        vm.sleep(5000);
     }
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
@@ -223,10 +225,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return wallets;
     }
 
+    function decodeApproveLeafData(
+        SphinxLeaf memory leaf
+    )
+        internal
+        pure
+        returns (
+            address leafSafeProxy,
+            address moduleProxy,
+            uint256 leafMerkleRootNonce,
+            uint256 numLeaves,
+            address executor,
+            string memory uri,
+            bool arbitraryChain
+        )
+    {
+        return abi.decode(leaf.data, (address, address, uint256, uint256, address, string, bool));
+    }
+
     function decodeExecutionLeafData(
         SphinxLeaf memory leaf
     )
-        public
+        internal
         pure
         returns (
             address to,
@@ -300,13 +320,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return bytes32(uint256(uint160(_addr)));
     }
 
-    // TODO: implement this w/o the chainId == 0 shortcut.
-    function filterActionsOnNetwork(
+    function getLeavesOnNetwork(
         SphinxLeafWithProof[] memory leaves
     ) external view returns (SphinxLeafWithProof[] memory) {
+        // Check if `arbitraryChain` is `true`. If it is, there's only a single `APPROVE` leaf in
+        // the tree, which applies to all networks. We return the entire array of leaves in this
+        // case.
+        for (uint256 i = 0; i < leaves.length; i++) {
+            SphinxLeaf memory leaf = leaves[i].leaf;
+            if (leaf.leafType == SphinxLeafType.APPROVE) {
+                (, , , , , , bool arbitraryChain) = decodeApproveLeafData(leaf);
+                if (arbitraryChain) {
+                    return leaves;
+                }
+            }
+        }
+
+        // We know that `arbitraryChain` is `false`, so we retrieve the leaves that exist on the
+        // current chain.
         uint256 numLeavesOnNetwork = 0;
         for (uint256 i = 0; i < leaves.length; i++) {
-            if (leaves[i].leaf.chainId == block.chainid || leaves[i].leaf.chainId == 0) {
+            if (leaves[i].leaf.chainId == block.chainid) {
                 numLeavesOnNetwork += 1;
             }
         }
@@ -314,11 +348,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxLeafWithProof[] memory leavesOnNetwork = new SphinxLeafWithProof[](
             numLeavesOnNetwork
         );
-        uint256 leafIndex = 0;
+        uint256 arrayIndex = 0;
         for (uint256 i = 0; i < leaves.length; i++) {
-            if (leaves[i].leaf.chainId == block.chainid || leaves[i].leaf.chainId == 0) {
-                leavesOnNetwork[leafIndex] = leaves[i];
-                leafIndex += 1;
+            if (leaves[i].leaf.chainId == block.chainid) {
+                leavesOnNetwork[arrayIndex] = leaves[i];
+                arrayIndex += 1;
             }
         }
 
@@ -704,10 +738,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    function signMetaTxnForAuthRoot(
-        uint256 _privateKey,
-        bytes32 _root
-    ) public pure returns (bytes memory) {
+    function signMerkleRoot(uint256 _privateKey, bytes32 _root) public pure returns (bytes memory) {
         bytes memory typedData = abi.encodePacked(
             "\x19\x01",
             DOMAIN_SEPARATOR,
@@ -722,11 +753,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(SphinxConfig memory _config) external view {
-        require(
-            bytes(_config.projectName).length > 0,
-            "Sphinx: You must assign a value to 'sphinxConfig.projectName' before calling this function."
-        );
+    function validate(SphinxConfig memory _config) external pure {
         require(
             _config.owners.length > 0,
             "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
@@ -801,18 +828,26 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         SphinxConfig memory _config,
         address _msgSender
     ) external view {
-        // TODO - We should do something similar to this, but what?
-        // require(
-        //     registryAddress.code.length > 0,
-        //     "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support
-        // it."
-        // );
+        require(
+            sphinxModuleProxyFactoryAddress.code.length > 0,
+            "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
+        );
         require(
             _config.owners.length == 1,
             "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
         );
 
-        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+        // We use a try/catch instead of `vm.envOr` because `vm.envOr` is a potentially
+        // state-changing operation, which means this function would need to be marked as
+        // state-changing. However, we shouldn't do that because this call would be broadcasted.
+        uint256 privateKey;
+        try vm.envUint("PRIVATE_KEY") returns (uint256 _privateKey) {
+            privateKey = _privateKey;
+        } catch {
+            revert("Sphinx: Did not detect 'PRIVATE_KEY' environment variable.");
+        }
+
+        address deployer = vm.addr(privateKey);
         require(
             deployer == _config.owners[0],
             string(
@@ -840,26 +875,18 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             )
         );
 
-        // TODO - Check if the caller owns the target safe
-        // address authAddress = getSphinxAuthAddress(_config);
-        // if (authAddress.code.length > 0) {
-        //     ISphinxAccessControlEnumerable auth = ISphinxAccessControlEnumerable(authAddress);
-        //     // Check that the deployer is an owner. 0x00 is the `DEFAULT_ADMIN_ROLE` used
-        //     // by OpenZeppelin's AccessControl contract.
-        //     require(
-        //         auth.hasRole(0x00, deployer),
-        //         "Sphinx: The deployer must be an owner of the SphinxAuth contract."
-        //     );
-        //     require(
-        //         auth.getRoleMemberCount(0x00) == 1,
-        //         "Sphinx: The deployer must be the only owner of the SphinxAuth contract."
-        //     );
-        //     require(
-        //         !ISphinxAuth(authAddress).firstProposalOccurred() ||
-        //             auth.hasRole(keccak256("ProposerRole"), deployer),
-        //         "Sphinx: The deployer must be a proposer in the SphinxAuth contract."
-        //     );
-        // }
+        IGnosisSafe safe = IGnosisSafe(getSphinxSafeAddress(_config));
+        if (address(safe).code.length > 0) {
+            // Check that the deployer is the sole owner of the Gnosis Safe.
+            require(
+                safe.isOwner(deployer),
+                "Sphinx: The deployer must be an owner of the Gnosis Safe."
+            );
+            require(
+                safe.getOwners().length == 1,
+                "Sphinx: The deployer must be the only owner of the Gnosis Safe."
+            );
+        }
     }
 
     function getInitialChainState(
@@ -867,12 +894,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ISphinxModule _sphinxModule
     ) external view returns (InitialChainState memory) {
         if (address(_safe).code.length == 0) {
-            return InitialChainState({ isSafeDeployed: false, isExecuting: false });
+            return
+                InitialChainState({
+                    isSafeDeployed: false,
+                    isModuleDeployed: false,
+                    isExecuting: false
+                });
         } else {
+            bool isModuleDeployed = address(_sphinxModule).code.length > 0;
             return
                 InitialChainState({
                     isSafeDeployed: true,
-                    isExecuting: _sphinxModule.activeMerkleRoot() != bytes32(0)
+                    isModuleDeployed: isModuleDeployed,
+                    isExecuting: isModuleDeployed
+                        ? _sphinxModule.activeMerkleRoot() != bytes32(0)
+                        : false
                 });
         }
     }
@@ -891,21 +927,26 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return a == 0 ? 0 : (a - 1) / b + 1;
     }
 
-    function validateProposal(SphinxConfig memory _config) external view {
+    function validateProposal(SphinxConfig memory _config) external pure {
         require(
             bytes(_config.orgId).length > 0,
-            "Sphinx: Your 'orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
+            "Sphinx: Your 'sphinxConfig.orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
+        );
+        require(
+            bytes(_config.projectName).length > 0,
+            "Sphinx: Your 'sphinxConfig.projectName' cannot be an empty string. Please enter a project name."
         );
     }
 
-    function getSphinxSafeAddress(
-        address[] memory _owners,
-        uint256 _threshold,
-        string memory _projectName
-    ) public view returns (address) {
-        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
-        uint safeSaltNonce = fetchSafeSaltNonce(_projectName);
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(safeInitializerData), safeSaltNonce));
+    function getSphinxSafeAddress(SphinxConfig memory _config) public pure returns (address) {
+        address[] memory owners = _config.owners;
+        uint256 threshold = _config.threshold;
+
+        address[] memory sortedOwners = sortAddresses(owners);
+        bytes memory safeInitializerData = getSafeInitializerData(sortedOwners, threshold);
+        bytes32 salt = keccak256(
+            abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
+        );
         bytes memory deploymentData = abi.encodePacked(
             safeProxyBytecode,
             uint256(uint160(safeSingletonAddress))
@@ -914,12 +955,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return addr;
     }
 
-    function getSphinxModuleAddress(
-        address[] memory _owners,
-        uint256 _threshold,
-        string memory _projectName
-    ) public view returns (address) {
-        address safeProxyAddress = getSphinxSafeAddress(_owners, _threshold, _projectName);
+    function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
+        address safeProxyAddress = getSphinxSafeAddress(_config);
         bytes32 saltNonce = bytes32(0);
         bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, saltNonce));
         address addr = Clones.predictDeterministicAddress(
@@ -930,15 +967,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return addr;
     }
 
-    function fetchSafeSaltNonce(string memory _projectName) public view returns (uint) {
-        return uint(keccak256(bytes(_projectName)));
-    }
-
-    function fetchSafeInitializerData(
+    function getSafeInitializerData(
         address[] memory _owners,
         uint _threshold
-    ) public view returns (bytes memory safeInitializerData) {
+    ) public pure returns (bytes memory safeInitializerData) {
+        require(
+            _owners.length > 0,
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array."
+        );
+        require(
+            _threshold > 0,
+            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0."
+        );
+
         address[] memory sortedOwners = sortAddresses(_owners);
+
         ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
             sphinxModuleProxyFactoryAddress
         );
@@ -984,24 +1027,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function sphinxModuleProxyFactoryDeploy(
-        address[] memory _owners,
-        uint _threshold,
-        string memory _projectName
-    ) external returns (address) {
-        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
-
-        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
-        return
-            address(
-                safeProxyFactory.createProxyWithNonce(
-                    safeSingletonAddress,
-                    safeInitializerData,
-                    fetchSafeSaltNonce(_projectName)
-                )
-            );
-    }
-
     function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
         bytes memory output;
 
@@ -1013,31 +1038,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Deploys a user's SphinxManager and SphinxAuth contract by calling
-     *         `SphinxAuthFactory.deploy` via FFI. This is only called when broadcasting on a local
-     *         network (i.e. Anvil). If we don't do this, the following situation will occur,
-     *         resulting in an error:
+     * @notice Deploys a user's Gnosis Safe via FFI. This is only called when broadcasting
+     *         on a local network (i.e. Anvil). If we don't do this, the following situation will
+     *         occur, resulting in an error:
      *
      *         1. The local Forge simulation is run, which triggers an FFI call that grants
-     *            ownership roles to the auto-generated address(es) in the SphinxAuth contract. This
-     *            occurs in `_sphinxGrantRoleInAuthContract`. Crucially, the SphinxAuth contract is
+     *            ownership roles to the auto-generated address(es) in the Gnosis Safe contract.
+     *            This occurs in `_sphinxOverrideSafeOwners`. Crucially, the Gnosis Safe contract is
      *            not deployed yet because the broadcast has not occurred yet.
-     *         2. The broadcast occurs, which includes a transaction for `SphinxAuthFactory.deploy`.
+     *         2. The broadcast occurs, which includes a transaction that deploys the Gnosis Safe.
      *            This overwrites the storage slots that were set in the previous step, which means
      *            the auto-generated addresses no longer have ownership privileges.
      *         3. The deployment fails during the broadcast because the signatures signed by the
      *            auto-generated addresses are no longer valid.
      *
-     *        This function prevents this error by calling `SphinxAuthFactory.deploy` via FFI
-     *        before the storage values are set in the SphinxAuth contract in step 1.
+     *        This function prevents this error by deploying the Gnosis Safe via FFI before the
+     *        storage values are set in the Safe in step 1.
      */
-    function sphinxModuleProxyFactoryDeployFFI(
-        address[] memory _owners,
-        uint256 _threshold,
-        string memory _projectName,
-        string memory _rpcUrl
-    ) external {
-        bytes memory safeInitializerData = fetchSafeInitializerData(_owners, _threshold);
+    function deployGnosisSafeFFI(SphinxConfig memory _config, string memory _rpcUrl) external {
+        bytes memory safeInitializerData = getSafeInitializerData(
+            _config.owners,
+            _config.threshold
+        );
 
         string[] memory inputs;
         inputs = new string[](8);
@@ -1047,11 +1069,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         inputs[3] = vm.toString(
             abi.encodePacked(
                 IGnosisSafeProxyFactory.createProxyWithNonce.selector,
-                abi.encode(
-                    safeSingletonAddress,
-                    safeInitializerData,
-                    fetchSafeSaltNonce(_projectName)
-                )
+                abi.encode(safeSingletonAddress, safeInitializerData, _config.saltNonce)
             )
         );
         inputs[4] = "--rpc-url";
@@ -1072,7 +1090,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) public pure returns (bytes memory) {
         bytes[] memory signatures = new bytes[](_owners.length);
         for (uint256 i = 0; i < _owners.length; i++) {
-            signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);
+            signatures[i] = signMerkleRoot(_owners[i].privateKey, _root);
         }
         return packBytes(signatures);
     }
@@ -1082,6 +1100,24 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return 0;
         } else {
             return _module.merkleRootNonce();
+        }
+    }
+
+    function merkleRootStatusToString(
+        MerkleRootStatus _status
+    ) public pure returns (string memory) {
+        if (_status == MerkleRootStatus.EMPTY) {
+            return "empty";
+        } else if (_status == MerkleRootStatus.APPROVED) {
+            return "approved";
+        } else if (_status == MerkleRootStatus.COMPLETED) {
+            return "completed";
+        } else if (_status == MerkleRootStatus.CANCELED) {
+            return "cancelled";
+        } else if (_status == MerkleRootStatus.FAILED) {
+            return "failed";
+        } else {
+            revert("Sphinx: Invalid MerkleRootStatus. Should never happen.");
         }
     }
 }
