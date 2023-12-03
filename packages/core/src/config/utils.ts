@@ -7,7 +7,8 @@ import {
   keccak256,
 } from 'ethers'
 
-import { ContractKind, ContractKindEnum } from './types'
+import { ActionInput, ContractKind, ContractKindEnum } from './types'
+import { prettyFunctionCall } from '../utils'
 
 export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
   switch (kind) {
@@ -26,6 +27,25 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
     default:
       throw new Error(`Invalid contract kind: ${kind}`)
   }
+}
+
+export const getReadableActions = (actionInputs: ActionInput[]) => {
+  return actionInputs.map((action) => {
+    const { referenceName, functionName, variables, address } =
+      action.decodedAction
+    const actionStr = prettyFunctionCall(
+      referenceName,
+      address,
+      functionName,
+      variables,
+      5,
+      3
+    )
+    return {
+      reason: actionStr,
+      actionIndex: action.index,
+    }
+  })
 }
 
 /**

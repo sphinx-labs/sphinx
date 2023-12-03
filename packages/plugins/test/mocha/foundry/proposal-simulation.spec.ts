@@ -9,6 +9,7 @@ import {
   execAsync,
   spawnAsync,
   getMerkleTreeInfo,
+  getReadableActions,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -173,6 +174,16 @@ const testProposalSimulation = async (
     parsedConfigArray
   )
 
+  const humanReadableActions: Array<
+    {
+      reason: string
+      actionIndex: string
+    }[]
+  > = []
+  for (const config of parsedConfigArray) {
+    humanReadableActions.push(getReadableActions(config.actionInputs))
+  }
+
   const sphinxPluginTypesABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require(resolve(
@@ -188,10 +199,23 @@ const testProposalSimulation = async (
     )
   }
 
+  const humanReadableActionsNestedFragment = iface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'humanReadableActionsNestedType')
+  if (!humanReadableActionsNestedFragment) {
+    throw new Error(
+      `'humanReadableActionsNestedType' not found in ABI. Should never happen.`
+    )
+  }
+
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const encodedBundleInfo = coder.encode(bundleInfoFragment.outputs, [
     merkleTreeInfo.merkleTree,
   ])
+  const encodedHumanReadableActionsNested = coder.encode(
+    humanReadableActionsNestedFragment.outputs,
+    [humanReadableActions]
+  )
 
   const { code, stdout, stderr } = await spawnAsync(
     `forge`,
@@ -200,6 +224,7 @@ const testProposalSimulation = async (
       ROOT: root,
       MERKLE_TREE: encodedBundleInfo,
       CONFIG_URI: configUri,
+      HUMAN_READABLE_ACTIONS: encodedHumanReadableActionsNested,
       ...envVars,
     }
   )

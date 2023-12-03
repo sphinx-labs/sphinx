@@ -241,6 +241,12 @@ contract SphinxPluginTypes {
         returns (HumanReadableAction[] memory humanReadableActions)
     {}
 
+    function humanReadableActionsNestedType()
+        external
+        pure
+        returns (HumanReadableAction[][] memory humanReadableActions)
+    {}
+
     function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
 
     function getDeploymentInfoArray()

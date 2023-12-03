@@ -163,7 +163,8 @@ abstract contract Sphinx {
     function sphinxDeployTask(
         string memory _networkName,
         bytes32 _root,
-        SphinxMerkleTree memory _merkleTree
+        SphinxMerkleTree memory _merkleTree,
+        HumanReadableAction[] memory _humanReadableActions
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
@@ -197,7 +198,8 @@ abstract contract Sphinx {
             _merkleTree,
             metaTxnSignature,
             rpcUrl,
-            _networkName
+            _networkName,
+            _humanReadableActions
         );
         vm.stopBroadcast();
     }
@@ -211,7 +213,8 @@ abstract contract Sphinx {
     function sphinxSimulateProposal(
         bool _testnets,
         bytes32 _root,
-        SphinxMerkleTree memory _merkleTree
+        SphinxMerkleTree memory _merkleTree,
+        HumanReadableAction[][] memory _humanReadableActions
     ) external returns (uint256[] memory) {
         setupPropose();
 
@@ -242,7 +245,8 @@ abstract contract Sphinx {
                 _merkleTree,
                 "",
                 rpcUrl,
-                networkInfo.name
+                networkInfo.name,
+                _humanReadableActions[i]
             );
             vm.stopPrank();
         }
@@ -330,6 +334,11 @@ abstract contract Sphinx {
 
             ISphinxModule(_module).execute{ gas: maxGasLimit }(batch);
             // TODO - do something with the status
+            (, uint leavesExecuted, , , MerkleRootStatus status, ) = ISphinxModule(_module)
+                .merkleRootStates(activeRoot);
+            if (status == MerkleRootStatus.FAILED) {
+                return (false, leavesExecuted);
+            }
 
             // Move to next batch if necessary
             executed += batchSize;
@@ -343,7 +352,8 @@ abstract contract Sphinx {
         ISphinxModule _module,
         SphinxMerkleTree memory _merkleTree,
         uint256 blockGasLimit,
-        bytes memory _signatures
+        bytes memory _signatures,
+        HumanReadableAction[] memory _humanReadableActions
     ) private returns (bool, HumanReadableAction memory) {
         // Define an empty action, which we'll return if the deployment succeeds.
         HumanReadableAction memory emptyAction;
@@ -361,10 +371,15 @@ abstract contract Sphinx {
 
         // Execute the rest of the actions
         uint256 bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
-        sphinxExecuteBatchActions(_module, leaves, bufferedGasLimit);
+        (bool success, uint leavesExecuted) = sphinxExecuteBatchActions(
+            _module,
+            leaves,
+            bufferedGasLimit
+        );
 
-        // TODO - handle outputting something useful if the deployment fails
-        //        maybe do something with HumanReadableAction wrt to this
+        if (success == false) {
+            return (false, _humanReadableActions[leavesExecuted - 1]);
+        }
 
         return (true, emptyAction);
     }
@@ -438,7 +453,8 @@ abstract contract Sphinx {
         SphinxMerkleTree memory _merkleTree,
         bytes memory _metaTxnSignature,
         string memory _rpcUrl,
-        string memory _networkName
+        string memory _networkName,
+        HumanReadableAction[] memory _humanReadableActions
     ) private {
         (, address msgSender, ) = vm.readCallers();
 
@@ -457,14 +473,8 @@ abstract contract Sphinx {
 
         sphinxRegisterProject(_rpcUrl, msgSender);
 
-        (
-            uint256 numLeaves,
-            uint256 leavesExecuted,
-            string memory uri,
-            address executor,
-            MerkleRootStatus status,
-
-        ) = _module.merkleRootStates(_root);
+        (uint256 numLeaves, uint256 leavesExecuted, string memory uri, , , ) = _module
+            .merkleRootStates(_root);
 
         if (
             numLeaves == leavesExecuted &&
@@ -505,7 +515,13 @@ abstract contract Sphinx {
         (
             bool executionSuccess,
             HumanReadableAction memory readableAction
-        ) = sphinxExecuteDeployment(_module, _merkleTree, block.gaslimit, ownerSignatures);
+        ) = sphinxExecuteDeployment(
+                _module,
+                _merkleTree,
+                block.gaslimit,
+                ownerSignatures,
+                _humanReadableActions
+            );
 
         if (!executionSuccess) {
             bytes memory revertMessage = abi.encodePacked(
