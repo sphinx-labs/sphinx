@@ -23,7 +23,11 @@ export const MultiSendArtifact: GnosisSafeContractArtifact = require('../safe-ar
 export const MultiSendCallOnlyArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/libraries/MultiSendCallOnly.sol/MultiSendCallOnly.json')
 export const SignMessageLibArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/libraries/SignMessageLib.sol/SignMessageLib.json')
 export const GnosisSafeL2Artifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json')
-export const GnosisSafeArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/GnosisSafe.sol/GnosisSafe.json')
+// export const GnosisSafeArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/GnosisSafe.sol/GnosisSafe.json')
+export const GnosisSafeArtifact = parseFoundryArtifact(
+  require('../out/GnosisSafe.sol/GnosisSafe.json')
+)
+
 // This contract isn't deployed in Gnosis Safe's deployment scripts, but we need its bytecode in the
 // plugins package, so we include it here.
 export const GnosisSafeProxyArtifact: GnosisSafeContractArtifact = require('../safe-artifacts/v1.3.0/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json')

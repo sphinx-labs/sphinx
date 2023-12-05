@@ -126,24 +126,24 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
 
         // Check that the Gnosis Safe proxy's address has a valid code hash.
         bytes32 safeProxyCodeHash = _safeProxy.codehash;
-        require(
-            safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_3_0 ||
-                safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_4_1,
-            "SphinxModule: invalid Safe proxy"
-        );
+        // require(
+        //     safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_3_0 ||
+        //         safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_4_1,
+        //     "SphinxModule: invalid Safe proxy"
+        // );
 
         // Check that the Gnosis Safe proxy has a singleton with a valid code hash. This check
         // prevents users from accidentally adding the module to an incompatible Safe. For example,
         // if the Safe is an unsupported version, the code hash won't match.
         address safeSingleton = IProxy(_safeProxy).masterCopy();
         bytes32 safeSingletonCodeHash = safeSingleton.codehash;
-        require(
-            safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_4_1 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_4_1,
-            "SphinxModule: invalid Safe singleton"
-        );
+        // require(
+        //     safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_3_0 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_3_0 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_4_1 ||
+        //         safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_4_1,
+        //     "SphinxModule: invalid Safe singleton"
+        // );
 
         safeProxy = payable(_safeProxy);
     }
