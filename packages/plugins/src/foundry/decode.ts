@@ -13,12 +13,13 @@ import {
   RawFunctionCallActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
+  getGasWithBuffer,
   isLabel,
   isRawCreate2ActionInput,
   isRawFunctionCallActionInput,
   isString,
 } from '@sphinx-labs/core/dist/utils'
-import { AbiCoder, Fragment, Interface, ethers } from 'ethers'
+import { AbiCoder, Fragment, ethers } from 'ethers'
 import {
   ParsedContractDeployments,
   SphinxActionType,
@@ -31,15 +32,14 @@ import {
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
-import { FoundryDryRun, ProposalOutput } from './types'
+import { FoundryDryRun } from './types'
 import { getConfigArtifactForContractName } from './utils'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
-  sphinxPluginTypesABI: Array<any>
+  sphinxPluginTypesInterface: ethers.Interface
 ): DeploymentInfo => {
-  const iface = new ethers.Interface(sphinxPluginTypesABI)
-  const deploymentInfoFragment = iface.fragments
+  const deploymentInfoFragment = sphinxPluginTypesInterface.fragments
     .filter(Fragment.isFunction)
     .find((fragment) => fragment.name === 'getDeploymentInfo')
 
@@ -71,7 +71,6 @@ export const decodeDeploymentInfo = (
     labels,
     requireSuccess,
     safeInitData,
-    safeInitSaltNonce,
     arbitraryChain,
   } = deploymentInfoBigInt
 
@@ -80,7 +79,6 @@ export const decodeDeploymentInfo = (
     safeAddress,
     moduleAddress,
     safeInitData,
-    safeInitSaltNonce: safeInitSaltNonce.toString(),
     executorAddress,
     requireSuccess,
     nonce: nonce.toString(),
@@ -94,42 +92,10 @@ export const decodeDeploymentInfo = (
       testnets: newConfig.testnets.map(networkEnumToName),
       mainnets: newConfig.mainnets.map(networkEnumToName),
       threshold: newConfig.threshold.toString(),
+      saltNonce: newConfig.saltNonce.toString(),
     },
     arbitraryChain,
   }
-}
-
-export const decodeProposalOutput = (
-  abiEncodedProposalOutput: string,
-  abi: Array<any>
-): ProposalOutput => {
-  const iface = new Interface(abi)
-  const proposalOutputFragment = iface.fragments
-    .filter(Fragment.isFunction)
-    .find((fragment) => fragment.name === 'proposalOutput')
-
-  if (!proposalOutputFragment) {
-    throw new Error(`'proposalOutput' not found in ABI. Should never happen.`)
-  }
-
-  const coder = AbiCoder.defaultAbiCoder()
-
-  const proposalOutputResult = coder.decode(
-    proposalOutputFragment.outputs,
-    abiEncodedProposalOutput
-  )
-
-  const { output } = recursivelyConvertResult(
-    proposalOutputFragment.outputs,
-    proposalOutputResult
-  ) as any
-
-  for (const bundleInfo of output.bundleInfoArray) {
-    bundleInfo.compilerConfig = JSON.parse(bundleInfo.compilerConfigStr)
-    delete bundleInfo.compilerConfigStr
-  }
-
-  return output as ProposalOutput
 }
 
 export const readActionInputsOnSingleChain = (
@@ -165,7 +131,7 @@ export const parseFoundryDryRun = (
   dryRun: FoundryDryRun,
   dryRunPath: string
 ): Array<RawActionInput> => {
-  const notFromSphinxManager = dryRun.transactions
+  const notFromGnosisSafe = dryRun.transactions
     .map((t) => t.transaction.from)
     .filter(isString)
     .filter(
@@ -173,12 +139,12 @@ export const parseFoundryDryRun = (
         // Convert the 'from' field to a checksum address.
         ethers.getAddress(from) !== deploymentInfo.safeAddress
     )
-  if (notFromSphinxManager.length > 0) {
-    // The user must broadcast/prank from the SphinxManager so that the msg.sender for function
-    // calls is the same as it would be in a production deployment.
+  if (notFromGnosisSafe.length > 0) {
+    // The user must broadcast/prank from the Gnosis Safe so that the msg.sender for function calls
+    // is the same as it would be in a production deployment.
     throw new Error(
-      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the Safe.\n` +
-        `Your 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
+      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the user's Safe contracti.\n` +
+        `The 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
     )
   }
 
@@ -252,7 +218,7 @@ export const parseFoundryDryRun = (
             referenceName: contractNameWithoutPath ?? create2Address,
             functionName: 'deploy',
             variables: callArguments ?? [],
-            address: '',
+            address: create2Address,
           },
         }
         actionInputs.push(rawCreate2)
@@ -301,8 +267,7 @@ export const parseFoundryDryRun = (
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
-  configArtifacts: ConfigArtifacts,
-  remoteExecution: boolean
+  configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
   const {
     safeAddress,
@@ -314,7 +279,6 @@ export const makeParsedConfig = (
     initialState,
     labels,
     safeInitData,
-    safeInitSaltNonce,
     arbitraryChain,
   } = deploymentInfo
 
@@ -419,12 +383,14 @@ export const makeParsedConfig = (
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
+        gas: getGasWithBuffer(input.gas),
       })
     } else if (isRawFunctionCallActionInput(input)) {
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
+        gas: getGasWithBuffer(input.gas),
       }
 
       actionInputs.push(callInput)
@@ -438,14 +404,12 @@ export const makeParsedConfig = (
     safeAddress,
     moduleAddress,
     safeInitData,
-    safeInitSaltNonce,
     nonce,
     chainId,
     newConfig,
     isLiveNetwork,
     initialState,
     actionInputs,
-    remoteExecution,
     unlabeledAddresses,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,

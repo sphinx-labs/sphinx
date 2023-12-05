@@ -13,8 +13,7 @@ import {
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SupportedChainId, SupportedNetworkName } from '../networks'
-import { SemVer } from '../types'
+import { SupportedNetworkName } from '../networks'
 import { ParsedContractDeployments } from '../actions/types'
 
 export const userContractKinds = [
@@ -41,13 +40,6 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   immutable: IMMUTABLE_TYPE_HASH,
   implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
-}
-
-export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
-export const VALID_MANAGER_VERSION: SemVer = {
-  major: '0',
-  minor: '2',
-  patch: '6',
 }
 
 export type Project = string | 'all'
@@ -85,14 +77,12 @@ export type ParsedConfig = {
   moduleAddress: string
   executorAddress: string
   safeInitData: string
-  safeInitSaltNonce: string
   nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
-  remoteExecution: boolean
   unlabeledAddresses: string[]
   arbitraryChain: boolean
 }
@@ -105,7 +95,6 @@ export type DeploymentInfo = {
   nonce: string
   chainId: string
   safeInitData: string
-  safeInitSaltNonce: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -114,10 +103,8 @@ export type DeploymentInfo = {
 }
 
 export type InitialChainState = {
-  proposers: Array<string>
-  version: SemVer
-  isManagerDeployed: boolean
-  firstProposalOccurred: boolean
+  isSafeDeployed: boolean
+  isModuleDeployed: boolean
   isExecuting: boolean
 }
 
@@ -148,25 +135,7 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   mainnets: Array<N>
   testnets: Array<N>
   threshold: string
-}
-
-export interface RawDeployContractActionInput {
-  fullyQualifiedName: string
-  actionType: string
-  skip: boolean
-  initCode: string
-  constructorArgs: string
-  userSalt: string
-  referenceName: string
-  gas: string
-  additionalContracts: FoundryDryRunTransaction['additionalContracts']
-}
-
-export interface DeployContractActionInput
-  extends RawDeployContractActionInput {
-  decodedAction: DecodedAction
-  contracts: ParsedContractDeployments
-  create3Address: string
+  saltNonce: string
 }
 
 export interface RawCreate2ActionInput extends SphinxTransaction {
@@ -238,24 +207,6 @@ export type ConfigArtifactsRemote = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfoRemote
     artifact: FoundryContractArtifact
-  }
-}
-
-export type ConfigCache = {
-  manager: string
-  isManagerDeployed: boolean
-  isExecuting: boolean
-  currentManagerVersion: SemVer
-  chainId: SupportedChainId
-  isLiveNetwork: boolean
-}
-
-export type ContractConfigCache = {
-  [referenceName: string]: {
-    isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevert
-    importCache: ImportCache
-    previousConfigUri?: string
   }
 }
 

@@ -8,16 +8,20 @@ import {
   makeSphinxMerkleTreeFromLeaves,
 } from '../src/merkle-tree'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
+import { recursivelyConvertResult } from '../src/utils'
 
-const chainId = argv[2]
-const nonce = argv[3]
-const executor = argv[4]
-const safeProxy = argv[5]
-const moduleProxy = argv[6]
-const uri = argv[7]
-const merkleRootToCancel = argv[8]
-const forceCancellationLeafIndexNonZero = argv[9] === 'true'
+const abiEncodedNetworkInputs = argv[2]
+const executor = argv[3]
+const safeProxy = argv[4]
+const moduleProxy = argv[5]
+const uri = argv[6]
+const forceCancellationLeafIndexNonZero = argv[7] === 'true'
 
+type NetworkCancellationMerkleTreeInputs = {
+  chainId: bigint
+  merkleRootToCancel: string
+  moduleProxyNonce: bigint
+}
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
@@ -25,23 +29,40 @@ const forceCancellationLeafIndexNonZero = argv[9] === 'true'
   const merkleTreeFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
-  const sphinxTransactionArrayType = iface.fragments
+  const networkInputArrayType = iface.fragments
     .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxTransactionArrayType')
-  if (!merkleTreeFragment || !sphinxTransactionArrayType) {
+    .find(
+      (fragment) =>
+        fragment.name === 'networkCancellationMerkleTreeInputsArrayType'
+    )
+  if (!merkleTreeFragment || !networkInputArrayType) {
     throw new Error('Missing type in ABI. Should never happen.')
   }
 
-  const deploymentData: DeploymentData = {
-    [chainId]: {
+  const networkArrayResult = coder.decode(
+    networkInputArrayType.outputs,
+    abiEncodedNetworkInputs
+  )
+  const [networkArray] = recursivelyConvertResult(
+    networkInputArrayType.outputs,
+    networkArrayResult
+  ) as [Array<NetworkCancellationMerkleTreeInputs>]
+
+  const deploymentData: DeploymentData = {}
+  for (const {
+    chainId,
+    merkleRootToCancel,
+    moduleProxyNonce,
+  } of networkArray) {
+    deploymentData[chainId.toString()] = {
       type: 'cancellation',
-      nonce,
+      nonce: moduleProxyNonce.toString(),
       executor,
       safeProxy,
       moduleProxy,
-      merkleRootToCancel,
       uri,
-    },
+      merkleRootToCancel,
+    }
   }
 
   const leaves = makeSphinxLeaves(deploymentData)

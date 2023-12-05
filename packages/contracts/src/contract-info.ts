@@ -12,6 +12,7 @@ import {
   MultiSendCallOnlyArtifact,
   SimulateTxAccessorArtifact,
   SphinxModuleProxyFactoryArtifact,
+  SignMessageLibArtifact,
 } from './ifaces'
 import { FoundryContractArtifact, GnosisSafeContractArtifact } from './types'
 import {
@@ -26,6 +27,7 @@ import {
   getManagedServiceAddress,
   getMultiSendAddress,
   getMultiSendCallOnlyAddress,
+  getSignMessageLibAddress,
   getSimulateTxAccessorAddress,
   getSphinxModuleProxyFactoryAddress,
 } from './addresses'
@@ -80,6 +82,11 @@ export const getSphinxConstants = (): Array<{
     {
       artifact: MultiSendCallOnlyArtifact,
       expectedAddress: getMultiSendCallOnlyAddress(),
+      constructorArgs: [],
+    },
+    {
+      artifact: SignMessageLibArtifact,
+      expectedAddress: getSignMessageLibAddress(),
       constructorArgs: [],
     },
     {

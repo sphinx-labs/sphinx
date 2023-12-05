@@ -12,17 +12,20 @@ import {
   execAsync,
   getCreate3Address,
   sleep,
+  spawnAsync,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
+import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import * as ConflictingNameContractArtifact from '../../../out/artifacts/First.sol/ConflictingNameContract.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
-import { getFoundryConfigOptions } from '../../../src/foundry/options'
+import { getFoundryToml } from '../../../src/foundry/options'
+import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
 
 const coder = new ethers.AbiCoder()
 
@@ -121,13 +124,14 @@ const conflictingNameContractWithInteractionAddress = ethers.getCreate2Address(
 chai.use(chaiAsPromised)
 const expect = chai.expect
 
-const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:42005`)
+const goerliRpcUrl = `http://127.0.0.1:42005`
+const provider = new SphinxJsonRpcProvider(goerliRpcUrl)
 
 const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
 const deploymentCasesScriptPath = 'contracts/test/script/Cases.s.sol'
 
-const expectedContractAddress = ethers.getCreate2Address(
+const expectedMyContract2Address = ethers.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   ethers.ZeroHash,
   ethers.keccak256(MyContract2Artifact.bytecode.object)
@@ -151,7 +155,7 @@ const killGoerli = async () => {
 describe('Deploy CLI command', () => {
   let deploymentArtifactFilePath: string
   before(async () => {
-    const { deploymentFolder } = await getFoundryConfigOptions()
+    const { deploymentFolder } = await getFoundryToml()
     deploymentArtifactFilePath = join(
       deploymentFolder,
       'goerli-local',
@@ -177,7 +181,7 @@ describe('Deploy CLI command', () => {
       // a fresh compilation process.
       await execAsync(`forge clean`)
 
-      expect(await provider.getCode(expectedContractAddress)).to.equal('0x')
+      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactFilePath)).to.be.false
@@ -197,13 +201,15 @@ describe('Deploy CLI command', () => {
       expect(
         (deployedParsedConfig.actionInputs[0] as Create2ActionInput)
           .create2Address
-      ).to.equal(expectedContractAddress)
+      ).to.equal(expectedMyContract2Address)
       const contract = new ethers.Contract(
-        expectedContractAddress,
+        expectedMyContract2Address,
         MyContract2Artifact.abi,
         provider
       )
-      expect(await provider.getCode(expectedContractAddress)).to.not.equal('0x')
+      expect(await provider.getCode(expectedMyContract2Address)).to.not.equal(
+        '0x'
+      )
       expect(await contract.number()).to.equal(2n)
 
       expect(preview).to.deep.equal({
@@ -212,19 +218,25 @@ describe('Deploy CLI command', () => {
             networkTags: ['goerli (local)'],
             executing: [
               {
-                address: '',
-                referenceName: 'SphinxManager',
+                address: deployedParsedConfig.safeAddress,
+                referenceName: 'GnosisSafe',
                 functionName: 'deploy',
                 variables: [],
               },
               {
-                address: '',
+                address: deployedParsedConfig.moduleAddress,
+                referenceName: 'SphinxModule',
+                functionName: 'deploy',
+                variables: [],
+              },
+              {
+                address: expectedMyContract2Address,
                 referenceName: 'MyContract2',
                 functionName: 'deploy',
                 variables: [],
               },
               {
-                address: expectedContractAddress,
+                address: expectedMyContract2Address,
                 referenceName: 'MyContract2',
                 functionName: 'incrementMyContract2',
                 variables: ['2'],
@@ -240,8 +252,11 @@ describe('Deploy CLI command', () => {
       expect(existsSync(deploymentArtifactFilePath)).to.be.true
     })
 
-    it(`Displays preview then exits when there's nothing to deploy`, async () => {
-      expect(await provider.getCode(expectedContractAddress)).to.equal('0x')
+    // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
+    // words, we don't allow the user to use the `deploy` CLI command to just deploy a Gnosis Safe
+    // and Sphinx Module. This behavior is consistent with the `propose` CLI command.
+    it(`Displays preview then exits when there's nothing to execute`, async () => {
+      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
       const { preview } = await deploy(
         emptyScriptPath,
@@ -267,6 +282,57 @@ describe('Deploy CLI command', () => {
 
       // Check that the deployment artifact wasn't created
       expect(existsSync(deploymentArtifactFilePath)).to.be.false
+    })
+
+    // This test checks that Foundry's simulation can fail after the transactions have been
+    // collected, but before any transactions are broadcasted. This is worthwhile to test because
+    // the `SphinxModule` doesn't revert if a user's transactions causes the deployment to be marked
+    // as `FAILED`. If the Foundry plugin doesn't revert either, then Foundry will attempt to
+    // broadcast the deployment, which is not desirable.
+    it('Reverts if the deployment fails during the simulation', async () => {
+      const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
+      const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
+        scriptPath,
+        goerliRpcUrl,
+        'RevertDuringSimulation_Script'
+      )
+
+      const expectedContractAddress = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        ethers.ZeroHash,
+        ethers.keccak256(
+          ethers.concat([
+            RevertDuringSimulation.bytecode.object,
+            coder.encode(['address'], [sphinxModuleAddress]),
+          ])
+        )
+      )
+
+      // We invoke the proposal with `spawn` because the Node process will terminate with an exit
+      // code (via `process.exit(1)`), which can't be caught by Chai.
+      const { code, stdout } = await spawnAsync('npx', [
+        // We don't use the `sphinx` binary because the CI process isn't able to detect it. This
+        // is functionally equivalent to running the command with the `sphinx` binary.
+        'ts-node',
+        'src/cli/index.ts',
+        'deploy',
+        '--network',
+        'goerli',
+        scriptPath,
+        '--confirm',
+        '--target-contract',
+        'RevertDuringSimulation_Script',
+      ])
+      expect(code).equals(1)
+      const expectedOutput =
+        `Sphinx: failed to execute deployment because the following action reverted: RevertDuringSimulation<${expectedContractAddress}>.deploy(\n` +
+        `     "${sphinxModuleAddress}"\n` +
+        `   )`
+      // If the `stdout` includes this error message, we know that the deployment failed during the
+      // simulation. This is because error messages in `Sphinx.sol` aren't thrown when transactions
+      // are broadcasted onto a network. These error messages only occur during Foundry's simulation
+      // step.
+      expect(stdout.includes(expectedOutput)).equals(true)
     })
   })
 })

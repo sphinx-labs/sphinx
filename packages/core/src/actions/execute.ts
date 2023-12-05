@@ -16,7 +16,6 @@ import {
   HumanReadableActions,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
-import { getTargetNetworkLeaves } from './bundle'
 import { SphinxJsonRpcProvider } from '../provider'
 
 export const executeDeployment = async (
@@ -41,21 +40,17 @@ export const executeDeployment = async (
   // cost of a deployment in general. Approaching the maximum block gas limit can cause
   // transactions to be executed slowly as a result of the algorithms that miners use to select
   // which transactions to include. As a result, we restrict our total gas usage to a fraction of
-  // the block gas limit.
-  const gasFraction = 2n
-  const maxGasLimit = blockGasLimit / gasFraction
+  // the block gas limit. Note that this number should match the one used in the Foundry plugin.
+  const maxGasLimit = blockGasLimit / 2n
 
-  // filter for only leaves for the target network
-  const networkLeaves = getTargetNetworkLeaves(
-    await (
-      await provider.getNetwork()
-    ).chainId,
-    merkleTree.leavesWithProofs
+  const chainId = await provider.getNetwork().then((n) => n.chainId)
+  // filter for leaves on the target network
+  const networkLeaves = merkleTree.leavesWithProofs.filter(
+    (leaf) => leaf.leaf.chainId === chainId
   )
 
-  // execute the auth leaf with signatures
-  // TODO - call through the managed service contract
-  const authLeaf = networkLeaves[0]
+  // Encode the `APPROVE` leaf.
+  const approvalLeaf = networkLeaves[0]
   const packedSignatures = ethers.solidityPacked(
     signatures.map(() => 'bytes'),
     signatures
@@ -65,23 +60,24 @@ export const executeDeployment = async (
     ManagedServiceABI,
     signer
   )
-  const approveData = module.interface.encodeFunctionData('approve', [
+  const approvalData = module.interface.encodeFunctionData('approve', [
     merkleTree.root,
-    authLeaf,
+    approvalLeaf,
     packedSignatures,
   ])
 
+  // Execute the `APPROVE` leaf.
   receipts.push(
     await (
       await managedService.exec(
         await module.getAddress(),
-        approveData,
+        approvalData,
         await getGasPriceOverrides(signer)
       )
     ).wait()
   )
 
-  // execute the rest of the leaves
+  // Execute the `EXECUTE` leaves of the Merkle tree.
   logger?.info(`[Sphinx]: executing actions...`)
   const { status, failureAction } = await executeBatchActions(
     networkLeaves,
@@ -257,10 +253,7 @@ export const executable = async (
   maxGasLimit: bigint
 ): Promise<boolean> => {
   const estGasUsed = selected
-    .map((action) => {
-      const values = decodeExecuteLeafData(action.leaf.data)
-      return values[2]
-    })
+    .map((action) => decodeExecuteLeafData(action.leaf).gas)
     .reduce((a, b) => a + b)
 
   return maxGasLimit > estGasUsed

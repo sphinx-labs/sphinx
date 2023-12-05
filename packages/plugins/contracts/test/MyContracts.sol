@@ -12,9 +12,7 @@ contract MyContract1 {
     int256 public intArg;
     int256 public secondIntArg;
     int256 public thirdIntArg;
-
     uint256 public uintArg;
-
     address public addressArg;
     address public otherAddressArg;
 
@@ -80,9 +78,9 @@ contract MyContract2 {
 contract MyOwnable is Ownable {
     uint256 public value;
 
-    constructor(address _sphinxManager, uint256 _initialValue) {
+    constructor(address _safe, uint256 _initialValue) {
         value = _initialValue;
-        _transferOwnership(_sphinxManager);
+        _transferOwnership(_safe);
     }
 
     function increment() external {
@@ -94,14 +92,6 @@ contract MyOwnable is Ownable {
     }
 }
 
-contract MyAccessControl is AccessControl {
-    uint256 public value;
-
-    constructor(address _sphinxManager) {
-        _setupRole(DEFAULT_ADMIN_ROLE, _sphinxManager);
-    }
-
-    function myAccessControlFunction(uint256 _value) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        value = _value;
-    }
+contract DuplicateContractName {
+    function duplicateContractTwo() external {}
 }

@@ -1,3 +1,22 @@
+export type DecodedApproveLeafData = {
+  safeProxy: string
+  moduleProxy: string
+  merkleRootNonce: bigint
+  numLeaves: bigint
+  executor: string
+  uri: string
+  arbitraryChain: boolean
+}
+
+export type DecodedExecuteLeafData = {
+  to: string
+  value: bigint
+  gas: bigint
+  txData: string
+  operation: bigint
+  requireSuccess: boolean
+}
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the structure of
  * state within the contract. See

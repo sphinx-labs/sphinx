@@ -66,6 +66,7 @@ jobs:
       - run:
           name: Test
           command: yarn test:coverage
+          no_output_timeout: 20m
           working_directory: packages/<<parameters.package_name>>
 
   depcheck:

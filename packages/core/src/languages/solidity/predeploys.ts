@@ -52,8 +52,6 @@ export const ensureSafeAndSphinxInitialized = async (
   }
 }
 
-// TODO - Does it make sense to use a forge script for the real deployment instead of this?
-//        I think we need this for the plugin anyway (or maybe not?)
 export const initializeSafeAndSphinx = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
@@ -94,8 +92,7 @@ export const initializeSafeAndSphinx = async (
 
   logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
 
-  // We need to do some additional setup: adding the manager version, adding executor roles, etc
-  // This requires a signer with the owner role which we have to handle differently depending on the situation.
+  // Next, we get the owner address, which differs depending on the situation:
   // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
   // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
   // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.

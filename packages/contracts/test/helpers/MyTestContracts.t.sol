@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// TODO(off-chain):
-// - If the user is importing an existing Gnosis Safe into our system, we should check that it's
-//   either v1.3.0 or v1.4.1. We can check this by calling `safeProxy.VERSION()`
-// - The `gas` field in the `EXECUTE` Merkle leaves should estimate the gas used in the
-//   `safeProxy.execTransactionFromModuleReturnData` call, which is more expensive than just the
-//   user's transaction.
-// - We should probably validate that the `gas` for a leaf isn't extremely high (e.g. above the
-//   block gas limit).
-
 contract MyContract {
     // Selector of Error(string), which is a generic error thrown by Solidity when a low-level
     // call/delegatecall fails.

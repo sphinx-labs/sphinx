@@ -13,6 +13,7 @@ cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]
 solc = '0.8.21'
+memory_limit = 3355443200
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"

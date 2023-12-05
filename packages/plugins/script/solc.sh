@@ -8,8 +8,7 @@ set -e
 # we support, v0.8.0. Without this, it'd be possible for us to accidentally write contracts that
 # don't compile with this Solidity version. We don't compile with the earliest version by default
 # because we use certain features in our test suite that are only available in newer versions.
-# TODO - reenble this check once we're using interfaces for everything in the library
-# forge build --use '0.8.0' --contracts contracts/foundry --skip test --skip script
+forge build --use '0.8.0' --contracts contracts/foundry --skip test --skip script --deny-warnings
 
 # This script compiles the prod contracts in our Foundry plugin using the optimizer. Since the
 # optimizer is off in our repo by default, this ensures that we don't release contracts that lead to

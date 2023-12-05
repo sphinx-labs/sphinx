@@ -10,7 +10,7 @@ import {
 } from '@sphinx-labs/plugins'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/options'
+import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
 
 const deploymentArtifactDir = 'deployments'
 
@@ -22,7 +22,7 @@ describe('Init CLI command', () => {
   let scriptPath: string
   let testPath: string
   before(async () => {
-    const { src, test } = await getFoundryConfigOptions()
+    const { src, test } = await getFoundryToml()
 
     contractPath = path.join(src, sampleContractFileName)
     scriptPath = path.join(src, sampleScriptFileName)

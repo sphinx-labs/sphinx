@@ -11,20 +11,23 @@ import {
 import { recursivelyConvertResult } from '../src/utils'
 import { abi as testUtilsABI } from '../out/TestUtils.t.sol/TestUtils.json'
 
-const chainId = argv[2]
-const nonce = argv[3]
-const executor = argv[4]
-const safeProxy = argv[5]
-const moduleProxy = argv[6]
-const uri = argv[7]
-const abiEncodedTxs = argv[8]
-const arbitraryChain = argv[9] === 'true'
-const forceNumLeavesValue = argv[10] === 'true'
-const overridingNumLeavesValue = argv[11]
-const forceApprovalLeafIndexNonZero = argv[12] === 'true'
-const forceExecutionLeavesChainIdNonZero = argv[13] === 'true'
-const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
+const abiEncodedNetworkInputs = argv[2]
+const executor = argv[3]
+const safeProxy = argv[4]
+const moduleProxy = argv[5]
+const uri = argv[6]
+const arbitraryChain = argv[7] === 'true'
+const forceNumLeavesValue = argv[8] === 'true'
+const overridingNumLeavesValue = argv[9]
+const forceApprovalLeafIndexNonZero = argv[10] === 'true'
+const forceExecutionLeavesChainIdNonZero = argv[11] === 'true'
+const forceApprovalLeafChainIdNonZero = argv[12] === 'true'
 
+type NetworkDeploymentMerkleTreeInputs = {
+  chainId: bigint
+  txs: Array<SphinxTransaction>
+  moduleProxyNonce: bigint
+}
 ;(async () => {
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
@@ -32,31 +35,35 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
   const merkleTreeFragment = iface.fragments
     .filter(ethers.Fragment.isFunction)
     .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
-  const sphinxTransactionArrayType = iface.fragments
+  const networkInputArrayType = iface.fragments
     .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxTransactionArrayType')
-  if (!merkleTreeFragment || !sphinxTransactionArrayType) {
+    .find(
+      (fragment) =>
+        fragment.name === 'networkDeploymentMerkleTreeInputsArrayType'
+    )
+  if (!merkleTreeFragment || !networkInputArrayType) {
     throw new Error('Missing type in ABI. Should never happen.')
   }
 
-  const txArrayResult = coder.decode(
-    sphinxTransactionArrayType.outputs,
-    abiEncodedTxs
+  const networkArrayResult = coder.decode(
+    networkInputArrayType.outputs,
+    abiEncodedNetworkInputs
   )
-  const [txArray] = recursivelyConvertResult(
-    sphinxTransactionArrayType.outputs,
-    txArrayResult
-  ) as [Array<SphinxTransaction>]
+  const [networkArray] = recursivelyConvertResult(
+    networkInputArrayType.outputs,
+    networkArrayResult
+  ) as [Array<NetworkDeploymentMerkleTreeInputs>]
 
-  const deploymentData: DeploymentData = {
-    [chainId]: {
+  const deploymentData: DeploymentData = {}
+  for (const { chainId, moduleProxyNonce, txs } of networkArray) {
+    deploymentData[chainId.toString()] = {
       type: 'deployment',
-      nonce,
+      nonce: moduleProxyNonce.toString(),
       executor,
       safeProxy,
       moduleProxy,
       uri,
-      txs: txArray.map((tx) => {
+      txs: txs.map((tx) => {
         return {
           to: tx.to,
           value: tx.value.toString(),
@@ -67,18 +74,23 @@ const forceApprovalLeafChainIdNonZero = argv[14] === 'true'
         }
       }),
       arbitraryChain,
-    },
+    }
   }
 
   const leaves = makeSphinxLeaves(deploymentData)
 
   if (forceNumLeavesValue) {
+    if (networkArray.length !== 1) {
+      throw new Error(
+        'There must only be a single network if `forceNumLeavesValue` is `true`.'
+      )
+    }
     leaves[0].data = coder.encode(
       ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
       [
         safeProxy,
         moduleProxy,
-        nonce,
+        networkArray[0].moduleProxyNonce,
         overridingNumLeavesValue, // Override the `numLeaves`
         executor,
         uri,

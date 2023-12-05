@@ -125,6 +125,15 @@ export const makeDeploymentData = (
 ): DeploymentData => {
   const data: DeploymentData = {}
   for (const compilerConfig of compilerConfigArray) {
+    // We only add a `DeploymentData` object for networks that have at least one `EXECUTE` leaf. If
+    // we don't enforce this, the default behavior would be to add an `APPROVE` leaf without any
+    // `EXECUTE` leaves on chains with empty deployments. This is only desirable if the user is
+    // attempting to cancel a previously signed Merkle root, which isn't currently supported by our
+    // plugin.
+    if (compilerConfig.actionInputs.length === 0) {
+      continue
+    }
+
     const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
       (action) => {
         return {

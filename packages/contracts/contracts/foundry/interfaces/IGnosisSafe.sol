@@ -21,4 +21,10 @@ interface IGnosisSafe {
         uint256 payment,
         address payable paymentReceiver
     ) external;
+
+    function isOwner(address owner) external view returns (bool);
+
+    /// @dev Returns array of owners.
+    /// @return Array of Safe owners.
+    function getOwners() external view returns (address[] memory);
 }

@@ -18,6 +18,7 @@ import {
   GnosisSafeL2Artifact,
   GnosisSafeArtifact,
   SphinxModuleArtifact,
+  SignMessageLibArtifact,
   DrippieArtifact,
   CheckBalanceLowArtifact,
 } from './ifaces'
@@ -65,8 +66,6 @@ export const getSphinxModuleProxyFactoryAddress = () => {
     )
   )
 }
-
-// TODO - use gnosis singleton factory to get the canonical addresses?
 
 // SimulateTxAccessor
 export const getSimulateTxAccessorAddress = () => {
@@ -137,6 +136,14 @@ export const getMultiSendCallOnlyAddress = () => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
     solidityPackedKeccak256(['bytes'], [MultiSendCallOnlyArtifact.bytecode])
+  )
+}
+
+export const getSignMessageLibAddress = () => {
+  return getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    ZeroHash,
+    solidityPackedKeccak256(['bytes'], [SignMessageLibArtifact.bytecode])
   )
 }
 

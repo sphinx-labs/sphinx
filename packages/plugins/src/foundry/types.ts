@@ -1,15 +1,7 @@
 import {
   FoundryBroadcastTransaction,
   FoundryDryRunTransaction,
-  MerkleTreeInfo,
 } from '@sphinx-labs/core'
-
-export type ProposalOutput = {
-  proposerAddress: string
-  metaTxnSignature: string
-  merkleTreeInfoArray: Array<MerkleTreeInfo>
-  authRoot: string
-}
 
 export type FoundryBroadcastReceipt = {
   transactionHash: string

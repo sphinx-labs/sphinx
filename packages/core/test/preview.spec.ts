@@ -7,9 +7,15 @@ import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
 import { FunctionCallActionInput } from '../dist'
 
-const expectedSphinxManager = {
-  address: '',
-  referenceName: 'SphinxManager',
+const expectedGnosisSafe = {
+  address: '0x' + 'ff'.repeat(20),
+  referenceName: 'GnosisSafe',
+  functionName: 'deploy',
+  variables: [],
+}
+const expectedSphinxModule = {
+  address: '0x' + 'ee'.repeat(20),
+  referenceName: 'SphinxModule',
   functionName: 'deploy',
   variables: [],
 }
@@ -85,27 +91,19 @@ const originalParsedConfig: ParsedConfig = {
   isLiveNetwork: true,
   actionInputs: [expectedCreate2, expectedFunctionCallOne, expectedCall],
   unlabeledAddresses: ['0x' + '55'.repeat(20), '0x' + '66'.repeat(20)],
+  safeAddress: '0x' + 'ff'.repeat(20),
+  moduleAddress: '0x' + 'ee'.repeat(20),
   initialState: {
-    isManagerDeployed: false,
-    // These fields are unused:
-    proposers: [],
-    version: {
-      major: '0',
-      minor: '0',
-      patch: '0',
-    },
-    firstProposalOccurred: false,
+    isSafeDeployed: false,
+    isModuleDeployed: false,
+    // This field is unused:
     isExecuting: false,
   },
   // The rest of the variables are unused:
   executorAddress: ethers.ZeroAddress,
   safeInitData: ethers.ZeroHash,
-  safeInitSaltNonce: ethers.ZeroHash,
   nonce: '0',
   arbitraryChain: false,
-  safeAddress: ethers.ZeroAddress,
-  moduleAddress: ethers.ZeroAddress,
-  remoteExecution: true,
   newConfig: {
     mainnets: [],
     projectName: '',
@@ -113,12 +111,13 @@ const originalParsedConfig: ParsedConfig = {
     owners: [],
     testnets: [],
     threshold: '0',
+    saltNonce: '0',
   },
 }
 
 describe('Preview', () => {
   describe('getPreview', () => {
-    it('returns preview for single network that is executing everything, including SphinxManager', () => {
+    it('returns preview for single network that is executing everything, including Gnosis Safe and Sphinx Module', () => {
       const { networks, unlabeledAddresses } = getPreview([
         originalParsedConfig,
       ])
@@ -126,9 +125,10 @@ describe('Preview', () => {
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
       expect(networkTags).to.deep.equal(['optimism'])
-      expect(executing.length).to.equal(4)
-      const [sphinxManager, create2, functionCall, call] = executing
-      expect(sphinxManager).to.deep.equal(expectedSphinxManager)
+      expect(executing.length).to.equal(5)
+      const [gnosisSafe, sphinxModule, create2, functionCall, call] = executing
+      expect(gnosisSafe).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModule).to.deep.equal(expectedSphinxModule)
       expect(create2).to.deep.equal(expectedCreate2.decodedAction)
       expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
       expect(call).to.deep.equal(expectedCall.decodedAction)
@@ -138,9 +138,10 @@ describe('Preview', () => {
       )
     })
 
-    it('returns preview for single network that is executing everything, except SphinxManager', () => {
+    it('returns preview for single network that is executing everything, except Gnosis Safe and Sphinx Module', () => {
       const parsedConfig = structuredClone(originalParsedConfig)
-      parsedConfig.initialState.isManagerDeployed = true
+      parsedConfig.initialState.isSafeDeployed = true
+      parsedConfig.initialState.isModuleDeployed = true
 
       const { networks, unlabeledAddresses } = getPreview([parsedConfig])
 
@@ -177,9 +178,10 @@ describe('Preview', () => {
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
       expect(networkTags).to.deep.equal(['optimism'])
-      expect(executing.length).to.equal(4)
-      const [sphinxManager, create2, functionCall, call] = executing
-      expect(sphinxManager).to.deep.equal(expectedSphinxManager)
+      expect(executing.length).to.equal(5)
+      const [gnosisSafe, sphinxModule, create2, functionCall, call] = executing
+      expect(gnosisSafe).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModule).to.deep.equal(expectedSphinxModule)
       expect(create2).to.deep.equal({
         ...expectedCreate2.decodedAction,
         variables: Object.values(expectedCreate2.decodedAction.variables),
@@ -213,14 +215,16 @@ describe('Preview', () => {
       const [{ networkTags, executing }] = networks
 
       expect(networkTags).to.deep.equal(['optimism', 'arbitrum', 'polygon'])
-      expect(executing.length).to.equal(4)
+      expect(executing.length).to.equal(5)
       const [
-        sphinxManagerOptimism,
+        gnosisSafeOptimism,
+        sphinxModuleOptimism,
         create2Optimism,
         functionCallOptimism,
         callOptimism,
       ] = executing
-      expect(sphinxManagerOptimism).to.deep.equal(expectedSphinxManager)
+      expect(gnosisSafeOptimism).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModuleOptimism).to.deep.equal(expectedSphinxModule)
       expect(create2Optimism).to.deep.equal(expectedCreate2.decodedAction)
       expect(functionCallOptimism).to.deep.equal(
         expectedFunctionCallOne.decodedAction
@@ -237,8 +241,8 @@ describe('Preview', () => {
       parsedConfigArbitrum.chainId = '42161'
       parsedConfigPolygon.chainId = '137'
 
-      // Skip the SphinxManager and the first action on Polygon
-      parsedConfigPolygon.initialState.isManagerDeployed = true
+      // Skip the Gnosis Safe on Polygon
+      parsedConfigPolygon.initialState.isSafeDeployed = true
 
       // Use different variables for the first action on Arbitrum
       const variablesArbitrum = {
@@ -274,14 +278,16 @@ describe('Preview', () => {
       ] = networks
 
       expect(networkTagsOptimism).to.deep.equal(['optimism'])
-      expect(executingOptimism.length).to.equal(4)
+      expect(executingOptimism.length).to.equal(5)
       const [
-        sphinxManagerOptimism,
+        gnosisSafeOptimism,
+        sphinxModuleOptimism,
         create2Optimism,
         functionCallOptimism,
         callOptimism,
       ] = executingOptimism
-      expect(sphinxManagerOptimism).to.deep.equal(expectedSphinxManager)
+      expect(gnosisSafeOptimism).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModuleOptimism).to.deep.equal(expectedSphinxModule)
       expect(create2Optimism).to.deep.equal(expectedCreate2.decodedAction)
       expect(functionCallOptimism).to.deep.equal(
         expectedFunctionCallOne.decodedAction
@@ -290,9 +296,10 @@ describe('Preview', () => {
       expect(skippingOptimism.length).to.equal(0)
 
       expect(networkTagsPolygon).to.deep.equal(['polygon'])
-      expect(executingPolygon.length).to.equal(3)
-      const [create2Polygon, functionCallPolygon, callPolygon] =
+      expect(executingPolygon.length).to.equal(4)
+      const [sphinxModule, create2Polygon, functionCallPolygon, callPolygon] =
         executingPolygon
+      expect(sphinxModule).to.deep.equal(expectedSphinxModule)
       expect(create2Polygon).to.deep.equal(expectedCreate2.decodedAction)
       expect(functionCallPolygon).to.deep.equal(
         expectedFunctionCallOne.decodedAction
@@ -301,14 +308,16 @@ describe('Preview', () => {
       expect(skippingPolygon.length).to.equal(0)
 
       expect(networkTagsArbitrum).to.deep.equal(['arbitrum'])
-      expect(executingArbitrum.length).to.equal(4)
+      expect(executingArbitrum.length).to.equal(5)
       const [
-        sphinxManagerArbitrum,
+        gnosisSafeArbitrum,
+        sphinxModuleArbitrum,
         create2Arbitrum,
         functionCallArbitrum,
         callArbitrum,
       ] = executingArbitrum
-      expect(sphinxManagerArbitrum).to.deep.equal(expectedSphinxManager)
+      expect(gnosisSafeArbitrum).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModuleArbitrum).to.deep.equal(expectedSphinxModule)
       expect(create2Arbitrum).to.deep.equal({
         ...expectedCreate2.decodedAction,
         variables: variablesArbitrum,

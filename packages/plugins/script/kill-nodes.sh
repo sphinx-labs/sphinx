@@ -6,10 +6,11 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
-if [ ! -z "8545" ]
-then
+# Find process ID (PID) listening on port 8545
+pid=$(lsof -t -i:8545)
+# Check if PID is not empty and kill the process
+if [ ! -z "$pid" ]; then
   echo "Killing process on port 8545"
-  pid=$(lsof -t -i:8545)
   kill $pid
 else
   echo "No process running on port 8545"

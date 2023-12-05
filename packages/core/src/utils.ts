@@ -5,21 +5,10 @@ import { exec, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
-import ora from 'ora'
 import * as semver from 'semver'
 import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
-import { ProxyDeployment } from '@openzeppelin/upgrades-core'
-import {
-  ParsedTypeDetailed,
-  StorageItem,
-} from '@openzeppelin/upgrades-core/dist/storage/layout'
-import {
-  StorageField,
-  StorageLayoutComparator,
-  stripContractSubstrings,
-} from '@openzeppelin/upgrades-core/dist/storage/compare'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { FoundryContractArtifact, add0x } from '@sphinx-labs/contracts'
@@ -42,54 +31,21 @@ import {
   FunctionCallActionInput,
 } from './config/types'
 import {
-  SphinxActionBundle,
   SphinxActionType,
   IPFSCommitResponse,
   ProposalRequest,
-  SphinxTargetBundle,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import 'core-js/features/array/at'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import { fromRawSphinxAction, isSetStorageAction } from './actions/bundle'
 import {
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
-
-export const getDeploymentId = (
-  actionBundle: SphinxActionBundle,
-  targetBundle: SphinxTargetBundle,
-  configUri: string
-): string => {
-  const actionRoot = actionBundle.root
-  const targetRoot = targetBundle.root
-  const numTargets = targetBundle.targets.length
-
-  const numTotalActions = actionBundle.actions.length
-  const numSetStorageActions = actionBundle.actions
-    .map((action) => fromRawSphinxAction(action.action))
-    .filter(isSetStorageAction).length
-  const numInitialActions = numTotalActions - numSetStorageActions
-
-  return ethers.keccak256(
-    AbiCoder.defaultAbiCoder().encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
-      [
-        actionRoot,
-        targetRoot,
-        numInitialActions,
-        numSetStorageActions,
-        numTargets,
-        configUri,
-      ]
-    )
-  )
-}
 
 export const writeSnapshotId = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
@@ -137,13 +93,6 @@ export const createSphinxLog = (
   }
 
   return parts.join('\n') + '\n'
-}
-
-export const getCurrentSphinxActionType = (
-  bundle: SphinxActionBundle,
-  actionsExecuted: bigint
-): bigint => {
-  return bundle.actions[Number(actionsExecuted)].action.actionType
 }
 
 export const isContractDeployed = async (
@@ -258,91 +207,6 @@ export const getGasPriceOverrides = async (
   }
 }
 
-// export const isInternalDefaultProxy = async (
-//   provider: Provider,
-//   proxyAddress: string
-// ): Promise<boolean> => {
-//   const SphinxRegistry = new Contract(
-//     getSphinxRegistryAddress(),
-//     SphinxRegistryABI,
-//     provider
-//   )
-
-// TODO(upgrades): A lot of public rpc endpoints / networks don't allow
-// querying events past a certain block number, so this call would likely fail.
-//   const actionExecutedEvents = await SphinxRegistry.queryFilter(
-//     SphinxRegistry.filters.EventAnnouncedWithData(
-//       'DefaultProxyDeployed',
-//       null,
-//       proxyAddress
-//     )
-//   )
-
-//   return actionExecutedEvents.length === 1
-// }
-
-/**
- * Since both UUPS and Transparent proxies use the same interface we use a helper function to check that. This wrapper is intended to
- * keep the code clear by providing separate functions for checking UUPS and Transparent proxies.
- *
- * @param provider JSON RPC provider corresponding to the current project owner.
- * @param contractAddress Address of the contract to check the interface of
- * @returns
- */
-export const isTransparentProxy = async (
-  provider: Provider,
-  proxyAddress: string
-): Promise<boolean> => {
-  // We don't consider default proxies to be transparent proxies, even though they share the same
-  // interface.
-  // TODO(upgrades): `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
-  // exists. Also, `isInternalDefaultProxy` may not be necessary anymore -- not sure.
-  // if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
-  //   return false
-  // }
-
-  // Fetch proxy owner address from storage slot defined by EIP-1967
-  const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxyAddress)
-
-  // If proxy owner is not a valid address, then proxy type is incompatible
-  if (!ethers.isAddress(ownerAddress)) {
-    return false
-  }
-
-  return true
-}
-
-/**
- * Checks if the passed in proxy contract points to an implementation address which implements the minimum requirements to be
- * a Sphinx compatible UUPS proxy.
- *
- * @param provider JSON RPC provider corresponding to the current project owner.
- * @param proxyAddress Address of the proxy contract. Since this is a UUPS proxy, we check the interface of the implementation function.
- * @returns
- */
-export const isUUPSProxy = async (
-  provider: Provider,
-  proxyAddress: string
-): Promise<boolean> => {
-  const implementationAddress = await getEIP1967ProxyImplementationAddress(
-    provider,
-    proxyAddress
-  )
-
-  // Fetch proxy owner address from storage slot defined by EIP-1967
-  const ownerAddress = await getEIP1967ProxyAdminAddress(
-    provider,
-    implementationAddress
-  )
-
-  // If proxy owner is not a valid address, then proxy type is incompatible
-  if (!ethers.isAddress(ownerAddress)) {
-    return false
-  }
-
-  return true
-}
-
 export const isUserContractKind = (
   contractKind: string
 ): contractKind is UserContractKind => {
@@ -406,35 +270,6 @@ export const validateBuildInfo = (
   }
 }
 
-export const isEqualType = (
-  prevStorageObj: StorageItem<ParsedTypeDetailed>,
-  newStorageObj: StorageItem<ParsedTypeDetailed>
-): boolean => {
-  // Copied from OpenZeppelin's core upgrades package:
-  // https://github.com/OpenZeppelin/openzeppelin-upgrades/blob/13c072776e381d33cf285f8953127023b664de64/packages/core/src/storage/compare.ts#L197-L202
-  const isRetypedFromOriginal = (
-    original: StorageField,
-    updated: StorageField
-  ): boolean => {
-    const originalLabel = stripContractSubstrings(original.type.item.label)
-    const updatedLabel = stripContractSubstrings(updated.retypedFrom?.trim())
-
-    return originalLabel === updatedLabel
-  }
-
-  const layoutComparator = new StorageLayoutComparator(false, false)
-
-  // Copied from OpenZeppelin's core upgrades package:
-  // https://github.com/OpenZeppelin/openzeppelin-upgrades/blob/13c072776e381d33cf285f8953127023b664de64/packages/core/src/storage/compare.ts#L171-L173
-  const isEqual =
-    !isRetypedFromOriginal(prevStorageObj, newStorageObj) &&
-    !layoutComparator.getTypeChange(prevStorageObj.type, newStorageObj.type, {
-      allowAppend: false,
-    })
-
-  return isEqual
-}
-
 /**
  *
  * @param promise A promise to wrap in a timeout
@@ -457,95 +292,6 @@ export const callWithTimeout = async <T>(
     return result
   })
 }
-
-export const toOpenZeppelinContractKind = (
-  contractKind: ContractKind
-): ProxyDeployment['kind'] => {
-  if (
-    contractKind === 'proxy' ||
-    contractKind === 'external-transparent' ||
-    contractKind === 'oz-transparent'
-  ) {
-    return 'transparent'
-  } else if (
-    contractKind === 'oz-ownable-uups' ||
-    contractKind === 'oz-access-control-uups'
-  ) {
-    return 'uups'
-  } else {
-    throw new Error(
-      `Attempted to convert "${contractKind}" to an OpenZeppelin proxy type`
-    )
-  }
-}
-
-// export const getOpenZeppelinValidationOpts = (
-//   contractConfig: ParsedContractConfig
-// ): Required<ValidationOptions> => {
-//   type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
-
-//   const unsafeAllow: UnsafeAllow = [
-//     'state-variable-assignment',
-//     'constructor',
-//     'state-variable-immutable',
-//   ]
-//   if (contractConfig.unsafeAllow?.delegatecall) {
-//     unsafeAllow.push('delegatecall')
-//   }
-//   if (contractConfig.unsafeAllow?.selfdestruct) {
-//     unsafeAllow.push('selfdestruct')
-//   }
-//   if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
-//     unsafeAllow.push('missing-public-upgradeto')
-//   }
-
-//   const { renames, skipStorageCheck } = contractConfig.unsafeAllow
-
-//   const options = {
-//     kind: toOpenZeppelinContractKind(contractConfig.kind),
-//     unsafeAllow,
-//     unsafeAllowRenames: renames,
-//     unsafeSkipStorageCheck: skipStorageCheck,
-//   }
-
-//   return withValidationDefaults(options)
-// }
-
-// TODO(upgrades)
-// export const getOpenZeppelinUpgradableContract = (
-//   fullyQualifiedName: string,
-//   compilerInput: CompilerInput,
-//   compilerOutput: CompilerOutput,
-//   contractConfig: ParsedContractConfig
-// ): UpgradeableContract => {
-//   const options = getOpenZeppelinValidationOpts(contractConfig)
-
-//   // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
-//   // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
-//   const tmp = console.error
-//   // eslint-disable-next-line @typescript-eslint/no-empty-function
-//   console.error = () => {}
-
-//   // fetch the contract and validate
-//   // We use a try catch and then rethrow any errors because we temporarily disabled console.error
-//   try {
-//     const contract = new UpgradeableContract(
-//       fullyQualifiedName,
-//       compilerInput,
-//       // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
-//       // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
-//       // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
-//       // `CompilerOutput`, which is what OpenZeppelin expects.
-//       compilerOutput as any,
-//       options
-//     )
-//     // revert to standard console.error
-//     console.error = tmp
-//     return contract
-//   } catch (e) {
-//     throw e
-//   }
-// }
 
 export const getConfigArtifactsRemote = async (
   compilerConfigs: Array<CompilerConfig>
@@ -632,49 +378,6 @@ export const getConfigArtifactsRemote = async (
   return artifacts
 }
 
-export const getDeploymentEvents = async (
-  SphinxManager: ethers.Contract,
-  deploymentId: string
-): Promise<ethers.EventLog[]> => {
-  // Get the most recent approval event for this deployment ID.
-  const approvalEvent = (
-    await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxMerkleRootApproved(deploymentId)
-    )
-  ).at(-1)
-
-  if (!approvalEvent) {
-    throw new Error(
-      `No approval event found for deployment ID ${deploymentId}. Should never happen.`
-    )
-  }
-
-  const completedEvent = (
-    await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxMerkleRootCompleted(deploymentId)
-    )
-  ).at(-1)
-
-  if (!completedEvent) {
-    throw new Error(
-      `No deployment completed event found for deployment ID ${deploymentId}. Should never happen.`
-    )
-  }
-
-  const contractDeployedEvents = await SphinxManager.queryFilter(
-    SphinxManager.filters.ContractDeployed(null, deploymentId),
-    approvalEvent.blockNumber,
-    completedEvent.blockNumber
-  )
-
-  // Make sure that all of the events are EventLogs.
-  if (contractDeployedEvents.some((event) => !isEventLog(event))) {
-    throw new Error(`ContractDeployed event has no args. Should never happen.`)
-  }
-
-  return contractDeployedEvents.filter(isEventLog)
-}
-
 /**
  * Returns true and only if the variable is a valid ethers DataHexString:
  * https://docs.ethers.org/v5/api/utils/bytes/#DataHexString
@@ -709,37 +412,6 @@ export const getImpersonatedSigner = async (
     return new JsonRpcSigner(provider, address)
   } else {
     return provider.getSigner(address)
-  }
-}
-
-// Transfer ownership of the SphinxManager if a new project owner has been specified.
-export const transferProjectOwnership = async (
-  manager: ethers.Contract,
-  newOwnerAddress: string,
-  currOwnerAddress: string,
-  signer: ethers.Signer,
-  spinner: ora.Ora
-) => {
-  if (!ethers.isAddress(newOwnerAddress)) {
-    throw new Error(`Invalid address for new project owner: ${newOwnerAddress}`)
-  }
-
-  if (newOwnerAddress !== currOwnerAddress) {
-    spinner.start(`Transferring project ownership to: ${newOwnerAddress}`)
-    if (newOwnerAddress === ethers.ZeroAddress) {
-      // We must call a separate function if ownership is being transferred to address(0).
-      await (
-        await manager.renounceOwnership(await getGasPriceOverrides(signer))
-      ).wait()
-    } else {
-      await (
-        await manager.transferOwnership(
-          newOwnerAddress,
-          await getGasPriceOverrides(signer)
-        )
-      ).wait()
-    }
-    spinner.succeed(`Transferred project ownership to: ${newOwnerAddress}`)
   }
 }
 
@@ -1105,24 +777,6 @@ export const prettyRawFunctionCall = (to: string, data: string): string => {
 }
 
 /**
- * @notice Encodes the data that initializes a SphinxManager contract via the SphinxRegistry.
- *
- * @param owner Address of the SphinxManager's owner, which should be the SphinxAuth contract.
- */
-export const getRegistryData = (owner: string, projectName: string): string => {
-  return AbiCoder.defaultAbiCoder().encode(
-    ['address', 'string', 'bytes'],
-    [
-      owner,
-      projectName,
-      // Empty bytes. Useful in case future versions of the SphinxManager contract has additional
-      // fields.
-      '0x',
-    ]
-  )
-}
-
-/**
  * @notice Returns true if and only if the two inputs are equal.
  */
 export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
@@ -1284,4 +938,11 @@ export const isLabel = (l: Label | undefined): l is Label => {
     typeof (l as Label).addr === 'string' &&
     typeof (l as Label).fullyQualifiedName === 'string'
   )
+}
+
+// TODO(gas)
+export const getGasWithBuffer = (gas: string): string => {
+  const gasWithBuffer = Number(gas) * 1.2 + 50_000
+  const rounded = Math.round(gasWithBuffer)
+  return rounded.toString()
 }

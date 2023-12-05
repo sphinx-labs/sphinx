@@ -8,8 +8,7 @@ import 'core-js/features/array/at'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
-import { getFoundryConfigOptions } from '../foundry/options'
-// import { propose } from './propose'
+import { getFoundryToml } from '../foundry/options'
 import { deploy } from './deploy'
 import { propose } from './propose'
 
@@ -146,7 +145,7 @@ yargs(hideBin(process.argv))
       const spinner = ora()
       spinner.start(`Initializing sample project...`)
 
-      const { src, test, script, solc } = await getFoundryConfigOptions()
+      const { src, test, script, solc } = await getFoundryToml()
 
       const solcVersion = solc ?? (await inferSolcVersion())
 

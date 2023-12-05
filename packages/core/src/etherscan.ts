@@ -125,18 +125,6 @@ export const verifySphinxConfig = async (
         solcVersion,
         encodedConstructorArgs
       )
-
-      // TODO(upgrades):
-      // if (contractConfig.kind !== 'immutable') {
-      //   // Link the proxy with its implementation
-      //   await linkProxyWithImplementation(
-      //     etherscanApiEndpoints.urls,
-      //     apiKey,
-      //     contractConfig.address,
-      //     implementationAddress,
-      //     contractName
-      //   )
-      // }
     }
   }
 }

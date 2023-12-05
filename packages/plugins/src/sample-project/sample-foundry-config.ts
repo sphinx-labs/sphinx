@@ -82,4 +82,5 @@ out/
 
 # Node
 node_modules/
+dist/
 `

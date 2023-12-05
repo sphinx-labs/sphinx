@@ -8,9 +8,6 @@ deployments/
 forge-cache/
 out/
 
-# Sphinx artifacts
-.compiler-configs
-
 # Typescript
 dist/
 tsconfig.tsbuildinfo
@@ -19,8 +16,3 @@ node_modules/@sphinx-labs
 .openzeppelin/*
 
 broadcast/
-
-client/
-
-# test
-test-proposal-output.json

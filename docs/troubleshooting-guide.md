@@ -36,7 +36,7 @@ console.log('MyToken', address(token));
 
 ## Slow compilation speed
 
-Sphinx may slow down the compilation speed of your script because the `Sphinx.sol` contract is rather large. You can speed up compilation during development by disabling the Solidity compiler optimizer. One approach is to create a new profile in your `foundry.toml` file. For example:
+Sphinx may slow down the compilation speed of your script because the `Sphinx.sol` contract is large. You can speed up compilation during development by disabling the Solidity compiler optimizer. One approach is to create a new profile in your `foundry.toml` file. For example:
 
 ```
 [profile.lite]
@@ -53,3 +53,7 @@ If you don't include this prefix in a `forge` command, Foundry will continue to 
 
 ## `Ineffective mark-compacts near heap limit allocation failed` error
 This bug can occur in repositories that have a very large number of contracts in them. This causes your build info artifact files to be extremely large, which can cause memory issues when using Sphinx. You can resolve this issue by running `forge clean`, which clears the artifacts directory, including the build info files.
+
+## TODO(md): `EvmError: MemoryLimitOOG`
+
+TODO(md): solution: increase the memory limit in foundry.toml to 3355443200 (this is 100x the default number of bytes, equal to ~3.35 gb)

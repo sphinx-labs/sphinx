@@ -1,23 +1,56 @@
 import { AbiCoder, ethers } from 'ethers'
 
-import { FoundryContractArtifact } from './types'
+import {
+  DecodedApproveLeafData,
+  DecodedExecuteLeafData,
+  FoundryContractArtifact,
+} from './types'
+import { SphinxLeaf } from './merkle-tree'
 
 export const decodeApproveLeafData = (
-  data: string
-): [string, string, bigint, bigint, string, string, boolean] => {
-  return AbiCoder.defaultAbiCoder().decode(
+  leaf: SphinxLeaf
+): DecodedApproveLeafData => {
+  const [
+    safeProxy,
+    moduleProxy,
+    merkleRootNonce,
+    numLeaves,
+    executor,
+    uri,
+    arbitraryChain,
+  ] = AbiCoder.defaultAbiCoder().decode(
     ['address', 'address', 'uint', 'uint', 'address', 'string', 'bool'],
-    data
-  ) as any
+    leaf.data
+  )
+
+  return {
+    safeProxy,
+    moduleProxy,
+    merkleRootNonce,
+    numLeaves,
+    executor,
+    uri,
+    arbitraryChain,
+  }
 }
 
 export const decodeExecuteLeafData = (
-  data: string
-): [string, bigint, bigint, string, BigInt, boolean] => {
-  return AbiCoder.defaultAbiCoder().decode(
-    ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
-    data
-  ) as any
+  leaf: SphinxLeaf
+): DecodedExecuteLeafData => {
+  const [to, value, gas, txData, operation, requireSuccess] =
+    AbiCoder.defaultAbiCoder().decode(
+      ['address', 'uint', 'uint', 'bytes', 'uint', 'bool'],
+      leaf.data
+    )
+
+  return {
+    to,
+    value,
+    gas,
+    txData,
+    operation,
+    requireSuccess,
+  }
 }
 
 /**
