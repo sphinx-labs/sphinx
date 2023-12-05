@@ -28,7 +28,8 @@
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:contracts:check": "yarn prettier --check 'contracts/**/*.sol'",
     "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol'",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "ts-node": "ts-node -r tsconfig-paths/register"
   },
   "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/contracts#readme",
   "license": "MIT",
@@ -51,6 +52,7 @@
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^6.7.0",
     "solmate": "6.2.0",
-    "@eth-optimism/contracts-bedrock": "^0.16.2"
+    "@eth-optimism/contracts-bedrock": "^0.16.2",
+    "viem": "^1.6.0"
   }
 }

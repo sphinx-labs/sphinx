@@ -25,6 +25,7 @@ import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.so
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { console } from "sphinx-forge-std/console.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -707,13 +708,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function signMetaTxnForAuthRoot(
         uint256 _privateKey,
         bytes32 _root
-    ) public pure returns (bytes memory) {
+    ) public view returns (bytes memory) {
         bytes memory typedData = abi.encodePacked(
             "\x19\x01",
             DOMAIN_SEPARATOR,
             keccak256(abi.encode(TYPE_HASH, _root))
         );
+        console.log("DOMAIN_SEPARATOR");
+        console.logBytes32(DOMAIN_SEPARATOR);
+        console.log("TYPE_HASH");
+        console.logBytes32(TYPE_HASH);
+        bytes memory encodedParameters = abi.encode(TYPE_HASH, _root);
+        console.log("encodedParameters");
+        console.logBytes(encodedParameters);
+        console.log("hashed parameters");
+        console.logBytes32(keccak256(abi.encode(TYPE_HASH, _root)));
+        console.log("typedData");
+        console.logBytes(typedData);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, keccak256(typedData));
+        console.log("signature");
+        console.logBytes(abi.encodePacked(r, s, v));
+        // revert("fail");
         return abi.encodePacked(r, s, v);
     }
 
@@ -1069,7 +1084,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getOwnerSignatures(
         Wallet[] memory _owners,
         bytes32 _root
-    ) public pure returns (bytes memory) {
+    ) public view returns (bytes memory) {
         bytes[] memory signatures = new bytes[](_owners.length);
         for (uint256 i = 0; i < _owners.length; i++) {
             signatures[i] = signMetaTxnForAuthRoot(_owners[i].privateKey, _root);
