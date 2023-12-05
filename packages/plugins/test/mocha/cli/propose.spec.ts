@@ -352,7 +352,7 @@ describe('Propose CLI command', () => {
   // collected. This is worthwhile to test because the `SphinxModule` doesn't revert if a user's
   // transactions causes the deployment to be marked as `FAILED`. If the Foundry plugin doesn't
   // revert either, then the deployment will be proposed, which is not desirable.
-  it.only('Reverts if the deployment fails during the proposal simulation', async () => {
+  it('Reverts if the deployment fails during the proposal simulation', async () => {
     const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
     const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
       scriptPath,
