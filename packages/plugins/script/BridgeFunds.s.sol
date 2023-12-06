@@ -59,7 +59,7 @@ contract SphinxScript is LzApp, Script {
     }
 
     string alchemyApiKey = vm.envString("ALCHEMY_API_KEY");
-    string goerliRpcUrl = string(abi.encodePacked("https://eth-goerli.g.alchemy.com/v2/", alchemyApiKey));
+    string sepoliaRpcUrl = string(abi.encodePacked("https://eth-sepolia.g.alchemy.com/v2/", alchemyApiKey));
     uint256 funderPrivateKey = vm.envUint("PRIVATE_KEY");
     address funder = vm.addr(funderPrivateKey);
 
@@ -84,7 +84,7 @@ contract SphinxScript is LzApp, Script {
     }
 
     function run() public {
-        vm.createSelectFork(goerliRpcUrl);
+        vm.createSelectFork(sepoliaRpcUrl);
         vm.startBroadcast(funderPrivateKey);
         for (uint256 i = 0; i < fundingInfo.length; i++) {
             uint16 dstChainId = fundingInfo[i].dstChainId;

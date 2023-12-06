@@ -496,21 +496,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             networkType: NetworkType.Mainnet
         });
         all[12] = NetworkInfo({
-            network: Network.goerli,
-            name: "goerli",
-            chainId: 5,
+            network: Network.sepolia,
+            name: "sepolia",
+            chainId: 11155111,
             networkType: NetworkType.Testnet
         });
         all[13] = NetworkInfo({
-            network: Network.optimism_goerli,
-            name: "optimism_goerli",
-            chainId: 420,
+            network: Network.optimism_sepolia,
+            name: "optimism_sepolia",
+            chainId: 11155420,
             networkType: NetworkType.Testnet
         });
         all[14] = NetworkInfo({
-            network: Network.arbitrum_goerli,
-            name: "arbitrum_goerli",
-            chainId: 421613,
+            network: Network.arbitrum_sepolia,
+            name: "arbitrum_sepolia",
+            chainId: 421614,
             networkType: NetworkType.Testnet
         });
         all[15] = NetworkInfo({
@@ -556,9 +556,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             networkType: NetworkType.Testnet
         });
         all[22] = NetworkInfo({
-            network: Network.base_goerli,
-            name: "base_goerli",
-            chainId: 84531,
+            network: Network.base_sepolia,
+            name: "base_sepolia",
+            chainId: 84532,
             networkType: NetworkType.Testnet
         });
         return all;

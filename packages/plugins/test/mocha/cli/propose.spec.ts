@@ -28,7 +28,7 @@ const coder = new ethers.AbiCoder()
 
 const sphinxApiKey = 'test-api-key'
 const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
-const goerliRpcUrl = `http://127.0.0.1:42005`
+const sepoliaRpcUrl = `http://127.0.0.1:42111`
 
 describe('Propose CLI command', () => {
   before(() => {
@@ -39,7 +39,7 @@ describe('Propose CLI command', () => {
     // Start Anvil nodes with fresh states. We must use `exec`
     // instead of `execAsync` because the latter will hang indefinitely.
     exec(`anvil --chain-id 1 --port 42001 --silent &`)
-    exec(`anvil --chain-id 5 --port 42005 --silent &`)
+    exec(`anvil --chain-id 11155111 --port 42111 --silent &`)
     exec(`anvil --chain-id 10 --port 42010 --silent &`)
     await sleep(1000)
   })
@@ -47,7 +47,7 @@ describe('Propose CLI command', () => {
   afterEach(async () => {
     // Exit the Anvil nodes
     await execAsync(`kill $(lsof -t -i:42001)`)
-    await execAsync(`kill $(lsof -t -i:42005)`)
+    await execAsync(`kill $(lsof -t -i:42111)`)
     await execAsync(`kill $(lsof -t -i:42010)`)
   })
 
@@ -86,10 +86,10 @@ describe('Propose CLI command', () => {
       proposalRequest,
       'Simple Project',
       isTestnet,
-      [5],
+      [11155111],
       [
         {
-          networkTags: ['goerli (local)'],
+          networkTags: ['sepolia (local)'],
           executing: [
             {
               address: proposalRequest.safeAddress,
@@ -356,7 +356,7 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
     const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
       scriptPath,
-      goerliRpcUrl,
+      sepoliaRpcUrl,
       'RevertDuringSimulation_Script'
     )
 

@@ -35,9 +35,9 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 56,
     },
-    // goerli: {
-    //   chainId: 5,
-    //   url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    // sepolia: {
+    //   chainId: 11155111,
+    //   url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
     // ethereum: {
@@ -45,9 +45,9 @@ const config: HardhatUserConfig = {
     //   url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
-    // 'optimism-goerli': {
-    //   chainId: 420,
-    //   url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    // 'optimism-sepolia': {
+    //   chainId: 11155420,
+    //   url: `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
     // optimism: {
@@ -60,9 +60,9 @@ const config: HardhatUserConfig = {
     //   url: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
-    // 'arbitrum-goerli': {
-    //   chainId: 421613,
-    //   url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    // 'arbitrum-sepolia': {
+    //   chainId: 421614,
+    //   url: `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
     // bnbt: {
@@ -137,27 +137,27 @@ const config: HardhatUserConfig = {
     // },
     // base: {
     //   chainId: 8453,
-    //   url: `${process.env.BASE_MAINNET_URL}`,
+    //   url: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
-    // 'base-goerli': {
+    // 'base-sepolia': {
     //   chainId: 84531,
-    //   url: `${process.env.BASE_GOERLI_URL}`,
+    //   url: `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
 
-    goerli: {
+    sepolia: {
       chainId: 5,
       url: 'http://127.0.0.1:42005',
       accounts,
     },
-    'optimism-goerli': {
+    'optimism-sepolia': {
       chainId: 420,
       url: 'http://127.0.0.1:42420',
       accounts,
     },
-    'arbitrum-goerli': {
-      chainId: 421613,
+    'arbitrum-sepolia': {
+      chainId: 421614,
       url: 'http://127.0.0.1:42613',
       accounts,
     },

@@ -76,14 +76,14 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
         string memory networkUrlStr;
         if (_network == Network.optimism) {
             networkUrlStr = "opt-mainnet";
-        } else if (_network == Network.optimism_goerli) {
-            networkUrlStr = "opt-goerli";
+        } else if (_network == Network.optimism_sepolia) {
+            networkUrlStr = "opt-sepolia";
         } else if (_network == Network.arbitrum) {
             networkUrlStr = "arb-mainnet";
-        } else if (_network == Network.arbitrum_goerli) {
-            networkUrlStr = "arb-goerli";
-        } else if (_network == Network.goerli) {
-            networkUrlStr = "eth-goerli";
+        } else if (_network == Network.arbitrum_sepolia) {
+            networkUrlStr = "arb-sepolia";
+        } else if (_network == Network.sepolia) {
+            networkUrlStr = "eth-sepolia";
         } else if (_network == Network.ethereum) {
             networkUrlStr = "eth-mainnet";
         } else {

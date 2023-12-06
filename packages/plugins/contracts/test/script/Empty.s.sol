@@ -12,7 +12,7 @@ contract Empty is Script, Sphinx {
         sphinxConfig.threshold = 1;
 
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-        sphinxConfig.testnets = [Network.goerli, Network.optimism_goerli];
+        sphinxConfig.testnets = [Network.sepolia, Network.optimism_sepolia];
         sphinxConfig.orgId = "test-org-id";
     }
 

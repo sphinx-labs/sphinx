@@ -53,9 +53,9 @@ Copy and paste the following config template into your `setUp` function:
     sphinxConfig.threshold = 1;
     sphinxConfig.mainnets;
     sphinxConfig.testnets = [
-      Network.goerli,
-      Network.optimism_goerli,
-      Network.arbitrum_goerli
+      Network.sepolia,
+      Network.optimism_sepolia,
+      Network.arbitrum_sepolia
     ];
 ```
 
@@ -67,9 +67,9 @@ Include an RPC endpoint for each network in your `foundry.toml`. For example, if
 
 ```
 [rpc_endpoints]
-goerli = "https://eth-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
-optimism_goerli = "https://opt-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
-arbitrum_goerli = "https://arb-goerli.g.alchemy.com/v2/${RPC_API_KEY}"
+sepolia = "https://eth-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
+optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
+arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 ```
 
 ## 8. Propose on testnets

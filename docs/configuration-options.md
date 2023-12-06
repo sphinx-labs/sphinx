@@ -77,7 +77,7 @@ Valid values:
 
 ### `Network[] testnets`
 ```
-sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
 ```
 
 The list of testnets to deploy on.
@@ -86,9 +86,9 @@ Valid values:
 
 | Network | `Network` enum |
 | ----------- | ----------- |
-| Ethereum Goerli | `Network.goerli` |
-| Optimism Goerli | `Network.optimism_goerli` |
-| Arbitrum Goerli | `Network.arbitrum_goerli` |
+| Ethereum Sepolia | `Network.sepolia` |
+| Optimism Sepolia | `Network.optimism_sepolia` |
+| Arbitrum Sepolia | `Network.arbitrum_sepolia` |
 | Polygon Mumbai | `Network.polygon_mumbai` |
 | Binance Smart Chain Testnet | `Network.bnb_testnet` |
 | Gnosis Chiado | `Network.gnosis_chiado` |
@@ -96,4 +96,4 @@ Valid values:
 | Polygon ZKEVM Goerli | `Network.polygon_zkevm_goerli` |
 | Avalanche Fuji | `Network.avalanche_fuji` |
 | Fantom Testnet | `Network.fantom_testnet` |
-| Base Goerli | `Network.base_goerli` |
+| Base Sepolia | `Network.base_sepolia` |

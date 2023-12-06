@@ -93,17 +93,17 @@ Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) to
 
 Test networks:
 
-- Ethereum Goerli
-- Optimism Goerli
-- Arbitrum Goerli
+- Ethereum Sepolia
+- Optimism Sepolia
+- Arbitrum Sepolia
 - Polygon Mumbai
-- Polygon zkEVM Testnet
+- Polygon zkEVM Goerli
 - BNB Smart Chain Testnet
 - Gnosis Chiado
 - Avalanche Fuji
 - Linea Goerli
 - Fantom Testnet
-- Base Goerli
+- Base Sepolia
 
 More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 

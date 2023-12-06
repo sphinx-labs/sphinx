@@ -13,14 +13,14 @@ contract Simple is Script, Sphinx {
         sphinxConfig.threshold = 1;
 
         sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-        sphinxConfig.testnets = [Network.goerli];
+        sphinxConfig.testnets = [Network.sepolia];
         sphinxConfig.orgId = "test-org-id";
     }
 
     function run() public override sphinx {
         MyContract2 myContract;
         Network network = getSphinxNetwork(block.chainid);
-        if (network == Network.ethereum || network == Network.goerli) {
+        if (network == Network.ethereum || network == Network.sepolia) {
             myContract = new MyContract2{ salt: 0 }();
         } else if (network == Network.optimism) {
             myContract = new MyContract2{ salt: bytes32(uint(1)) }();

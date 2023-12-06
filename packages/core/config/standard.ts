@@ -1,8 +1,5 @@
 import { SphinxSystemConfig } from '../src'
 
-// Used to deploy on:
-// Goerli, Optimism Goerli, Arbitrum Goerli, Gnosis Chaido, Matic Mumbai, Binance Smart Chain Testnet
-
 const config: SphinxSystemConfig = {
   relayers: [
     '0x42761FAcF5e6091fcA0e38F450adfB1E22bD8c3C',

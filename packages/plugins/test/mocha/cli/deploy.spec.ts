@@ -124,8 +124,8 @@ const conflictingNameContractWithInteractionAddress = ethers.getCreate2Address(
 chai.use(chaiAsPromised)
 const expect = chai.expect
 
-const goerliRpcUrl = `http://127.0.0.1:42005`
-const provider = new SphinxJsonRpcProvider(goerliRpcUrl)
+const sepoliaRpcUrl = `http://127.0.0.1:42111`
+const provider = new SphinxJsonRpcProvider(sepoliaRpcUrl)
 
 const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
@@ -140,16 +140,16 @@ const expectedMyContract2Address = ethers.getCreate2Address(
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
 
-const startGoerli = async () => {
+const startSepolia = async () => {
   // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
   // because the latter will hang indefinitely.
-  exec(`anvil --chain-id 5 --port 42005 &`)
+  exec(`anvil --chain-id 11155111 --port 42111 &`)
   await sleep(1000)
 }
 
-const killGoerli = async () => {
+const killSepolia = async () => {
   // Kill the Anvil node
-  await execAsync(`kill $(lsof -t -i:42005)`)
+  await execAsync(`kill $(lsof -t -i:42111)`)
 }
 
 describe('Deploy CLI command', () => {
@@ -158,13 +158,13 @@ describe('Deploy CLI command', () => {
     const { deploymentFolder } = await getFoundryToml()
     deploymentArtifactFilePath = join(
       deploymentFolder,
-      'goerli-local',
+      'sepolia-local',
       'MyContract2.json'
     )
   })
 
   beforeEach(async () => {
-    await startGoerli()
+    await startSepolia()
 
     if (existsSync(deploymentArtifactFilePath)) {
       unlinkSync(deploymentArtifactFilePath)
@@ -172,7 +172,7 @@ describe('Deploy CLI command', () => {
   })
 
   afterEach(async () => {
-    await killGoerli()
+    await killSepolia()
   })
 
   describe('With preview', () => {
@@ -188,7 +188,7 @@ describe('Deploy CLI command', () => {
 
       const { parsedConfig: deployedParsedConfig, preview } = await deploy(
         forgeScriptPath,
-        'goerli',
+        'sepolia',
         false, // Run preview
         true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
@@ -215,7 +215,7 @@ describe('Deploy CLI command', () => {
       expect(preview).to.deep.equal({
         networks: [
           {
-            networkTags: ['goerli (local)'],
+            networkTags: ['sepolia (local)'],
             executing: [
               {
                 address: deployedParsedConfig.safeAddress,
@@ -260,7 +260,7 @@ describe('Deploy CLI command', () => {
 
       const { preview } = await deploy(
         emptyScriptPath,
-        'goerli',
+        'sepolia',
         false, // Run preview
         true, // Silent
         undefined, // Only one contract in the script file, so there's no target contract to specify.
@@ -272,7 +272,7 @@ describe('Deploy CLI command', () => {
       expect(preview).to.deep.equal({
         networks: [
           {
-            networkTags: ['goerli (local)'],
+            networkTags: ['sepolia (local)'],
             executing: [],
             skipping: [],
           },
@@ -293,7 +293,7 @@ describe('Deploy CLI command', () => {
       const scriptPath = 'contracts/test/script/RevertDuringSimulation.s.sol'
       const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
         scriptPath,
-        goerliRpcUrl,
+        sepoliaRpcUrl,
         'RevertDuringSimulation_Script'
       )
 
@@ -317,7 +317,7 @@ describe('Deploy CLI command', () => {
         'src/cli/index.ts',
         'deploy',
         '--network',
-        'goerli',
+        'sepolia',
         scriptPath,
         '--confirm',
         '--target-contract',
@@ -356,10 +356,10 @@ describe('Deployment Cases', () => {
   }
 
   before(async () => {
-    await startGoerli()
+    await startSepolia()
     ;({ parsedConfig, preview } = await deploy(
       deploymentCasesScriptPath,
-      'goerli',
+      'sepolia',
       false, // Skip preview
       true, // Silent
       undefined, // Only one contract in the script file, so there's no target contract to specify.
@@ -373,7 +373,7 @@ describe('Deployment Cases', () => {
   })
 
   after(async () => {
-    await killGoerli()
+    await killSepolia()
   })
 
   it('Can call fallback function on contract', async () => {
@@ -429,7 +429,7 @@ describe('Deployment Cases', () => {
         // expect deployment artifacts to be written for both of them
         // and that the address matches the expected address
         const parentDeploymentArtifactPath =
-          './deployments/goerli-local/ConstructorDeploysContract.json'
+          './deployments/sepolia-local/ConstructorDeploysContract.json'
         expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
         const parentArtifact = JSON.parse(
           readFileSync(parentDeploymentArtifactPath).toString()
@@ -437,7 +437,7 @@ describe('Deployment Cases', () => {
         expect(parentArtifact.address === constructorDeploysContractAddress)
 
         const childDeploymentArtifactPath =
-          './deployments/goerli-local/DeployedInConstructor.json'
+          './deployments/sepolia-local/DeployedInConstructor.json'
         expect(existsSync(join(childDeploymentArtifactPath))).to.be.true
         const childArtifactPath = JSON.parse(
           readFileSync(childDeploymentArtifactPath).toString()
@@ -483,7 +483,7 @@ describe('Deployment Cases', () => {
         // expect deployment artifacts to be written for both of them
         // and that the address matches the expected address
         const parentDeploymentArtifactPath =
-          './deployments/goerli-local/ConstructorDeploysContract_1.json'
+          './deployments/sepolia-local/ConstructorDeploysContract_1.json'
         expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
         const parentArtifact = JSON.parse(
           readFileSync(parentDeploymentArtifactPath).toString()
@@ -493,7 +493,7 @@ describe('Deployment Cases', () => {
         )
 
         const childDeploymentArtifactPath =
-          './deployments/goerli-local/DeployedInConstructor_1.json'
+          './deployments/sepolia-local/DeployedInConstructor_1.json'
         expect(existsSync(join(childDeploymentArtifactPath))).to.be.true
         const childArtifactPath = JSON.parse(
           readFileSync(childDeploymentArtifactPath).toString()
@@ -543,7 +543,7 @@ describe('Deployment Cases', () => {
 
         // expect that there is a deployment artifact for the parent
         const parentDeploymentArtifactPath =
-          './deployments/goerli-local/ConstructorDeploysContract_2.json'
+          './deployments/sepolia-local/ConstructorDeploysContract_2.json'
         expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
         const parentArtifact = JSON.parse(
           readFileSync(parentDeploymentArtifactPath).toString()
@@ -554,7 +554,7 @@ describe('Deployment Cases', () => {
 
         // expect there is not a deployment artifact for the child
         const childDeploymentArtifactPath =
-          './deployments/goerli-local/DeployedInConstructor_2.json'
+          './deployments/sepolia-local/DeployedInConstructor_2.json'
         expect(!existsSync(join(childDeploymentArtifactPath))).to.be.true
       })
 
@@ -604,17 +604,19 @@ describe('Deployment Cases', () => {
         // expect there is not a deployment artifact for either
         expect(
           !existsSync(
-            join('./deployments/goerli-local/ConstructorDeploysContract_3.json')
+            join(
+              './deployments/sepolia-local/ConstructorDeploysContract_3.json'
+            )
           )
         ).to.be.true
         expect(
           !existsSync(
-            join('./deployments/goerli-local/DeployedInConstructor_2.json')
+            join('./deployments/sepolia-local/DeployedInConstructor_2.json')
           )
         ).to.be.true
         expect(
           !existsSync(
-            join('./deployments/goerli-local/DeployedInConstructor_3.json')
+            join('./deployments/sepolia-local/DeployedInConstructor_3.json')
           )
         ).to.be.true
       })
@@ -642,7 +644,7 @@ describe('Deployment Cases', () => {
 
         // expect deployment artifact to be written
         const parentDeploymentArtifactPath =
-          './deployments/goerli-local/ConflictingNameContract.json'
+          './deployments/sepolia-local/ConflictingNameContract.json'
         expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
         const parentArtifact = JSON.parse(
           readFileSync(parentDeploymentArtifactPath).toString()
@@ -688,7 +690,7 @@ describe('Deployment Cases', () => {
 
         // expect deployment artifact to be written
         const parentDeploymentArtifactPath =
-          './deployments/goerli-local/ConflictingNameContract_1.json'
+          './deployments/sepolia-local/ConflictingNameContract_1.json'
         expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
         const parentArtifact = JSON.parse(
           readFileSync(parentDeploymentArtifactPath).toString()
