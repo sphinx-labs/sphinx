@@ -1,4 +1,8 @@
-import { SphinxMerkleTree, decodeExecuteLeafData } from '@sphinx-labs/contracts'
+import {
+  SphinxLeafType,
+  SphinxMerkleTree,
+  decodeExecuteLeafData,
+} from '@sphinx-labs/contracts'
 
 import { SphinxJsonRpcProvider } from './provider'
 
@@ -8,7 +12,13 @@ export const estimateExecutionGas = async (
 ): Promise<bigint> => {
   const gas = merkleTree.leavesWithProofs
     .slice(actionsExecuted)
-    .map((action) => decodeExecuteLeafData(action.leaf).gas)
+    .map((action) => {
+      if (action.leaf.leafType === SphinxLeafType.EXECUTE) {
+        return decodeExecuteLeafData(action.leaf).gas
+      } else {
+        return BigInt(500_000)
+      }
+    })
     .reduce((a, b) => a + b, BigInt(0))
 
   return gas
