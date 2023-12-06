@@ -79,7 +79,7 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     bytes32 internal constant DOMAIN_SEPARATOR =
         keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version"),
+                keccak256("EIP712Domain(string name,string version)"),
                 keccak256(bytes("Sphinx")),
                 keccak256(bytes(VERSION))
             )

@@ -270,6 +270,10 @@ abstract contract Sphinx {
     }
 
     function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
+        if (address(sphinxSafe()).code.length > 0) {
+            return;
+        }
+
         address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
 
         address safeAddress = sphinxModule();

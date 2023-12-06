@@ -38,7 +38,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     bytes32 private constant DOMAIN_SEPARATOR =
         keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version"),
+                keccak256("EIP712Domain(string name,string version)"),
                 keccak256(bytes("Sphinx")),
                 keccak256(bytes("1.0.0"))
             )
