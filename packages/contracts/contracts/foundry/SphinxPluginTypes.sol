@@ -134,9 +134,9 @@ enum Network {
     fantom,
     base,
     // testnets
-    goerli,
-    optimism_goerli,
-    arbitrum_goerli,
+    sepolia,
+    optimism_sepolia,
+    arbitrum_sepolia,
     polygon_mumbai,
     bnb_testnet,
     gnosis_chiado,
@@ -144,7 +144,7 @@ enum Network {
     polygon_zkevm_goerli,
     avalanche_fuji,
     fantom_testnet,
-    base_goerli
+    base_sepolia
 }
 
 struct DeployOptions {

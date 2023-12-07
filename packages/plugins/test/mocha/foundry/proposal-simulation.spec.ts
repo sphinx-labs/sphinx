@@ -43,7 +43,7 @@ const sphinxConfig: SphinxConfig = {
   threshold: '3',
   saltNonce: '0',
   mainnets: [],
-  testnets: ['goerli', 'optimism_goerli'],
+  testnets: ['sepolia', 'optimism_sepolia'],
   orgId: '1111',
 }
 
@@ -54,19 +54,19 @@ describe('Simulate proposal', () => {
   before(async () => {
     await execAsync('yarn kill-nodes')
 
-    exec('anvil --silent --chain-id 5 --port 42005 &')
-    exec('anvil --silent --chain-id 420 --port 42420 &')
+    exec('anvil --silent --chain-id 11155111 --port 42111 &')
+    exec('anvil --silent --chain-id 11155420 --port 42420 &')
     exec('anvil --silent --chain-id 10200 --port 42200 &')
-    exec('anvil --silent --chain-id 421613 --port 42613 &')
+    exec('anvil --silent --chain-id 421614 --port 42614 &')
 
     safeAddress = await getSphinxSafeAddressFromScript(
       scriptPath,
-      'http://localhost:42005',
+      'http://localhost:42111',
       'Proposal_Initial_Test'
     )
     moduleAddress = await getSphinxModuleAddressFromScript(
       scriptPath,
-      'http://localhost:42005',
+      'http://localhost:42111',
       'Proposal_Initial_Test'
     )
     foundryToml = await getFoundryToml()

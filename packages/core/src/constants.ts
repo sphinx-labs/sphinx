@@ -61,6 +61,38 @@ export const customChains: CustomChain[] = [
       browserURL: 'https://goerli.basescan.org/',
     },
   },
+  {
+    network: 'base-sepolia',
+    chainId: 84532,
+    urls: {
+      apiURL: 'https://base-sepolia.blockscout.com/api',
+      browserURL: 'https://base-sepolia.blockscout.com/',
+    },
+  },
+  {
+    network: 'optimism-sepolia',
+    chainId: 11155420,
+    urls: {
+      apiURL: 'https://sepolia-optimism.etherscan.io/api',
+      browserURL: 'https://sepolia-optimism.etherscan.io/',
+    },
+  },
+  {
+    network: 'arbitrum-sepolia',
+    chainId: 421614,
+    urls: {
+      apiURL: 'https://sepolia.arbiscan.io/api',
+      browserURL: 'https://sepolia.arbiscan.io/',
+    },
+  },
+  {
+    network: 'sepolia',
+    chainId: 11155111,
+    urls: {
+      apiURL: 'https://sepolia.etherscan.io/api',
+      browserURL: 'https://sepolia.etherscan.io/',
+    },
+  },
 ]
 
 export type Integration = 'hardhat' | 'foundry'

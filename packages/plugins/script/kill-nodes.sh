@@ -18,7 +18,7 @@ fi
 
 # Check if the first argument is "all"
 if [ "$1" == "all" ]; then
-  all_chain_ids=(1 5 10 420 10200 42161 421613)
+  all_chain_ids=(1 11155111 10 11155420 10200 42161 421614)
 
   for chain_id in "${all_chain_ids[@]}"
   do

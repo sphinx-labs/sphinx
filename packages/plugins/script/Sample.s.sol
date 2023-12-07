@@ -14,7 +14,7 @@ contract Sample is Sphinx {
         sphinxConfig.projectName = "11/10";
         sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
         sphinxConfig.threshold = 1;
-        sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+        sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
     }

@@ -142,10 +142,7 @@ export const getEIP1967ProxyAdminAddress = async (
 }
 
 /**
- * Overrides an object's gas price settings to support EIP-1559 transactions if EIP-1559 is
- * supported by the network. This only overrides the default behavior on Goerli, where transactions
- * sent via Alchemy or Infura do not yet support EIP-1559 gas pricing, despite the fact that
- * `maxFeePerGas` and `maxPriorityFeePerGas` are defined.
+ * Overrides an object's gas price settings to handle a variety of edge cases on different networks.
  *
  * @param provider Provider object.
  * @param overridden The object whose gas price settings will be overridden.

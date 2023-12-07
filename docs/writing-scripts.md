@@ -34,7 +34,7 @@ function setUp() public {
     // Sphinx DevOps platform options:
     sphinxConfig.projectName = "My Project";
     sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
-    sphinxConfig.testnets = [Network.goerli, Network.arbitrum_goerli];
+    sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
     sphinxConfig.orgId = "abcd-1234";
 }
 ```
@@ -48,3 +48,6 @@ If you need to use the address of your Gnosis Safe in your deployment script, yo
 ```sol
 address safe = sphinxSafe();
 ```
+
+
+TODO(md): Permissioned actions
