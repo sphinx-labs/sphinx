@@ -1,19 +1,29 @@
-import * as fs from 'fs'
-import path, { dirname, join } from 'path'
+import path, { basename, dirname, join } from 'path'
 import { promisify } from 'util'
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readFile,
+  readFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 
 import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
-  getNetworkNameForChainId,
   spawnAsync,
+  toSphinxTransaction,
 } from '@sphinx-labs/core/dist/utils'
-import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   ConfigArtifacts,
   DeploymentInfo,
+  FoundryDryRunTransaction,
   GetConfigArtifacts,
-  GetProviderForChainId,
+  ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -23,14 +33,36 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import { SupportedNetworkName, networkEnumToName } from '@sphinx-labs/core'
+import {
+  MerkleRootState,
+  MerkleRootStatus,
+  ProposalRequest,
+  SphinxJsonRpcProvider,
+  SupportedNetworkName,
+  getReadableActions,
+  networkEnumToName,
+  findLeafWithProof,
+} from '@sphinx-labs/core'
 import ora from 'ora'
 import {
   FoundryContractArtifact,
+  SphinxLeafType,
+  SphinxMerkleTree,
+  SphinxModuleABI,
+  SphinxTransaction,
   parseFoundryArtifact,
+  remove0x,
 } from '@sphinx-labs/contracts'
+import { ethers } from 'ethers'
 
-const readFileAsync = promisify(fs.readFile)
+import {
+  FoundryMultiChainDryRun,
+  FoundrySingleChainBroadcast,
+  FoundrySingleChainDryRun,
+} from '../types'
+import { FoundryToml } from '../options'
+
+const readFileAsync = promisify(readFile)
 
 /**
  * @field fullyQualifiedNames An array of fully qualified names, which are the keys of the
@@ -46,7 +78,7 @@ type BuildInfoCacheEntry = {
 
 export const streamFullyQualifiedNames = async (filePath: string) => {
   const pipeline = new chain([
-    fs.createReadStream(filePath),
+    createReadStream(filePath),
     parser(),
     pick({ filter: 'output' }),
     pick({ filter: 'contracts' }),
@@ -71,7 +103,7 @@ export const streamFullyQualifiedNames = async (filePath: string) => {
 
 export const streamBuildInfo = async (filePath: string) => {
   const pipeline = new chain([
-    fs.createReadStream(filePath),
+    createReadStream(filePath),
     parser(),
     ignore({ filter: 'output' }),
     streamValues(),
@@ -157,7 +189,7 @@ export const readFoundryContractArtifact = async (
       `${contractName}.json`
     )
 
-    if (fs.existsSync(currentPath)) {
+    if (existsSync(currentPath)) {
       return parseFoundryArtifact(
         JSON.parse(await readFileAsync(currentPath, 'utf8'))
       )
@@ -175,54 +207,13 @@ export const readFoundryContractArtifact = async (
     sourceFileName,
     `${contractName}.json`
   )
-  if (fs.existsSync(shortestPath)) {
+  if (existsSync(shortestPath)) {
     return parseFoundryArtifact(
       JSON.parse(await readFileAsync(shortestPath, 'utf8'))
     )
   }
 
   throw new Error(messageArtifactNotFound(fullyQualifiedName))
-}
-
-/**
- * Creates a callback for `getProviderFromChainId`, which is a function that returns a provider
- * object for a given chain ID. We use a callback to create a standard interface for the
- * `getProviderFromChainId` function, which has a different implementation in Hardhat and Foundry.
- *
- * @param rpcEndpoints A map of chain aliases to RPC urls.
- * @returns The provider object that corresponds to the chain ID.
- */
-export const makeGetProviderFromChainId = async (rpcEndpoints: {
-  [chainAlias: string]: string
-}): Promise<GetProviderForChainId> => {
-  const urls = Object.values(rpcEndpoints)
-  const networks = await Promise.all(
-    urls.map(async (url) => {
-      const provider = new SphinxJsonRpcProvider(url)
-      try {
-        // We put this RPC call in a try/catch because it may not be possible to connect to some of
-        // the RPC endpoints in the foundry.toml file. For example, the user may have a local RPC
-        // endpoint that is not currently running.
-        const { chainId, name: networkName } = await provider.getNetwork()
-        return { chainId: Number(chainId), url, networkName }
-      } catch (err) {
-        undefined
-      }
-    })
-  )
-
-  return (chainId: number): SphinxJsonRpcProvider => {
-    const network = networks.find((n) => n && n.chainId === chainId)
-    if (network === undefined) {
-      throw new Error(
-        `Could not find an RPC endpoint in your foundry.toml for the network: ${getNetworkNameForChainId(
-          BigInt(chainId)
-        )}.`
-      )
-    }
-
-    return new SphinxJsonRpcProvider(network.url)
-  }
 }
 
 export const getUniqueNames = (
@@ -276,27 +267,25 @@ export const makeGetConfigArtifacts = (
     contractNames: Array<string>
   ) => {
     // Check if the cache directory exists, and create it if not
-    if (!fs.existsSync(cachePath)) {
-      fs.mkdirSync(cachePath)
+    if (!existsSync(cachePath)) {
+      mkdirSync(cachePath)
     }
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
     // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
     // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-    let buildInfoCache: Record<string, BuildInfoCacheEntry> = fs.existsSync(
+    let buildInfoCache: Record<string, BuildInfoCacheEntry> = existsSync(
       buildInfoCacheFilePath
     )
-      ? JSON.parse(fs.readFileSync(buildInfoCacheFilePath, 'utf8'))
+      ? JSON.parse(readFileSync(buildInfoCacheFilePath, 'utf8'))
       : {}
 
     const buildInfoPath = join(buildInfoFolder)
 
     // Find all the build info files and their last modified time
-    const buildInfoFileNames = fs
-      .readdirSync(buildInfoPath)
-      .filter((fileName) => {
-        return fileName.endsWith('.json')
-      })
+    const buildInfoFileNames = readdirSync(buildInfoPath).filter((fileName) => {
+      return fileName.endsWith('.json')
+    })
 
     const cachedNames = Object.keys(buildInfoCache)
     // If there is only one build info file and it is not in the cache,
@@ -313,7 +302,7 @@ export const makeGetConfigArtifacts = (
     const buildInfoFileNamesWithTime = buildInfoFileNames
       .map((fileName) => ({
         name: fileName,
-        time: fs.statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
+        time: statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
       }))
       .sort((a, b) => b.time - a.time)
 
@@ -377,8 +366,8 @@ export const makeGetConfigArtifacts = (
 
         // Throw an error if no build info file is found in the cache for this contract
         // This should only happen if the user manually deletes a build info file
-        if (fs.existsSync(buildInfoCacheFilePath)) {
-          fs.unlinkSync(buildInfoCacheFilePath)
+        if (existsSync(buildInfoCacheFilePath)) {
+          unlinkSync(buildInfoCacheFilePath)
         }
         throw new Error(
           `Build info cache is outdated, please run 'forge build --force' then try again.`
@@ -414,8 +403,8 @@ export const makeGetConfigArtifacts = (
 
         // Throw an error if no build info file is found in the cache for this contract name. This
         // should only happen if the user manually deletes a build info file.
-        if (fs.existsSync(buildInfoCacheFilePath)) {
-          fs.unlinkSync(buildInfoCacheFilePath)
+        if (existsSync(buildInfoCacheFilePath)) {
+          unlinkSync(buildInfoCacheFilePath)
         }
         throw new Error(
           `Build info cache is outdated. Please run 'forge build --force' then try again.`
@@ -433,9 +422,9 @@ export const makeGetConfigArtifacts = (
     await Promise.all(
       toReadFiles.map(async (file) => {
         const fullFilePath = join(buildInfoFolder, file)
-        if (!fs.existsSync(fullFilePath)) {
-          if (fs.existsSync(buildInfoCacheFilePath)) {
-            fs.unlinkSync(buildInfoCacheFilePath)
+        if (!existsSync(fullFilePath)) {
+          if (existsSync(buildInfoCacheFilePath)) {
+            unlinkSync(buildInfoCacheFilePath)
           }
           throw new Error(
             `Build info cache is outdated, please run 'forge build --force' then try again.`
@@ -456,7 +445,7 @@ export const makeGetConfigArtifacts = (
     })
 
     // Write the updated build info cache
-    fs.writeFileSync(
+    writeFileSync(
       buildInfoCacheFilePath,
       JSON.stringify(buildInfoCache, null, 2)
     )
@@ -636,4 +625,631 @@ export const getSphinxSafeAddressFromScript = async (
   const safeAddress = json.returns[0].value
 
   return safeAddress
+}
+
+export const getSphinxLeafGasEstimates = async (
+  scriptPath: string,
+  foundryToml: FoundryToml,
+  networkNames: Array<SupportedNetworkName>,
+  sphinxPluginTypesInterface: ethers.Interface,
+  collected: Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<RawActionInput>
+  }>,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<Array<Array<string>>> => {
+  const leafGasParamsFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'leafGasParams')
+  if (!leafGasParamsFragment) {
+    throw new Error(`Could not find fragment in ABI. Should never happen.`)
+  }
+
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const leafGasInputsFilePath = join(
+    foundryToml.cachePath,
+    'sphinx-estimate-leaf-gas.txt'
+  )
+
+  const chainIds: Array<number> = []
+  const txns: Array<SphinxTransaction> = []
+  for (const { actionInputs, deploymentInfo } of collected) {
+    for (const actionInput of actionInputs) {
+      chainIds.push(Number(deploymentInfo.chainId))
+      txns.push(toSphinxTransaction(actionInput))
+    }
+  }
+
+  const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
+    txns,
+    chainIds,
+  ])
+
+  // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
+  // instead of passing in the data as a parameter to the Forge script because it's possible to hit
+  // Node's `spawn` input size limit if the data is large. This is particularly a concern because
+  // the data contains contract init code.
+  writeFileSync(leafGasInputsFilePath, encodedTxnArray)
+
+  const leafGasEstimationScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxEstimateMerkleLeafGas(string)',
+    leafGasInputsFilePath,
+    // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
+    // hard-code it just in case Foundry changes the default value in the future. In practice, this
+    // tends to produce a gas estimate multiplier that's around 35% to 50% higher than the actual
+    // gas used instead of 30%.
+    '--gas-estimate-multiplier',
+    '130',
+  ]
+  if (targetContract) {
+    leafGasEstimationScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const dateBeforeForgeScript = new Date()
+  const gasEstimationSpawnOutput = await spawnAsync(
+    'forge',
+    leafGasEstimationScriptArgs
+  )
+  if (gasEstimationSpawnOutput.code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(gasEstimationSpawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(gasEstimationSpawnOutput.stderr)
+    process.exit(1)
+  }
+
+  // Get the number of chains that contain at least one transaction to execute.
+  const containsActionInput = collected.filter(
+    ({ actionInputs }) => actionInputs.length > 0
+  )
+
+  const dryRun =
+    containsActionInput.length > 1
+      ? readFoundryMultiChainDryRun(
+          foundryToml.broadcastFolder,
+          scriptPath,
+          `sphinxEstimateMerkleLeafGas`,
+          dateBeforeForgeScript
+        )
+      : readFoundrySingleChainDryRun(
+          foundryToml.broadcastFolder,
+          scriptPath,
+          containsActionInput[0].deploymentInfo.chainId,
+          `sphinxEstimateMerkleLeafGas`,
+          dateBeforeForgeScript
+        )
+
+  if (!dryRun) {
+    // This should never happen because the presence of action inputs should always mean that a
+    // broadcast occurred.
+    throw new Error(`Could not read Foundry dry run file. Should never happen.`)
+  }
+
+  const gasEstimatesArray: Array<Array<string>> = []
+  for (const { actionInputs, deploymentInfo } of collected) {
+    let transactions: Array<FoundryDryRunTransaction> = []
+    if (isFoundryMultiChainDryRun(dryRun)) {
+      // Find the dry run that corresponds to the current network.
+      const deploymentOnNetwork = dryRun.deployments.find(
+        (deployment) => deployment.chain.toString() === deploymentInfo.chainId
+      )
+      // If we couldn't find a dry run that corresponds to the current network, then there must
+      // not be any transactions to execute on it. We use an empty transactions array in this case.
+      transactions = deploymentOnNetwork ? deploymentOnNetwork.transactions : []
+    } else if (isFoundrySingleChainDryRun(dryRun)) {
+      // Check if the current network matches the network of the dry run. If the current network
+      // doesn't match the dry run's network, then this means there weren't any transactions
+      // executed on the current network. We use an empty transactions array in this case.
+      transactions =
+        deploymentInfo.chainId === dryRun.chain.toString()
+          ? dryRun.transactions
+          : []
+    } else {
+      throw new Error(
+        `Foundry dry run is an incompatible type. Should never happen.`
+      )
+    }
+
+    const gasEstimates = transactions
+      // We remove any transactions that weren't broadcasted from the Sphinx Module. Particularly,
+      // we remove the transaction that deploys the Gnosis Safe and Sphinx Module, which is
+      // broadcasted from a different address. This transaction isn't relevant because we're only
+      // interested in estimating the gas of the Sphinx leaves.
+      .filter(
+        (tx) =>
+          typeof tx.transaction.from === 'string' &&
+          ethers.getAddress(tx.transaction.from) ===
+            deploymentInfo.moduleAddress
+      )
+      .map((tx) => tx.transaction.gas)
+      // Narrows the TypeScript type of `gas` from `string | null` to `string`.
+      .map((gas) => {
+        if (typeof gas !== 'string') {
+          throw new Error(
+            `Detected a 'gas' field that is not a string. Should never happen.`
+          )
+        }
+        return gas
+      })
+      // Convert the gas values from hex strings to decimal strings.
+      .map((gas) => parseInt(gas, 16).toString())
+
+    // Sanity check that there's a gas estimate for each transaction.
+    if (gasEstimates.length !== actionInputs.length) {
+      throw new Error(
+        `Mismatch between the number of transactions and the number of gas estimates. Should never happen.`
+      )
+    }
+
+    gasEstimatesArray.push(gasEstimates)
+  }
+
+  return gasEstimatesArray
+}
+
+export const isFoundryMultiChainDryRun = (
+  dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
+): dryRun is FoundryMultiChainDryRun => {
+  return (
+    Array.isArray((dryRun as FoundryMultiChainDryRun).deployments) &&
+    typeof (dryRun as FoundryMultiChainDryRun).timestamp === 'number' &&
+    typeof (dryRun as FoundryMultiChainDryRun).path === 'string' &&
+    !isFoundrySingleChainDryRun(dryRun)
+  )
+}
+
+export const isFoundrySingleChainDryRun = (
+  dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
+): dryRun is FoundrySingleChainDryRun => {
+  return (
+    Array.isArray((dryRun as FoundrySingleChainDryRun).transactions) &&
+    Array.isArray((dryRun as FoundrySingleChainDryRun).receipts) &&
+    Array.isArray((dryRun as FoundrySingleChainDryRun).libraries) &&
+    Array.isArray((dryRun as FoundrySingleChainDryRun).pending) &&
+    'returns' in (dryRun as FoundrySingleChainDryRun) &&
+    typeof (dryRun as FoundrySingleChainDryRun).timestamp === 'number' &&
+    typeof (dryRun as FoundrySingleChainDryRun).chain === 'number' &&
+    typeof (dryRun as FoundrySingleChainDryRun).multi === 'boolean' &&
+    typeof (dryRun as FoundrySingleChainDryRun).commit === 'string'
+  )
+}
+
+/**
+ * Read a Foundry multi-chain dry run file.
+ *
+ * @param timeThreshold The earliest time that the dry run file could have been written. This
+ * function will return `undefined` if the dry run file was modified earlier than this time. This
+ * ensures that we don't read a dry run file from an outdated dry run.
+ */
+export const readFoundryMultiChainDryRun = (
+  broadcastFolder: string,
+  scriptPath: string,
+  functionNameOrSelector: string,
+  timeThreshold: Date
+): FoundryMultiChainDryRun | undefined => {
+  // An example of the file location:
+  // `broadcast/multi/dry-run/MyScript.s.sol-latest/myScriptFunctionName.json`
+  const dryRunPath = join(
+    broadcastFolder,
+    'multi',
+    'dry-run',
+    `${basename(scriptPath)}-latest`,
+    `${functionNameOrSelector}.json`
+  )
+
+  // Check that the file exists and it was modified later than the supplied time threshold. If the
+  // file doesn't exist, this means there weren't any broadcasted transactions. If the file exists
+  // but it was modified earlier than the time threshold, this means there's an outdated dry run at
+  // the file location, which will also means there weren't any broadcasted transactions in the most
+  // recent Forge script run. We don't want to use an outdated file because it likely contains a
+  // different deployment.
+  if (existsSync(dryRunPath) && statSync(dryRunPath).mtime > timeThreshold) {
+    return JSON.parse(readFileSync(dryRunPath, 'utf8'))
+  } else {
+    return undefined
+  }
+}
+
+export const getFoundrySingleChainDryRunPath = (
+  broadcastFolder: string,
+  scriptPath: string,
+  chainId: string | bigint | number,
+  functionNameOrSelector: string
+): string => {
+  // If the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol), Foundry still only
+  // uses only the script's file name, not its entire path. An example of the file location:
+  // broadcast/MyScriptName/31337/dry-run/myScriptFunctionName-latest.json
+  return join(
+    broadcastFolder,
+    basename(scriptPath),
+    chainId.toString(),
+    'dry-run',
+    `${functionNameOrSelector}-latest.json`
+  )
+}
+
+/**
+ * @param timeThreshold The earliest time that the dry run file could have been written. This
+ * function will return `undefined` if the dry run file was modified earlier than this time. This
+ * ensures that we don't read a dry run file from an outdated dry run.
+ */
+export const readFoundrySingleChainBroadcast = (
+  broadcastFolder: string,
+  scriptPath: string,
+  chainId: string | number | bigint,
+  functionNameOrSelector: string,
+  timeThreshold: Date
+): FoundrySingleChainBroadcast | undefined => {
+  const broadcastFilePath = join(
+    broadcastFolder,
+    basename(scriptPath),
+    chainId.toString(),
+    `${functionNameOrSelector}-latest.json`
+  )
+
+  // Check that the file exists and it was modified later than the supplied time threshold. If the
+  // file doesn't exist, this means there weren't any broadcasted transactions. If the file exists
+  // but it was modified earlier than the time threshold, this means there's an outdated broadcast
+  // at the file location, which will also means there weren't any broadcasted transactions in the
+  // most recent Forge script run. We don't want to use an outdated file because it likely contains
+  // a different deployment.
+  if (
+    existsSync(broadcastFilePath) &&
+    statSync(broadcastFilePath).mtime > timeThreshold
+  ) {
+    return JSON.parse(readFileSync(broadcastFilePath, 'utf8'))
+  } else {
+    return undefined
+  }
+}
+
+/**
+ * Read a Foundry multi-chain dry run file.
+ *
+ * @param timeThreshold The earliest time that the dry run file could have been written. This
+ * function will return `undefined` if the dry run file was modified earlier than this time. This
+ * ensures that we don't read a dry run file from an outdated dry run.
+ */
+export const readFoundrySingleChainDryRun = (
+  broadcastFolder: string,
+  scriptPath: string,
+  chainId: string | bigint | number,
+  functionNameOrSelector: string,
+  timeThreshold: Date
+): FoundrySingleChainDryRun | undefined => {
+  const dryRunPath = getFoundrySingleChainDryRunPath(
+    broadcastFolder,
+    scriptPath,
+    chainId.toString(),
+    functionNameOrSelector
+  )
+
+  // Check that the file exists and it was modified later than the supplied time threshold. If the
+  // file doesn't exist, this means there weren't any broadcasted transactions. If the file exists
+  // but it was modified earlier than the time threshold, this means there's an outdated dry run at
+  // the file location, which will also means there weren't any broadcasted transactions in the most
+  // recent Forge script run. We don't want to use an outdated file because it likely contains a
+  // different deployment.
+  if (existsSync(dryRunPath) && statSync(dryRunPath).mtime > timeThreshold) {
+    return JSON.parse(readFileSync(dryRunPath, 'utf8'))
+  } else {
+    return undefined
+  }
+}
+
+export const approve = async (
+  scriptPath: string,
+  foundryToml: FoundryToml,
+  merkleTree: SphinxMerkleTree,
+  sphinxIface: ethers.Interface,
+  chainId: number,
+  rpcUrl: string,
+  spinner?: ora.Ora,
+  targetContract?: string
+): Promise<FoundrySingleChainBroadcast> => {
+  const approveLeafWithProof = findLeafWithProof(
+    merkleTree,
+    SphinxLeafType.APPROVE,
+    BigInt(chainId)
+  )
+
+  const approveFragment = findFunctionFragment(sphinxIface, 'sphinxApprove')
+  const encodedFunctionParams = sphinxIface.encodeFunctionData(
+    approveFragment,
+    [merkleTree.root, approveLeafWithProof]
+  )
+
+  const dateBeforeForgeScript = new Date()
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    encodedFunctionParams,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const broadcast = readFoundrySingleChainBroadcast(
+    foundryToml.broadcastFolder,
+    scriptPath,
+    chainId,
+    remove0x(approveFragment.selector),
+    dateBeforeForgeScript
+  )
+
+  if (!broadcast) {
+    throw new Error(
+      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
+    )
+  }
+
+  return broadcast
+}
+
+export const deploySphinxModuleAndGnosisSafe = async (
+  scriptPath: string,
+  foundryToml: FoundryToml,
+  networkName: string,
+  chainId: string,
+  rpcUrl: string,
+  spinner?: ora.Ora,
+  targetContract?: string
+): Promise<FoundrySingleChainBroadcast> => {
+  const dateBeforeForgeScript = new Date()
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxDeployModuleAndGnosisSafe(string)',
+    networkName,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+  ]
+  if (targetContract) {
+    forgeScriptArgs.push('--target-contract', targetContract)
+  }
+
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  }
+
+  const broadcast = readFoundrySingleChainBroadcast(
+    foundryToml.broadcastFolder,
+    scriptPath,
+    chainId,
+    'sphinxDeployModuleAndGnosisSafe',
+    dateBeforeForgeScript
+  )
+
+  if (!broadcast) {
+    throw new Error(
+      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
+    )
+  }
+
+  return broadcast
+}
+
+export const getGasEstimatesOnNetworks = (
+  dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun,
+  uniqueChainIds: Array<string>,
+  managedServiceAddress: string
+): ProposalRequest['gasEstimates'] => {
+  const gasEstimates: ProposalRequest['gasEstimates'] = []
+  for (const chainId of uniqueChainIds) {
+    let transactions: Array<FoundryDryRunTransaction>
+    if (isFoundryMultiChainDryRun(dryRun)) {
+      // Find the dry run that corresponds to the current network.
+      const deploymentOnNetwork = dryRun.deployments.find(
+        (deployment) => deployment.chain.toString() === chainId
+      )
+      // If we couldn't find a dry run that corresponds to the current network, then there must not
+      // be any transactions to execute on it. We use an empty transactions array in this case.
+      transactions = deploymentOnNetwork ? deploymentOnNetwork.transactions : []
+    } else if (isFoundrySingleChainDryRun(dryRun)) {
+      // Check if the current network matches the network of the dry run. If the current network
+      // doesn't match the dry run's network, then this means there weren't any transactions
+      // executed on the current network. We use an empty transactions array in this case.
+      transactions =
+        chainId === dryRun.chain.toString() ? dryRun.transactions : []
+    } else {
+      throw new Error(
+        `Foundry dry run is an incompatible type. Should never happen.`
+      )
+    }
+
+    const estimatedGasOnChain = transactions
+      // We remove any transactions that weren't broadcasted from the Managed Service contract.
+      // Particularly, we broadcast from the Gnosis Safe to make the auto-generated Sphinx wallets
+      // owners of the Gnosis Safe. We don't want to include those transactions in the gas estimate
+      // because they won't occur in production.
+      .filter(
+        (tx) =>
+          typeof tx.transaction.from === 'string' &&
+          ethers.getAddress(tx.transaction.from) === managedServiceAddress
+      )
+      .map((tx) => tx.transaction.gas)
+      // Narrow the TypeScript type of `gas` from `string | null` to `string`.
+      .map((gas) => {
+        if (typeof gas !== 'string') {
+          throw new Error(
+            `Detected a 'gas' field that is not a string. Should never happen.`
+          )
+        }
+        return gas
+      })
+      // Convert the gas values from hex strings to numbers.
+      .map((gas) => parseInt(gas, 16))
+
+    gasEstimates.push({
+      chainId: Number(chainId),
+      // Sum the gas estimates then convert to a string.
+      estimatedGas: estimatedGasOnChain.reduce((a, b) => a + b).toString(),
+    })
+  }
+
+  return gasEstimates
+}
+
+export const execute = async (
+  scriptPath: string,
+  parsedConfig: ParsedConfig,
+  merkleTree: SphinxMerkleTree,
+  foundryToml: FoundryToml,
+  rpcUrl: string,
+  networkName: string,
+  silent: boolean,
+  sphinxPluginTypesInterface: ethers.Interface,
+  targetContract?: string,
+  verify?: boolean,
+  spinner?: ora.Ora
+): Promise<FoundrySingleChainBroadcast | undefined> => {
+  spinner?.start(`Executing deployment...`)
+
+  const provider = new SphinxJsonRpcProvider(rpcUrl)
+
+  const deployTaskInputsFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'deployTaskInputsType'
+  )
+
+  const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
+
+  // ABI encode the inputs to the deployment function.
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const encodedDeployTaskInputs = coder.encode(
+    deployTaskInputsFragment.outputs,
+    [merkleTree, humanReadableActions]
+  )
+  const deployTaskInputsPath = join(
+    foundryToml.cachePath,
+    'sphinx-deploy-task-inputs.txt'
+  )
+  // Write the ABI encoded data to the file system. We'll read it in the Forge script that executes
+  // the deployment. We do this instead of passing in the data as a parameter to the Forge script
+  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
+  // particularly a concern for the Merkle tree, which likely contains contract init code.
+  writeFileSync(deployTaskInputsPath, encodedDeployTaskInputs)
+
+  const forgeScriptDeployArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxExecute(string,string)',
+    networkName,
+    deployTaskInputsPath,
+    '--fork-url',
+    rpcUrl,
+    '--broadcast',
+    // Set the gas estimate multiplier to be 40% instead of Foundry's default 30%. We set it to be
+    // slightly higher than normal because we encountered an issue on Anvil where Foundry
+    // successfully simulated the deployment, but then submitted an insufficient amount of gas to
+    // the Sphinx Module's `execute` function, leading to a "SphinxModule: insufficient gas" error.
+    '--gas-estimate-multiplier',
+    '140',
+  ]
+  if (verify) {
+    forgeScriptDeployArgs.push('--verify')
+  }
+  if (targetContract) {
+    forgeScriptDeployArgs.push('--target-contract', targetContract)
+  }
+
+  const dateBeforeForgeScriptDeploy = new Date()
+  const { code, stdout, stderr } = await spawnAsync(
+    'forge',
+    forgeScriptDeployArgs
+  )
+
+  if (code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(stdout)
+    // The `stderr` contains the error message.
+    console.log(stderr)
+    process.exit(1)
+  } else if (!silent) {
+    console.log(stdout)
+  }
+
+  spinner?.succeed(`Executed deployment.`)
+  spinner?.start(`Checking final deployment status...`)
+
+  // Check the Merkle root's status. It's possible that the deployment succeeded during the
+  // simulation but was marked as `FAILED` when the transactions were broadcasted.
+  const sphinxModule = new ethers.Contract(
+    parsedConfig.moduleAddress,
+    SphinxModuleABI,
+    provider
+  )
+  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
+    merkleTree.root
+  )
+  if (merkleRootState.status === MerkleRootStatus.FAILED) {
+    spinner?.fail(`Deployment failed when broadcasting the transactions.`)
+    process.exit(1)
+  }
+
+  spinner?.succeed(`Deployment succeeded.`)
+
+  return readFoundrySingleChainBroadcast(
+    foundryToml.broadcastFolder,
+    scriptPath,
+    parsedConfig.chainId,
+    'sphinxExecute',
+    dateBeforeForgeScriptDeploy
+  )
+}
+
+export const readInterface = (
+  artifactFolder: string,
+  contractName: string
+): ethers.Interface => {
+  const abi: Array<any> =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require(path.resolve(
+      `${artifactFolder}/${contractName}.sol/${contractName}.json`
+    )).abi
+  return new ethers.Interface(abi)
+}
+
+const findFunctionFragment = (
+  iface: ethers.Interface,
+  fragmentName: string
+): ethers.FunctionFragment => {
+  const functionFragment = iface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === fragmentName)
+  if (!functionFragment) {
+    throw new Error(`Fragment not found in ABI.`)
+  }
+  return functionFragment
 }

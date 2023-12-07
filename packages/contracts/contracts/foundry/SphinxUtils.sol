@@ -34,17 +34,6 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // These are constants thare are used when signing an EIP-712 meta transaction.
-    bytes32 private constant DOMAIN_SEPARATOR =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256(bytes("Sphinx")),
-                keccak256(bytes("1.0.0"))
-            )
-        );
-    bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
-
     bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
         vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
     string private rootPluginPath =
@@ -192,8 +181,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return sorted;
     }
 
-    function getSphinxDeployerPrivateKey(uint256 _num) public pure returns (uint256) {
-        return uint256(keccak256(abi.encode("sphinx.deployer", _num)));
+    function getSphinxWalletPrivateKey(uint256 _num) public pure returns (uint256) {
+        return uint256(keccak256(abi.encode("sphinx.wallet", _num)));
     }
 
     /**
@@ -207,7 +196,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     ) public pure returns (Wallet[] memory) {
         Wallet[] memory wallets = new Wallet[](_numWallets);
         for (uint256 i = 0; i < _numWallets; i++) {
-            uint256 privateKey = getSphinxDeployerPrivateKey(i);
+            uint256 privateKey = getSphinxWalletPrivateKey(i);
             wallets[i] = Wallet({ addr: vm.addr(privateKey), privateKey: privateKey });
         }
 
@@ -407,6 +396,44 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return trimmedUniqueAddresses;
     }
 
+    /**
+     * @notice Returns an array of unique uint256 values from a given array of uint256 values, which
+     *         may contain duplicates.
+     *
+     * @param _values An array of uint256 values that may contain duplicates.
+     */
+    function getUniqueUint256(uint256[] memory _values) public pure returns (uint256[] memory) {
+        // First, we get an array of unique uint256 values. We do this by iterating over the input
+        // array and adding each value to a new array if it hasn't been added already.
+        uint256[] memory uniqueValues = new uint256[](_values.length);
+        uint256 uniqueValueCount = 0;
+        for (uint256 i = 0; i < _values.length; i++) {
+            bool isUnique = true;
+            // Check if the value has already been added to the uniqueValues array.
+            for (uint256 j = 0; j < uniqueValueCount; j++) {
+                if (_values[i] == uniqueValues[j]) {
+                    isUnique = false;
+                    break;
+                }
+            }
+            // If the value hasn't been added yet, add it to the uniqueValues array.
+            if (isUnique) {
+                uniqueValues[uniqueValueCount] = _values[i];
+                uniqueValueCount += 1;
+            }
+        }
+
+        // Next, we create a new array with the correct length and copy the unique uint256 values
+        // into it. This is necessary because the uniqueValues array may contain zero values at the
+        // end.
+        uint256[] memory trimmedUniqueValues = new uint256[](uniqueValueCount);
+        for (uint256 i = 0; i < uniqueValueCount; i++) {
+            trimmedUniqueValues[i] = uniqueValues[i];
+        }
+
+        return trimmedUniqueValues;
+    }
+
     function findNetworkInfoByName(
         string memory _networkName
     ) public pure returns (NetworkInfo memory) {
@@ -418,6 +445,23 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
         revert(
             string(abi.encodePacked("Sphinx: No network found with the given name: ", _networkName))
+        );
+    }
+
+    function findNetworkInfoByChainId(uint256 _chainId) public pure returns (NetworkInfo memory) {
+        NetworkInfo[] memory all = getNetworkInfoArray();
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].chainId == _chainId) {
+                return all[i];
+            }
+        }
+        revert(
+            string(
+                abi.encodePacked(
+                    "Sphinx: No network found with the given chain ID: ",
+                    vm.toString(_chainId)
+                )
+            )
         );
     }
 
@@ -738,16 +782,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    function signMerkleRoot(uint256 _privateKey, bytes32 _root) public pure returns (bytes memory) {
-        bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, _root))
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, keccak256(typedData));
-        return abi.encodePacked(r, s, v);
-    }
-
     /**
      * @notice Performs validation on the user's deployment. This mainly checks that the user's
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
@@ -821,12 +855,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Performs validation on the user's deployment. This is only run if a broadcast is
-     *         being performed on a live network (i.e. not an Anvil or Hardhat node).
+     * @notice Performs validation for a broadcast on a live network (i.e. not an Anvil or Hardhat
+     *         node).
      */
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
-        address _msgSender
+        address _msgSender,
+        IGnosisSafe _safe
     ) external view {
         require(
             sphinxModuleProxyFactoryAddress.code.length > 0,
@@ -834,11 +869,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
         require(
             _config.owners.length == 1,
-            "Sphinx: You can only deploy on a live network if there is only one owner in your 'owners' array."
+            "Sphinx: There must be a single owner in your 'owners' array."
         );
 
         // We use a try/catch instead of `vm.envOr` because `vm.envOr` is a potentially
-        // state-changing operation, which means this function would need to be marked as
+        // state-changing operation, which means this entire function would need to be marked as
         // state-changing. However, we shouldn't do that because this call would be broadcasted.
         uint256 privateKey;
         try vm.envUint("PRIVATE_KEY") returns (uint256 _privateKey) {
@@ -875,15 +910,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             )
         );
 
-        IGnosisSafe safe = IGnosisSafe(getSphinxSafeAddress(_config));
-        if (address(safe).code.length > 0) {
+        if (address(_safe).code.length > 0) {
             // Check that the deployer is the sole owner of the Gnosis Safe.
             require(
-                safe.isOwner(deployer),
+                _safe.isOwner(_msgSender),
                 "Sphinx: The deployer must be an owner of the Gnosis Safe."
             );
             require(
-                safe.getOwners().length == 1,
+                _safe.getOwners().length == 1,
                 "Sphinx: The deployer must be the only owner of the Gnosis Safe."
             );
         }
@@ -1027,16 +1061,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
-        bytes memory output;
-
-        for (uint256 i = 0; i < arr.length; i++) {
-            output = abi.encodePacked(output, arr[i]);
-        }
-
-        return output;
-    }
-
     /**
      * @notice Deploys a user's Gnosis Safe via FFI. This is only called when broadcasting
      *         on a local network (i.e. Anvil). If we don't do this, the following situation will
@@ -1079,20 +1103,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // first address to deploy the user's contracts when broadcasting on Anvil. If we use the
         // same address for both purposes, then its nonce will be incremented in this logic, causing
         // a nonce mismatch error in the user's deployment, leading it to fail.
-        inputs[7] = vm.toString(bytes32(getSphinxDeployerPrivateKey(1)));
+        inputs[7] = vm.toString(bytes32(getSphinxWalletPrivateKey(1)));
         Vm.FfiResult memory result = vm.tryFfi(inputs);
         if (result.exitCode != 0) revert(string(result.stderr));
-    }
-
-    function getOwnerSignatures(
-        Wallet[] memory _owners,
-        bytes32 _root
-    ) public pure returns (bytes memory) {
-        bytes[] memory signatures = new bytes[](_owners.length);
-        for (uint256 i = 0; i < _owners.length; i++) {
-            signatures[i] = signMerkleRoot(_owners[i].privateKey, _root);
-        }
-        return packBytes(signatures);
     }
 
     function getMerkleRootNonce(ISphinxModule _module) public view returns (uint) {

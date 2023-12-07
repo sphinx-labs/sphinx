@@ -9,10 +9,12 @@ import {
   SphinxJsonRpcProvider,
   execAsync,
   spawnAsync,
-  getMerkleTreeInfo,
   getReadableActions,
+  makeDeploymentData,
+  getParsedConfigWithCompilerInputs,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
+import { makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { deploy } from '../../../src/cli/deploy'
 import { buildParsedConfigArray } from '../../../src/cli/propose'
@@ -76,6 +78,8 @@ describe('Simulate proposal', () => {
     await execAsync(`yarn kill-nodes`)
   })
 
+  // TODO(end): c/f .only
+
   it('Simulates proposal for a project that has not been deployed on any network yet', async () => {
     for (const network of sphinxConfig.testnets) {
       const rpcUrl = foundryToml.rpcEndpoints[network.toString()]
@@ -138,24 +142,32 @@ const testProposalSimulation = async (
     )).abi
   const sphinxPluginTypesInterface = new ethers.Interface(sphinxPluginTypesABI)
 
-  const merkleTreeFilePath = join(
+  const simulationInputsFilePath = join(
     foundryToml.cachePath,
-    'sphinx-merkle-tree.txt'
+    'sphinx-proposal-simulation-inputs.txt'
   )
 
   const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
     scriptPath,
     isTestnet,
     sphinxPluginTypesInterface,
-    merkleTreeFilePath,
     testContractName,
     undefined // No spinner.
   )
 
-  const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
-    configArtifacts,
-    parsedConfigArray
-  )
+  if (!parsedConfigArray || !configArtifacts) {
+    throw new Error(`ParsedConfig or ConfigArtifacts is not defined.`)
+  }
+
+  const { configUri, compilerConfigs } =
+    await getParsedConfigWithCompilerInputs(
+      parsedConfigArray,
+      false,
+      configArtifacts
+    )
+
+  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   const humanReadableActions = parsedConfigArray.map((e) =>
     getReadableActions(e.actionInputs)
@@ -170,35 +182,29 @@ const testProposalSimulation = async (
     )
   }
 
-  const humanReadableActionsNestedFragment =
-    sphinxPluginTypesInterface.fragments
-      .filter(ethers.Fragment.isFunction)
-      .find((fragment) => fragment.name === 'humanReadableActionsNestedType')
-  if (!humanReadableActionsNestedFragment) {
-    throw new Error(
-      `'humanReadableActionsNestedType' not found in ABI. Should never happen.`
-    )
+  const simulationInputsFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'proposalSimulationInputsType')
+  if (!simulationInputsFragment) {
+    throw new Error(`Fragment not found in ABI. Should never happen.`)
   }
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
-    merkleTreeInfo.merkleTree,
-  ])
-  const encodedHumanReadableActionsNested = coder.encode(
-    humanReadableActionsNestedFragment.outputs,
-    [humanReadableActions]
+
+  const encodedSimulationInputs = coder.encode(
+    simulationInputsFragment.outputs,
+    [merkleTree, humanReadableActions]
   )
 
-  writeFileSync(merkleTreeFilePath, encodedMerkleTree)
+  writeFileSync(simulationInputsFilePath, encodedSimulationInputs)
 
   const { code, stdout, stderr } = await spawnAsync(
     `forge`,
     ['test', '--match-contract', testContractName, '-vvvvv'],
     {
-      ROOT: root,
-      MERKLE_TREE_FILE_PATH: merkleTreeFilePath,
+      ROOT: merkleTree.root,
+      SIMULATION_INPUTS_FILE_PATH: simulationInputsFilePath,
       CONFIG_URI: configUri,
-      HUMAN_READABLE_ACTIONS: encodedHumanReadableActionsNested,
       ...envVars,
     }
   )

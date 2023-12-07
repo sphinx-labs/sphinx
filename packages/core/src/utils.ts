@@ -11,13 +11,21 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 import chalk from 'chalk'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
-import { FoundryContractArtifact, add0x } from '@sphinx-labs/contracts'
+import {
+  FoundryContractArtifact,
+  GnosisSafeArtifact,
+  SphinxLeaf,
+  SphinxMerkleTree,
+  SphinxTransaction,
+  add0x,
+  SphinxLeafWithProof,
+  SphinxLeafType,
+} from '@sphinx-labs/contracts'
 
 import {
   CompilerConfig,
   UserContractKind,
   userContractKinds,
-  ContractKind,
   ParsedVariable,
   BuildInfoRemote,
   ConfigArtifactsRemote,
@@ -34,6 +42,7 @@ import {
   SphinxActionType,
   IPFSCommitResponse,
   ProposalRequest,
+  MerkleRootStatus,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
@@ -410,14 +419,6 @@ export const getImpersonatedSigner = async (
   } else {
     return provider.getSigner(address)
   }
-}
-
-export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
-  return (
-    kind === 'oz-transparent' ||
-    kind === 'oz-ownable-uups' ||
-    kind === 'oz-access-control-uups'
-  )
 }
 
 /**
@@ -937,9 +938,226 @@ export const isLabel = (l: Label | undefined): l is Label => {
   )
 }
 
-// TODO(gas)
-export const getGasWithBuffer = (gas: string): string => {
-  const gasWithBuffer = Number(gas) * 1.2 + 50_000
-  const rounded = Math.round(gasWithBuffer)
-  return rounded.toString()
+export const toSphinxTransaction = (
+  actionInput: RawActionInput
+): SphinxTransaction => {
+  const { to, value, txData, gas, operation, requireSuccess } = actionInput
+  return {
+    to,
+    value,
+    txData,
+    gas,
+    operation,
+    requireSuccess,
+  }
+}
+
+/**
+ * Get auto-generated wallets sorted in ascending order according to their addresses.
+ */
+export const getSphinxWalletsSortedByAddress = (
+  numWallets: number | bigint,
+  provider: SphinxJsonRpcProvider
+): Array<ethers.Wallet> => {
+  const wallets: Array<ethers.Wallet> = []
+  for (let i = 0; i < Number(numWallets); i++) {
+    const privateKey = getSphinxWalletPrivateKey(i)
+    wallets.push(new ethers.Wallet(privateKey, provider))
+  }
+
+  // Sort the wallets by address in ascending order
+  const sortedWallets = wallets.sort((a, b) =>
+    Number(BigInt(a.address) - BigInt(b.address))
+  )
+
+  return sortedWallets
+}
+
+export const getSphinxWalletPrivateKey = (walletIndex: number): string => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  return ethers.keccak256(
+    coder.encode(['string', 'uint256'], ['sphinx.wallet', walletIndex])
+  )
+}
+
+/**
+ * Add a set of auto-generated addresses as owners of a Gnosis Safe. This is necessary to simulate a
+ * deployment on local networks like Anvil and Hardhat because the private keys of the actual Gnosis
+ * Safe owners aren't known. Only works on local nodes (i.e. Anvil or Hardhat).
+ */
+export const addSphinxWalletsToGnosisSafeOwners = async (
+  safeAddress: string,
+  provider: SphinxJsonRpcProvider
+): Promise<Array<ethers.Wallet>> => {
+  // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
+  // necessary to prevent the calls from reverting.
+  const safe = new ethers.Contract(
+    safeAddress,
+    GnosisSafeArtifact.abi,
+    await getImpersonatedSigner(safeAddress, provider)
+  )
+
+  // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
+  const initialSafeBalance = await provider.getBalance(safeAddress)
+
+  // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
+  // transactions.
+  await provider.send('hardhat_setBalance', [
+    safeAddress,
+    ethers.toBeHex(ethers.parseEther('100')),
+  ])
+
+  const ownerThreshold: bigint = await safe.getThreshold()
+
+  // Create a list of auto-generated wallets. We'll add these as the Gnosis Safe owners.
+  const sphinxWallets = getSphinxWalletsSortedByAddress(
+    ownerThreshold,
+    provider
+  )
+
+  // Add the auto-generated wallets as owners of the Gnosis Safe. We add `threshold`
+  // owners so that the signature validation logic in the Gnosis Safe will iterate
+  // over the same number of owners locally as in production. This is important for
+  // gas estimation.
+  for (const wallet of sphinxWallets) {
+    // The Gnosis Safe doesn't have an "addOwner" function, which is why we need to use
+    // "addOwnerWithThreshold".
+    await safe.addOwnerWithThreshold(wallet.address, ownerThreshold)
+  }
+
+  // Restore the initial balance of the Gnosis Safe.
+  await provider.send('hardhat_setBalance', [
+    safeAddress,
+    ethers.toBeHex(initialSafeBalance),
+  ])
+
+  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // for 'anvil_impersonateAccount'.
+  await provider.send('hardhat_impersonateAccount', [safeAddress])
+
+  return sphinxWallets
+}
+
+/**
+ * Remove a set of auto-generated addresses as owners of a Gnosis Safe. Only works on local nodes
+ * (i.e. Anvil or Hardhat).
+ */
+export const removeSphinxWalletsFromGnosisSafeOwners = async (
+  sphinxWallets: Array<ethers.Wallet>,
+  safeAddress: string,
+  provider: SphinxJsonRpcProvider
+) => {
+  // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
+  // necessary to prevent the calls from reverting.
+  const safe = new ethers.Contract(
+    safeAddress,
+    GnosisSafeArtifact.abi,
+    await getImpersonatedSigner(safeAddress, provider)
+  )
+
+  // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
+  const initialSafeBalance = await provider.getBalance(safeAddress)
+
+  // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
+  // transactions.
+  await provider.send('hardhat_setBalance', [
+    safeAddress,
+    ethers.toBeHex(ethers.parseEther('100')),
+  ])
+
+  const ownerThreshold = Number(await safe.getThreshold())
+
+  // Remove the auto-generated wallets as owners of the Gnosis Safe. The logic for this is a little
+  // bizarre because Gnosis Safe uses a linked list to store the owner addresses.
+  for (let i = 0; i < ownerThreshold - 1; i++) {
+    await safe.removeOwner(
+      sphinxWallets[i + 1].address,
+      sphinxWallets[i].address,
+      ownerThreshold
+    )
+  }
+  await safe.removeOwner(
+    '0x' + '00'.repeat(19) + '01', // This is `address(1)`. i.e. Gnosis Safe's `SENTINEL_OWNERS`.
+    sphinxWallets[ownerThreshold - 1].address,
+    ownerThreshold
+  )
+
+  // Restore the initial balance of the Gnosis Safe.
+  await provider.send('hardhat_setBalance', [
+    safeAddress,
+    ethers.toBeHex(initialSafeBalance),
+  ])
+
+  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // for 'anvil_impersonateAccount'.
+  await provider.send('hardhat_impersonateAccount', [safeAddress])
+}
+
+export const getApproveLeaf = (
+  merkleTree: SphinxMerkleTree,
+  chainId: bigint
+): SphinxLeaf => {
+  const leafWithProof = merkleTree.leavesWithProofs.find(
+    ({ leaf }) => leaf.chainId === chainId
+  )
+  if (!leafWithProof) {
+    throw new Error(`Could not find 'APPROVE' leaf for chain ID: ${chainId}`)
+  }
+  return leafWithProof.leaf
+}
+
+export const getExecuteLeaves = (
+  merkleTree: SphinxMerkleTree,
+  chainId: bigint
+): Array<SphinxLeaf> => {
+  return merkleTree.leavesWithProofs
+    .filter(({ leaf }) => leaf.chainId === chainId)
+    .map((leafWithProof) => leafWithProof.leaf)
+}
+
+export const findLeafWithProof = (
+  merkleTree: SphinxMerkleTree,
+  leafType: SphinxLeafType,
+  chainId: bigint
+): SphinxLeafWithProof => {
+  const leafWithProof = merkleTree.leavesWithProofs.find(
+    ({ leaf }) => leaf.chainId === chainId && leaf.leafType === leafType
+  )
+  if (!leafWithProof) {
+    throw new Error(
+      `Could not find Merkle leaf with type ${stringifyLeafType(
+        leafType
+      )} on chain ID: ${chainId}`
+    )
+  }
+  return leafWithProof
+}
+
+export const stringifyLeafType = (leafType: SphinxLeafType): string => {
+  if (leafType === SphinxLeafType.APPROVE) {
+    return 'APPROVE'
+  } else if (leafType === SphinxLeafType.EXECUTE) {
+    return 'EXECUTE'
+  } else if (leafType === SphinxLeafType.CANCEL) {
+    return 'CANCEL'
+  } else {
+    throw new Error(`Unknown leaf type: ${leafType}`)
+  }
+}
+
+export const stringifyMerkleRootStatus = (status: bigint): string => {
+  switch (status) {
+    case MerkleRootStatus.EMPTY:
+      return 'EMPTY'
+    case MerkleRootStatus.APPROVED:
+      return 'APPROVED'
+    case MerkleRootStatus.COMPLETED:
+      return 'COMPLETED'
+    case MerkleRootStatus.CANCELED:
+      return 'CANCELED'
+    case MerkleRootStatus.FAILED:
+      return 'FAILED'
+    default:
+      throw new Error(`Unknown Merkle root status: ${status}`)
+  }
 }

@@ -3,25 +3,20 @@ import process from 'process'
 import * as dotenv from 'dotenv'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
-import {
-  DeploymentData,
-  SphinxTransaction,
-  makeSphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
 import {
   BuildInfoInputs,
   ConfigArtifacts,
   CompilerConfig,
   ParsedConfig,
-  MerkleTreeInfo,
 } from '../config/types'
 import { getMinimumCompilerInput } from '../languages'
 
 // Load environment variables from .env
 dotenv.config()
 
-export const sphinxCommitAbstractSubtask = async (
+export const getParsedConfigWithCompilerInputs = async (
   parsedConfigs: Array<ParsedConfig>,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
@@ -160,30 +155,4 @@ export const makeDeploymentData = (
   }
 
   return data
-}
-
-export const getMerkleTreeInfo = async (
-  configArtifacts: ConfigArtifacts,
-  parsedConfigArray: Array<ParsedConfig>
-): Promise<{
-  configUri: string
-  root: string
-  merkleTreeInfo: MerkleTreeInfo
-}> => {
-  const { configUri, compilerConfigs } = await sphinxCommitAbstractSubtask(
-    parsedConfigArray,
-    false,
-    configArtifacts
-  )
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
-  const merkleTree = makeSphinxMerkleTree(deploymentData)
-  return {
-    configUri,
-    root: merkleTree.root,
-    merkleTreeInfo: {
-      merkleTree,
-      compilerConfigs,
-    },
-  }
 }

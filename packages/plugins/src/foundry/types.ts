@@ -31,7 +31,7 @@ export type FoundryBroadcastReceipt = {
   effectiveGasPrice: string
 }
 
-export type FoundryBroadcast = {
+export type FoundrySingleChainBroadcast = {
   transactions: Array<FoundryBroadcastTransaction>
   receipts: Array<FoundryBroadcastReceipt>
   libraries: Array<any>
@@ -43,7 +43,13 @@ export type FoundryBroadcast = {
   commit: string
 }
 
-export type FoundryDryRun = {
+export type FoundryMultiChainDryRun = {
+  deployments: Array<FoundrySingleChainDryRun>
+  timestamp: number
+  path: string
+}
+
+export type FoundrySingleChainDryRun = {
   transactions: Array<FoundryDryRunTransaction>
   receipts: Array<any>
   libraries: Array<any>

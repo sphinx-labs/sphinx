@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
+import { IEnum } from "./interfaces/IEnum.sol";
 
 struct HumanReadableAction {
     string reason;
@@ -11,6 +12,15 @@ struct HumanReadableAction {
 struct SphinxMerkleTree {
     bytes32 root;
     SphinxLeafWithProof[] leavesWithProofs;
+}
+
+struct SphinxTransaction {
+    address to;
+    uint256 value;
+    bytes txData;
+    IEnum.GnosisSafeOperation operation;
+    uint256 gas;
+    bool requireSuccess;
 }
 
 struct FoundryContractConfig {
@@ -77,6 +87,7 @@ struct DeploymentInfo {
     address executorAddress;
     uint256 nonce;
     uint256 chainId;
+    uint256 blockGasLimit;
     bytes safeInitData;
     bool requireSuccess;
     SphinxConfig newConfig;
@@ -165,6 +176,24 @@ struct NetworkInfo {
     NetworkType networkType;
 }
 
+struct Wallet {
+    uint256 privateKey;
+    address addr;
+}
+
+/**
+ * @notice Version number as a struct.
+ *
+ * @custom:field major Major version number.
+ * @custom:field minor Minor version number.
+ * @custom:field patch Patch version number.
+ */
+struct Version {
+    uint256 major;
+    uint256 minor;
+    uint256 patch;
+}
+
 /**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
@@ -182,10 +211,22 @@ contract SphinxPluginTypes {
         returns (HumanReadableAction[] memory humanReadableActions)
     {}
 
-    function humanReadableActionsNestedType()
+    function proposalSimulationInputsType()
         external
         pure
-        returns (HumanReadableAction[][] memory humanReadableActions)
+        returns (
+            SphinxMerkleTree memory merkleTree,
+            HumanReadableAction[][] memory humanReadableActions
+        )
+    {}
+
+    function deployTaskInputsType()
+        external
+        pure
+        returns (
+            SphinxMerkleTree memory merkleTree,
+            HumanReadableAction[] memory humanReadableActions
+        )
     {}
 
     function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
@@ -197,22 +238,16 @@ contract SphinxPluginTypes {
     {}
 
     function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) {}
-}
 
-struct Wallet {
-    uint256 privateKey;
-    address addr;
-}
+    function leafGasParams()
+        external
+        view
+        returns (SphinxTransaction[] memory txnArray, uint256[] memory chainIds)
+    {}
 
-/**
- * @notice Version number as a struct.
- *
- * @custom:field major Major version number.
- * @custom:field minor Minor version number.
- * @custom:field patch Patch version number.
- */
-struct Version {
-    uint256 major;
-    uint256 minor;
-    uint256 patch;
+    function sphinxLeafWithProofType()
+        external
+        view
+        returns (SphinxLeafWithProof memory leafWithProof)
+    {}
 }

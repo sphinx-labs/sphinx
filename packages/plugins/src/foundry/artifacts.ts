@@ -13,12 +13,12 @@ import {
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
-import { FoundryBroadcast } from './types'
+import { FoundrySingleChainBroadcast } from './types'
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.Provider,
   parsedConfig: ParsedConfig,
-  broadcast: FoundryBroadcast,
+  broadcast: FoundrySingleChainBroadcast,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
 ): Promise<string> => {

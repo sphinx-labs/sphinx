@@ -186,17 +186,23 @@ describe('Deploy CLI command', () => {
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactFilePath)).to.be.false
 
+      const targetContract = 'Simple1'
       const { parsedConfig: deployedParsedConfig, preview } = await deploy(
         forgeScriptPath,
         'sepolia',
         false, // Run preview
         true, // Silent
-        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        targetContract,
         undefined, // Don't verify on Etherscan.
         false,
         mockPrompt
       )
-      expect(deployedParsedConfig).to.not.be.undefined
+
+      // Check that the ParsedConfig is defined. We do this instead of using
+      // `expect(...).to.be.defined` because throwing an error narrows the TypeScript type.
+      if (!deployedParsedConfig) {
+        throw new Error(`ParsedConfig object is undefined.`)
+      }
 
       expect(
         (deployedParsedConfig.actionInputs[0] as Create2ActionInput)
@@ -269,16 +275,7 @@ describe('Deploy CLI command', () => {
         mockPrompt
       )
 
-      expect(preview).to.deep.equal({
-        networks: [
-          {
-            networkTags: ['sepolia (local)'],
-            executing: [],
-            skipping: [],
-          },
-        ],
-        unlabeledAddresses: new Set([]),
-      })
+      expect(preview).to.be.undefined
 
       // Check that the deployment artifact wasn't created
       expect(existsSync(deploymentArtifactFilePath)).to.be.false

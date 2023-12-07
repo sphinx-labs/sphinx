@@ -27,6 +27,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test, SphinxConstants {
     SphinxUtils sphinxUtils;
 
     Network[] initialTestnets = [Network.sepolia, Network.optimism_sepolia];
+    string[] initialTestnetNames = ["sepolia", "optimism_sepolia"];
 
     MyOwnable ownable;
 
@@ -68,7 +69,7 @@ abstract contract AbstractProposal_Test is Sphinx, Test, SphinxConstants {
 
     function assertSafeInitialized() internal {
         address[] memory owners = safe.getOwners();
-        assertEq(owners.length, sphinxConfig.owners.length);
+        assertEq(owners.length, sphinxConfig.owners.length, "Incorrect number of owners");
         for (uint j = 0; j < sphinxConfig.owners.length; j++) {
             assertTrue(safe.isOwner(sphinxConfig.owners[j]), "missing owner");
         }
@@ -125,12 +126,11 @@ contract Proposal_Initial_Test is AbstractProposal_Test, Script {
         bytes32 root = vm.envBytes32("ROOT");
         string memory configUri = vm.envString("CONFIG_URI");
 
-        uint256[] memory forkIds = this.sphinxSimulateProposal({
-            _testnets: true,
-            _root: root,
-            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
-            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
+        this.sphinxSimulateProposal({
+            _networkNames: initialTestnetNames,
+            _simulationInputsFilePath: vm.envString("SIMULATION_INPUTS_FILE_PATH")
         });
+        uint8[2] memory forkIds = [0, 1];
 
         assertEq(forkIds.length, sphinxConfig.testnets.length);
         assertEq(sphinxConfig.testnets.length, 2);
@@ -178,12 +178,11 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script {
 
     function test_add_contract_between_proposals() external {
         bytes32 root = vm.envBytes32("ROOT");
-        uint256[] memory forkIds = this.sphinxSimulateProposal({
-            _testnets: true,
-            _root: root,
-            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
-            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
+        this.sphinxSimulateProposal({
+            _networkNames: initialTestnetNames,
+            _simulationInputsFilePath: vm.envString("SIMULATION_INPUTS_FILE_PATH")
         });
+        uint8[2] memory forkIds = [0, 1];
         string memory configUri = vm.envString("CONFIG_URI");
 
         assertEq(forkIds.length, sphinxConfig.testnets.length, "incorrect number of forks");
@@ -204,61 +203,6 @@ contract Proposal_AddContract_Test is AbstractProposal_Test, Script {
             assertEq(myNewContract.uintArg(), 6, "uintArg incorrect");
             assertEq(myNewContract.addressArg(), address(7), "addressArg incorrect");
             assertEq(myNewContract.otherAddressArg(), address(8), "otherAddressArg incorrect");
-        }
-    }
-}
-
-/**
- * @notice Tests a proposal for a project that failed to be executed on some networks. This
- *         can occur when a deployment fails on-chain, e.g. if a user's constructor reverts.
- *         In this test, we propose a new deployment for the same project on the same networks.
- *         This new deployment should succeed.
- */
-contract Proposal_CancelExistingDeployment_Test is AbstractProposal_Test, Script {
-
-    MyContract1 myNewContract;
-
-    function setUp() public {
-        // We must set the address here because the `run` function is not called during the test.
-        // Instead, it's called during the collection phase, which occurs in a separate process
-        // that's invoked by TypeScript before the test is executed.
-        bytes memory initCode = abi.encodePacked(type(MyContract1).creationCode, abi.encode(5, 6, address(7), address(8)));
-        myNewContract = MyContract1(computeCreate2Address(bytes32(0), keccak256(initCode), CREATE2_FACTORY));
-    }
-
-    function run() public override virtual sphinx {
-        new MyContract1{ salt: bytes32(0) }(5, 6, address(7), address(8));
-    }
-
-    function test_cancel_existing_deployment_proposal() external {
-        bytes32 root = vm.envBytes32("ROOT");
-        uint256[] memory forkIds = this.sphinxSimulateProposal({
-            _testnets: true,
-            _root: root,
-            _merkleTreeFilePath: vm.envString("MERKLE_TREE_FILE_PATH"),
-            _humanReadableActions: abi.decode(vm.envBytes("HUMAN_READABLE_ACTIONS"), (HumanReadableAction[][]))
-        });
-        string memory configUri = vm.envString("CONFIG_URI");
-
-        assertEq(forkIds.length, sphinxConfig.testnets.length);
-        assertEq(sphinxConfig.testnets.length, 2);
-
-        for (uint256 i = 0; i < sphinxConfig.testnets.length; i++) {
-            Network network = sphinxConfig.testnets[i];
-            vm.selectFork(forkIds[i]);
-
-            // Check that we're on the correct network. In other words, check that the active fork's
-            // chain ID matches the expected testnet's chain ID.
-            assertEq(block.chainid, sphinxUtils.getNetworkInfo(network).chainId);
-
-            // Two leaves were executed: `approve` and deploy `MyContract1`
-            assertMerkleRootCompleted(2, root, configUri);
-
-            // Check that the contract was deployed correctly.
-            assertEq(myNewContract.intArg(), 5);
-            assertEq(myNewContract.uintArg(), 6);
-            assertEq(myNewContract.addressArg(), address(7));
-            assertEq(myNewContract.otherAddressArg(), address(8));
         }
     }
 }

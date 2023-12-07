@@ -290,7 +290,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
             to: address(moduleProxyFactory),
             value: 0,
             txData: encodedDelegateCall,
-            operation: Operation.DelegateCall,
+            operation: GnosisSafeOperation.DelegateCall,
             safeTxGas: 1_000_000
         });
         bytes memory ownerSignatures = signSafeTransaction({
@@ -302,7 +302,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
             to: gnosisSafeTxn.to,
             value: gnosisSafeTxn.value,
             data: gnosisSafeTxn.txData,
-            operation: gnosisSafeTxn.operation,
+            operation: Enum.Operation(uint8(gnosisSafeTxn.operation)),
             safeTxGas: gnosisSafeTxn.safeTxGas,
             signatures: ownerSignatures,
             // The following fields are for refunding the caller. We don't use them.

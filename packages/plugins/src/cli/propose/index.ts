@@ -5,16 +5,20 @@ import { spawnSync } from 'child_process'
 import {
   ProjectDeployment,
   ProposalRequest,
+  SphinxJsonRpcProvider,
   WEBSITE_URL,
   elementsEqual,
-  getMerkleTreeInfo,
+  ensureSphinxAndGnosisSafeDeployed,
   getPreview,
   getPreviewString,
   getReadableActions,
+  makeDeploymentData,
   relayIPFSCommit,
   relayProposal,
   spawnAsync,
+  getParsedConfigWithCompilerInputs,
   userConfirmation,
+  getNetworkNameForChainId,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -26,31 +30,41 @@ import {
   ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
-import { SphinxLeafType, SphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  SphinxLeafType,
+  SphinxMerkleTree,
+  getManagedServiceAddress,
+  makeSphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
 import {
-  readActionInputsOnSingleChain,
   makeParsedConfig,
   decodeDeploymentInfo,
+  convertFoundryDryRunToActionInputs,
 } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
-  getSphinxConfigNetworksFromScript as getSphinxConfigNetworksFromScript,
+  getSphinxConfigNetworksFromScript,
+  getSphinxLeafGasEstimates,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
   makeGetConfigArtifacts,
+  getFoundrySingleChainDryRunPath,
+  readFoundryMultiChainDryRun,
+  readFoundrySingleChainDryRun,
+  getGasEstimatesOnNetworks,
 } from '../../foundry/utils'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
-  merkleTreeFilePath: string,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
-  parsedConfigArray: Array<ParsedConfig>
-  configArtifacts: ConfigArtifacts
+  parsedConfigArray?: Array<ParsedConfig>
+  configArtifacts?: ConfigArtifacts
+  isEmpty: boolean
 }> => {
   const projectRoot = process.cwd()
   const foundryToml = await getFoundryToml()
@@ -62,35 +76,39 @@ export const buildParsedConfigArray = async (
     foundryToml.cachePath
   )
 
-  const deploymentInfoPath = join(foundryToml.cachePath, 'deployment-info.txt')
-
   const { testnets, mainnets } = await getSphinxConfigNetworksFromScript(
     scriptPath,
     targetContract,
     spinner
   )
 
-  const networks = isTestnet ? testnets : mainnets
-
-  const actionInputArray: Array<Array<RawActionInput>> = []
-  const deploymentInfoArray: Array<DeploymentInfo> = []
-  for (const network of networks) {
-    const rpcUrl = foundryToml.rpcEndpoints[network]
+  const deploymentInfoPath = join(
+    foundryToml.cachePath,
+    'sphinx-deployment-info.txt'
+  )
+  const networkNames = isTestnet ? testnets : mainnets
+  const collected: Array<{
+    deploymentInfo: DeploymentInfo
+    actionInputs: Array<RawActionInput>
+  }> = []
+  for (const networkName of networkNames) {
+    const rpcUrl = foundryToml.rpcEndpoints[networkName]
     if (!rpcUrl) {
       console.error(
         red(
-          `No RPC endpoint specified in your foundry.toml for the network: ${network}.`
+          `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
         )
       )
       process.exit(1)
     }
-    // Remove the existing DeploymentInfo and Merkle tree files if they exist. This ensures that we
-    // don't accidentally use files from a previous deployment.
+
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    await ensureSphinxAndGnosisSafeDeployed(provider)
+
+    // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
+    // use a file from a previous deployment.
     if (existsSync(deploymentInfoPath)) {
       unlinkSync(deploymentInfoPath)
-    }
-    if (existsSync(merkleTreeFilePath)) {
-      unlinkSync(merkleTreeFilePath)
     }
 
     const forgeScriptCollectArgs = [
@@ -100,7 +118,7 @@ export const buildParsedConfigArray = async (
       rpcUrl,
       '--sig',
       'sphinxCollectProposal(string,string)',
-      network,
+      networkName,
       deploymentInfoPath,
     ]
     if (targetContract) {
@@ -128,6 +146,7 @@ export const buildParsedConfigArray = async (
     // Specifically, the state of the Safe on the first fork is persisted across all forks
     // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
     // state across networks. This is a Foundry quirk; it may be a bug.
+    const dateBeforeForgeScript = new Date()
     const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
       FOUNDRY_SENDER: safeAddress,
     })
@@ -147,38 +166,93 @@ export const buildParsedConfigArray = async (
       sphinxPluginTypesInterface
     )
 
-    const actionInputs = readActionInputsOnSingleChain(
-      deploymentInfo,
-      scriptPath,
+    const collectionDryRunPath = getFoundrySingleChainDryRunPath(
       foundryToml.broadcastFolder,
-      'sphinxCollectProposal'
+      scriptPath,
+      deploymentInfo.chainId,
+      `sphinxCollectProposal`
+    )
+    const collectionDryRun = readFoundrySingleChainDryRun(
+      foundryToml.broadcastFolder,
+      scriptPath,
+      deploymentInfo.chainId,
+      `sphinxCollectProposal`,
+      dateBeforeForgeScript
     )
 
-    deploymentInfoArray.push(deploymentInfo)
-    actionInputArray.push(actionInputs)
+    // Check if the dry run file exists. If it doesn't, this must mean that there weren't any
+    // transactions broadcasted in the user's script for this network. We return an empty array in
+    // this case.
+    const actionInputs = collectionDryRun
+      ? convertFoundryDryRunToActionInputs(
+          deploymentInfo,
+          collectionDryRun,
+          collectionDryRunPath
+        )
+      : []
+
+    collected.push({ deploymentInfo, actionInputs })
   }
 
+  spinner?.succeed(`Collected transactions.`)
+
+  const isEmpty = collected.every(
+    ({ actionInputs }) => actionInputs.length === 0
+  )
+  if (isEmpty) {
+    return {
+      isEmpty: true,
+      parsedConfigArray: undefined,
+      configArtifacts: undefined,
+    }
+  }
+
+  spinner?.start(`Estimating gas...`)
+
+  const gasEstimatesArray = await getSphinxLeafGasEstimates(
+    scriptPath,
+    foundryToml,
+    networkNames,
+    sphinxPluginTypesInterface,
+    collected,
+    targetContract,
+    spinner
+  )
+
+  spinner?.succeed(`Estimated gas.`)
+  spinner?.start(`Building proposal...`)
+
   const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    actionInputArray,
-    deploymentInfoArray
+    collected.map(({ actionInputs }) => actionInputs),
+    collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
   )
-  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo, i) =>
-    makeParsedConfig(deploymentInfo, actionInputArray[i], configArtifacts)
+  const parsedConfigArray = collected.map(
+    ({ actionInputs, deploymentInfo }, i) =>
+      makeParsedConfig(
+        deploymentInfo,
+        actionInputs,
+        gasEstimatesArray[i],
+        configArtifacts
+      )
   )
 
-  return { parsedConfigArray, configArtifacts }
+  return {
+    parsedConfigArray,
+    configArtifacts,
+    isEmpty: false,
+  }
 }
 
 /**
  * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
  * that can be sent to the back-end.
  *
- * @param dryRun If true, the proposal will not be relayed to the back-end.
+ * @param isDryRun If true, the proposal will not be relayed to the back-end.
  * @param targetContract The name of the contract within the script file. Necessary when there are
  * multiple contracts in the specified script.
  * @param skipForceRecompile Force re-compile the contracts. By default, we force re-compile. This
@@ -189,15 +263,16 @@ export const buildParsedConfigArray = async (
 export const propose = async (
   confirm: boolean,
   isTestnet: boolean,
-  dryRun: boolean,
+  isDryRun: boolean,
   silent: boolean,
   scriptPath: string,
   targetContract?: string,
   skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
-  proposalRequest: ProposalRequest | undefined
-  ipfsData: string | undefined
+  proposalRequest?: ProposalRequest
+  ipfsData?: string
+  configArtifacts?: ConfigArtifacts
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -237,82 +312,104 @@ export const propose = async (
     )).abi
   const sphinxPluginTypesInterface = new ethers.Interface(sphinxPluginTypesABI)
 
-  const merkleTreeFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-merkle-tree.txt'
-  )
+  const { parsedConfigArray, configArtifacts, isEmpty } =
+    await buildParsedConfigArray(
+      scriptPath,
+      isTestnet,
+      sphinxPluginTypesInterface,
+      targetContract,
+      spinner
+    )
 
-  const { parsedConfigArray, configArtifacts } = await buildParsedConfigArray(
-    scriptPath,
-    isTestnet,
-    sphinxPluginTypesInterface,
-    merkleTreeFilePath,
-    targetContract,
-    spinner
-  )
-
-  const isEmpty = parsedConfigArray.every((e) => e.actionInputs.length === 0)
   if (isEmpty) {
     spinner.succeed(
       `Skipping proposal because there is nothing to execute on any chain.`
     )
-    return { proposalRequest: undefined, ipfsData: undefined }
+    return {}
   }
 
-  const { root, merkleTreeInfo, configUri } = await getMerkleTreeInfo(
-    configArtifacts,
-    parsedConfigArray
-  )
-
-  spinner.succeed(`Collected transactions.`)
-  spinner.start(`Running simulation...`)
-
-  const sphinxABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(`${foundryToml.artifactFolder}/Sphinx.sol/Sphinx.json`)).abi
-  const sphinxIface = new ethers.Interface(sphinxABI)
-  const simulateProposalFragment = sphinxIface.fragments
-    .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxSimulateProposal')
-  const merkleTreeFragment = sphinxPluginTypesInterface.fragments
-    .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
-  if (!simulateProposalFragment || !merkleTreeFragment) {
+  // Narrow the TypeScript type of the ParsedConfig and ConfigArtifacts.
+  if (!parsedConfigArray || !configArtifacts) {
     throw new Error(
-      `'sphinxSimulateProposal' not found in ABI. Should never happen.`
+      `ParsedConfig or ConfigArtifacts not defined. Should never happen.`
     )
   }
 
-  // ABI encode the Merkle tree.
+  const simulationInputsFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'proposalSimulationInputsType')
+  const merkleTreeFragment = sphinxPluginTypesInterface.fragments
+    .filter(ethers.Fragment.isFunction)
+    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
+  if (!simulationInputsFragment || !merkleTreeFragment) {
+    throw new Error(`Could not find fragment in ABI. Should never happen.`)
+  }
+
   const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedMerkleTree = coder.encode(merkleTreeFragment.outputs, [
-    merkleTreeInfo.merkleTree,
-  ])
-  // Write the ABI encoded Merkle tree to the file system. We'll read it in the Forge script that
-  // executes the simulates the proposal. We do this instead of passing in the Merkle tree as a
-  // parameter to the Forge script because it's possible to hit Node's `spawn` input size limit if
-  // the Merkle tree is large.
-  writeFileSync(merkleTreeFilePath, encodedMerkleTree)
+
+  const { configUri, compilerConfigs } =
+    await getParsedConfigWithCompilerInputs(
+      parsedConfigArray,
+      false,
+      configArtifacts
+    )
+
+  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const merkleTree = makeSphinxMerkleTree(deploymentData)
+
+  spinner.succeed(`Built proposal.`)
+  spinner.start(`Running simulation...`)
+
+  // Get an array of chain IDs that contain at least one Merkle leaf.
+  const uniqueLeafChainIdsBigInt = Array.from(
+    new Set(merkleTree.leavesWithProofs.map(({ leaf }) => leaf.chainId))
+  )
+  const uniqueLeafChainIds = uniqueLeafChainIdsBigInt.map((chainId) =>
+    chainId.toString()
+  )
+  // Get an array of network names that contain at least one Merkle leaf.
+  const uniqueLeafNetworkNames = uniqueLeafChainIdsBigInt.map(
+    getNetworkNameForChainId
+  )
 
   const humanReadableActions = parsedConfigArray.map((e) =>
     getReadableActions(e.actionInputs)
   )
 
-  const proposalSimulationData = sphinxIface.encodeFunctionData(
-    simulateProposalFragment,
-    [isTestnet, root, merkleTreeFilePath, humanReadableActions]
+  // ABI encode the inputs to the proposal simulation function.
+  const encodedSimulationInputs = coder.encode(
+    simulationInputsFragment.outputs,
+    [merkleTree, humanReadableActions]
   )
+  // Write the ABI encoded data to the file system. We'll read it in the Forge script that simulates
+  // the proposal. We do this instead of passing in the data as a parameter to the Forge script
+  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
+  // particularly a concern for the Merkle tree, which likely contains contract init code.
+  const simulationInputsFilePath = join(
+    foundryToml.cachePath,
+    'sphinx-proposal-simulation-inputs.txt'
+  )
+  writeFileSync(simulationInputsFilePath, encodedSimulationInputs)
 
   const proposalSimulationArgs = [
     'script',
     scriptPath,
     '--sig',
-    proposalSimulationData,
+    'sphinxSimulateProposal(string[],string)',
+    `[${uniqueLeafNetworkNames.join(',')}]`,
+    simulationInputsFilePath,
+    // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
+    // hard-code it just in case Foundry changes the default value in the future. In practice, this
+    // tends to produce a gas estimate multiplier that's around 35% to 50% higher than the actual
+    // gas used instead of 30%.
+    '--gas-estimate-multiplier',
+    '130',
   ]
   if (targetContract) {
     proposalSimulationArgs.push('--target-contract', targetContract)
   }
 
+  const dateBeforeForgeScript = new Date()
   const { stdout, stderr, code } = await spawnAsync(
     'forge',
     proposalSimulationArgs
@@ -326,9 +423,37 @@ export const propose = async (
     process.exit(1)
   }
 
+  const dryRun =
+    uniqueLeafChainIds.length > 1
+      ? readFoundryMultiChainDryRun(
+          foundryToml.broadcastFolder,
+          scriptPath,
+          `sphinxSimulateProposal`,
+          dateBeforeForgeScript
+        )
+      : readFoundrySingleChainDryRun(
+          foundryToml.broadcastFolder,
+          scriptPath,
+          uniqueLeafChainIds[0],
+          `sphinxSimulateProposal`,
+          dateBeforeForgeScript
+        )
+
+  if (!dryRun) {
+    // This should never happen because the presence of Merkle leaves should always mean that a
+    // broadcast will occur.
+    throw new Error(`Could not read Foundry dry run file. Should never happen.`)
+  }
+
+  const gasEstimates = getGasEstimatesOnNetworks(
+    dryRun,
+    uniqueLeafChainIds,
+    getManagedServiceAddress()
+  )
+
   spinner.succeed(`Simulation succeeded.`)
 
-  const preview = getPreview(merkleTreeInfo.compilerConfigs)
+  const preview = getPreview(compilerConfigs)
   if (confirm) {
     spinner.info(`Skipping preview.`)
   } else {
@@ -336,11 +461,11 @@ export const propose = async (
     await prompt(previewString)
   }
 
-  dryRun
-    ? spinner.start('Dry running proposal...')
+  isDryRun
+    ? spinner.start('Finishing dry run...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = merkleTreeInfo.compilerConfigs.map((compilerConfig) => {
+  const shouldBeEqual = compilerConfigs.map((compilerConfig) => {
     return {
       newConfig: compilerConfig.newConfig,
       safeAddress: compilerConfig.safeAddress,
@@ -357,16 +482,15 @@ export const propose = async (
   // Since we know that the following fields are the same for each network, we get their values
   // here.
   const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    merkleTreeInfo.compilerConfigs[0]
+    compilerConfigs[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
-  const gasEstimates: ProposalRequest['gasEstimates'] = []
   const chainStatus: Array<{
     chainId: number
     numLeaves: number
   }> = []
   const chainIds: Array<number> = []
-  for (const compilerConfig of merkleTreeInfo.compilerConfigs) {
+  for (const compilerConfig of compilerConfigs) {
     // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
     // logic. From the perspective of the backend, these networks don't serve any purpose in the
     // `ProposalRequest`.
@@ -374,26 +498,9 @@ export const propose = async (
       continue
     }
 
-    let estimatedGas = 0
-    estimatedGas += compilerConfig.actionInputs
-      .map((a) => Number(a.gas))
-      .reduce((a, b) => a + b, 0)
-
-    // TODO(gas) - Get a more accurate estimate, or use the actual gas cost from the simulation.
-    // Add a constant amount of gas to account for the overhead of the `execute` function
-    estimatedGas += compilerConfig.actionInputs.length * 200_000
-
-    // Add a constant amount of gas to account for the cost of executing the `approve` function
-    estimatedGas += 200_000
-
-    gasEstimates.push({
-      estimatedGas: estimatedGas.toString(),
-      chainId: Number(compilerConfig.chainId),
-    })
-
     const projectDeployment = getProjectDeploymentForChain(
       configUri,
-      merkleTreeInfo.merkleTree,
+      merkleTree,
       compilerConfig
     )
     if (projectDeployment) {
@@ -423,13 +530,13 @@ export const propose = async (
     gasEstimates,
     diff: preview,
     tree: {
-      root: merkleTreeInfo.merkleTree.root,
+      root: merkleTree.root,
       chainStatus,
     },
   }
 
-  const ipfsData = JSON.stringify(merkleTreeInfo.compilerConfigs, null, 2)
-  if (dryRun) {
+  const ipfsData = JSON.stringify(compilerConfigs, null, 2)
+  if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
     await relayProposal(proposalRequest)
@@ -440,7 +547,7 @@ export const propose = async (
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData }
+  return { proposalRequest, ipfsData, configArtifacts }
 }
 
 const getProjectDeploymentForChain = (

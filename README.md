@@ -13,6 +13,10 @@ coming soon to the DevOps platform:
 - deployment artifacts
 - payments in usdc
 
+TODO(md): say which versions of Safe we support
+
+TODO(md): add documentation for deploying on a live network from a single owner. ofc, make it clear that you can only do this with a single owner.
+
 TODO(md): document the erc20-style failure that m4rio pointed out
 
 TODO(md): document which gnosis safe versions we support. mention that 1.3.0 is currently the canonical gnosis safe version.

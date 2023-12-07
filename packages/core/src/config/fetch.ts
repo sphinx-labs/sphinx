@@ -1,10 +1,10 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
-import { SphinxMerkleTree } from '@sphinx-labs/contracts'
+import { makeSphinxMerkleTree, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { HumanReadableAction, HumanReadableActions } from '../actions/types'
 import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
-import { getMerkleTreeInfo } from '../tasks'
+import { makeDeploymentData, getParsedConfigWithCompilerInputs } from '../tasks'
 import { getReadableActions } from './utils'
 
 export const sphinxFetchSubtask = async (args: {
@@ -84,13 +84,17 @@ export const fetchDeploymentFromURI = async (
     )
   }
 
-  const { merkleTreeInfo } = await getMerkleTreeInfo(
-    configArtifacts,
-    compilerConfigs
+  const { configUri } = await getParsedConfigWithCompilerInputs(
+    compilerConfigs,
+    false,
+    configArtifacts
   )
 
+  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const merkleTree = makeSphinxMerkleTree(deploymentData)
+
   return {
-    merkleTree: merkleTreeInfo.merkleTree,
+    merkleTree,
     compilerConfigs,
     configArtifacts,
     humanReadableActions,

@@ -3,9 +3,13 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  ConfigArtifacts,
+  ParsedConfig,
   ProposalRequest,
   SphinxPreview,
   execAsync,
+  getNetworkNameForChainId,
+  getSphinxWalletPrivateKey,
   sleep,
   spawnAsync,
   userConfirmation,
@@ -14,9 +18,15 @@ import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
+import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
-import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
+import {
+  getSphinxModuleAddressFromScript,
+  readInterface,
+} from '../../../src/foundry/utils'
+import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
+import { deploy } from '../../../src/cli/deploy'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -31,8 +41,16 @@ const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 const sepoliaRpcUrl = `http://127.0.0.1:42111`
 
 describe('Propose CLI command', () => {
-  before(() => {
+  let foundryToml: FoundryToml
+  let sphinxPluginTypesInterface: ethers.Interface
+
+  before(async () => {
     process.env['SPHINX_API_KEY'] = sphinxApiKey
+    foundryToml = await getFoundryToml()
+    sphinxPluginTypesInterface = readInterface(
+      foundryToml.artifactFolder,
+      'SphinxPluginTypes'
+    )
   })
 
   beforeEach(async () => {
@@ -54,16 +72,18 @@ describe('Propose CLI command', () => {
   it('Proposes with preview on a single testnet', async () => {
     // We run `forge clean` to ensure that a proposal can occur even if we're running
     // a fresh compilation process.
-    await execAsync(`forge clean`)
+    // await execAsync(`forge clean`) TODO(end): undo
 
+    const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
-    const { proposalRequest, ipfsData } = await propose(
+    const targetContract = 'Simple1'
+    const { proposalRequest, ipfsData, configArtifacts } = await propose(
       false, // Run preview
       isTestnet,
       true, // Dry run
       true, // Silent
-      'contracts/test/script/Simple.s.sol',
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
+      scriptPath,
+      targetContract,
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
@@ -72,8 +92,8 @@ describe('Propose CLI command', () => {
     )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest) {
-      throw new Error(`Expected ipfsData and proposalRequest to be defined`)
+    if (!ipfsData || !proposalRequest || !configArtifacts) {
+      throw new Error(`Expected field(s) to be defined`)
     }
 
     const expectedContractAddress = ethers.getCreate2Address(
@@ -84,7 +104,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple Project',
+      'Simple Project 1',
       isTestnet,
       [11155111],
       [
@@ -128,17 +148,30 @@ describe('Propose CLI command', () => {
     expect(compilerConfig.actionInputs[0].create2Address).equals(
       expectedContractAddress
     )
+
+    await assertValidGasEstimates(
+      scriptPath,
+      proposalRequest.gasEstimates,
+      compilerConfigArray,
+      configArtifacts,
+      foundryToml,
+      sphinxPluginTypesInterface,
+      false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
+      targetContract
+    )
   })
 
   it('Proposes without preview on multiple production networks', async () => {
+    const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
-    const { proposalRequest, ipfsData } = await propose(
+    const targetContract = 'Simple1'
+    const { proposalRequest, ipfsData, configArtifacts } = await propose(
       true, // Skip preview
       isTestnet,
       true, // Dry run
       true, // Silent
-      'contracts/test/script/Simple.s.sol',
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
+      scriptPath,
+      targetContract,
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
@@ -149,8 +182,8 @@ describe('Propose CLI command', () => {
     )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest) {
-      throw new Error(`Expected ipfsData and proposalRequest to be defined`)
+    if (!ipfsData || !proposalRequest || !configArtifacts) {
+      throw new Error(`Expected field(s) to be defined`)
     }
 
     const expectedContractAddressEthereum = ethers.getCreate2Address(
@@ -166,7 +199,7 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple Project',
+      'Simple Project 1',
       isTestnet,
       [1, 10],
       [
@@ -243,6 +276,205 @@ describe('Propose CLI command', () => {
     expect(optimismCompilerConfig.actionInputs[0].create2Address).equals(
       expectedContractAddressOptimism
     )
+
+    await assertValidGasEstimates(
+      scriptPath,
+      proposalRequest.gasEstimates,
+      compilerConfigArray,
+      configArtifacts,
+      foundryToml,
+      sphinxPluginTypesInterface,
+      false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
+      targetContract
+    )
+  })
+
+  // We'll propose a script that deploys a contract near the contract size limit. We'll deploy it
+  // dozens of times in the script.
+  it('Proposes large deployment', async () => {
+    const scriptPath = 'contracts/test/script/Large.s.sol'
+    const isTestnet = true
+    const { proposalRequest, ipfsData, configArtifacts } = await propose(
+      true, // Skip preview
+      isTestnet,
+      true, // Dry run
+      true, // Silent
+      scriptPath,
+      undefined, // Only one contract in the script file, so there's no target contract to specify.
+      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+      // artifacts will always be used in CI because we don't modify the contracts source files
+      // during our test suite).
+      true,
+      mockPrompt
+    )
+
+    // This prevents a TypeScript type error.
+    if (!ipfsData || !proposalRequest || !configArtifacts) {
+      throw new Error(`Expected field(s) to be defined`)
+    }
+
+    const expectedContractAddresses: Array<string> = []
+    for (let i = 0; i < 50; i++) {
+      // Generate the salt: a 32-byte hex string left-padded with zeros. Each salt is incremented by
+      // one. E.g. the first salt is '0x000...000', the next is '0x000...001', etc.
+      const salt = '0x' + i.toString(16).padStart(64, '0')
+
+      const address = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        salt,
+        ethers.keccak256(MyLargeContractArtifact.bytecode.object)
+      )
+
+      expectedContractAddresses.push(address)
+    }
+
+    const previewElements = expectedContractAddresses.map((address) => {
+      return {
+        referenceName: 'MyLargeContract',
+        functionName: 'deploy',
+        variables: [],
+        address,
+      }
+    })
+
+    assertValidProposalRequest(
+      proposalRequest,
+      'Large Project',
+      isTestnet,
+      [11155111],
+      [
+        {
+          networkTags: ['sepolia (local)'],
+          executing: [
+            {
+              referenceName: 'GnosisSafe',
+              functionName: 'deploy',
+              variables: [],
+              address: proposalRequest.safeAddress,
+            },
+            {
+              referenceName: 'SphinxModule',
+              functionName: 'deploy',
+              variables: [],
+              address: proposalRequest.moduleAddress,
+            },
+            ...previewElements,
+          ],
+          skipping: [],
+        },
+      ]
+    )
+
+    // Check that the CompilerConfig array contains contracts with the correct addresses.
+    const compilerConfigArray = JSON.parse(ipfsData)
+    expect(compilerConfigArray.length).to.equal(1)
+    const compilerConfig = compilerConfigArray[0]
+    for (let i = 0; i < 50; i++) {
+      expect(compilerConfig.actionInputs[i].create2Address).equals(
+        expectedContractAddresses[i]
+      )
+    }
+
+    await assertValidGasEstimates(
+      scriptPath,
+      proposalRequest.gasEstimates,
+      compilerConfigArray,
+      configArtifacts,
+      foundryToml,
+      sphinxPluginTypesInterface,
+      false // Gnosis Safe and Sphinx Module haven't been deployed yet.
+    )
+  })
+
+  it('Proposes for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
+    const scriptPath = 'contracts/test/script/Simple.s.sol'
+    const { parsedConfig: firstParsedConfig } = await deploy(
+      scriptPath,
+      'sepolia',
+      true, // Skip preview
+      true, // Silent
+      'Simple1',
+      false, // Don't verify on Etherscan
+      undefined,
+      mockPrompt
+    )
+
+    if (!firstParsedConfig) {
+      throw new Error(`The ParsedConfig is not defined.`)
+    }
+
+    const targetContract = 'Simple2'
+    const isTestnet = true
+    const { proposalRequest, ipfsData, configArtifacts } = await propose(
+      false, // Run preview
+      isTestnet,
+      true, // Dry run
+      true, // Silent
+      scriptPath,
+      targetContract,
+      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+      // artifacts will always be used in CI because we don't modify the contracts source files
+      // during our test suite).
+      true,
+      mockPrompt
+    )
+
+    // This prevents a TypeScript type error.
+    if (!ipfsData || !proposalRequest || !configArtifacts) {
+      throw new Error(`Expected field(s) to be defined`)
+    }
+
+    // Check that the same Gnosis Safe and Sphinx Module are used for both deployments.
+    expect(proposalRequest.safeAddress).equals(firstParsedConfig.safeAddress)
+    expect(proposalRequest.moduleAddress).equals(
+      firstParsedConfig.moduleAddress
+    )
+
+    const expectedContractAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      '0x' + '00'.repeat(31) + '02',
+      ethers.keccak256(MyContract2Artifact.bytecode.object)
+    )
+
+    assertValidProposalRequest(
+      proposalRequest,
+      'Simple Project 2',
+      isTestnet,
+      [11155111],
+      [
+        {
+          networkTags: ['sepolia (local)'],
+          executing: [
+            {
+              address: expectedContractAddress,
+              functionName: 'deploy',
+              referenceName: 'MyContract2',
+              variables: [],
+            },
+          ],
+          skipping: [],
+        },
+      ]
+    )
+
+    // Check that the CompilerConfig array contains a contract with the correct address.
+    const compilerConfigArray = JSON.parse(ipfsData)
+    expect(compilerConfigArray.length).to.equal(1)
+    const compilerConfig = compilerConfigArray[0]
+    expect(compilerConfig.actionInputs[0].create2Address).equals(
+      expectedContractAddress
+    )
+
+    await assertValidGasEstimates(
+      scriptPath,
+      proposalRequest.gasEstimates,
+      compilerConfigArray,
+      configArtifacts,
+      foundryToml,
+      sphinxPluginTypesInterface,
+      true, // Gnosis Safe and Sphinx Module were already deployed.
+      targetContract
+    )
   })
 
   // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
@@ -272,13 +504,14 @@ describe('Propose CLI command', () => {
   // entirely skipped on the other, even if a Gnosis Safe and Sphinx Module haven't been deployed on
   // that network yet.
   it('Proposes on one chain and skips proposal on a different chain', async () => {
+    const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
-    const { proposalRequest, ipfsData } = await propose(
+    const { proposalRequest, ipfsData, configArtifacts } = await propose(
       false, // Show preview
       isTestnet,
       true, // Dry run
       true, // Silent
-      'contracts/test/script/PartiallyEmpty.s.sol',
+      scriptPath,
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
@@ -288,8 +521,8 @@ describe('Propose CLI command', () => {
     )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest) {
-      throw new Error(`Expected ipfsData and proposalRequest to be defined`)
+    if (!ipfsData || !proposalRequest || !configArtifacts) {
+      throw new Error(`Expected field(s) to be defined`)
     }
 
     const expectedContractAddress = ethers.getCreate2Address(
@@ -346,6 +579,16 @@ describe('Propose CLI command', () => {
     )
     const optimismCompilerConfig = compilerConfigArray[1]
     expect(optimismCompilerConfig.actionInputs.length).equals(0)
+
+    await assertValidGasEstimates(
+      scriptPath,
+      proposalRequest.gasEstimates,
+      compilerConfigArray,
+      configArtifacts,
+      foundryToml,
+      sphinxPluginTypesInterface,
+      false // Gnosis Safe and Sphinx Module haven't been deployed yet.
+    )
   })
 
   // This test checks that the proposal simulation can fail after the transactions have been
@@ -393,6 +636,120 @@ describe('Propose CLI command', () => {
     expect(stdout.includes(expectedOutput)).equals(true)
   })
 })
+
+/**
+ * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the the
+ * estimated gas is 35% to 50% greater than the actual gas used in the deployment. Although we
+ * specify a gas estimate multiplier of 30% when calculating the gas estimates in the proposal
+ * simulation, this tends to produce gas estimates that are roughly 35% to 50% higher than the
+ * actual gas used.
+ */
+const assertValidGasEstimates = async (
+  scriptPath: string,
+  networkGasEstimates: ProposalRequest['gasEstimates'],
+  parsedConfigArray: Array<ParsedConfig>,
+  configArtifacts: ConfigArtifacts,
+  foundryToml: FoundryToml,
+  sphinxPluginTypesInterface: ethers.Interface,
+  isModuleAndGnosisSafeDeployed: boolean,
+  targetContract?: string
+) => {
+  // Check that the number of gas estimates matches the number of ParsedConfig objects with at least
+  // one action.
+  expect(networkGasEstimates.length).equals(
+    parsedConfigArray.filter(
+      (parsedConfig) => parsedConfig.actionInputs.length > 0
+    ).length
+  )
+
+  // Iterate over each network
+  for (const { chainId, estimatedGas } of networkGasEstimates) {
+    const parsedConfig = parsedConfigArray.find(
+      (config) => config.chainId === chainId.toString()
+    )
+
+    if (!parsedConfig) {
+      throw new Error(
+        `Could not find the ParsedConfig for the current network.`
+      )
+    }
+
+    // Change the executor's address from the `ManagedService` contract to an auto-generated Sphinx
+    // private key. This is necessary because we need a private key to broadcast the deployment on
+    // Anvil.
+    parsedConfig.executorAddress = new ethers.Wallet(
+      getSphinxWalletPrivateKey(0)
+    ).address
+
+    const networkName = getNetworkNameForChainId(BigInt(chainId))
+
+    const rpcUrl = foundryToml.rpcEndpoints[networkName]
+    if (!rpcUrl) {
+      throw new Error(`Could not find RPC URL for: ${networkName}.`)
+    }
+
+    const {
+      moduleAndGnosisSafeBroadcast,
+      approvalBroadcast,
+      executionBroadcast,
+    } = await deploy(
+      scriptPath,
+      networkName,
+      true, // Skip preview
+      true, // Silent
+      targetContract,
+      false, // Don't verify on block explorer
+      true // Skip force recompile
+    )
+
+    if (!executionBroadcast || !approvalBroadcast) {
+      throw new Error(`Could not load approval or execution broadcast folder.`)
+    }
+
+    let moduleAndGnosisSafeGasUsedHexString: string
+    if (isModuleAndGnosisSafeDeployed) {
+      expect(moduleAndGnosisSafeBroadcast).to.be.undefined
+      moduleAndGnosisSafeGasUsedHexString = '0x00'
+    } else {
+      // Narrow the TypeScript type of the broadcast
+      if (!moduleAndGnosisSafeBroadcast) {
+        throw new Error(`Could not load deployment broadcast folder.`)
+      }
+
+      // Check that there's a single receipt for the broadcast file that deployed the Gnosis Safe and
+      // Sphinx Module.
+      expect(moduleAndGnosisSafeBroadcast.receipts.length).equals(1)
+
+      moduleAndGnosisSafeGasUsedHexString =
+        moduleAndGnosisSafeBroadcast.receipts[0].gasUsed
+    }
+
+    expect(approvalBroadcast.receipts.length).equals(1)
+    const approvalGasUsedHexString = approvalBroadcast.receipts[0].gasUsed
+
+    // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
+    // user's deployment because multiple actions may be batched into a single call to the Sphinx
+    // Module's `execute` function.
+
+    // Calculate the amount of gas used in the transaction receipts.
+    const actualGasUsed = executionBroadcast.receipts
+      .map((receipt) => receipt.gasUsed)
+      // Add the gas used to deploy the Gnosis Safe and Sphinx Module. This equals 0 if they were
+      // already deployed.
+      .concat(moduleAndGnosisSafeGasUsedHexString)
+      // Add the gas used by the `approve` transaction.
+      .concat(approvalGasUsedHexString)
+      // Convert the gas values from hex strings to decimal strings.
+      .map((gas) => parseInt(gas, 16))
+      // Sum the gas values
+      .reduce((a, b) => a + b)
+
+    // Checks if the estimated gas is 35% to 50% greater than the actual gas used. We use a range to
+    // allow for fluctuations in the gas estimation logic.
+    expect(Number(estimatedGas)).to.be.above(actualGasUsed * 1.35)
+    expect(Number(estimatedGas)).to.be.below(actualGasUsed * 1.5)
+  }
+}
 
 const assertValidProposalRequest = (
   proposalRequest: ProposalRequest,
