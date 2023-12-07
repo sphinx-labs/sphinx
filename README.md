@@ -1,8 +1,18 @@
 # Sphinx: DevOps for Deployments
 
+
+
+"Sphinx offers seamless, gasless multichain deployments for smart contracts with its Gnosis Safe module, facilitating secure, one-click deployments across 11 networks. It's compatible with Forge scripts, ensuring easy integration and automated deployments directly from CI processes, all underpinned by trustless, audited security."
+
 Sphinx is a protocol and Foundry plugin that automates the smart contract deployment process.
 
+TODO(md): consider mentioning that the user's deployment is executed via the Gnosis Safe somewhere in the main readme.
+
 TODO(md-end): add a 'security'/'audit' section in the main readme
+
+TODO(md): in the "writing scripts with sphinx" guide, make it clear that deployments are executed by the Gnosis Safe.
+
+_. You can integrate Sphinx
 
 TODO(md):
 coming soon:
@@ -43,7 +53,7 @@ TODO: practically speaking, how can a user do a create3 deployment like this? if
 
 - **Secure `CREATE3` Deployments**: You can use your multisig as your permissioned `CREATE3` deployer instead of relying on a single private key to get consistent contract addresses across networks.
 
-* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts.
+* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts. All you need to do is add a modifier to your `run()` function.
 
 ## Request access
 

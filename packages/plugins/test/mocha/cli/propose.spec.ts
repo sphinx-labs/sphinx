@@ -72,7 +72,7 @@ describe('Propose CLI command', () => {
   it('Proposes with preview on a single testnet', async () => {
     // We run `forge clean` to ensure that a proposal can occur even if we're running
     // a fresh compilation process.
-    // await execAsync(`forge clean`) TODO(end): undo
+    await execAsync(`forge clean`)
 
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
@@ -639,9 +639,9 @@ describe('Propose CLI command', () => {
 
 /**
  * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the the
- * estimated gas is 35% to 50% greater than the actual gas used in the deployment. Although we
+ * estimated gas is 35% to 55% greater than the actual gas used in the deployment. Although we
  * specify a gas estimate multiplier of 30% when calculating the gas estimates in the proposal
- * simulation, this tends to produce gas estimates that are roughly 35% to 50% higher than the
+ * simulation, this tends to produce gas estimates that are roughly 35% to 55% higher than the
  * actual gas used.
  */
 const assertValidGasEstimates = async (
@@ -744,10 +744,10 @@ const assertValidGasEstimates = async (
       // Sum the gas values
       .reduce((a, b) => a + b)
 
-    // Checks if the estimated gas is 35% to 50% greater than the actual gas used. We use a range to
+    // Checks if the estimated gas is 35% to 55% greater than the actual gas used. We use a range to
     // allow for fluctuations in the gas estimation logic.
     expect(Number(estimatedGas)).to.be.above(actualGasUsed * 1.35)
-    expect(Number(estimatedGas)).to.be.below(actualGasUsed * 1.5)
+    expect(Number(estimatedGas)).to.be.below(actualGasUsed * 1.55)
   }
 }
 

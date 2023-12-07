@@ -78,8 +78,6 @@ describe('Simulate proposal', () => {
     await execAsync(`yarn kill-nodes`)
   })
 
-  // TODO(end): c/f .only
-
   it('Simulates proposal for a project that has not been deployed on any network yet', async () => {
     for (const network of sphinxConfig.testnets) {
       const rpcUrl = foundryToml.rpcEndpoints[network.toString()]

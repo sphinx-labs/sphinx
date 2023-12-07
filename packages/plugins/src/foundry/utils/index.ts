@@ -680,7 +680,7 @@ export const getSphinxLeafGasEstimates = async (
     leafGasInputsFilePath,
     // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
     // hard-code it just in case Foundry changes the default value in the future. In practice, this
-    // tends to produce a gas estimate multiplier that's around 35% to 50% higher than the actual
+    // tends to produce a gas estimate multiplier that's around 35% to 55% higher than the actual
     // gas used instead of 30%.
     '--gas-estimate-multiplier',
     '130',

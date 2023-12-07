@@ -76,6 +76,8 @@ Using pnpm:
 pnpm sphinx init --pnpm
 ```
 
+TODO: move the remappings to another section? it may be more natural to keep it in this section b/c the user will notice the remappings in the terminal after running the command.
+
 This command outputs a set of remappings that you'll need to add to your `foundry.toml` or `remappings.txt` file. If you don't already have a `remappings.txt` file or a `remappings` section in your `foundry.toml`, we recommend adding a `remappings.txt` file in the root of your repository.
 
 This command also created a few files:
