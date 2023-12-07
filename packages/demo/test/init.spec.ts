@@ -15,17 +15,17 @@ import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
 const deploymentArtifactDir = 'deployments'
 
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0x67AA37B2fb458501C3bB1Db312017a12AC3fD8cD'
+const contractAddress = '0xDa874B752572664C1c900477d66F8BE79889Cfa9'
 
 describe('Init CLI command', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string
   before(async () => {
-    const { src, test } = await getFoundryToml()
+    const { src, script, test } = await getFoundryToml()
 
     contractPath = path.join(src, sampleContractFileName)
-    scriptPath = path.join(src, sampleScriptFileName)
+    scriptPath = path.join(script, sampleScriptFileName)
     testPath = path.join(test, sampleTestFileName)
   })
 
