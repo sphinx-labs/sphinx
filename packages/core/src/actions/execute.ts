@@ -91,7 +91,6 @@ export const executeDeployment = async (
   )
 
   if (status === MerkleRootStatus.FAILED) {
-    logger?.error(`[Sphinx]: failed during execution`)
     return { success: false, receipts, failureAction }
   } else {
     logger?.info(`[Sphinx]: executed actions`)
