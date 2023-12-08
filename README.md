@@ -29,7 +29,7 @@ TODO(md): document how we handle failures.
 
 * **One-Click Multichain Deployments**: Approve deployments across 11 supported networks by signing a single meta transaction. Sphinx's backend will execute the deployment on each network in parallel and then verify your smart contracts on Etherscan.
 
-* **Deployments in CI**: Eliminate human error and improve security by gaslessly triggering deployments from your CI process and approving with your multisig signers via the Sphinx UI. You can always propose from your local machine if you'd prefer.
+* **Deployments in CI**: Eliminate human error and improve security by gaslessly triggering deployments from your CI process. You can always propose from your local machine if you'd prefer.
 
 - **Powered by Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve deployments across an arbitrary number of chains by signing a single meta transaction. Sphinx will deploy a Gnosis Safe on your behalf at a consistent address with `CREATE2`.
 
