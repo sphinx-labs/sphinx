@@ -48,6 +48,3 @@ If you need to use the address of your Gnosis Safe in your deployment script, yo
 ```sol
 address safe = sphinxSafe();
 ```
-
-
-TODO(md): Permissioned actions
