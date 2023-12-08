@@ -29,6 +29,7 @@ import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
+import { IEnum } from "./interfaces/IEnum.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
@@ -59,66 +60,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // contains a test that ensures this value is correct.
     uint8 internal constant numSupportedNetworks = 23;
 
-    function initializeFFI(string memory _rpcUrl) external {
-        ffiDeployOnAnvil(_rpcUrl);
-        initializeSphinxContracts();
-    }
-
-    function initializeSphinxContracts() public {
-        vm.etch(
-            DETERMINISTIC_DEPLOYMENT_PROXY,
-            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
-        );
-
-        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-        for (uint256 i = 0; i < contracts.length; i++) {
-            SphinxContractInfo memory ct = contracts[i];
-            address addr = create2Deploy(ct.creationCode);
-            require(
-                addr == ct.expectedAddress,
-                string(
-                    abi.encodePacked(
-                        "address mismatch. expected address: ",
-                        vm.toString(ct.expectedAddress)
-                    )
-                )
-            );
-        }
-
-        // if (_executor.exists) {
-        //     // Impersonate system owner
-        //     vm.startPrank(systemOwner);
-
-        //     address managedServiceAddr = selectManagedServiceAddressForNetwork();
-        //     ISphinxAccessControl managedService = ISphinxAccessControl(managedServiceAddr);
-        //     if (!managedService.hasRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value)) {
-        //         managedService.grantRole(keccak256("REMOTE_EXECUTOR_ROLE"), _executor.value);
-        //     }
-
-        //     vm.stopPrank();
-        // }
-    }
-
     function slice(
         bytes calldata _data,
         uint256 _start,
         uint256 _end
     ) external pure returns (bytes memory) {
         return _data[_start:_end];
-    }
-
-    function ffiDeployOnAnvil(string memory _rpcUrl) public {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = mainFfiScriptPath;
-        cmds[3] = "deployOnAnvil";
-        cmds[4] = _rpcUrl;
-
-        Vm.FfiResult memory result = vm.tryFfi(cmds);
-        if (result.exitCode != 0) {
-            revert(string(result.stderr));
-        }
     }
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
@@ -977,7 +924,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint256 threshold = _config.threshold;
 
         address[] memory sortedOwners = sortAddresses(owners);
-        bytes memory safeInitializerData = getSafeInitializerData(sortedOwners, threshold);
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(sortedOwners, threshold);
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
@@ -1001,7 +948,23 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return addr;
     }
 
-    function getSafeInitializerData(
+    /**
+     * @notice Encodes initializer data that will be submitted to a Gnosis Safe Proxy Factory to
+     *         deploy a Gnosis Safe, deploy a Sphinx Module, and enable the Sphinx Module in the
+     *         Gnosis Safe. We're able to deploy and enable the Sphinx Module in the same
+     *         transaction that we deploy the Gnosis Safe by executing a transaction in the
+     *         Gnosis Safe's `setup` function. Specifically, the `setup` function calls into
+     *         the Gnosis Safe's `setupModules` function, which calls into its `execute` function.
+     *         In the `execute` function, we batch two calls to the `SphinxModuleProxyFactory`:
+     *         1. `deploySphinxModuleProxyFromSafe`
+     *         2. `enableSphinxModuleProxyFromSafe`
+     *         We're able to these calls by using Gnosis Safe's `MultiSend` contract.
+     *
+     * @dev    We refer to this function in Sphinx's documentation. Make sure to update the
+     *         documentation if you change the name of this function or change its file
+     *         location.
+     */
+    function getGnosisSafeInitializerData(
         address[] memory _owners,
         uint _threshold
     ) public pure returns (bytes memory safeInitializerData) {
@@ -1014,38 +977,58 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0."
         );
 
+        // Sort the owner addresses. This provides a consistent ordering, which makes it easier
+        // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
         address[] memory sortedOwners = sortAddresses(_owners);
 
         ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
             sphinxModuleProxyFactoryAddress
         );
-        bytes memory encodedDeployModuleCalldata = abi.encodeWithSelector(
+
+        // Encode the data that will deploy the Sphinx Module.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
             moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
             bytes32(0)
         );
+        // Encode the data in a format that can be executed using `MultiSend`.
         bytes memory deployModuleMultiSendData = abi.encodePacked(
-            uint8(0),
+            // We use `Call` so that the Gnosis Safe calls the `SphinxModuleProxyFactory` to deploy
+            // the Sphinx Module. This makes it easier for off-chain tooling to calculate the
+            // deployed Sphinx Module address because the `SphinxModuleProxyFactory`'s address is a
+            // global constant.
+            uint8(IEnum.GnosisSafeOperation.Call),
             moduleProxyFactory,
             uint256(0),
-            encodedDeployModuleCalldata.length,
-            encodedDeployModuleCalldata
-        );
-        bytes memory encodedEnableModuleCalldata = abi.encodeWithSelector(
-            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
-            bytes32(0)
-        );
-        bytes memory enableModuleMultiSendData = abi.encodePacked(
-            uint8(1),
-            moduleProxyFactory,
-            uint256(0),
-            encodedEnableModuleCalldata.length,
-            encodedEnableModuleCalldata
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
         );
 
+        // Encode the data that will enable the Sphinx Module in the Gnosis Safe.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            // We can only enable the module by delegatecalling the `SphinxModuleProxyFactory`
+            // from the Gnosis Safe.
+            uint8(IEnum.GnosisSafeOperation.DelegateCall),
+            moduleProxyFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+
+        // Encode the entire `MultiSend` data.
         bytes memory multiSendData = abi.encodeWithSelector(
             IMultiSend.multiSend.selector,
             abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
         );
+
+        // Encode the call to the Gnosis Safe's `setup` function, which we'll submit to the Gnosis
+        // Safe Proxy Factory. This data contains the `MultiSend` data that we created above.
         safeInitializerData = abi.encodePacked(
             IGnosisSafe.setup.selector,
             abi.encode(
@@ -1053,59 +1036,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 _threshold,
                 multiSendAddress,
                 multiSendData,
+                // This is the default fallback handler used by Gnosis Safe during their
+                // standard deployments.
                 compatibilityFallbackHandlerAddress,
+                // The following fields are for specifying an optional payment as part of the
+                // deployment. We don't use them.
                 address(0),
                 0,
                 address(0)
             )
         );
-    }
-
-    /**
-     * @notice Deploys a user's Gnosis Safe via FFI. This is only called when broadcasting
-     *         on a local network (i.e. Anvil). If we don't do this, the following situation will
-     *         occur, resulting in an error:
-     *
-     *         1. The local Forge simulation is run, which triggers an FFI call that grants
-     *            ownership roles to the auto-generated address(es) in the Gnosis Safe contract.
-     *            This occurs in `_sphinxOverrideSafeOwners`. Crucially, the Gnosis Safe contract is
-     *            not deployed yet because the broadcast has not occurred yet.
-     *         2. The broadcast occurs, which includes a transaction that deploys the Gnosis Safe.
-     *            This overwrites the storage slots that were set in the previous step, which means
-     *            the auto-generated addresses no longer have ownership privileges.
-     *         3. The deployment fails during the broadcast because the signatures signed by the
-     *            auto-generated addresses are no longer valid.
-     *
-     *        This function prevents this error by deploying the Gnosis Safe via FFI before the
-     *        storage values are set in the Safe in step 1.
-     */
-    function deployGnosisSafeFFI(SphinxConfig memory _config, string memory _rpcUrl) external {
-        bytes memory safeInitializerData = getSafeInitializerData(
-            _config.owners,
-            _config.threshold
-        );
-
-        string[] memory inputs;
-        inputs = new string[](8);
-        inputs[0] = "cast";
-        inputs[1] = "send";
-        inputs[2] = vm.toString(safeFactoryAddress);
-        inputs[3] = vm.toString(
-            abi.encodePacked(
-                IGnosisSafeProxyFactory.createProxyWithNonce.selector,
-                abi.encode(safeSingletonAddress, safeInitializerData, _config.saltNonce)
-            )
-        );
-        inputs[4] = "--rpc-url";
-        inputs[5] = _rpcUrl;
-        inputs[6] = "--private-key";
-        // We use the second auto-generated address to execute the transaction because we use the
-        // first address to deploy the user's contracts when broadcasting on Anvil. If we use the
-        // same address for both purposes, then its nonce will be incremented in this logic, causing
-        // a nonce mismatch error in the user's deployment, leading it to fail.
-        inputs[7] = vm.toString(bytes32(getSphinxWalletPrivateKey(1)));
-        Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exitCode != 0) revert(string(result.stderr));
     }
 
     function getMerkleRootNonce(ISphinxModule _module) public view returns (uint) {

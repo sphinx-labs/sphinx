@@ -1,6 +1,6 @@
 # Sphinx Configuration Options
 
-You must specify these options inside the `setUp()` function in your deployment script. For example:
+You must specify configuration options inside the constructor or `setUp()` function in your deployment script. For example:
 
 ```sol
 function setUp() public {
@@ -11,7 +11,15 @@ function setUp() public {
 
 ## Table of Contents
 
-TODO(md-end)
+- [Configuration Options](#configuration-options)
+  - [`address[] owners`](#address-owners)
+  - [`uint256 threshold`](#uint256-threshold)
+  - [`uint256 saltNonce`](#uint256-saltnonce)
+- [DevOps Platform Options](#devops-platform-options)
+  - [`string projectName`](#string-projectname)
+  - [`string orgId`](#string-orgid)
+  - [`Network[] mainnets`](#network-mainnets)
+  - [`Network[] testnets`](#network-testnets)
 
 ## Configuration Options
 
