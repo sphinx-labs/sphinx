@@ -6,8 +6,9 @@ import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdCheats } from "sphinx-forge-std/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
-import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDataTypes.sol";
+import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 // Gnosis Safe v1.3.0
 import {
@@ -69,7 +70,18 @@ import {
 import { SafeL2 as SafeL2_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/SafeL2.sol";
 import { Safe as Safe_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/Safe.sol";
 
-contract TestUtils is SphinxUtils, Enum, Test {
+contract TestUtils is SphinxUtils, IEnum, Test {
+    // These are constants thare are used when signing an EIP-712 meta transaction.
+    bytes32 private constant DOMAIN_SEPARATOR =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes("1.0.0"))
+            )
+        );
+    bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
+
     enum GnosisSafeVersion {
         NONE,
         L1_1_3_0,
@@ -108,17 +120,8 @@ contract TestUtils is SphinxUtils, Enum, Test {
         address to;
         uint256 value;
         bytes txData;
-        Enum.Operation operation;
+        IEnum.GnosisSafeOperation operation;
         uint256 safeTxGas;
-    }
-
-    struct SphinxTransaction {
-        address to;
-        uint256 value;
-        bytes txData;
-        Enum.Operation operation;
-        uint256 gas;
-        bool requireSuccess;
     }
 
     struct SphinxMerkleTree {
@@ -235,7 +238,7 @@ contract TestUtils is SphinxUtils, Enum, Test {
                 to: _gnosisSafeTxn.to,
                 value: _gnosisSafeTxn.value,
                 data: _gnosisSafeTxn.txData,
-                operation: _gnosisSafeTxn.operation,
+                operation: Enum.Operation(uint8(_gnosisSafeTxn.operation)),
                 safeTxGas: _gnosisSafeTxn.safeTxGas,
                 _nonce: nonce,
                 // The following fields are for refunding the caller. We don't use them.
@@ -249,6 +252,16 @@ contract TestUtils is SphinxUtils, Enum, Test {
         }
 
         return packBytes(signatures);
+    }
+
+    function packBytes(bytes[] memory arr) public pure returns (bytes memory) {
+        bytes memory output;
+
+        for (uint256 i = 0; i < arr.length; i++) {
+            output = abi.encodePacked(output, arr[i]);
+        }
+
+        return output;
     }
 
     function getDeploymentMerkleTreeFFI(
@@ -337,7 +350,7 @@ contract TestUtils is SphinxUtils, Enum, Test {
         for (uint256 i = 1; i < tree.leaves.length; i++) {
             executionLeavesWithProofs[i - 1] = tree.leaves[i];
         }
-        bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
+        bytes memory ownerSignatures = signMerkleRoot(_treeInputs.ownerWallets, tree.root);
         return
             DeploymentModuleInputs(
                 merkleRoot,
@@ -345,6 +358,27 @@ contract TestUtils is SphinxUtils, Enum, Test {
                 executionLeavesWithProofs,
                 ownerSignatures
             );
+    }
+
+    function signMerkleRoot(
+        Wallet[] memory _owners,
+        bytes32 _merkleRoot
+    ) private pure returns (bytes memory) {
+        require(_owners.length > 0, "Sphinx: owners array must have at least one element");
+
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _merkleRoot))
+        );
+
+        bytes memory signatures;
+        for (uint256 i = 0; i < _owners.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_owners[i].privateKey, keccak256(typedData));
+            signatures = abi.encodePacked(signatures, r, s, v);
+        }
+
+        return signatures;
     }
 
     function getNumExecutionLeavesOnChain(
@@ -413,7 +447,7 @@ contract TestUtils is SphinxUtils, Enum, Test {
                 merkleRoot: tree.root,
                 approvalLeafWithProof: approvalLeafWithProof,
                 executionLeavesWithProofs: executionLeavesWithProofs,
-                ownerSignatures: getOwnerSignatures(_treeInputs.ownerWallets, tree.root)
+                ownerSignatures: signMerkleRoot(_treeInputs.ownerWallets, tree.root)
             });
         }
 
@@ -446,7 +480,7 @@ contract TestUtils is SphinxUtils, Enum, Test {
 
         bytes32 merkleRoot = tree.root;
         SphinxLeafWithProof memory cancellationLeafWithProof = tree.leaves[0];
-        bytes memory ownerSignatures = getOwnerSignatures(_treeInputs.ownerWallets, tree.root);
+        bytes memory ownerSignatures = signMerkleRoot(_treeInputs.ownerWallets, tree.root);
         return CancellationModuleInputs(merkleRoot, cancellationLeafWithProof, ownerSignatures);
     }
 
@@ -462,7 +496,7 @@ contract TestUtils is SphinxUtils, Enum, Test {
             moduleInputArray[i] = CancellationModuleInputs({
                 merkleRoot: tree.root,
                 cancellationLeafWithProof: tree.leaves[i],
-                ownerSignatures: getOwnerSignatures(_treeInputs.ownerWallets, tree.root)
+                ownerSignatures: signMerkleRoot(_treeInputs.ownerWallets, tree.root)
             });
         }
         return moduleInputArray;

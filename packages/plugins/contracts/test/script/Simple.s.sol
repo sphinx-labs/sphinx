@@ -6,9 +6,9 @@ import { MyContract2 } from "../../../contracts/test/MyContracts.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";
 import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
-contract Simple is Script, Sphinx {
+contract Simple1 is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Simple Project";
+        sphinxConfig.projectName = "Simple Project 1";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
@@ -26,5 +26,20 @@ contract Simple is Script, Sphinx {
             myContract = new MyContract2{ salt: bytes32(uint(1)) }();
         }
         myContract.incrementMyContract2(2);
+    }
+}
+
+contract Simple2 is Script, Sphinx {
+    constructor() {
+        sphinxConfig.projectName = "Simple Project 2";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.testnets = [Network.sepolia];
+        sphinxConfig.orgId = "test-org-id";
+    }
+
+    function run() public override sphinx {
+        new MyContract2{ salt: bytes32(uint(2)) }();
     }
 }

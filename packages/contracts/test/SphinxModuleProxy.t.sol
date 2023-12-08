@@ -13,7 +13,7 @@ import { CreateCall } from "@gnosis.pm/safe-contracts-1.3.0/libraries/CreateCall
 import { GnosisSafeProxy } from "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxy.sol";
 import { MultiSend } from "@gnosis.pm/safe-contracts-1.3.0/libraries/MultiSend.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
-import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
+import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
 import {
     SphinxLeafWithProof,
     SphinxLeafType,
@@ -21,7 +21,7 @@ import {
     MerkleRootStatus,
     SphinxLeaf
 } from "../contracts/core/SphinxDataTypes.sol";
-import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
 import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.sol";
 
@@ -43,7 +43,7 @@ import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.
  *         version of Gnosis Safe, ensuring that the `SphinxModuleProxy` is compatible with
  *         each type.
  */
-abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModule {
+abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModule {
     using stdStorage for StdStorage;
 
     bytes internal constant CREATE3_PROXY_BYTECODE = hex"67363d3d37363d34f03d5260086018f3";
@@ -139,7 +139,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 to: address(myContract),
                 value: 0,
                 txData: abi.encodePacked(myContract.setMyNum.selector, abi.encode(123)),
-                operation: Operation.Call,
+                operation: IEnum.GnosisSafeOperation.Call,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -150,7 +150,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 to: address(myContract),
                 value: 0,
                 txData: abi.encodePacked(myContract.get42.selector),
-                operation: Operation.Call,
+                operation: IEnum.GnosisSafeOperation.Call,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -161,7 +161,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 to: address(myDelegateCallContract),
                 value: 0,
                 txData: abi.encodePacked(myDelegateCallContract.onlyDelegateCall.selector),
-                operation: Operation.DelegateCall,
+                operation: IEnum.GnosisSafeOperation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -175,7 +175,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                     CreateCall.performCreate.selector,
                     abi.encode(0, type(MyContract).creationCode)
                 ),
-                operation: Operation.DelegateCall,
+                operation: IEnum.GnosisSafeOperation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -189,7 +189,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                     CreateCall.performCreate2.selector,
                     abi.encode(0, type(MyContract).creationCode, bytes32(0))
                 ),
-                operation: Operation.DelegateCall,
+                operation: IEnum.GnosisSafeOperation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -229,7 +229,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                     MultiSend.multiSend.selector,
                     abi.encodePacked(firstCreate3MultiSendData, secondCreate3MultiSendData)
                 ),
-                operation: Operation.DelegateCall,
+                operation: IEnum.GnosisSafeOperation.DelegateCall,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -240,7 +240,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                 to: address(myContract),
                 value: 1 ether,
                 txData: abi.encodePacked(myContract.acceptPayment.selector),
-                operation: Operation.Call,
+                operation: IEnum.GnosisSafeOperation.Call,
                 gas: 1_000_000,
                 requireSuccess: true
             })
@@ -389,7 +389,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                             moduleProxy,
                             approvalData
                         ),
-                        operation: Operation.Call,
+                        operation: IEnum.GnosisSafeOperation.Call,
                         gas: 1_000_000,
                         requireSuccess: true
                     })
@@ -741,7 +741,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                     // Use slightly different data than the first tx so that the Merkle root is
                     // different.
                     txData: abi.encodePacked(myContract.setMyNum.selector, abi.encode(4321)),
-                    operation: Operation.Call,
+                    operation: IEnum.GnosisSafeOperation.Call,
                     gas: 1_000_000,
                     requireSuccess: true
                 })
@@ -818,7 +818,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                             moduleProxy,
                             cancellationData
                         ),
-                        operation: Operation.Call,
+                        operation: IEnum.GnosisSafeOperation.Call,
                         gas: 1_000_000,
                         requireSuccess: true
                     })
@@ -1192,7 +1192,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
                             moduleProxy,
                             executionData
                         ),
-                        operation: Operation.Call,
+                        operation: IEnum.GnosisSafeOperation.Call,
                         gas: 1_000_000,
                         requireSuccess: true
                     })
@@ -1595,7 +1595,7 @@ abstract contract AbstractSphinxModuleProxy_Test is Enum, TestUtils, SphinxModul
             to: address(myContract),
             value: 0,
             txData: abi.encodePacked(myContract.reverter.selector), // Will revert
-            operation: Operation.Call,
+            operation: IEnum.GnosisSafeOperation.Call,
             gas: 1_000_000,
             requireSuccess: false // Don't require success
         });

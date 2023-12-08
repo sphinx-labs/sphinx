@@ -1,7 +1,8 @@
-import { basename, join } from 'path'
-import { existsSync, readFileSync } from 'fs'
-
 import {
+  isLabel,
+  isRawCreate2ActionInput,
+  isRawFunctionCallActionInput,
+  isString,
   ActionInput,
   ConfigArtifacts,
   DeploymentInfo,
@@ -11,20 +12,11 @@ import {
   RawActionInput,
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
-} from '@sphinx-labs/core/dist/config/types'
-import {
-  getGasWithBuffer,
-  isLabel,
-  isRawCreate2ActionInput,
-  isRawFunctionCallActionInput,
-  isString,
-} from '@sphinx-labs/core/dist/utils'
-import { AbiCoder, Fragment, ethers } from 'ethers'
-import {
   ParsedContractDeployments,
   SphinxActionType,
   networkEnumToName,
 } from '@sphinx-labs/core'
+import { AbiCoder, Fragment, ethers } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -32,7 +24,7 @@ import {
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
-import { FoundryDryRun } from './types'
+import { FoundrySingleChainDryRun } from './types'
 import { getConfigArtifactForContractName } from './utils'
 
 export const decodeDeploymentInfo = (
@@ -65,6 +57,7 @@ export const decodeDeploymentInfo = (
     executorAddress,
     nonce,
     chainId,
+    blockGasLimit,
     initialState,
     isLiveNetwork,
     newConfig,
@@ -83,6 +76,7 @@ export const decodeDeploymentInfo = (
     requireSuccess,
     nonce: nonce.toString(),
     chainId: chainId.toString(),
+    blockGasLimit: blockGasLimit.toString(),
     initialState: {
       ...initialState,
     },
@@ -98,37 +92,9 @@ export const decodeDeploymentInfo = (
   }
 }
 
-export const readActionInputsOnSingleChain = (
+export const convertFoundryDryRunToActionInputs = (
   deploymentInfo: DeploymentInfo,
-  scriptPath: string,
-  broadcastFolder: string,
-  sphinxFunctionName: string
-): Array<RawActionInput> => {
-  // The location for a single chain dry run is in the format:
-  // <broadcastFolder>/<scriptFileName>/<chainId>/dry-run/<functionName>-latest.json
-  // If the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol), Foundry still only
-  // uses only the script's file name, not its entire path.
-  const dryRunPath = join(
-    broadcastFolder,
-    basename(scriptPath),
-    deploymentInfo.chainId,
-    'dry-run',
-    `${sphinxFunctionName}-latest.json`
-  )
-
-  if (!existsSync(dryRunPath)) {
-    return []
-  }
-
-  const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
-  const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun, dryRunPath)
-
-  return actionInputs
-}
-
-export const parseFoundryDryRun = (
-  deploymentInfo: DeploymentInfo,
-  dryRun: FoundryDryRun,
+  dryRun: FoundrySingleChainDryRun,
   dryRunPath: string
 ): Array<RawActionInput> => {
   const notFromGnosisSafe = dryRun.transactions
@@ -267,6 +233,7 @@ export const parseFoundryDryRun = (
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
+  gasEstimates: Array<string>,
   configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
   const {
@@ -282,10 +249,27 @@ export const makeParsedConfig = (
     arbitraryChain,
   } = deploymentInfo
 
-  let actionIndex = 1
-  const actionInputs: Array<ActionInput> = []
+  // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
+  // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
+  // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
+  // leaf. The 80% was chosen arbitrarily.
+  const maxAllowedGasPerLeaf = (8n * BigInt(deploymentInfo.blockGasLimit)) / 10n
+
+  const parsedActionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
-  for (const input of rawInputs) {
+  // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
+  // means the `EXECUTE` leaves start with an index of 1.
+  let actionIndex = 1
+  for (let i = 0; i < rawInputs.length; i++) {
+    const input = rawInputs[i]
+    const gas = gasEstimates[i]
+
+    if (BigInt(gas) > maxAllowedGasPerLeaf) {
+      throw new Error(
+        `Estimated gas for a transaction is too close to the block gas limit.`
+      )
+    }
+
     const { parsedContracts, unlabeledAdditionalContracts } =
       parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
     unlabeledAddresses.push(...unlabeledAdditionalContracts)
@@ -379,21 +363,21 @@ export const makeParsedConfig = (
         }
       }
 
-      actionInputs.push({
+      parsedActionInputs.push({
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
-        gas: getGasWithBuffer(input.gas),
+        gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
-        gas: getGasWithBuffer(input.gas),
+        gas,
       }
 
-      actionInputs.push(callInput)
+      parsedActionInputs.push(callInput)
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
@@ -409,7 +393,7 @@ export const makeParsedConfig = (
     newConfig,
     isLiveNetwork,
     initialState,
-    actionInputs,
+    actionInputs: parsedActionInputs,
     unlabeledAddresses,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,

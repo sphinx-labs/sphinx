@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { Governor } from "@openzeppelin/contracts/governance/Governor.sol";
 
 struct TopLevelStruct {
     int256 a;
@@ -90,6 +92,52 @@ contract MyOwnable is Ownable {
     function set(uint256 _value) external onlyOwner {
         value = _value;
     }
+}
+
+// This contract's size is ~22181 bytes, which is near the contract size limit of 24576 bytes.
+contract MyLargeContract is Governor, AccessControl {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(Governor, AccessControl) returns (bool) {}
+
+    function name() public view override(Governor) returns (string memory) {}
+
+    constructor() Governor("") {}
+
+    function clock() public view override returns (uint48) {}
+
+    function CLOCK_MODE() public view override returns (string memory) {}
+
+    function COUNTING_MODE() public view virtual override returns (string memory) {}
+
+    function votingDelay() public view virtual override returns (uint256) {}
+
+    function votingPeriod() public view virtual override returns (uint256) {}
+
+    function quorum(uint256 timepoint) public view virtual override returns (uint256) {}
+
+    function hasVoted(
+        uint256 proposalId,
+        address account
+    ) public view virtual override returns (bool) {}
+
+    function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {}
+
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {}
+
+    function _getVotes(
+        address account,
+        uint256 timepoint,
+        bytes memory params
+    ) internal view virtual override returns (uint256) {}
+
+    function _countVote(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        uint256 weight,
+        bytes memory params
+    ) internal virtual override {}
 }
 
 contract DuplicateContractName {

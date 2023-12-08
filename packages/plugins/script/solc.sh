@@ -12,6 +12,6 @@ forge build --use '0.8.0' --contracts contracts/foundry --skip test --skip scrip
 
 # This script compiles the prod contracts in our Foundry plugin using the optimizer. Since the
 # optimizer is off in our repo by default, this ensures that we don't release contracts that lead to
-# a "Stack too deep" error. In rare situations, it's possible for this error to occur when the
-# optimizer is enabled, but not when it's disabled.
+# a "Stack too deep" error. In rare situations, it's possible for a "Stack too deep" error to occur
+# when the optimizer is enabled, but not when it's disabled.
 forge build --optimize --optimizer-runs 200 --contracts contracts/foundry --skip test --skip script

@@ -8,7 +8,6 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   FoundryContractArtifact,
-  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
@@ -94,6 +93,7 @@ export type DeploymentInfo = {
   executorAddress: string
   nonce: string
   chainId: string
+  blockGasLimit: string
   safeInitData: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
@@ -180,11 +180,6 @@ export interface FunctionCallActionInput extends RawFunctionCallActionInput {
  */
 export interface CompilerConfig extends ParsedConfig {
   inputs: Array<BuildInfoInputs>
-}
-
-export type MerkleTreeInfo = {
-  merkleTree: SphinxMerkleTree
-  compilerConfigs: Array<CompilerConfig>
 }
 
 /**
