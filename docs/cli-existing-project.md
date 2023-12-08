@@ -1,10 +1,17 @@
 # Getting Started in an Existing Repository
 
-This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
+This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project then test and deploy it locally.
 
 ## Table of Contents
 
-TODO(md-end)
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Update `.gitignore`](#4-update-gitignore)
+5. [Update `foundry.toml`](#5-update-foundrytoml)
+6. [Initialize a project](#6-initialize-a-project)
+7. [Test the deployment](#7-test-the-deployment)
+8. [Next steps](#8-next-steps)
 
 ## 1. Prerequisites
 
@@ -53,7 +60,7 @@ node_modules/
 
 ## 5. Update `foundry.toml`
 
-Update your `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
+Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them under `[profile.default]`.
 
 ```
 ffi = true
@@ -76,9 +83,7 @@ Using pnpm:
 pnpm sphinx init --pnpm
 ```
 
-TODO: move the remappings to another section? it may be more natural to keep it in this section b/c the user will notice the remappings in the terminal after running the command.
-
-This command outputs a set of remappings that you'll need to add to your `foundry.toml` or `remappings.txt` file. If you don't already have a `remappings.txt` file or a `remappings` section in your `foundry.toml`, we recommend adding a `remappings.txt` file in the root of your repository.
+This command outputs a set of remappings you'll need to add to your `foundry.toml` or `remappings.txt` file. If you don't already have a `remappings.txt` file or a `remappings` section in your `foundry.toml`, we recommend adding a `remappings.txt` file in the root of your repository.
 
 This command also created a few files:
 - `HelloSphinx.sol`: A sample contract to deploy. This file is written to your existing contract folder, which defaults to `src/`.

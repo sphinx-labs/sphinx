@@ -42,6 +42,9 @@ import {
  *         signature in a parent contract and a child contract. This also applies to any state
  *         variables that aren't private. Private variables of the same name can be defined in a
  *         parent and child contract.
+ *
+ * @dev    We refer to this contract in Sphinx's documentation. Make sure to update the
+ *         documentation if you change the name or location of this contract.
  */
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -138,7 +141,7 @@ abstract contract Sphinx {
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.safeInitData = sphinxUtils.getSafeInitializerData(
+        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(
             sphinxConfig.owners,
             sphinxConfig.threshold
         );
@@ -416,18 +419,27 @@ abstract contract Sphinx {
         }
     }
 
+    /**
+     * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
+     *         and enables the Sphinx Module in the Gnosis Safe
+     *
+     * @dev    We refer to this function in Sphinx's documentation. Make sure to update the
+     *         documentation if you change the name of this function or change its file
+     *         location.
+     */
     function _sphinxDeployModuleAndGnosisSafe() private {
-        address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
-
         IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(
             constants.safeFactoryAddress()
         );
         address singletonAddress = constants.safeSingletonAddress();
 
-        bytes memory safeInitializerData = sphinxUtils.getSafeInitializerData(
-            sortedOwners,
+        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
+            sphinxConfig.owners,
             sphinxConfig.threshold
         );
+
+        // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
+        // and enables the Sphinx Module in the Gnosis Safe.
         safeProxyFactory.createProxyWithNonce(
             singletonAddress,
             safeInitializerData,

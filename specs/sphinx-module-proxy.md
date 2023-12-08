@@ -178,7 +178,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
   - Set the active Merkle root's status to `CANCELED`.
   - Set the active Merkle root to `bytes32(0)`.
   - Emit a `SphinxMerkleRootCompleted` event in the `SphinxModuleProxy`.
-  - Set all of the fields in the [`MerkleRootState` struct](TODO(end)) for the input Merkle root.
+  - Set all of the fields in the [`MerkleRootState` struct](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/contracts/core/SphinxDataTypes.sol) for the input Merkle root.
   - Increment the Merkle root nonce in the `SphinxModuleProxy`.
 
 #### `function execute(SphinxLeafWithProof[] memory _leavesWithProofs) public`
