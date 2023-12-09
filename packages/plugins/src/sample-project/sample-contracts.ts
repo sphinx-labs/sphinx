@@ -1,8 +1,8 @@
 import { relative } from 'path'
 
-export const getSampleContractFile = (solcVersion: string) => {
+export const getSampleContractFile = () => {
   return `// SPDX-License-Identifier: MIT
-pragma solidity ^${solcVersion};
+pragma solidity ^0.8.0;
 
 contract HelloSphinx {
     string public greeting;
@@ -21,7 +21,8 @@ contract HelloSphinx {
 }
 
 export const getSampleScriptFile = (
-  solcVersion: string,
+  owner: string,
+  orgId: string,
   scriptDirPath: string,
   srcDirPath: string
 ) => {
@@ -33,7 +34,7 @@ export const getSampleScriptFile = (
   const relativeSrcPath = relative(scriptDirPath, srcDirPath)
 
   return `// SPDX-License-Identifier: MIT
-pragma solidity ^${solcVersion};
+pragma solidity ^0.8.0;
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import "@sphinx-labs/plugins/SphinxPlugin.sol";
@@ -42,8 +43,15 @@ contract HelloSphinxScript is Sphinx {
     HelloSphinx helloSphinx;
 
     function setUp() public virtual {
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.owners = [${owner}];
+        sphinxConfig.orgId = "${orgId}";
         sphinxConfig.threshold = 1;
+        sphinxConfig.projectName = "My First Project";
+        sphinxConfig.testnets = [
+            Network.sepolia,
+            Network.optimism_sepolia,
+            Network.arbitrum_sepolia
+        ];
     }
 
     function run() public override sphinx {
@@ -55,7 +63,6 @@ contract HelloSphinxScript is Sphinx {
 }
 
 export const getSampleFoundryTestFile = (
-  solcVersion: string,
   testDirPath: string,
   scriptDirPath: string
 ) => {
@@ -67,7 +74,7 @@ export const getSampleFoundryTestFile = (
   const relativeScriptPath = relative(testDirPath, scriptDirPath)
 
   return `// SPDX-License-Identifier: MIT
-pragma solidity ^${solcVersion};
+pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import { HelloSphinxScript } from "${relativeScriptPath}/HelloSphinx.s.sol";

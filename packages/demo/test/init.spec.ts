@@ -15,7 +15,7 @@ import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
 const deploymentArtifactDir = 'deployments'
 
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0xDa874B752572664C1c900477d66F8BE79889Cfa9'
+const contractAddress = '0x6EFf1D8a21e0f493006e8d5f9d96460c7Aa748f1'
 
 describe('Init CLI command', () => {
   let contractPath: string
@@ -42,12 +42,14 @@ describe('Init CLI command', () => {
     deleteFiles(contractPath, scriptPath, testPath)
   })
 
-  it('Succeeds for a sample Foundry project', async () => {
+  it('Creates and tests a sample Foundry project', async () => {
     // Check that the sample files haven't been created yet
     expect(fs.existsSync(contractPath)).to.be.false
     expect(fs.existsSync(testPath)).to.be.false
 
-    await execAsync('npx sphinx init --quickstart')
+    await execAsync(
+      `npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+    )
 
     // Check that the files have been created
     expect(fs.existsSync(contractPath)).to.be.true
