@@ -422,8 +422,9 @@ export const getImpersonatedSigner = async (
 }
 
 /**
- * @notice Stderr and stdout can be retrieved from the `stderr` and `stdout` properties of the
- * returned object. Error can be caught by wrapping the function in a try/catch block.
+ * @notice This function doesn't return the output until the promise resolves. Stderr and stdout can
+ * be retrieved from the `stderr` and `stdout` properties of the returned object. Errors can be
+ * caught by wrapping the function in a try/catch block.
  */
 export const execAsync = promisify(exec)
 
@@ -887,9 +888,10 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
 }
 
 /**
- * @notice Spawns a child process and returns a promise that resolves when the process exits. Use
- * this function instead of `execAsync` if the command generates a lot of output, since `execAsync`
- * will run out of memory if the output is too large.
+ * @notice Spawns a child process and returns a promise that resolves when the process exits. This
+ * function doesn't return the output until the promise resolves. Use this function instead of
+ * `execAsync` if the command generates a lot of output, since `execAsync` will run out of memory if
+ * the output is too large.
  */
 export const spawnAsync = (
   cmd: string,

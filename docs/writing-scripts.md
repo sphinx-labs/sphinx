@@ -1,6 +1,6 @@
 # Writing Deployment Scripts with Sphinx
 
-This guide covers the essential information for writing deployment scripts with Sphinx. We recommend reading this before writing your own deployment scripts.
+This guide covers the essential information for writing deployment scripts with Sphinx. We recommend reading this before using Sphinx in production.
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@ The `sphinx` modifier pranks your Gnosis Safe before your deployment is executed
 
 ## Configuration options
 
-There are a few configuration options that you must specify inside the `setUp()` function in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited by your script from `Sphinx.sol`.
+There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited by your script from `Sphinx.sol`.
 
 ```sol
 function setUp() public {

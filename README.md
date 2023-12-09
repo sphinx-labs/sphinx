@@ -30,12 +30,12 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 ### Getting Started
 
 - [Getting Started in a New Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-quickstart.md)
-- [Getting Started in an Existing Repository](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-existing-project.md)
-- [The Sphinx DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md)
+- [Getting Started with an Existing Foundry Project](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-existing-project.md)
 
 ### References
 
 - [Writing Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md)
+- [CLI Propose Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md)
 - [Propose in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
 - [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md)
 - [Deploy from the CLI](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deployments.md)
