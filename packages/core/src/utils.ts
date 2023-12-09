@@ -29,20 +29,21 @@ import {
   ParsedVariable,
   BuildInfoRemote,
   ConfigArtifactsRemote,
-  RawFunctionCallActionInput,
-  ActionInput,
-  RawCreate2ActionInput,
-  RawActionInput,
+  RawCallAction,
+  Action,
+  RawCreate2Action,
+  RawAction,
   Label,
   ParsedConfig,
-  Create2ActionInput,
-  FunctionCallActionInput,
+  Create2Action,
+  CallAction,
 } from './config/types'
 import {
   SphinxActionType,
   IPFSCommitResponse,
   ProposalRequest,
   MerkleRootStatus,
+  ModuleTransaction,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
@@ -343,9 +344,9 @@ export const getConfigArtifactsRemote = async (
       })
     }
 
-    for (const actionInput of compilerConfig.actionInputs) {
-      for (const address of Object.keys(actionInput.contracts)) {
-        const { fullyQualifiedName } = actionInput.contracts[address]
+    for (const action of compilerConfig.actions) {
+      for (const address of Object.keys(action.contracts)) {
+        const { fullyQualifiedName } = action.contracts[address]
 
         // Split the contract's fully qualified name into its source name and contract name.
         const [sourceName, contractName] = fullyQualifiedName.split(':')
@@ -743,7 +744,7 @@ export const isSupportedNetworkName = (
  * @param spaceToIndentClosingParenthesis Number of spaces to indent the closing parenthesis.
  */
 export const prettyFunctionCall = (
-  referenceNameOrAddress: string,
+  contractNameOrAddress: string,
   address: string,
   functionName: string,
   variables: ParsedVariable,
@@ -764,9 +765,9 @@ export const prettyFunctionCall = (
     removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
 
   const addressTag = address !== '' ? `<${address}>` : ''
-  const target = ethers.isAddress(referenceNameOrAddress)
-    ? `(${referenceNameOrAddress})`
-    : `${referenceNameOrAddress}${addressTag}`
+  const target = ethers.isAddress(contractNameOrAddress)
+    ? `(${contractNameOrAddress})`
+    : `${contractNameOrAddress}${addressTag}`
 
   return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
 }
@@ -824,44 +825,43 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   }
 }
 
-export const isRawFunctionCallActionInput = (
-  actionInput: ActionInput | RawActionInput
-): actionInput is RawFunctionCallActionInput => {
-  const callActionInput = actionInput as RawFunctionCallActionInput
+// TODO(later): check that all of the action-related type predicates are up-to-date.
+
+export const isRawCallAction = (
+  action: Action | RawAction
+): action is RawCallAction => {
+  const callAction = action as RawCallAction
   return (
-    callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.to !== undefined &&
-    callActionInput.txData !== undefined
+    callAction.actionType === SphinxActionType.CALL.toString() &&
+    callAction.to !== undefined &&
+    callAction.txData !== undefined
   )
 }
 
-export const isRawCreate2ActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is RawCreate2ActionInput => {
-  const rawCreate2 = actionInput as RawCreate2ActionInput
+export const isRawCreate2Action = (
+  action: RawAction | Action
+): action is RawCreate2Action => {
+  const rawCreate2 = action as RawCreate2Action
   return (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
-    rawCreate2.txData !== undefined &&
-    rawCreate2.gas !== undefined
+    rawCreate2.txData !== undefined
   )
 }
 
-export const isFunctionCallActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is FunctionCallActionInput => {
-  const functionCall = actionInput as Create2ActionInput
-  return (
-    isRawCreate2ActionInput(actionInput) && functionCall.contracts !== undefined
-  )
+export const isCallAction = (
+  action: RawAction | Action
+): action is CallAction => {
+  const functionCall = action as Create2Action
+  return isRawCreate2Action(action) && functionCall.contracts !== undefined
 }
 
-export const isCreate2ActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is Create2ActionInput => {
-  const create2 = actionInput as Create2ActionInput
-  return isRawCreate2ActionInput(actionInput) && create2.contracts !== undefined
+export const isCreate2Action = (
+  action: RawAction | Action
+): action is Create2Action => {
+  const create2 = action as Create2Action
+  return isRawCreate2Action(action) && create2.contracts !== undefined
 }
 
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
@@ -871,7 +871,7 @@ export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
 export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
   let idx = 0
-  for (const input of parsedConfig.actionInputs) {
+  for (const input of parsedConfig.actions) {
     for (const address of Object.keys(input.contracts)) {
       const fullyQualifiedName = input.contracts[address].fullyQualifiedName
       const contractName = fullyQualifiedName.split(':')[1]
@@ -940,17 +940,13 @@ export const isLabel = (l: Label | undefined): l is Label => {
   )
 }
 
-export const toSphinxTransaction = (
-  actionInput: RawActionInput
-): SphinxTransaction => {
-  const { to, value, txData, gas, operation, requireSuccess } = actionInput
+export const toModuleTransaction = (action: RawAction): ModuleTransaction => {
+  const { to, value, txData, operation } = action
   return {
     to,
     value,
     txData,
-    gas,
     operation,
-    requireSuccess,
   }
 }
 

@@ -83,10 +83,9 @@ export const verifySphinxConfig = async (
     Number((await provider.getNetwork()).chainId)
   )
 
-  for (const actionInput of compilerConfig.actionInputs) {
-    for (const address of Object.keys(actionInput.contracts)) {
-      const { fullyQualifiedName, initCodeWithArgs } =
-        actionInput.contracts[address]
+  for (const action of compilerConfig.actions) {
+    for (const address of Object.keys(action.contracts)) {
+      const { fullyQualifiedName, initCodeWithArgs } = action.contracts[address]
 
       const { artifact } = configArtifacts[fullyQualifiedName]
       const { abi, contractName, sourceName, metadata, bytecode } = artifact

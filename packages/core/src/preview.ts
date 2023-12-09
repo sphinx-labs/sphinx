@@ -1,6 +1,6 @@
 import { yellow, green, blue, bold } from 'chalk'
 
-import { DecodedAction, ParsedConfig } from './config/types'
+import { ParsedConfig } from './config/types'
 import {
   arraysEqual,
   getNetworkNameForChainId,
@@ -23,7 +23,7 @@ export type SphinxPreview = {
 export const isDecodedAction = (
   element: PreviewElement
 ): element is DecodedAction =>
-  (element as DecodedAction).referenceName !== undefined &&
+  (element as DecodedAction).name !== undefined &&
   (element as DecodedAction).functionName !== undefined &&
   (element as DecodedAction).variables !== undefined
 
@@ -151,7 +151,7 @@ export const getPreview = (
     const {
       chainId,
       initialState,
-      actionInputs,
+      actions,
       isLiveNetwork,
       unlabeledAddresses,
     } = parsedConfig
@@ -167,7 +167,7 @@ export const getPreview = (
     // network's preview to be empty. This applies even if the Gnosis Safe and Sphinx Module haven't
     // been deployed yet because we don't currently allow the user to deploy the Safe and Module
     // without executing a deployment.
-    if (actionInputs.length > 0) {
+    if (actions.length > 0) {
       if (!initialState.isSafeDeployed) {
         executing.push({
           referenceName: 'GnosisSafe',
@@ -185,7 +185,7 @@ export const getPreview = (
         })
       }
 
-      for (const action of actionInputs) {
+      for (const action of actions) {
         const { decodedAction } = action
         executing.push(decodedAction)
       }

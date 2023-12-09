@@ -168,7 +168,7 @@ const testProposalSimulation = async (
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   const humanReadableActions = parsedConfigArray.map((e) =>
-    getReadableActions(e.actionInputs)
+    getReadableActions(e.actions)
   )
 
   const merkleTreeFragment = sphinxPluginTypesInterface.fragments

@@ -80,7 +80,7 @@ export const fetchDeploymentFromURI = async (
 
   for (const compilerConfig of compilerConfigs) {
     humanReadableActions[compilerConfig.chainId] = getReadableActions(
-      compilerConfig.actionInputs
+      compilerConfig.actions
     )
   }
 

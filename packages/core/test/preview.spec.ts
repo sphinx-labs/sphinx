@@ -2,10 +2,10 @@ import { expect } from 'chai'
 import { ethers } from 'ethers'
 import { Operation } from '@sphinx-labs/contracts'
 
-import { Create2ActionInput, ParsedConfig } from '../src/config/types'
+import { Create2Action, ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
-import { FunctionCallActionInput } from '../dist'
+import { CallAction } from '../dist'
 
 const expectedGnosisSafe = {
   address: '0x' + 'ff'.repeat(20),
@@ -19,7 +19,7 @@ const expectedSphinxModule = {
   functionName: 'deploy',
   variables: [],
 }
-const expectedCreate2: Create2ActionInput = {
+const expectedCreate2: Create2Action = {
   actionType: SphinxActionType.CALL.toString(),
   decodedAction: {
     referenceName: 'MyFirstContract',
@@ -43,7 +43,7 @@ const expectedCreate2: Create2ActionInput = {
   gas: '0',
   additionalContracts: [],
 }
-const expectedFunctionCallOne: FunctionCallActionInput = {
+const expectedFunctionCallOne: CallAction = {
   actionType: SphinxActionType.CALL.toString(),
   decodedAction: {
     referenceName: 'MySecondContract',
@@ -66,7 +66,7 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
   gas: '0',
 }
 
-const expectedCall: FunctionCallActionInput = {
+const expectedCall: CallAction = {
   actionType: SphinxActionType.CALL.toString(),
   decodedAction: {
     referenceName: '0x' + '11'.repeat(20),
@@ -89,7 +89,7 @@ const expectedCall: FunctionCallActionInput = {
 const originalParsedConfig: ParsedConfig = {
   chainId: '10',
   isLiveNetwork: true,
-  actionInputs: [expectedCreate2, expectedFunctionCallOne, expectedCall],
+  actions: [expectedCreate2, expectedFunctionCallOne, expectedCall],
   unlabeledAddresses: ['0x' + '55'.repeat(20), '0x' + '66'.repeat(20)],
   safeAddress: '0x' + 'ff'.repeat(20),
   moduleAddress: '0x' + 'ee'.repeat(20),
@@ -163,7 +163,7 @@ describe('Preview', () => {
     // displayed as an array of values instead of an object.
     it('returns preview for unnamed constructor and function calls', () => {
       const parsedConfig = structuredClone(originalParsedConfig)
-      parsedConfig.actionInputs = parsedConfig.actionInputs.map((action) => {
+      parsedConfig.actions = parsedConfig.actions.map((action) => {
         return {
           ...action,
           decodedAction: {
@@ -249,7 +249,7 @@ describe('Preview', () => {
         myVar: 'myArbitrumVal',
         myOtherVar: 'myOtherArbitrumVal',
       }
-      const firstAction = parsedConfigArbitrum.actionInputs[0]
+      const firstAction = parsedConfigArbitrum.actions[0]
       firstAction.decodedAction.variables = variablesArbitrum
 
       const { networks, unlabeledAddresses } = getPreview([

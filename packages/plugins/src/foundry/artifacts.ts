@@ -46,7 +46,7 @@ export const writeDeploymentArtifacts = async (
   }
 
   const numDeployments: { [contractName: string]: number | undefined } = {}
-  for (const action of parsedConfig.actionInputs) {
+  for (const action of parsedConfig.actions) {
     for (const address of Object.keys(action.contracts)) {
       const { fullyQualifiedName, initCodeWithArgs } = action.contracts[address]
       const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]

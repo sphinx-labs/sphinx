@@ -1,58 +1,8 @@
-import {
-  OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  IMMUTABLE_TYPE_HASH,
-  IMPLEMENTATION_TYPE_HASH,
-  DEFAULT_PROXY_TYPE_HASH,
-  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  SphinxTransaction,
-  FoundryContractArtifact,
-} from '@sphinx-labs/contracts'
+import { FoundryContractArtifact, Operation } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedNetworkName } from '../networks'
-import { ParsedContractDeployments } from '../actions/types'
-
-export const userContractKinds = [
-  'oz-transparent',
-  'oz-ownable-uups',
-  'oz-access-control-uups',
-  'external-transparent',
-  'immutable',
-  'proxy',
-]
-export type UserContractKind =
-  | 'oz-transparent'
-  | 'oz-ownable-uups'
-  | 'oz-access-control-uups'
-  | 'external-transparent'
-  | 'immutable'
-  | 'proxy'
-
-export const contractKindHashes: { [contractKind: string]: string } = {
-  'external-transparent': EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
-  'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  immutable: IMMUTABLE_TYPE_HASH,
-  implementation: IMPLEMENTATION_TYPE_HASH,
-  proxy: DEFAULT_PROXY_TYPE_HASH,
-}
-
-export type Project = string | 'all'
-
-export type ContractKind = UserContractKind | 'proxy'
-
-export enum ContractKindEnum {
-  INTERNAL_DEFAULT,
-  OZ_TRANSPARENT,
-  OZ_OWNABLE_UUPS,
-  OZ_ACCESS_CONTROL_UUPS,
-  EXTERNAL_DEFAULT,
-  IMMUTABLE,
-}
 
 /**
  * Parsed Sphinx config variable.
@@ -67,10 +17,6 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
-
-export type ActionInput = FunctionCallActionInput | Create2ActionInput
-
 export type ParsedConfig = {
   safeAddress: string
   moduleAddress: string
@@ -78,7 +24,7 @@ export type ParsedConfig = {
   safeInitData: string
   nonce: string
   chainId: string
-  actionInputs: Array<ActionInput>
+  actions: Array<Action>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
@@ -108,21 +54,6 @@ export type InitialChainState = {
   isExecuting: boolean
 }
 
-export type UnsafeAllow = {
-  delegatecall?: boolean
-  selfdestruct?: boolean
-  missingPublicUpgradeTo?: boolean
-  emptyPush?: boolean
-  flexibleConstructor?: boolean
-  renames?: boolean
-  skipStorageCheck?: boolean
-}
-
-export type UserAddressOverrides = {
-  chains: Array<string>
-  address: string
-}
-
 export type Label = {
   addr: string
   fullyQualifiedName: string
@@ -138,41 +69,37 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   saltNonce: string
 }
 
-export interface RawCreate2ActionInput extends SphinxTransaction {
-  contractName: string | null
-  create2Address: string
-  actionType: string
+export type FullyQualifiedName = `${string}:${string}`
+
+// TODO(docs): `name`
+export interface RawAction {
+  to: string
+  value: string
+  txData: string
+  operation: Operation
+  requireSuccess: boolean
+  transactionType: FoundryTransactionType
+  name: FullyQualifiedName | string | null
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
-  decodedAction: DecodedAction
-}
-
-export interface Create2ActionInput extends RawCreate2ActionInput {
-  contracts: ParsedContractDeployments
-  index: string
-}
-
-export type DecodedAction = {
-  referenceName: string
   functionName: string
   variables: ParsedVariable
+}
+
+export interface Action extends RawAction {
+  variables: ParsedVariable
+  index: string
+  gas: string
+  additionalContracts: Array<ParsedAdditionalContract>
   address: string
 }
 
-export interface RawFunctionCallActionInput extends SphinxTransaction {
-  actionType: string
-  contractName: string | null
-  additionalContracts: Array<{
-    transactionType: string
-    address: string
-    initCode: string
-  }>
-  decodedAction: DecodedAction
+export interface ParsedAdditionalContract extends FoundryAdditionalContract {
+  fullyQualifiedName?: FullyQualifiedName
 }
 
-export interface FunctionCallActionInput extends RawFunctionCallActionInput {
-  contracts: ParsedContractDeployments
-  index: string
-}
+export interface Create2Action extends Action {}
+
+export interface CallAction extends Action {}
 
 /**
  * Config object with added compilation details. Must add compilation details to the config before
@@ -205,29 +132,14 @@ export type ConfigArtifactsRemote = {
   }
 }
 
-export type DeploymentRevert = {
-  deploymentReverted: boolean
-  revertString?: string
-}
-
-export type ImportCache = {
-  requiresImport: boolean
-  currProxyAdmin?: string
-}
-
-export type FoundryContractConfig = {
-  referenceName: string
-  addr: string
-  kind: ContractKindEnum
-  userSaltHash: string
-}
-
 export type GetConfigArtifacts = (
   fullyQualifiedNames: Array<string>,
   contractNames: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
+
+export type FoundryTransactionType = 'CREATE' | 'CALL' | 'CREATE2'
 
 /**
  * This is the format of the JSON file that is output in a Forge dry run. This type doesn't include
@@ -242,7 +154,7 @@ export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
  * "myFunction(uint256)".
  */
 interface AbstractFoundryTransaction {
-  transactionType: 'CREATE' | 'CALL' | 'CREATE2'
+  transactionType: FoundryTransactionType
   contractName: string | null
   function: string | null
   arguments: Array<any> | null
@@ -253,17 +165,19 @@ interface AbstractFoundryTransaction {
     data: string | null
     nonce: string | null
     accessList: string | null
-    // Undefined if deployed a library.
+    // TODO(docs): mv: Null if the transaction deploys a library.
     value?: string | null
-    // Defined if `transactionType` is 'CALL'. Undefined if `transactionType` is 'CREATE'.
+    // TODO(docs): mv: Null if `transactionType` is 'CREATE'. Defined otherwise.
     to?: string | null
   }
-  additionalContracts: Array<{
-    transactionType: string
-    address: string
-    initCode: string
-  }>
+  additionalContracts: Array<FoundryAdditionalContract>
   isFixedGasLimit: boolean
+}
+
+export interface FoundryAdditionalContract {
+  transactionType: string // TODO: can we make this any more specific? i.e. `create`, create2, or the `transactionType` defined above?
+  address: string
+  initCode: string
 }
 
 export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {

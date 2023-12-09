@@ -195,6 +195,16 @@ struct Version {
 }
 
 /**
+ * TODO(docs)
+ */
+struct ModuleTransaction {
+  address to;
+  uint256 value;
+  bytes txData;
+  IEnum.GnosisSafeOperation operation;
+}
+
+/**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
  */
@@ -242,7 +252,7 @@ contract SphinxPluginTypes {
     function leafGasParams()
         external
         view
-        returns (SphinxTransaction[] memory txnArray, uint256[] memory chainIds)
+        returns (ModuleTransaction[] memory txnArray, uint256[] memory chainIds)
     {}
 
     function sphinxLeafWithProofType()

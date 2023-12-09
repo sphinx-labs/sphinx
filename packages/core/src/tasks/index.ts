@@ -29,9 +29,9 @@ export const getParsedConfigWithCompilerInputs = async (
   const compilerConfigs: Array<CompilerConfig> = []
 
   for (const parsedConfig of parsedConfigs) {
-    for (const actionInput of parsedConfig.actionInputs) {
-      for (const address of Object.keys(actionInput.contracts)) {
-        const { fullyQualifiedName } = actionInput.contracts[address]
+    for (const action of parsedConfig.actions) {
+      for (const address of Object.keys(action.contracts)) {
+        const { fullyQualifiedName } = action.contracts[address]
 
         const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
 
@@ -125,22 +125,20 @@ export const makeDeploymentData = (
     // `EXECUTE` leaves on chains with empty deployments. This is only desirable if the user is
     // attempting to cancel a previously signed Merkle root, which isn't currently supported by our
     // plugin.
-    if (compilerConfig.actionInputs.length === 0) {
+    if (compilerConfig.actions.length === 0) {
       continue
     }
 
-    const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
-      (action) => {
-        return {
-          to: action.to,
-          value: action.value,
-          gas: action.gas,
-          txData: action.txData,
-          operation: action.operation,
-          requireSuccess: action.requireSuccess,
-        }
+    const txs: SphinxTransaction[] = compilerConfig.actions.map((action) => {
+      return {
+        to: action.to,
+        value: action.value,
+        gas: action.gas,
+        txData: action.txData,
+        operation: action.operation,
+        requireSuccess: action.requireSuccess,
       }
-    )
+    })
 
     data[compilerConfig.chainId] = {
       type: 'deployment',

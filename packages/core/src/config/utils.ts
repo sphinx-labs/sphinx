@@ -8,15 +8,14 @@ import {
 } from 'ethers'
 
 import { prettyFunctionCall } from '../utils'
-import { ActionInput } from './types'
+import { Action } from './types'
 import { HumanReadableAction } from '../actions'
 
 export const getReadableActions = (
-  actionInputs: ActionInput[]
+  actions: Action[]
 ): HumanReadableAction[] => {
-  return actionInputs.map((action) => {
-    const { referenceName, functionName, variables, address } =
-      action.decodedAction
+  return actions.map((action) => {
+    const { referenceName, functionName, variables, address } = action
     const actionStr = prettyFunctionCall(
       referenceName,
       address,

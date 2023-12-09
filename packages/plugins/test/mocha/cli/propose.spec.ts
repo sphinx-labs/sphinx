@@ -145,7 +145,7 @@ describe('Propose CLI command', () => {
     const compilerConfigArray = JSON.parse(ipfsData)
     expect(compilerConfigArray.length).to.equal(1)
     const compilerConfig = compilerConfigArray[0]
-    expect(compilerConfig.actionInputs[0].create2Address).equals(
+    expect(compilerConfig.actions[0].create2Address).equals(
       expectedContractAddress
     )
 
@@ -270,10 +270,10 @@ describe('Propose CLI command', () => {
     const compilerConfigArray = JSON.parse(ipfsData)
     expect(compilerConfigArray.length).to.equal(2)
     const [ethereumCompilerConfig, optimismCompilerConfig] = compilerConfigArray
-    expect(ethereumCompilerConfig.actionInputs[0].create2Address).equals(
+    expect(ethereumCompilerConfig.actions[0].create2Address).equals(
       expectedContractAddressEthereum
     )
-    expect(optimismCompilerConfig.actionInputs[0].create2Address).equals(
+    expect(optimismCompilerConfig.actions[0].create2Address).equals(
       expectedContractAddressOptimism
     )
 
@@ -370,7 +370,7 @@ describe('Propose CLI command', () => {
     expect(compilerConfigArray.length).to.equal(1)
     const compilerConfig = compilerConfigArray[0]
     for (let i = 0; i < 50; i++) {
-      expect(compilerConfig.actionInputs[i].create2Address).equals(
+      expect(compilerConfig.actions[i].create2Address).equals(
         expectedContractAddresses[i]
       )
     }
@@ -461,7 +461,7 @@ describe('Propose CLI command', () => {
     const compilerConfigArray = JSON.parse(ipfsData)
     expect(compilerConfigArray.length).to.equal(1)
     const compilerConfig = compilerConfigArray[0]
-    expect(compilerConfig.actionInputs[0].create2Address).equals(
+    expect(compilerConfig.actions[0].create2Address).equals(
       expectedContractAddress
     )
 
@@ -574,11 +574,11 @@ describe('Propose CLI command', () => {
     const compilerConfigArray = JSON.parse(ipfsData)
     expect(compilerConfigArray.length).to.equal(2)
     const ethereumCompilerConfig = compilerConfigArray[0]
-    expect(ethereumCompilerConfig.actionInputs[0].create2Address).equals(
+    expect(ethereumCompilerConfig.actions[0].create2Address).equals(
       expectedContractAddress
     )
     const optimismCompilerConfig = compilerConfigArray[1]
-    expect(optimismCompilerConfig.actionInputs.length).equals(0)
+    expect(optimismCompilerConfig.actions.length).equals(0)
 
     await assertValidGasEstimates(
       scriptPath,
@@ -658,7 +658,7 @@ const assertValidGasEstimates = async (
   // one action.
   expect(networkGasEstimates.length).equals(
     parsedConfigArray.filter(
-      (parsedConfig) => parsedConfig.actionInputs.length > 0
+      (parsedConfig) => parsedConfig.actions.length > 0
     ).length
   )
 

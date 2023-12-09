@@ -5,7 +5,7 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  Create2ActionInput,
+  Create2Action,
   ParsedConfig,
   SphinxJsonRpcProvider,
   SphinxPreview,
@@ -205,7 +205,7 @@ describe('Deploy CLI command', () => {
       }
 
       expect(
-        (deployedParsedConfig.actionInputs[0] as Create2ActionInput)
+        (deployedParsedConfig.actions[0] as Create2Action)
           .create2Address
       ).to.equal(expectedMyContract2Address)
       const contract = new ethers.Contract(
@@ -225,25 +225,25 @@ describe('Deploy CLI command', () => {
             executing: [
               {
                 address: deployedParsedConfig.safeAddress,
-                referenceName: 'GnosisSafe',
+                label: 'GnosisSafe',
                 functionName: 'deploy',
                 variables: [],
               },
               {
                 address: deployedParsedConfig.moduleAddress,
-                referenceName: 'SphinxModule',
+                label: 'SphinxModule',
                 functionName: 'deploy',
                 variables: [],
               },
               {
                 address: expectedMyContract2Address,
-                referenceName: 'MyContract2',
+                label: 'MyContract2',
                 functionName: 'deploy',
                 variables: [],
               },
               {
                 address: expectedMyContract2Address,
-                referenceName: 'MyContract2',
+                label: 'MyContract2',
                 functionName: 'incrementMyContract2',
                 variables: ['2'],
               },
@@ -339,14 +339,14 @@ describe('Deployment Cases', () => {
   let parsedConfig: ParsedConfig | undefined
 
   const checkLabeled = (address: string, fullyQualifiedName: string) => {
-    const actionContract = parsedConfig?.actionInputs.find(
+    const actionContract = parsedConfig?.actions.find(
       (a) => a.contracts[address] !== undefined
     )?.contracts[address]
     expect(actionContract?.fullyQualifiedName).to.eq(fullyQualifiedName)
   }
 
   const checkNotLabeled = (address: string) => {
-    const actionContract = parsedConfig?.actionInputs.find(
+    const actionContract = parsedConfig?.actions.find(
       (a) => a.contracts[address] !== undefined
     )?.contracts[address]
     expect(actionContract).to.be.undefined

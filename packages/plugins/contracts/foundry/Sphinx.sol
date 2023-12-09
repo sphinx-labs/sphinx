@@ -637,9 +637,9 @@ abstract contract Sphinx {
      * @notice Estimates the values of the `gas` fields in the Sphinx Merkle leaves.
      */
     function sphinxEstimateMerkleLeafGas(string memory _leafGasParamsFilePath) external {
-        (SphinxTransaction[] memory txnArray, uint256[] memory chainIds) = abi.decode(
+        (ModuleTransaction[] memory txnArray, uint256[] memory chainIds) = abi.decode(
             vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
-            (SphinxTransaction[], uint256[])
+            (ModuleTransaction[], uint256[])
         );
         require(
             txnArray.length == chainIds.length,
@@ -676,7 +676,7 @@ abstract contract Sphinx {
 
             for (uint256 j = 0; j < txnArray.length; j++) {
                 if (chainIds[j] == currentNetworkInfo.chainId) {
-                    SphinxTransaction memory txn = txnArray[j];
+                    ModuleTransaction memory txn = txnArray[j];
                     bool success = safe.execTransactionFromModule(
                         txn.to,
                         txn.value,

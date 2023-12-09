@@ -1,19 +1,16 @@
 import {
   isLabel,
-  isRawCreate2ActionInput,
-  isRawFunctionCallActionInput,
+  isRawCreate2Action,
+  isRawCallAction,
   isString,
-  ActionInput,
+  Action,
   ConfigArtifacts,
   DeploymentInfo,
-  FunctionCallActionInput,
+  CallAction,
   Label,
   ParsedConfig,
-  RawActionInput,
-  RawCreate2ActionInput,
-  RawFunctionCallActionInput,
-  ParsedContractDeployments,
-  SphinxActionType,
+  RawAction,
+  ParsedAdditionalContracts,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import { AbiCoder, Fragment, ethers } from 'ethers'
@@ -92,11 +89,11 @@ export const decodeDeploymentInfo = (
   }
 }
 
-export const convertFoundryDryRunToActionInputs = (
+export const makeRawActions = (
   deploymentInfo: DeploymentInfo,
   dryRun: FoundrySingleChainDryRun,
   dryRunPath: string
-): Array<RawActionInput> => {
+): Array<RawAction> => {
   const notFromGnosisSafe = dryRun.transactions
     .map((t) => t.transaction.from)
     .filter(isString)
@@ -109,24 +106,21 @@ export const convertFoundryDryRunToActionInputs = (
     // The user must broadcast/prank from the Gnosis Safe so that the msg.sender for function calls
     // is the same as it would be in a production deployment.
     throw new Error(
-      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the user's Safe contracti.\n` +
+      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the user's Safe contract.\n` +
         `The 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
     )
   }
 
-  const actionInputs: Array<RawActionInput> = []
+  const actions: Array<RawAction> = []
   for (const {
     transaction,
     contractName,
     transactionType,
     additionalContracts,
+    // We must rename the following two variables because they're reserved keywords.
     arguments: callArguments,
     function: functionName,
   } of dryRun.transactions) {
-    const contractNameWithoutPath = contractName?.includes(':')
-      ? contractName.split(':')[1]
-      : contractName
-
     if (transaction.value !== undefined && transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -134,15 +128,18 @@ export const convertFoundryDryRunToActionInputs = (
       process.exit(1)
     }
 
-    if (transactionType === 'CREATE') {
-      console.error(
-        `Sphinx does not support the 'CREATE' opcode, i.e. 'new MyContract(...)'. Please use CREATE2 or CREATE3 instead.`
+    if (!transaction.data) {
+      throw new Error(
+        `Broadcasted transaction is missing 'data' field. Should never happen.`
       )
-      process.exit(1)
+    }
+
+    if (transactionType === 'CREATE') {
+      throw new Error(`TODO`)
     } else {
       if (!transaction.to) {
         throw new Error(
-          `Transaction does not have the 'to' field. Should never happen.`
+          `Broadcasted transaction is missing the 'to' field. Should never happen.`
         )
       }
 
@@ -155,84 +152,61 @@ export const convertFoundryDryRunToActionInputs = (
           process.exit(1)
         }
 
-        if (!transaction.data || !transaction.gas) {
-          throw new Error(
-            `CREATE2 transaction is missing field(s). Should never happen.`
-          )
-        }
+        // TODO(later): use this:
+        // const salt = ethers.dataSlice(transaction.data, 0, 32)
+        // const initCodeWithArgs = ethers.dataSlice(transaction.data, 32)
+        // const create2Address = ethers.getCreate2Address(
+        //   to,
+        //   salt,
+        //   ethers.keccak256(initCodeWithArgs)
+        // )
 
-        const salt = ethers.dataSlice(transaction.data, 0, 32)
-        const initCodeWithArgs = ethers.dataSlice(transaction.data, 32)
-        const create2Address = ethers.getCreate2Address(
+        const rawAction: RawAction = {
           to,
-          salt,
-          ethers.keccak256(initCodeWithArgs)
-        )
-
-        const rawCreate2: RawCreate2ActionInput = {
-          to,
-          create2Address,
-          contractName,
-          value: transaction.value ?? '0x0',
+          value: '0x0',
+          name: contractName,
           operation: Operation.Call,
           txData: transaction.data,
-          actionType: SphinxActionType.CALL.toString(),
-          gas: transaction.gas,
-          additionalContracts,
           requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName: contractNameWithoutPath ?? create2Address,
-            functionName: 'deploy',
-            variables: callArguments ?? [],
-            address: create2Address,
-          },
+          additionalContracts,
+          functionName: 'deploy',
+          variables: callArguments ?? [],
         }
-        actionInputs.push(rawCreate2)
+        actions.push(rawAction)
       } else if (transactionType === 'CALL') {
-        if (!transaction.data || !transaction.gas) {
-          throw new Error(
-            `CALL transaction is missing field(s). Should never happen.`
-          )
-        }
-
         const variables = callArguments ?? [
           transaction.data.length > 1000
             ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
             : transaction.data,
         ]
 
-        const rawCall: RawFunctionCallActionInput = {
-          actionType: SphinxActionType.CALL.toString(),
+        const rawAction: RawAction = {
           to,
           value: transaction.value ?? '0x0',
-          txData: transaction.data,
+          name: contractName,
           operation: Operation.Call,
-          gas: transaction.gas,
-          contractName,
-          additionalContracts,
+          txData: transaction.data,
           requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName:
-              contractNameWithoutPath ?? ethers.getAddress(transaction.to),
-            functionName: functionName?.split('(')[0] ?? 'call',
-            variables,
-            address: contractNameWithoutPath !== null ? to : '',
-          },
+          additionalContracts,
+          functionName: functionName?.split('(')[0] ?? 'call',
+          variables,
         }
 
-        actionInputs.push(rawCall)
+        actions.push(rawAction)
       } else {
-        throw new Error(`Unknown transaction type: ${transactionType}.`)
+        throw new Error(
+          `Unknown broadcasted transaction type: ${transactionType}.`
+        )
       }
     }
   }
 
-  return actionInputs
+  return actions
 }
 
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
-  rawInputs: Array<RawActionInput>,
+  rawInputs: Array<RawAction>,
   gasEstimates: Array<string>,
   configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
@@ -255,7 +229,7 @@ export const makeParsedConfig = (
   // leaf. The 80% was chosen arbitrarily.
   const maxAllowedGasPerLeaf = (8n * BigInt(deploymentInfo.blockGasLimit)) / 10n
 
-  const parsedActionInputs: Array<ActionInput> = []
+  const parsedActions: Array<Action> = []
   const unlabeledAddresses: Array<string> = []
   // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
   // means the `EXECUTE` leaves start with an index of 1.
@@ -274,7 +248,7 @@ export const makeParsedConfig = (
       parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
     unlabeledAddresses.push(...unlabeledAdditionalContracts)
 
-    if (isRawCreate2ActionInput(input)) {
+    if (isRawCreate2Action(input)) {
       // Get the creation code of the CREATE2 deployment by removing the salt,
       // which is the first 32 bytes of the data.
       const initCodeWithArgs = ethers.dataSlice(input.txData, 32)
@@ -328,7 +302,7 @@ export const makeParsedConfig = (
             // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
             // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
             const contractName = rawInputs
-              .filter(isRawFunctionCallActionInput)
+              .filter(isRawCallAction)
               .filter((e) => e.to === input.create2Address)
               .map((e) => e.contractName)
               .find(isString)
@@ -363,23 +337,23 @@ export const makeParsedConfig = (
         }
       }
 
-      parsedActionInputs.push({
+      parsedActions.push({
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
         gas,
       })
-    } else if (isRawFunctionCallActionInput(input)) {
-      const callInput: FunctionCallActionInput = {
+    } else if (isRawCallAction(input)) {
+      const callInput: CallAction = {
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
         gas,
       }
 
-      parsedActionInputs.push(callInput)
+      parsedActions.push(callInput)
     } else {
-      throw new Error(`Unknown action input type. Should never happen.`)
+      throw new Error(`Unknown action type. Should never happen.`)
     }
     actionIndex += 1
   }
@@ -393,7 +367,7 @@ export const makeParsedConfig = (
     newConfig,
     isLiveNetwork,
     initialState,
-    actionInputs: parsedActionInputs,
+    actions: parsedActions,
     unlabeledAddresses,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
@@ -401,15 +375,15 @@ export const makeParsedConfig = (
 }
 
 const parseAdditionalContracts = (
-  currentInput: RawActionInput,
-  allInputs: Array<RawActionInput>,
+  currentInput: RawAction,
+  allInputs: Array<RawAction>,
   labels: Array<Label>,
   configArtifacts: ConfigArtifacts
 ): {
-  parsedContracts: ParsedContractDeployments
+  parsedContracts: ParsedAdditionalContracts
   unlabeledAdditionalContracts: Array<string>
 } => {
-  const parsed: ParsedContractDeployments = {}
+  const parsed: ParsedAdditionalContracts = {}
   const unlabeled: Array<string> = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
@@ -426,12 +400,12 @@ const parseAdditionalContracts = (
       // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3
       // transactions are 'CALL' types where the 'data' field of the transaction is equal to the
       // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy.
-      isRawFunctionCallActionInput(currentInput) &&
+      isRawCallAction(currentInput) &&
       currentInput.txData === additionalContract.initCode
     ) {
       // We'll attempt to infer the name of the contract that was deployed using CREATE3.
       const contractName = allInputs
-        .filter(isRawFunctionCallActionInput)
+        .filter(isRawCallAction)
         .filter((e) => e.to === address)
         .map((e) => e.contractName)
         .find(isString)

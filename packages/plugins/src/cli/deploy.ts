@@ -47,7 +47,7 @@ import { getFoundryToml } from '../foundry/options'
 import {
   decodeDeploymentInfo,
   makeParsedConfig,
-  convertFoundryDryRunToActionInputs,
+  makeRawActions,
 } from '../foundry/decode'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 import { FoundrySingleChainBroadcast } from '../foundry/types'
@@ -230,7 +230,7 @@ export const deploy = async (
     return { parsedConfig: undefined, preview: undefined }
   }
 
-  const actionInputs = convertFoundryDryRunToActionInputs(
+  const actions = makeRawActions(
     deploymentInfo,
     dryRunFile,
     dryRunPath
@@ -242,9 +242,8 @@ export const deploy = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    [network],
     sphinxPluginTypesInterface,
-    [{ actionInputs, deploymentInfo }],
+    [{ actions, deploymentInfo }],
     targetContract,
     spinner
   )
@@ -259,7 +258,7 @@ export const deploy = async (
   spinner.start(`Building deployment...`)
 
   const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    [actionInputs],
+    [actions],
     [deploymentInfo]
   )
 
@@ -270,7 +269,7 @@ export const deploy = async (
 
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
-    actionInputs,
+    actions,
     gasEstimates,
     configArtifacts
   )

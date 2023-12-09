@@ -51,11 +51,6 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy-factory.md)
 - [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/managed-service.md)
 
-## Current Limitations
-
-- Sphinx supports `CREATE2` and `CREATE3` but not the `CREATE` opcode, i.e. `new MyContract(...)`.
-- You cannot send ETH as part of a deployment.
-
 ## Coming Soon
 
 - Use existing Gnosis Safes with Sphinx.
@@ -64,6 +59,10 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - Deploy from the CLI on networks that the DevOps platform doesn't support.
 
 Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
+
+## Current Limitations
+
+- You cannot send ETH as part of a deployment.
 
 ## Supported Networks
 

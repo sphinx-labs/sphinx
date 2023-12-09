@@ -1,14 +1,6 @@
-import { SphinxPreview } from '../preview'
+import { Operation } from '@sphinx-labs/contracts'
 
-/**
- * Possible action types.
- */
-export const SphinxActionType = {
-  SET_STORAGE: 0n,
-  DEPLOY_CONTRACT: 1n,
-  CALL: 2n,
-  CREATE: 3n,
-}
+import { SphinxPreview } from '../preview'
 
 /**
  * The status of a Merkle root in a Sphinx Module.
@@ -22,62 +14,6 @@ export const MerkleRootStatus = {
 }
 
 /**
- * Raw action data (encoded for use on-chain).
- */
-export interface RawSphinxAction {
-  actionType: bigint
-  index: bigint
-  data: string
-}
-
-export interface SphinxTarget {
-  addr: string
-  implementation: string
-  contractKindHash: string
-}
-
-/**
- * SetStorage action data.
- */
-export interface SetStorageAction {
-  index: number
-  to: string
-  contractKindHash: string
-  key: string
-  offset: number
-  value: string
-}
-
-/**
- * DeployContract action data.
- */
-export interface DeployContractAction {
-  index: number
-  salt: string
-  creationCodeWithConstructorArgs: string
-}
-
-export interface CallAction {
-  index: number
-  to: string
-  data: string
-}
-
-export interface CreateAction {
-  index: number
-  initCode: string
-}
-
-/**
- * Sphinx action.
- */
-export type SphinxAction =
-  | SetStorageAction
-  | DeployContractAction
-  | CallAction
-  | CreateAction
-
-/**
  * Human-readable Sphinx action.
  */
 export type HumanReadableAction = {
@@ -89,13 +25,6 @@ export type HumanReadableActions = {
   [chainId: number]: Array<HumanReadableAction>
 }
 
-export type ParsedContractDeployments = {
-  [address: string]: {
-    fullyQualifiedName: string
-    initCodeWithArgs: string
-  }
-}
-
 /**
  * The state of a Merkle root in a `SphinxModuleProxy`.
  */
@@ -105,11 +34,6 @@ export type MerkleRootState = {
   uri: string
   executor: string
   status: bigint
-}
-
-export type ContractInfo = {
-  referenceName: string
-  addr: string
 }
 
 type IPFSHash = string
@@ -155,4 +79,19 @@ export type ProjectDeployment = {
   name: string
   isExecuting: boolean
   configUri: string
+}
+
+/**
+ * @notice TODO(docs)
+ *
+ * @field to         The destination address.
+ * @field value      The amount to send from the Gnosis Safe to the destination address.
+ * @field txData     Data to forward to the Gnosis Safe.
+ * @field operation  The type of transaction operation.
+ */
+export type ModuleTransaction = {
+  to: string
+  value: string
+  txData: string
+  operation: Operation
 }

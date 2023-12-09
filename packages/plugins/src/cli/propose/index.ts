@@ -28,7 +28,7 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   ParsedConfig,
-  RawActionInput,
+  RawAction,
 } from '@sphinx-labs/core/dist/config/types'
 import {
   SphinxLeafType,
@@ -40,7 +40,7 @@ import {
 import {
   makeParsedConfig,
   decodeDeploymentInfo,
-  convertFoundryDryRunToActionInputs,
+  makeRawActions,
 } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
@@ -89,7 +89,7 @@ export const buildParsedConfigArray = async (
   const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
+    actions: Array<RawAction>
   }> = []
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
@@ -183,22 +183,20 @@ export const buildParsedConfigArray = async (
     // Check if the dry run file exists. If it doesn't, this must mean that there weren't any
     // transactions broadcasted in the user's script for this network. We return an empty array in
     // this case.
-    const actionInputs = collectionDryRun
-      ? convertFoundryDryRunToActionInputs(
+    const actions = collectionDryRun
+      ? makeRawActions(
           deploymentInfo,
           collectionDryRun,
           collectionDryRunPath
         )
       : []
 
-    collected.push({ deploymentInfo, actionInputs })
+    collected.push({ deploymentInfo, actions })
   }
 
   spinner?.succeed(`Collected transactions.`)
 
-  const isEmpty = collected.every(
-    ({ actionInputs }) => actionInputs.length === 0
-  )
+  const isEmpty = collected.every(({ actions }) => actions.length === 0)
   if (isEmpty) {
     return {
       isEmpty: true,
@@ -212,7 +210,6 @@ export const buildParsedConfigArray = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    networkNames,
     sphinxPluginTypesInterface,
     collected,
     targetContract,
@@ -223,7 +220,7 @@ export const buildParsedConfigArray = async (
   spinner?.start(`Building proposal...`)
 
   const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    collected.map(({ actionInputs }) => actionInputs),
+    collected.map(({ actions }) => actions),
     collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
@@ -231,14 +228,13 @@ export const buildParsedConfigArray = async (
     uniqueFullyQualifiedNames,
     uniqueContractNames
   )
-  const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo }, i) =>
-      makeParsedConfig(
-        deploymentInfo,
-        actionInputs,
-        gasEstimatesArray[i],
-        configArtifacts
-      )
+  const parsedConfigArray = collected.map(({ actions, deploymentInfo }, i) =>
+    makeParsedConfig(
+      deploymentInfo,
+      actions,
+      gasEstimatesArray[i],
+      configArtifacts
+    )
   )
 
   return {
@@ -373,7 +369,7 @@ export const propose = async (
   )
 
   const humanReadableActions = parsedConfigArray.map((e) =>
-    getReadableActions(e.actionInputs)
+    getReadableActions(e.actions)
   )
 
   // ABI encode the inputs to the proposal simulation function.
@@ -494,7 +490,7 @@ export const propose = async (
     // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
     // logic. From the perspective of the backend, these networks don't serve any purpose in the
     // `ProposalRequest`.
-    if (compilerConfig.actionInputs.length === 0) {
+    if (compilerConfig.actions.length === 0) {
       continue
     }
 
@@ -509,7 +505,7 @@ export const propose = async (
 
     chainStatus.push({
       chainId: Number(compilerConfig.chainId),
-      numLeaves: compilerConfig.actionInputs.length + 1,
+      numLeaves: compilerConfig.actions.length + 1,
     })
     chainIds.push(Number(compilerConfig.chainId))
   }

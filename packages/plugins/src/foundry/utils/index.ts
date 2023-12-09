@@ -16,7 +16,7 @@ import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
   spawnAsync,
-  toSphinxTransaction,
+  toModuleTransaction,
 } from '@sphinx-labs/core/dist/utils'
 import {
   ConfigArtifacts,
@@ -24,7 +24,7 @@ import {
   FoundryDryRunTransaction,
   GetConfigArtifacts,
   ParsedConfig,
-  RawActionInput,
+  RawAction,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -217,7 +217,7 @@ export const readFoundryContractArtifact = async (
 }
 
 export const getUniqueNames = (
-  actionInputArray: Array<Array<RawActionInput>>,
+  actionArray: Array<Array<RawAction>>,
   deploymentInfoArray: Array<DeploymentInfo>
 ): {
   uniqueFullyQualifiedNames: Array<string>
@@ -225,8 +225,8 @@ export const getUniqueNames = (
 } => {
   const contractNamesSet = new Set<string>()
   const fullyQualifiedNamesSet = new Set<string>()
-  for (const actionInputs of actionInputArray) {
-    for (const rawInput of actionInputs) {
+  for (const actions of actionArray) {
+    for (const rawInput of actions) {
       if (typeof rawInput.contractName === 'string') {
         rawInput.contractName.includes(':')
           ? fullyQualifiedNamesSet.add(rawInput.contractName)
@@ -630,11 +630,10 @@ export const getSphinxSafeAddressFromScript = async (
 export const getSphinxLeafGasEstimates = async (
   scriptPath: string,
   foundryToml: FoundryToml,
-  networkNames: Array<SupportedNetworkName>,
   sphinxPluginTypesInterface: ethers.Interface,
   collected: Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
+    actions: Array<RawAction>
   }>,
   targetContract?: string,
   spinner?: ora.Ora
@@ -653,11 +652,11 @@ export const getSphinxLeafGasEstimates = async (
   )
 
   const chainIds: Array<number> = []
-  const txns: Array<SphinxTransaction> = []
-  for (const { actionInputs, deploymentInfo } of collected) {
-    for (const actionInput of actionInputs) {
+  const txns: Array<ModuleTransaction> = []
+  for (const { actions, deploymentInfo } of collected) {
+    for (const action of actions) {
       chainIds.push(Number(deploymentInfo.chainId))
-      txns.push(toSphinxTransaction(actionInput))
+      txns.push(toModuleTransaction(action))
     }
   }
 
@@ -704,12 +703,10 @@ export const getSphinxLeafGasEstimates = async (
   }
 
   // Get the number of chains that contain at least one transaction to execute.
-  const containsActionInput = collected.filter(
-    ({ actionInputs }) => actionInputs.length > 0
-  )
+  const containsAction = collected.filter(({ actions }) => actions.length > 0)
 
   const dryRun =
-    containsActionInput.length > 1
+    containsAction.length > 1
       ? readFoundryMultiChainDryRun(
           foundryToml.broadcastFolder,
           scriptPath,
@@ -719,19 +716,19 @@ export const getSphinxLeafGasEstimates = async (
       : readFoundrySingleChainDryRun(
           foundryToml.broadcastFolder,
           scriptPath,
-          containsActionInput[0].deploymentInfo.chainId,
+          containsAction[0].deploymentInfo.chainId,
           `sphinxEstimateMerkleLeafGas`,
           dateBeforeForgeScript
         )
 
   if (!dryRun) {
-    // This should never happen because the presence of action inputs should always mean that a
+    // This should never happen because the presence of actions should always mean that a
     // broadcast occurred.
     throw new Error(`Could not read Foundry dry run file. Should never happen.`)
   }
 
   const gasEstimatesArray: Array<Array<string>> = []
-  for (const { actionInputs, deploymentInfo } of collected) {
+  for (const { actions, deploymentInfo } of collected) {
     let transactions: Array<FoundryDryRunTransaction> = []
     if (isFoundryMultiChainDryRun(dryRun)) {
       // Find the dry run that corresponds to the current network.
@@ -780,7 +777,7 @@ export const getSphinxLeafGasEstimates = async (
       .map((gas) => parseInt(gas, 16).toString())
 
     // Sanity check that there's a gas estimate for each transaction.
-    if (gasEstimates.length !== actionInputs.length) {
+    if (gasEstimates.length !== actions.length) {
       throw new Error(
         `Mismatch between the number of transactions and the number of gas estimates. Should never happen.`
       )
@@ -1141,7 +1138,7 @@ export const execute = async (
     'deployTaskInputsType'
   )
 
-  const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
+  const humanReadableActions = getReadableActions(parsedConfig.actions)
 
   // ABI encode the inputs to the deployment function.
   const coder = ethers.AbiCoder.defaultAbiCoder()
