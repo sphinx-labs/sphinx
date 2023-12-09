@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-// TODO(later): Test a contract deployment that deploys an external library. test w/ create, create2 and create3.
-// TODO(later): Add a `create` deployment to the `deploy` and propose test suites. `Simple.s.sol` is probably sufficient.
-// TODO(later): test that the address of the contract deployed in the user's script matches the contract that's
-// deployed by the Gnosis Safe. Not sure if we already test this.
-
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
