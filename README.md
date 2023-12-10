@@ -53,7 +53,6 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 ## Current Limitations
 
-- Sphinx supports `CREATE2` and `CREATE3` but not the `CREATE` opcode, i.e. `new MyContract(...)`.
 - You cannot send ETH as part of a deployment.
 
 ## Coming Soon
