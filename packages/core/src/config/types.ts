@@ -67,7 +67,10 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
+export type RawActionInput =
+  | RawFunctionCallActionInput
+  | RawCreate2ActionInput
+  | RawCreateActionInput
 
 export type ActionInput = FunctionCallActionInput | Create2ActionInput
 
@@ -141,7 +144,13 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
 export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
-  actionType: string
+  additionalContracts: FoundryDryRunTransaction['additionalContracts']
+  decodedAction: DecodedAction
+}
+
+export interface RawCreateActionInput extends SphinxTransaction {
+  contractName: string | null
+  contractAddress: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
 }
@@ -159,7 +168,6 @@ export type DecodedAction = {
 }
 
 export interface RawFunctionCallActionInput extends SphinxTransaction {
-  actionType: string
   contractName: string | null
   additionalContracts: Array<{
     transactionType: string
@@ -238,12 +246,15 @@ export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
  * contract's name. If this is a string and the contract's name is unique in the repo, then it'll be
  * the contract's name. If the contract isn't unique in the repo, then it will either be the fully
  * qualified name or null, depending on whether or not Foundry can infer its name.
+ * @param contractAddress The address of a contract deployed using 'CREATE'. This is a `string` type
+ * if the `transactionType` is 'CREATE' and `null` otherwise.
  * @param function The name of the function that the transaction is calling. For example,
  * "myFunction(uint256)".
  */
 interface AbstractFoundryTransaction {
   transactionType: 'CREATE' | 'CALL' | 'CREATE2'
   contractName: string | null
+  contractAddress: string | null
   function: string | null
   arguments: Array<any> | null
   transaction: {

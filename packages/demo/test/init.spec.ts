@@ -15,7 +15,8 @@ import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
 const deploymentArtifactDir = 'deployments'
 
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0x6EFf1D8a21e0f493006e8d5f9d96460c7Aa748f1'
+const contractAddress =
+  'TODO(later): we changed the sample contract, so this address is different'
 
 describe('Init CLI command', () => {
   let contractPath: string

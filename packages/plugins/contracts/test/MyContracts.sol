@@ -143,3 +143,39 @@ contract MyLargeContract is Governor, AccessControl {
 contract DuplicateContractName {
     function duplicateContractTwo() external {}
 }
+
+library MyLibrary {
+    function libNumber() public pure returns (uint256) {
+        return 42;
+    }
+}
+
+contract MyContractWithLibrary {
+    uint256 private num;
+
+    constructor(uint256 _num) {
+        num = _num;
+    }
+
+    function number() external view returns (uint256) {
+        return num + MyLibrary.libNumber();
+    }
+}
+
+library MyPreDeployedLibrary {
+    function preDeployedLibNum() public pure returns (uint256) {
+        return 1234;
+    }
+}
+
+contract MyContractWithPreDeployedLibrary {
+    uint256 private num;
+
+    constructor(uint256 _num) {
+        num = _num;
+    }
+
+    function number() external view returns (uint256) {
+        return num + MyPreDeployedLibrary.preDeployedLibNum();
+    }
+}

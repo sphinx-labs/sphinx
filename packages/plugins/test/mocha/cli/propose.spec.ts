@@ -3,7 +3,6 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  ConfigArtifacts,
   ParsedConfig,
   ProposalRequest,
   SphinxPreview,
@@ -21,10 +20,7 @@ import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyC
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
-import {
-  getSphinxModuleAddressFromScript,
-  readInterface,
-} from '../../../src/foundry/utils'
+import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
 
@@ -42,15 +38,10 @@ const sepoliaRpcUrl = `http://127.0.0.1:42111`
 
 describe('Propose CLI command', () => {
   let foundryToml: FoundryToml
-  let sphinxPluginTypesInterface: ethers.Interface
 
   before(async () => {
     process.env['SPHINX_API_KEY'] = sphinxApiKey
     foundryToml = await getFoundryToml()
-    sphinxPluginTypesInterface = readInterface(
-      foundryToml.artifactFolder,
-      'SphinxPluginTypes'
-    )
   })
 
   beforeEach(async () => {
@@ -96,7 +87,7 @@ describe('Propose CLI command', () => {
       throw new Error(`Expected field(s) to be defined`)
     }
 
-    const expectedContractAddress = ethers.getCreate2Address(
+    const expectedCreate2Address = ethers.getCreate2Address(
       DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
       ethers.ZeroHash,
       ethers.keccak256(MyContract2Artifact.bytecode.object)
@@ -124,7 +115,7 @@ describe('Propose CLI command', () => {
               variables: [],
             },
             {
-              address: expectedContractAddress,
+              address: expectedCreate2Address,
               functionName: 'deploy',
               referenceName: 'MyContract2',
               variables: [],
@@ -133,7 +124,7 @@ describe('Propose CLI command', () => {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
               variables: ['2'],
-              address: expectedContractAddress,
+              address: expectedCreate2Address,
             },
           ],
           skipping: [],
@@ -146,16 +137,14 @@ describe('Propose CLI command', () => {
     expect(compilerConfigArray.length).to.equal(1)
     const compilerConfig = compilerConfigArray[0]
     expect(compilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddress
+      expectedCreate2Address
     )
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
       compilerConfigArray,
-      configArtifacts,
       foundryToml,
-      sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
       targetContract
     )
@@ -281,9 +270,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       compilerConfigArray,
-      configArtifacts,
       foundryToml,
-      sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
       targetContract
     )
@@ -379,9 +366,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       compilerConfigArray,
-      configArtifacts,
       foundryToml,
-      sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
     )
   })
@@ -395,6 +380,7 @@ describe('Propose CLI command', () => {
       true, // Silent
       'Simple1',
       false, // Don't verify on Etherscan
+      undefined, // No pre-linked libraries
       undefined,
       mockPrompt
     )
@@ -469,9 +455,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       compilerConfigArray,
-      configArtifacts,
       foundryToml,
-      sphinxPluginTypesInterface,
       true, // Gnosis Safe and Sphinx Module were already deployed.
       targetContract
     )
@@ -584,9 +568,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       compilerConfigArray,
-      configArtifacts,
       foundryToml,
-      sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
     )
   })
@@ -648,9 +630,7 @@ const assertValidGasEstimates = async (
   scriptPath: string,
   networkGasEstimates: ProposalRequest['gasEstimates'],
   parsedConfigArray: Array<ParsedConfig>,
-  configArtifacts: ConfigArtifacts,
   foundryToml: FoundryToml,
-  sphinxPluginTypesInterface: ethers.Interface,
   isModuleAndGnosisSafeDeployed: boolean,
   targetContract?: string
 ) => {
@@ -699,6 +679,7 @@ const assertValidGasEstimates = async (
       true, // Silent
       targetContract,
       false, // Don't verify on block explorer
+      undefined, // No pre-linked libraries
       true // Skip force recompile
     )
 

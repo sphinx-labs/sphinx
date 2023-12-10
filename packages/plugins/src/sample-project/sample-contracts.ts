@@ -55,7 +55,7 @@ contract HelloSphinxScript is Sphinx {
     }
 
     function run() public override sphinx {
-        helloSphinx = new HelloSphinx{ salt: bytes32(0) }("Hi", 2);
+        helloSphinx = new HelloSphinx("Hi", 2);
         helloSphinx.add(8);
     }
 }

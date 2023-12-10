@@ -104,6 +104,7 @@ describe('Simulate proposal', () => {
           true, // Silent
           'Proposal_Initial_Test',
           false, // Don't verify on Etherscan
+          undefined, // No pre-linked libraries.
           undefined,
           mockPrompt
         )

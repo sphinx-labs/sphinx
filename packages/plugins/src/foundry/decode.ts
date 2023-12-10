@@ -13,14 +13,16 @@ import {
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
   ParsedContractDeployments,
-  SphinxActionType,
   networkEnumToName,
+  RawCreateActionInput,
 } from '@sphinx-labs/core'
 import { AbiCoder, Fragment, ethers } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
+  CreateCallArtifact,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
+  getCreateCallAddress,
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
@@ -118,6 +120,7 @@ export const convertFoundryDryRunToActionInputs = (
   for (const {
     transaction,
     contractName,
+    contractAddress,
     transactionType,
     additionalContracts,
     arguments: callArguments,
@@ -128,17 +131,52 @@ export const convertFoundryDryRunToActionInputs = (
       : contractName
 
     if (transaction.value !== undefined && transaction.value !== '0x0') {
-      console.error(
+      throw new Error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
       )
-      process.exit(1)
+    }
+
+    if (!transaction.data || !transaction.gas) {
+      throw new Error(
+        `Broadcasted transaction is missing field(s). Should never happen.`
+      )
     }
 
     if (transactionType === 'CREATE') {
-      console.error(
-        `Sphinx does not support the 'CREATE' opcode, i.e. 'new MyContract(...)'. Please use CREATE2 or CREATE3 instead.`
-      )
-      process.exit(1)
+      if (!contractAddress) {
+        throw new Error(
+          `Foundry broadcast does not contain contract address for 'CREATE' transaction. Should never happen.`
+        )
+      }
+
+      // We implement the `CREATE` opcode by creating an action that delegatecalls into Gnosis
+      // Safe's `CreateCall` contract from the user's Gnosis Safe. This is the standard way that
+      // Gnosis Safe supports contract deployments. We use delegatecall so that the contract
+      // deployment occurs from the Gnosis Safe, which ensures that the deployed contract's address
+      // is the same as locally as it is on live networks.
+      const createCallInterface = new ethers.Interface(CreateCallArtifact.abi)
+      const txData = createCallInterface.encodeFunctionData('performCreate', [
+        0, // Value is always zero because we don't support sending ETH during deployments.
+        transaction.data,
+      ])
+      const rawAction: RawCreateActionInput = {
+        to: getCreateCallAddress(),
+        operation: Operation.DelegateCall,
+        txData,
+        contractAddress: ethers.getAddress(contractAddress),
+        contractName,
+        value: '0',
+        gas: transaction.gas,
+        additionalContracts,
+        requireSuccess: deploymentInfo.requireSuccess,
+        decodedAction: {
+          referenceName: contractNameWithoutPath ?? contractAddress,
+          functionName: 'deploy',
+          variables: callArguments ?? [],
+          address: contractAddress,
+        },
+      }
+      actionInputs.push(rawAction)
     } else {
       if (!transaction.to) {
         throw new Error(
@@ -149,15 +187,8 @@ export const convertFoundryDryRunToActionInputs = (
       const to = ethers.getAddress(transaction.to)
       if (transactionType === 'CREATE2') {
         if (to !== DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS) {
-          console.error(
-            `Detected unsupported CREATE2 factory. Please use the standard factory at: 0x4e59b44847b379578588920cA78FbF26c0B4956C`
-          )
-          process.exit(1)
-        }
-
-        if (!transaction.data || !transaction.gas) {
           throw new Error(
-            `CREATE2 transaction is missing field(s). Should never happen.`
+            `Detected unsupported CREATE2 factory. Please use the standard factory at: 0x4e59b44847b379578588920cA78FbF26c0B4956C`
           )
         }
 
@@ -173,10 +204,9 @@ export const convertFoundryDryRunToActionInputs = (
           to,
           create2Address,
           contractName,
-          value: transaction.value ?? '0x0',
+          value: '0',
           operation: Operation.Call,
           txData: transaction.data,
-          actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,
           requireSuccess: deploymentInfo.requireSuccess,
@@ -189,12 +219,6 @@ export const convertFoundryDryRunToActionInputs = (
         }
         actionInputs.push(rawCreate2)
       } else if (transactionType === 'CALL') {
-        if (!transaction.data || !transaction.gas) {
-          throw new Error(
-            `CALL transaction is missing field(s). Should never happen.`
-          )
-        }
-
         const variables = callArguments ?? [
           transaction.data.length > 1000
             ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
@@ -202,9 +226,8 @@ export const convertFoundryDryRunToActionInputs = (
         ]
 
         const rawCall: RawFunctionCallActionInput = {
-          actionType: SphinxActionType.CALL.toString(),
           to,
-          value: transaction.value ?? '0x0',
+          value: '0',
           txData: transaction.data,
           operation: Operation.Call,
           gas: transaction.gas,

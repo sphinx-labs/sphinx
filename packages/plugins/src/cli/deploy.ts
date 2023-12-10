@@ -59,6 +59,7 @@ export const deploy = async (
   silent: boolean,
   targetContract?: string,
   verify?: boolean,
+  preLinkedLibraries?: Array<string>,
   skipForceRecompile: boolean = false,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
@@ -181,14 +182,19 @@ export const deploy = async (
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
+  if (Array.isArray(preLinkedLibraries)) {
+    for (const library of preLinkedLibraries) {
+      forgeScriptCollectArgs.push('--libraries', library)
+    }
+  }
 
-  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
-  // Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We need
-  // to do this even though we also broadcast from the Safe's address in the script.
-  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
-  // linked library. In this scenario, the caller that deploys the library would be Foundry's
-  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
-  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
+  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the Gnosis
+  // Safe as the `msg.sender` to ensure that it's the caller for all transactions. We need to do
+  // this even though we also broadcast from the Safe's address in the script. Specifically, this is
+  // necessary if the user is deploying a contract containing a library via CREATE2. In this
+  // scenario, the caller that deploys the library would be Foundry's default sender if we don't set
+  // this environment variable. Note that `FOUNDRY_SENDER` has priority over the `--sender` flag and
+  // the `DAPP_SENDER` environment variable.
   const dateBeforeForgeScriptCollect = new Date()
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
     FOUNDRY_SENDER: safeAddress,

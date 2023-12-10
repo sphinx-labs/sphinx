@@ -39,7 +39,6 @@ import {
   FunctionCallActionInput,
 } from './config/types'
 import {
-  SphinxActionType,
   IPFSCommitResponse,
   ProposalRequest,
   MerkleRootStatus,
@@ -829,9 +828,7 @@ export const isRawFunctionCallActionInput = (
 ): actionInput is RawFunctionCallActionInput => {
   const callActionInput = actionInput as RawFunctionCallActionInput
   return (
-    callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.to !== undefined &&
-    callActionInput.txData !== undefined
+    callActionInput.to !== undefined && callActionInput.txData !== undefined
   )
 }
 
@@ -840,7 +837,6 @@ export const isRawCreate2ActionInput = (
 ): actionInput is RawCreate2ActionInput => {
   const rawCreate2 = actionInput as RawCreate2ActionInput
   return (
-    rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
     rawCreate2.create2Address !== undefined &&
     rawCreate2.txData !== undefined &&
