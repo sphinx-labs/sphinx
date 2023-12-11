@@ -37,6 +37,7 @@ import {
   ParsedConfig,
   Create2ActionInput,
   FunctionCallActionInput,
+  RawCreateActionInput,
 } from './config/types'
 import {
   IPFSCommitResponse,
@@ -842,6 +843,13 @@ export const isRawCreate2ActionInput = (
     rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
   )
+}
+
+export const isRawCreateActionCall = (
+  actionInput: RawActionInput
+): actionInput is RawCreateActionInput => {
+  const rawCreate = actionInput as RawCreateActionInput
+  return rawCreate.contractAddress !== undefined
 }
 
 export const isFunctionCallActionInput = (

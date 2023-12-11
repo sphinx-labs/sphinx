@@ -15,6 +15,7 @@ import {
   ParsedContractDeployments,
   networkEnumToName,
   RawCreateActionInput,
+  isRawCreateActionCall,
 } from '@sphinx-labs/core'
 import { AbiCoder, Fragment, ethers } from 'ethers'
 import {
@@ -149,20 +150,10 @@ export const convertFoundryDryRunToActionInputs = (
         )
       }
 
-      // We implement the `CREATE` opcode by creating an action that delegatecalls into Gnosis
-      // Safe's `CreateCall` contract from the user's Gnosis Safe. This is the standard way that
-      // Gnosis Safe supports contract deployments. We use delegatecall so that the contract
-      // deployment occurs from the Gnosis Safe, which ensures that the deployed contract's address
-      // is the same as locally as it is on live networks.
-      const createCallInterface = new ethers.Interface(CreateCallArtifact.abi)
-      const txData = createCallInterface.encodeFunctionData('performCreate', [
-        0, // Value is always zero because we don't support sending ETH during deployments.
-        transaction.data,
-      ])
       const rawAction: RawCreateActionInput = {
         to: getCreateCallAddress(),
         operation: Operation.DelegateCall,
-        txData,
+        txData: transaction.data,
         contractAddress: ethers.getAddress(contractAddress),
         contractName,
         value: '0',
@@ -348,8 +339,11 @@ export const makeParsedConfig = (
               address: '',
             }
           } else {
-            // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
-            // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
+            // Attempt to infer the name of the contract deployed using CREATE2. We need to do this
+            // if the contract name isn't unique in the repo. This is likely a bug in Foundry. We
+            // infer the contract name by checking if there's a function call on the deployed
+            // contract, since the contract name will appear in the broadcasted function call
+            // transaction.
             const contractName = rawInputs
               .filter(isRawFunctionCallActionInput)
               .filter((e) => e.to === input.create2Address)
@@ -390,6 +384,104 @@ export const makeParsedConfig = (
         contracts: parsedContracts,
         index: actionIndex.toString(),
         ...input,
+        gas,
+      })
+    } else if (isRawCreateActionCall(input)) {
+      // Check if the `contractName` is a fully qualified name.
+      if (input.contractName && input.contractName.includes(':')) {
+        // It's a fully qualified name.
+        parsedContracts[input.contractAddress] = {
+          fullyQualifiedName: input.contractName,
+          initCodeWithArgs: input.txData,
+        }
+      } else if (
+        // Check if the `contractName` is a standard contract name (not a fully qualified name).
+        input.contractName
+      ) {
+        const { fullyQualifiedName } = getConfigArtifactForContractName(
+          input.contractName,
+          configArtifacts
+        )
+
+        parsedContracts[input.contractAddress] = {
+          fullyQualifiedName,
+          initCodeWithArgs: input.txData,
+        }
+      } else {
+        // There's no contract name in this transaction.
+        const label = labels.find((l) => l.addr === input.contractAddress)
+        if (isLabel(label)) {
+          parsedContracts[input.contractAddress] = {
+            fullyQualifiedName: label.fullyQualifiedName,
+            initCodeWithArgs: input.txData,
+          }
+
+          const contractName = label.fullyQualifiedName.split(':')[1]
+          input.decodedAction = {
+            referenceName: contractName,
+            functionName: 'deploy',
+            // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
+            variables: {
+              initCode: input.txData,
+            },
+            address: '',
+          }
+        } else {
+          // TODO: left off
+
+          // Attempt to infer the name of the deployed contract. We need to do this if the contract
+          // name isn't unique in the repo. This is likely a bug in Foundry. We infer the contract
+          // name by checking if there's a function call on the deployed contract, since the
+          // contract name will appear in the broadcasted function call transaction.
+          const contractName = rawInputs
+            .filter(isRawFunctionCallActionInput)
+            .filter((e) => e.to === input.contractAddress)
+            .map((e) => e.contractName)
+            .find(isString)
+          if (contractName) {
+            const fullyQualifiedName = contractName.includes(':')
+              ? contractName
+              : getConfigArtifactForContractName(contractName, configArtifacts)
+                  .fullyQualifiedName
+
+            parsedContracts[input.contractAddress] = {
+              fullyQualifiedName,
+              initCodeWithArgs: input.txData,
+            }
+
+            input.decodedAction = {
+              referenceName: fullyQualifiedName.split(':')[1],
+              functionName: 'deploy',
+              // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
+              variables: [
+                {
+                  initCode: input.txData,
+                },
+              ],
+              address: '',
+            }
+          } else {
+            unlabeledAddresses.push(input.contractAddress)
+          }
+        }
+      }
+
+      // We implement the `CREATE` opcode by creating an action that delegatecalls into Gnosis
+      // Safe's `CreateCall` contract from the user's Gnosis Safe. This is the standard way that
+      // Gnosis Safe supports contract deployments. We use delegatecall so that the contract
+      // deployment occurs from the Gnosis Safe, which ensures that the deployed contract's address
+      // is the same as locally as it is on live networks.
+      const createCallInterface = new ethers.Interface(CreateCallArtifact.abi)
+      const txData = createCallInterface.encodeFunctionData('performCreate', [
+        0, // Value is always zero because we don't support sending ETH during deployments.
+        input.txData,
+      ])
+
+      parsedActionInputs.push({
+        contracts: parsedContracts,
+        index: actionIndex.toString(),
+        ...input,
+        txData,
         gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
