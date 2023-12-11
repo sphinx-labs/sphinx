@@ -35,7 +35,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     sepolia: {
-      chainId: 5,
+      chainId: 11155111,
       url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -45,7 +45,7 @@ const config: HardhatUserConfig = {
       accounts,
     },
     'optimism-sepolia': {
-      chainId: 420,
+      chainId: 11155420,
       url: `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -99,7 +99,7 @@ const config: HardhatUserConfig = {
       url: `${process.env.POLYGON_ZKEVM_MAINNET_URL}`,
       accounts,
     },
-    'polygon-zkevm-testnet': {
+    'polygon-zkevm-goerli': {
       chainId: 1442,
       url: `${process.env.POLYGON_ZKEVM_TESTNET_URL}`,
       accounts,
@@ -109,7 +109,7 @@ const config: HardhatUserConfig = {
       url: `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
-    'linea-testnet': {
+    'linea-goerli': {
       chainId: 59140,
       url: `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -140,7 +140,7 @@ const config: HardhatUserConfig = {
       accounts,
     },
     'base-sepolia': {
-      chainId: 84531,
+      chainId: 84532,
       url: `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
