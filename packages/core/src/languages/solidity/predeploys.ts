@@ -200,18 +200,26 @@ export const initializeSafeAndSphinx = async (
         value: ethers.parseEther(DrippieDripSizes[targetNetworkName]),
       },
     ]
-
     const dripName = `sphinx_fund_${relayer}`
-    await (
-      await Drippie.create(dripName, {
-        reentrant,
-        interval,
-        dripcheck,
-        checkparams,
-        actions,
-      })
-    ).wait()
-    await (await Drippie.status(dripName, 2)).wait()
+
+    const [status] = await Drippie.drips(dripName)
+    if (status === BigInt(2)) {
+      logger?.info(`[Sphinx]: Drip ${dripName} already exists`)
+    } else if (status === BigInt(0)) {
+      logger?.info(`[Sphinx]: Creating drip ${dripName}...`)
+      await (
+        await Drippie.create(dripName, {
+          reentrant,
+          interval,
+          dripcheck,
+          checkparams,
+          actions,
+        })
+      ).wait()
+      await (await Drippie.status(dripName, 2)).wait()
+    } else {
+      throw new Error(`Drip ${dripName} has unexpected status`)
+    }
   }
   logger?.info('[Sphinx]: finished creating relayer drips')
 }
