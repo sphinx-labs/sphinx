@@ -208,17 +208,26 @@ export const initializeSafeAndSphinx = async (
     } else if (status === BigInt(0)) {
       logger?.info(`[Sphinx]: Creating drip ${dripName}...`)
       await (
-        await Drippie.create(dripName, {
-          reentrant,
-          interval,
-          dripcheck,
-          checkparams,
-          actions,
-        })
+        await Drippie.create(
+          dripName,
+          {
+            reentrant,
+            interval,
+            dripcheck,
+            checkparams,
+            actions,
+          },
+          await getGasPriceOverrides(owner)
+        )
       ).wait()
+      await (
+        await Drippie.status(dripName, 2, await getGasPriceOverrides(owner))
+      ).wait()
+    } else if (status === BigInt(1)) {
+      logger?.info(`[Sphinx]: Setting status for drip ${dripName}...`)
       await (await Drippie.status(dripName, 2)).wait()
     } else {
-      throw new Error(`Drip ${dripName} has unexpected status`)
+      throw new Error(`Drip ${dripName} has archived status`)
     }
   }
   logger?.info('[Sphinx]: finished creating relayer drips')
