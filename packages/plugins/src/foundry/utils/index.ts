@@ -961,7 +961,7 @@ export const approve = async (
   const approveFragment = findFunctionFragment(sphinxIface, 'sphinxApprove')
   const encodedFunctionParams = sphinxIface.encodeFunctionData(
     approveFragment,
-    [merkleTree.root, approveLeafWithProof]
+    [merkleTree.root, approveLeafWithProof, false]
   )
 
   const dateBeforeForgeScript = new Date()

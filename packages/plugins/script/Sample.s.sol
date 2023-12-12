@@ -17,6 +17,7 @@ contract Sample is Sphinx {
         sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
+        sphinxConfig.saltNonce = 0;
     }
 
     function run() public override sphinx {

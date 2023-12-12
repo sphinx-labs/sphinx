@@ -190,7 +190,8 @@ abstract contract Sphinx {
 
     function sphinxApprove(
         bytes32 _merkleRoot,
-        SphinxLeafWithProof memory _approveLeafWithProof
+        SphinxLeafWithProof memory _approveLeafWithProof,
+        bool _simulatingProposal
     ) public {
         NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(
             _approveLeafWithProof.leaf.chainId
@@ -217,7 +218,7 @@ abstract contract Sphinx {
         );
 
         uint256 privateKey;
-        if (isLiveNetwork) {
+        if (isLiveNetwork && !_simulatingProposal) {
             sphinxMode = SphinxMode.LiveNetworkBroadcast;
 
             (, address msgSender, ) = vm.readCallers();
@@ -234,7 +235,7 @@ abstract contract Sphinx {
         }
 
         bytes memory ownerSignatures;
-        if (isLiveNetwork) {
+        if (isLiveNetwork && !_simulatingProposal) {
             Wallet[] memory walletArray = new Wallet[](1);
             walletArray[0] = Wallet({ privateKey: privateKey, addr: vm.addr(privateKey) });
 
@@ -389,7 +390,8 @@ abstract contract Sphinx {
             sphinxApprove(
                 merkleTree.root,
                 // The `APPROVE` leaf is always the first element in the array.
-                leavesOnNetwork[0]
+                leavesOnNetwork[0],
+                true
             );
             vm.stopBroadcast();
 
