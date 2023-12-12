@@ -17,10 +17,10 @@ memory_limit = 3355443200
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
-optimism = "http://127.0.0.1:42010"
-optimism_sepolia = "http://127.0.0.1:42420"
-ethereum = "http://127.0.0.1:42001"
-sepolia = "http://127.0.0.1:42111"
-arbitrum = "http://127.0.0.1:42161"
-arbitrum_sepolia = "http://127.0.0.1:42614"
-gnosis_chiado = "http://127.0.0.1:42200"
+optimism = "${OPTIMISM_RPC_URL}"
+optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL}"
+ethereum = "${ETHEREUM_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
+gnosis_chiado = "${GNOSIS_CHIADO_RPC_URL}"

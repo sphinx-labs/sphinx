@@ -125,7 +125,7 @@ const config: HardhatUserConfig = {
       url: `${process.env.FANTOM_MAINNET_RPC_URL}`,
       accounts,
     },
-    'avalanche-fiji': {
+    'avalanche-fuji': {
       chainId: 43113,
       url: `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
