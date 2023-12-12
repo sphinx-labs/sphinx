@@ -8,7 +8,8 @@ import { Logger } from '@eth-optimism/common-ts'
 
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
-import { SphinxSystemConfig, initializeSafeAndSphinx } from './src/languages'
+import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
+import { etherscanVerifySphinxSystem } from './src/etherscan'
 
 // Load environment variables from .env
 dotenv.config()
@@ -35,7 +36,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     sepolia: {
-      chainId: 5,
+      chainId: 11155111,
       url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -45,7 +46,7 @@ const config: HardhatUserConfig = {
       accounts,
     },
     'optimism-sepolia': {
-      chainId: 420,
+      chainId: 11155420,
       url: `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -99,7 +100,7 @@ const config: HardhatUserConfig = {
       url: `${process.env.POLYGON_ZKEVM_MAINNET_URL}`,
       accounts,
     },
-    'polygon-zkevm-testnet': {
+    'polygon-zkevm-goerli': {
       chainId: 1442,
       url: `${process.env.POLYGON_ZKEVM_TESTNET_URL}`,
       accounts,
@@ -109,7 +110,7 @@ const config: HardhatUserConfig = {
       url: `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
-    'linea-testnet': {
+    'linea-goerli': {
       chainId: 59140,
       url: `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -140,7 +141,7 @@ const config: HardhatUserConfig = {
       accounts,
     },
     'base-sepolia': {
-      chainId: 84531,
+      chainId: 84532,
       url: `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -174,12 +175,9 @@ task('deploy-system')
         name: 'Logger',
       })
 
-      await initializeSafeAndSphinx(
-        provider,
-        signer,
-        systemConfig.relayers,
-        logger
-      )
+      await deploySphinxSystem(provider, signer, systemConfig.relayers, logger)
+
+      await etherscanVerifySphinxSystem(provider, logger)
     }
   )
 

@@ -47,7 +47,7 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
       ethers.toBeHex(ethers.parseEther('100')),
     ])
 
-    await initializeSafeAndSphinx(provider, wallet, relayers, logger)
+    await deploySphinxSystem(provider, wallet, relayers, logger)
   } else if (!(await allSphinxAndGnosisSafeContractsDeployed(provider))) {
     throw new Error(`Sphinx is not supported on this network.`)
   }
@@ -70,7 +70,7 @@ const allSphinxAndGnosisSafeContractsDeployed = async (
   return codes.every((code) => code !== '0x')
 }
 
-export const initializeSafeAndSphinx = async (
+export const deploySphinxSystem = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   relayers: string[],
@@ -200,18 +200,26 @@ export const initializeSafeAndSphinx = async (
         value: ethers.parseEther(DrippieDripSizes[targetNetworkName]),
       },
     ]
-
     const dripName = `sphinx_fund_${relayer}`
-    await (
-      await Drippie.create(dripName, {
-        reentrant,
-        interval,
-        dripcheck,
-        checkparams,
-        actions,
-      })
-    ).wait()
-    await (await Drippie.status(dripName, 2)).wait()
+
+    const [status] = await Drippie.drips(dripName)
+    if (status === BigInt(2)) {
+      logger?.info(`[Sphinx]: Drip ${dripName} already exists`)
+    } else if (status === BigInt(0)) {
+      logger?.info(`[Sphinx]: Creating drip ${dripName}...`)
+      await (
+        await Drippie.create(dripName, {
+          reentrant,
+          interval,
+          dripcheck,
+          checkparams,
+          actions,
+        })
+      ).wait()
+      await (await Drippie.status(dripName, 2)).wait()
+    } else {
+      throw new Error(`Drip ${dripName} has unexpected status`)
+    }
   }
   logger?.info('[Sphinx]: finished creating relayer drips')
 }
