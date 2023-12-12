@@ -65,7 +65,7 @@ export const customChains: CustomChain[] = [
     network: 'base-sepolia',
     chainId: 84532,
     urls: {
-      apiURL: 'https://api-base-sepolia.blockscout.com/api',
+      apiURL: 'https://base-sepolia.blockscout.com/api',
       browserURL: 'https://base-sepolia.blockscout.com/',
     },
   },
