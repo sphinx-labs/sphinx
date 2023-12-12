@@ -31,6 +31,7 @@
     ]
   },
   "scripts": {
+    "preinstall": "sh ./scripts/create-placeholder.sh",
     "build:release": "/bin/bash ./scripts/build-release.sh && yarn build",
     "build": "yarn workspaces run build",
     "test": "yarn workspaces run test",

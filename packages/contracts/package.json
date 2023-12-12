@@ -12,7 +12,7 @@
     "artifacts/build-info/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
+    "build": "forge clean && forge build --build-info --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",
@@ -51,7 +51,6 @@
     "@openzeppelin/contracts": "4.9.3",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^6.7.0",
-    "solmate": "6.2.0",
-    "@eth-optimism/contracts-bedrock": "^0.16.2"
+    "solmate": "6.2.0"
   }
 }

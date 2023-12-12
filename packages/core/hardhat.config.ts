@@ -8,7 +8,8 @@ import { Logger } from '@eth-optimism/common-ts'
 
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
-import { SphinxSystemConfig, initializeSafeAndSphinx } from './src/languages'
+import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
+import { etherscanVerifySphinxSystem } from './src/etherscan'
 
 // Load environment variables from .env
 dotenv.config()
@@ -174,12 +175,9 @@ task('deploy-system')
         name: 'Logger',
       })
 
-      await initializeSafeAndSphinx(
-        provider,
-        signer,
-        systemConfig.relayers,
-        logger
-      )
+      await deploySphinxSystem(provider, signer, systemConfig.relayers, logger)
+
+      await etherscanVerifySphinxSystem(provider, logger)
     }
   )
 
