@@ -755,35 +755,46 @@ export const getSphinxLeafGasEstimates = async (
       )
     }
 
-    const gasEstimates = transactions
-      // We remove any transactions that weren't broadcasted from the Sphinx Module. Particularly,
-      // we remove the transaction that deploys the Gnosis Safe and Sphinx Module, which is
-      // broadcasted from a different address. This transaction isn't relevant because we're only
-      // interested in estimating the gas of the Sphinx leaves.
-      .filter(
-        (tx) =>
-          typeof tx.transaction.from === 'string' &&
-          ethers.getAddress(tx.transaction.from) ===
-            deploymentInfo.moduleAddress
-      )
-      .map((tx) => tx.transaction.gas)
-      // Narrows the TypeScript type of `gas` from `string | null` to `string`.
-      .map((gas) => {
-        if (typeof gas !== 'string') {
-          throw new Error(
-            `Detected a 'gas' field that is not a string. Should never happen.`
-          )
-        }
-        return gas
-      })
-      // Convert the gas values from hex strings to decimal strings.
-      .map((gas) => parseInt(gas, 16).toString())
+    let gasEstimates: Array<string> = []
+    if (deploymentInfo.chainId === '421614') {
+      // We hard-code the Merkle leaf's gas on Arbitrum Sepolia because Foundry's gas estimation for
+      // this network is currently broken. The issue is described here:
+      // https://github.com/foundry-rs/foundry/issues/6591
+      // We hard-code it to be 50 million because the block gas limit on Arbitrum Sepolia is
+      // ~1 quadrillion, so there's no harm in having a high estimate. For reference, it costs
+      // ~15 million gas to deploy `MyLargeContract` in the `plugins` package tests.
+      gasEstimates = new Array(transactions.length).fill('50000000')
+    } else {
+      gasEstimates = transactions
+        // We remove any transactions that weren't broadcasted from the Sphinx Module. Particularly,
+        // we remove the transaction that deploys the Gnosis Safe and Sphinx Module, which is
+        // broadcasted from a different address. This transaction isn't relevant because we're only
+        // interested in estimating the gas of the Sphinx leaves.
+        .filter(
+          (tx) =>
+            typeof tx.transaction.from === 'string' &&
+            ethers.getAddress(tx.transaction.from) ===
+              deploymentInfo.moduleAddress
+        )
+        .map((tx) => tx.transaction.gas)
+        // Narrows the TypeScript type of `gas` from `string | null` to `string`.
+        .map((gas) => {
+          if (typeof gas !== 'string') {
+            throw new Error(
+              `Detected a 'gas' field that is not a string. Should never happen.`
+            )
+          }
+          return gas
+        })
+        // Convert the gas values from hex strings to decimal strings.
+        .map((gas) => parseInt(gas, 16).toString())
 
-    // Sanity check that there's a gas estimate for each transaction.
-    if (gasEstimates.length !== actionInputs.length) {
-      throw new Error(
-        `Mismatch between the number of transactions and the number of gas estimates. Should never happen.`
-      )
+      // Sanity check that there's a gas estimate for each transaction.
+      if (gasEstimates.length !== actionInputs.length) {
+        throw new Error(
+          `Mismatch between the number of transactions and the number of gas estimates. Should never happen.`
+        )
+      }
     }
 
     gasEstimatesArray.push(gasEstimates)

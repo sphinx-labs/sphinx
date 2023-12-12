@@ -44,8 +44,8 @@ function setUp() public {
 
     // Required settings for the Sphinx DevOps platform:
     sphinxConfig.projectName = "My Project";
-    sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
-    sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
+    sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
+    sphinxConfig.testnets = [Network.sepolia, Network.optimism_sepolia];
     sphinxConfig.orgId = "abcd-1234";
 }
 ```

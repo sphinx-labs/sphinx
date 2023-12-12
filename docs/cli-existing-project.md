@@ -150,7 +150,7 @@ sphinxConfig.mainnets;
 sphinxConfig.testnets = [
   Network.sepolia,
   Network.optimism_sepolia,
-  Network.arbitrum_sepolia
+  Network.polygon_mumbai
 ];
 ```
 

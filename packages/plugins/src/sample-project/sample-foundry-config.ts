@@ -63,7 +63,7 @@ ${fetchConfigRemappings(pnpm, includeStandard)}
 anvil = "http://127.0.0.1:8545"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/\${RPC_API_KEY}"
 optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/\${RPC_API_KEY}"
-arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/\${RPC_API_KEY}"
+polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/\${RPC_API_KEY}"
 `
 
 export const sampleGitIgnoreFile = `# Compiler files
