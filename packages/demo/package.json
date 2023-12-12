@@ -13,7 +13,7 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "forge build",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "echo 'no tests'",
+    "test:coverage": "apt install lsof && yarn test",
     "test": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:ts:check",
