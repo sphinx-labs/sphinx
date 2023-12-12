@@ -65,7 +65,7 @@ export const customChains: CustomChain[] = [
     network: 'base-sepolia',
     chainId: 84532,
     urls: {
-      apiURL: 'https://base-sepolia.blockscout.com/api',
+      apiURL: 'https://api-base-sepolia.blockscout.com/api',
       browserURL: 'https://base-sepolia.blockscout.com/',
     },
   },
@@ -73,7 +73,7 @@ export const customChains: CustomChain[] = [
     network: 'optimism-sepolia',
     chainId: 11155420,
     urls: {
-      apiURL: 'https://sepolia-optimism.etherscan.io/api',
+      apiURL: 'https://api-sepolia-optimism.etherscan.io/api',
       browserURL: 'https://sepolia-optimism.etherscan.io/',
     },
   },
@@ -81,7 +81,7 @@ export const customChains: CustomChain[] = [
     network: 'arbitrum-sepolia',
     chainId: 421614,
     urls: {
-      apiURL: 'https://sepolia.arbiscan.io/api',
+      apiURL: 'https://api-sepolia.arbiscan.io/api',
       browserURL: 'https://sepolia.arbiscan.io/',
     },
   },
@@ -89,7 +89,7 @@ export const customChains: CustomChain[] = [
     network: 'sepolia',
     chainId: 11155111,
     urls: {
-      apiURL: 'https://sepolia.etherscan.io/api',
+      apiURL: 'https://api-sepolia.etherscan.io/api',
       browserURL: 'https://sepolia.etherscan.io/',
     },
   },

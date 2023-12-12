@@ -444,7 +444,7 @@ export const etherscanVerifySphinxSystem = async (
         contractName,
         etherscanApiKey,
         minimumCompilerInput,
-        sphinxBuildInfo.solcVersion,
+        buildInfo.solcVersion,
         encodedConstructorArgs
       )
     }
