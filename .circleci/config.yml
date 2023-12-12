@@ -22,6 +22,9 @@ jobs:
             - v2-cache-yarn-install-{{ checksum "yarn.lock" }}
             - v2-cache-yarn-install
       - run:
+          name: Run pre-install script
+          command: sh ./scripts/create-placeholder.sh
+      - run:
           name: Install dependencies
           command: yarn --frozen-lockfile --link-duplicates --network-concurrency 1
       - save_cache:

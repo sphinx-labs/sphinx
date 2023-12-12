@@ -303,7 +303,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
             gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0
         ) {
             safeProxy = deployCode(
-                "safe-artifacts/v1.3.0/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json",
+                "external-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json",
                 encodedSafeProxyConstructorArg
             );
         } else if (
@@ -311,7 +311,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
             gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1
         ) {
             safeProxy = deployCode(
-                "safe-artifacts/v1.4.1/proxies/SafeProxy.sol/SafeProxy.json",
+                "external-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxy.sol/SafeProxy.json",
                 encodedSafeProxyConstructorArg
             );
         } else {

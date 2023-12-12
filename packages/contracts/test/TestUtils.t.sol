@@ -519,15 +519,15 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         // initcode in the artifact files. This ensures that they produce contracts with correct
         // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
-            "safe-artifacts/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json",
+            "external-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json",
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "safe-artifacts/v1.3.0/GnosisSafe.sol/GnosisSafe.json",
+            "external-artifacts/gnosis-safe/v1.3.0/GnosisSafe.sol/GnosisSafe.json",
             bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "safe-artifacts/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json",
+            "external-artifacts/gnosis-safe/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json",
             bytes32(0)
         );
 
@@ -556,15 +556,15 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         // initcode in the artifact files. This ensures that they produce contracts with correct
         // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
-            "safe-artifacts/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json",
+            "external-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json",
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "safe-artifacts/v1.4.1/Safe.sol/Safe.json",
+            "external-artifacts/gnosis-safe/v1.4.1/Safe.sol/Safe.json",
             bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "safe-artifacts/v1.4.1/SafeL2.sol/SafeL2.json",
+            "external-artifacts/gnosis-safe/v1.4.1/SafeL2.sol/SafeL2.json",
             bytes32(0)
         );
 

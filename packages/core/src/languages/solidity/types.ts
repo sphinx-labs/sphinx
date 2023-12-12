@@ -25,6 +25,7 @@ export type BuildInfo = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
+  output: CompilerOutput
 }
 
 export interface CompilerOutputContract {
