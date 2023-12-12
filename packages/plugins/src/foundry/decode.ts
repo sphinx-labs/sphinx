@@ -427,8 +427,6 @@ export const makeParsedConfig = (
             address: '',
           }
         } else {
-          // TODO: left off
-
           // Attempt to infer the name of the deployed contract. We need to do this if the contract
           // name isn't unique in the repo. This is likely a bug in Foundry. We infer the contract
           // name by checking if there's a function call on the deployed contract, since the
