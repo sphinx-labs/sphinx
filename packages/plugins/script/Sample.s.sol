@@ -21,19 +21,19 @@ contract Sample is Sphinx {
     }
 
     function run() public override sphinx {
-        new MyContract1{ salt: bytes32(uint(1231231)) }(
+        new MyContract1{ salt: bytes32(uint(1)) }(
             -1,
             2,
             address(1),
             address(2)
         );
-        new MyContract1{ salt: bytes32(uint(2231313)) }(
+        new MyContract1{ salt: bytes32(uint(2)) }(
             -1,
             2,
             address(1),
             address(2)
         );
-        new MyContract1{ salt: bytes32(uint(3213123)) }(
+        new MyContract1{ salt: bytes32(uint(3)) }(
             -1,
             2,
             address(1),
@@ -42,7 +42,7 @@ contract Sample is Sphinx {
 
         bytes memory initCode =
             abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        address deployed = CREATE3.deploy(bytes32(uint(93849038439)), initCode, 0);
+        address deployed = CREATE3.deploy(bytes32(0), initCode, 0);
         sphinxLabel(deployed, "contracts/test/MyContracts.sol:MyContract1");
     }
 }
