@@ -11,11 +11,10 @@ import {
 import { expect } from 'chai'
 import { ethers } from 'ethers'
 import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 const deploymentArtifactDir = 'deployments'
-
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0xd5B6E1E89a64279688cAAB3e9C859e858614cDD5'
 
 describe('Init CLI command', () => {
   let contractPath: string
@@ -62,22 +61,35 @@ describe('Init CLI command', () => {
       `npx sphinx deploy script/HelloSphinx.s.sol --network anvil --confirm`
     )
 
+    // We need to load the contract artifact programmatically because it's not created until we run
+    // a Forge command.
+    const artifact =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json'))
+    // Get the sample contract's address.
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+    const contractAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(
+        ethers.concat([
+          artifact.bytecode.object,
+          coder.encode(['string', 'uint256'], ['Hi', 2]),
+        ])
+      )
+    )
+
     // Check that the contract was deployed correctly
     expect(await provider.getCode(contractAddress)).to.not.equal('0x')
-    const contract = getContract()
+    const contract = new ethers.Contract(
+      contractAddress,
+      artifact.abi,
+      provider
+    )
     expect(await contract.greeting()).to.equal('Hi')
     expect(await contract.number()).to.equal(10n)
   })
 })
-
-const getContract = (): ethers.Contract => {
-  const abi =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json')).abi
-
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  return contract
-}
 
 const deleteFiles = (
   contractPath: string,
