@@ -49,7 +49,6 @@ import {
   SphinxLeafType,
   SphinxMerkleTree,
   SphinxModuleABI,
-  SphinxTransaction,
   parseFoundryArtifact,
   remove0x,
 } from '@sphinx-labs/contracts'
@@ -639,12 +638,10 @@ export const getSphinxLeafGasEstimates = async (
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<Array<Array<string>>> => {
-  const leafGasParamsFragment = sphinxPluginTypesInterface.fragments
-    .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'leafGasParams')
-  if (!leafGasParamsFragment) {
-    throw new Error(`Could not find fragment in ABI. Should never happen.`)
-  }
+  const leafGasParamsFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'leafGasParams'
+  )
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const leafGasInputsFilePath = join(
@@ -652,152 +649,56 @@ export const getSphinxLeafGasEstimates = async (
     'sphinx-estimate-leaf-gas.txt'
   )
 
-  const chainIds: Array<number> = []
-  const txns: Array<SphinxTransaction> = []
-  for (const { actionInputs, deploymentInfo } of collected) {
-    for (const actionInput of actionInputs) {
-      chainIds.push(Number(deploymentInfo.chainId))
-      txns.push(toSphinxTransaction(actionInput))
-    }
-  }
-
-  const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
-    txns,
-    chainIds,
-  ])
-
-  // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
-  // instead of passing in the data as a parameter to the Forge script because it's possible to hit
-  // Node's `spawn` input size limit if the data is large. This is particularly a concern because
-  // the data contains contract init code.
-  writeFileSync(leafGasInputsFilePath, encodedTxnArray)
-
-  const leafGasEstimationScriptArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxEstimateMerkleLeafGas(string)',
-    leafGasInputsFilePath,
-    // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
-    // hard-code it just in case Foundry changes the default value in the future. In practice, this
-    // tends to produce a gas estimate multiplier that's around 35% to 55% higher than the actual
-    // gas used instead of 30%.
-    '--gas-estimate-multiplier',
-    '130',
-  ]
-  if (targetContract) {
-    leafGasEstimationScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const dateBeforeForgeScript = new Date()
-  const gasEstimationSpawnOutput = await spawnAsync(
-    'forge',
-    leafGasEstimationScriptArgs
-  )
-  if (gasEstimationSpawnOutput.code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(gasEstimationSpawnOutput.stdout)
-    // The `stderr` contains the error message.
-    console.log(gasEstimationSpawnOutput.stderr)
-    process.exit(1)
-  }
-
-  // Get the number of chains that contain at least one transaction to execute.
-  const containsActionInput = collected.filter(
-    ({ actionInputs }) => actionInputs.length > 0
-  )
-
-  const dryRun =
-    containsActionInput.length > 1
-      ? readFoundryMultiChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          `sphinxEstimateMerkleLeafGas`,
-          dateBeforeForgeScript
-        )
-      : readFoundrySingleChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          containsActionInput[0].deploymentInfo.chainId,
-          `sphinxEstimateMerkleLeafGas`,
-          dateBeforeForgeScript
-        )
-
-  if (!dryRun) {
-    // This should never happen because the presence of action inputs should always mean that a
-    // broadcast occurred.
-    throw new Error(`Could not read Foundry dry run file. Should never happen.`)
-  }
-
   const gasEstimatesArray: Array<Array<string>> = []
   for (const { actionInputs, deploymentInfo } of collected) {
-    let transactions: Array<FoundryDryRunTransaction> = []
-    if (isFoundryMultiChainDryRun(dryRun)) {
-      // Find the dry run that corresponds to the current network.
-      const deploymentOnNetwork = dryRun.deployments.find(
-        (deployment) => deployment.chain.toString() === deploymentInfo.chainId
-      )
-      // If we couldn't find a dry run that corresponds to the current network, then there must
-      // not be any transactions to execute on it. We use an empty transactions array in this case.
-      transactions = deploymentOnNetwork ? deploymentOnNetwork.transactions : []
-    } else if (isFoundrySingleChainDryRun(dryRun)) {
-      // Check if the current network matches the network of the dry run. If the current network
-      // doesn't match the dry run's network, then this means there weren't any transactions
-      // executed on the current network. We use an empty transactions array in this case.
-      transactions =
-        deploymentInfo.chainId === dryRun.chain.toString()
-          ? dryRun.transactions
-          : []
-    } else {
-      throw new Error(
-        `Foundry dry run is an incompatible type. Should never happen.`
-      )
+    const txns = actionInputs.map(toSphinxTransaction)
+    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [txns])
+
+    // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
+    // instead of passing in the data as a parameter to the Forge script because it's possible to hit
+    // Node's `spawn` input size limit if the data is large. This is particularly a concern because
+    // the data contains contract init code.
+    writeFileSync(leafGasInputsFilePath, encodedTxnArray)
+
+    const leafGasEstimationScriptArgs = [
+      'script',
+      scriptPath,
+      '--sig',
+      'sphinxEstimateMerkleLeafGas(string,uint256)',
+      leafGasInputsFilePath,
+      deploymentInfo.chainId,
+      '--silent', // Silence compiler output
+      '--json',
+    ]
+    if (targetContract) {
+      leafGasEstimationScriptArgs.push('--target-contract', targetContract)
     }
 
-    let gasEstimates: Array<string> = []
-    if (deploymentInfo.chainId === '421614') {
-      // We hard-code the Merkle leaf's gas on Arbitrum Sepolia because Foundry's gas estimation for
-      // this network is currently broken. The issue is described here:
-      // https://github.com/foundry-rs/foundry/issues/6591
-      // We hard-code it to be 50 million because the block gas limit on Arbitrum Sepolia is
-      // ~1 quadrillion, so there's no harm in having a high estimate. For reference, it costs
-      // ~15 million gas to deploy `MyLargeContract` in the `plugins` package tests.
-      gasEstimates = new Array(transactions.length).fill('50000000')
-    } else {
-      gasEstimates = transactions
-        // We remove any transactions that weren't broadcasted from the Sphinx Module. Particularly,
-        // we remove the transaction that deploys the Gnosis Safe and Sphinx Module, which is
-        // broadcasted from a different address. This transaction isn't relevant because we're only
-        // interested in estimating the gas of the Sphinx leaves.
-        .filter(
-          (tx) =>
-            typeof tx.transaction.from === 'string' &&
-            ethers.getAddress(tx.transaction.from) ===
-              deploymentInfo.moduleAddress
-        )
-        .map((tx) => tx.transaction.gas)
-        // Narrows the TypeScript type of `gas` from `string | null` to `string`.
-        .map((gas) => {
-          if (typeof gas !== 'string') {
-            throw new Error(
-              `Detected a 'gas' field that is not a string. Should never happen.`
-            )
-          }
-          return gas
-        })
-        // Convert the gas values from hex strings to decimal strings.
-        .map((gas) => parseInt(gas, 16).toString())
-
-      // Sanity check that there's a gas estimate for each transaction.
-      if (gasEstimates.length !== actionInputs.length) {
-        throw new Error(
-          `Mismatch between the number of transactions and the number of gas estimates. Should never happen.`
-        )
-      }
+    const gasEstimationSpawnOutput = await spawnAsync(
+      'forge',
+      leafGasEstimationScriptArgs
+    )
+    if (gasEstimationSpawnOutput.code !== 0) {
+      spinner?.stop()
+      // The `stdout` contains the trace of the error.
+      console.log(gasEstimationSpawnOutput.stdout)
+      // The `stderr` contains the error message.
+      console.log(gasEstimationSpawnOutput.stderr)
+      process.exit(1)
     }
 
-    gasEstimatesArray.push(gasEstimates)
+    const returned = JSON.parse(gasEstimationSpawnOutput.stdout).returns
+      .abiEncodedGasArray.value
+    // ABI decode the gas array.
+    const [decoded] = coder.decode(['uint256[]'], returned)
+    // Convert the BigInt elements to Numbers, then multiply by a buffer of 1.5x. This ensures the
+    // user's transaction doesn't fail on-chain due to variations in the chain state, which could
+    // occur between the time of the simulation and execution.
+    const returnedGasArrayWithBuffer = decoded
+      .map(Number)
+      .map((gas) => Math.round(gas * 1.5).toString())
+
+    gasEstimatesArray.push(returnedGasArrayWithBuffer)
   }
 
   return gasEstimatesArray
