@@ -203,6 +203,10 @@ export const getGasPriceOverrides = async (
         'latest'
       )
       return overridden
+    // On Gnosis, set the gas limit artificially high (since ethers does not seem to always estimate it proplerly especially for contract deployments)
+    case 10200:
+      overridden.gasLimit = 15_000_000
+      return overridden
     // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
     default:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {

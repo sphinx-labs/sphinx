@@ -239,11 +239,7 @@ contract SphinxPluginTypes {
 
     function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) {}
 
-    function leafGasParams()
-        external
-        view
-        returns (SphinxTransaction[] memory txnArray, uint256[] memory chainIds)
-    {}
+    function leafGasParams() external view returns (SphinxTransaction[] memory txnArray) {}
 
     function sphinxLeafWithProofType()
         external

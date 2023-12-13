@@ -85,7 +85,7 @@ Valid values:
 
 ### `Network[] testnets`
 ```
-sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
+sphinxConfig.testnets = [Network.sepolia, Network.optimism_sepolia];
 ```
 
 The list of testnets to deploy on.

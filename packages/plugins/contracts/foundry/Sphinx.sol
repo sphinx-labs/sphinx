@@ -109,13 +109,12 @@ abstract contract Sphinx {
         address deployer;
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         if (isLiveNetwork) {
+            deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
             sphinxUtils.validateLiveNetworkBroadcast(
                 sphinxConfig,
                 deployer,
                 IGnosisSafe(sphinxSafe())
             );
-
-            deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else {
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
@@ -172,10 +171,12 @@ abstract contract Sphinx {
 
         uint256 privateKey;
         if (isLiveNetwork) {
-            (, address msgSender, ) = vm.readCallers();
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, msgSender, IGnosisSafe(safe));
-
             privateKey = vm.envUint("PRIVATE_KEY");
+            sphinxUtils.validateLiveNetworkBroadcast(
+                sphinxConfig,
+                vm.addr(privateKey),
+                IGnosisSafe(safe)
+            );
         } else {
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
@@ -190,7 +191,8 @@ abstract contract Sphinx {
 
     function sphinxApprove(
         bytes32 _merkleRoot,
-        SphinxLeafWithProof memory _approveLeafWithProof
+        SphinxLeafWithProof memory _approveLeafWithProof,
+        bool _simulatingProposal
     ) public {
         NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(
             _approveLeafWithProof.leaf.chainId
@@ -217,7 +219,7 @@ abstract contract Sphinx {
         );
 
         uint256 privateKey;
-        if (isLiveNetwork) {
+        if (isLiveNetwork && !_simulatingProposal) {
             sphinxMode = SphinxMode.LiveNetworkBroadcast;
 
             (, address msgSender, ) = vm.readCallers();
@@ -234,7 +236,7 @@ abstract contract Sphinx {
         }
 
         bytes memory ownerSignatures;
-        if (isLiveNetwork) {
+        if (isLiveNetwork && !_simulatingProposal) {
             Wallet[] memory walletArray = new Wallet[](1);
             walletArray[0] = Wallet({ privateKey: privateKey, addr: vm.addr(privateKey) });
 
@@ -389,7 +391,8 @@ abstract contract Sphinx {
             sphinxApprove(
                 merkleTree.root,
                 // The `APPROVE` leaf is always the first element in the array.
-                leavesOnNetwork[0]
+                leavesOnNetwork[0],
+                true
             );
             vm.stopBroadcast();
 
@@ -634,60 +637,72 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Estimates the values of the `gas` fields in the Sphinx Merkle leaves.
+     * @notice Estimates the values of the `gas` fields in the Merkle leaves using `gasleft`. This
+     *         provides a more accurate estimate than simulating the transactions and retrieving
+     *         them from Foundry's broadcast file. Particularly, it's possible to underestimate the
+     *         Merkle leaf's gas with the simulation approach. Consider this (contrived) edge case:
+     *         Say a user's transaction deploys a contract, which costs ~2 million gas, and also
+     *         involves a large gas refund (~500k gas). Since gas refunds occur after the
+     *         transaction is executed, the broadcast file will have a gas estimate of ~1.5 million
+     *         gas. However, the user's transaction costs 2 million gas. This will cause Sphinx to
+     *         underestimate the Merkle leaf's gas, resulting in a failed deployment on-chain. This
+     *         situation uses contrived numbers, but the point is that using `gasleft` is accurate
+     *         even if there's a large gas refund.
+     *
+     * @return abiEncodedGasArray The ABI encoded array of gas estimates. There's one element per
+     *                            `EXECUTE` Merkle leaf. We ABI encode the array because Foundry
+     *                            makes it difficult to reliably parse complex data types off-chain.
+     *                            Specifically, an array element looks like this in the returned
+     *                            JSON: `27222 [2.722e4]`.
      */
-    function sphinxEstimateMerkleLeafGas(string memory _leafGasParamsFilePath) external {
-        (SphinxTransaction[] memory txnArray, uint256[] memory chainIds) = abi.decode(
+    function sphinxEstimateMerkleLeafGas(
+        string memory _leafGasParamsFilePath,
+        uint256 _chainId
+    ) external returns (bytes memory abiEncodedGasArray) {
+        SphinxTransaction[] memory txnArray = abi.decode(
             vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
-            (SphinxTransaction[], uint256[])
-        );
-        require(
-            txnArray.length == chainIds.length,
-            "Sphinx: Array length mismatch. Should never happen."
+            (SphinxTransaction[])
         );
 
         IGnosisSafe safe = IGnosisSafe(sphinxSafe());
         address module = sphinxModule();
         address managedServiceAddress = constants.managedServiceAddress();
 
-        uint256[] memory uniqueChainIds = sphinxUtils.getUniqueUint256(chainIds);
-        for (uint256 i = 0; i < uniqueChainIds.length; i++) {
-            // Create a fork of the target network.
-            NetworkInfo memory currentNetworkInfo = sphinxUtils.findNetworkInfoByChainId(
-                uniqueChainIds[i]
-            );
-            vm.createSelectFork(vm.rpcUrl(currentNetworkInfo.name));
+        uint256[] memory gasEstimates = new uint256[](txnArray.length);
 
-            // Deploy the Sphinx Module and Gnosis Safe if they're not already deployed.
-            if (address(safe).code.length == 0) {
-                // Deploy the Gnosis Safe and Sphinx Module. We can't broadcast this transaction
-                // from the Gnosis Safe or the Sphinx Module because Foundry throws an error if we
-                // attempt to broadcast from the same contract address that we're deploying. We
-                // broadcast from the Managed Service contract so that this transaction is included
-                // in the off-chain gas estimation logic.
-                vm.startBroadcast(managedServiceAddress);
-                _sphinxDeployModuleAndGnosisSafe();
-                vm.stopBroadcast();
-            }
+        // Create a fork of the target network.
+        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(_chainId);
+        vm.createSelectFork(vm.rpcUrl(networkInfo.name));
 
-            // We broadcast from the Sphinx Module to replicate the production environment. In prod,
-            // the Sphinx Module calls the Gnosis Safe.
-            vm.startBroadcast(module);
-
-            for (uint256 j = 0; j < txnArray.length; j++) {
-                if (chainIds[j] == currentNetworkInfo.chainId) {
-                    SphinxTransaction memory txn = txnArray[j];
-                    bool success = safe.execTransactionFromModule(
-                        txn.to,
-                        txn.value,
-                        txn.txData,
-                        txn.operation
-                    );
-                    require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
-                }
-            }
-            vm.stopBroadcast();
+        // Deploy the Sphinx Module and Gnosis Safe if they're not already deployed.
+        if (address(safe).code.length == 0) {
+            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
+            // Managed Service contract, but this replicates the prod environment, so we do it
+            // anyways.
+            vm.startPrank(managedServiceAddress);
+            _sphinxDeployModuleAndGnosisSafe();
+            vm.stopPrank();
         }
+
+        // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
+        // Module calls the Gnosis Safe.
+        vm.startPrank(module);
+
+        for (uint256 i = 0; i < txnArray.length; i++) {
+            SphinxTransaction memory txn = txnArray[i];
+            uint256 startGas = gasleft();
+            bool success = safe.execTransactionFromModule(
+                txn.to,
+                txn.value,
+                txn.txData,
+                txn.operation
+            );
+            gasEstimates[i] = startGas - gasleft();
+            require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
+        }
+        vm.stopPrank();
+
+        return abi.encode(gasEstimates);
     }
 
     /**

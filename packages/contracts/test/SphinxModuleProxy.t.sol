@@ -23,7 +23,11 @@ import {
 } from "../contracts/core/SphinxDataTypes.sol";
 import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { TestUtils } from "./TestUtils.t.sol";
-import { MyContract, MyDelegateCallContract } from "./helpers/MyTestContracts.t.sol";
+import {
+    MyContract,
+    MyDelegateCallContract,
+    GnosisSafeSingletonInvalidVersion
+} from "./helpers/MyTestContracts.t.sol";
 
 /**
  * @notice An abstract contract that contains all of the unit tests for the `SphinxModuleProxy`.
@@ -281,77 +285,37 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
         moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: address(0), _saltNonce: 0 });
     }
 
-    function test_initialize_reverts_invalidSafeProxy() external {
-        vm.expectRevert("SphinxModule: invalid Safe proxy");
-        // Deploy a `SphinxModuleProxy` with a Gnosis Safe proxy address that doesn't have the
-        // correct codehash. We deploy via the `SphinxModuleProxyFactory` out of convenience.
+    function test_initialize_reverts_invalidSafeVersion() external {
+        // Deploy a mock Gnosis Safe singleton with an invalid `VERSION()` function.
+        GnosisSafeSingletonInvalidVersion singleton = new GnosisSafeSingletonInvalidVersion();
+        // Deploy a Gnosis Safe Proxy that uses the invalid singleton.
+        GnosisSafeProxy safeProxy = new GnosisSafeProxy(address(singleton));
+
+        vm.expectRevert("SphinxModule: invalid Safe version");
+        // We deploy via the `SphinxModuleProxyFactory` out of convenience.
         moduleProxyFactory.deploySphinxModuleProxy({
-            _safeProxy: address(1), // Invalid Safe proxy address (i.e. incorrect codehash)
+            _safeProxy: address(safeProxy),
             _saltNonce: 0
         });
-    }
-
-    function test_initialize_reverts_invalidSafeSingleton() external {
-        // Deploy a Gnosis Safe proxy that has the correct codehash, but has a Gnosis Safe singleton
-        // with an incorrect codehash.
-        address invalidSafeSingletonAddr = address(1);
-        bytes memory encodedSafeProxyConstructorArg = abi.encode(invalidSafeSingletonAddr);
-        address safeProxy;
-        // We deploy a different Gnosis Safe proxy depending on the Gnosis Safe version.
-        if (
-            gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0 ||
-            gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0
-        ) {
-            safeProxy = deployCode(
-                "external-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxy.sol/GnosisSafeProxy.json",
-                encodedSafeProxyConstructorArg
-            );
-        } else if (
-            gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1 ||
-            gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1
-        ) {
-            safeProxy = deployCode(
-                "external-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxy.sol/SafeProxy.json",
-                encodedSafeProxyConstructorArg
-            );
-        } else {
-            revert("Invalid Gnosis Safe version. Should never happen.");
-        }
-
-        vm.expectRevert("SphinxModule: invalid Safe singleton");
-        // Deploy a valid Gnosis Safe proxy that uses an incorrect Gnosis Safe singleton. We deploy
-        // via the `SphinxModuleProxyFactory` out of convenience.
-        moduleProxyFactory.deploySphinxModuleProxy({ _safeProxy: safeProxy, _saltNonce: 0 });
     }
 
     function test_initialize_success() external {
         assertEq(address(moduleProxy.safeProxy()), address(safeProxy));
 
-        // Check that the Gnosis Safe proxy has a valid code hash.
+        // Check that the Gnosis Safe singleton has a valid version.
+        address safeSingleton = IProxy(safeProxy).masterCopy();
+        string memory safeVersion = GnosisSafe(payable(safeSingleton)).VERSION();
+        bytes32 safeVersionHash = keccak256(abi.encodePacked(safeVersion));
         if (
             gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0 ||
             gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0
         ) {
-            assertEq(address(safeProxy).codehash, SAFE_PROXY_CODE_HASH_1_3_0);
+            assertEq(safeVersionHash, keccak256("1.3.0"));
         } else if (
             gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1 ||
             gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1
         ) {
-            assertEq(address(safeProxy).codehash, SAFE_PROXY_CODE_HASH_1_4_1);
-        } else {
-            revert("Invalid Gnosis Safe version. Should never happen.");
-        }
-
-        // Check that the Gnosis Safe singleton has a valid code hash.
-        address safeSingleton = IProxy(safeProxy).masterCopy();
-        if (gnosisSafeVersion == GnosisSafeVersion.L1_1_3_0) {
-            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L1_1_3_0);
-        } else if (gnosisSafeVersion == GnosisSafeVersion.L2_1_3_0) {
-            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L2_1_3_0);
-        } else if (gnosisSafeVersion == GnosisSafeVersion.L1_1_4_1) {
-            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L1_1_4_1);
-        } else if (gnosisSafeVersion == GnosisSafeVersion.L2_1_4_1) {
-            assertEq(safeSingleton.codehash, SAFE_SINGLETON_CODE_HASH_L2_1_4_1);
+            assertEq(safeVersionHash, keccak256("1.4.1"));
         } else {
             revert("Invalid Gnosis Safe version. Should never happen.");
         }
