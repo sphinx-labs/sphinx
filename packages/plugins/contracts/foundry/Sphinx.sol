@@ -171,12 +171,10 @@ abstract contract Sphinx {
 
         uint256 privateKey;
         if (isLiveNetwork) {
+            (, address msgSender, ) = vm.readCallers();
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, msgSender, IGnosisSafe(safe));
+
             privateKey = vm.envUint("PRIVATE_KEY");
-            sphinxUtils.validateLiveNetworkBroadcast(
-                sphinxConfig,
-                vm.addr(privateKey),
-                IGnosisSafe(safe)
-            );
         } else {
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
