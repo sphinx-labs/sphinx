@@ -691,12 +691,18 @@ export const getSphinxLeafGasEstimates = async (
       .abiEncodedGasArray.value
     // ABI decode the gas array.
     const [decoded] = coder.decode(['uint256[]'], returned)
-    // Convert the BigInt elements to Numbers, then multiply by a buffer of 1.5x. This ensures the
-    // user's transaction doesn't fail on-chain due to variations in the chain state, which could
-    // occur between the time of the simulation and execution.
+    // Convert the BigInt elements to Numbers, then multiply by a buffer. This ensures the user's
+    // transaction doesn't fail on-chain due to variations in the chain state, which could occur
+    // between the time of the simulation and execution.
     const returnedGasArrayWithBuffer = decoded
+      // Convert the BigInt elements to Numbers
       .map(Number)
-      .map((gas) => Math.round(gas * 1.5).toString())
+      // Include a buffer to ensure the user's transaction doesn't fail on-chain due to variations
+      // in the chain state, which could occur between the time of the simulation and execution. We
+      // chose to multiply the gas by 1.3 because multiplying it by a higher number could make a
+      // very large transaction unexecutable on-chain. Since the 1.3x multiplier doesn't impact
+      // small transactions very much, we add a constant amount of 20k too.
+      .map((gas) => Math.round(gas * 1.3 + 20_000).toString())
 
     gasEstimatesArray.push(returnedGasArrayWithBuffer)
   }
