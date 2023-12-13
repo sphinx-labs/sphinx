@@ -516,8 +516,8 @@ contract TestUtils is SphinxUtils, IEnum, Test {
 
     function deployGnosisSafeContracts_1_3_0() public returns (GnosisSafeContracts_1_3_0 memory) {
         // Deploy the Gnosis Safe Proxy Factory and the Gnosis Safe singletons using the exact
-        // initcode in the artifact files. This ensures that they produce contracts with correct
-        // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
+        // initcode in the artifact files. This isn't strictly necessary, but we do it anyways
+        // to emulate the production environment.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
             "external-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json",
             bytes32(0)
@@ -553,8 +553,8 @@ contract TestUtils is SphinxUtils, IEnum, Test {
 
     function deployGnosisSafeContracts_1_4_1() public returns (GnosisSafeContracts_1_4_1 memory) {
         // Deploy the Gnosis Safe Proxy Factory and the Gnosis Safe singletons using the exact
-        // initcode in the artifact files. This ensures that they produce contracts with correct
-        // code hashes, which is necessary when initializing the `SphinxModuleProxy`.
+        // initcode in the artifact files. This isn't strictly necessary, but we do it anyways
+        // to emulate the production environment.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
             "external-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json",
             bytes32(0)

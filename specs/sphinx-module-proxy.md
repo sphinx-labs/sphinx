@@ -111,7 +111,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
   - Rationale: If a set of owners sign a Merkle root using a meta transaction, the signature will be valid in all Gnosis Safe contracts that they own. It would be a security hazard if a Merkle root intended for one Gnosis Safe is executed in a different Gnosis Safe.
 - It must be impossible to initialize the `SphinxModule` implementation contract directly (i.e., it must only be initializable through a proxy).
   - Rationale: This prevents the possibility that an attacker could take over an uninitialized `SphinxModule` implementation contract.
-- The `SphinxModuleProxy` must be initialized with a Gnosis Safe proxy and a Gnosis Safe singleton that are compatible with Sphinx.[^4]
+- The `SphinxModuleProxy` must be initialized with a Gnosis Safe singleton that has a version compatible with Sphinx.[^4]
   - Rationale: This prevents the user from mistakenly adding a `SphinxModuleProxy` to an incompatible Gnosis Safe, which could potentially lead to vulnerabilities in the Gnosis Safe.
 - All of the behavior described in this specification must apply to all [Gnosis Safe contracts supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).
 
@@ -121,8 +121,7 @@ In this flow chart, you'll notice that it's possible to approve a Merkle root th
 
 - Must revert if this function has already been successfully called.
 - Must revert if the input Gnosis Safe proxy is the zero address.
-- Must revert if the input Gnosis Safe proxy has a code hash that does not equal the code hash of a Gnosis Safe Proxy [v1.3.0](https://github.com/safe-global/safe-contracts/blob/v1.3.0-libs.0/contracts/proxies/GnosisSafeProxy.sol) or [v1.4.1](https://github.com/safe-global/safe-contracts/blob/v1.4.1-build.0/contracts/proxies/SafeProxy.sol).[^5]
-- Must revert if the input Gnosis Safe proxy's singleton has a code hash that does not equal the code hash of a [Gnosis Safe contract supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).[^6]
+- Must revert if the input Gnosis Safe proxy's singleton has a `VERSION()` function that does not equal the version of a [Gnosis Safe contract supported by Sphinx](https://github.com/sphinx-labs/sphinx/blob/develop/specs/introduction.md#supported-gnosis-safe-versions).
 - A successful call must set the Gnosis Safe proxy address in the `SphinxModuleProxy`.
 
 #### `function approve(bytes32 _root, SphinxLeafWithProof memory _leafWithProof, bytes memory _signatures) public`
@@ -266,7 +265,7 @@ The `SphinxModuleProxy` makes several calls to OpenZeppelin's Contracts library 
 
 ### Malicious Gnosis Safe Singleton
 
-The `SphinxModuleProxy`'s `initializer` function checks that the user's Gnosis Safe proxy and Gnosis Safe singleton are compatible with Sphinx. However, we assume that the Gnosis Safe singleton isn't malicious. The singleton can be a metamorphic deployment, allowing somebody malicious to self-destruct the singleton, causing the user's Gnosis Safe Proxy to be disabled permanently. We will use the same strategy as Gnosis Safe to mitigate this threat: maintain a list of Gnosis Safe singleton addresses off-chain.
+The `SphinxModuleProxy`'s `initializer` function checks that the user's Gnosis Safe proxy has a singleton with a compatible version by checking its string `VERSION()` function. This is sufficient to prevent users from accidentally enabling a `SphinxModuleProxy` in a Gnosis Safe with an incompatible version.  However, we assume that the Gnosis Safe singleton isn't malicious. If a Gnosis Safe singleton has a valid `VERSION()` function and arbitrary malicious logic, the `SphinxModuleProxy`'s `initializer` function would still consider the singleton to be valid. We will use the same strategy as Gnosis Safe to mitigate this threat: maintain a list of Gnosis Safe singleton addresses off-chain.
 
 ## Footnotes
 
@@ -276,25 +275,4 @@ The `SphinxModuleProxy`'s `initializer` function checks that the user's Gnosis S
 
 [^3]: It's not possible to reuse a signed Merkle root in a different Gnosis Safe because the Merkle root can only be executed in one `SphinxModuleProxy`, and each `SphinxModuleProxy` can only execute transactions on one Gnosis Safe.
 
-[^4]: We check that a Gnosis Safe proxy and its singleton are compatible with Sphinx by checking their code hashes when initializing the `SphinxModuleProxy`. This check is sufficient to prevent users from accidentally enabling a `SphinxModuleProxy` in an incompatible Gnosis Safe (e.g. a Safe with an unsupported version).
-
-[^5]: The code hashes for the Gnosis Safe proxies can be found by following these steps:
-1. Go to Gnosis Safe's official deployments page for the Gnosis Safe Proxy Factory: [v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/proxy_factory.json) and [v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe_proxy_factory.json).
-2. Copy and paste a factory address into Etherscan.
-3. Navigate to the "Transactions" panel, then select one of the transactions.
-4. Navigate to the "Logs" panel, where you'll find the address of a deployed Gnosis Safe proxy.
-5. Navigate to the Gnosis Safe proxy's Etherscan page.
-6. Navigate to the "Contracts" panel for the proxy.
-7. Scroll down to the "Deployed Bytecode" section.
-8. Use `keccak256` to hash the deployed bytecode. If Foundry is installed on your machine, you can run `cast keccak <code>` from the CLI.
-
-[^6]: The code hashes for the Gnosis Safe singletons can be found by following these steps:
-1. Go to Gnosis Safe's official deployments page for the singletons:
-  - [L1 v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/gnosis_safe.json)
-  - [L2 v1.3.0](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/gnosis_safe_l2.json)
-  - [L1 v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe.json)
-  - [L2 v1.4.1](https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/safe_l2.json)
-2. Copy and paste a singleton address into Etherscan.
-3. Navigate to the "Contracts" panel.
-4. Scroll down to the "Deployed Bytecode" section.
-5. Use `keccak256` to hash the deployed bytecode. If Foundry is installed on your machine, you can run `cast keccak <code>` from the CLI.
+[^4]: We check that a Gnosis Safe singleton has a compatible version by checking its string `VERSION()` function. We considered checking the `codehash` of the Gnosis Safe proxy and singleton instead, since this provides additional protection against using an invalid Gnosis Safe. However, we decided not to use the `codehash` because one chain that we intend to support (Polygon zkEVM) appears to use a different calculation for the `codehash`. This is a difference that appears to be undocumented. An alternative solution is to pass an array of valid code hashes into the constructor of the `SphinxModule`, which would allow us to support chains with non-standard code hashes like Polygon zkEVM. However, we decided not to do this because it would change the address of the `SphinxModule` on these chains, which would change the address of the user's Gnosis Safe when deploying with [Sphinx's standard Gnosis Safe deployment method](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy-factory.md#2-deploy-a-gnosis-safe-and-enable-a-sphinxmoduleproxy-in-a-single-transaction).

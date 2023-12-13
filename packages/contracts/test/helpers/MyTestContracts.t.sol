@@ -51,3 +51,7 @@ contract MyDelegateCallContract {
         wasDelegateCalled = true;
     }
 }
+
+contract GnosisSafeSingletonInvalidVersion {
+    string public VERSION = "1.2.0";
+}

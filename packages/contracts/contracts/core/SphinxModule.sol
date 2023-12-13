@@ -37,40 +37,14 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     string public constant override VERSION = "1.0.0";
 
     /**
-     * @dev The code hash for the Gnosis Safe proxy v1.3.0.
+     * @dev The hash of the version string for the Gnosis Safe proxy v1.3.0.
      */
-    bytes32 internal constant SAFE_PROXY_CODE_HASH_1_3_0 =
-        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+    bytes32 internal constant SAFE_VERSION_HASH_1_3_0 = keccak256("1.3.0");
 
     /**
-     * @dev The code hash for the Gnosis Safe proxy v1.4.1.
+     * @dev The hash of the version string for the Gnosis Safe proxy v1.4.1.
      */
-    bytes32 internal constant SAFE_PROXY_CODE_HASH_1_4_1 =
-        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
-
-    /**
-     * @dev The code hash for the L1 Gnosis Safe singleton v1.3.0.
-     */
-    bytes32 internal constant SAFE_SINGLETON_CODE_HASH_L1_1_3_0 =
-        0xbba688fbdb21ad2bb58bc320638b43d94e7d100f6f3ebaab0a4e4de6304b1c2e;
-
-    /**
-     * @dev The code hash for the L2 Gnosis Safe singleton v1.3.0.
-     */
-    bytes32 internal constant SAFE_SINGLETON_CODE_HASH_L2_1_3_0 =
-        0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
-
-    /**
-     * @dev The code hash for the L1 Gnosis Safe singleton v1.4.1.
-     */
-    bytes32 internal constant SAFE_SINGLETON_CODE_HASH_L1_1_4_1 =
-        0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4;
-
-    /**
-     * @dev The code hash for the L2 Gnosis Safe singleton v1.4.1.
-     */
-    bytes32 internal constant SAFE_SINGLETON_CODE_HASH_L2_1_4_1 =
-        0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
+    bytes32 internal constant SAFE_VERSION_HASH_1_4_1 = keccak256("1.4.1");
 
     /**
      * @dev The EIP-712 domain separator, which displays a bit of context to the user
@@ -124,25 +98,16 @@ contract SphinxModule is ReentrancyGuard, Enum, ISphinxModule, Initializable {
     function initialize(address _safeProxy) external override initializer {
         require(_safeProxy != address(0), "SphinxModule: invalid Safe address");
 
-        // Check that the Gnosis Safe proxy's address has a valid code hash.
-        bytes32 safeProxyCodeHash = _safeProxy.codehash;
-        require(
-            safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_3_0 ||
-                safeProxyCodeHash == SAFE_PROXY_CODE_HASH_1_4_1,
-            "SphinxModule: invalid Safe proxy"
-        );
-
-        // Check that the Gnosis Safe proxy has a singleton with a valid code hash. This check
-        // prevents users from accidentally adding the module to an incompatible Safe. For example,
-        // if the Safe is an unsupported version, the code hash won't match.
+        // Check that the Gnosis Safe proxy has a singleton with a valid version. This check
+        // prevents users from accidentally adding the module to a Gnosis Safe with an invalid
+        // version.
         address safeSingleton = IProxy(_safeProxy).masterCopy();
-        bytes32 safeSingletonCodeHash = safeSingleton.codehash;
+        string memory safeVersion = GnosisSafe(payable(safeSingleton)).VERSION();
+        bytes32 safeVersionHash = keccak256(abi.encodePacked(safeVersion));
         require(
-            safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_3_0 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L1_1_4_1 ||
-                safeSingletonCodeHash == SAFE_SINGLETON_CODE_HASH_L2_1_4_1,
-            "SphinxModule: invalid Safe singleton"
+            safeVersionHash == SAFE_VERSION_HASH_1_3_0 ||
+                safeVersionHash == SAFE_VERSION_HASH_1_4_1,
+            "SphinxModule: invalid Safe version"
         );
 
         safeProxy = payable(_safeProxy);
