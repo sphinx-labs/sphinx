@@ -1,5 +1,19 @@
 # @sphinx-labs/contracts
 
+## 0.14.0
+
+### Minor Changes
+
+- 6981e3e: Post audit updates
+- 434b085: Add Etherscan verification for system contracts
+
+### Patch Changes
+
+- 24576bd: Validate live network broadcast before retrieving private key
+- 0adc1e1: Improve gas estimation
+- 5b511e9: Make gas estimate more robust by using `gasleft()`
+- 9d5d0a4: Check Gnosis Safe compatibility using `VERSION()` function instead of codehash
+
 ## 0.13.3
 
 ### Patch Changes

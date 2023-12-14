@@ -1,5 +1,24 @@
 # @sphinx-labs/core
 
+## 0.19.0
+
+### Minor Changes
+
+- 6981e3e: Post audit updates
+- 434b085: Add Etherscan verification for system contracts
+- 013c0f9: Update getting started guides and related CLI commands
+
+### Patch Changes
+
+- 0adc1e1: Improve gas estimation
+- Updated dependencies [6981e3e]
+- Updated dependencies [24576bd]
+- Updated dependencies [434b085]
+- Updated dependencies [0adc1e1]
+- Updated dependencies [5b511e9]
+- Updated dependencies [9d5d0a4]
+  - @sphinx-labs/contracts@0.14.0
+
 ## 0.18.3
 
 ### Patch Changes
