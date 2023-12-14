@@ -66,16 +66,22 @@ export const executeDeployment = async (
     packedSignatures,
   ])
 
-  // Execute the `APPROVE` leaf.
-  receipts.push(
-    await (
-      await managedService.exec(
-        await module.getAddress(),
-        approvalData,
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-  )
+  try {
+    // Execute the `APPROVE` leaf.
+    receipts.push(
+      await (
+        await managedService.exec(
+          await module.getAddress(),
+          approvalData,
+          await getGasPriceOverrides(signer)
+        )
+      ).wait()
+    )
+  } catch (e) {
+    if (!e.message.includes('SphinxModule: active merkle root')) {
+      throw e
+    }
+  }
 
   // Execute the `EXECUTE` leaves of the Merkle tree.
   logger?.info(`[Sphinx]: executing actions...`)
