@@ -2,14 +2,14 @@ export * from './sample-contracts'
 
 import * as fs from 'fs'
 import * as path from 'path'
+import { spawnSync } from 'child_process'
 
 import ora from 'ora'
+import { ethers } from 'ethers'
 
 import {
+  fetchDotEnvFile,
   fetchForgeConfig,
-  fetchNPMRemappings,
-  fetchPNPMRemappings,
-  sampleDotEnvFile,
   sampleGitIgnoreFile,
 } from './sample-foundry-config'
 import {
@@ -22,15 +22,34 @@ export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
-export const writeSampleProjectFiles = (
-  contractDirPath: string,
-  testDirPath: string,
-  scriptDirPath: string,
-  quickstart: boolean,
-  solcVersion: string,
+export const init = (
   pnpm: boolean,
-  spinner: ora.Ora
+  foundryup: boolean,
+  orgId: string,
+  sphinxApiKey: string,
+  alchemyApiKey: string,
+  rawOwnerAddress: string
 ) => {
+  if (foundryup) {
+    const { status } = spawnSync(`foundryup`, [], {
+      stdio: 'inherit',
+    })
+    // Exit the process if compilation fails.
+    if (status !== 0) {
+      process.exit(1)
+    }
+  }
+
+  const spinner = ora()
+  spinner.start(`Initializing sample Sphinx project...`)
+
+  const contractDirPath = 'src'
+  const testDirPath = 'test'
+  const scriptDirPath = 'script'
+
+  // Convert the raw address to a checksum address.
+  const owner = ethers.getAddress(rawOwnerAddress)
+
   // Create the script folder if it doesn't exist
   if (!fs.existsSync(scriptDirPath)) {
     fs.mkdirSync(scriptDirPath)
@@ -46,68 +65,28 @@ export const writeSampleProjectFiles = (
     fs.mkdirSync(testDirPath)
   }
 
-  // Check if the sample Sphinx deployment script file already exists.
-  const configPath = path.join(scriptDirPath, sampleScriptFileName)
-  if (!fs.existsSync(configPath)) {
-    // Create the sample Sphinx deployment script file.
-    fs.writeFileSync(
-      configPath,
-      getSampleScriptFile(solcVersion, scriptDirPath, contractDirPath)
-    )
-  }
+  // Create the sample deployment script.
+  const scriptPath = path.join(scriptDirPath, sampleScriptFileName)
+  fs.writeFileSync(
+    scriptPath,
+    getSampleScriptFile(owner, orgId, scriptDirPath, contractDirPath)
+  )
 
-  // Next, we'll create the sample contract file.
-
-  // Check if the sample smart contract exists.
+  // Create the sample contract.
   const contractFilePath = path.join(contractDirPath, sampleContractFileName)
-  if (!fs.existsSync(contractFilePath)) {
-    // Create the sample contract file.
-    fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
-  }
+  fs.writeFileSync(contractFilePath, getSampleContractFile())
 
-  let pnpmContractsPackage: string | undefined
-  let pnpmPluginsPackage: string | undefined
-  if (pnpm) {
-    pnpmContractsPackage = fs
-      .readdirSync('./node_modules/.pnpm')
-      .find((dir) => dir.startsWith('@sphinx-labs+contracts'))
-    pnpmPluginsPackage = fs
-      .readdirSync('./node_modules/.pnpm')
-      .find((dir) => dir.startsWith('@sphinx-labs+plugins'))
-  }
-
-  // Lastly, we'll create the config and environment related files.
-  if (quickstart) {
-    fs.writeFileSync(
-      'foundry.toml',
-      fetchForgeConfig(pnpm, pnpmPluginsPackage, pnpmContractsPackage, true)
-    )
-    fs.writeFileSync('.env', sampleDotEnvFile)
-    fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
-  }
-
-  spinner.succeed('Initialized sample project.')
-
-  if (!quickstart) {
-    const remappings = pnpm
-      ? fetchPNPMRemappings(pnpmPluginsPackage, pnpmContractsPackage, false)
-      : fetchNPMRemappings(false)
-
-    spinner.info(
-      `Please add the following remappings to your foundry.toml or remappings.txt file:
-
-${remappings.join('\n')}
-`
-    )
-  }
-
-  // Check if the sample test file exists.
+  // Create the sample test file.
   const testFilePath = path.join(testDirPath, sampleTestFileName)
-  if (!fs.existsSync(testFilePath)) {
-    // Create the sample test file.
-    fs.writeFileSync(
-      testFilePath,
-      getSampleFoundryTestFile(solcVersion, testDirPath, scriptDirPath)
-    )
-  }
+  fs.writeFileSync(
+    testFilePath,
+    getSampleFoundryTestFile(testDirPath, scriptDirPath)
+  )
+
+  fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
+  fs.writeFileSync('foundry.toml', fetchForgeConfig(pnpm, true))
+  // Create a `.env` file that contains the Sphinx API key and Alchemy API key supplied by the user.
+  fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
+
+  spinner.succeed('Initialized sample Sphinx project.')
 }

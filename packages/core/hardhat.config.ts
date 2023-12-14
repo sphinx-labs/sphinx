@@ -1,11 +1,15 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+import '@nomicfoundation/hardhat-ethers'
+
 import * as dotenv from 'dotenv'
 import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
-import '@nomicfoundation/hardhat-ethers'
+import { Logger } from '@eth-optimism/common-ts'
 
-import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
+import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
+import { etherscanVerifySphinxSystem } from './src/etherscan'
 
 // Load environment variables from .env
 dotenv.config()
@@ -31,9 +35,9 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    goerli: {
-      chainId: 5,
-      url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    sepolia: {
+      chainId: 11155111,
+      url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     ethereum: {
@@ -41,9 +45,9 @@ const config: HardhatUserConfig = {
       url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
-    'optimism-goerli': {
-      chainId: 420,
-      url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    'optimism-sepolia': {
+      chainId: 11155420,
+      url: `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     optimism: {
@@ -56,9 +60,9 @@ const config: HardhatUserConfig = {
       url: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
-    'arbitrum-goerli': {
-      chainId: 421613,
-      url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    'arbitrum-sepolia': {
+      chainId: 421614,
+      url: `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     bnbt: {
@@ -96,7 +100,7 @@ const config: HardhatUserConfig = {
       url: `${process.env.POLYGON_ZKEVM_MAINNET_URL}`,
       accounts,
     },
-    'polygon-zkevm-testnet': {
+    'polygon-zkevm-goerli': {
       chainId: 1442,
       url: `${process.env.POLYGON_ZKEVM_TESTNET_URL}`,
       accounts,
@@ -106,7 +110,7 @@ const config: HardhatUserConfig = {
       url: `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
-    'linea-testnet': {
+    'linea-goerli': {
       chainId: 59140,
       url: `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -121,7 +125,7 @@ const config: HardhatUserConfig = {
       url: `${process.env.FANTOM_MAINNET_RPC_URL}`,
       accounts,
     },
-    'avalanche-fiji': {
+    'avalanche-fuji': {
       chainId: 43113,
       url: `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -133,12 +137,12 @@ const config: HardhatUserConfig = {
     },
     base: {
       chainId: 8453,
-      url: `${process.env.BASE_MAINNET_URL}`,
+      url: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
-    'base-goerli': {
-      chainId: 84531,
-      url: `${process.env.BASE_GOERLI_URL}`,
+    'base-sepolia': {
+      chainId: 84532,
+      url: `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
   },
@@ -164,7 +168,16 @@ task('deploy-system')
       const provider = new SphinxJsonRpcProvider(hre.network.config.url)
       const signer = await hre.ethers.provider.getSigner()
 
-      await initializeAndVerifySphinx(args.systemConfig, provider, signer)
+      const systemConfig: SphinxSystemConfig =
+        require(args.systemConfig).default
+
+      const logger = new Logger({
+        name: 'Logger',
+      })
+
+      await deploySphinxSystem(provider, signer, systemConfig.relayers, logger)
+
+      await etherscanVerifySphinxSystem(provider, logger)
     }
   )
 

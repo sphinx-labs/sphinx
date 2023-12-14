@@ -3,14 +3,14 @@
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import ora from 'ora'
-import 'core-js/features/array/at'
 
-import { writeSampleProjectFiles } from '../sample-project'
-import { inferSolcVersion } from '../foundry/utils'
-import { getFoundryConfigOptions } from '../foundry/options'
-import { propose } from './propose'
+import { init } from '../sample-project'
 import { deploy } from './deploy'
+import { propose } from './propose'
+import {
+  fetchNPMRemappings,
+  fetchPNPMRemappings,
+} from '../sample-project/sample-foundry-config'
 
 // Load environment variables from .env
 dotenv.config()
@@ -29,47 +29,44 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose <script_path> [--testnets|--mainnets] [OPTIONS]`
+          `Usage: npx sphinx propose <scriptPath> [--testnets|--mainnets] [--tc <targetContract>] [--confirm] [--dry-run] [--silent]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
           type: 'string',
         })
         .option('testnets', {
-          describe:
-            'Propose on the testnets specified in the Sphinx deployment script',
+          describe: `Propose on the 'sphinxConfig.testnets' in the script`,
           boolean: true,
         })
         .option('mainnets', {
-          describe: `Propose on the mainnets specified in the Sphinx deployment script`,
+          describe: `Propose on the 'sphinxConfig.mainnets' in the script`,
           boolean: true,
         })
         .option(confirmOption, {
-          describe:
-            'Confirm the proposal without previewing it. Meant to be used in a CI process.',
+          describe: 'Confirm the proposal without previewing it.',
           boolean: true,
+          default: false,
         })
         .option(dryRunOption, {
-          describe: `Simulate the proposal without sending it to Sphinx's back-end.`,
+          describe: `Dry run the proposal without sending it to Sphinx's backend.`,
           boolean: true,
+          default: false,
         })
         .option(targetContractOption, {
-          describe:
-            'The name of the contract within the script file. Necessary when there are multiple contracts in the specified script.',
+          describe: 'The name of the contract to run in the script.',
           type: 'string',
           alias: 'tc',
         })
         .option('silent', {
-          describe:
-            'Silence the output except for error messages. You must also confirm the proposal via the --confirm flag if you specify this option.',
+          describe: 'Silence the output except for error messages.',
           boolean: true,
+          default: false,
         })
         .hide('version'),
     async (argv) => {
-      const { testnets, mainnets, targetContract } = argv
-      const confirm = !!argv[confirmOption]
-      const dryRun = !!argv.dryRun
-      const silent = !!argv.silent
+      const { testnets, mainnets, targetContract, silent, dryRun, confirm } =
+        argv
 
       if (argv._.length < 2) {
         console.error('Must specify a path to a Forge script.')
@@ -95,13 +92,6 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      if (dryRun && confirm) {
-        console.error(
-          `Cannot specify both --${dryRunOption} and --${confirmOption}. Please choose one.`
-        )
-        process.exit(1)
-      }
-
       if (silent && !confirm) {
         // Since the '--silent' option silences the preview, the user must confirm the proposal
         // via the CLI flag.
@@ -123,41 +113,70 @@ yargs(hideBin(process.argv))
   )
   .command(
     'init',
-    'Initialize a sample project',
+    'Initialize a sample Sphinx project',
     (y) =>
       y
-        .usage('Usage: npx sphinx init [--quickstart] [--pnpm]')
-        .option('quickstart', {
-          describe:
-            'Initialize the project in a new repository. This writes a new foundry.toml and .env file.',
-          boolean: true,
-        })
+        .usage(
+          'Usage: npx sphinx init [--pnpm] [--foundryup] --org-id <org-id> --sphinx-api-key <api-key> --alchemy-api-key <alchemy-key> --owner <owner-address>'
+        )
         .option('pnpm', {
-          describe:
-            'Output remappings for pnpm installations instead of npm or yarn.',
+          describe: `Create remappings for pnpm.`,
           boolean: true,
+          default: false,
+        })
+        .option('foundryup', {
+          describe: 'Update Foundry to the latest version.',
+          boolean: true,
+          default: false,
+        })
+        .option('org-id', {
+          describe: 'Your organization ID from the Sphinx UI.',
+          type: 'string',
+          demandOption: true,
+        })
+        .option('sphinx-api-key', {
+          describe: 'Your API key from the Sphinx UI.',
+          type: 'string',
+          demandOption: true,
+        })
+        .option('alchemy-api-key', {
+          describe: 'Your Alchemy API key.',
+          type: 'string',
+          demandOption: true,
+        })
+        .option('owner', {
+          describe: 'The address of an account you own on live networks.',
+          type: 'string',
+          demandOption: true,
         })
         .hide('version'),
     async (argv) => {
-      const quickstart = argv.quickstart ?? false
-      const pnpm = argv.pnpm ?? false
+      const { pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } =
+        argv
 
-      const spinner = ora()
-      spinner.start(`Initializing sample project...`)
+      init(pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
+    }
+  )
+  .command(
+    'remappings',
+    'Output remappings for the Sphinx packages.',
+    (y) =>
+      y
+        .usage('Usage: npx sphinx remappings [--pnpm]')
+        .option('pnpm', {
+          describe: `Create remappings for pnpm.`,
+          boolean: true,
+          default: false,
+        })
+        .hide('version'),
+    async (argv) => {
+      const { pnpm } = argv
 
-      const { src, test, script, solc } = await getFoundryConfigOptions()
+      const remappings = pnpm
+        ? fetchPNPMRemappings(false)
+        : fetchNPMRemappings(false)
 
-      const solcVersion = solc ?? (await inferSolcVersion())
-
-      writeSampleProjectFiles(
-        src,
-        test,
-        script,
-        quickstart,
-        solcVersion,
-        pnpm,
-        spinner
-      )
+      console.log(remappings.join('\n'))
     }
   )
   .command(

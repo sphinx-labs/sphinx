@@ -1,2 +1,7 @@
 export * from './ifaces'
 export * from './constants'
+export * from './merkle-tree'
+export * from './contract-info'
+export * from './addresses'
+export * from './types'
+export * from './utils'

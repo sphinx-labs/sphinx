@@ -17,9 +17,9 @@ export type SupportedMainnetNetworkName =
   | 'fantom'
   | 'base'
 export type SupportedTestnetNetworkName =
-  | 'goerli'
-  | 'optimism_goerli'
-  | 'arbitrum_goerli'
+  | 'sepolia'
+  | 'optimism_sepolia'
+  | 'arbitrum_sepolia'
   | 'polygon_mumbai'
   | 'bnb_testnet'
   | 'gnosis_chiado'
@@ -27,7 +27,7 @@ export type SupportedTestnetNetworkName =
   | 'polygon_zkevm_goerli'
   | 'avalanche_fuji'
   | 'fantom_testnet'
-  | 'base_goerli'
+  | 'base_sepolia'
 
 export type SupportedNetworkName =
   | SupportedMainnetNetworkName
@@ -51,9 +51,9 @@ export const NetworkEnum = {
   fantom: 10n,
   base: 11n,
   // testnets
-  goerli: 12n,
-  optimism_goerli: 13n,
-  arbitrum_goerli: 14n,
+  sepolia: 12n,
+  optimism_sepolia: 13n,
+  arbitrum_sepolia: 14n,
   polygon_mumbai: 15n,
   bnb_testnet: 16n,
   gnosis_chiado: 17n,
@@ -61,7 +61,7 @@ export const NetworkEnum = {
   polygon_zkevm_goerli: 19n,
   avalanche_fuji: 20n,
   fantom_testnet: 21n,
-  base_goerli: 22n,
+  base_sepolia: 22n,
 }
 
 export const networkEnumToName = (
@@ -92,12 +92,12 @@ export const networkEnumToName = (
       return 'fantom'
     case NetworkEnum.base:
       return 'base'
-    case NetworkEnum.goerli:
-      return 'goerli'
-    case NetworkEnum.optimism_goerli:
-      return 'optimism_goerli'
-    case NetworkEnum.arbitrum_goerli:
-      return 'arbitrum_goerli'
+    case NetworkEnum.sepolia:
+      return 'sepolia'
+    case NetworkEnum.optimism_sepolia:
+      return 'optimism_sepolia'
+    case NetworkEnum.arbitrum_sepolia:
+      return 'arbitrum_sepolia'
     case NetworkEnum.polygon_mumbai:
       return 'polygon_mumbai'
     case NetworkEnum.bnb_testnet:
@@ -112,8 +112,8 @@ export const networkEnumToName = (
       return 'avalanche_fuji'
     case NetworkEnum.fantom_testnet:
       return 'fantom_testnet'
-    case NetworkEnum.base_goerli:
-      return 'base_goerli'
+    case NetworkEnum.base_sepolia:
+      return 'base_sepolia'
     default:
       throw new Error(`Unsupported network enum ${networkEnum}`)
   }
@@ -148,9 +148,9 @@ export const SUPPORTED_TESTNETS: Record<
   SupportedTestnetNetworkName,
   SupportedTestnetChainId
 > = {
-  goerli: 5,
-  optimism_goerli: 420,
-  arbitrum_goerli: 421613,
+  sepolia: 11155111,
+  optimism_sepolia: 11155420,
+  arbitrum_sepolia: 421614,
   polygon_mumbai: 80001,
   bnb_testnet: 97,
   gnosis_chiado: 10200,
@@ -158,7 +158,7 @@ export const SUPPORTED_TESTNETS: Record<
   polygon_zkevm_goerli: 1442,
   avalanche_fuji: 43113,
   fantom_testnet: 4002,
-  base_goerli: 84531,
+  base_sepolia: 84532,
 }
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,
@@ -185,26 +185,26 @@ export type SupportedMainnetChainId =
   | 250
   | 8453
 export type SupportedTestnetChainId =
-  | 5
-  | 420
+  | 11155111
+  | 11155420
   | 80001
   | 97
-  | 421613
+  | 421614
   | 10200
   | 59140
   | 1442
   | 43113
   | 4002
-  | 84531
+  | 84532
 export type SupportedChainId =
   | SupportedMainnetChainId
   | SupportedTestnetChainId
   | SupportedLocalChainId
 
-export const MinimumWalletBalanceTestnets = {
-  goerli: '0.15',
-  optimism_goerli: '0.15',
-  arbitrum_goerli: '0.15',
+export const DrippieDripSizesTestnets = {
+  sepolia: '0.15',
+  optimism_sepolia: '0.15',
+  arbitrum_sepolia: '0.15',
   bnb_testnet: '0.15',
   polygon_mumbai: '0.15',
   gnosis_chiado: '0.15',
@@ -212,11 +212,11 @@ export const MinimumWalletBalanceTestnets = {
   polygon_zkevm_goerli: '0.15',
   avalanche_fuji: '1',
   fantom_testnet: '1',
-  base_goerli: '0.15',
+  base_sepolia: '0.15',
 }
 
-export const MinimumWalletBalanceMainnets = {
-  ethereum: '.05',
+export const DrippieDripSizesMainnets = {
+  ethereum: '.15',
   optimism: '.025',
   arbitrum: '.025',
   polygon: '1',
@@ -229,41 +229,33 @@ export const MinimumWalletBalanceMainnets = {
   base: '0.025',
 }
 
-export const MinimumWalletBalance: Record<
+export const DrippieDripSizes: Record<
   SupportedMainnetNetworkName | SupportedTestnetNetworkName,
   string
 > = {
-  ...MinimumWalletBalanceTestnets,
-  ...MinimumWalletBalanceMainnets,
+  ...DrippieDripSizesTestnets,
+  ...DrippieDripSizesMainnets,
 }
 
-// Maps a chain ID to the USDC address on the network.
-export const USDC_ADDRESSES: { [chainId: string]: string } = {
-  // Optimism Goerli:
-  420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
-  // Optimism Mainnet:
-  10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
-}
-
-export const fetchCurrencyForNetwork = (chainId: number) => {
+export const fetchCurrencyForNetwork = (chainId: SupportedChainId) => {
   switch (chainId) {
     // mainnet
     case 1:
       return 'ETH'
-    // goerli
-    case 5:
+    // sepolia
+    case 11155111:
       return 'ETH'
     // optimism
     case 10:
       return 'ETH'
-    // optimism goerli
-    case 420:
+    // optimism sepolia
+    case 11155420:
       return 'ETH'
     // arbitrum
     case 42161:
       return 'ETH'
-    // arbitrum goerli
-    case 421613:
+    // arbitrum sepolia
+    case 421614:
       return 'ETH'
     // BNB
     case 56:
@@ -305,14 +297,14 @@ export const fetchCurrencyForNetwork = (chainId: number) => {
       return 'AVAX'
     case 8453:
       return 'ETH'
-    case 84531:
+    case 84532:
       return 'ETH'
     default:
       throw new Error('Unsupported network')
   }
 }
 
-export const fetchURLForNetwork = (chainId: number) => {
+export const fetchURLForNetwork = (chainId: SupportedChainId) => {
   if (process.env.RUNNING_LOCALLY === 'true') {
     return `http://127.0.0.1:${42000 + (chainId % 1000)}`
   }
@@ -324,18 +316,18 @@ export const fetchURLForNetwork = (chainId: number) => {
     // mainnet
     case 1:
       return `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-    // goerli
-    case 5:
-      return `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+    // sepolia
+    case 11155111:
+      return `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     // optimism
     case 10:
       return `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-    // optimism goerli
-    case 420:
-      return `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-    // arbitrum goerli
-    case 421613:
-      return `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+    // optimism sepolia
+    case 11155420:
+      return `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+    // arbitrum sepilia
+    case 421614:
+      return `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     // arbitrum mainnet
     case 42161:
       return `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
@@ -395,15 +387,9 @@ export const fetchURLForNetwork = (chainId: number) => {
     case 43114:
       return `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`
     case 8453:
-      if (!process.env.BASE_MAINNET_URL) {
-        throw new Error('BASE_MAINNET_URL key not defined')
-      }
-      return process.env.BASE_MAINNET_URL
-    case 84531:
-      if (!process.env.BASE_GOERLI_URL) {
-        throw new Error('BASE_GOERLI_URL key not defined')
-      }
-      return process.env.BASE_GOERLI_URL
+      return `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+    case 84532:
+      return `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     default:
       throw new Error(`Unsupported chain for id ${chainId}`)
   }

@@ -5,45 +5,28 @@ import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
 import {
-    ISphinxAccessControl
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAccessControl.sol";
-import { ISphinxAuth } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuth.sol";
-import { ISphinxCreate3 } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxCreate3.sol";
-import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+    MerkleRootStatus,
+    SphinxLeafWithProof
+} from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
+import { ISphinxModule } from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxModule.sol";
 import {
-    ISphinxAuthFactory
-} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxAuthFactory.sol";
-import {
-    DeploymentState,
-    Version,
-    DeploymentStatus,
-    RawSphinxAction,
-    SphinxActionType,
-    AuthLeafType
-} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
-import {
-    BundledSphinxAction,
-    SphinxTarget,
-    BundledSphinxTarget,
-    BundleInfo,
+    SphinxMerkleTree,
     HumanReadableAction,
     Network,
-    ProposalOutput,
     SphinxConfig,
-    BundleInfo,
-    InitialChainState,
     DeploymentInfo,
-    BundledAuthLeaf,
     SphinxMode,
     NetworkInfo,
-    OptionalAddress,
     Wallet,
-    Label
-} from "./SphinxPluginTypes.sol";
-import { SphinxCollector } from "./SphinxCollector.sol";
-import { SphinxUtils } from "./SphinxUtils.sol";
-import { SphinxConstants } from "./SphinxConstants.sol";
-import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxSemver.sol";
+    Label,
+    SphinxTransaction
+} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
+import {
+    IGnosisSafeProxyFactory
+} from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -59,9 +42,23 @@ import { ISphinxSemver } from "@sphinx-labs/contracts/contracts/interfaces/ISphi
  *         signature in a parent contract and a child contract. This also applies to any state
  *         variables that aren't private. Private variables of the same name can be defined in a
  *         parent and child contract.
+ *
+ * @dev    We refer to this contract in Sphinx's documentation. Make sure to update the
+ *         documentation if you change the name or location of this contract.
  */
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    // These are constants thare are used when signing an EIP-712 meta transaction.
+    bytes32 private constant DOMAIN_SEPARATOR =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes("1.0.0"))
+            )
+        );
+    bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
     /**
      * @dev The configuration options for the user's project. This variable must have `internal`
@@ -80,9 +77,6 @@ abstract contract Sphinx {
     bool private sphinxModifierEnabled;
 
     constructor() {
-        // Set the default SphinxManager version
-        sphinxConfig.version = Version({ major: 0, minor: 2, patch: 6 });
-
         sphinxUtils = new SphinxUtils();
         constants = new SphinxConstants();
         // This ensures that these contracts stay deployed in a multi-fork environment (e.g. when
@@ -92,16 +86,15 @@ abstract contract Sphinx {
     }
 
     function sphinxCollectProposal(
-        address _proposer,
         string memory _networkName,
         string memory _deploymentInfoPath
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
-        sphinxUtils.validateProposal(_proposer, _networkName, sphinxConfig);
+        sphinxUtils.validateProposal(sphinxConfig);
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(
-            _networkName,
-            sphinxUtils.isLiveNetworkFFI(rpcUrl)
+            sphinxUtils.isLiveNetworkFFI(rpcUrl),
+            constants.managedServiceAddress()
         );
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
@@ -113,71 +106,49 @@ abstract contract Sphinx {
     ) external {
         string memory rpcUrl = vm.rpcUrl(_networkName);
 
+        address deployer;
         bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
         if (isLiveNetwork) {
-            uint256 privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
-            require(
-                privateKey != 0,
-                "Sphinx: You must set the 'PRIVATE_KEY' environment variable to run the deployment."
-            );
-
-            address deployer = vm.addr(privateKey);
-
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
-
-            // Make the deployer a proposer. If we don't do this, the execution logic will fail
-            // because a proposer's meta transaction signature is required for the
-            // `SphinxAuth.propose` function.
-            sphinxConfig.proposers.push(deployer);
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, IGnosisSafe(sphinxSafe()));
+            deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else {
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            uint256 privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
-            address deployer = vm.addr(privateKey);
-
-            // Make a pre-determined address a proposer. We'll use it later to sign a meta
-            // transaction, which allows us to propose the deployment.
-            sphinxConfig.proposers.push(deployer);
+            uint256 privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
+            deployer = vm.addr(privateKey);
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(_networkName, isLiveNetwork);
+        DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork, deployer);
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
     function sphinxCollect(
-        string memory _networkName,
-        bool _isLiveNetwork
+        bool _isLiveNetwork,
+        address _executor
     ) private returns (DeploymentInfo memory) {
-        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByName(_networkName);
-        require(
-            block.chainid == networkInfo.chainId,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Detected an unexpected chain ID for the network: ",
-                    _networkName,
-                    ".\nExpected: ",
-                    vm.toString(networkInfo.chainId),
-                    "\nActual: ",
-                    vm.toString(block.chainid),
-                    "\nAre you sure you're using the correct RPC endpoint?"
-                )
-            )
-        );
-
-        ISphinxAuth auth = ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig));
-        ISphinxManager manager = ISphinxManager(sphinxManager());
+        address safe = sphinxSafe();
+        address module = sphinxModule();
 
         DeploymentInfo memory deploymentInfo;
-        deploymentInfo.authAddress = address(auth);
-        deploymentInfo.managerAddress = address(manager);
+        deploymentInfo.safeAddress = safe;
+        deploymentInfo.moduleAddress = module;
+        deploymentInfo.executorAddress = _executor;
         deploymentInfo.chainId = block.chainid;
+        deploymentInfo.blockGasLimit = block.gaslimit;
+        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(
+            sphinxConfig.owners,
+            sphinxConfig.threshold
+        );
         deploymentInfo.newConfig = sphinxConfig;
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
-        deploymentInfo.initialState = sphinxUtils.getInitialChainState(auth, manager);
+        deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, ISphinxModule(module));
+        deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(ISphinxModule(module));
+        deploymentInfo.arbitraryChain = false;
+        deploymentInfo.requireSuccess = true;
 
         sphinxMode = SphinxMode.Collect;
-        vm.startBroadcast(address(manager));
+        vm.startBroadcast(safe);
         run();
         vm.stopBroadcast();
 
@@ -188,261 +159,365 @@ abstract contract Sphinx {
         return deploymentInfo;
     }
 
-    /**
-     * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
-     */
-    function sphinxDeployTask(
-        string memory _networkName,
-        bytes32 _authRoot,
-        BundleInfo memory _bundleInfo
-    ) external {
-        string memory rpcUrl = vm.rpcUrl(_networkName);
+    function sphinxDeployModuleAndGnosisSafe(string memory _networkName) external {
+        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName));
 
-        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(rpcUrl);
+        address safe = sphinxSafe();
+        require(safe.code.length == 0, "Sphinx: Gnosis Safe already deployed");
+
         uint256 privateKey;
         if (isLiveNetwork) {
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, IGnosisSafe(safe));
+
+            privateKey = vm.envUint("PRIVATE_KEY");
+        } else {
+            // We use an auto-generated private key when deploying to a local network so that anyone
+            // can deploy a project even if they aren't the sole owner. This is useful for
+            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
+            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
+        }
+
+        vm.startBroadcast(privateKey);
+        _sphinxDeployModuleAndGnosisSafe();
+        vm.stopBroadcast();
+    }
+
+    function sphinxApprove(
+        bytes32 _merkleRoot,
+        SphinxLeafWithProof memory _approveLeafWithProof,
+        bool _simulatingProposal
+    ) public {
+        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(
+            _approveLeafWithProof.leaf.chainId
+        );
+
+        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(networkInfo.name));
+
+        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+        ISphinxModule module = ISphinxModule(sphinxModule());
+
+        require(address(safe).code.length > 0, "Sphinx: Gnosis Safe is not deployed");
+
+        (, , , , MerkleRootStatus status, ) = module.merkleRootStates(_merkleRoot);
+
+        require(
+            status == MerkleRootStatus.EMPTY,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Merkle root already ",
+                    sphinxUtils.merkleRootStatusToString(status),
+                    "."
+                )
+            )
+        );
+
+        uint256 privateKey;
+        if (isLiveNetwork && !_simulatingProposal) {
             sphinxMode = SphinxMode.LiveNetworkBroadcast;
 
-            privateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, safe);
 
-            address deployer = vm.addr(privateKey);
-
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, deployer);
+            privateKey = vm.envUint("PRIVATE_KEY");
         } else {
             sphinxMode = SphinxMode.LocalNetworkBroadcast;
 
             // We use an auto-generated private key when deploying to a local network so that anyone
             // can deploy a project even if they aren't the sole owner. This is useful for
             // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            privateKey = sphinxUtils.getSphinxDeployerPrivateKey(0);
-
-            address deployer = vm.addr(privateKey);
-            sphinxUtils.initializeFFI(rpcUrl, OptionalAddress({ exists: true, value: deployer }));
+            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
         }
 
-        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(privateKey, _authRoot);
+        bytes memory ownerSignatures;
+        if (isLiveNetwork && !_simulatingProposal) {
+            Wallet[] memory walletArray = new Wallet[](1);
+            walletArray[0] = Wallet({ privateKey: privateKey, addr: vm.addr(privateKey) });
+
+            ownerSignatures = _sphinxSignMerkleRoot(walletArray, _merkleRoot);
+        } else {
+            uint256 ownerThreshold = safe.getThreshold();
+            Wallet[] memory sphinxWallets = sphinxUtils.getSphinxWalletsSortedByAddress(
+                ownerThreshold
+            );
+
+            ownerSignatures = _sphinxSignMerkleRoot(sphinxWallets, _merkleRoot);
+        }
+
+        // Broadcast if there isn't already an active broadcast.
+        (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
+        if (callerMode == VmSafe.CallerMode.None) vm.broadcast(privateKey);
+
+        // Execute the `APPROVE` leaf.
+        module.approve(_merkleRoot, _approveLeafWithProof, ownerSignatures);
+    }
+
+    /**
+     * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
+     */
+    function sphinxExecute(
+        string memory _networkName,
+        string memory _deployTaskInputsFilePath
+    ) external {
+        (
+            SphinxMerkleTree memory merkleTree,
+            HumanReadableAction[] memory humanReadableActions
+        ) = abi.decode(
+                vm.parseBytes(vm.readFile(_deployTaskInputsFilePath)),
+                (SphinxMerkleTree, HumanReadableAction[])
+            );
+
+        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName));
+
+        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+
+        require(address(safe).code.length > 0, "Sphinx: Gnosis Safe is not deployed");
+
+        uint256 privateKey;
+        if (isLiveNetwork) {
+            sphinxMode = SphinxMode.LiveNetworkBroadcast;
+
+            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, safe);
+
+            privateKey = vm.envUint("PRIVATE_KEY");
+        } else {
+            sphinxMode = SphinxMode.LocalNetworkBroadcast;
+
+            // We use an auto-generated private key when deploying to a local network so that anyone
+            // can deploy a project even if they aren't the sole owner. This is useful for
+            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
+            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
+        }
 
         vm.startBroadcast(privateKey);
-        sphinxDeployOnNetwork(
-            ISphinxManager(sphinxManager()),
-            ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
-            _authRoot,
-            _bundleInfo,
-            metaTxnSignature,
-            rpcUrl
+
+        _sphinxExecuteOnNetwork(
+            ISphinxModule(sphinxModule()),
+            merkleTree.root,
+            merkleTree.leavesWithProofs,
+            humanReadableActions
         );
+
         vm.stopBroadcast();
     }
 
     /**
-     * @notice A helper function used by the Sphinx devs during testing to hook into the proposal
+     * @notice A helper function used by the Sphinx devs during testing to hook into the
      *         proposal process to do environment setup. Not intended to be used by users.
      */
-    function setupPropose() internal virtual {}
+    function sphinxSetupPropose() internal virtual {}
 
     function sphinxSimulateProposal(
-        bool _testnets,
-        bytes32 _authRoot,
-        BundleInfo[] memory _bundleInfoArray
-    ) external returns (uint256[] memory) {
-        setupPropose();
+        string[] memory _networkNames,
+        string memory _simulationInputsFilePath
+    ) external {
+        sphinxSetupPropose();
 
-        uint256 proposerPrivateKey = vm.envUint("PROPOSER_PRIVATE_KEY");
-        address proposer = vm.addr(proposerPrivateKey);
-        bytes memory metaTxnSignature = sphinxUtils.signMetaTxnForAuthRoot(
-            proposerPrivateKey,
-            _authRoot
-        );
+        (
+            SphinxMerkleTree memory merkleTree,
+            HumanReadableAction[][] memory humanReadableActionsArray
+        ) = abi.decode(
+                vm.parseBytes(vm.readFile(_simulationInputsFilePath)),
+                (SphinxMerkleTree, HumanReadableAction[][])
+            );
 
         sphinxMode = SphinxMode.Proposal;
 
-        Network[] memory networks = _testnets ? sphinxConfig.testnets : sphinxConfig.mainnets;
-        uint256[] memory forkIds = new uint256[](networks.length);
-        for (uint256 i = 0; i < networks.length; i++) {
-            Network network = networks[i];
-            NetworkInfo memory networkInfo = sphinxUtils.getNetworkInfo(network);
-            string memory rpcUrl = vm.rpcUrl(networkInfo.name);
+        ISphinxModule module = ISphinxModule(sphinxModule());
+        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+        address managedServiceAddress = constants.managedServiceAddress();
 
+        for (uint256 i = 0; i < _networkNames.length; i++) {
             // Create a fork of the target network. This automatically sets the `block.chainid` to
-            // the target chain (e.g. 1 for ethereum mainnet).
-            uint256 forkId = vm.createSelectFork(rpcUrl);
-            forkIds[i] = forkId;
+            // the target chain.
+            vm.createSelectFork(vm.rpcUrl(_networkNames[i]));
 
-            // Initialize the Sphinx contracts. We don't call `sphinxUtils.initializeFFI` here
-            // because we never broadcast the transactions onto the forked network. This is a
-            // performance optimization.
-            sphinxUtils.initializeSphinxContracts(
-                OptionalAddress({ exists: true, value: proposer })
+            // Get the leaves for the current network.
+            SphinxLeafWithProof[] memory leavesOnNetwork = sphinxUtils.getLeavesOnNetwork(
+                merkleTree.leavesWithProofs
             );
 
-            // We prank the proposer here so that the `CallerMode.msgSender` is the proposer's address.
-            vm.startPrank(proposer);
-            sphinxDeployOnNetwork(
-                ISphinxManager(sphinxManager()),
-                ISphinxAuth(sphinxUtils.getSphinxAuthAddress(sphinxConfig)),
-                _authRoot,
-                _bundleInfoArray[i],
-                metaTxnSignature,
-                rpcUrl
-            );
-            vm.stopPrank();
-        }
-
-        return forkIds;
-    }
-
-    function sphinxRegisterProject(string memory _rpcUrl, address _msgSender) private {
-        address[] memory sortedOwners = sphinxUtils.sortAddresses(sphinxConfig.owners);
-
-        bytes memory authData = abi.encode(sortedOwners, sphinxConfig.threshold);
-
-        ISphinxAuthFactory authFactory = ISphinxAuthFactory(constants.authFactoryAddress());
-        bytes32 authSalt = keccak256(abi.encode(authData, sphinxConfig.projectName));
-        bool isRegistered = address(authFactory.auths(authSalt)) != address(0);
-        if (!isRegistered) {
-            if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-                vm.stopBroadcast();
-
-                authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
-                // Call the `authFactory.deploy` function via FFI. See the docs of this
-                // function call for more info.
-                sphinxUtils.authFactoryDeployFFI(authData, sphinxConfig.projectName, _rpcUrl);
-
-                vm.startBroadcast(_msgSender);
-            } else {
-                authFactory.deploy{ gas: 2000000 }(authData, hex"", sphinxConfig.projectName);
+            if (leavesOnNetwork.length == 0) {
+                continue;
             }
+
+            if (address(safe).code.length == 0) {
+                // Deploy the Gnosis Safe and Sphinx Module. We can't broadcast this transaction
+                // from the Gnosis Safe or the Sphinx Module because Foundry throws an error if we
+                // attempt to broadcast from the same contract address that we're deploying. We
+                // broadcast from the Managed Service contract so that this transaction is included
+                // in the off-chain gas estimation logic.
+                vm.startBroadcast(managedServiceAddress);
+                _sphinxDeployModuleAndGnosisSafe();
+                vm.stopBroadcast();
+            }
+
+            // Next, we add a set of auto-generated addresses as owners of the Gnosis Safe. This is
+            // necessary to simulate the deployment because the actual Gnosis Safe owner private
+            // keys aren't known. We broadcast from the Gnosis Safe because this is necessary to
+            // prevent the calls from reverting. Our off-chain gas estimation logic will skip these
+            // transactions because it only estimates gas for transactions where the Managed Service
+            // is the sender.
+            vm.startBroadcast(address(safe));
+            uint256 ownerThreshold = safe.getThreshold();
+            Wallet[] memory sphinxWallets = sphinxUtils.getSphinxWalletsSortedByAddress(
+                ownerThreshold
+            );
+            // Add the auto-generated wallets as owners of the Gnosis Safe. We add `threshold`
+            // owners so that the signature validation logic in the Gnosis Safe will iterate
+            // over the same number of owners locally as in production. This is important for
+            // gas estimation.
+            for (uint256 j = 0; j < ownerThreshold; j++) {
+                // Check that the auto-generated wallet isn't already an owner. If we attempt
+                // to add an owner twice, Gnosis Safe will throw an error.
+                if (!safe.isOwner(sphinxWallets[j].addr)) {
+                    // The Gnosis Safe doesn't have an "addOwner" function, which is why we need to
+                    // use "addOwnerWithThreshold".
+                    safe.addOwnerWithThreshold(sphinxWallets[j].addr, ownerThreshold);
+                }
+            }
+            vm.stopBroadcast();
+
+            // We broadcast from the ManagedService contract to replicate the production
+            // environment, where the `ManagedService` will call the Sphinx Module.
+            vm.startBroadcast(managedServiceAddress);
+            sphinxApprove(
+                merkleTree.root,
+                // The `APPROVE` leaf is always the first element in the array.
+                leavesOnNetwork[0],
+                true
+            );
+            vm.stopBroadcast();
+
+            // Remove the auto-generated wallets as owners of the Gnosis Safe. The logic for this is
+            // a little bizarre because Gnosis Safe uses a linked list to store the owner addresses.
+            vm.startBroadcast(address(safe));
+            for (uint256 j = 0; j < ownerThreshold - 1; j++) {
+                safe.removeOwner(sphinxWallets[j + 1].addr, sphinxWallets[j].addr, ownerThreshold);
+            }
+            safe.removeOwner(
+                address(1), // Gnosis Safe's `SENTINEL_OWNERS`.
+                sphinxWallets[ownerThreshold - 1].addr,
+                ownerThreshold
+            );
+            vm.stopBroadcast();
+
+            // We broadcast from the ManagedService contract to replicate the production
+            // environment, where the `ManagedService` will call the Sphinx Module.
+            vm.startBroadcast(managedServiceAddress);
+            _sphinxExecuteOnNetwork(
+                module,
+                merkleTree.root,
+                leavesOnNetwork,
+                humanReadableActionsArray[i]
+            );
+            vm.stopBroadcast();
         }
     }
 
     /**
-     * @notice Helper function for executing a list of actions in batches.
+     * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
+     *         and enables the Sphinx Module in the Gnosis Safe
+     *
+     * @dev    We refer to this function in Sphinx's documentation. Make sure to update the
+     *         documentation if you change the name of this function or change its file
+     *         location.
      */
-    function sphinxExecuteBatchActions(
-        ISphinxManager _manager,
-        BundledSphinxAction[] memory bundledActions,
-        bool isSetStorageActionArray,
-        uint bufferedGasLimit
-    ) private returns (DeploymentStatus, uint) {
-        // Pull the deployment state from the contract to make sure we're up to date
-        bytes32 activeDeploymentId = _manager.activeDeploymentId();
-        DeploymentState memory state = _manager.deployments(activeDeploymentId);
+    function _sphinxDeployModuleAndGnosisSafe() private {
+        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(
+            constants.safeFactoryAddress()
+        );
+        address singletonAddress = constants.safeSingletonAddress();
 
-        BundledSphinxAction[] memory filteredActions = sphinxUtils.removeExecutedActions(
-            bundledActions,
-            state.actionsExecuted
+        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
+            sphinxConfig.owners,
+            sphinxConfig.threshold
         );
 
-        // We can return early if there are no actions to execute.
-        if (filteredActions.length == 0) {
-            return (state.status, 0);
-        }
-
-        uint executed = 0;
-        while (executed < filteredActions.length) {
-            // Figure out the maximum number of actions that can be executed in a single batch
-            uint batchSize = sphinxUtils.findMaxBatchSize(
-                sphinxUtils.inefficientSlice(filteredActions, executed, filteredActions.length),
-                bufferedGasLimit - ((bufferedGasLimit) * 20) / 100
-            );
-            BundledSphinxAction[] memory batch = sphinxUtils.inefficientSlice(
-                filteredActions,
-                executed,
-                executed + batchSize
-            );
-            (RawSphinxAction[] memory rawActions, bytes32[][] memory _proofs) = sphinxUtils
-                .disassembleActions(batch);
-
-            // Execute the batch of actions.
-            if (isSetStorageActionArray) {
-                _manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
-            } else {
-                // We use a low-level call here to capture the returned error message, which
-                // we use to retrieve the index of the failed action. This allows us to display
-                // a nice error message to the user.
-                (bool success, bytes memory result) = address(_manager).call{
-                    gas: bufferedGasLimit
-                }(
-                    // `abi.encodeCall` provides better type support than `abi.encodeWithSelector`, but
-                    // we can't use it here because it isn't supported in Solidity v0.8.0, which is the
-                    // earliest version we support.
-                    abi.encodeWithSelector(
-                        ISphinxManager.executeInitialActions.selector,
-                        rawActions,
-                        _proofs
-                    )
-                );
-                if (!success) {
-                    uint256 failureIndex;
-                    assembly {
-                        failureIndex := mload(add(result, 0x24))
-                    }
-
-                    return (DeploymentStatus.FAILED, failureIndex);
-                }
-            }
-
-            // Return early if the deployment failed.
-            state = _manager.deployments(activeDeploymentId);
-            if (state.status == DeploymentStatus.FAILED) {
-                return (state.status, 0);
-            }
-
-            // Move to next batch if necessary
-            executed += batchSize;
-        }
-
-        // Return the final deployment status
-        return (state.status, 0);
+        // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
+        // and enables the Sphinx Module in the Gnosis Safe.
+        safeProxyFactory.createProxyWithNonce(
+            singletonAddress,
+            safeInitializerData,
+            sphinxConfig.saltNonce
+        );
     }
 
-    function sphinxExecuteDeployment(
-        ISphinxManager _manager,
-        BundleInfo memory bundleInfo,
-        uint256 blockGasLimit
-    ) private returns (bool, HumanReadableAction memory) {
-        // Define an empty action, which we'll return if the deployment succeeds.
-        HumanReadableAction memory emptyAction;
+    /**
+     * @notice Helper function for executing `EXECUTE` Merkle leaves in batches.
+     */
+    function _sphinxExecuteOnNetwork(
+        ISphinxModule _module,
+        bytes32 _merkleRoot,
+        SphinxLeafWithProof[] memory _leavesWithProofsOnNetwork,
+        HumanReadableAction[] memory _humanReadableActions
+    ) private {
+        if (_leavesWithProofsOnNetwork.length <= 1) {
+            console.log(
+                string(
+                    abi.encodePacked(
+                        "Sphinx: Nothing to execute on ",
+                        sphinxUtils.findNetworkInfoByChainId(block.chainid).name,
+                        ". Exiting early."
+                    )
+                )
+            );
+            return;
+        }
 
-        (
-            BundledSphinxAction[] memory initialActions,
-            BundledSphinxAction[] memory setStorageActions
-        ) = sphinxUtils.splitActions(bundleInfo.actionBundle.actions);
+        // We execute all actions in batches to reduce the total number of transactions and reduce
+        // the cost of a deployment in general. Approaching the maximum block gas limit can cause
+        // transactions to be executed slowly as a result of the algorithms that miners use to
+        // select which transactions to include. As a result, we restrict our total gas usage to a
+        // fraction of the block gas limit. Note that this number should match the one used by the
+        // DevOps platform executor.
+        uint256 maxGasLimit = block.gaslimit / 2;
 
-        uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
-        // Execute all the deploy contract actions and exit early if the deployment failed
-        (DeploymentStatus status, uint failedActionIndex) = sphinxExecuteBatchActions(
-            _manager,
-            initialActions,
-            false,
-            bufferedGasLimit
+        MerkleRootStatus status;
+        uint256 numLeaves;
+        uint256 leavesExecuted;
+        (numLeaves, leavesExecuted, , , status, ) = _module.merkleRootStates(_merkleRoot);
+
+        require(
+            status == MerkleRootStatus.APPROVED,
+            string(
+                abi.encodePacked(
+                    "Sphinx: Merkle root must be be active, but its status is: ",
+                    sphinxUtils.merkleRootStatusToString(status),
+                    "."
+                )
+            )
         );
-        if (status == DeploymentStatus.FAILED) {
-            // Return with the relevant human readable action
-            return (false, bundleInfo.humanReadableActions[failedActionIndex]);
-        } else if (status == DeploymentStatus.COMPLETED) {
-            return (true, emptyAction);
+
+        while (leavesExecuted < numLeaves) {
+            // Figure out the maximum number of actions that can be executed in a single batch
+            uint256 batchSize = sphinxUtils.findMaxBatchSize(
+                sphinxUtils.inefficientSlice(
+                    _leavesWithProofsOnNetwork,
+                    leavesExecuted,
+                    _leavesWithProofsOnNetwork.length
+                ),
+                maxGasLimit
+            );
+            SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
+                _leavesWithProofsOnNetwork,
+                leavesExecuted,
+                leavesExecuted + batchSize
+            );
+
+            ISphinxModule(_module).execute(batch);
+            (, , , , status, ) = ISphinxModule(_module).merkleRootStates(_merkleRoot);
+
+            require(
+                status != MerkleRootStatus.FAILED,
+                string(
+                    abi.encodePacked(
+                        "Sphinx: failed to execute deployment because the following action reverted: ",
+                        _humanReadableActions[leavesExecuted - 1].reason
+                    )
+                )
+            );
+
+            leavesExecuted += batchSize;
         }
-
-        // Dissemble the set storage actions
-        SphinxTarget[] memory targets = new SphinxTarget[](bundleInfo.targetBundle.targets.length);
-        bytes32[][] memory proofs = new bytes32[][](bundleInfo.targetBundle.targets.length);
-        for (uint i = 0; i < bundleInfo.targetBundle.targets.length; i++) {
-            BundledSphinxTarget memory target = bundleInfo.targetBundle.targets[i];
-            targets[i] = target.target;
-            proofs[i] = target.siblings;
-        }
-
-        // Start the upgrade
-        _manager.initiateUpgrade{ gas: 1000000 }(targets, proofs);
-
-        // Execute all the set storage actions
-        sphinxExecuteBatchActions(_manager, setStorageActions, true, bufferedGasLimit);
-
-        // Complete the upgrade
-        _manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);
-
-        return (true, emptyAction);
     }
 
     /**
@@ -469,7 +544,7 @@ abstract contract Sphinx {
         // We allow users to call `vm.startPrank` before calling their `deploy` function so that
         // they don't need to toggle it before and after calling `deploy`, which may be annoying for
         // users who have complex deployment flows. However, we turn pranking off here because we'll
-        // prank the SphinxManager during the execution process, since this is the contract that
+        // prank the Gnosis Safe during the execution process, since this is the contract that
         // deploys their contracts on live networks. If the user enabled pranking before calling
         // `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
@@ -480,11 +555,9 @@ abstract contract Sphinx {
             // Execute the user's 'run()' function.
             _;
         } else if (sphinxMode == SphinxMode.Default) {
-            ISphinxManager manager = ISphinxManager(sphinxManager());
-
-            // Prank the SphinxManager then execute the user's `run()` function. We prank
-            // the SphinxManager to replicate the deployment process on live networks.
-            vm.startPrank(address(manager));
+            // Prank the Gnosis Safe then execute the user's `run()` function. We prank the Gnosis
+            // Safe to replicate the deployment process on live networks.
+            vm.startPrank(address(sphinxSafe()));
             _;
             vm.stopPrank();
         }
@@ -494,326 +567,22 @@ abstract contract Sphinx {
         sphinxModifierEnabled = false;
     }
 
-    /**
-     * @notice Runs the production deployment process. We use this to broadcast transactions
-     *         when the user is deploying with the CLI, and we use this when simulating the
-     *         deployment before submitting a proposal.
-     *
-     *         If you examine the function calls in this contract that execute the deployment
-     *         process, you'll notice that there's a hard-coded `gas` value for each one. This does
-     *         not impact the amount of gas actually used in these transactions. We need to
-     *         hard-code these values to avoid an edge case that occurs when deploying against an
-     *         Anvil node. In particular, Foundry will fail to detect that the pre-deployed Sphinx
-     *         contracts are already deployed on the network. This weird behavior happens because we
-     *         deploy the Sphinx predeploys via FFI (in `SphinxUtils.initializeFFI`). Since it
-     *         doesn't detect that these contracts exist, it will use a very low gas amount for the
-     *         deployment transactions, since it expects them to fail. This causes the entire
-     *         deployment to fail.
-     */
-    function sphinxDeployOnNetwork(
-        ISphinxManager _manager,
-        ISphinxAuth _auth,
-        bytes32 _authRoot,
-        BundleInfo memory _bundleInfo,
-        bytes memory _metaTxnSignature,
-        string memory _rpcUrl
-    ) private {
-        (, address msgSender, ) = vm.readCallers();
-
-        if (_bundleInfo.authLeafs.length == 0) {
-            console.log(
-                string(
-                    abi.encodePacked(
-                        "Sphinx: Nothing to execute on ",
-                        _bundleInfo.networkName,
-                        ". Exiting early."
-                    )
-                )
-            );
-            return;
-        }
-
-        sphinxRegisterProject(_rpcUrl, msgSender);
-
-        bytes32 deploymentId = sphinxUtils.getDeploymentId(
-            _bundleInfo.actionBundle,
-            _bundleInfo.targetBundle,
-            _bundleInfo.configUri
-        );
-        DeploymentState memory deploymentState = _manager.deployments(deploymentId);
-
-        if (deploymentState.status == DeploymentStatus.COMPLETED) {
-            console.log(
-                string(
-                    abi.encodePacked(
-                        "Sphinx: Deployment was already completed on ",
-                        _bundleInfo.networkName,
-                        ". Exiting early."
-                    )
-                )
-            );
-            return;
-        }
-
-        if (deploymentState.status == DeploymentStatus.EMPTY) {
-            bytes[] memory ownerSignatureArray;
-            if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
-                ownerSignatureArray = new bytes[](1);
-                ownerSignatureArray[0] = _metaTxnSignature;
-            } else if (
-                sphinxMode == SphinxMode.LocalNetworkBroadcast || sphinxMode == SphinxMode.Proposal
-            ) {
-                uint256 currentOwnerThreshold = _auth.threshold();
-                ownerSignatureArray = new bytes[](currentOwnerThreshold);
-
-                Wallet[] memory wallets = sphinxUtils.getSphinxWalletsSortedByAddress(
-                    currentOwnerThreshold
-                );
-                for (uint256 i = 0; i < currentOwnerThreshold; i++) {
-                    // Create a list of owner meta transactions. This allows us to run the rest of
-                    // this function without needing to know the owner private keys. If we don't do
-                    // this, the rest of this function will fail because there are an insufficent
-                    // number of owner signatures. It's worth mentioning that another strategy is to
-                    // set the owner threshold to 0 via `vm.store`, but we do it this way because it
-                    // allows us to run the meta transaction signature verification logic in the
-                    // SphinxAuth contract instead of skipping it entirely, which would be the case
-                    // if we set the owner threshold to 0.
-                    _sphinxGrantRoleInAuthContract(bytes32(0), wallets[i].addr, _rpcUrl);
-                    ownerSignatureArray[i] = sphinxUtils.signMetaTxnForAuthRoot(
-                        wallets[i].privateKey,
-                        _authRoot
-                    );
-                }
-            }
-
-            (, uint256 leafsExecuted, ) = _auth.authStates(_authRoot);
-            for (uint i = 0; i < _bundleInfo.authLeafs.length; i++) {
-                BundledAuthLeaf memory leaf = _bundleInfo.authLeafs[i];
-
-                if (leafsExecuted > leaf.leaf.index) {
-                    continue;
-                }
-
-                if (leaf.leafTypeEnum == AuthLeafType.SETUP) {
-                    _auth.setup{ gas: 3000000 }(
-                        _authRoot,
-                        leaf.leaf,
-                        ownerSignatureArray,
-                        leaf.proof
-                    );
-                } else if (leaf.leafTypeEnum == AuthLeafType.PROPOSE) {
-                    if (sphinxMode == SphinxMode.LiveNetworkBroadcast) {
-                        _auth.propose{ gas: 1000000 }(
-                            _authRoot,
-                            leaf.leaf,
-                            ownerSignatureArray,
-                            leaf.proof
-                        );
-                    } else if (
-                        sphinxMode == SphinxMode.Proposal ||
-                        sphinxMode == SphinxMode.LocalNetworkBroadcast
-                    ) {
-                        _sphinxGrantRoleInAuthContract(
-                            keccak256("ProposerRole"),
-                            msgSender,
-                            _rpcUrl
-                        );
-
-                        bytes[] memory proposerSignatureArray = new bytes[](1);
-                        proposerSignatureArray[0] = _metaTxnSignature;
-
-                        _auth.propose{ gas: 1000000 }(
-                            _authRoot,
-                            leaf.leaf,
-                            proposerSignatureArray,
-                            leaf.proof
-                        );
-                    }
-                } else if (leaf.leafTypeEnum == AuthLeafType.UPGRADE_MANAGER_AND_AUTH_IMPL) {
-                    _auth.upgradeManagerAndAuthImpl{ gas: 1000000 }(
-                        _authRoot,
-                        leaf.leaf,
-                        ownerSignatureArray,
-                        leaf.proof
-                    );
-                } else if (leaf.leafTypeEnum == AuthLeafType.APPROVE_DEPLOYMENT) {
-                    _auth.approveDeployment{ gas: 1000000 }(
-                        _authRoot,
-                        leaf.leaf,
-                        ownerSignatureArray,
-                        leaf.proof
-                    );
-                    deploymentState.status = DeploymentStatus.APPROVED;
-                } else if (leaf.leafTypeEnum == AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT) {
-                    _auth.cancelActiveDeployment{ gas: 1000000 }(
-                        _authRoot,
-                        leaf.leaf,
-                        ownerSignatureArray,
-                        leaf.proof
-                    );
-                } else {
-                    revert("Unsupported auth leaf type. Should never happen.");
-                }
-            }
-        }
-
-        if (
-            deploymentState.status == DeploymentStatus.APPROVED ||
-            deploymentState.status == DeploymentStatus.INITIAL_ACTIONS_EXECUTED ||
-            deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
-            deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
-        ) {
-            if (
-                sphinxMode == SphinxMode.Proposal || sphinxMode == SphinxMode.LocalNetworkBroadcast
-            ) {
-                // Claim the deployment. It's not necessary to call this function when broadcasting
-                // on a live network because the user will be executing the deployment themselves.
-                // To be more specific, `remoteExecution` will be set to false when broadcasting on
-                // a live network, which allows us to skip this function call.
-                _manager.claimDeployment{ gas: 1000000 }();
-            }
-
-            (
-                bool executionSuccess,
-                HumanReadableAction memory readableAction
-            ) = sphinxExecuteDeployment(_manager, _bundleInfo, block.gaslimit);
-
-            if (!executionSuccess) {
-                bytes memory revertMessage = abi.encodePacked(
-                    "Sphinx: failed to execute deployment because the following action reverted: ",
-                    readableAction.reason
-                );
-
-                revert(string(revertMessage));
-            }
-        }
-    }
-
     function run() public virtual;
 
     /**
-     * @notice Deploys a contract at the expected CREATE3 address. Only called through the
-     *         SphinxClient, which is currently unused.
-     *
-     * @param _referenceName     The reference name of the contract to deploy. Used to generate the
-       contracts address.
-     * @param _userSalt          The user's salt. Used to generate the contracts address.
-     * @param _constructorArgs   The constructor arguments for the contract.
-     * @param fullyQualifiedName The fully qualified name of the contract to deploy.
-     * @param artifactPath       The path to the artifact for the actual contract to deploy.
+     * @notice Get the address of the SphinxModule. Before calling this function, the
+     *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function _sphinxDeployContract(
-        string memory _referenceName,
-        bytes32 _userSalt,
-        bytes memory _constructorArgs,
-        string memory fullyQualifiedName,
-        string memory artifactPath
-    ) internal returns (address) {
-        require(
-            sphinxModifierEnabled,
-            "Sphinx: You must include the 'sphinx' modifier on your run function."
-        );
-
-        address manager = sphinxManager();
-        // We use brackets here to prevent a "Stack too deep" Solidity compiler error.
-        {
-            (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-            // Check that we're currently pranking/broadcasting from the SphinxManager. This should
-            // always be true unless the user deliberately cancels the prank/broadcast in their 'deploy'
-            // function.
-            if (sphinxMode == SphinxMode.Collect) {
-                require(
-                    callerMode == VmSafe.CallerMode.RecurrentBroadcast && msgSender == manager,
-                    "Sphinx: You must not use any prank or broadcast cheatcodes in your deployment."
-                );
-            } else {
-                require(
-                    callerMode == VmSafe.CallerMode.RecurrentPrank && msgSender == manager,
-                    "Sphinx: You must not use any prank or broadcast cheatcodes in your deployment."
-                );
-            }
-        }
-
-        bytes32 create3Salt = keccak256(abi.encode(_referenceName, _userSalt));
-        address create3Address = sphinxUtils.computeCreate3Address(manager, create3Salt);
-
-        require(
-            create3Address.code.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Contract already exists at the CREATE3 address. Please use a different salt or reference name to deploy ",
-                    fullyQualifiedName,
-                    " at a different address."
-                )
-            )
-        );
-
-        // Deploy the user's contract to the CREATE3 address via the SphinxCollector, which exists
-        // at the SphinxManager's address. This mirrors what happens on live networks.
-        SphinxCollector(manager).deploy({
-            fullyQualifiedName: fullyQualifiedName,
-            initCode: vm.getCode(artifactPath),
-            constructorArgs: _constructorArgs,
-            userSalt: _userSalt,
-            referenceName: _referenceName
-        });
-
-        return create3Address;
+    function sphinxModule() public view returns (address) {
+        return sphinxUtils.getSphinxModuleAddress(sphinxConfig);
     }
 
     /**
-     * @notice Grant a role to an account in the SphinxAuth contract. This is meant to be called
-     *         when running against local networks. It is not used as part of the live network
-     *         execution process. Its purpose on local networks is to make projects executable
-     *         even if the private keys of the owners are not known. It's worth mentioning that
-     *         we define this function in this contract instead of in `SphinxUtils` because it
-     *         involves an external call, which increases the number of transactions broadcasted
-     *         against local networks, making it difficult to test that no unnecessary transactions
-     *         are being broadcasted.
+     * @notice Get the address of the SphinxModule. Before calling this function, the
+     *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function _sphinxGrantRoleInAuthContract(
-        bytes32 _role,
-        address _account,
-        string memory _rpcUrl
-    ) private {
-        address auth = sphinxUtils.getSphinxAuthAddress(sphinxConfig);
-        if (!ISphinxAccessControl(address(auth)).hasRole(_role, _account)) {
-            bytes32 roleSlotKey = sphinxUtils.getMappingValueSlotKey(
-                constants.authAccessControlRoleSlotKey(),
-                _role
-            );
-            bytes32 memberSlotKey = sphinxUtils.getMappingValueSlotKey(
-                roleSlotKey,
-                bytes32(uint256(uint160(_account)))
-            );
-            vm.store(address(auth), memberSlotKey, bytes32(uint256(1)));
-
-            if (sphinxMode == SphinxMode.LocalNetworkBroadcast) {
-                string[] memory inputs = new string[](8);
-                inputs[0] = "cast";
-                inputs[1] = "rpc";
-                inputs[2] = "--rpc-url";
-                inputs[3] = _rpcUrl;
-                // We use the 'hardhat_setStorageAt' RPC method here because it works on Anvil and
-                // Hardhat nodes, whereas 'hardhat_setStorageAt' only works on Anvil nodes.
-                inputs[4] = "hardhat_setStorageAt";
-                inputs[5] = vm.toString(address(auth));
-                inputs[6] = vm.toString(memberSlotKey);
-                inputs[7] = vm.toString(bytes32(uint256(1)));
-                Vm.FfiResult memory result = vm.tryFfi(inputs);
-                if (result.exitCode != 0) {
-                    revert(string(result.stderr));
-                }
-            }
-        }
-    }
-
-    /**
-     * @notice Get the address of the SphinxManager. Before calling this function, the following
-     *         values in the SphinxConfig must be set: `owners`, `threshold`, and `projectName`.
-     */
-    function sphinxManager() public view returns (address) {
-        return sphinxUtils.getSphinxManagerAddress(sphinxConfig);
+    function sphinxSafe() public view returns (address) {
+        return sphinxUtils.getSphinxSafeAddress(sphinxConfig);
     }
 
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
@@ -856,5 +625,100 @@ abstract contract Sphinx {
 
     function sphinxConfigNetworks() external view returns (Network[] memory, Network[] memory) {
         return (sphinxConfig.testnets, sphinxConfig.mainnets);
+    }
+
+    /**
+     * @notice Estimates the values of the `gas` fields in the Merkle leaves using `gasleft`. This
+     *         provides a more accurate estimate than simulating the transactions and retrieving
+     *         them from Foundry's broadcast file. Particularly, it's possible to underestimate the
+     *         Merkle leaf's gas with the simulation approach. Consider this (contrived) edge case:
+     *         Say a user's transaction deploys a contract, which costs ~2 million gas, and also
+     *         involves a large gas refund (~500k gas). Since gas refunds occur after the
+     *         transaction is executed, the broadcast file will have a gas estimate of ~1.5 million
+     *         gas. However, the user's transaction costs 2 million gas. This will cause Sphinx to
+     *         underestimate the Merkle leaf's gas, resulting in a failed deployment on-chain. This
+     *         situation uses contrived numbers, but the point is that using `gasleft` is accurate
+     *         even if there's a large gas refund.
+     *
+     * @return abiEncodedGasArray The ABI encoded array of gas estimates. There's one element per
+     *                            `EXECUTE` Merkle leaf. We ABI encode the array because Foundry
+     *                            makes it difficult to reliably parse complex data types off-chain.
+     *                            Specifically, an array element looks like this in the returned
+     *                            JSON: `27222 [2.722e4]`.
+     */
+    function sphinxEstimateMerkleLeafGas(
+        string memory _leafGasParamsFilePath,
+        uint256 _chainId
+    ) external returns (bytes memory abiEncodedGasArray) {
+        SphinxTransaction[] memory txnArray = abi.decode(
+            vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
+            (SphinxTransaction[])
+        );
+
+        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+        address module = sphinxModule();
+        address managedServiceAddress = constants.managedServiceAddress();
+
+        uint256[] memory gasEstimates = new uint256[](txnArray.length);
+
+        // Create a fork of the target network.
+        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(_chainId);
+        vm.createSelectFork(vm.rpcUrl(networkInfo.name));
+
+        // Deploy the Sphinx Module and Gnosis Safe if they're not already deployed.
+        if (address(safe).code.length == 0) {
+            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
+            // Managed Service contract, but this replicates the prod environment, so we do it
+            // anyways.
+            vm.startPrank(managedServiceAddress);
+            _sphinxDeployModuleAndGnosisSafe();
+            vm.stopPrank();
+        }
+
+        // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
+        // Module calls the Gnosis Safe.
+        vm.startPrank(module);
+
+        for (uint256 i = 0; i < txnArray.length; i++) {
+            SphinxTransaction memory txn = txnArray[i];
+            uint256 startGas = gasleft();
+            bool success = safe.execTransactionFromModule(
+                txn.to,
+                txn.value,
+                txn.txData,
+                txn.operation
+            );
+            gasEstimates[i] = startGas - gasleft();
+            require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
+        }
+        vm.stopPrank();
+
+        return abi.encode(gasEstimates);
+    }
+
+    /**
+     * @notice Sign a Sphinx Merkle root using a set of Gnosis Safe owner wallets. This exists here
+     *         instead of `SphinxUtils` to ensure that the user's private key doesn't appear in a
+     *         stack trace, which may occur if we call an external function on `SphinxUtils`.
+     */
+    function _sphinxSignMerkleRoot(
+        Wallet[] memory _owners,
+        bytes32 _merkleRoot
+    ) private pure returns (bytes memory) {
+        require(_owners.length > 0, "Sphinx: owners array must have at least one element");
+
+        bytes memory typedData = abi.encodePacked(
+            "\x19\x01",
+            DOMAIN_SEPARATOR,
+            keccak256(abi.encode(TYPE_HASH, _merkleRoot))
+        );
+
+        bytes memory signatures;
+        for (uint256 i = 0; i < _owners.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_owners[i].privateKey, keccak256(typedData));
+            signatures = abi.encodePacked(signatures, r, s, v);
+        }
+
+        return signatures;
     }
 }

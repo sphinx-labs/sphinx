@@ -1,56 +1,37 @@
-import { basename, join } from 'path'
-import { existsSync, readFileSync } from 'fs'
-
 import {
+  isLabel,
+  isRawCreate2ActionInput,
+  isRawFunctionCallActionInput,
+  isString,
   ActionInput,
   ConfigArtifacts,
-  DecodedAction,
-  DeployContractActionInput,
   DeploymentInfo,
   FunctionCallActionInput,
   Label,
   ParsedConfig,
-  ParsedVariable,
   RawActionInput,
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
-} from '@sphinx-labs/core/dist/config/types'
-import {
-  isLabel,
-  isRawCreate2ActionInput,
-  isRawDeployContractActionInput,
-  isRawFunctionCallActionInput,
-  isString,
-  recursivelyConvertResult,
-} from '@sphinx-labs/core/dist/utils'
-import {
-  AbiCoder,
-  ConstructorFragment,
-  Fragment,
-  Interface,
-  ethers,
-} from 'ethers'
-import {
   ParsedContractDeployments,
   SphinxActionType,
-  getCreate3Address,
-  getCreate3Salt,
   networkEnumToName,
 } from '@sphinx-labs/core'
+import { AbiCoder, Fragment, ethers } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  Operation,
+  recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
-import { FoundryDryRun, ProposalOutput } from './types'
+import { FoundrySingleChainDryRun } from './types'
 import { getConfigArtifactForContractName } from './utils'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
-  sphinxPluginTypesABI: Array<any>
+  sphinxPluginTypesInterface: ethers.Interface
 ): DeploymentInfo => {
-  const iface = new ethers.Interface(sphinxPluginTypesABI)
-  const deploymentInfoFragment = iface.fragments
+  const deploymentInfoFragment = sphinxPluginTypesInterface.fragments
     .filter(Fragment.isFunction)
     .find((fragment) => fragment.name === 'getDeploymentInfo')
 
@@ -71,27 +52,33 @@ export const decodeDeploymentInfo = (
   ) as any
 
   const {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    executorAddress,
+    nonce,
     chainId,
+    blockGasLimit,
     initialState,
     isLiveNetwork,
     newConfig,
     labels,
+    requireSuccess,
+    safeInitData,
+    arbitraryChain,
   } = deploymentInfoBigInt
 
   return {
     labels,
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    safeInitData,
+    executorAddress,
+    requireSuccess,
+    nonce: nonce.toString(),
     chainId: chainId.toString(),
+    blockGasLimit: blockGasLimit.toString(),
     initialState: {
       ...initialState,
-      version: {
-        major: initialState.version.major.toString(),
-        minor: initialState.version.minor.toString(),
-        patch: initialState.version.patch.toString(),
-      },
     },
     isLiveNetwork,
     newConfig: {
@@ -99,95 +86,31 @@ export const decodeDeploymentInfo = (
       testnets: newConfig.testnets.map(networkEnumToName),
       mainnets: newConfig.mainnets.map(networkEnumToName),
       threshold: newConfig.threshold.toString(),
-      version: {
-        major: newConfig.version.major.toString(),
-        minor: newConfig.version.minor.toString(),
-        patch: newConfig.version.patch.toString(),
-      },
+      saltNonce: newConfig.saltNonce.toString(),
     },
+    arbitraryChain,
   }
 }
 
-export const decodeProposalOutput = (
-  abiEncodedProposalOutput: string,
-  abi: Array<any>
-): ProposalOutput => {
-  const iface = new Interface(abi)
-  const proposalOutputFragment = iface.fragments
-    .filter(Fragment.isFunction)
-    .find((fragment) => fragment.name === 'proposalOutput')
-
-  if (!proposalOutputFragment) {
-    throw new Error(`'proposalOutput' not found in ABI. Should never happen.`)
-  }
-
-  const coder = AbiCoder.defaultAbiCoder()
-
-  const proposalOutputResult = coder.decode(
-    proposalOutputFragment.outputs,
-    abiEncodedProposalOutput
-  )
-
-  const { output } = recursivelyConvertResult(
-    proposalOutputFragment.outputs,
-    proposalOutputResult
-  ) as any
-
-  for (const bundleInfo of output.bundleInfoArray) {
-    bundleInfo.compilerConfig = JSON.parse(bundleInfo.compilerConfigStr)
-    delete bundleInfo.compilerConfigStr
-  }
-
-  return output as ProposalOutput
-}
-
-export const readActionInputsOnSingleChain = (
+export const convertFoundryDryRunToActionInputs = (
   deploymentInfo: DeploymentInfo,
-  scriptPath: string,
-  broadcastFolder: string,
-  sphinxFunctionName: string
-): Array<RawActionInput> => {
-  // The location for a single chain dry run is in the format:
-  // <broadcastFolder>/<scriptFileName>/<chainId>/dry-run/<functionName>-latest.json
-  // If the script is in a subdirectory (e.g. script/my/path/MyScript.s.sol), Foundry still only
-  // uses only the script's file name, not its entire path.
-  const dryRunPath = join(
-    broadcastFolder,
-    basename(scriptPath),
-    deploymentInfo.chainId,
-    'dry-run',
-    `${sphinxFunctionName}-latest.json`
-  )
-
-  if (!existsSync(dryRunPath)) {
-    return []
-  }
-
-  const dryRun: FoundryDryRun = JSON.parse(readFileSync(dryRunPath, 'utf8'))
-  const actionInputs = parseFoundryDryRun(deploymentInfo, dryRun, dryRunPath)
-
-  return actionInputs
-}
-
-export const parseFoundryDryRun = (
-  deploymentInfo: DeploymentInfo,
-  dryRun: FoundryDryRun,
+  dryRun: FoundrySingleChainDryRun,
   dryRunPath: string
 ): Array<RawActionInput> => {
-  const notFromSphinxManager = dryRun.transactions
+  const notFromGnosisSafe = dryRun.transactions
     .map((t) => t.transaction.from)
     .filter(isString)
     .filter(
       (from) =>
         // Convert the 'from' field to a checksum address.
-        ethers.getAddress(from) !== deploymentInfo.managerAddress
+        ethers.getAddress(from) !== deploymentInfo.safeAddress
     )
-  if (notFromSphinxManager.length > 0) {
-    // The user must broadcast/prank from the SphinxManager so that the msg.sender for function
-    // calls is the same as it would be in a production deployment.
+  if (notFromGnosisSafe.length > 0) {
+    // The user must broadcast/prank from the Gnosis Safe so that the msg.sender for function calls
+    // is the same as it would be in a production deployment.
     throw new Error(
-      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the SphinxManager.\n` +
-        `Your 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
+      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the user's Safe contracti.\n` +
+        `The 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
     )
   }
 
@@ -250,16 +173,18 @@ export const parseFoundryDryRun = (
           to,
           create2Address,
           contractName,
-          skip: false,
-          data: transaction.data,
+          value: transaction.value ?? '0x0',
+          operation: Operation.Call,
+          txData: transaction.data,
           actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,
+          requireSuccess: deploymentInfo.requireSuccess,
           decodedAction: {
             referenceName: contractNameWithoutPath ?? create2Address,
             functionName: 'deploy',
             variables: callArguments ?? [],
-            address: '',
+            address: create2Address,
           },
         }
         actionInputs.push(rawCreate2)
@@ -278,12 +203,14 @@ export const parseFoundryDryRun = (
 
         const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
-          skip: false,
           to,
-          data: transaction.data,
+          value: transaction.value ?? '0x0',
+          txData: transaction.data,
+          operation: Operation.Call,
           gas: transaction.gas,
           contractName,
           additionalContracts,
+          requireSuccess: deploymentInfo.requireSuccess,
           decodedAction: {
             referenceName:
               contractNameWithoutPath ?? ethers.getAddress(transaction.to),
@@ -306,77 +233,51 @@ export const parseFoundryDryRun = (
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
-  configArtifacts: ConfigArtifacts,
-  remoteExecution: boolean
+  gasEstimates: Array<string>,
+  configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
   const {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    nonce,
     chainId,
     newConfig,
     isLiveNetwork,
     initialState,
     labels,
+    safeInitData,
+    arbitraryChain,
   } = deploymentInfo
 
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  const actionInputs: Array<ActionInput> = []
+  // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
+  // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
+  // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
+  // leaf. The 80% was chosen arbitrarily.
+  const maxAllowedGasPerLeaf = (8n * BigInt(deploymentInfo.blockGasLimit)) / 10n
+
+  const parsedActionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
-  for (const input of rawInputs) {
+  // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
+  // means the `EXECUTE` leaves start with an index of 1.
+  let actionIndex = 1
+  for (let i = 0; i < rawInputs.length; i++) {
+    const input = rawInputs[i]
+    const gas = gasEstimates[i]
+
+    if (BigInt(gas) > maxAllowedGasPerLeaf) {
+      throw new Error(
+        `Estimated gas for a transaction is too close to the block gas limit.`
+      )
+    }
+
     const { parsedContracts, unlabeledAdditionalContracts } =
       parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
     unlabeledAddresses.push(...unlabeledAdditionalContracts)
 
-    if (isRawDeployContractActionInput(input)) {
-      const create3Salt = getCreate3Salt(input.referenceName, input.userSalt)
-      const create3Address = getCreate3Address(managerAddress, create3Salt)
-
-      const { abi } = configArtifacts[input.fullyQualifiedName].artifact
-      const iface = new ethers.Interface(abi)
-      const constructorFragment = iface.fragments.find(
-        ConstructorFragment.isFragment
-      )
-      let decodedConstructorArgs: ParsedVariable
-      if (constructorFragment) {
-        const decodedResult = coder.decode(
-          constructorFragment.inputs,
-          input.constructorArgs
-        )
-        // Convert from an Ethers `Result` into a plain object.
-        decodedConstructorArgs = recursivelyConvertResult(
-          constructorFragment.inputs,
-          decodedResult
-        ) as ParsedVariable
-      } else {
-        decodedConstructorArgs = {}
-      }
-
-      const decodedAction: DecodedAction = {
-        referenceName: input.referenceName,
-        functionName: 'deploy',
-        variables: decodedConstructorArgs,
-        address: '',
-      }
-
-      parsedContracts[create3Address] = {
-        fullyQualifiedName: input.fullyQualifiedName,
-        initCodeWithArgs: ethers.concat([
-          input.initCode,
-          input.constructorArgs,
-        ]),
-      }
-
-      const deployContractInput: DeployContractActionInput = {
-        contracts: parsedContracts,
-        create3Address,
-        decodedAction,
-        ...input,
-      }
-      actionInputs.push(deployContractInput)
-    } else if (isRawCreate2ActionInput(input)) {
+    if (isRawCreate2ActionInput(input)) {
       // Get the creation code of the CREATE2 deployment by removing the salt,
       // which is the first 32 bytes of the data.
-      const initCodeWithArgs = ethers.dataSlice(input.data, 32)
+      const initCodeWithArgs = ethers.dataSlice(input.txData, 32)
 
       // Check if the contract is a CREATE3 proxy. If it is, we won't attempt to verify it because
       // it doesn't have its own source file in any commonly used CREATE3 library.
@@ -462,32 +363,40 @@ export const makeParsedConfig = (
         }
       }
 
-      actionInputs.push({
+      parsedActionInputs.push({
         contracts: parsedContracts,
+        index: actionIndex.toString(),
         ...input,
+        gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
+        index: actionIndex.toString(),
         ...input,
+        gas,
       }
 
-      actionInputs.push(callInput)
+      parsedActionInputs.push(callInput)
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
+    actionIndex += 1
   }
 
   return {
-    authAddress,
-    managerAddress,
+    safeAddress,
+    moduleAddress,
+    safeInitData,
+    nonce,
     chainId,
     newConfig,
     isLiveNetwork,
     initialState,
-    actionInputs,
-    remoteExecution,
+    actionInputs: parsedActionInputs,
     unlabeledAddresses,
+    arbitraryChain,
+    executorAddress: deploymentInfo.executorAddress,
   }
 }
 
@@ -518,7 +427,7 @@ const parseAdditionalContracts = (
       // transactions are 'CALL' types where the 'data' field of the transaction is equal to the
       // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy.
       isRawFunctionCallActionInput(currentInput) &&
-      currentInput.data === additionalContract.initCode
+      currentInput.txData === additionalContract.initCode
     ) {
       // We'll attempt to infer the name of the contract that was deployed using CREATE3.
       const contractName = allInputs

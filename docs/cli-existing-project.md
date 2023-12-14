@@ -1,6 +1,14 @@
-# Getting Started in an Existing Repository
+# Getting Started with an Existing Foundry Project
 
-This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll create a sample project, then test and deploy it locally.
+In this guide, you'll integrate Sphinx's Foundry plugin with your existing Foundry project. Then, you'll deploy it on a few testnets.
+
+Deployments are a three-step process with the DevOps platform:
+
+1. **Propose**: Initiate the deployment from your command line or CI process by submitting the transactions to Sphinx's backend.
+2. **Approve**: Your Gnosis Safe owner(s) approve the deployment by signing a single meta transaction in the Sphinx UI.
+3. **Execute**: Sphinx's backend trustlessly executes the deployment through your Gnosis Safe.
+
+In this guide, you'll propose the deployment on the command line and then approve it in the Sphinx UI.
 
 ## Table of Contents
 
@@ -9,22 +17,25 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 3. [Install Sphinx](#3-install-sphinx)
 4. [Update `.gitignore`](#4-update-gitignore)
 5. [Update `foundry.toml`](#5-update-foundrytoml)
-6. [Initialize a project](#6-initialize-a-project)
-7. [Add remappings](#7-add-remappings)
-8. [Test the deployment](#8-test-the-deployment)
-9. [Broadcast a deployment on Anvil (optional)](#9-broadcast-a-deployment-on-anvil-optional)
+6. [Add remappings](#6-add-remappings)
+7. [Update your deployment script](#7-update-your-deployment-script)
+  a. [Import Sphinx](#a-import-sphinx)
+  b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)
+  c. [Update your `run()` function](#c-update-your-run-function)
+  d. [Add configuration options](#d-add-configuration-options)
+8. [Run tests](#8-run-tests)
+9. [Propose on testnets](#9-propose-on-testnets)
 10. [Next steps](#10-next-steps)
 
 ## 1. Prerequisites
 
-The following must be installed on your machine:
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
-- [Node Version >=16.16.0](https://nodejs.org/en/download)
-
-You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
-* [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
-* [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting)
+* You must have an existing Foundry project that includes a Forge script. If you don't have these, we recommend following the [Getting Started in a New Repository guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-quickstart.md) instead.
+* The following must be installed on your machine:
+  * [Foundry](https://book.getfoundry.sh/getting-started/installation)
+  * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
+  * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
+* You must have an invite link to the DevOps platform because it's currently invite-only. [Request access on Sphinx's website.](https://sphinx.dev)
+* You must have an account that exists on live networks. This account will own your Gnosis Safe.
 
 ## 2. Update Foundry
 
@@ -62,7 +73,7 @@ node_modules/
 
 ## 5. Update `foundry.toml`
 
-Update your `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
+Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them under `[profile.default]`.
 
 ```
 ffi = true
@@ -71,72 +82,109 @@ extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
-## 6. Initialize a project
+## 6. Add remappings
 
-Next, we'll create a sample project using the init command.
+Run the following command to generate remappings for the Sphinx packages.
 
-### yarn or npm
-```
-npx sphinx init
-```
+Using Yarn or npm:
 
-### pnpm
-```
-pnpm sphinx init --pnpm
+```bash
+npx sphinx remappings
 ```
 
-This created a few files:
-- `HelloSphinx.sol`: A sample contract to deploy. This file is written to your existing contract folder, which defaults to `src/`.
-- `HelloSphinx.s.sol`: A sample deployment script. This file is written to your existing script folder, which defaults to `script/`.
-- `HelloSphinx.t.sol`: A sample test file. This file is written to your existing test folder, which defaults to `test/`.
+Using pnpm:
 
-## 7. Add remappings
-
-You probably already have remappings either in your `foundry.toml` or `remappings.txt` file. If you don't, we recommend adding a `remappings.txt` file in the root of your repository.
-
-The previous command should have output a set of recommended remappings based on your installation method. You'll want to copy and paste those into either your remapping field in your `foundry.toml`, or your `remappings.txt` file.
-
-## 8. Test the deployment
-
-Run the test in `HelloSphinx.t.sol`:
-```
-forge test --match-contract HelloSphinxTest
+```bash
+pnpm sphinx remappings --pnpm
 ```
 
-## 9. Broadcast a deployment on Anvil (optional)
+Copy and paste the remappings into your `remappings.txt` file or the `remappings` array in your `foundry.toml`.
 
-Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. Its main purpose is to deploy contracts on Anvil, but you can use it on live networks too.
+## 7. Update your deployment script
 
-First, add Anvil to your `rpc_endpoints` in your `foundry.toml`:
-```
-[rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
-```
+Navigate to your deployment script. We'll adjust it slightly in this section.
 
-Start an Anvil node:
-```
-anvil
-```
+#### a. Import Sphinx
 
-Add a private key to your .env file. We'll use the first valid one on Anvil:
-```
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+Add the following import in your deployment script:
+
+```sol
+import "@sphinx-labs/plugins/SphinxPlugin.sol";
 ```
 
-Then, navigate to a new terminal window. Broadcast the deployment with the following command, replacing `<script/path/>` with the path to your deployment script.
+#### b. Inherit from `Sphinx`
+
+Inherit from `Sphinx` in your deployment script.
+
+```sol
+contract MyDeploymentScript is
+  Sphinx,
+  // Existing parent contracts:
+  // ...
+```
+
+#### c. Update your `run()` function
+
+The entry point of your deployment script must be a `run()` function; it cannot be named anything else. Please change its name if necessary.
+
+Then, add a `sphinx` modifier to your `run` function:
+
+```sol
+function run() sphinx public override {
+    ...
+}
+```
+
+We'll explain the Sphinx modifier in a later guide.
+
+#### d. Add configuration options
+
+There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
+
+```sol
+sphinxConfig.owners = [<your address>];
+sphinxConfig.orgId = <Sphinx org ID>;
+sphinxConfig.projectName = "My First Project";
+sphinxConfig.threshold = 1;
+sphinxConfig.mainnets;
+sphinxConfig.testnets = [
+  Network.sepolia,
+  Network.optimism_sepolia,
+  Network.polygon_mumbai
+];
+```
+
+Enter your address in the `owners` array and enter your Sphinx Organization ID in the `orgId` field. You can find the organization ID in the Sphinx UI. The `orgId` is a public field, so you don't need to keep it secret.
+
+## 8. Run tests
+
+You've finished integrating Sphinx! Your next step is to check that your existing tests are passing. Go ahead and run your Forge tests.
+
+If you can't get your test suite to pass, we're more than happy to help! Reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np).
+
+## 9. Propose on testnets
+
+Copy and paste one of the following commands to propose your deployment with the DevOps platform.
+
+Using Yarn or npm:
 
 ```
-npx sphinx deploy <script/path>/HelloSphinx.s.sol --network anvil
+npx sphinx propose script/HelloSphinx.s.sol --testnets
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
+Using pnpm:
 
-Sphinx will automatically generate deployment artifacts, which are in the same format as [hardhat-deploy](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+```
+pnpm sphinx propose script/HelloSphinx.s.sol --testnets
+```
 
-If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
+Here are the steps that occur when you run this command:
+1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
+3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
+
+When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
 ## 10. Next steps
 
-If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md).
-
-If you'd like to learn more about writing deployment scripts with Sphinx, see the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md).
+Before you use Sphinx in production, we recommend reading the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md), which covers essential information for using Sphinx.

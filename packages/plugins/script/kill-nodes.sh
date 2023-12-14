@@ -6,10 +6,11 @@ if [ "$#" -eq 0 ]; then
     exit 1
 fi
 
-if [ ! -z "8545" ]
-then
+# Find process ID (PID) listening on port 8545
+pid=$(lsof -t -i:8545)
+# Check if PID is not empty and kill the process
+if [ ! -z "$pid" ]; then
   echo "Killing process on port 8545"
-  pid=$(lsof -t -i:8545)
   kill $pid
 else
   echo "No process running on port 8545"
@@ -17,7 +18,7 @@ fi
 
 # Check if the first argument is "all"
 if [ "$1" == "all" ]; then
-  all_chain_ids=(1 5 10 420 10200 42161 421613)
+  all_chain_ids=(1 11155111 10 11155420 10200 42161 421614)
 
   for chain_id in "${all_chain_ids[@]}"
   do

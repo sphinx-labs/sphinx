@@ -22,8 +22,11 @@ jobs:
             - v2-cache-yarn-install-{{ checksum "yarn.lock" }}
             - v2-cache-yarn-install
       - run:
+          name: Run pre-install script
+          command: sh ./scripts/create-placeholder.sh
+      - run:
           name: Install dependencies
-          command: yarn --frozen-lockfile --link-duplicates
+          command: yarn --frozen-lockfile --link-duplicates --network-concurrency 1
       - save_cache:
           key: v2-cache-yarn-install-{{ checksum "yarn.lock" }}
           paths:
@@ -31,7 +34,6 @@ jobs:
             - packages/contracts/node_modules
             - packages/core/node_modules
             - packages/demo/node_modules
-            - packages/executor/node_modules
             - packages/plugins/node_modules
       - run:
           name: Build monorepo
@@ -67,6 +69,7 @@ jobs:
       - run:
           name: Test
           command: yarn test:coverage
+          no_output_timeout: 20m
           working_directory: packages/<<parameters.package_name>>
 
   depcheck:
@@ -89,10 +92,6 @@ jobs:
           name: Check demo
           command: npx depcheck
           working_directory: packages/demo
-      - run:
-          name: Check executor
-          command: npx depcheck
-          working_directory: packages/executor
       - run:
           name: Check plugins
           command: npx depcheck
@@ -117,12 +116,6 @@ workflows:
           name: demo-tests
           package_name: demo
           dependencies: "(core|contracts|plugins)"
-          requires:
-            - yarn-monorepo
-      - js-lint-test:
-          name: executor-tests
-          package_name: executor
-          dependencies: "(core|contracts)"
           requires:
             - yarn-monorepo
       - js-lint-test:

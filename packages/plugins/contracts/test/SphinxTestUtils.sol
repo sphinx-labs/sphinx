@@ -2,11 +2,17 @@
 pragma solidity ^0.8.0;
 
 import { Vm } from "sphinx-forge-std/Vm.sol";
-import { Network, NetworkInfo } from "../foundry/SphinxPluginTypes.sol";
+import {
+    Network,
+    NetworkInfo
+} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
-import { SphinxConstants, SphinxContractInfo } from "../foundry/SphinxConstants.sol";
-import { SphinxUtils } from "../foundry/SphinxUtils.sol";
+import {
+    SphinxConstants,
+    SphinxContractInfo
+} from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
@@ -70,14 +76,14 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
         string memory networkUrlStr;
         if (_network == Network.optimism) {
             networkUrlStr = "opt-mainnet";
-        } else if (_network == Network.optimism_goerli) {
-            networkUrlStr = "opt-goerli";
+        } else if (_network == Network.optimism_sepolia) {
+            networkUrlStr = "opt-sepolia";
         } else if (_network == Network.arbitrum) {
             networkUrlStr = "arb-mainnet";
-        } else if (_network == Network.arbitrum_goerli) {
-            networkUrlStr = "arb-goerli";
-        } else if (_network == Network.goerli) {
-            networkUrlStr = "eth-goerli";
+        } else if (_network == Network.arbitrum_sepolia) {
+            networkUrlStr = "arb-sepolia";
+        } else if (_network == Network.sepolia) {
+            networkUrlStr = "eth-sepolia";
         } else if (_network == Network.ethereum) {
             networkUrlStr = "eth-mainnet";
         } else {
@@ -168,7 +174,11 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
     // Workaround for converting bytes memory to bytes calldata which is necessary to use index slicing
     // If we call this with this.sliceBytes(bytes memory) then the input is converted to bytes calldata
     // and properly sliced
-    function sliceBytes(bytes calldata b, uint start, uint end) public pure returns (bytes memory) {
+    function sliceBytes(
+        bytes calldata b,
+        uint256 start,
+        uint256 end
+    ) public pure returns (bytes memory) {
         return b[start:end];
     }
 }

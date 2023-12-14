@@ -3,6 +3,7 @@ import process from 'process'
 import * as dotenv from 'dotenv'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
+import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
 import {
   BuildInfoInputs,
@@ -11,69 +12,68 @@ import {
   ParsedConfig,
 } from '../config/types'
 import { getMinimumCompilerInput } from '../languages'
-import {
-  SphinxBundles,
-  makeBundlesFromConfig,
-  HumanReadableAction,
-} from '../actions'
 
 // Load environment variables from .env
 dotenv.config()
 
-export const sphinxCommitAbstractSubtask = async (
-  parsedConfig: ParsedConfig,
+export const getParsedConfigWithCompilerInputs = async (
+  parsedConfigs: Array<ParsedConfig>,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
   ipfsUrl?: string
 ): Promise<{
   configUri: string
-  compilerConfig: CompilerConfig
+  compilerConfigs: Array<CompilerConfig>
 }> => {
   const sphinxInputs: Array<BuildInfoInputs> = []
+  const compilerConfigs: Array<CompilerConfig> = []
 
-  const unskipped = parsedConfig.actionInputs.filter((a) => !a.skip)
-  for (const actionInput of unskipped) {
-    for (const address of Object.keys(actionInput.contracts)) {
-      const { fullyQualifiedName } = actionInput.contracts[address]
+  for (const parsedConfig of parsedConfigs) {
+    for (const actionInput of parsedConfig.actionInputs) {
+      for (const address of Object.keys(actionInput.contracts)) {
+        const { fullyQualifiedName } = actionInput.contracts[address]
 
-      const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
+        const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
 
-      const prevSphinxInput = sphinxInputs.find(
-        (input) => input.solcLongVersion === buildInfo.solcLongVersion
-      )
+        const prevSphinxInput = sphinxInputs.find(
+          (input) => input.solcLongVersion === buildInfo.solcLongVersion
+        )
 
-      const { language, settings, sources } = getMinimumCompilerInput(
-        buildInfo.input,
-        artifact.metadata
-      )
+        const { language, settings, sources } = getMinimumCompilerInput(
+          buildInfo.input,
+          artifact.metadata
+        )
 
-      if (prevSphinxInput === undefined) {
-        const sphinxInput: BuildInfoInputs = {
-          solcVersion: buildInfo.solcVersion,
-          solcLongVersion: buildInfo.solcLongVersion,
-          id: buildInfo.id,
-          input: {
-            language,
-            settings,
-            sources,
-          },
-        }
-        sphinxInputs.push(sphinxInput)
-      } else {
-        prevSphinxInput.input.sources = {
-          ...prevSphinxInput.input.sources,
-          ...sources,
+        if (prevSphinxInput === undefined) {
+          const sphinxInput: BuildInfoInputs = {
+            solcVersion: buildInfo.solcVersion,
+            solcLongVersion: buildInfo.solcLongVersion,
+            id: buildInfo.id,
+            input: {
+              language,
+              settings,
+              sources,
+            },
+          }
+          sphinxInputs.push(sphinxInput)
+        } else {
+          prevSphinxInput.input.sources = {
+            ...prevSphinxInput.input.sources,
+            ...sources,
+          }
         }
       }
     }
+
+    const compilerConfig: CompilerConfig = {
+      ...parsedConfig,
+      inputs: sphinxInputs,
+    }
+
+    compilerConfigs.push(compilerConfig)
   }
 
-  const compilerConfig: CompilerConfig = {
-    ...parsedConfig,
-    inputs: sphinxInputs,
-  }
-
-  const ipfsData = JSON.stringify(compilerConfig, null, 2)
+  const ipfsData = JSON.stringify(compilerConfigs, null, 2)
 
   let ipfsHash
   if (!commitToIpfs) {
@@ -111,25 +111,48 @@ IPFS_API_KEY_SECRET: ...
 
   const configUri = `ipfs://${ipfsHash}`
 
-  return { configUri, compilerConfig }
+  return { configUri, compilerConfigs }
 }
 
-export const getProjectBundleInfo = async (
-  parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
-): Promise<{
-  configUri: string
-  compilerConfig: CompilerConfig
-  bundles: SphinxBundles
-  humanReadableActions: Array<HumanReadableAction>
-}> => {
-  const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
-    parsedConfig,
-    false,
-    configArtifacts
-  )
+export const makeDeploymentData = (
+  configUri: string,
+  compilerConfigArray: Array<CompilerConfig>
+): DeploymentData => {
+  const data: DeploymentData = {}
+  for (const compilerConfig of compilerConfigArray) {
+    // We only add a `DeploymentData` object for networks that have at least one `EXECUTE` leaf. If
+    // we don't enforce this, the default behavior would be to add an `APPROVE` leaf without any
+    // `EXECUTE` leaves on chains with empty deployments. This is only desirable if the user is
+    // attempting to cancel a previously signed Merkle root, which isn't currently supported by our
+    // plugin.
+    if (compilerConfig.actionInputs.length === 0) {
+      continue
+    }
 
-  const { bundles, humanReadableActions } = makeBundlesFromConfig(parsedConfig)
+    const txs: SphinxTransaction[] = compilerConfig.actionInputs.map(
+      (action) => {
+        return {
+          to: action.to,
+          value: action.value,
+          gas: action.gas,
+          txData: action.txData,
+          operation: action.operation,
+          requireSuccess: action.requireSuccess,
+        }
+      }
+    )
 
-  return { configUri, compilerConfig, bundles, humanReadableActions }
+    data[compilerConfig.chainId] = {
+      type: 'deployment',
+      nonce: compilerConfig.nonce,
+      executor: compilerConfig.executorAddress,
+      safeProxy: compilerConfig.safeAddress,
+      moduleProxy: compilerConfig.moduleAddress,
+      uri: configUri,
+      txs,
+      arbitraryChain: compilerConfig.arbitraryChain,
+    }
+  }
+
+  return data
 }

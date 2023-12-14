@@ -3,24 +3,24 @@ pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { Governor } from "@openzeppelin/contracts/governance/Governor.sol";
 
 struct TopLevelStruct {
-    int a;
+    int256 a;
 }
 
 contract MyContract1 {
-    int public intArg;
-    int public secondIntArg;
-    int public thirdIntArg;
-
-    uint public uintArg;
-
+    int256 public intArg;
+    int256 public secondIntArg;
+    int256 public thirdIntArg;
+    uint256 public uintArg;
     address public addressArg;
     address public otherAddressArg;
 
     struct MyStruct {
-        int a;
-        int b;
+        int256 a;
+        int256 b;
         MyNestedStruct c;
     }
 
@@ -28,7 +28,7 @@ contract MyContract1 {
         address d;
     }
 
-    constructor(int _intArg, uint _uintArg, address _addressArg, address _otherAddressArg) {
+    constructor(int256 _intArg, uint256 _uintArg, address _addressArg, address _otherAddressArg) {
         intArg = _intArg;
         uintArg = _uintArg;
         addressArg = _addressArg;
@@ -39,7 +39,7 @@ contract MyContract1 {
         uintArg += 1;
     }
 
-    function set(int _int) external {
+    function set(int256 _int) external {
         intArg = _int;
     }
 
@@ -48,7 +48,7 @@ contract MyContract1 {
         otherAddressArg = _otherAddr;
     }
 
-    function setInts(int _a, int _b, int _c) external {
+    function setInts(int256 _a, int256 _b, int256 _c) external {
         intArg = _a;
         secondIntArg = _b;
         thirdIntArg = _c;
@@ -70,9 +70,9 @@ contract MyContract1 {
 }
 
 contract MyContract2 {
-    uint public number;
+    uint256 public number;
 
-    function incrementMyContract2(uint _num) external {
+    function incrementMyContract2(uint256 _num) external {
         number += _num;
     }
 }
@@ -80,9 +80,9 @@ contract MyContract2 {
 contract MyOwnable is Ownable {
     uint256 public value;
 
-    constructor(address _sphinxManager, uint256 _initialValue) {
+    constructor(address _safe, uint256 _initialValue) {
         value = _initialValue;
-        _transferOwnership(_sphinxManager);
+        _transferOwnership(_safe);
     }
 
     function increment() external {
@@ -94,14 +94,52 @@ contract MyOwnable is Ownable {
     }
 }
 
-contract MyAccessControl is AccessControl {
-    uint256 public value;
+// This contract's size is ~22181 bytes, which is near the contract size limit of 24576 bytes.
+contract MyLargeContract is Governor, AccessControl {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(Governor, AccessControl) returns (bool) {}
 
-    constructor(address _sphinxManager) {
-        _setupRole(DEFAULT_ADMIN_ROLE, _sphinxManager);
-    }
+    function name() public view override(Governor) returns (string memory) {}
 
-    function myAccessControlFunction(uint256 _value) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        value = _value;
-    }
+    constructor() Governor("") {}
+
+    function clock() public view override returns (uint48) {}
+
+    function CLOCK_MODE() public view override returns (string memory) {}
+
+    function COUNTING_MODE() public view virtual override returns (string memory) {}
+
+    function votingDelay() public view virtual override returns (uint256) {}
+
+    function votingPeriod() public view virtual override returns (uint256) {}
+
+    function quorum(uint256 timepoint) public view virtual override returns (uint256) {}
+
+    function hasVoted(
+        uint256 proposalId,
+        address account
+    ) public view virtual override returns (bool) {}
+
+    function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {}
+
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {}
+
+    function _getVotes(
+        address account,
+        uint256 timepoint,
+        bytes memory params
+    ) internal view virtual override returns (uint256) {}
+
+    function _countVote(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        uint256 weight,
+        bytes memory params
+    ) internal virtual override {}
+}
+
+contract DuplicateContractName {
+    function duplicateContractTwo() external {}
 }

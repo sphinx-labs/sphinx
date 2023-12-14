@@ -1,8 +1,6 @@
 import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import { ethers } from 'ethers'
 
-export const CONTRACT_SIZE_LIMIT = 24576 // bytes
-
 export const WEBSITE_URL = `https://sphinx.dev`
 
 // Etherscan constants
@@ -63,36 +61,40 @@ export const customChains: CustomChain[] = [
       browserURL: 'https://goerli.basescan.org/',
     },
   },
+  {
+    network: 'base-sepolia',
+    chainId: 84532,
+    urls: {
+      apiURL: 'https://base-sepolia.blockscout.com/api',
+      browserURL: 'https://base-sepolia.blockscout.com/',
+    },
+  },
+  {
+    network: 'optimism-sepolia',
+    chainId: 11155420,
+    urls: {
+      apiURL: 'https://api-sepolia-optimism.etherscan.io/api',
+      browserURL: 'https://sepolia-optimism.etherscan.io/',
+    },
+  },
+  {
+    network: 'arbitrum-sepolia',
+    chainId: 421614,
+    urls: {
+      apiURL: 'https://api-sepolia.arbiscan.io/api',
+      browserURL: 'https://sepolia.arbiscan.io/',
+    },
+  },
+  {
+    network: 'sepolia',
+    chainId: 11155111,
+    urls: {
+      apiURL: 'https://api-sepolia.etherscan.io/api',
+      browserURL: 'https://sepolia.etherscan.io/',
+    },
+  },
 ]
 
-export const EXECUTION_BUFFER_MULTIPLIER = 2
 export type Integration = 'hardhat' | 'foundry'
 
-export type Keyword = '{preserve}' | '{gap}'
-type Keywords = {
-  preserve: Keyword
-  gap: Keyword
-}
-
-export const keywords: Keywords = {
-  preserve: '{preserve}',
-  gap: '{gap}',
-}
-
-export const REMOTE_EXECUTOR_ROLE = ethers.keccak256(
-  ethers.toUtf8Bytes('REMOTE_EXECUTOR_ROLE')
-)
-
 export const RELAYER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('RELAYER_ROLE'))
-
-export const FUNDER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FUNDER_ROLE'))
-
-export const CURRENT_SPHINX_MANAGER_VERSION = {
-  major: '0',
-  minor: '2',
-  patch: '6',
-}
-
-export const CURRENT_SPHINX_AUTH_VERSION = CURRENT_SPHINX_MANAGER_VERSION
-
-export const REFERENCE_ORG_ID = 'reference-org-id'

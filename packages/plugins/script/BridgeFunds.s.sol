@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { LzApp } from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
-import { Script } from "sphinx-forge-std/Script.sol";
-import {
-    ILayerZeroEndpoint
-} from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";
-import {
-    NonblockingLzApp
-} from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
+import {LzApp} from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
+import {Script} from "sphinx-forge-std/Script.sol";
+import {ILayerZeroEndpoint} from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";
+import {NonblockingLzApp} from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
 
 /**
  * @notice This script sends funds from Goerli to any destination testnet supported by LayerZero.
@@ -63,8 +59,7 @@ contract SphinxScript is LzApp, Script {
     }
 
     string alchemyApiKey = vm.envString("ALCHEMY_API_KEY");
-    string goerliRpcUrl =
-        string(abi.encodePacked("https://eth-goerli.g.alchemy.com/v2/", alchemyApiKey));
+    string sepoliaRpcUrl = string(abi.encodePacked("https://eth-sepolia.g.alchemy.com/v2/", alchemyApiKey));
     uint256 funderPrivateKey = vm.envUint("PRIVATE_KEY");
     address funder = vm.addr(funderPrivateKey);
 
@@ -81,9 +76,7 @@ contract SphinxScript is LzApp, Script {
     constructor() LzApp(localEndpoint) {
         // (2) If you're adding a new chain, add a new FundingInfo struct here.
         fundingInfo.push(FundingInfo(bnbTestnetLzChainId, bnbTestnetAmount, bnbTestnetLzReceiver));
-        fundingInfo.push(
-            FundingInfo(gnosisChiadoLzChainId, gnosisChiadoAmount, gnosisChiadoLzReceiver)
-        );
+        fundingInfo.push(FundingInfo(gnosisChiadoLzChainId, gnosisChiadoAmount, gnosisChiadoLzReceiver));
         fundingInfo.push(FundingInfo(phantomLzChainId, ftmAmount, fantomLzReceiver));
         fundingInfo.push(FundingInfo(avaxLzChainId, avaxAmount, avaxLzReceiver));
 
@@ -91,9 +84,9 @@ contract SphinxScript is LzApp, Script {
     }
 
     function run() public {
-        vm.createSelectFork(goerliRpcUrl);
+        vm.createSelectFork(sepoliaRpcUrl);
         vm.startBroadcast(funderPrivateKey);
-        for (uint i = 0; i < fundingInfo.length; i++) {
+        for (uint256 i = 0; i < fundingInfo.length; i++) {
             uint16 dstChainId = fundingInfo[i].dstChainId;
             uint256 dstTotalNativeTokenAmount = fundingInfo[i].dstTotalNativeTokenAmount;
             address dstLzReceiver = fundingInfo[i].dstLzReceiver;
@@ -104,9 +97,7 @@ contract SphinxScript is LzApp, Script {
 
             uint256 amountSent = 0;
             while (amountSent < dstTotalNativeTokenAmount) {
-                uint256 amountToSend = relayer
-                    .dstConfigLookup(dstChainId, outboundProofType)
-                    .dstNativeAmtCap;
+                uint256 amountToSend = relayer.dstConfigLookup(dstChainId, outboundProofType).dstNativeAmtCap;
                 require(amountToSend > 0, "BridgeFunds: amountToSend must be greater than 0");
 
                 if (amountToSend + amountSent > dstTotalNativeTokenAmount) {
@@ -120,7 +111,7 @@ contract SphinxScript is LzApp, Script {
                     tokenReceiver // Address that will receive the funds on the destination chain
                 );
 
-                (uint256 fee, ) = lzEndpoint.estimateFees(
+                (uint256 fee,) = lzEndpoint.estimateFees(
                     dstChainId,
                     address(this), // The "user application" on the source chain
                     "", // We don't send a message payload when sending funds
@@ -145,15 +136,13 @@ contract SphinxScript is LzApp, Script {
 
     /**
      * @notice Overrides the _blockingLzReceive function from LzApp. It's necessary for us to
-               override this function so that this contract isn't marked abstract by the Solidity
-               compiler.
+     *            override this function so that this contract isn't marked abstract by the Solidity
+     *            compiler.
      */
-    function _blockingLzReceive(
-        uint16 _srcChainId,
-        bytes memory _srcAddress,
-        uint64 _nonce,
-        bytes memory _payload
-    ) internal override {}
+    function _blockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload)
+        internal
+        override
+    {}
 }
 
 interface ILayerZeroRelayerV2 {
@@ -163,22 +152,19 @@ interface ILayerZeroRelayerV2 {
         uint64 gasPerByte;
     }
 
-    function dstConfigLookup(
-        uint16 dstChainId,
-        uint16 outboundProofType
-    ) external view returns (DstConfig memory);
+    function dstConfigLookup(uint16 dstChainId, uint16 outboundProofType) external view returns (DstConfig memory);
 }
 
 /**
  * @title SphinxLZReceiver
  * @notice This contract receives LayerZero cross chain messages. It is meant to exist on a
-           destination chain. We use the non-blocking version of LayerZero so that we can continue
-           to receive messages if a transaction fails on this chain.
+ *            destination chain. We use the non-blocking version of LayerZero so that we can continue
+ *            to receive messages if a transaction fails on this chain.
  */
 contract SphinxLZReceiver is NonblockingLzApp {
     /**
      * @param _endpoint Address of the LayerZero endpoint on the destination chain. See:
-       https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
+     *    https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
      */
     constructor(address _endpoint) NonblockingLzApp(_endpoint) {}
 
@@ -186,9 +172,9 @@ contract SphinxLZReceiver is NonblockingLzApp {
 
     /**
      * @notice Receives crosschain funding messages and emits a confirmation event. LayerZero
-              recommends overriding `_nonblockingLzReceive`, but it's necessary for us to override
-              this function instead because the inherited version of this function requires a
-              trusted remote address pair, which we don't use.
+     *           recommends overriding `_nonblockingLzReceive`, but it's necessary for us to override
+     *           this function instead because the inherited version of this function requires a
+     *           trusted remote address pair, which we don't use.
      */
     function lzReceive(uint16, bytes calldata, uint64, bytes calldata) public override {
         received = true;
@@ -196,14 +182,9 @@ contract SphinxLZReceiver is NonblockingLzApp {
 
     /**
      * @notice Overrides the inherited function from LayerZero. It's necessary for us to override
-       this function so that this contract isn't marked abstract by the Solidity compiler. We
-       override the message receiving functionality of `lzReceive` instead of this function. See the
-       docs for `lzReceive` for more details.
+     *    this function so that this contract isn't marked abstract by the Solidity compiler. We
+     *    override the message receiving functionality of `lzReceive` instead of this function. See the
+     *    docs for `lzReceive` for more details.
      */
-    function _nonblockingLzReceive(
-        uint16,
-        bytes memory,
-        uint64,
-        bytes memory
-    ) internal virtual override {}
+    function _nonblockingLzReceive(uint16, bytes memory, uint64, bytes memory) internal virtual override {}
 }

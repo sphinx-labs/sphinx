@@ -6,16 +6,13 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  SphinxTransaction,
+  FoundryContractArtifact,
 } from '@sphinx-labs/contracts'
 
-import {
-  BuildInfo,
-  CompilerOutput,
-  ContractArtifact,
-} from '../languages/solidity/types'
+import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SupportedChainId, SupportedNetworkName } from '../networks'
-import { SemVer } from '../types'
+import { SupportedNetworkName } from '../networks'
 import { ParsedContractDeployments } from '../actions/types'
 
 export const userContractKinds = [
@@ -44,13 +41,6 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-export const VALID_TEST_MANAGER_VERSIONS = ['v9.9.9']
-export const VALID_MANAGER_VERSION: SemVer = {
-  major: '0',
-  minor: '2',
-  patch: '6',
-}
-
 export type Project = string | 'all'
 
 export type ContractKind = UserContractKind | 'proxy'
@@ -77,43 +67,44 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput =
-  | RawDeployContractActionInput
-  | RawFunctionCallActionInput
-  | RawCreate2ActionInput
+export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
 
-export type ActionInput =
-  | DeployContractActionInput
-  | FunctionCallActionInput
-  | Create2ActionInput
+export type ActionInput = FunctionCallActionInput | Create2ActionInput
 
 export type ParsedConfig = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  executorAddress: string
+  safeInitData: string
+  nonce: string
   chainId: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
-  remoteExecution: boolean
   unlabeledAddresses: string[]
+  arbitraryChain: boolean
 }
 
 export type DeploymentInfo = {
-  authAddress: string
-  managerAddress: string
+  safeAddress: string
+  moduleAddress: string
+  requireSuccess: boolean
+  executorAddress: string
+  nonce: string
   chainId: string
+  blockGasLimit: string
+  safeInitData: string
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean
   initialState: InitialChainState
   labels: Array<Label>
+  arbitraryChain: boolean
 }
 
 export type InitialChainState = {
-  proposers: Array<string>
-  version: SemVer
-  isManagerDeployed: boolean
-  firstProposalOccurred: boolean
+  isSafeDeployed: boolean
+  isModuleDeployed: boolean
   isExecuting: boolean
 }
 
@@ -141,46 +132,23 @@ export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string
   owners: Array<string>
-  proposers: Array<string>
   mainnets: Array<N>
   testnets: Array<N>
   threshold: string
-  version: SemVer
+  saltNonce: string
 }
 
-export interface RawDeployContractActionInput {
-  fullyQualifiedName: string
-  actionType: string
-  skip: boolean
-  initCode: string
-  constructorArgs: string
-  userSalt: string
-  referenceName: string
-  gas: string
-  additionalContracts: FoundryDryRunTransaction['additionalContracts']
-}
-
-export interface DeployContractActionInput
-  extends RawDeployContractActionInput {
-  decodedAction: DecodedAction
-  contracts: ParsedContractDeployments
-  create3Address: string
-}
-
-export interface RawCreate2ActionInput {
+export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
-  to: string
-  skip: boolean
-  data: string
   actionType: string
-  gas: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
 }
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
   contracts: ParsedContractDeployments
+  index: string
 }
 
 export type DecodedAction = {
@@ -190,23 +158,20 @@ export type DecodedAction = {
   address: string
 }
 
-export interface RawFunctionCallActionInput {
+export interface RawFunctionCallActionInput extends SphinxTransaction {
   actionType: string
-  skip: boolean
-  to: string
-  data: string
   contractName: string | null
   additionalContracts: Array<{
     transactionType: string
     address: string
     initCode: string
   }>
-  gas: string
   decodedAction: DecodedAction
 }
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
   contracts: ParsedContractDeployments
+  index: string
 }
 
 /**
@@ -225,7 +190,7 @@ export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
-    artifact: ContractArtifact
+    artifact: FoundryContractArtifact
   }
 }
 
@@ -236,25 +201,7 @@ export type BuildInfoRemote = BuildInfo & {
 export type ConfigArtifactsRemote = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfoRemote
-    artifact: ContractArtifact
-  }
-}
-
-export type ConfigCache = {
-  manager: string
-  isManagerDeployed: boolean
-  isExecuting: boolean
-  currentManagerVersion: SemVer
-  chainId: SupportedChainId
-  isLiveNetwork: boolean
-}
-
-export type ContractConfigCache = {
-  [referenceName: string]: {
-    isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevert
-    importCache: ImportCache
-    previousConfigUri?: string
+    artifact: FoundryContractArtifact
   }
 }
 

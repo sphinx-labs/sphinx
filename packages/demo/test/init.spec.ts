@@ -10,22 +10,21 @@ import {
 } from '@sphinx-labs/plugins'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { getFoundryConfigOptions } from '@sphinx-labs/plugins/src/foundry/options'
+import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 const deploymentArtifactDir = 'deployments'
-
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
-const contractAddress = '0x67AA37B2fb458501C3bB1Db312017a12AC3fD8cD'
 
 describe('Init CLI command', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string
   before(async () => {
-    const { src, test } = await getFoundryConfigOptions()
+    const { src, script, test } = await getFoundryToml()
 
     contractPath = path.join(src, sampleContractFileName)
-    scriptPath = path.join(src, sampleScriptFileName)
+    scriptPath = path.join(script, sampleScriptFileName)
     testPath = path.join(test, sampleTestFileName)
   })
 
@@ -42,12 +41,14 @@ describe('Init CLI command', () => {
     deleteFiles(contractPath, scriptPath, testPath)
   })
 
-  it('Succeeds for a sample Foundry project', async () => {
+  it('Creates and tests a sample Foundry project', async () => {
     // Check that the sample files haven't been created yet
     expect(fs.existsSync(contractPath)).to.be.false
     expect(fs.existsSync(testPath)).to.be.false
 
-    await execAsync('npx sphinx init --quickstart')
+    await execAsync(
+      `npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+    )
 
     // Check that the files have been created
     expect(fs.existsSync(contractPath)).to.be.true
@@ -60,22 +61,35 @@ describe('Init CLI command', () => {
       `npx sphinx deploy script/HelloSphinx.s.sol --network anvil --confirm`
     )
 
+    // We need to load the contract artifact programmatically because it's not created until we run
+    // a Forge command.
+    const artifact =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json'))
+    // Get the sample contract's address.
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+    const contractAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(
+        ethers.concat([
+          artifact.bytecode.object,
+          coder.encode(['string', 'uint256'], ['Hi', 2]),
+        ])
+      )
+    )
+
     // Check that the contract was deployed correctly
     expect(await provider.getCode(contractAddress)).to.not.equal('0x')
-    const contract = getContract()
+    const contract = new ethers.Contract(
+      contractAddress,
+      artifact.abi,
+      provider
+    )
     expect(await contract.greeting()).to.equal('Hi')
     expect(await contract.number()).to.equal(10n)
   })
 })
-
-const getContract = (): ethers.Contract => {
-  const abi =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json')).abi
-
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  return contract
-}
 
 const deleteFiles = (
   contractPath: string,

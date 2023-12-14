@@ -1,5 +1,6 @@
 import assert from 'assert'
 
+import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
@@ -22,19 +23,30 @@ import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/e
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
-import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { buildInfo as sphinxBuildInfo } from '@sphinx-labs/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
+import {
+  CompilerOutputMetadata,
+  SystemContractType,
+  additionalSystemContractsToVerify,
+  getSphinxConstants,
+  gnosisSafeBuildInfo,
+  optimismPeripheryBuildInfo,
+  remove0x,
+  sphinxBuildInfo,
+} from '@sphinx-labs/contracts'
+import { Logger } from '@eth-optimism/common-ts'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { getSphinxConstants } from './contract-info'
-import { CompilerOutputMetadata } from './languages'
-import { remove0x } from './utils'
+import { isLiveNetwork } from './utils'
+import { BuildInfo } from './languages'
+
+// Load environment variables from .env
+dotenv.config()
 
 export interface EtherscanResponseBody {
   status: string
@@ -93,7 +105,7 @@ export const verifySphinxConfig = async (
         actionInput.contracts[address]
 
       const { artifact } = configArtifacts[fullyQualifiedName]
-      const { abi, contractName, sourceName, metadata, bytecode } = artifact
+      const { contractName, sourceName, metadata, bytecode } = artifact
 
       // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
       // determine where the contract's creation code ends and the constructor arguments begin. This
@@ -123,76 +135,12 @@ export const verifySphinxConfig = async (
         address,
         sourceName,
         contractName,
-        abi,
         apiKey,
         minimumCompilerInput,
         solcVersion,
         encodedConstructorArgs
       )
-
-      // TODO(upgrades):
-      // if (contractConfig.kind !== 'immutable') {
-      //   // Link the proxy with its implementation
-      //   await linkProxyWithImplementation(
-      //     etherscanApiEndpoints.urls,
-      //     apiKey,
-      //     contractConfig.address,
-      //     implementationAddress,
-      //     contractName
-      //   )
-      // }
     }
-  }
-}
-
-export const verifySphinx = async (
-  provider: ethers.Provider,
-  networkName: string,
-  apiKey: string
-) => {
-  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
-    Number((await provider.getNetwork()).chainId)
-  )
-
-  for (const {
-    artifact,
-    expectedAddress,
-    constructorArgs,
-  } of await getSphinxConstants(provider)) {
-    const { sourceName, contractName, abi } = artifact
-
-    const contractOutput =
-      sphinxBuildInfo.output.contracts[sourceName][contractName]
-    const metadata: CompilerOutputMetadata =
-      typeof contractOutput.metadata === 'string'
-        ? JSON.parse(contractOutput.metadata)
-        : contractOutput.metadata
-
-    const minimumCompilerInput = getMinimumCompilerInput(
-      sphinxBuildInfo.input,
-      metadata
-    )
-
-    const encodedConstructorArgs = await encodeArguments(
-      abi,
-      sourceName,
-      contractName,
-      constructorArgs
-    )
-
-    await attemptVerification(
-      provider,
-      networkName,
-      etherscanApiEndpoints.urls,
-      expectedAddress,
-      sourceName,
-      contractName,
-      abi,
-      apiKey,
-      minimumCompilerInput,
-      sphinxBuildInfo.solcVersion,
-      encodedConstructorArgs
-    )
   }
 }
 
@@ -203,7 +151,6 @@ export const attemptVerification = async (
   contractAddress: string,
   sourceName: string,
   contractName: string,
-  abi: any,
   etherscanApiKey: string,
   compilerInput: CompilerInput,
   solcVersion: string,
@@ -415,4 +362,101 @@ export const isSupportedNetworkOnEtherscan = async (
   }
 
   return true
+}
+
+export const etherscanVerifySphinxSystem = async (
+  provider: SphinxJsonRpcProvider,
+  logger: Logger
+): Promise<void> => {
+  const etherscanApiKey = process.env.ETHERSCAN_API_KEY
+  if (!etherscanApiKey) {
+    logger.error(
+      `[Sphinx]: skipped verifying sphinx contracts. reason: no api key found`
+    )
+    return
+  }
+
+  const { name: networkName, chainId } = await provider.getNetwork()
+  if (
+    !(await isSupportedNetworkOnEtherscan(provider)) ||
+    !(await isLiveNetwork(provider))
+  ) {
+    logger.info(
+      `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan not supported for: ${networkName}`
+    )
+    return
+  }
+
+  logger.info(
+    '[Sphinx]: attempting to verify the sphinx contracts on etherscan...'
+  )
+  const etherscanApiEndpoints = getEtherscanEndpointForNetwork(Number(chainId))
+  const contracts = getSphinxConstants().concat(
+    additionalSystemContractsToVerify
+  )
+
+  // Iterate over the system contracts, attempting to verify each one. We wrap the for-loop in a
+  // try/catch because this allows us to exit immediately if any contract fails to verify.
+  try {
+    for (const {
+      artifact,
+      expectedAddress,
+      constructorArgs,
+      type,
+    } of contracts) {
+      const { sourceName, contractName, abi } = artifact
+
+      let buildInfo: BuildInfo
+      if (type === SystemContractType.SPHINX) {
+        buildInfo = sphinxBuildInfo
+      } else if (type === SystemContractType.OPTIMISM) {
+        buildInfo = optimismPeripheryBuildInfo
+      } else if (type === SystemContractType.GNOSIS_SAFE) {
+        buildInfo = gnosisSafeBuildInfo
+      } else {
+        throw new Error(`Unknown system contract type. Should never happen.`)
+      }
+
+      const contractOutput =
+        buildInfo.output.contracts[sourceName][contractName]
+      const metadata: CompilerOutputMetadata =
+        typeof contractOutput.metadata === 'string'
+          ? JSON.parse(contractOutput.metadata)
+          : contractOutput.metadata
+
+      const minimumCompilerInput = getMinimumCompilerInput(
+        buildInfo.input,
+        metadata
+      )
+
+      const iface = new ethers.Interface(abi)
+
+      const encodedConstructorArgs = iface
+        .encodeDeploy(constructorArgs)
+        .replace('0x', '')
+
+      await attemptVerification(
+        provider,
+        networkName,
+        etherscanApiEndpoints.urls,
+        expectedAddress,
+        sourceName,
+        contractName,
+        etherscanApiKey,
+        minimumCompilerInput,
+        buildInfo.solcVersion,
+        encodedConstructorArgs
+      )
+    }
+
+    logger.info(
+      '[Sphinx]: finished attempting to verify the sphinx contracts on etherscan'
+    )
+  } catch (e) {
+    console.error(e)
+    logger.error(
+      `[Sphinx]: error: failed to verify sphinx contracts for ${networkName} on etherscan`,
+      e
+    )
+  }
 }

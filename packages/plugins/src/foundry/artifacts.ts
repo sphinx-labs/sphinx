@@ -3,33 +3,33 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 
 import { ConstructorFragment, FunctionFragment, ethers } from 'ethers'
 import {
-  BundledSphinxAction,
   ConfigArtifacts,
   ParsedConfig,
   getNetworkDirName,
   getNetworkNameForChainId,
-  recursivelyConvertResult,
 } from '@sphinx-labs/core'
-import { SphinxManagerABI } from '@sphinx-labs/contracts'
+import {
+  SphinxModuleABI,
+  recursivelyConvertResult,
+} from '@sphinx-labs/contracts'
 
-import { FoundryBroadcast } from './types'
+import { FoundrySingleChainBroadcast } from './types'
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.Provider,
   parsedConfig: ParsedConfig,
-  bundledActions: Array<BundledSphinxAction>,
-  broadcast: FoundryBroadcast,
+  broadcast: FoundrySingleChainBroadcast,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
 ): Promise<string> => {
-  const managerInterface = new ethers.Interface(SphinxManagerABI)
+  const moduleInterface = new ethers.Interface(SphinxModuleABI)
 
-  const executeActionsFragment = managerInterface.fragments
+  const executeActionsFragment = moduleInterface.fragments
     .filter(FunctionFragment.isFragment)
-    .find((f) => f.name === 'executeInitialActions')
+    .find((f) => f.name === 'execute')
   if (!executeActionsFragment) {
     throw new Error(
-      `Could not find 'executeInitialActions' in the SphinxManager ABI. Should never happen.`
+      `Could not find 'execute' in the SphinxModule ABI. Should never happen.`
     )
   }
 
@@ -46,7 +46,7 @@ export const writeDeploymentArtifacts = async (
   }
 
   const numDeployments: { [contractName: string]: number | undefined } = {}
-  for (const action of bundledActions) {
+  for (const action of parsedConfig.actionInputs) {
     for (const address of Object.keys(action.contracts)) {
       const { fullyQualifiedName, initCodeWithArgs } = action.contracts[address]
       const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
@@ -67,20 +67,23 @@ export const writeDeploymentArtifacts = async (
         const to = ethers.getAddress(t.transaction.to)
         const data = t.transaction.data
         if (
-          to === parsedConfig.managerAddress &&
+          to === parsedConfig.moduleAddress &&
           typeof data === 'string' &&
           data.startsWith(executeActionsFragment.selector)
         ) {
-          const decodedResult = managerInterface.decodeFunctionData(
+          const decodedResult = moduleInterface.decodeFunctionData(
             executeActionsFragment,
             data
           )
-          const { _actions } = recursivelyConvertResult(
+
+          const { _leavesWithProofs } = recursivelyConvertResult(
             executeActionsFragment.inputs,
             decodedResult
           ) as any
 
-          return _actions.some((a) => a.index === action.action.index)
+          return _leavesWithProofs.some((a) => {
+            return a.leaf.index === BigInt(action.index)
+          })
         }
       })
       if (!tx) {

@@ -11,7 +11,6 @@ export type FoundryToml = {
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
-  compilerConfigFolder: string
   cachePath: string
   storageLayout: boolean
   rpcEndpoints: { [networkName: string]: string | undefined }
@@ -33,13 +32,11 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
   const artifactFolder = resolve(outPath)
   const buildInfoFolder = resolve(buildInfoPath)
   const deploymentFolder = resolve('deployments')
-  const compilerConfigFolder = resolve('.compiler-configs')
 
   return {
     artifactFolder,
     buildInfoFolder,
     deploymentFolder,
-    compilerConfigFolder,
   }
 }
 
@@ -51,7 +48,7 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
  * variables are injected into the output of `forge config` automatically, so there's no additional
  * parsing needed to support them.
  */
-export const getFoundryConfigOptions = async (): Promise<FoundryToml> => {
+export const getFoundryToml = async (): Promise<FoundryToml> => {
   const { stdout } = await spawnAsync('forge', ['config', '--json'])
   const forgeConfig = JSON.parse(stdout)
 

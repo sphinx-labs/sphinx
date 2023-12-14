@@ -1,36 +1,39 @@
 # Getting Started in a New Repository
 
-This guide will show you how to setup Sphinx's Foundry CLI plugin in a fresh repository. We'll create a sample project, then test and deploy it locally.
+This guide will introduce you to Sphinx's Foundry plugin and DevOps platform by walking you through a sample multi-chain deployment.
+
+Deployments are a three-step process with the DevOps platform:
+
+1. **Propose**: Initiate the deployment from your command line or CI process by submitting the transactions to Sphinx's backend.
+2. **Approve**: Your Gnosis Safe owner(s) approve the deployment by signing a single meta transaction in the Sphinx UI.
+3. **Execute**: Sphinx's backend trustlessly executes the deployment through your Gnosis Safe.
+
+In this guide, you'll create a sample project, propose it on the command line, and then approve it in the Sphinx UI.
 
 ## Table of Contents
 
 1. [Prerequisites](#1-prerequisites)
-2. [Update Foundry](#2-update-foundry)
-3. [Create a new directory](#3-create-a-new-directory)
-4. [Install dependencies](#4-install-dependencies)
-5. [Initialize a project](#5-initialize-a-project)
-6. [Run tests](#6-run-tests)
-7. [Broadcast a deployment on Anvil (optional)](#7-broadcast-a-deployment-on-anvil-optional)
-8. [Next steps](#8-next-steps)
+2. [Create a new directory](#2-create-a-new-directory)
+3. [Install dependencies](#3-install-dependencies)
+4. [Initialize a project](#4-initialize-a-project)
+5. [Test the deployment](#5-test-the-deployment)
+6. [Propose on testnets](#6-propose-on-testnets)
+7. [Next steps](#7-next-steps)
 
 ## 1. Prerequisites
 
-The following must be installed on your machine:
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
-- [Node Version >=16.16.0](https://nodejs.org/en/download)
+* You must have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
+  * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
+  * [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting)
+* The following must be installed on your machine:
+  * [Foundry](https://book.getfoundry.sh/getting-started/installation)
+  * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
+  * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
+* You must have an invite link to the DevOps platform because it's currently invite-only. [Request access on Sphinx's website.](https://sphinx.dev)
+* You must have an Alchemy API key, which you can get on [their website](https://www.alchemy.com/).
+* You must have an account that exists on live networks. This account will own your Gnosis Safe.
 
-You must also have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
-* [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
-* [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting)
-
-## 2. Update Foundry
-
-```
-foundryup
-```
-
-## 3. Create a new directory
+## 2. Create a new directory
 
 In your terminal, navigate to the directory where you'd like to create your project. Then, create a new directory:
 
@@ -38,7 +41,7 @@ In your terminal, navigate to the directory where you'd like to create your proj
 mkdir hello_sphinx && cd hello_sphinx
 ```
 
-## 4. Install dependencies
+## 3. Install dependencies
 
 Install Sphinx, forge-std, and ds-test using your preferred package manager.
 
@@ -57,55 +60,69 @@ pnpm:
 pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.7.1 https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
 ```
 
-## 5. Initialize a project
+## 4. Initialize a project
 
-### yarn or npm
-```
-npx sphinx init --quickstart
-```
+Run one of the following commands on your command line, replacing the placeholders with your values. We've included a description of each command line argument below.
 
-### pnpm
+Using Yarn or npm:
+
 ```
-pnpm sphinx init --quickstart --pnpm
+npx sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS> --foundryup
 ```
 
-This command created a few files:
+Using pnpm:
+
+```
+pnpm sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS> --foundryup --pnpm
+```
+
+Command line argument descriptions:
+* `--org-id <SPHINX_ORG_ID>`: Your organization ID from the Sphinx UI.
+* `--sphinx-api-key <API_KEY>`: Your API key from the Sphinx UI.
+* `--alchemy-api-key <API_KEY>`: Your Alchemy API key.
+* `--owner <YOUR_ADDRESS>`: The address of an account you own on live networks.
+* `--foundryup`: An optional flag that runs `foundryup` to update Foundry. We recommend using the latest Foundry version with Sphinx.
+* `--pnpm`: An optional flag that creates remappings for pnpm.
+
+After you run the command, you'll notice several new files:
 - `src/HelloSphinx.sol`: A sample contract to deploy.
 - `test/HelloSphinx.t.sol`: A test file for the deployment.
-- `script/HelloSphinx.s.sol`: A sample deployment script.
-- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
-- `.env`: A sample `.env` file that contains a valid private key on Anvil.
+- `script/HelloSphinx.s.sol`: A Sphinx deployment script.
+- `foundry.toml`: The Foundry config file, which contains a few settings required by Sphinx.
+- `.env`: A sample `.env` file that contains your credentials.
 - `.gitignore`: A sample `.gitignore` file that contains files and directories generated by Sphinx, Foundry, and Node.
 
-## 6. Run tests
+## 5. Test the deployment
 
 ```
 forge test
 ```
 
-## 7. Broadcast a deployment on Anvil (optional)
+## 6. Propose on testnets
 
-Sphinx has its own CLI task for broadcasting deployments onto stand-alone networks. Its main purpose is to deploy contracts on Anvil, but you can use it on live networks too.
+Copy and paste one of the following commands to propose your deployment with the DevOps platform.
 
-First, start an Anvil node:
-```
-anvil
-```
-
-Then, navigate to a new terminal window. Deploy using the command:
+Using Yarn or npm:
 
 ```
-npx sphinx deploy ./script/HelloSphinx.s.sol --network anvil
+npx sphinx propose script/HelloSphinx.s.sol --testnets
 ```
 
-You'll be shown a preview of your deployment and prompted to confirm. Any transactions that are broadcasted by Foundry will be included in the deployment.
+Using pnpm:
 
-Sphinx will automatically generate deployment artifacts, which are in the same format as [hardhat-deploy](https://github.com/wighawag/hardhat-deploy). When the deployment completes, you'll find the deployment artifacts written to `./deployments/anvil-31337.json`.
+```
+pnpm sphinx propose script/HelloSphinx.s.sol --testnets
+```
 
-If you'd like to use this command to deploy on a live network, you can verify your contracts on block explorers using the `--verify` flag.
+Here are the steps that occur when you run this command:
+1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
+3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
 
-## 8. Next steps
+When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
-If you'd like to try out the DevOps platform, see the [Sphinx DevOps Platform guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/ops-getting-started.md).
+## 7. Next steps
 
-If you'd like to learn more about writing deployment scripts with Sphinx, see the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md).
+Congrats, you've finished your first deployment with Sphinx!
+
+When you're ready to write your own deployment scripts with Sphinx, see the [Writing Deployment Scripts guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md).

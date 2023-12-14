@@ -7,8 +7,5 @@ contracts:
 core:
   - any: ['packages/core/**/*']
 
-executor:
-  - any: ['packages/executor/**/*']
-
 plugins:
   - any: ['packages/plugins/**/*']
