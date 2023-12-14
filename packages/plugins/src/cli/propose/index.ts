@@ -2,6 +2,16 @@ import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { spawnSync } from 'child_process'
 
+// TODO(later): change hardhat from a devDependency to a dependency in the plugins package.
+import { hre } from 'hardhat'
+
+// TODO(later): the existing proposal simulation does two things:
+// 1. provide a helpful error to the user if the simulation fails? (maybe. try
+//    `RevertDuringSimulation`.)
+// 2. provide an estimated gas used for the entire deployment on each network. (consider the arb
+//    600k).
+// Make sure you don't regress too much on these two things.
+
 import {
   ProjectDeployment,
   ProposalRequest,
