@@ -1,5 +1,30 @@
 # @sphinx-labs/plugins
 
+## 0.24.0
+
+### Minor Changes
+
+- 6981e3e: Post audit updates
+- 434b085: Add Etherscan verification for system contracts
+- 013c0f9: Update getting started guides and related CLI commands
+
+### Patch Changes
+
+- ba1ac16: Modify Merkle leaf gas by a smaller buffer (1.3x + 20k)
+- 3003c11: Hard-code gas on Arbitrum Sepolia
+- 24576bd: Validate live network broadcast before retrieving private key
+- 0adc1e1: Improve gas estimation
+- 5b511e9: Make gas estimate more robust by using `gasleft()`
+- Updated dependencies [6981e3e]
+- Updated dependencies [24576bd]
+- Updated dependencies [434b085]
+- Updated dependencies [0adc1e1]
+- Updated dependencies [5b511e9]
+- Updated dependencies [9d5d0a4]
+- Updated dependencies [013c0f9]
+  - @sphinx-labs/contracts@0.14.0
+  - @sphinx-labs/core@0.19.0
+
 ## 0.23.6
 
 ### Patch Changes

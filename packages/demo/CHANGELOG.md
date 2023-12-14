@@ -1,5 +1,28 @@
 # @sphinx-labs/demo
 
+## 0.11.0
+
+### Minor Changes
+
+- 6981e3e: Post audit updates
+- 013c0f9: Update getting started guides and related CLI commands
+
+### Patch Changes
+
+- 434b085: Add Etherscan verification for system contracts
+- Updated dependencies [ba1ac16]
+- Updated dependencies [6981e3e]
+- Updated dependencies [3003c11]
+- Updated dependencies [24576bd]
+- Updated dependencies [434b085]
+- Updated dependencies [0adc1e1]
+- Updated dependencies [5b511e9]
+- Updated dependencies [9d5d0a4]
+- Updated dependencies [013c0f9]
+  - @sphinx-labs/plugins@0.24.0
+  - @sphinx-labs/contracts@0.14.0
+  - @sphinx-labs/core@0.19.0
+
 ## 0.10.3
 
 ### Patch Changes
