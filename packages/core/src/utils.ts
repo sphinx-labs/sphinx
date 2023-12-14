@@ -181,10 +181,12 @@ export const getGasPriceOverrides = async (
         return overridden
       }
     // Do not do anything for polygon zkevm and it's testnet
-    case 1101 || 1442:
+    case 1442:
+    case 1101:
       return overridden
     // On linea and its testnet, just override the gasPrice
-    case 59144 || 59140:
+    case 59140:
+    case 59144:
       if (gasPrice !== null) {
         overridden.gasPrice = gasPrice
         return overridden
@@ -197,6 +199,7 @@ export const getGasPriceOverrides = async (
       }
       return overridden
     // On mumbai, specify the nonce manually to override pending txs
+    case 56:
     case 80001:
       overridden.nonce = await signer.provider.getTransactionCount(
         await signer.getAddress(),
@@ -204,6 +207,7 @@ export const getGasPriceOverrides = async (
       )
       return overridden
     // On Gnosis, set the gas limit artificially high (since ethers does not seem to always estimate it proplerly especially for contract deployments)
+    case 100:
     case 10200:
       overridden.gasLimit = 15_000_000
       return overridden

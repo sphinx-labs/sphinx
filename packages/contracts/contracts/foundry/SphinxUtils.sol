@@ -843,19 +843,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             )
         );
-        require(
-            _msgSender == deployer,
-            string(
-                abi.encodePacked(
-                    "Sphinx: You must call 'vm.startBroadcast' with the address corresponding to the 'PRIVATE_KEY' in your '.env' file.\n",
-                    "Broadcast address: ",
-                    vm.toString(_msgSender),
-                    "\n",
-                    "Address corresponding to private key: ",
-                    vm.toString(deployer)
-                )
-            )
-        );
 
         if (address(_safe).code.length > 0) {
             // Check that the deployer is the sole owner of the Gnosis Safe.
