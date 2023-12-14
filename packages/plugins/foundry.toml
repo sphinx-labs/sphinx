@@ -17,9 +17,17 @@ memory_limit = 3355443200
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
-optimism = "${OPTIMISM_RPC_URL}"
 ethereum = "${ETHEREUM_RPC_URL}"
+optimism = "${OPTIMISM_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"
+gnosis = "${GNOSIS_RPC_URL}"
+polygon_zkevm = "${POLYGON_ZKEVM_RPC_URL}"
+polygon = "${POLYGON_RPC_URL}"
+bnb = "${BNB_RPC_URL}"
+linea = "${LINEA_RPC_URL}"
+avalanche = "${AVALANCHE_RPC_URL}"
+fantom = "${FANTOM_RPC_URL}"
+base = "${BASE_RPC_URL}"
 
 sepolia = "${SEPOLIA_RPC_URL}"
 optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL}"
