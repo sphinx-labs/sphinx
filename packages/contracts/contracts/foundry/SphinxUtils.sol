@@ -807,7 +807,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function validateLiveNetworkBroadcast(
         SphinxConfig memory _config,
-        address _msgSender,
         IGnosisSafe _safe
     ) external view {
         require(
@@ -847,7 +846,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         if (address(_safe).code.length > 0) {
             // Check that the deployer is the sole owner of the Gnosis Safe.
             require(
-                _safe.isOwner(_msgSender),
+                _safe.isOwner(deployer),
                 "Sphinx: The deployer must be an owner of the Gnosis Safe."
             );
             require(
