@@ -17,7 +17,7 @@ Deployments with Sphinx are a three-step process:
 
 * **Deploy via Gnosis Safe**: The Sphinx protocol is a [Gnosis Safe Module](https://docs.safe.global/safe-smart-account/modules) designed for deployments. With the Sphinx Module, your Gnosis Safe owners can approve multi-chain deployments by signing a single meta transaction. Sphinx will deploy a Gnosis Safe on your behalf at a consistent address using `CREATE2`.
 
-* **Trustless**: It's impossible to execute anything your Gnosis Safe owners have not explicitly approved. Spearbit has audited our system; see our audit report [here](TODO(end)).
+* **Trustless**: It's impossible to execute anything your Gnosis Safe owners have not explicitly approved. Spearbit has audited our system; see our audit report [here](https://github.com/sphinx-labs/sphinx/blob/main/audit/spearbit.pdf).
 
 * **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts. All you need to do is add a modifier to your `run()` function.
 
@@ -50,6 +50,10 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [`SphinxModuleProxy` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy.md)
 - [`SphinxModuleProxyFactory` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/sphinx-module-proxy-factory.md)
 - [`ManagedService` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/specs/managed-service.md)
+
+### Security
+
+- [Spearbit Audit](https://github.com/sphinx-labs/sphinx/blob/main/audit/spearbit.pdf)
 
 ## Current Limitations
 
