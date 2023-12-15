@@ -67,7 +67,7 @@ export const decodeDeploymentInfo = (
     arbitraryChain,
   } = deploymentInfoBigInt
 
-  return {
+  const deploymentInfo: DeploymentInfo = {
     labels,
     safeAddress,
     moduleAddress,
@@ -90,6 +90,8 @@ export const decodeDeploymentInfo = (
     },
     arbitraryChain,
   }
+
+  return deploymentInfo
 }
 
 export const convertFoundryDryRunToActionInputs = (
@@ -241,6 +243,7 @@ export const makeParsedConfig = (
     moduleAddress,
     nonce,
     chainId,
+    blockGasLimit,
     newConfig,
     isLiveNetwork,
     initialState,
@@ -253,7 +256,7 @@ export const makeParsedConfig = (
   // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
   // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
   // leaf. The 80% was chosen arbitrarily.
-  const maxAllowedGasPerLeaf = (8n * BigInt(deploymentInfo.blockGasLimit)) / 10n
+  const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
@@ -384,12 +387,13 @@ export const makeParsedConfig = (
     actionIndex += 1
   }
 
-  return {
+  const parsedConfig: ParsedConfig = {
     safeAddress,
     moduleAddress,
     safeInitData,
     nonce,
     chainId,
+    blockGasLimit,
     newConfig,
     isLiveNetwork,
     initialState,
@@ -398,6 +402,8 @@ export const makeParsedConfig = (
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
   }
+
+  return parsedConfig
 }
 
 const parseAdditionalContracts = (

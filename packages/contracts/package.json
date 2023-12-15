@@ -15,7 +15,7 @@
     "external-artifacts/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build --build-info --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
+    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",

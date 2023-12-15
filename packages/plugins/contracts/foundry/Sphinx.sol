@@ -287,6 +287,12 @@ abstract contract Sphinx {
             privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
         }
 
+        // TODO:
+        // for (let i = 0; i < batches.length; i++) {
+        //     SphinxLeafWithProof[] memory leavesWithProofs = batches[i];
+        //     module.
+        // }
+
         vm.startBroadcast(privateKey);
 
         _sphinxExecuteOnNetwork(
@@ -304,6 +310,9 @@ abstract contract Sphinx {
      *         proposal process to do environment setup. Not intended to be used by users.
      */
     function sphinxSetupPropose() internal virtual {}
+
+    // TODO: remove the binary search logic and remove sphinxSimulateProposal?
+    // TODO: update deploy task to get batches from TS
 
     function sphinxSimulateProposal(
         string[] memory _networkNames,
@@ -489,14 +498,15 @@ abstract contract Sphinx {
 
         while (leavesExecuted < numLeaves) {
             // Figure out the maximum number of actions that can be executed in a single batch
-            uint256 batchSize = sphinxUtils.findMaxBatchSize(
-                sphinxUtils.inefficientSlice(
-                    _leavesWithProofsOnNetwork,
-                    leavesExecuted,
-                    _leavesWithProofsOnNetwork.length
-                ),
-                maxGasLimit
-            );
+            uint256 batchSize = 1; // TODO: undo
+            // uint256 batchSize = sphinxUtils.findMaxBatchSize(
+            //     sphinxUtils.inefficientSlice(
+            //         _leavesWithProofsOnNetwork,
+            //         leavesExecuted,
+            //         _leavesWithProofsOnNetwork.length
+            //     ),
+            //     maxGasLimit
+            // );
             SphinxLeafWithProof[] memory batch = sphinxUtils.inefficientSlice(
                 _leavesWithProofsOnNetwork,
                 leavesExecuted,

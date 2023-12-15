@@ -196,58 +196,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return abi.decode(leaf.data, (address, uint256, uint256, bytes, uint256, bool));
     }
 
-    /**
-     * Helper function that determines if a given batch is executable within the specified gas
-     *    limit.
-     */
-    function executable(
-        SphinxLeafWithProof[] memory selected,
-        uint256 maxGasLimit
-    ) public pure returns (bool) {
-        uint256 estGasUsed = 0;
-        for (uint256 i = 0; i < selected.length; i++) {
-            (, , uint256 gas, , , ) = decodeExecutionLeafData(selected[i].leaf);
-            estGasUsed += gas;
-        }
-        return maxGasLimit > estGasUsed;
-    }
-
-    /**
-     * Helper function for finding the maximum number of batch elements that can be executed from a
-     * given input list of actions. This is done by performing a binary search over the possible
-     * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
-     */
-    function findMaxBatchSize(
-        SphinxLeafWithProof[] memory leaves,
-        uint256 maxGasLimit
-    ) public pure returns (uint256) {
-        // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(leaves, maxGasLimit)) {
-            return leaves.length;
-        }
-
-        // If the full batch isn't executavle, then do a binary search to find the largest
-        // executable batch size
-        uint256 min = 0;
-        uint256 max = leaves.length;
-        while (min < max) {
-            uint256 mid = ceilDiv((min + max), 2);
-            SphinxLeafWithProof[] memory left = inefficientSlice(leaves, 0, mid);
-            if (executable(left, maxGasLimit)) {
-                min = mid;
-            } else {
-                max = mid - 1;
-            }
-        }
-
-        // No possible size works, this is a problem and should never happen
-        if (min == 0) {
-            revert("Sphinx: Unable to find a batch size that does not exceed the block gas limit");
-        }
-
-        return min;
-    }
-
     function equals(string memory _str1, string memory _str2) public pure returns (bool) {
         return keccak256(abi.encodePacked(_str1)) == keccak256(abi.encodePacked(_str2));
     }

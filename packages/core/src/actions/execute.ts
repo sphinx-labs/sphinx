@@ -41,7 +41,7 @@ export const executeDeployment = async (
   // transactions to be executed slowly as a result of the algorithms that miners use to select
   // which transactions to include. As a result, we restrict our total gas usage to a fraction of
   // the block gas limit. Note that this number should match the one used in the Foundry plugin.
-  const maxGasLimit = blockGasLimit / 2n
+  const maxGasLimit = blockGasLimit / BigInt(2)
 
   const chainId = await provider.getNetwork().then((n) => n.chainId)
   // filter for leaves on the target network
@@ -87,6 +87,7 @@ export const executeDeployment = async (
   logger?.info(`[Sphinx]: executing actions...`)
   const { status, failureAction } = await executeBatchActions(
     networkLeaves,
+    chainId,
     module,
     managedService,
     maxGasLimit,
@@ -152,26 +153,43 @@ const findMaxBatchSize = async (
  * Helper function for executing a list of actions in batches.
  *
  * @param actions List of actions to execute.
+ * @returns TODO(docs): batches does not include `EXECUTE` merkle leaves that were executed before
+ * this function was called.
  */
 const executeBatchActions = async (
   leaves: SphinxLeafWithProof[],
+  chainId: bigint,
   module: ethers.Contract,
   managedService: ethers.Contract,
   maxGasLimit: bigint,
   humanReadableActions: HumanReadableActions,
   signer: ethers.Signer,
-  receipts: ethers.TransactionReceipt[],
+  receipts: ethers.TransactionReceipt[], // TODO: weird that the receipts are an input and output
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
   receipts: ethers.TransactionReceipt[]
   failureAction?: HumanReadableAction
 }> => {
-  const chainId = (await signer.provider?.getNetwork())?.chainId!
-
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await module.activeMerkleRoot()
   let state: MerkleRootState = await module.merkleRootStates(activeRoot)
+
+  // TODO: make sure you push the `filtered` leaves b/c we only want to include leaves that
+  // we execute in this call.
+
+  // TODO(test): we previously didn't do human readable actions - 2. write a test case for this.
+
+  if (state.status === MerkleRootStatus.FAILED) {
+    return {
+      status: state.status,
+      receipts,
+      failureAction:
+        humanReadableActions[chainId.toString()][
+          Number(state.leavesExecuted) - 2
+        ],
+    }
+  }
 
   // Remove the actions that have already been executed.
   const filtered = leaves.filter((leaf) => {
@@ -186,20 +204,6 @@ const executeBatchActions = async (
 
   let executed = 0
   while (executed < filtered.length) {
-    const mostRecentState: MerkleRootState = await module.merkleRootStates(
-      activeRoot
-    )
-    if (mostRecentState.status === MerkleRootStatus.FAILED) {
-      return {
-        status: mostRecentState.status,
-        receipts,
-        failureAction:
-          humanReadableActions[chainId.toString()][
-            Number(state.leavesExecuted)
-          ],
-      }
-    }
-
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),

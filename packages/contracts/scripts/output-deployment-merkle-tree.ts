@@ -99,14 +99,14 @@ type NetworkDeploymentMerkleTreeInputs = {
     )
   }
   if (forceApprovalLeafIndexNonZero) {
-    leaves[0].index = 1n
+    leaves[0].index = BigInt(1)
   }
   if (forceApprovalLeafChainIdNonZero) {
-    leaves[0].chainId = 31337n
+    leaves[0].chainId = BigInt(31337)
   }
   if (forceExecutionLeavesChainIdNonZero) {
     for (let i = 1; i < leaves.length; i++) {
-      leaves[i].chainId = 31337n
+      leaves[i].chainId = BigInt(31337)
     }
   }
 
