@@ -50,7 +50,7 @@ contract HelloSphinxScript is Sphinx {
         sphinxConfig.testnets = [
             Network.sepolia,
             Network.optimism_sepolia,
-            Network.polygon_mumbai
+            Network.arbitrum_sepolia
         ];
     }
 
