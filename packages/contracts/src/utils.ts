@@ -70,6 +70,7 @@ export const parseFoundryArtifact = (
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
   const metadata = artifact.metadata
+  const storageLayout = artifact.storageLayout ?? { storage: [], types: {} }
 
   return {
     abi,
@@ -79,7 +80,7 @@ export const parseFoundryArtifact = (
     deployedBytecode,
     metadata,
     methodIdentifiers: artifact.methodIdentifiers,
-    storageLayout: artifact.storageLayout,
+    storageLayout,
   }
 }
 

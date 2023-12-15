@@ -860,7 +860,7 @@ export const readFoundrySingleChainDryRun = (
   }
 }
 
-export const approve = async (
+export const approveViaFoundry = async (
   scriptPath: string,
   foundryToml: FoundryToml,
   merkleTree: SphinxMerkleTree,
@@ -924,7 +924,7 @@ export const approve = async (
   return broadcast
 }
 
-export const deploySphinxModuleAndGnosisSafe = async (
+export const deployModuleAndGnosisSafeViaFoundry = async (
   scriptPath: string,
   foundryToml: FoundryToml,
   networkName: string,
@@ -976,6 +976,7 @@ export const deploySphinxModuleAndGnosisSafe = async (
   return broadcast
 }
 
+// TODO: rm?
 export const getGasEstimatesOnNetworks = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun,
   uniqueChainIds: Array<string>,

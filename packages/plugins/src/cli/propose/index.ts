@@ -2,15 +2,30 @@ import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { spawnSync } from 'child_process'
 
-// TODO(later): change hardhat from a devDependency to a dependency in the plugins package.
-import { hre } from 'hardhat'
-
-// TODO(later): the existing proposal simulation does two things:
+// TODO: the existing proposal simulation does two things:
 // 1. provide a helpful error to the user if the simulation fails? (maybe. try
 //    `RevertDuringSimulation`.)
-// 2. provide an estimated gas used for the entire deployment on each network. (consider the arb
-//    600k).
-// Make sure you don't regress too much on these two things.
+//
+
+// TODO(test): test that arbitrum includes the ~600k-1M buffer. this should be a unit test on the
+// relevant function.
+
+// TODO(test): hardhat says that you need an archive node to fork mainnet. try running the propose
+// command with a public RPC url. preferably, you can output a helpful error message if one isn't
+// already thrown by default. note that different rpc providers may throw different errors, so try
+// using a non-standard public rpc endpoint.
+
+// TODO(docs): arbitrum's `estimateGas` includes the L1 gas.
+
+// TODO(test): in Large.s.sol, perform a ton of SSTOREs in the constructor of MyLargeContract.sol.
+
+// TODO(test): manually check that our hardhat.config.js is the closest in the file system to the
+// propose/index.ts file (i think). essentially, make sure that a different hardhat.config can't be
+// used instead by the user's machine.
+
+// TODO: "Btw this is pretty unrelated, but I noticed the findMaxBatchSize function (both in
+// Solidity and Typescript), relies on using the gas values in the merkle tree leaves which don't
+// include the overhead of actually executing the leaves"
 
 import {
   ProjectDeployment,
@@ -43,6 +58,7 @@ import {
 import {
   SphinxLeafType,
   SphinxMerkleTree,
+  SphinxModuleABI,
   getManagedServiceAddress,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
@@ -64,6 +80,10 @@ import {
   readFoundrySingleChainDryRun,
   getGasEstimatesOnNetworks,
 } from '../../foundry/utils'
+import {
+  SimulateDeploymentTaskArgs,
+  simulateDeploymentTask,
+} from '../../../src/tasks'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
@@ -277,7 +297,7 @@ export const propose = async (
   silent: boolean,
   scriptPath: string,
   targetContract?: string,
-  skipForceRecompile: boolean = false,
+  skipForceRecompile: boolean = true, // TODO(end): undo
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest?: ProposalRequest
@@ -386,80 +406,124 @@ export const propose = async (
     getReadableActions(e.actionInputs)
   )
 
-  // ABI encode the inputs to the proposal simulation function.
-  const encodedSimulationInputs = coder.encode(
-    simulationInputsFragment.outputs,
-    [merkleTree, humanReadableActions]
-  )
-  // Write the ABI encoded data to the file system. We'll read it in the Forge script that simulates
-  // the proposal. We do this instead of passing in the data as a parameter to the Forge script
-  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
-  // particularly a concern for the Merkle tree, which likely contains contract init code.
-  const simulationInputsFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-simulation-inputs.txt'
-  )
-  writeFileSync(simulationInputsFilePath, encodedSimulationInputs)
+  const gasEstimates: ProposalRequest['gasEstimates'] = []
+  for (const compilerConfig of compilerConfigs) {
+    const networkName = getNetworkNameForChainId(BigInt(compilerConfig.chainId))
+    const rpcUrl = foundryToml.rpcEndpoints[networkName]
 
-  const proposalSimulationArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxSimulateProposal(string[],string)',
-    `[${uniqueLeafNetworkNames.join(',')}]`,
-    simulationInputsFilePath,
-    // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
-    // hard-code it just in case Foundry changes the default value in the future. In practice, this
-    // tends to produce a gas estimate multiplier that's around 35% to 55% higher than the actual
-    // gas used instead of 30%.
-    '--gas-estimate-multiplier',
-    '130',
-  ]
-  if (targetContract) {
-    proposalSimulationArgs.push('--target-contract', targetContract)
-  }
-
-  const dateBeforeForgeScript = new Date()
-  const { stdout, stderr, code } = await spawnAsync(
-    'forge',
-    proposalSimulationArgs
-  )
-  if (code !== 0) {
-    spinner.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const dryRun =
-    uniqueLeafChainIds.length > 1
-      ? readFoundryMultiChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          `sphinxSimulateProposal`,
-          dateBeforeForgeScript
+    if (!rpcUrl) {
+      console.error(
+        red(
+          `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
         )
-      : readFoundrySingleChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          uniqueLeafChainIds[0],
-          `sphinxSimulateProposal`,
-          dateBeforeForgeScript
-        )
+      )
+      process.exit(1)
+    }
 
-  if (!dryRun) {
-    // This should never happen because the presence of Merkle leaves should always mean that a
-    // broadcast will occur.
-    throw new Error(`Could not read Foundry dry run file. Should never happen.`)
+    // TODO: we don't want to require('hardhat') for each network.
+    const initialHardhatConfigEnvVar = process.env['HARDHAT_CONFIG']
+    process.env['HARDHAT_CONFIG'] = join('dist', 'hardhat.config.js')
+    process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
+    process.env['SPHINX_INTERNAL__CHAIN_ID'] = compilerConfig.chainId
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const hre = require('hardhat')
+
+    const taskParams: SimulateDeploymentTaskArgs = {
+      parsedConfig: compilerConfig,
+      merkleTree,
+      config: join('dist', 'hardhat.config.js'),
+    }
+    // TODO(later): if this works, you may need to do the DEV_FILE_PATH thing.
+    const receipts: Awaited<ReturnType<typeof simulateDeploymentTask>> =
+      await hre.run('sphinxSimulateDeployment', taskParams)
+
+    process.env['HARDHAT_CONFIG'] = initialHardhatConfigEnvVar
+    delete process.env['SPHINX_INTERNAL__FORK_URL']
+    delete process.env['SPHINX_INTERNAL__CHAIN_ID']
+
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    gasEstimates.push({
+      chainId: Number(compilerConfig.chainId),
+      // TODO(docs): explain 1.3x
+      estimatedGas: await getEstimatedGas(receipts, provider),
+    })
   }
 
-  const gasEstimates = getGasEstimatesOnNetworks(
-    dryRun,
-    uniqueLeafChainIds,
-    getManagedServiceAddress()
-  )
+  // TODO: rm?
+  // // ABI encode the inputs to the proposal simulation function.
+  // const encodedSimulationInputs = coder.encode(
+  //   simulationInputsFragment.outputs,
+  //   [merkleTree, humanReadableActions]
+  // )
+  // // Write the ABI encoded data to the file system. We'll read it in the Forge script that simulates
+  // // the proposal. We do this instead of passing in the data as a parameter to the Forge script
+  // // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
+  // // particularly a concern for the Merkle tree, which likely contains contract init code.
+  // const simulationInputsFilePath = join(
+  //   foundryToml.cachePath,
+  //   'sphinx-proposal-simulation-inputs.txt'
+  // )
+  // writeFileSync(simulationInputsFilePath, encodedSimulationInputs)
+
+  // const proposalSimulationArgs = [
+  //   'script',
+  //   scriptPath,
+  //   '--sig',
+  //   'sphinxSimulateProposal(string[],string)',
+  //   `[${uniqueLeafNetworkNames.join(',')}]`,
+  //   simulationInputsFilePath,
+  //   // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
+  //   // hard-code it just in case Foundry changes the default value in the future. In practice, this
+  //   // tends to produce a gas estimate multiplier that's around 35% to 55% higher than the actual
+  //   // gas used instead of 30%.
+  //   '--gas-estimate-multiplier',
+  //   '130',
+  // ]
+  // if (targetContract) {
+  //   proposalSimulationArgs.push('--target-contract', targetContract)
+  // }
+
+  // const dateBeforeForgeScript = new Date()
+  // const { stdout, stderr, code } = await spawnAsync(
+  //   'forge',
+  //   proposalSimulationArgs
+  // )
+  // if (code !== 0) {
+  //   spinner.stop()
+  //   // The `stdout` contains the trace of the error.
+  //   console.log(stdout)
+  //   // The `stderr` contains the error message.
+  //   console.log(stderr)
+  //   process.exit(1)
+  // }
+
+  // const dryRun =
+  //   uniqueLeafChainIds.length > 1
+  //     ? readFoundryMultiChainDryRun(
+  //         foundryToml.broadcastFolder,
+  //         scriptPath,
+  //         `sphinxSimulateProposal`,
+  //         dateBeforeForgeScript
+  //       )
+  //     : readFoundrySingleChainDryRun(
+  //         foundryToml.broadcastFolder,
+  //         scriptPath,
+  //         uniqueLeafChainIds[0],
+  //         `sphinxSimulateProposal`,
+  //         dateBeforeForgeScript
+  //       )
+
+  // if (!dryRun) {
+  //   // This should never happen because the presence of Merkle leaves should always mean that a
+  //   // broadcast will occur.
+  //   throw new Error(`Could not read Foundry dry run file. Should never happen.`)
+  // }
+
+  // const gasEstimates = getGasEstimatesOnNetworks(
+  //   dryRun,
+  //   uniqueLeafChainIds,
+  //   getManagedServiceAddress()
+  // )
 
   spinner.succeed(`Simulation succeeded.`)
 
@@ -591,3 +655,49 @@ const getProjectDeploymentForChain = (
     configUri,
   }
 }
+
+/**
+ * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
+ * for variations between the local simulation and the production environment. Also adjusts the
+ * minimum gas limit on networks like Arbitrum to include the L1 gas fee, which isn't captured on
+ * forks.
+ */
+const getEstimatedGas = async (
+  receipts: Array<ethers.TransactionReceipt>,
+  provider: SphinxJsonRpcProvider
+): Promise<string> => {
+  // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
+  // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
+  // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
+  // be closer to one million. This is because each transaction includes the L1 gas used. The local
+  // simulation that produced the transaction receipts doesn't capture this difference. For example,
+  // the minimum gas limit on an Arbitrum fork is 21k instead of roughly one million. We account for
+  // this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a more
+  // accurate estimate on networks like Arbitrum.
+  const estimatedMinGasLimit = await provider.estimateGas({
+    to: ethers.ZeroAddress,
+    data: '0x',
+  })
+  const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
+
+  const estimatedGas = receipts
+    .map((receipt) => receipt.gasUsed)
+    .map(Number)
+    .map((gasUsed) => Math.round(gasUsed * 1.3))
+    // TODO(docs): we do this after multiplying by 1.3 because the estimated min gas limit already
+    // includes a ~1.35x buffer due to the fact that eth_estimateGas overestimates the gas. (include
+    // quote from json rpc docs).
+    .map((gasWithBuffer) => {
+      const totalGas = gasWithBuffer + adjustedGasLimit
+      // TODO(docs): abundance of caution.
+      if (totalGas < 0) {
+        throw new Error('Gas used is less than 0. Should never happen.')
+      }
+      return totalGas
+    })
+    .reduce((a, b) => a + b)
+
+  return estimatedGas.toString()
+}
+
+// TODO: come up with test cases.

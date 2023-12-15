@@ -20,6 +20,7 @@ import {
   add0x,
   SphinxLeafWithProof,
   SphinxLeafType,
+  ManagedServiceArtifact,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -368,6 +369,10 @@ export const getConfigArtifactsRemote = async (
         }
         const contractOutput =
           buildInfo.output.contracts[sourceName][contractName]
+        const storageLayout = contractOutput.storageLayout ?? {
+          storage: [],
+          types: {},
+        }
 
         const metadata =
           typeof contractOutput.metadata === 'string'
@@ -383,6 +388,7 @@ export const getConfigArtifactsRemote = async (
             deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
             methodIdentifiers: contractOutput.evm.methodIdentifiers,
             metadata,
+            storageLayout,
           },
         }
       }
@@ -408,7 +414,7 @@ export const isLiveNetwork = async (
     // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
     // namespace is an alias for `hardhat_`. Source:
     // https://book.getfoundry.sh/reference/anvil/#custom-methods
-    await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
+    await provider.send('hardhat_getAutomine', [])
   } catch (err) {
     return true
   }
@@ -427,6 +433,15 @@ export const getImpersonatedSigner = async (
   } else {
     return provider.getSigner(address)
   }
+}
+
+export const stopImpersonatingAccount = async (
+  address: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<void> => {
+  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [address])
 }
 
 /**
@@ -967,7 +982,7 @@ export const toSphinxTransaction = (
  */
 export const getSphinxWalletsSortedByAddress = (
   numWallets: number | bigint,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Array<ethers.Wallet> => {
   const wallets: Array<ethers.Wallet> = []
   for (let i = 0; i < Number(numWallets); i++) {
@@ -997,7 +1012,7 @@ export const getSphinxWalletPrivateKey = (walletIndex: number): string => {
  */
 export const addSphinxWalletsToGnosisSafeOwners = async (
   safeAddress: string,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<Array<ethers.Wallet>> => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
@@ -1012,10 +1027,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(ethers.parseEther('100')),
-  ])
+  await fundAccount(safeAddress, provider)
 
   const ownerThreshold: bigint = await safe.getThreshold()
 
@@ -1036,14 +1048,11 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   }
 
   // Restore the initial balance of the Gnosis Safe.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(initialSafeBalance),
-  ])
+  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
 
   // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
-  // for 'anvil_impersonateAccount'.
-  await provider.send('hardhat_impersonateAccount', [safeAddress])
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
 
   return sphinxWallets
 }
@@ -1055,7 +1064,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 export const removeSphinxWalletsFromGnosisSafeOwners = async (
   sphinxWallets: Array<ethers.Wallet>,
   safeAddress: string,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
@@ -1070,10 +1079,7 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(ethers.parseEther('100')),
-  ])
+  await fundAccount(safeAddress, provider)
 
   const ownerThreshold = Number(await safe.getThreshold())
 
@@ -1093,14 +1099,11 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
   )
 
   // Restore the initial balance of the Gnosis Safe.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(initialSafeBalance),
-  ])
+  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
 
   // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
-  // for 'anvil_impersonateAccount'.
-  await provider.send('hardhat_impersonateAccount', [safeAddress])
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
 }
 
 export const getApproveLeaf = (
@@ -1170,4 +1173,53 @@ export const stringifyMerkleRootStatus = (status: bigint): string => {
     default:
       throw new Error(`Unknown Merkle root status: ${status}`)
   }
+}
+
+export const signMerkleRoot = async (
+  merkleRoot: string,
+  wallet: ethers.Wallet
+) => {
+  const domain = {
+    name: 'Sphinx',
+    version: '1.0.0',
+  }
+
+  const types = { MerkleRoot: [{ name: 'root', type: 'bytes32' }] }
+
+  const value = { root: merkleRoot }
+
+  const signature = await wallet.signTypedData(domain, types, value)
+  return signature
+}
+
+export const fundAccount = async (
+  address: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => {
+  await setBalance(address, ethers.toBeHex(ethers.parseEther('100')), provider)
+}
+
+export const setBalance = async (
+  address: string,
+  balance: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => {
+  // TODO(docs): Strip the leading zero if it exists. This is necessary because hex quantities
+  // with leading zeros are not valid at the JSON-RPC layer. Stripping the leading zero doesn't
+  // change the amount.
+  await provider.send('hardhat_setBalance', [
+    address,
+    balance.replace('0x0', '0x'),
+  ])
+}
+
+export const getMappingValueSlotKey = (
+  mappingSlotKey: string,
+  key: string
+): string => {
+  const padded = ethers.zeroPadValue(ethers.toBeHex(mappingSlotKey), 32)
+
+  return ethers.keccak256(
+    ethers.solidityPacked(['bytes32', 'bytes32'], [key, padded])
+  )
 }

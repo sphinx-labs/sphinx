@@ -51,7 +51,7 @@ export type FoundryContractArtifact = {
     [methodSignature: string]: string
   }
   metadata: CompilerOutputMetadata
-  storageLayout?: SolidityStorageLayout
+  storageLayout: SolidityStorageLayout
 }
 
 export interface CompilerOutputMetadata {

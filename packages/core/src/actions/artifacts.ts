@@ -32,17 +32,14 @@ export const getDeployedBytecode = async (
   return deployedBytecode
 }
 
-export const getStorageSlotKey = (
-  fullyQualifiedName: string,
+export const findStorageSlotKey = (
   storageLayout: SolidityStorageLayout,
   varName: string
 ): string => {
   const storageObj = storageLayout.storage.find((s) => s.label === varName)
 
   if (!storageObj) {
-    throw new Error(
-      `Could not find storage slot key for: ${fullyQualifiedName}`
-    )
+    throw new Error(`Could not find storage slot key.`)
   }
 
   return storageObj.slot

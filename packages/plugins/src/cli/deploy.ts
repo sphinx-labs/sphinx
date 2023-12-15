@@ -2,6 +2,9 @@ import { join } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
+// string private rootPluginPath =
+// vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
+
 import {
   addSphinxWalletsToGnosisSafeOwners,
   displayDeploymentTable,
@@ -32,8 +35,8 @@ import { ethers } from 'ethers'
 import { SphinxModuleABI, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
-  approve,
-  deploySphinxModuleAndGnosisSafe,
+  approveViaFoundry,
+  deployModuleAndGnosisSafeViaFoundry,
   execute,
   getFoundrySingleChainDryRunPath,
   getSphinxLeafGasEstimates,
@@ -313,7 +316,7 @@ export const deploy = async (
   if (!parsedConfig.initialState.isSafeDeployed) {
     spinner?.start(`Deploying Gnosis Safe and Sphinx Module...`)
 
-    moduleAndGnosisSafeBroadcast = await deploySphinxModuleAndGnosisSafe(
+    moduleAndGnosisSafeBroadcast = await deployModuleAndGnosisSafeViaFoundry(
       scriptPath,
       foundryToml,
       network,
@@ -354,7 +357,7 @@ export const deploy = async (
       )
     }
 
-    approvalBroadcast = await approve(
+    approvalBroadcast = await approveViaFoundry(
       scriptPath,
       foundryToml,
       merkleTree,

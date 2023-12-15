@@ -78,6 +78,7 @@ export type ParsedConfig = {
   safeInitData: string
   nonce: string
   chainId: string
+  blockGasLimit: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig<SupportedNetworkName>
   isLiveNetwork: boolean

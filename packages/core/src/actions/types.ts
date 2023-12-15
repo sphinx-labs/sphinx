@@ -4,21 +4,21 @@ import { SphinxPreview } from '../preview'
  * Possible action types.
  */
 export const SphinxActionType = {
-  SET_STORAGE: 0n,
-  DEPLOY_CONTRACT: 1n,
-  CALL: 2n,
-  CREATE: 3n,
+  SET_STORAGE: BigInt(0),
+  DEPLOY_CONTRACT: BigInt(1),
+  CALL: BigInt(2),
+  CREATE: BigInt(3),
 }
 
 /**
  * The status of a Merkle root in a Sphinx Module.
  */
 export const MerkleRootStatus = {
-  EMPTY: 0n,
-  APPROVED: 1n,
-  COMPLETED: 2n,
-  CANCELED: 3n,
-  FAILED: 4n,
+  EMPTY: BigInt(0),
+  APPROVED: BigInt(1),
+  COMPLETED: BigInt(2),
+  CANCELED: BigInt(3),
+  FAILED: BigInt(4),
 }
 
 /**
