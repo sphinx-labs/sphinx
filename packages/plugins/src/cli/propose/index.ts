@@ -15,6 +15,9 @@ import { spawnSync } from 'child_process'
 // already thrown by default. note that different rpc providers may throw different errors, so try
 // using a non-standard public rpc endpoint.
 
+// TODO(md): if an archive node is required to run the `deploy` and `propose` command, you should
+// make this clear in the relevant guides.
+
 // TODO(docs): arbitrum's `estimateGas` includes the L1 gas.
 
 // TODO(test): in Large.s.sol, perform a ton of SSTOREs in the constructor of MyLargeContract.sol.
