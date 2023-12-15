@@ -7,9 +7,12 @@
   "files": [
     "dist/*",
     "contracts/*",
-    "artifacts/contracts/**/*.json",
-    "artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/*.json",
-    "artifacts/build-info/**/*.json"
+    "out/build-info/*.json",
+    "out/ManagedService.sol/*.json",
+    "out/SphinxModule.sol/*.json",
+    "out/SphinxModuleProxyFactory.sol/*.json",
+    "out/SphinxModuleProxyFactory.sol/*.json",
+    "external-artifacts/**/*.json"
   ],
   "scripts": {
     "build": "forge clean && forge build --build-info --contracts contracts/core --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
