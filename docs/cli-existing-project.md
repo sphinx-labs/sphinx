@@ -80,6 +80,7 @@ ffi = true
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
+allow_paths = ["../.."]
 ```
 
 ## 6. Add remappings

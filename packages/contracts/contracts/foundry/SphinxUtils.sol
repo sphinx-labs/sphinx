@@ -30,7 +30,6 @@ import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.so
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
-import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -922,11 +921,33 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return addr;
     }
 
+    /**
+     * @dev Computes the address of a clone deployed using {Clones-cloneDeterministic}.
+     *
+     * Note: Copied from openzeppelin/contracts
+     */
+    function predictDeterministicAddress(
+        address implementation,
+        bytes32 salt,
+        address deployer
+    ) internal pure returns (address predicted) {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(add(ptr, 0x38), deployer)
+            mstore(add(ptr, 0x24), 0x5af43d82803e903d91602b57fd5bf3ff)
+            mstore(add(ptr, 0x14), implementation)
+            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73)
+            mstore(add(ptr, 0x58), salt)
+            mstore(add(ptr, 0x78), keccak256(add(ptr, 0x0c), 0x37))
+            predicted := keccak256(add(ptr, 0x43), 0x55)
+        }
+    }
+
     function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
         address safeProxyAddress = getSphinxSafeAddress(_config);
         bytes32 saltNonce = bytes32(0);
         bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, saltNonce));
-        address addr = Clones.predictDeterministicAddress(
+        address addr = predictDeterministicAddress(
             sphinxModuleImplAddress,
             salt,
             sphinxModuleProxyFactoryAddress
