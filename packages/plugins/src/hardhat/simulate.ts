@@ -127,7 +127,7 @@ export const simulateDeploymentSubtask = async (
         getGnosisSafeAddress(),
         parsedConfig.safeInitData,
         parsedConfig.newConfig.saltNonce,
-        await getGasPriceOverrides(firstSphinxWallet) // TODO(later): is there anything in `getGasPriceOverrides` that could cause the deployment to break on Hardhat?
+        await getGasPriceOverrides(firstSphinxWallet) // TODO: is there anything in `getGasPriceOverrides` that could cause the deployment to break on Hardhat?
       )
     ).wait()
     receipts.push(gnosisSafeDeploymentReceipt)

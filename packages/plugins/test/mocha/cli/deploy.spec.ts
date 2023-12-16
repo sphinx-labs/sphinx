@@ -178,7 +178,7 @@ describe('Deploy CLI command', () => {
   })
 
   describe('With preview', () => {
-    it.only('Executes deployment', async () => {
+    it('Executes deployment', async () => {
       // We run `forge clean` to ensure that a deployment can occur even if we're running
       // a fresh compilation process.
       // await execAsync(`forge clean`) // TODO(end): undo

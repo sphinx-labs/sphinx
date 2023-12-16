@@ -37,6 +37,8 @@ import {
   getParsedConfigWithCompilerInputs,
   userConfirmation,
   getNetworkNameForChainId,
+  executeActionsViaManagedService,
+  estimateGasViaManagedService,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -379,7 +381,13 @@ export const propose = async (
       process.exit(1)
     }
 
-    const { receipts } = await simulate(compilerConfig, merkleTree, rpcUrl)
+    const { receipts } = await simulate(
+      compilerConfig,
+      merkleTree,
+      rpcUrl,
+      estimateGasViaManagedService,
+      executeActionsViaManagedService
+    )
 
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     gasEstimates.push({

@@ -8,6 +8,8 @@ import { spawnSync } from 'child_process'
 import {
   addSphinxWalletsToGnosisSafeOwners,
   displayDeploymentTable,
+  estimateGasViaSigner,
+  executeActionsViaSigner,
   isLiveNetwork,
   isSupportedNetworkName,
   removeSphinxWalletsFromGnosisSafeOwners,
@@ -295,7 +297,13 @@ export const deploy = async (
   const deploymentData = makeDeploymentData(configUri, compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  const { batches } = await simulate(parsedConfig, merkleTree, forkUrl)
+  const { batches } = await simulate(
+    parsedConfig,
+    merkleTree,
+    forkUrl,
+    estimateGasViaSigner,
+    executeActionsViaSigner
+  )
 
   spinner.succeed(`Built deployment.`)
 
