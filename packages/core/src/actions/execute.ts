@@ -6,7 +6,6 @@ import {
   ManagedServiceABI,
   SphinxMerkleTree,
   getManagedServiceAddress,
-  decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -14,8 +13,14 @@ import {
   MerkleRootStatus,
   HumanReadableAction,
   HumanReadableActions,
+  EstimateGas,
+  ExecuteActions,
 } from './types'
-import { getGasPriceOverrides } from '../utils'
+import {
+  estimateGasViaManagedService,
+  executeActionsViaManagedService,
+  getGasPriceOverrides,
+} from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
 
 export const executeDeployment = async (
@@ -35,13 +40,6 @@ export const executeDeployment = async (
   logger?.info(`[Sphinx]: preparing to execute the project...`)
 
   const receipts: ethers.TransactionReceipt[] = []
-
-  // We execute all actions in batches to reduce the total number of transactions and reduce the
-  // cost of a deployment in general. Approaching the maximum block gas limit can cause
-  // transactions to be executed slowly as a result of the algorithms that miners use to select
-  // which transactions to include. As a result, we restrict our total gas usage to a fraction of
-  // the block gas limit. Note that this number should match the one used in the Foundry plugin.
-  const maxGasLimit = blockGasLimit / BigInt(2)
 
   const chainId = await provider.getNetwork().then((n) => n.chainId)
   // filter for leaves on the target network
@@ -66,7 +64,9 @@ export const executeDeployment = async (
     packedSignatures,
   ])
 
-  try {
+  const state: MerkleRootState = await module.merkleRootStates(merkleTree.root)
+
+  if (state.status === MerkleRootStatus.EMPTY) {
     // Execute the `APPROVE` leaf.
     receipts.push(
       await (
@@ -77,25 +77,23 @@ export const executeDeployment = async (
         )
       ).wait()
     )
-  } catch (e) {
-    if (!e.message.includes('SphinxModule: active merkle root')) {
-      throw e
-    }
   }
 
   // Execute the `EXECUTE` leaves of the Merkle tree.
   logger?.info(`[Sphinx]: executing actions...`)
-  const { status, failureAction } = await executeBatchActions(
-    networkLeaves,
-    chainId,
-    module,
-    managedService,
-    maxGasLimit,
-    humanReadableActions,
-    signer,
-    receipts,
-    logger
-  )
+  const { status, failureAction, executionReceipts } =
+    await executeBatchActions(
+      networkLeaves,
+      chainId,
+      module,
+      blockGasLimit,
+      humanReadableActions,
+      signer,
+      executeActionsViaManagedService,
+      estimateGasViaManagedService,
+      logger
+    )
+  receipts.push(...executionReceipts)
 
   if (status === MerkleRootStatus.FAILED) {
     return { success: false, receipts, failureAction }
@@ -118,11 +116,24 @@ export const executeDeployment = async (
  */
 const findMaxBatchSize = async (
   leaves: SphinxLeafWithProof[],
-  maxGasLimit: bigint
+  maxGasLimit: bigint,
+  moduleInterface: ethers.Interface,
+  moduleAddress: string,
+  signer: ethers.Signer,
+  estimateGas: EstimateGas
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(leaves, maxGasLimit)) {
+  if (
+    await executable(
+      leaves,
+      maxGasLimit,
+      moduleInterface,
+      moduleAddress,
+      signer,
+      estimateGas
+    )
+  ) {
     return leaves.length
   }
 
@@ -132,7 +143,16 @@ const findMaxBatchSize = async (
   let max = leaves.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(leaves.slice(0, mid), maxGasLimit)) {
+    if (
+      await executable(
+        leaves.slice(0, mid),
+        maxGasLimit,
+        moduleInterface,
+        moduleAddress,
+        signer,
+        estimateGas
+      )
+    ) {
       min = mid
     } else {
       max = mid - 1
@@ -150,40 +170,49 @@ const findMaxBatchSize = async (
 }
 
 /**
- * Helper function for executing a list of actions in batches.
+ * Helper function for executing a list of actions in batches. We execute actions in batches to
+ * reduce the total number of transactions, which makes the deployment faster and cheaper.
  *
  * @param actions List of actions to execute.
  * @returns TODO(docs): batches does not include `EXECUTE` merkle leaves that were executed before
  * this function was called.
  */
-const executeBatchActions = async (
-  leaves: SphinxLeafWithProof[],
+export const executeBatchActions = async (
+  leavesOnNetwork: SphinxLeafWithProof[],
   chainId: bigint,
-  module: ethers.Contract,
-  managedService: ethers.Contract,
-  maxGasLimit: bigint,
+  sphinxModule: ethers.Contract,
+  blockGasLimit: bigint,
   humanReadableActions: HumanReadableActions,
   signer: ethers.Signer,
-  receipts: ethers.TransactionReceipt[], // TODO: weird that the receipts are an input and output
+  executeActions: ExecuteActions,
+  estimateGas: EstimateGas,
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
-  receipts: ethers.TransactionReceipt[]
+  executionReceipts: ethers.TransactionReceipt[]
+  batches: SphinxLeafWithProof[][]
   failureAction?: HumanReadableAction
 }> => {
-  // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
-  const activeRoot = await module.activeMerkleRoot()
-  let state: MerkleRootState = await module.merkleRootStates(activeRoot)
+  const executionReceipts: ethers.TransactionReceipt[] = []
+  const batches: SphinxLeafWithProof[][] = []
 
-  // TODO: make sure you push the `filtered` leaves b/c we only want to include leaves that
-  // we execute in this call.
+  // Set the maximum gas of a batch. Approaching the maximum block gas limit can cause transactions
+  // to be executed slowly as a result of the algorithms that miners use to select which
+  // transactions to include. As a result, we restrict our total gas usage to a fraction of the
+  // block gas limit. Note that this number should match the one used in the Foundry plugin.
+  const maxGasLimit = blockGasLimit / BigInt(2)
+
+  // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
+  const activeRoot = await sphinxModule.activeMerkleRoot()
+  let state: MerkleRootState = await sphinxModule.merkleRootStates(activeRoot)
 
   // TODO(test): we previously didn't do human readable actions - 2. write a test case for this.
 
   if (state.status === MerkleRootStatus.FAILED) {
     return {
       status: state.status,
-      receipts,
+      executionReceipts,
+      batches,
       failureAction:
         humanReadableActions[chainId.toString()][
           Number(state.leavesExecuted) - 2
@@ -192,22 +221,27 @@ const executeBatchActions = async (
   }
 
   // Remove the actions that have already been executed.
-  const filtered = leaves.filter((leaf) => {
+  const filtered = leavesOnNetwork.filter((leaf) => {
     return leaf.leaf.index >= state.leavesExecuted
   })
 
   // We can return early if there are no actions to execute.
   if (filtered.length === 0) {
     logger?.info('[Sphinx]: no actions left to execute')
-    return { status: state.status, receipts }
+    return { status: state.status, executionReceipts, batches }
   }
 
+  const moduleAddress = await sphinxModule.getAddress()
   let executed = 0
   while (executed < filtered.length) {
     // Figure out the maximum number of actions that can be executed in a single batch.
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),
-      maxGasLimit
+      maxGasLimit,
+      sphinxModule.interface,
+      moduleAddress,
+      signer,
+      estimateGas
     )
 
     // Pull out the next batch of actions.
@@ -220,22 +254,30 @@ const executeBatchActions = async (
       }...`
     )
 
-    const executeData = module.interface.encodeFunctionData('execute', [batch])
-    const res = await managedService.exec(
-      await module.getAddress(),
-      executeData,
-      await getGasPriceOverrides(signer)
-    )
-    const tx = await res.wait()
-    receipts.push(tx)
+    const executionData = sphinxModule.interface.encodeFunctionData('execute', [
+      batch,
+    ])
+    const receipt = await (
+      await executeActions(moduleAddress, executionData, signer)
+    ).wait()
+
+    if (!receipt) {
+      throw new Error(
+        `Could not find transaction receipt. Should never happen.`
+      )
+    }
+
+    executionReceipts.push(receipt)
+    batches.push(batch)
 
     // Return early if the deployment failed.
-    state = await module.merkleRootStates(activeRoot)
+    state = await sphinxModule.merkleRootStates(activeRoot)
 
     if (state.status === MerkleRootStatus.FAILED) {
       return {
         status: state.status,
-        receipts,
+        batches,
+        executionReceipts,
         failureAction:
           humanReadableActions[chainId.toString()][
             Number(state.leavesExecuted) - 2
@@ -248,7 +290,7 @@ const executeBatchActions = async (
   }
 
   // Return the final deployment status.
-  return { status: state.status, receipts }
+  return { status: state.status, executionReceipts, batches }
 }
 
 /**
@@ -259,11 +301,21 @@ const executeBatchActions = async (
  */
 export const executable = async (
   selected: SphinxLeafWithProof[],
-  maxGasLimit: bigint
+  maxGasLimit: bigint,
+  moduleInterface: ethers.Interface,
+  moduleAddress: string,
+  signer: ethers.Signer,
+  estimateGas: EstimateGas
 ): Promise<boolean> => {
-  const estGasUsed = selected
-    .map((action) => decodeExecuteLeafData(action.leaf).gas)
-    .reduce((a, b) => a + b)
+  const executionData = moduleInterface.encodeFunctionData('execute', [
+    selected,
+  ])
+  try {
+    await estimateGas(moduleAddress, executionData, maxGasLimit, signer)
 
-  return maxGasLimit > estGasUsed
+    // We didn't error so this batch size is valid.
+    return true
+  } catch (err) {
+    return false
+  }
 }

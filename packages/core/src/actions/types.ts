@@ -1,3 +1,4 @@
+import { ethers } from 'ethers'
 import { SphinxPreview } from '../preview'
 
 /**
@@ -156,3 +157,16 @@ export type ProjectDeployment = {
   isExecuting: boolean
   configUri: string
 }
+
+export type EstimateGas = (
+  moduleAddress: string,
+  executionData: string,
+  maxGasLimit: bigint,
+  signer: ethers.Signer
+) => Promise<void>
+
+export type ExecuteActions = (
+  moduleAddress: string,
+  executionData: string,
+  signer: ethers.Signer
+) => Promise<ethers.TransactionResponse>

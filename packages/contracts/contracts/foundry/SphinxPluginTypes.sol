@@ -34,8 +34,7 @@ enum SphinxMode {
     Default,
     Collect,
     LiveNetworkBroadcast,
-    LocalNetworkBroadcast,
-    Proposal
+    LocalNetworkBroadcast
 }
 
 struct ParsedCallAction {
@@ -211,15 +210,6 @@ contract SphinxPluginTypes {
         returns (HumanReadableAction[] memory humanReadableActions)
     {}
 
-    function proposalSimulationInputsType()
-        external
-        pure
-        returns (
-            SphinxMerkleTree memory merkleTree,
-            HumanReadableAction[][] memory humanReadableActions
-        )
-    {}
-
     function deployTaskInputsType()
         external
         pure
@@ -245,5 +235,11 @@ contract SphinxPluginTypes {
         external
         view
         returns (SphinxLeafWithProof memory leafWithProof)
+    {}
+
+    function leafWithProofBatchesType()
+        external
+        view
+        returns (SphinxLeafWithProof[][] memory batches)
     {}
 }

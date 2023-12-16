@@ -20,7 +20,8 @@ import {
   add0x,
   SphinxLeafWithProof,
   SphinxLeafType,
-  ManagedServiceArtifact,
+  getManagedServiceAddress,
+  ManagedServiceABI,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -44,6 +45,8 @@ import {
   IPFSCommitResponse,
   ProposalRequest,
   MerkleRootStatus,
+  EstimateGas,
+  ExecuteActions,
 } from './actions/types'
 import { Integration } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
@@ -1016,10 +1019,11 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 ): Promise<Array<ethers.Wallet>> => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
+  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    await getImpersonatedSigner(safeAddress, provider)
+    safeSigner
   )
 
   // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
@@ -1044,7 +1048,11 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   for (const wallet of sphinxWallets) {
     // The Gnosis Safe doesn't have an "addOwner" function, which is why we need to use
     // "addOwnerWithThreshold".
-    await safe.addOwnerWithThreshold(wallet.address, ownerThreshold)
+    await safe.addOwnerWithThreshold(
+      wallet.address,
+      ownerThreshold,
+      await getGasPriceOverrides(safeSigner)
+    )
   }
 
   // Restore the initial balance of the Gnosis Safe.
@@ -1068,10 +1076,11 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
 ) => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
+  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    await getImpersonatedSigner(safeAddress, provider)
+    safeSigner
   )
 
   // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
@@ -1089,13 +1098,15 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
     await safe.removeOwner(
       sphinxWallets[i + 1].address,
       sphinxWallets[i].address,
-      ownerThreshold
+      ownerThreshold,
+      await getGasPriceOverrides(safeSigner)
     )
   }
   await safe.removeOwner(
     '0x' + '00'.repeat(19) + '01', // This is `address(1)`. i.e. Gnosis Safe's `SENTINEL_OWNERS`.
     sphinxWallets[ownerThreshold - 1].address,
-    ownerThreshold
+    ownerThreshold,
+    await getGasPriceOverrides(safeSigner)
   )
 
   // Restore the initial balance of the Gnosis Safe.
@@ -1222,4 +1233,63 @@ export const getMappingValueSlotKey = (
   return ethers.keccak256(
     ethers.solidityPacked(['bytes32', 'bytes32'], [key, padded])
   )
+}
+
+export const executeActionsViaManagedService: ExecuteActions = async (
+  moduleAddress,
+  executionData,
+  signer
+) => {
+  const managedService = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceABI,
+    signer
+  )
+
+  return managedService.exec(
+    moduleAddress,
+    executionData,
+    await getGasPriceOverrides(signer)
+  )
+}
+
+export const executeActionsViaSigner: ExecuteActions = async (
+  moduleAddress,
+  executionData,
+  signer
+) => {
+  const txn = await getGasPriceOverrides(signer, {
+    to: moduleAddress,
+    data: executionData,
+  })
+  return signer.sendTransaction(txn)
+}
+
+export const estimateGasViaManagedService: EstimateGas = async (
+  moduleAddress,
+  executionData,
+  maxGasLimit,
+  signer
+) => {
+  const managedService = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceABI,
+    signer
+  )
+  await managedService.exec.estimateGas(moduleAddress, executionData, {
+    gasLimit: maxGasLimit,
+  })
+}
+
+export const estimateGasViaSigner: EstimateGas = async (
+  moduleAddress,
+  executionData,
+  maxGasLimit,
+  signer
+) => {
+  await signer.estimateGas({
+    to: moduleAddress,
+    data: executionData,
+    gasLimit: maxGasLimit,
+  })
 }

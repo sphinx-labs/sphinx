@@ -1,8 +1,7 @@
-// TODO(later): rm eslint-disable
-/* eslint-disable */
 require('@nomicfoundation/hardhat-ethers')
 const dotenv = require('dotenv')
-const { simulateDeploymentTask } = require('./tasks')
+
+const { simulateDeploymentSubtask } = require('./hardhat/simulate')
 
 // Load environment variables from .env
 dotenv.config()
@@ -20,11 +19,7 @@ if (!chainId) {
 
 // TODO(docs): in entire PR
 
-// TODO(later): c/f ES2019
-
-// TODO(later): rename and move
-// TODO(later): task -> subtask
-task('sphinxSimulateDeployment', '', simulateDeploymentTask)
+subtask('sphinxSimulateDeployment', simulateDeploymentSubtask)
 
 module.exports = {
   networks: {
@@ -32,7 +27,7 @@ module.exports = {
       chainId: Number(chainId),
       forking: {
         url: forkUrl,
-      }
-    }
-  }
+      },
+    },
+  },
 }

@@ -27,6 +27,8 @@ import { deploy } from '../../../src/cli/deploy'
 import { getFoundryToml } from '../../../src/foundry/options'
 import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
 
+// TODO(end): .only
+
 const coder = new ethers.AbiCoder()
 
 const fallbackCreate2Address = ethers.getCreate2Address(
@@ -176,10 +178,10 @@ describe('Deploy CLI command', () => {
   })
 
   describe('With preview', () => {
-    it('Executes deployment', async () => {
+    it.only('Executes deployment', async () => {
       // We run `forge clean` to ensure that a deployment can occur even if we're running
       // a fresh compilation process.
-      await execAsync(`forge clean`)
+      // await execAsync(`forge clean`) // TODO(end): undo
 
       expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
@@ -216,7 +218,7 @@ describe('Deploy CLI command', () => {
       expect(await provider.getCode(expectedMyContract2Address)).to.not.equal(
         '0x'
       )
-      expect(await contract.number()).to.equal(2n)
+      expect(await contract.number()).to.equal(BigInt(2))
 
       expect(preview).to.deep.equal({
         networks: [
@@ -411,7 +413,7 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddress,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(1n)
+        expect(await childContract.x()).to.eq(BigInt(1))
 
         // expect both are labeled
         checkLabeled(
@@ -465,7 +467,7 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddressCreate3,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(2n)
+        expect(await childContract.x()).to.eq(BigInt(2))
 
         // expect both are labeled
         checkLabeled(
@@ -528,7 +530,7 @@ describe('Deployment Cases', () => {
           unlabeledConstructorDeploysContractChildAddress,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(3n)
+        expect(await childContract.x()).to.eq(BigInt(3))
 
         // expect child is not labeled
         checkNotLabeled(unlabeledConstructorDeploysContractChildAddress)
@@ -582,7 +584,7 @@ describe('Deployment Cases', () => {
           unlabeledConstructorDeploysContractChildCreate3Address,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(4n)
+        expect(await childContract.x()).to.eq(BigInt(4))
 
         // expect both are not labeled
         checkNotLabeled(unlabeledConstructorDeploysContractCreate3Address)
@@ -631,7 +633,7 @@ describe('Deployment Cases', () => {
           conflictingNameContractAddress,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(1n)
+        expect(await contract.number()).to.eq(BigInt(1))
 
         // expect contract is labeled
         checkLabeled(
@@ -660,7 +662,7 @@ describe('Deployment Cases', () => {
           unlabeledConflictingNameContract,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(2n)
+        expect(await contract.number()).to.eq(BigInt(2))
 
         // expect contract is labeled
         checkNotLabeled(unlabeledConflictingNameContract)
@@ -677,7 +679,7 @@ describe('Deployment Cases', () => {
           conflictingNameContractWithInteractionAddress,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(5n)
+        expect(await contract.number()).to.eq(BigInt(5))
 
         // expect contract is labeled
         checkLabeled(

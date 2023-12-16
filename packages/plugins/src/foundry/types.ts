@@ -49,6 +49,10 @@ export type FoundryMultiChainDryRun = {
   path: string
 }
 
+/**
+ * @property {string|null} commit - The git commit identifier of the codebase state used for this
+ * dry run. This is null if the codebase is a new Foundry project.
+ */
 export type FoundrySingleChainDryRun = {
   transactions: Array<FoundryDryRunTransaction>
   receipts: Array<any>
@@ -58,5 +62,5 @@ export type FoundrySingleChainDryRun = {
   timestamp: number
   chain: number
   multi: boolean
-  commit: string
+  commit: string | null
 }

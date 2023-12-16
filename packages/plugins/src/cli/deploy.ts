@@ -54,6 +54,7 @@ import {
 } from '../foundry/decode'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 import { FoundrySingleChainBroadcast } from '../foundry/types'
+import { simulate } from '../hardhat/simulate'
 
 export const deploy = async (
   scriptPath: string,
@@ -294,6 +295,8 @@ export const deploy = async (
   const deploymentData = makeDeploymentData(configUri, compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
+  const { batches } = await simulate(parsedConfig, merkleTree, forkUrl)
+
   spinner.succeed(`Built deployment.`)
 
   let preview: SphinxPreview | undefined
@@ -394,7 +397,8 @@ export const deploy = async (
   const executionBroadcast = await execute(
     scriptPath,
     parsedConfig,
-    merkleTree,
+    batches,
+    merkleTree.root,
     foundryToml,
     forkUrl,
     network,

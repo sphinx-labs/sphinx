@@ -10,7 +10,7 @@ import {CREATE3} from "solady/utils/CREATE3.sol";
 contract Sample is Sphinx {
     MyContract1 myContract;
 
-// TODO: undo entire file
+// TODO(end): undo entire file
 
     function setUp() public {
         sphinxConfig.projectName = "11/10";

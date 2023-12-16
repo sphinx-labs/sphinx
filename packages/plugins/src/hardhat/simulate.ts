@@ -1,49 +1,104 @@
+import { join } from 'path'
+
 import {
-  GnosisSafeProxyFactoryArtifact,
-  ManagedServiceArtifact,
-  SphinxLeafType,
-  SphinxMerkleTree,
-  SphinxModuleABI,
-  getGnosisSafeAddress,
-  getGnosisSafeProxyFactoryAddress,
-  getManagedServiceAddress,
-} from '@sphinx-labs/contracts'
-import {
+  getReadableActions,
   ParsedConfig,
   addSphinxWalletsToGnosisSafeOwners,
-  executeDeployment,
   findLeafWithProof,
   fundAccount,
-  getImpersonatedSigner,
   getMappingValueSlotKey,
-  getReadableActions,
   getSphinxWalletPrivateKey,
   findStorageSlotKey,
   removeSphinxWalletsFromGnosisSafeOwners,
   signMerkleRoot,
-  stopImpersonatingAccount,
   RELAYER_ROLE,
+  executeBatchActions,
+  getGasPriceOverrides,
+  MerkleRootStatus,
+  EstimateGas,
+  ExecuteActions,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
+import {
+  SphinxLeafWithProof,
+  GnosisSafeProxyFactoryArtifact,
+  ManagedServiceArtifact,
+  getGnosisSafeAddress,
+  getGnosisSafeProxyFactoryAddress,
+  SphinxMerkleTree,
+  SphinxModuleABI,
+  SphinxLeafType,
+  getManagedServiceAddress,
+} from '@sphinx-labs/contracts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
-export type SimulateDeploymentTaskArgs = {
+type simulateDeploymentSubtaskArgs = {
   merkleTree: SphinxMerkleTree
   parsedConfig: ParsedConfig
   config: string
+  estimateGas: EstimateGas
+  executeActions: ExecuteActions
 }
 
-export const simulateDeploymentTask = async (
-  taskArgs: SimulateDeploymentTaskArgs,
+export const simulate = async (
+  parsedConfig: ParsedConfig,
+  merkleTree: SphinxMerkleTree,
+  rpcUrl: string,
+  estimateGas: EstimateGas,
+  executeActions: ExecuteActions
+): Promise<{
+  receipts: Array<ethers.TransactionReceipt>
+  batches: Array<Array<SphinxLeafWithProof>>
+}> => {
+  const initialHardhatConfigEnvVar = process.env['HARDHAT_CONFIG']
+  process.env['HARDHAT_CONFIG'] = join('dist', 'hardhat.config.js')
+  process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
+  process.env['SPHINX_INTERNAL__CHAIN_ID'] = parsedConfig.chainId
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const hre = require('hardhat')
+
+  const rootPluginPath =
+    process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
+  const hardhatConfigPath = join(rootPluginPath, 'dist', 'hardhat.config.js')
+
+  const taskParams: simulateDeploymentSubtaskArgs = {
+    parsedConfig,
+    merkleTree,
+    config: hardhatConfigPath,
+    estimateGas,
+    executeActions,
+  }
+  const {
+    receipts,
+    batches,
+  }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> = await hre.run(
+    'sphinxSimulateDeployment',
+    taskParams
+  )
+
+  process.env['HARDHAT_CONFIG'] = initialHardhatConfigEnvVar
+  delete process.env['SPHINX_INTERNAL__FORK_URL']
+  delete process.env['SPHINX_INTERNAL__CHAIN_ID']
+
+  return { receipts, batches }
+}
+
+export const simulateDeploymentSubtask = async (
+  taskArgs: simulateDeploymentSubtaskArgs,
   hre: any
-): Promise<Array<ethers.TransactionReceipt>> => {
-  const { merkleTree, parsedConfig } = taskArgs
+): Promise<{
+  receipts: Array<ethers.TransactionReceipt>
+  batches: Array<Array<SphinxLeafWithProof>>
+}> => {
+  const { merkleTree, parsedConfig, estimateGas, executeActions } = taskArgs
 
   const provider: HardhatEthersProvider = hre.ethers.provider
 
   const humanReadableActions = {
     [parsedConfig.chainId]: getReadableActions(parsedConfig.actionInputs),
   }
+
+  // TODO(later): for deploying on anvil, where do we fund `firstSphinxWallet`?
 
   const firstSphinxPrivateKey = getSphinxWalletPrivateKey(0)
   const firstSphinxWallet = new ethers.Wallet(firstSphinxPrivateKey, provider)
@@ -54,7 +109,7 @@ export const simulateDeploymentTask = async (
   const sphinxModule = new ethers.Contract(
     parsedConfig.moduleAddress,
     SphinxModuleABI,
-    provider
+    firstSphinxWallet
   )
 
   const receipts: Array<ethers.TransactionReceipt> = []
@@ -71,7 +126,8 @@ export const simulateDeploymentTask = async (
       await gnosisSafeProxyFactory.createProxyWithNonce(
         getGnosisSafeAddress(),
         parsedConfig.safeInitData,
-        parsedConfig.newConfig.saltNonce
+        parsedConfig.newConfig.saltNonce,
+        await getGasPriceOverrides(firstSphinxWallet) // TODO(later): is there anything in `getGasPriceOverrides` that could cause the deployment to break on Hardhat?
       )
     ).wait()
     receipts.push(gnosisSafeDeploymentReceipt)
@@ -91,12 +147,17 @@ export const simulateDeploymentTask = async (
   // `executeDeployment` function. (it's so we can remove the auto-generated addresses as gnosis
   // safe owners).
   // TODO(docs): explain why we can't broadcast on Anvil.
-  const approveLeafWithProof = findLeafWithProof(
+  const approvalLeafWithProof = findLeafWithProof(
     merkleTree,
     SphinxLeafType.APPROVE,
     BigInt(parsedConfig.chainId)
   )
 
+  const managedService = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceArtifact.abi,
+    firstSphinxWallet
+  )
   const ownerSignatures = await Promise.all(
     sphinxWallets.map((wallet) => signMerkleRoot(merkleTree.root, wallet))
   )
@@ -105,20 +166,19 @@ export const simulateDeploymentTask = async (
     ownerSignatures
   )
 
-  const managedServiceAddress = getManagedServiceAddress()
-  const managedServiceSigner = await getImpersonatedSigner(
-    managedServiceAddress,
-    provider
-  )
-  await fundAccount(managedServiceAddress, provider)
+  const approvalData = sphinxModule.interface.encodeFunctionData('approve', [
+    merkleTree.root,
+    approvalLeafWithProof,
+    packedOwnerSignatures,
+  ])
   const approvalReceipt = await (
-    await sphinxModule.connect(managedServiceSigner).getFunction('approve')(
-      merkleTree.root,
-      approveLeafWithProof,
-      packedOwnerSignatures
+    await managedService.exec(
+      parsedConfig.moduleAddress,
+      approvalData,
+      await getGasPriceOverrides(firstSphinxWallet)
     )
   ).wait()
-  await stopImpersonatingAccount(managedServiceAddress, provider)
+
   receipts.push(approvalReceipt)
 
   // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
@@ -130,23 +190,34 @@ export const simulateDeploymentTask = async (
     provider
   )
 
-  const { success, receipts: executionReceipts } = await executeDeployment(
-    sphinxModule,
-    merkleTree,
-    ownerSignatures,
-    humanReadableActions,
-    BigInt(parsedConfig.blockGasLimit),
-    provider,
-    firstSphinxWallet
+  const networkLeaves = merkleTree.leavesWithProofs.filter(
+    (leaf) => leaf.leaf.chainId === BigInt(parsedConfig.chainId)
   )
+  const { status, failureAction, executionReceipts, batches } =
+    await executeBatchActions(
+      networkLeaves,
+      BigInt(parsedConfig.chainId),
+      sphinxModule,
+      BigInt(parsedConfig.blockGasLimit),
+      humanReadableActions,
+      firstSphinxWallet,
+      executeActions,
+      estimateGas
+    )
 
-  if (!success) {
-    throw new Error(`TODO: humanreadableaction if it exists`)
+  if (status === MerkleRootStatus.FAILED) {
+    if (failureAction) {
+      throw new Error(
+        `Failed to execute deployment because the following action reverted:\n"${failureAction}`
+      )
+    } else {
+      throw new Error(`Deployment failed.`)
+    }
   }
 
   receipts.push(...executionReceipts)
 
-  return receipts
+  return { receipts, batches }
 }
 
 const setManagedServiceRelayer = async (

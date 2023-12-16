@@ -104,6 +104,7 @@ const originalParsedConfig: ParsedConfig = {
   safeInitData: ethers.ZeroHash,
   nonce: '0',
   arbitraryChain: false,
+  blockGasLimit: '0',
   newConfig: {
     mainnets: [],
     projectName: '',

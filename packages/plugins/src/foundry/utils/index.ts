@@ -21,7 +21,6 @@ import {
 import {
   ConfigArtifacts,
   DeploymentInfo,
-  FoundryDryRunTransaction,
   GetConfigArtifacts,
   ParsedConfig,
   RawActionInput,
@@ -36,10 +35,8 @@ import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
   MerkleRootState,
   MerkleRootStatus,
-  ProposalRequest,
   SphinxJsonRpcProvider,
   SupportedNetworkName,
-  getReadableActions,
   networkEnumToName,
   findLeafWithProof,
 } from '@sphinx-labs/core'
@@ -47,6 +44,7 @@ import ora from 'ora'
 import {
   FoundryContractArtifact,
   SphinxLeafType,
+  SphinxLeafWithProof,
   SphinxMerkleTree,
   SphinxModuleABI,
   parseFoundryArtifact,
@@ -724,16 +722,18 @@ export const isFoundryMultiChainDryRun = (
 export const isFoundrySingleChainDryRun = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
 ): dryRun is FoundrySingleChainDryRun => {
+  const singleChainDryRun = dryRun as FoundrySingleChainDryRun
   return (
-    Array.isArray((dryRun as FoundrySingleChainDryRun).transactions) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).receipts) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).libraries) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).pending) &&
-    'returns' in (dryRun as FoundrySingleChainDryRun) &&
-    typeof (dryRun as FoundrySingleChainDryRun).timestamp === 'number' &&
-    typeof (dryRun as FoundrySingleChainDryRun).chain === 'number' &&
-    typeof (dryRun as FoundrySingleChainDryRun).multi === 'boolean' &&
-    typeof (dryRun as FoundrySingleChainDryRun).commit === 'string'
+    Array.isArray(singleChainDryRun.transactions) &&
+    Array.isArray(singleChainDryRun.receipts) &&
+    Array.isArray(singleChainDryRun.libraries) &&
+    Array.isArray(singleChainDryRun.pending) &&
+    'returns' in singleChainDryRun &&
+    typeof singleChainDryRun.timestamp === 'number' &&
+    typeof singleChainDryRun.chain === 'number' &&
+    typeof singleChainDryRun.multi === 'boolean' &&
+    (typeof singleChainDryRun.commit === 'string' ||
+      singleChainDryRun.commit === null)
   )
 }
 
@@ -976,72 +976,11 @@ export const deployModuleAndGnosisSafeViaFoundry = async (
   return broadcast
 }
 
-// TODO: rm?
-export const getGasEstimatesOnNetworks = (
-  dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun,
-  uniqueChainIds: Array<string>,
-  managedServiceAddress: string
-): ProposalRequest['gasEstimates'] => {
-  const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const chainId of uniqueChainIds) {
-    let transactions: Array<FoundryDryRunTransaction>
-    if (isFoundryMultiChainDryRun(dryRun)) {
-      // Find the dry run that corresponds to the current network.
-      const deploymentOnNetwork = dryRun.deployments.find(
-        (deployment) => deployment.chain.toString() === chainId
-      )
-      // If we couldn't find a dry run that corresponds to the current network, then there must not
-      // be any transactions to execute on it. We use an empty transactions array in this case.
-      transactions = deploymentOnNetwork ? deploymentOnNetwork.transactions : []
-    } else if (isFoundrySingleChainDryRun(dryRun)) {
-      // Check if the current network matches the network of the dry run. If the current network
-      // doesn't match the dry run's network, then this means there weren't any transactions
-      // executed on the current network. We use an empty transactions array in this case.
-      transactions =
-        chainId === dryRun.chain.toString() ? dryRun.transactions : []
-    } else {
-      throw new Error(
-        `Foundry dry run is an incompatible type. Should never happen.`
-      )
-    }
-
-    const estimatedGasOnChain = transactions
-      // We remove any transactions that weren't broadcasted from the Managed Service contract.
-      // Particularly, we broadcast from the Gnosis Safe to make the auto-generated Sphinx wallets
-      // owners of the Gnosis Safe. We don't want to include those transactions in the gas estimate
-      // because they won't occur in production.
-      .filter(
-        (tx) =>
-          typeof tx.transaction.from === 'string' &&
-          ethers.getAddress(tx.transaction.from) === managedServiceAddress
-      )
-      .map((tx) => tx.transaction.gas)
-      // Narrow the TypeScript type of `gas` from `string | null` to `string`.
-      .map((gas) => {
-        if (typeof gas !== 'string') {
-          throw new Error(
-            `Detected a 'gas' field that is not a string. Should never happen.`
-          )
-        }
-        return gas
-      })
-      // Convert the gas values from hex strings to numbers.
-      .map((gas) => parseInt(gas, 16))
-
-    gasEstimates.push({
-      chainId: Number(chainId),
-      // Sum the gas estimates then convert to a string.
-      estimatedGas: estimatedGasOnChain.reduce((a, b) => a + b).toString(),
-    })
-  }
-
-  return gasEstimates
-}
-
 export const execute = async (
   scriptPath: string,
   parsedConfig: ParsedConfig,
-  merkleTree: SphinxMerkleTree,
+  batches: Array<Array<SphinxLeafWithProof>>,
+  merkleRoot: string,
   foundryToml: FoundryToml,
   rpcUrl: string,
   networkName: string,
@@ -1055,36 +994,35 @@ export const execute = async (
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-  const deployTaskInputsFragment = findFunctionFragment(
+  const batchesFragment = findFunctionFragment(
     sphinxPluginTypesInterface,
-    'deployTaskInputsType'
+    'leafWithProofBatchesType'
   )
-
-  const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
 
   // ABI encode the inputs to the deployment function.
   const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedDeployTaskInputs = coder.encode(
-    deployTaskInputsFragment.outputs,
-    [merkleTree, humanReadableActions]
-  )
-  const deployTaskInputsPath = join(
+  const encodedDeployTaskInputs = coder.encode(batchesFragment.outputs, [
+    batches,
+  ])
+  const executionParamsFilePath = join(
     foundryToml.cachePath,
-    'sphinx-deploy-task-inputs.txt'
+    'sphinx-execution-params.txt'
   )
-  // Write the ABI encoded data to the file system. We'll read it in the Forge script that executes
-  // the deployment. We do this instead of passing in the data as a parameter to the Forge script
-  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
-  // particularly a concern for the Merkle tree, which likely contains contract init code.
-  writeFileSync(deployTaskInputsPath, encodedDeployTaskInputs)
+  // Write the ABI encoded batches to the file system. We'll read it in the Forge script that
+  // executes the deployment. We do this instead of passing in the batches as a parameter to the
+  // Forge script because it's possible to hit Node's `spawn` input size limit if the data is large.
+  // This is particularly a concern for the Merkle leaves, which probably contain contract init
+  // code.
+  writeFileSync(executionParamsFilePath, encodedDeployTaskInputs)
 
   const forgeScriptDeployArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxExecute(string,string)',
+    'sphinxExecute(bytes32,string,string)',
+    merkleRoot,
     networkName,
-    deployTaskInputsPath,
+    executionParamsFilePath,
     '--fork-url',
     rpcUrl,
     '--broadcast',
@@ -1123,14 +1061,15 @@ export const execute = async (
   spinner?.start(`Checking final deployment status...`)
 
   // Check the Merkle root's status. It's possible that the deployment succeeded during the
-  // simulation but was marked as `FAILED` when the transactions were broadcasted.
+  // simulation but was marked as `FAILED` when the transactions were broadcasted. This wouldn't
+  // cause the Forge script to throw an error because the transaction doesn't revert on-chain.
   const sphinxModule = new ethers.Contract(
     parsedConfig.moduleAddress,
     SphinxModuleABI,
     provider
   )
   const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
-    merkleTree.root
+    merkleRoot
   )
   if (merkleRootState.status === MerkleRootStatus.FAILED) {
     spinner?.fail(`Deployment failed when broadcasting the transactions.`)
@@ -1171,4 +1110,48 @@ const findFunctionFragment = (
     throw new Error(`Fragment not found in ABI.`)
   }
   return functionFragment
+}
+
+/**
+ * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
+ * for variations between the local simulation and the production environment. Also adjusts the
+ * minimum gas limit on networks like Arbitrum to include the L1 gas fee, which isn't captured on
+ * forks.
+ */
+export const getEstimatedGas = async (
+  receipts: Array<ethers.TransactionReceipt>,
+  provider: SphinxJsonRpcProvider
+): Promise<string> => {
+  // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
+  // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
+  // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
+  // be closer to one million. This is because each transaction includes the L1 gas used. The local
+  // simulation that produced the transaction receipts doesn't capture this difference. For example,
+  // the minimum gas limit on an Arbitrum fork is 21k instead of roughly one million. We account for
+  // this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a more
+  // accurate estimate on networks like Arbitrum.
+  const estimatedMinGasLimit = await provider.estimateGas({
+    to: ethers.ZeroAddress,
+    data: '0x',
+  })
+  const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
+
+  const estimatedGas = receipts
+    .map((receipt) => receipt.gasUsed)
+    .map(Number)
+    .map((gasUsed) => Math.round(gasUsed * 1.3))
+    // TODO(docs): we do this after multiplying by 1.3 because the estimated min gas limit already
+    // includes a ~1.35x buffer due to the fact that eth_estimateGas overestimates the gas. (include
+    // quote from json rpc docs).
+    .map((gasWithBuffer) => {
+      const totalGas = gasWithBuffer + adjustedGasLimit
+      // TODO(docs): abundance of caution.
+      if (totalGas < 0) {
+        throw new Error('Gas used is less than 0. Should never happen.')
+      }
+      return totalGas
+    })
+    .reduce((a, b) => a + b)
+
+  return estimatedGas.toString()
 }
