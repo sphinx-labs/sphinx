@@ -1,6 +1,3 @@
-import { ethers } from 'ethers'
-
-import { getSphinxConstants } from '../src/contract-info'
 import { remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
@@ -11,15 +8,16 @@ import {
   getMultiSendAddress,
   getSphinxModuleImplAddress,
 } from '../src/addresses'
-import { GnosisSafeProxyArtifact, SphinxModuleArtifact } from '../src/ifaces'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
- * plugin by reducing the number of times we read need to read JSON files or do FFI calls.
- * This script can be called by running:
- * npx ts-node src/scripts/write-constants.ts
+ * plugin by reducing the number of times we read need to read JSON files or do FFI calls. This
+ * script can be called by running: npx ts-node src/scripts/write-constants.ts
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
+ *
+ * NOTE: Putting contract initcode in the Solidity file will *significantly* slow down the user's
+ * compilation if they're using Yul (i.e. `viaIR`) with the optimizer enabled.
  */
 const writeConstants = async () => {
   const constants = {
@@ -51,31 +49,7 @@ const writeConstants = async () => {
       type: 'address',
       value: getSphinxModuleImplAddress(),
     },
-    safeProxyBytecode: {
-      type: 'bytes',
-      value: GnosisSafeProxyArtifact.bytecode,
-    },
-    sphinxModuleBytecode: {
-      type: 'bytes',
-      value: SphinxModuleArtifact.bytecode,
-    },
   }
-
-  const sphinxConstants = getSphinxConstants()
-
-  const contractInfo = sphinxConstants.map(
-    ({ artifact, constructorArgs, expectedAddress }) => {
-      const { abi, bytecode } = artifact
-
-      const iface = new ethers.Interface(abi)
-
-      const creationCode = bytecode.concat(
-        remove0x(iface.encodeDeploy(constructorArgs))
-      )
-
-      return { creationCode, expectedAddress }
-    }
-  )
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
@@ -98,19 +72,7 @@ const writeConstants = async () => {
           return `  ${type} public constant ${name} = ${value};`
         }
       })
-      .join('\n')}\n\n` +
-    `  function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {\n` +
-    `    SphinxContractInfo[] memory contracts = new SphinxContractInfo[](${contractInfo.length});\n` +
-    `${contractInfo
-      .map(
-        ({ creationCode, expectedAddress }, i) =>
-          `    contracts[${i}] = SphinxContractInfo(hex"${remove0x(
-            creationCode
-          )}", ${expectedAddress});`
-      )
-      .join('\n')}\n` +
-    `    return contracts;\n  }` +
-    `\n}`
+      .join('\n')}\n}\n`
 
   process.stdout.write(solidityFile)
 }
