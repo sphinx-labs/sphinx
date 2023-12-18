@@ -64,7 +64,7 @@ abstract contract Sphinx {
      * @dev The configuration options for the user's project. This variable must have `internal`
      *      visibility so that the user can set fields on it.
      */
-    SphinxConfig internal sphinxConfig;
+    SphinxConfig public sphinxConfig;
 
     Label[] private labels;
 
@@ -77,8 +77,23 @@ abstract contract Sphinx {
     bool private sphinxModifierEnabled;
 
     constructor() {
-        sphinxUtils = new SphinxUtils();
-        constants = new SphinxConstants();
+        // Deploy the `SphinxUtils` and `SphinxConstants` helper contracts. We don't deploy these
+        // using the `new` keyword because this causes an error when compiling with `viaIR` and the
+        // optimizer enabled using solc v0.8.1.
+        bytes memory utilsInitCode = vm.getCode("SphinxUtils.sol");
+        bytes memory constantsInitCode = vm.getCode("SphinxConstants.sol");
+        address utilsAddr;
+        address constantsAddr;
+        /// @solidity memory-safe-assembly
+        assembly {
+            utilsAddr := create(0, add(utilsInitCode, 0x20), mload(utilsInitCode))
+            constantsAddr := create(0, add(constantsInitCode, 0x20), mload(constantsInitCode))
+        }
+        require(utilsAddr != address(0), "Sphinx: SphinxUtils deployment failed");
+        require(constantsAddr != address(0), "Sphinx: SphinxConstants deployment failed");
+        sphinxUtils = SphinxUtils(utilsAddr);
+        constants = SphinxUtils(constantsAddr);
+
         // This ensures that these contracts stay deployed in a multi-fork environment (e.g. when
         // calling `vm.createSelectFork`).
         vm.makePersistent(address(constants));
@@ -140,7 +155,15 @@ abstract contract Sphinx {
             sphinxConfig.owners,
             sphinxConfig.threshold
         );
-        deploymentInfo.newConfig = sphinxConfig;
+        deploymentInfo.newConfig = SphinxConfig({
+            projectName: sphinxConfig.projectName,
+            owners: sphinxConfig.owners,
+            threshold: sphinxConfig.threshold,
+            orgId: sphinxConfig.orgId,
+            mainnets: sphinxConfig.mainnets,
+            testnets: sphinxConfig.testnets,
+            saltNonce: sphinxConfig.saltNonce
+        });
         deploymentInfo.isLiveNetwork = _isLiveNetwork;
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, ISphinxModule(module));
         deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(ISphinxModule(module));
@@ -153,8 +176,16 @@ abstract contract Sphinx {
         vm.stopBroadcast();
 
         // Set the labels. We do this after running the user's script because the user may assign
-        // labels in their deployment.
-        deploymentInfo.labels = labels;
+        // labels in their deployment. We use a for-loop instead of directly assigning the labels to
+        // prevent an error when compiling with `viaIR` and the solc optimizer enabled (runs =
+        // 200) using solc v0.8.5.
+        deploymentInfo.labels = new Label[](labels.length);
+        for (uint i = 0; i < labels.length; i++) {
+            deploymentInfo.labels[i] = Label({
+                addr: labels[i].addr,
+                fullyQualifiedName: labels[i].fullyQualifiedName
+            });
+        }
 
         return deploymentInfo;
     }
@@ -623,8 +654,13 @@ abstract contract Sphinx {
         labels.push(Label(_addr, _fullyQualifiedName));
     }
 
-    function sphinxConfigNetworks() external view returns (Network[] memory, Network[] memory) {
-        return (sphinxConfig.testnets, sphinxConfig.mainnets);
+    /**
+     * @notice Return the user's config ABI encoded. This is useful for retrieving the config
+     *         off-chain. We ABI encode the config because it's difficult to decode complex
+     *         data types that are returned by invoking Forge scripts.
+     */
+    function sphinxConfigABIEncoded() external view returns (bytes memory) {
+        return abi.encode(sphinxConfig);
     }
 
     /**

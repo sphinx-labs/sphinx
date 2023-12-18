@@ -26,12 +26,12 @@ In this guide, you'll create a sample project, propose it on the command line, a
 * You must have a basic understanding of how to use Foundry and Forge scripts. Here are the relevant guides in the Foundry docs:
   * [Getting Started with Foundry](https://book.getfoundry.sh/getting-started/first-steps)
   * [Writing Deployment Scripts with Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting)
+* You must have an Alchemy API key, which you can get on [their website](https://www.alchemy.com/).
+* You must have an account that exists on live networks. This account will own your Gnosis Safe.
 * The following must be installed on your machine:
   * [Foundry](https://book.getfoundry.sh/getting-started/installation)
   * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
   * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
-* You must have an Alchemy API key, which you can get on [their website](https://www.alchemy.com/).
-* You must have an account that exists on live networks. This account will own your Gnosis Safe.
 
 ## 2. Create a new directory
 
