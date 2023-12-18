@@ -13,4 +13,8 @@ interface IGnosisSafeProxyFactory {
         bytes memory initializer,
         uint256 saltNonce
     ) external returns (IGnosisSafeProxy proxy);
+
+    /// @dev Allows to retrieve the creation code used for the Proxy deployment. With this it is
+    // easily possible to calculate predicted address.
+    function proxyCreationCode() external pure returns (bytes memory);
 }

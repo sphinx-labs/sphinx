@@ -15,6 +15,9 @@ allow_paths = ["../contracts"]
 solc = '0.8.21'
 memory_limit = 3355443200
 
+# TODO(md): troubleshooting for --via-ir: use a newer solidity version or turn on the solc
+# optimizer. note that enabling the solc optimizer will slow down compilation significantly.
+
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
 ethereum = "${ETHEREUM_RPC_URL}"

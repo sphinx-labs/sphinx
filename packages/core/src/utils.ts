@@ -191,7 +191,7 @@ export const getGasPriceOverrides = async (
         overridden.gasPrice = gasPrice
         return overridden
       }
-    // On Polygon POS, override the maxPriorityFeePerGas using the max fee
+    // On Polygon PoS, override the maxPriorityFeePerGas using the max fee
     case 137:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
@@ -662,20 +662,21 @@ export const isEventLog = (
 }
 
 /**
- * @notice Sorts an array of hex strings in ascending order. This function mutates the array.
+ * Sorts an array of hex strings in ascending order and returns the sorted array. Does not mutate
+ * the original array.
+ *
+ * @param arr The array of hex strings to sort.
+ * @returns A new sorted array.
  */
-export const sortHexStrings = (arr: Array<string>): void => {
-  arr.sort((a, b) => {
+export const sortHexStrings = (arr: Array<string>): Array<string> => {
+  // Create a copy of the array
+  const arrCopy = [...arr]
+
+  // Sort the copied array
+  return arrCopy.sort((a, b) => {
     const aBigInt = BigInt(a)
     const bBigInt = BigInt(b)
-
-    if (aBigInt < bBigInt) {
-      return -1
-    } else if (aBigInt > bBigInt) {
-      return 1
-    } else {
-      return 0
-    }
+    return aBigInt < bBigInt ? -1 : aBigInt > bBigInt ? 1 : 0
   })
 }
 

@@ -37,7 +37,8 @@
     "@rari-capital/solmate": "7.0.0-alpha.3",
     "chai": "^4.3.6",
     "dotenv": "^16.0.3",
-    "hardhat": "^2.17.1"
+    "hardhat": "^2.17.1",
+    "semver": "^7.3.8"
   },
   "dependencies": {
     "@sphinx-labs/contracts": "^0.14.0",
