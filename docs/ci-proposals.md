@@ -90,7 +90,7 @@ Here is a list of things you may need to change in the template:
 - Enter any RPC node provider API keys in the `env` section of the template.
 - If your repository doesn't use Yarn, update the `yarn --frozen-lockfile` step under `jobs`.
 - If your repository uses pnpm instead of Yarn or npm, change `npx sphinx propose` to `pnpm sphinx propose`.
-- Make sure the path to your Sphinx deployment script in the `npx sphinx propose` command is correct.
+- In the `sphinx propose` command, replace `<path/to/your/script.s.sol>` with the path to your Forge script.
 
 ## 6. Create the proposal workflow
 Next, we'll create a workflow to propose the deployment when a pull request is merged.
@@ -130,7 +130,7 @@ Here is a list of things you may need to change in the template:
 - If you want your target branch to be something other than `main`, update the `branches` section of the template.
 - If your repository doesn't use Yarn, update the `yarn --frozen-lockfile` step under `jobs`.
 - If your repository uses pnpm instead of Yarn or npm, change `npx sphinx propose` to `pnpm sphinx propose`.
-- Make sure the path to your Sphinx deployment script in the `npx sphinx propose` command is correct.
+- In the `sphinx propose` command, replace `<path/to/your/script.s.sol>` with the path to your Forge script.
 
 ## 7. Configure secret variables
 
