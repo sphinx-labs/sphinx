@@ -77,8 +77,9 @@ abstract contract Sphinx {
     bool private sphinxModifierEnabled;
 
     constructor() {
-        // TODO(docs): we don't deploy these using the `new` keyword of Sphinx.sol b/c this causes a
-        // compilation error w/ viaIR, optimizer enabled, solc v0.8.1.
+        // Deploy the `SphinxUtils` and `SphinxConstants` helper contracts. We don't deploy these
+        // using the `new` keyword because this causes an error when compiling with `viaIR` and the
+        // optimizer enabled using solc v0.8.1.
         bytes memory utilsInitCode = vm.getCode("SphinxUtils.sol");
         bytes memory constantsInitCode = vm.getCode("SphinxConstants.sol");
         address utilsAddr;
@@ -175,8 +176,9 @@ abstract contract Sphinx {
         vm.stopBroadcast();
 
         // Set the labels. We do this after running the user's script because the user may assign
-        // labels in their deployment. TODO(docs): --use '0.8.5' --via-ir --optimize
-        // --optimizer-runs 200
+        // labels in their deployment. We use a for-loop instead of directly assigning the labels to
+        // prevent an error when compiling with `viaIR` and the solc optimizer enabled (runs =
+        // 200) using solc v0.8.5.
         deploymentInfo.labels = new Label[](labels.length);
         for (uint i = 0; i < labels.length; i++) {
             deploymentInfo.labels[i] = Label({
@@ -491,7 +493,11 @@ abstract contract Sphinx {
         labels.push(Label(_addr, _fullyQualifiedName));
     }
 
-    // TODO(docs)
+    /**
+     * @notice Return the user's config ABI encoded. This is useful for retrieving the config
+     *         off-chain. We ABI encode the config because it's difficult to decode complex
+     *         data types that are returned by invoking Forge scripts.
+     */
     function sphinxConfigABIEncoded() external view returns (bytes memory) {
         return abi.encode(sphinxConfig);
     }

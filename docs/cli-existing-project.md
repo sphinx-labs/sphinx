@@ -10,11 +10,25 @@ Deployments are a three-step process with the DevOps platform:
 
 In this guide, you'll propose the deployment on the command line then approve it in the Sphinx UI.
 
-TODO(end): section numbers
-
 ## Table of Contents
 
-TODO(end)
+1. [Prerequisites](#1-prerequisites)
+2. [Update Foundry](#2-update-foundry)
+3. [Install Sphinx](#3-install-sphinx)
+4. [Update `.gitignore`](#4-update-gitignore)
+5. [Add remappings](#5-add-remappings)
+6. [Update your deployment script](#6-update-your-deployment-script)\
+  a. [Import Sphinx](#a-import-sphinx)\
+  b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
+  c. [Update your `run()` function](#c-update-your-run-function)\
+  d. [Remove broadcasts](#d-remove-broadcasts)\
+  e. [Add configuration options](#e-add-configuration-options)
+7. [Add environment variables](#7-add-environment-variables)
+8. [Update RPC endpoints](#8-update-rpc-endpoints)
+9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
+10. [Run tests](#10-run-tests)
+11. [Propose on testnets](#11-propose-on-testnets)
+12. [Next steps](#12-next-steps)
 
 ## 1. Prerequisites
 
@@ -61,7 +75,7 @@ Add the following to your `.gitignore` file:
 node_modules/
 ```
 
-## 8. Add remappings
+## 5. Add remappings
 
 Run the following command to generate remappings for the Sphinx packages.
 
@@ -79,22 +93,7 @@ pnpm sphinx remappings --pnpm
 
 Add the remappings to your `remappings.txt` file or the `remappings` array in your `foundry.toml`.
 
-## 5. Add environment variables
-
-Get your Sphinx API Key from the Sphinx UI, then enter it as an environment variable:
-```
-SPHINX_API_KEY=<your_api_key>
-```
-
-TODO: it doesn't make sense that you ask them to enter their RPC providers before mentioning the networks that they'll deploy on.
-
-Also, if you haven't added your node provider API key as an environment variable, please do so now. For example:
-```
-ALCHEMY_API_KEY=<your_api_key>
-INFURA_API_KEY=<your_api_key>
-```
-
-## 9. Update your deployment script
+## 6. Update your deployment script
 
 Navigate to your deployment script. In this section, we'll update it to be compatible with Sphinx.
 
@@ -159,7 +158,20 @@ You'll need to update the following fields in this template:
 * Enter your Sphinx Organization ID in the `orgId` field. It's a public field, so you don't need to keep it secret. You can find it in the Sphinx UI.
 * If you'd like to deploy on networks other than Sepolia, Optimism Sepolia, and Arbitrum Sepolia, update the `testnets` array. You can find a list of valid fields in the [Sphinx Configuration Options reference](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md#network-testnets).
 
-## 7. Update RPC endpoints
+## 7. Add environment variables
+
+Get your Sphinx API Key from the Sphinx UI, then enter it as an environment variable:
+```
+SPHINX_API_KEY=<your_api_key>
+```
+
+Also, if you haven't added your node provider API key as an environment variable, please do so now. For example:
+```
+ALCHEMY_API_KEY=<your_api_key>
+INFURA_API_KEY=<your_api_key>
+```
+
+## 8. Update RPC endpoints
 
 Include an RPC endpoint in your `foundry.toml` for each testnet you'd like to deploy on. The names of the RPC endpoints in your `foundry.toml` must match the testnet names in the `sphinxConfig.testnets` array that you defined in your deployment script. For example, `sepolia` is a valid RPC endpoint name, but `ethereum_testnet` is not.
 
@@ -172,7 +184,7 @@ optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 ```
 
-## 6. Update `foundry.toml` settings
+## 9. Update `foundry.toml` settings
 
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 

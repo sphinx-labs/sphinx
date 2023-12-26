@@ -10,17 +10,16 @@ import {
 } from '@sphinx-labs/plugins'
 import { SemVer, coerce, gt, lte } from 'semver'
 
-// TODO(docs): include this link as rationale for testing every solc version:
-// https://github.com/ethereum/solidity/issues/14082
-
 import { deleteForgeProject } from './common'
 
 const srcDir = 'src'
 const scriptDir = 'script'
 const testDir = 'test'
 
-// # TODO(md): https://github.com/ethereum/solidity/issues/13972 and https://github.com/ethereum/solidity/issues/12533
-
+// This test suite checks that Sphinx's plugin contracts can compile with the Yul intermediate
+// representation compiler setting (i.e. `viaIR`). We test every supported solc version because
+// minor changes in solc can lead to "stack too deep" errors. See this post and cameel's response
+// for context: https://github.com/ethereum/solidity/issues/14082
 describe('Solidity Compiler', () => {
   let contractPath: string
   let scriptPath: string
@@ -63,13 +62,13 @@ describe('Solidity Compiler', () => {
 
     const latestSolcVersionParsed = coerce(latestSolcVersionRaw)
     if (latestSolcVersionParsed === null) {
-      throw new Error(`TODO(docs).`)
+      throw new Error(`Could not find latest solc version.`)
     }
     if (
       latestSolcVersionParsed.major !== 0 ||
       latestSolcVersionParsed.minor !== 8
     ) {
-      throw new Error(`TODO(docs).`)
+      throw new Error(`Latest solc version is > 0.8.`)
     }
     latestSolcVersion = latestSolcVersionParsed
   })
@@ -78,15 +77,14 @@ describe('Solidity Compiler', () => {
     deleteForgeProject(contractPath, scriptPath, testPath)
   })
 
-  // TODO(end): .only
-
-  // TODO(docs): TODO(docs): forge sample project can't compile w/ --via-ir and --use '0.8.0' with
-  // the optimizer enabled, so we don't test for this case.
-  it('TODO(docs)', async () => {
+  // Test that we can compile the Sphinx plugin contracts for solc versions ^0.8.1 using `viaIR` and
+  // the optimizer. We don't test v0.8.0 because the sample Forge project can't compile with this
+  // version and settings.
+  it('Compiles with viaIR and optimizer enabled', async () => {
     const versions = generateSemverRange(new SemVer('0.8.1'), latestSolcVersion)
 
-    // Generate output directory names. TODO(docs): we use separate output directories for each
-    // `forge build` command to prevent race conditions.
+    // Generate output directory names. We use separate output directories for each compilation to
+    // prevent race conditions.
     const outputDirs = versions.map((version) => `out-${version}`)
 
     const buildPromises = versions.map((version, index) => {
@@ -128,21 +126,21 @@ describe('Solidity Compiler', () => {
     expect(errorMessages).to.be.empty
   })
 
-  // TODO(docs): Compile via IR without the optimizer using Solidity compiler v0.8.21, which is the lowest version
-  // that works with these settings. Before v0.8.21, it was very easy to trigger a "stack too deep"
-  // error when compiling via IR with the optimizer disabled. For example, the standard project
-  // created by `forge init` can't compile with these settings. See these two issues in the Solidity
-  // repo for more context:
-  // The problem: https://github.com/ethereum/solidity/issues/12533 The fix in
-  // v0.8.21: https://github.com/ethereum/solidity/issues/13972∑
-  it('TODO(docs)', async () => {
+  // Compile the Sphinx plugin contracts using `viaIR` with the optimizer disabled. We test for solc
+  // versions greater than or equal to v0.8.21. Before v0.8.21, it was very easy to trigger a "stack
+  // too deep" error when compiling via IR with the optimizer disabled. For example, the standard
+  // project created by `forge init` can't compile with v0.8.20 using these settings. See these two
+  // issues in the Solidity repo for more context:
+  // The problem: https://github.com/ethereum/solidity/issues/12533
+  // The fix in v0.8.21: https://github.com/ethereum/solidity/issues/13972∑
+  it('Compiles with viaIR and the optimizer disabled', async () => {
     const versions = generateSemverRange(
       new SemVer('0.8.21'),
       latestSolcVersion
     )
 
-    // Generate output directory names. TODO(docs): we use separate output directories for each
-    // `forge build` command to prevent race conditions.
+    // Generate output directory names. We use separate output directories for each compilation to
+    // prevent race conditions.
     const outputDirs = versions.map((version) => `out-${version}`)
 
     const buildPromises = versions.map((version, index) => {
