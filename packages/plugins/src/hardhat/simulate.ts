@@ -244,3 +244,6 @@ const setManagedServiceRelayer = async (
     '0x0000000000000000000000000000000000000000000000000000000000000001',
   ])
 }
+
+// TODO(later): make sure the signer is correct in the simulation for "LiveNetworkBroadcast" and
+// "LocalNetworkBroadcast".

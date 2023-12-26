@@ -173,7 +173,6 @@ const findMaxBatchSize = async (
  * Helper function for executing a list of actions in batches. We execute actions in batches to
  * reduce the total number of transactions, which makes the deployment faster and cheaper.
  *
- * @param actions List of actions to execute.
  * @returns TODO(docs): batches does not include `EXECUTE` merkle leaves that were executed before
  * this function was called.
  */

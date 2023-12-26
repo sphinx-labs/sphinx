@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// TODO(later): remove console?
+
 import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
 import { console } from "sphinx-forge-std/console.sol";
 
