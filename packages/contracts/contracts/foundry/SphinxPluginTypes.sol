@@ -227,7 +227,7 @@ contract SphinxPluginTypes {
         returns (DeploymentInfo[] memory deploymentInfoArray)
     {}
 
-    function getSphinxConfig() external view returns (SphinxConfig memory sphinxConfig) {}
+    function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
 
     function leafGasParams() external view returns (SphinxTransaction[] memory txnArray) {}
 

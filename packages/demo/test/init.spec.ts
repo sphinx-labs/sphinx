@@ -10,26 +10,28 @@ import {
 } from '@sphinx-labs/plugins'
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { getFoundryToml } from '@sphinx-labs/plugins/src/foundry/options'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
-const deploymentArtifactDir = 'deployments'
+import { deleteForgeProject } from './common'
+
 const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
+
+const srcDir = 'src'
+const scriptDir = 'script'
+const testDir = 'test'
 
 describe('Init CLI command', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string
   before(async () => {
-    const { src, script, test } = await getFoundryToml()
-
-    contractPath = path.join(src, sampleContractFileName)
-    scriptPath = path.join(script, sampleScriptFileName)
-    testPath = path.join(test, sampleTestFileName)
+    contractPath = path.join(srcDir, sampleContractFileName)
+    scriptPath = path.join(scriptDir, sampleScriptFileName)
+    testPath = path.join(testDir, sampleTestFileName)
   })
 
   beforeEach(async () => {
-    deleteFiles(contractPath, scriptPath, testPath)
+    deleteForgeProject(contractPath, scriptPath, testPath)
 
     exec(`anvil --silent &`)
   })
@@ -38,7 +40,7 @@ describe('Init CLI command', () => {
     // Kill the Anvil node
     await execAsync(`kill $(lsof -t -i:8545)`)
 
-    deleteFiles(contractPath, scriptPath, testPath)
+    deleteForgeProject(contractPath, scriptPath, testPath)
   })
 
   it('Creates and tests a sample Foundry project', async () => {
@@ -90,26 +92,3 @@ describe('Init CLI command', () => {
     expect(await contract.number()).to.equal(10n)
   })
 })
-
-const deleteFiles = (
-  contractPath: string,
-  scriptPath: string,
-  testPath: string
-) => {
-  // Delete the generated files
-  if (fs.existsSync(contractPath)) {
-    fs.rmSync(contractPath)
-  }
-
-  if (fs.existsSync(testPath)) {
-    fs.rmSync(testPath)
-  }
-
-  if (fs.existsSync(scriptPath)) {
-    fs.rmSync(scriptPath)
-  }
-
-  if (fs.existsSync(deploymentArtifactDir)) {
-    fs.rmSync(deploymentArtifactDir, { recursive: true, force: true })
-  }
-}

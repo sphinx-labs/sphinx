@@ -74,12 +74,12 @@ Valid values:
 | Ethereum | `Network.ethereum` |
 | Optimism | `Network.optimism` |
 | Arbitrum | `Network.arbitrum` |
-| Polygon POS | `Network.polygon` |
+| Polygon PoS | `Network.polygon` |
 | Binance Smart Chain | `Network.bnb` |
 | Gnosis Chain | `Network.gnosis` |
 | Linea | `Network.linea` |
-| Polygon ZKEVM | `Network.polygon_zkevm` |
-| Avalanche C Chain | `Network.avalanche` |
+| Polygon zkEVM | `Network.polygon_zkevm` |
+| Avalanche C-Chain | `Network.avalanche` |
 | Fantom | `Network.fantom` |
 | Base | `Network.base` |
 
@@ -101,7 +101,7 @@ Valid values:
 | Binance Smart Chain Testnet | `Network.bnb_testnet` |
 | Gnosis Chiado | `Network.gnosis_chiado` |
 | Linea Goerli | `Network.linea_goerli` |
-| Polygon ZKEVM Goerli | `Network.polygon_zkevm_goerli` |
+| Polygon zkEVM Goerli | `Network.polygon_zkevm_goerli` |
 | Avalanche Fuji | `Network.avalanche_fuji` |
 | Fantom Testnet | `Network.fantom_testnet` |
 | Base Sepolia | `Network.base_sepolia` |
