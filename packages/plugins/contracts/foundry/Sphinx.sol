@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// TODO(later): remove console?
+// TODO: remove console.
 
 import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
 import { console } from "sphinx-forge-std/console.sol";
@@ -291,7 +291,6 @@ abstract contract Sphinx {
         string memory _networkName,
         string memory _executionParamsFilePath
     ) external {
-        // TODO(later):
         SphinxLeafWithProof[][] memory batches = abi.decode(
                 vm.parseBytes(vm.readFile(_executionParamsFilePath)),
                 (SphinxLeafWithProof[][])
@@ -542,11 +541,12 @@ abstract contract Sphinx {
         NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(_chainId);
         vm.createSelectFork(vm.rpcUrl(networkInfo.name));
 
-        // Deploy the Sphinx Module and Gnosis Safe if they're not already deployed.
+        // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
+        // going to call the Gnosis Safe to estimate the gas.
         if (address(safe).code.length == 0) {
             // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
-            // Managed Service contract, but this replicates the prod environment, so we do it
-            // anyways.
+            // Managed Service contract, but this replicates the prod environment for the DevOps
+            // Platform, so we do it anyways.
             vm.startPrank(managedServiceAddress);
             _sphinxDeployModuleAndGnosisSafe();
             vm.stopPrank();
@@ -572,6 +572,8 @@ abstract contract Sphinx {
 
         return abi.encode(gasEstimates);
     }
+
+    // TODO: remove unnecessary functions.
 
     /**
      * @notice Sign a Sphinx Merkle root using a set of Gnosis Safe owner wallets. This exists here

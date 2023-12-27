@@ -3,7 +3,7 @@
 Sphinx has a CLI command for executing deployments from your local machine without using the DevOps platform. There are two main reasons to use it:
 
 1. Deploy on Anvil. Sphinx will broadcast the deployment even if you aren't one of the Gnosis Safe owners.
-2. Deploy on live networks. This can be useful if you'd like to deploy a Gnosis Safe and generate deployment artifacts. Since you aren't using the DevOps platform, you'll need native gas tokens for the deployment, and you'll need to verify your contracts on Etherscan. Note that you can only deploy from the CLI on live networks if you're the only owner of the Gnosis Safe.
+2. Deploy on live networks. This can be useful if you'd like to deploy a Gnosis Safe and generate deployment artifacts. Since you aren't using the DevOps platform, you'll need native gas tokens for the deployment, and you'll need an Etherscan API key to verify your contracts. Note that you can only deploy from the CLI on live networks if you're the only owner of the Gnosis Safe.
 
 You can execute a Forge script on a network using the `deploy` command.
 

@@ -133,7 +133,7 @@ We'll explain the Sphinx modifier in a later guide.
 
 ### d. Remove broadcasts
 
-Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment script. Broadcasting is no longer required because you aren't be executing your deployment from the CLI.
+Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment script. Broadcasting is no longer required because you won't be executing your deployment from the CLI.
 
 ### e. Add configuration options
 

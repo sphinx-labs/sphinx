@@ -297,6 +297,11 @@ export const deploy = async (
   const deploymentData = makeDeploymentData(configUri, compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
+  // TODO(later): we should do 'viaManagedService' for local network broadcasts.
+
+  // TODO(later): if we remove the live network deploy task, i think we can remove the higher order
+  // functions that are passed into `simulate`.
+
   const { batches } = await simulate(
     parsedConfig,
     merkleTree,
@@ -448,5 +453,3 @@ export const deploy = async (
     executionBroadcast,
   }
 }
-
-// TODO(later): https://hardhat.org/hardhat-runner/docs/reference/environment-variables

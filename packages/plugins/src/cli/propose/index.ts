@@ -527,5 +527,3 @@ const getProjectDeploymentForChain = (
     configUri,
   }
 }
-
-// TODO(later): come up with test cases.

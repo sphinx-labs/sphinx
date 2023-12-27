@@ -3,27 +3,27 @@ import assert from 'assert'
 import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-import {
-  CustomChain,
-  EtherscanNetworkEntry,
-  EtherscanURLs,
-} from '@nomiclabs/hardhat-etherscan/dist/src/types'
-import {
-  getVerificationStatus,
-  verifyContract,
-  delay,
-  EtherscanResponse,
-} from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanService'
-import {
-  toVerifyRequest,
-  toCheckStatusRequest,
-} from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
+// import {
+//   CustomChain,
+//   EtherscanNetworkEntry,
+//   EtherscanURLs,
+// } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+// import {
+//   getVerificationStatus,
+//   verifyContract,
+//   delay,
+//   EtherscanResponse,
+// } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanService'
+// import {
+//   toVerifyRequest,
+//   toCheckStatusRequest,
+// } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
 import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
-import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/errors'
-import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
-import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
-import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
-import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
+// import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/errors'
+// import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
+// import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
+// import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
+// import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 import {
@@ -37,55 +37,36 @@ import {
   sphinxBuildInfo,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
+// TODO(later): check that these dependencies aren't brittle (i.e. check that a minor/patch update
+// won't potentially break these dependencies).
+import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
+import { builtinChains } from '@nomicfoundation/hardhat-verify/internal/chain-config'
+import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { isLiveNetwork } from './utils'
+import { isLiveNetwork, sleep } from './utils'
 import { BuildInfo } from './languages'
 
 // Load environment variables from .env
 dotenv.config()
 
-export interface EtherscanResponseBody {
-  status: string
-  message: string
-  result: any
-}
+// TODO(docs): we don't use hardhat's version because they use a different type of provider (an EthereumProvider).
+// TODO(docs): ref @nomicfoundation/hardhat-etherscan:src/internal/etherscan.ts:getChainConfig
+export const getChainConfig = (chainId: number): ChainConfig => {
+  const chainConfig = [
+    // custom chains has higher precedence than builtin chains
+    ...[...customChains].reverse(), // the last entry has higher precedence
+    ...builtinChains,
+  ].find((config) => config.chainId === chainId)
 
-export const RESPONSE_OK = '1'
-
-export const getEtherscanEndpointForNetwork = (
-  chainId: number
-): EtherscanNetworkEntry | CustomChain => {
-  const chainIdsToNames = new Map(
-    Object.entries(chainConfig).map(([chainName, config]) => [
-      config.chainId,
-      chainName,
-    ])
-  )
-
-  const networkInCustomChains = [...customChains]
-    .reverse() // the last entry wins
-    .find((customChain) => customChain.chainId === chainId)
-
-  // if there is a custom chain with the given chain id, that one is preferred
-  // over the built-in ones
-  if (networkInCustomChains !== undefined) {
-    return networkInCustomChains
+  if (chainConfig === undefined) {
+    throw new Error(`Could not find chain config for: ${chainId}`)
   }
 
-  const network = networkInCustomChains ?? chainIdsToNames.get(chainId)
-
-  if (network === undefined) {
-    // The network name isn't actually used by this function
-    throwUnsupportedNetwork('', chainId)
-  }
-
-  const chainConfigEntry = chainConfig[network]
-
-  return { network, urls: chainConfigEntry.urls }
+  return chainConfig
 }
 
 export const verifySphinxConfig = async (
@@ -95,9 +76,7 @@ export const verifySphinxConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const etherscanApiEndpoints = await getEtherscanEndpointForNetwork(
-    Number((await provider.getNetwork()).chainId)
-  )
+  const { urls } = getChainConfig(Number(compilerConfig.chainId))
 
   for (const actionInput of compilerConfig.actionInputs) {
     for (const address of Object.keys(actionInput.contracts)) {
@@ -111,8 +90,9 @@ export const verifySphinxConfig = async (
       // determine where the contract's creation code ends and the constructor arguments begin. This
       // method works even if the `artifact.bytecode` contains externally linked library placeholders
       // or immutable variable placeholders, which are always the same length as the real values.
-      const encodedConstructorArgs = remove0x(
-        ethers.dataSlice(initCodeWithArgs, ethers.dataLength(bytecode))
+      const encodedConstructorArgs = ethers.dataSlice(
+        initCodeWithArgs,
+        ethers.dataLength(bytecode)
       )
 
       const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
@@ -124,20 +104,20 @@ export const verifySphinxConfig = async (
           `Could not find compiler input for ${sourceName}. Should never happen.`
         )
       }
-      const { input, solcVersion } = sphinxInput
+      const { input, solcLongVersion } = sphinxInput
 
       const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
 
       await attemptVerification(
         provider,
         networkName,
-        etherscanApiEndpoints.urls,
+        urls,
         address,
         sourceName,
         contractName,
         apiKey,
         minimumCompilerInput,
-        solcVersion,
+        solcLongVersion,
         encodedConstructorArgs
       )
     }
@@ -147,72 +127,61 @@ export const verifySphinxConfig = async (
 export const attemptVerification = async (
   provider: ethers.Provider,
   networkName: string,
-  urls: EtherscanURLs,
+  urls: ChainConfig['urls'],
   contractAddress: string,
   sourceName: string,
   contractName: string,
   etherscanApiKey: string,
   compilerInput: CompilerInput,
-  solcVersion: string,
+  solcLongVersion: string,
   encodedConstructorArgs: string
 ) => {
-  const deployedBytecodeHex = await retrieveContractBytecode(
-    contractAddress,
-    provider as any,
-    networkName
-  )
-  const deployedBytecode = new Bytecode(deployedBytecodeHex)
-  const inferredSolcVersion = deployedBytecode.getInferredSolcVersion()
+  const deployedBytecode = remove0x(await provider.getCode(contractAddress))
+  if (deployedBytecode.length === 0) {
+    throw new Error(`Contract is not deployed: ${contractAddress}`)
+  }
 
-  assert(
-    solcVersion === inferredSolcVersion,
-    'Compiler version in artifact does not match deployed contract compiler version'
-  )
+  const instance = new Etherscan(etherscanApiKey, urls.apiURL, urls.browserURL)
 
-  const solcFullVersion = await getLongVersion(solcVersion)
+  if (!(await instance.isVerified(contractAddress))) {
+    const { message: guid } = await instance.verify(
+      contractAddress,
+      JSON.stringify(compilerInput),
+      `${sourceName}:${contractName}`,
+      solcLongVersion,
+      remove0x(encodedConstructorArgs)
+    )
 
-  const verifyRequest = toVerifyRequest({
-    apiKey: etherscanApiKey,
-    contractAddress,
-    sourceCode: JSON.stringify(compilerInput),
-    sourceName,
-    contractName,
-    compilerVersion: solcFullVersion,
-    constructorArguments: encodedConstructorArgs,
-  })
+    console.log(
+      `Successfully submitted source code for contract
+       ${contractName} at ${contractAddress} on ${networkName}
+       for verification on the block explorer. Waiting for verification result...
+      `
+    )
 
-  let response
-  try {
-    response = await verifyContract(urls.apiURL, verifyRequest)
-  } catch (err) {
-    if (
-      err.message === 'Contract source code already verified' ||
-      err.message.includes('Smart-contract already verified')
-    ) {
+    // TODO(later): copy the etherscan verification subtask logic instead of rolling your own
+
+    await sleep(1000)
+    let verificationStatus: TODO
+    try {
+      await instance.getVerificationStatus(guid)
+
+
+    if (verificationStatus.isSuccess()) {
+      const contractURL = instance.getContractUrl(contractAddress)
       console.log(
-        `${contractName} has already been already verified:
-        ${buildContractUrl(urls.browserURL, contractAddress)}`
+        `Successfully verified contract "${contractName}" at ${contractAddress} on ${networkName}:\n${contractURL}`
       )
-      return
     } else {
-      throw err
+      // Reaching this point shouldn't be possible unless the API is behaving in a new way.
+      throw new Error(
+        `The ${networkName} Etherscan API responded with an unexpected message.
+      Contract verification may have succeeded and should be checked manually.
+      Message: ${verificationStatus.message}`
+      )
     }
   }
 
-  console.log(
-    `Successfully submitted source code for contract
-     ${sourceName}:${contractName} at ${contractAddress} on ${networkName}
-     for verification on the block explorer. Waiting for verification result...
-    `
-  )
-
-  const pollRequest = toCheckStatusRequest({
-    apiKey: etherscanApiKey,
-    guid: response.message,
-  })
-
-  // Compilation is bound to take some time so there's no sense in requesting status immediately.
-  await delay(700)
   let verificationStatus: EtherscanResponse
   try {
     verificationStatus = await getVerificationStatus(urls.apiURL, pollRequest)
@@ -242,126 +211,18 @@ export const attemptVerification = async (
       Message: ${verificationStatus.message}`
     )
   }
-}
-
-export const linkProxyWithImplementation = async (
-  urls: EtherscanURLs,
-  etherscanApiKey: string,
-  proxyAddress: string,
-  implAddress: string,
-  implContractName: string
-) => {
-  const params = {
-    module: 'contract',
-    action: 'verifyproxycontract',
-    address: proxyAddress,
-    expectedimplementation: implAddress,
-  }
-  let responseBody = await callEtherscanApi(urls, etherscanApiKey, params)
-
-  if (responseBody.status === RESPONSE_OK) {
-    // Initial call was OK, but need to send a status request using the returned guid to get the
-    // actual verification status
-    const guid = responseBody.result
-    responseBody = await checkProxyVerificationStatus(
-      urls,
-      etherscanApiKey,
-      guid
-    )
-
-    while (responseBody.result === 'Pending in queue') {
-      await delay(3000)
-      responseBody = await checkProxyVerificationStatus(
-        urls,
-        etherscanApiKey,
-        guid
-      )
-    }
-  }
-
-  if (responseBody.status === RESPONSE_OK) {
-    console.log(
-      `Successfully linked ${implContractName} proxy to implementation.`
-    )
-  } else {
-    throw new Error(
-      `Failed to link ${implContractName} proxy with its implementation.
-Reason: ${responseBody.result}`
-    )
   }
 }
 
-export const callEtherscanApi = async (
-  etherscanApiEndpoints: EtherscanURLs,
-  etherscanApiKey: string,
-  params: any
-): Promise<EtherscanResponseBody> => {
-  const parameters = new URLSearchParams({
-    ...params,
-    apikey: etherscanApiKey,
-  })
+export const isSupportedNetworkOnEtherscan = (
+  chainId: number
+): boolean => {
+  const chainConfig = [
+    ...customChains,
+    ...builtinChains,
+  ].find((config) => config.chainId === chainId)
 
-  const response = await request(etherscanApiEndpoints.apiURL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: parameters.toString(),
-  })
-
-  if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
-    const responseBodyText = await response.body.text()
-    throw new Error(
-      `Etherscan API call failed with status ${response.statusCode}.
-Response: ${responseBodyText}`
-    )
-  }
-
-  const responseBodyJson = await response.body.json()
-  return responseBodyJson as EtherscanResponseBody
-}
-
-export const checkProxyVerificationStatus = async (
-  etherscanApiEndpoints: EtherscanURLs,
-  etherscanApiKey: string,
-  guid: string
-): Promise<EtherscanResponseBody> => {
-  const checkProxyVerificationParams = {
-    module: 'contract',
-    action: 'checkproxyverification',
-    apikey: etherscanApiKey,
-    guid,
-  }
-
-  const responseBody = await callEtherscanApi(
-    etherscanApiEndpoints,
-    etherscanApiKey,
-    checkProxyVerificationParams
-  )
-  return responseBody
-}
-
-export const isSupportedNetworkOnEtherscan = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<boolean> => {
-  const chainIdsToNames = new Map(
-    Object.entries(chainConfig).map(([chainName, config]) => [
-      config.chainId,
-      chainName,
-    ])
-  )
-
-  const chainID = parseInt(await provider.send('eth_chainId', []), 16)
-
-  const networkInCustomChains = [...customChains]
-    .reverse() // the last entry wins
-    .find((customChain) => customChain.chainId === chainID)
-
-  const network = networkInCustomChains ?? chainIdsToNames.get(chainID)
-
-  if (network === undefined) {
-    return false
-  }
-
-  return true
+  return chainConfig !== undefined
 }
 
 export const etherscanVerifySphinxSystem = async (
@@ -378,7 +239,7 @@ export const etherscanVerifySphinxSystem = async (
 
   const { name: networkName, chainId } = await provider.getNetwork()
   if (
-    !(await isSupportedNetworkOnEtherscan(provider)) ||
+    !(isSupportedNetworkOnEtherscan(Number(chainId))) ||
     !(await isLiveNetwork(provider))
   ) {
     logger.info(
@@ -390,7 +251,7 @@ export const etherscanVerifySphinxSystem = async (
   logger.info(
     '[Sphinx]: attempting to verify the sphinx contracts on etherscan...'
   )
-  const etherscanApiEndpoints = getEtherscanEndpointForNetwork(Number(chainId))
+  const { urls } = getChainConfig(Number(chainId))
   const contracts = getSphinxConstants().concat(
     additionalSystemContractsToVerify
   )
@@ -431,20 +292,18 @@ export const etherscanVerifySphinxSystem = async (
 
       const iface = new ethers.Interface(abi)
 
-      const encodedConstructorArgs = iface
-        .encodeDeploy(constructorArgs)
-        .replace('0x', '')
+      const encodedConstructorArgs = iface.encodeDeploy(constructorArgs)
 
       await attemptVerification(
         provider,
         networkName,
-        etherscanApiEndpoints.urls,
+        urls,
         expectedAddress,
         sourceName,
         contractName,
         etherscanApiKey,
         minimumCompilerInput,
-        buildInfo.solcVersion,
+        buildInfo.solcLongVersion,
         encodedConstructorArgs
       )
     }

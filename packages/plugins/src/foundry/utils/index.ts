@@ -1174,6 +1174,28 @@ export const getEstimatedGas = async (
   return estimatedGas.toString()
 }
 
-// TODO(later): should we use getGasPriceOverrides on hardhat? Might break things
+// TODO(later): figure out what to test (if anything)
 
-// TODO(later): we need our own etherscan verification logic
+// TODO(test): manually check how the logs look when verifying contracts in the `deploy` command.
+
+// TODO: undo demo:package.json:build:contracts
+
+// TODO: in `deploy` task, only verify if on a live network.
+
+// TODO: add linear ticket: verify previously completed deployments using deploy task.
+// (currently, if a deployment completes but etherscan verification fails, users can't verify the
+// contracts). we should either add this functionality to the `deploy` task or create a `sphinx
+// verify` CLI command. the latter may be preferable b/c it's possible that the merkle root may
+// change between after the first `deploy` command is invoked, which would cause another deployment
+// to occur.
+
+// TODO(later): do retries in the `deploy` command.
+
+// TODO: we need our own etherscan verification logic.
+
+// TODO: Switch from `@nomiclabs/hardhat-etherscan` to `hardhat-verify`. mark the linear ticket as
+// completed when done. make sure you add `customChains`. also make sure you remove the old package.
+
+// TODO(end): grammarly *.md in this pr: https://github.com/sphinx-labs/sphinx/pull/1283/files
+
+// TODO(end): grammarly docs/ in this pr

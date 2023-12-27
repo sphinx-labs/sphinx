@@ -50,8 +50,6 @@ export const simulate = async (
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const initialHardhatConfigEnvVar = process.env['HARDHAT_CONFIG']
-  process.env['HARDHAT_CONFIG'] = join('dist', 'hardhat.config.js')
   process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
   process.env['SPHINX_INTERNAL__CHAIN_ID'] = parsedConfig.chainId
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -61,6 +59,8 @@ export const simulate = async (
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
   const hardhatConfigPath = join(rootPluginPath, 'dist', 'hardhat.config.js')
 
+  // TODO(docs): The `config` parameter takes priority over the `HARDHAT_CONFIG` environment variable. ref:
+  // https://hardhat.org/hardhat-runner/docs/reference/environment-variables
   const taskParams: simulateDeploymentSubtaskArgs = {
     parsedConfig,
     merkleTree,
@@ -76,7 +76,6 @@ export const simulate = async (
     taskParams
   )
 
-  process.env['HARDHAT_CONFIG'] = initialHardhatConfigEnvVar
   delete process.env['SPHINX_INTERNAL__FORK_URL']
   delete process.env['SPHINX_INTERNAL__CHAIN_ID']
 
@@ -90,7 +89,8 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const { merkleTree, parsedConfig, estimateGas, executeActions } = taskArgs
+  const { merkleTree, parsedConfig, signer, estimateGas, executeActions } =
+    taskArgs
 
   const provider: HardhatEthersProvider = hre.ethers.provider
 
@@ -98,18 +98,16 @@ export const simulateDeploymentSubtask = async (
     [parsedConfig.chainId]: getReadableActions(parsedConfig.actionInputs),
   }
 
-  // TODO(later): for deploying on anvil, where do we fund `firstSphinxWallet`?
-
   const firstSphinxPrivateKey = getSphinxWalletPrivateKey(0)
-  const firstSphinxWallet = new ethers.Wallet(firstSphinxPrivateKey, provider)
-  await fundAccount(firstSphinxWallet.address, provider)
+  const signer = new ethers.Wallet(firstSphinxPrivateKey, provider)
+  await fundAccount(signer.address, provider)
 
-  await setManagedServiceRelayer(firstSphinxWallet.address, provider)
+  await setManagedServiceRelayer(signer.address, provider)
 
   const sphinxModule = new ethers.Contract(
     parsedConfig.moduleAddress,
     SphinxModuleABI,
-    firstSphinxWallet
+    signer
   )
 
   const receipts: Array<ethers.TransactionReceipt> = []
@@ -120,14 +118,14 @@ export const simulateDeploymentSubtask = async (
     const gnosisSafeProxyFactory = new ethers.Contract(
       getGnosisSafeProxyFactoryAddress(),
       GnosisSafeProxyFactoryArtifact.abi,
-      firstSphinxWallet
+      signer
     )
     const gnosisSafeDeploymentReceipt = await (
       await gnosisSafeProxyFactory.createProxyWithNonce(
         getGnosisSafeAddress(),
         parsedConfig.safeInitData,
         parsedConfig.newConfig.saltNonce,
-        await getGasPriceOverrides(firstSphinxWallet) // TODO(later): is there anything in `getGasPriceOverrides` that could cause the deployment to break on Hardhat?
+        await getGasPriceOverrides(signer)
       )
     ).wait()
     receipts.push(gnosisSafeDeploymentReceipt)
@@ -156,7 +154,7 @@ export const simulateDeploymentSubtask = async (
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
     ManagedServiceArtifact.abi,
-    firstSphinxWallet
+    signer
   )
   const ownerSignatures = await Promise.all(
     sphinxWallets.map((wallet) => signMerkleRoot(merkleTree.root, wallet))
@@ -171,11 +169,13 @@ export const simulateDeploymentSubtask = async (
     approvalLeafWithProof,
     packedOwnerSignatures,
   ])
+  // TODO(docs): we submit the approval through the the ManagedService contract instead of
+  // impersonating the managed service to ensure that the gas estimation is accurate.
   const approvalReceipt = await (
     await managedService.exec(
       parsedConfig.moduleAddress,
       approvalData,
-      await getGasPriceOverrides(firstSphinxWallet)
+      await getGasPriceOverrides(signer)
     )
   ).wait()
 
@@ -200,7 +200,7 @@ export const simulateDeploymentSubtask = async (
       sphinxModule,
       BigInt(parsedConfig.blockGasLimit),
       humanReadableActions,
-      firstSphinxWallet,
+      signer,
       executeActions,
       estimateGas
     )
@@ -245,5 +245,5 @@ const setManagedServiceRelayer = async (
   ])
 }
 
-// TODO(later): make sure the signer is correct in the simulation for "LiveNetworkBroadcast" and
+// TODO: make sure the signer is correct in the simulation for "LiveNetworkBroadcast" and
 // "LocalNetworkBroadcast".
