@@ -20,8 +20,7 @@ const testDir = 'test'
 // representation compiler setting (i.e. `viaIR`). We test every supported solc version because
 // minor changes in solc can lead to "stack too deep" errors. See this post and cameel's response
 // for context: https://github.com/ethereum/solidity/issues/14082
-// TODO(end): .only
-describe.only('Solidity Compiler', () => {
+describe('Solidity Compiler', () => {
   let contractPath: string
   let scriptPath: string
   let testPath: string
@@ -111,7 +110,7 @@ describe.only('Solidity Compiler', () => {
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
         errorMessages.push(
-          `Build failed for: ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          `Build failed for ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
         )
       }
     })
@@ -170,7 +169,7 @@ describe.only('Solidity Compiler', () => {
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
         errorMessages.push(
-          `Build failed for: ${version} with optimizer disabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          `Build failed for ${version} with optimizer disabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
         )
       }
     })
