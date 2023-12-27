@@ -243,9 +243,8 @@ export const deploy = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    [network],
     sphinxPluginTypesInterface,
-    [{ actionInputs, deploymentInfo }],
+    [{ actionInputs, deploymentInfo, forkUrl }],
     targetContract,
     spinner
   )

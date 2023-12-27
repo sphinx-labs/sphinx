@@ -683,8 +683,7 @@ abstract contract Sphinx {
      *                            JSON: `27222 [2.722e4]`.
      */
     function sphinxEstimateMerkleLeafGas(
-        string memory _leafGasParamsFilePath,
-        uint256 _chainId
+        string memory _leafGasParamsFilePath
     ) external returns (bytes memory abiEncodedGasArray) {
         SphinxTransaction[] memory txnArray = abi.decode(
             vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
@@ -696,10 +695,6 @@ abstract contract Sphinx {
         address managedServiceAddress = constants.managedServiceAddress();
 
         uint256[] memory gasEstimates = new uint256[](txnArray.length);
-
-        // Create a fork of the target network.
-        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(_chainId);
-        vm.createSelectFork(vm.rpcUrl(networkInfo.name));
 
         // Deploy the Sphinx Module and Gnosis Safe if they're not already deployed.
         if (address(safe).code.length == 0) {

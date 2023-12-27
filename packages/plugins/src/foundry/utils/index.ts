@@ -516,32 +516,24 @@ export const getSphinxConfigFromScript = async (
   sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<SphinxConfig<SupportedNetworkName>> => {
-  const forgeScriptArgs = [
-    'script',
+): Promise<{
+  testnets: Array<SupportedNetworkName>
+  mainnets: Array<SupportedNetworkName>
+}> => {
+  const json = await callForgeScriptFunction<{
+    0: {
+      value: string
+    }
+  }>(
     scriptPath,
-    '--sig',
     'sphinxConfigABIEncoded()',
-    '--silent', // Silence compiler output
-    '--json',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
+    [],
+    undefined,
+    targetContract,
+    spinner
+  )
 
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const returned = JSON.parse(stdout).returns['0'].value
-
+  const returned = json.returns[0].value
   // ABI decode the gas array.
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const sphinxConfigFragment = findFunctionFragment(
@@ -574,22 +566,108 @@ export const getSphinxModuleAddressFromScript = async (
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<string> => {
+  const json = await callForgeScriptFunction<{
+    0: { value: string }
+  }>(scriptPath, 'sphinxModule()', [], forkUrl, targetContract, spinner)
+
+  const safeAddress = json.returns[0].value
+
+  return safeAddress
+}
+
+type ForgeScriptResponse<T> = {
+  logs: Array<string>
+  returns: T
+}
+
+export const getForgeScriptArgs = (
+  scriptPath: string,
+  signature: string,
+  args: string[],
+  forkUrl?: string,
+  targetContract?: string,
+  silent: boolean = true,
+  json: boolean = true,
+  broadcast: boolean = false
+) => {
   const forgeScriptArgs = [
     'script',
     scriptPath,
-    '--rpc-url',
-    forkUrl,
+    ...(forkUrl ? ['--rpc-url', forkUrl] : []),
     '--sig',
-    'sphinxModule()',
-    '--silent', // Silence compiler output
-    '--json',
+    signature,
+    ...args,
   ]
+
+  if (silent) {
+    forgeScriptArgs.push('--silent')
+  }
+
+  if (json) {
+    forgeScriptArgs.push('--json')
+  }
+
+  if (broadcast) {
+    forgeScriptArgs.push('--broadcast')
+  }
+
   if (targetContract) {
     forgeScriptArgs.push('--target-contract', targetContract)
   }
 
+  return forgeScriptArgs
+}
+
+export const callForgeScriptFunction = async <T>(
+  scriptPath: string,
+  signature: string,
+  args: string[],
+  forkUrl?: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<ForgeScriptResponse<T>> => {
+  // First we call without silent or json and detect any failures
+  // We have to do this b/c the returned `code` will be 0 even if the script failed.
+  // Also the trace isn't output if `--silent` or `--json` is enabled, so we also have
+  // to do this to provide a useful trace to the user.
+  const testScriptArgs = getForgeScriptArgs(
+    scriptPath,
+    signature,
+    args,
+    forkUrl,
+    targetContract,
+    false,
+    false
+  )
+  const {
+    code: testCode,
+    stdout: testOut,
+    stderr: testErr,
+  } = await spawnAsync('forge', testScriptArgs)
+
+  if (testCode !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(testOut)
+    // The `stderr` contains the error message.
+    console.log(testErr)
+    process.exit(1)
+  }
+
+  // Then call with silent and json, and parse the result
+  const forgeScriptArgs = getForgeScriptArgs(
+    scriptPath,
+    signature,
+    args,
+    forkUrl,
+    targetContract,
+    true,
+    true
+  )
+
   const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
 
+  // For good measure, we still read the code and error if necessary but this is unlikely to be triggered
   if (code !== 0) {
     spinner?.stop()
     // The `stdout` contains the trace of the error.
@@ -599,11 +677,7 @@ export const getSphinxModuleAddressFromScript = async (
     process.exit(1)
   }
 
-  const json = JSON.parse(stdout)
-
-  const safeAddress = json.returns[0].value
-
-  return safeAddress
+  return JSON.parse(stdout)
 }
 
 export const getSphinxSafeAddressFromScript = async (
@@ -612,32 +686,9 @@ export const getSphinxSafeAddressFromScript = async (
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<string> => {
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--rpc-url',
-    forkUrl,
-    '--sig',
-    'sphinxSafe()',
-    '--silent', // Silence compiler output
-    '--json',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const json = JSON.parse(stdout)
+  const json = await callForgeScriptFunction<{
+    0: { value: string }
+  }>(scriptPath, 'sphinxSafe()', [], forkUrl, targetContract, spinner)
 
   const safeAddress = json.returns[0].value
 
@@ -647,11 +698,11 @@ export const getSphinxSafeAddressFromScript = async (
 export const getSphinxLeafGasEstimates = async (
   scriptPath: string,
   foundryToml: FoundryToml,
-  networkNames: Array<SupportedNetworkName>,
   sphinxPluginTypesInterface: ethers.Interface,
   collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
+    forkUrl: string
   }>,
   targetContract?: string,
   spinner?: ora.Ora
@@ -668,7 +719,7 @@ export const getSphinxLeafGasEstimates = async (
   )
 
   const gasEstimatesArray: Array<Array<string>> = []
-  for (const { actionInputs, deploymentInfo } of collected) {
+  for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
     const txns = actionInputs.map(toSphinxTransaction)
     const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [txns])
 
@@ -678,35 +729,20 @@ export const getSphinxLeafGasEstimates = async (
     // the data contains contract init code.
     writeFileSync(leafGasInputsFilePath, encodedTxnArray)
 
-    const leafGasEstimationScriptArgs = [
-      'script',
+    const json = await callForgeScriptFunction<{
+      abiEncodedGasArray: {
+        value: string
+      }
+    }>(
       scriptPath,
-      '--sig',
-      'sphinxEstimateMerkleLeafGas(string,uint256)',
-      leafGasInputsFilePath,
-      deploymentInfo.chainId,
-      '--silent', // Silence compiler output
-      '--json',
-    ]
-    if (targetContract) {
-      leafGasEstimationScriptArgs.push('--target-contract', targetContract)
-    }
-
-    const gasEstimationSpawnOutput = await spawnAsync(
-      'forge',
-      leafGasEstimationScriptArgs
+      'sphinxEstimateMerkleLeafGas(string)',
+      [leafGasInputsFilePath, deploymentInfo.chainId],
+      forkUrl,
+      targetContract,
+      spinner
     )
-    if (gasEstimationSpawnOutput.code !== 0) {
-      spinner?.stop()
-      // The `stdout` contains the trace of the error.
-      console.log(gasEstimationSpawnOutput.stdout)
-      // The `stderr` contains the error message.
-      console.log(gasEstimationSpawnOutput.stderr)
-      process.exit(1)
-    }
 
-    const returned = JSON.parse(gasEstimationSpawnOutput.stdout).returns
-      .abiEncodedGasArray.value
+    const returned = json.returns.abiEncodedGasArray.value
     // ABI decode the gas array.
     const [decoded] = coder.decode(['uint256[]'], returned)
     // Convert the BigInt elements to Numbers, then multiply by a buffer. This ensures the user's
