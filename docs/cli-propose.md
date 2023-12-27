@@ -9,7 +9,7 @@
 - [Examples](#examples)
 
 ## Overview
-The `propose` command proposes a deployment in the Sphinx DevOps platform.
+The `propose` command proposes a deployment in the Sphinx DevOps Platform.
 
 The following steps occur when this command is run:
 1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.

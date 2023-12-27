@@ -9,7 +9,7 @@ Deployments with Sphinx are a three-step process:
 
 ## Key features:
 
-* **Gasless Deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll bill you in fiat after your deployment is finished.
+* **Gasless Deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll bill you in fiat after your deployment is finished. Deployments on testnets are completely free.
 
 * **One-Click Multichain Deployments**: Approve deployments across 11 supported networks by signing a single meta transaction. Sphinx's backend will deploy on each network in parallel and verify your smart contracts on Etherscan.
 
@@ -19,7 +19,7 @@ Deployments with Sphinx are a three-step process:
 
 * **Trustless**: It's impossible to execute anything your Gnosis Safe owners have not explicitly approved. Spearbit has audited our system; see our audit report [here](https://github.com/sphinx-labs/sphinx/blob/main/audit/spearbit.pdf).
 
-* **Compatible with Forge Scripts**: You can integrate Sphinx with minimal changes to your existing Forge scripts. All you need to do is add a modifier to your `run()` function.
+* **Compatible with Forge Scripts**: You can integrate Sphinx by adding a few lines of code to your existing Forge scripts.
 
 ## Request Access
 

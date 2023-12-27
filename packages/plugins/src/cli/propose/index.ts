@@ -44,7 +44,7 @@ import {
 } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
-  getSphinxConfigNetworksFromScript,
+  getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
@@ -76,8 +76,9 @@ export const buildParsedConfigArray = async (
     foundryToml.cachePath
   )
 
-  const { testnets, mainnets } = await getSphinxConfigNetworksFromScript(
+  const { testnets, mainnets } = await getSphinxConfigFromScript(
     scriptPath,
+    sphinxPluginTypesInterface,
     targetContract,
     spinner
   )

@@ -13,8 +13,8 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "forge build",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "apt install lsof && yarn test",
-    "test": "npx mocha --require ts-node/register --timeout 200000 'test/**/*.ts'",
+    "test:coverage": "chmod +x ~/.svm/0.8.9/solc-0.8.9 && chmod +x ~/.svm/0.8.10/solc-0.8.10 && chmod +x ~/.svm/0.8.12/solc-0.8.12 && apt install lsof && yarn test",
+    "test": "npx mocha --require ts-node/register --timeout 2000000 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:ts:check",
     "lint:fix": "yarn lint:ts:fix",
@@ -37,7 +37,8 @@
     "@rari-capital/solmate": "7.0.0-alpha.3",
     "chai": "^4.3.6",
     "dotenv": "^16.0.3",
-    "hardhat": "^2.17.1"
+    "hardhat": "^2.17.1",
+    "semver": "^7.3.8"
   },
   "dependencies": {
     "@sphinx-labs/contracts": "^0.14.0",

@@ -76,10 +76,13 @@ RUN echo "downloading solidity compilers" && \
   cp solc-linux-amd64-v0.5.17+commit.d19bba13 ~/.svm/0.5.17/solc-0.5.17 && \
   mkdir -p ~/.svm/0.8.9  && \
   cp solc-linux-amd64-v0.8.9+commit.e5eed63a  ~/.svm/0.8.9/solc-0.8.9   && \
+  chmod +x ~/.svm/0.8.9/solc-0.8.9 && \
   mkdir -p ~/.svm/0.8.10 && \
   cp solc-linux-amd64-v0.8.10+commit.fc410830 ~/.svm/0.8.10/solc-0.8.10 && \
+  chmod +x ~/.svm/0.8.10/solc-0.8.10 && \
   mkdir -p ~/.svm/0.8.12 && \
   cp solc-linux-amd64-v0.8.12+commit.f00d7308 ~/.svm/0.8.12/solc-0.8.12 && \
+  chmod +x ~/.svm/0.8.12/solc-0.8.12 && \
   rm solc-linux-amd64-v0.5.17+commit.d19bba13 && \
   rm solc-linux-amd64-v0.8.9+commit.e5eed63a && \
   rm solc-linux-amd64-v0.8.10+commit.fc410830 && \

@@ -34,30 +34,24 @@ import { IEnum } from "./interfaces/IEnum.sol";
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    bool private SPHINX_INTERNAL__TEST_VERSION_UPGRADE =
-        vm.envOr("SPHINX_INTERNAL__TEST_VERSION_UPGRADE", false);
-    string private rootPluginPath =
-        vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
-    string private rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
-    string private mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
-
-    uint256 private systemOwnerPrivateKey =
-        vm.envOr("SPHINX_INTERNAL__OWNER_PRIVATE_KEY", uint256(0));
-
-    address public systemOwner =
-        systemOwnerPrivateKey != 0
-            ? vm.rememberKey(systemOwnerPrivateKey)
-            : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
-
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     // Number of networks that Sphinx supports, i.e. the number of networks in the `Networks` enum
     // in SphinxPluginTypes.sol. Unfortunately, we can't retrieve this value using type(Network).max
-    // because Solidity v0.8.0 doesn't support this operation. The test file for this contract
+    // because Solidity v0.8.0 doesn't support this operation. The test file `SphinxUtils.t.sol`
     // contains a test that ensures this value is correct.
     uint8 internal constant numSupportedNetworks = 23;
+
+    function getMainFFIScriptPath() private returns (string memory) {
+        string memory rootPluginPath = vm.envOr(
+            "DEV_FILE_PATH",
+            string("./node_modules/@sphinx-labs/plugins/")
+        );
+        string memory rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
+        return string(abi.encodePacked(rootFfiPath, "index.js"));
+    }
 
     function slice(
         bytes calldata _data,
@@ -615,7 +609,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         string[] memory inputs = new string[](5);
         inputs[0] = "npx";
         inputs[1] = "node";
-        inputs[2] = mainFfiScriptPath;
+        inputs[2] = getMainFFIScriptPath();
         inputs[3] = "isLiveNetwork";
         inputs[4] = _rpcUrl;
 
@@ -913,8 +907,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
+        bytes
+            memory safeProxyInitCode = hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
         bytes memory deploymentData = abi.encodePacked(
-            safeProxyBytecode,
+            safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
         );
         address addr = computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);

@@ -15,6 +15,7 @@ import {
 import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
+  sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
 } from '@sphinx-labs/core/dist/utils'
@@ -25,6 +26,7 @@ import {
   GetConfigArtifacts,
   ParsedConfig,
   RawActionInput,
+  SphinxConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -50,6 +52,7 @@ import {
   SphinxMerkleTree,
   SphinxModuleABI,
   parseFoundryArtifact,
+  recursivelyConvertResult,
   remove0x,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
@@ -508,19 +511,17 @@ export const getConfigArtifactForContractName = (
   )
 }
 
-export const getSphinxConfigNetworksFromScript = async (
+export const getSphinxConfigFromScript = async (
   scriptPath: string,
+  sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<{
-  testnets: Array<SupportedNetworkName>
-  mainnets: Array<SupportedNetworkName>
-}> => {
+): Promise<SphinxConfig<SupportedNetworkName>> => {
   const forgeScriptArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxConfigNetworks()',
+    'sphinxConfigABIEncoded()',
     '--silent', // Silence compiler output
     '--json',
   ]
@@ -539,15 +540,32 @@ export const getSphinxConfigNetworksFromScript = async (
     process.exit(1)
   }
 
-  const returned = JSON.parse(stdout).returns
+  const returned = JSON.parse(stdout).returns['0'].value
 
-  const testnetEnums = JSON.parse(returned['0'].value).map((e) => BigInt(e))
-  const mainnetEnums = JSON.parse(returned['1'].value).map((e) => BigInt(e))
+  // ABI decode the gas array.
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const sphinxConfigFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'sphinxConfigType'
+  )
 
-  return {
-    testnets: testnetEnums.map(networkEnumToName),
-    mainnets: mainnetEnums.map(networkEnumToName),
+  const decoded = coder.decode(sphinxConfigFragment.outputs, returned)
+  const { sphinxConfig } = recursivelyConvertResult(
+    sphinxConfigFragment.outputs,
+    decoded
+  ) as any
+
+  const parsed: SphinxConfig<SupportedNetworkName> = {
+    projectName: sphinxConfig.projectName,
+    owners: sortHexStrings(sphinxConfig.owners),
+    threshold: sphinxConfig.threshold.toString(),
+    orgId: sphinxConfig.orgId,
+    testnets: sphinxConfig.testnets.map(networkEnumToName),
+    mainnets: sphinxConfig.mainnets.map(networkEnumToName),
+    saltNonce: sphinxConfig.saltNonce.toString(),
   }
+
+  return parsed
 }
 
 export const getSphinxModuleAddressFromScript = async (
