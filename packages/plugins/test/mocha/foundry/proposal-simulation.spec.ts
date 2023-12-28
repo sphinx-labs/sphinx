@@ -23,7 +23,7 @@ import {
   getSphinxModuleAddressFromScript,
   getSphinxSafeAddressFromScript,
 } from '../../../src/foundry/utils'
-import { fetchMockConfigArtifacts } from '../utils'
+import { makeMockSphinxContext } from '../utils'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -105,14 +105,13 @@ describe('Simulate proposal', () => {
           network.toString(),
           true, // Skip preview
           true, // Silent
-          'Proposal_Initial_Test',
-          false, // Don't verify on Etherscan
-          true, // Skip force recompile
-          fetchMockConfigArtifacts([
+          makeMockSphinxContext([
             'contracts/test/MyContracts.sol:MyContract1',
             'contracts/test/MyContracts.sol:MyOwnable',
-          ]), // Skip reading the config artifacts, and use these instead
-          mockPrompt
+          ]),
+          'Proposal_Initial_Test',
+          false, // Don't verify on Etherscan
+          true // Skip force recompile
         )
       }
     })
@@ -156,10 +155,10 @@ const testProposalSimulation = async (
     scriptPath,
     isTestnet,
     sphinxPluginTypesInterface,
-    fetchMockConfigArtifacts([
+    makeMockSphinxContext([
       'contracts/test/MyContracts.sol:MyContract1',
       'contracts/test/MyContracts.sol:MyOwnable',
-    ]), // Skip reading the config artifacts, and use these instead
+    ]),
     testContractName
   )
 

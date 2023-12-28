@@ -25,7 +25,7 @@ import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts
 import { deploy } from '../../../src/cli/deploy'
 import { getFoundryToml } from '../../../src/foundry/options'
 import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
-import { fetchMockConfigArtifacts } from '../utils'
+import { makeMockSphinxContext } from '../utils'
 
 const coder = new ethers.AbiCoder()
 
@@ -137,9 +137,6 @@ const expectedMyContract2Address = ethers.getCreate2Address(
   ethers.keccak256(MyContract2Artifact.bytecode.object)
 )
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
-const mockPrompt = async (q: string) => {}
-
 const startSepolia = async () => {
   // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
   // because the latter will hang indefinitely.
@@ -192,13 +189,10 @@ describe('Deploy CLI command', () => {
         'sepolia',
         false, // Run preview
         true, // Silent
+        makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
         targetContract,
         undefined, // Don't verify on Etherscan.
-        true, // Skip force recompile
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyContract2',
-        ]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true // Skip force recompile
       )
 
       // Check that the ParsedConfig is defined. We do this instead of using
@@ -269,11 +263,10 @@ describe('Deploy CLI command', () => {
         'sepolia',
         false, // Run preview
         true, // Silent
+        makeMockSphinxContext([]),
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
-        true, // Skip force recompile
-        {}, // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true // Skip force recompile
       )
 
       expect(preview).to.be.undefined
@@ -333,11 +326,10 @@ describe('Deploy CLI command', () => {
           'sepolia',
           false, // Run preview
           true, // Silent
+          makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
           'RevertDuringSimulation_Script',
           undefined, // Don't verify on Etherscan.
-          true, // Skip force recompile
-          fetchMockConfigArtifacts([`${scriptPath}:RevertDuringSimulation`]), // Skip reading the config artifacts, and use these instead
-          mockPrompt
+          true // Skip force recompile
         )
       } catch (e) {
         if (!e.message.includes('process.exit called')) {
@@ -388,11 +380,15 @@ describe('Deployment Cases', () => {
       'sepolia',
       false, // Skip preview
       true, // Silent
+      makeMockSphinxContext([
+        'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
+        'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
+        'contracts/test/Fallback.sol:Fallback',
+        'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
+      ]),
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       undefined, // Don't verify on Etherscan.
-      true, // Skip force recompile
-      undefined,
-      mockPrompt
+      true // Skip force recompile
     ))
 
     expect(parsedConfig).to.not.be.undefined

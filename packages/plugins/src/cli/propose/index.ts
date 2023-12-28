@@ -17,7 +17,6 @@ import {
   relayProposal,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
-  userConfirmation,
   getNetworkNameForChainId,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -47,18 +46,18 @@ import {
   getSphinxLeafGasEstimates,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
-  makeGetConfigArtifacts,
   getFoundrySingleChainDryRunPath,
   readFoundryMultiChainDryRun,
   readFoundrySingleChainDryRun,
   getGasEstimatesOnNetworks,
 } from '../../foundry/utils'
+import { SphinxContext } from '../context'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
-  mockConfigArtifacts?: ConfigArtifacts,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
@@ -69,7 +68,7 @@ export const buildParsedConfigArray = async (
   const projectRoot = process.cwd()
   const foundryToml = await getFoundryToml()
 
-  const getConfigArtifacts = makeGetConfigArtifacts(
+  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     foundryToml.artifactFolder,
     foundryToml.buildInfoFolder,
     projectRoot,
@@ -228,9 +227,10 @@ export const buildParsedConfigArray = async (
     collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
-  const configArtifacts = mockConfigArtifacts
-    ? mockConfigArtifacts
-    : await getConfigArtifacts(uniqueFullyQualifiedNames, uniqueContractNames)
+  const configArtifacts = await getConfigArtifacts(
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
+  )
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo }, i) =>
       makeParsedConfig(
@@ -266,10 +266,9 @@ export const propose = async (
   isDryRun: boolean,
   silent: boolean,
   scriptPath: string,
+  sphinxContext: SphinxContext,
   targetContract?: string,
-  skipForceRecompile: boolean = false,
-  mockConfigArtifacts?: ConfigArtifacts,
-  prompt: (q: string) => Promise<void> = userConfirmation
+  skipForceRecompile: boolean = false
 ): Promise<{
   proposalRequest?: ProposalRequest
   ipfsData?: string
@@ -319,7 +318,7 @@ export const propose = async (
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
-      mockConfigArtifacts,
+      sphinxContext,
       targetContract,
       spinner
     )
@@ -457,7 +456,7 @@ export const propose = async (
     spinner.info(`Skipping preview.`)
   } else {
     const previewString = getPreviewString(preview, true)
-    await prompt(previewString)
+    await sphinxContext.prompt(previewString)
   }
 
   isDryRun
@@ -536,19 +535,19 @@ export const propose = async (
   }
 
   let ipfsData: string | undefined
-  if (!mockConfigArtifacts) {
+  if (isDryRun) {
+    spinner.succeed(`Proposal dry run succeeded.`)
+  } else {
+    // This could fail if we're using mocked config artifacts b/c we don't load the entire build info file.
+    // We assume that our tests will always use the dry run flag when mocking.
     const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
       parsedConfigArray,
       false,
       configArtifacts
     )
     ipfsData = JSON.stringify(compilerConfigs, null, 2)
-  }
 
-  if (isDryRun) {
-    spinner.succeed(`Proposal dry run succeeded.`)
-  } else {
-    if (!ipfsData || mockConfigArtifacts) {
+    if (!ipfsData) {
       throw new Error(
         'Cannot use mock artifacts in production, please report this to the developers'
       )

@@ -257,6 +257,9 @@ export const getUniqueNames = (
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
  * `getConfigArtifacts` function, which may be used by Sphinx's future Hardhat plugin.
+ *
+ * @dev We do not use this function directly, instead we call it via SphinxContext to facilitate
+ * dependency injection.
  */
 export const makeGetConfigArtifacts = (
   artifactFolder: string,
