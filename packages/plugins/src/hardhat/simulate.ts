@@ -1,71 +1,98 @@
 import { join } from 'path'
 
 import {
-  getReadableActions,
   ParsedConfig,
-  addSphinxWalletsToGnosisSafeOwners,
-  findLeafWithProof,
-  fundAccount,
-  getMappingValueSlotKey,
-  getSphinxWalletPrivateKey,
-  findStorageSlotKey,
-  removeSphinxWalletsFromGnosisSafeOwners,
-  signMerkleRoot,
-  RELAYER_ROLE,
-  executeBatchActions,
-  getGasPriceOverrides,
-  MerkleRootStatus,
   EstimateGas,
   ExecuteActions,
+  ApproveDeployment,
+  runEntireDeploymentProcess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  SphinxLeafWithProof,
-  GnosisSafeProxyFactoryArtifact,
-  ManagedServiceArtifact,
-  getGnosisSafeAddress,
-  getGnosisSafeProxyFactoryAddress,
-  SphinxMerkleTree,
-  SphinxModuleABI,
-  SphinxLeafType,
-  getManagedServiceAddress,
-} from '@sphinx-labs/contracts'
+import { SphinxLeafWithProof, SphinxMerkleTree } from '@sphinx-labs/contracts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 type simulateDeploymentSubtaskArgs = {
   merkleTree: SphinxMerkleTree
   parsedConfig: ParsedConfig
+  isLiveNetworkBroadcast: boolean
   config: string
+  signer: ethers.Wallet
   estimateGas: EstimateGas
+  approveDeployment: ApproveDeployment
   executeActions: ExecuteActions
 }
 
+/**
+ * Simulate a deployment on a fork of the target network. We use Hardhat instead of Foundry to run
+ * the simulation for two reasons:
+ *
+ * 1. Running the simulation with Hardhat allows us to reuse the TypeScript logic that executes the
+ * deployment in production. If we use Foundry, we'd need to rewrite all of this logic in
+ * Solidity.
+ *
+ * 2. Running the simulation with Hardhat allows us to accurately calculate the gas used by the
+ * deployment, which determines the estimated cost that we provide to the user. There are two
+ * main reasons that it's more accurate. First, we're able to use the `gasUsed` field of the
+ * transaction receipts instead of relying on the `gas` field of Foundry's transaction responses.
+ * The latter gives estimates that are anywhere between 35-55% higher than the actual gas used
+ * because it uses `evm_estimateGas` under the hood. Second, executing the deployment in
+ * TypeScript allows us to calculate the batch sizes of the `EXECUTE` leaves, which is a
+ * significant factor in the gas used by the deployment. We can't calculate the batch sizes in
+ * Foundry because of a subtle limitation: in a single Forge script simulation, it's not
+ * currently possible to perform a sequence like this:
+ *
+ * a. Execute a transaction.
+ * b. Use `vm.rpc("eth_estimateGas")` to estimate the gas using the state of the chain after
+ * the transaction. (Instead, this cheatcode uses the initial state of the chain.)
+ *
+ * This prevents us from using Foundry because the size and cost of a batch usually depends on the
+ * previous batch. For example, a batch may consist of transactions that are executed on
+ * contracts that were deployed in a previous batch.
+ */
 export const simulate = async (
   parsedConfig: ParsedConfig,
   merkleTree: SphinxMerkleTree,
   rpcUrl: string,
+  signer: ethers.Wallet,
+  isLiveNetworkBroadcast: boolean,
   estimateGas: EstimateGas,
+  approveDeployment: ApproveDeployment,
   executeActions: ExecuteActions
 ): Promise<{
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
-  process.env['SPHINX_INTERNAL__CHAIN_ID'] = parsedConfig.chainId
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
-
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
   const hardhatConfigPath = join(rootPluginPath, 'dist', 'hardhat.config.js')
 
-  // TODO(docs): The `config` parameter takes priority over the `HARDHAT_CONFIG` environment variable. ref:
-  // https://hardhat.org/hardhat-runner/docs/reference/environment-variables
+  process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
+  process.env['SPHINX_INTERNAL__CHAIN_ID'] = parsedConfig.chainId
+  const initialHardhatConfigEnvVar = process.env['HARDHAT_CONFIG']
+  // We must temporarily set the Hardhat config using an environment variable so that Hardhat
+  // recognizes the Hardhat config for the simulation. If the user specified a `HARDHAT_CONFIG`
+  // environment variable, we'll set it after the simulation is done.
+  process.env['HARDHAT_CONFIG'] = join('dist', 'hardhat.config.js')
+
+  // We run the simulation by invoking a Hardhat subtask. We need to load the Hardhat Runtime
+  // Environment (HRE) because Hardhat doesn't document any lower-level functionality for running a
+  // fork. We could theoretically interact with lower-level components, but this would be brittle
+  // because Hardhat could change their internal functionality in a future minor or patch version.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const hre = require('hardhat')
+
   const taskParams: simulateDeploymentSubtaskArgs = {
     parsedConfig,
     merkleTree,
+    signer,
+    isLiveNetworkBroadcast,
+    // The `config` parameter takes priority over the `HARDHAT_CONFIG` environment variable. (ref:
+    // https://hardhat.org/hardhat-runner/docs/reference/environment-variables). It's not strictly
+    // necessary to use this variable, but we do it anyways to make sure that we're using the
+    // correct Hardhat config.
     config: hardhatConfigPath,
     estimateGas,
+    approveDeployment,
     executeActions,
   }
   const {
@@ -78,9 +105,12 @@ export const simulate = async (
 
   delete process.env['SPHINX_INTERNAL__FORK_URL']
   delete process.env['SPHINX_INTERNAL__CHAIN_ID']
+  process.env['HARDHAT_CONFIG'] = initialHardhatConfigEnvVar
 
   return { receipts, batches }
 }
+
+// TODO: left off: should we kill the PID that seems to be initiated when we run the hardhat fork?
 
 export const simulateDeploymentSubtask = async (
   taskArgs: simulateDeploymentSubtaskArgs,
@@ -89,161 +119,30 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const { merkleTree, parsedConfig, signer, estimateGas, executeActions } =
-    taskArgs
+  const {
+    merkleTree,
+    parsedConfig,
+    isLiveNetworkBroadcast,
+    estimateGas,
+    approveDeployment,
+    executeActions,
+  } = taskArgs
 
+  // This provider is connected to the forked in-process Hardhat node.
   const provider: HardhatEthersProvider = hre.ethers.provider
 
-  const humanReadableActions = {
-    [parsedConfig.chainId]: getReadableActions(parsedConfig.actionInputs),
-  }
+  const signer = taskArgs.signer.connect(provider)
 
-  const firstSphinxPrivateKey = getSphinxWalletPrivateKey(0)
-  const signer = new ethers.Wallet(firstSphinxPrivateKey, provider)
-  await fundAccount(signer.address, provider)
-
-  await setManagedServiceRelayer(signer.address, provider)
-
-  const sphinxModule = new ethers.Contract(
-    parsedConfig.moduleAddress,
-    SphinxModuleABI,
-    signer
-  )
-
-  const receipts: Array<ethers.TransactionReceipt> = []
-
-  if (!parsedConfig.initialState.isSafeDeployed) {
-    // TODO(docs): explain why we can't broadcast on Anvil for this. (it's because Anvil doesn't
-    // have access to the in-process Hardhat node).
-    const gnosisSafeProxyFactory = new ethers.Contract(
-      getGnosisSafeProxyFactoryAddress(),
-      GnosisSafeProxyFactoryArtifact.abi,
-      signer
-    )
-    const gnosisSafeDeploymentReceipt = await (
-      await gnosisSafeProxyFactory.createProxyWithNonce(
-        getGnosisSafeAddress(),
-        parsedConfig.safeInitData,
-        parsedConfig.newConfig.saltNonce,
-        await getGasPriceOverrides(signer)
-      )
-    ).wait()
-    receipts.push(gnosisSafeDeploymentReceipt)
-  }
-
-  // Before we can approve the deployment on Anvil, we must add a set of auto-generated wallets
-  // as owners of the Gnosis Safe. This allows us to approve the deployment without knowing the
-  // private keys of the actual Gnosis Safe owners. We don't do this in a Forge script because
-  // we'd need to broadcast from the Gnosis Safe's address in order for the transactions to
-  // succeed, but we can't broadcast from a contract onto a standalone network.
-  const sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
-    parsedConfig.safeAddress,
-    provider
-  )
-
-  // TODO(docs): explain why we approve here even though there's approval logic in the
-  // `executeDeployment` function. (it's so we can remove the auto-generated addresses as gnosis
-  // safe owners).
-  // TODO(docs): explain why we can't broadcast on Anvil.
-  const approvalLeafWithProof = findLeafWithProof(
+  const { receipts, batches } = await runEntireDeploymentProcess(
+    parsedConfig,
     merkleTree,
-    SphinxLeafType.APPROVE,
-    BigInt(parsedConfig.chainId)
+    provider,
+    signer,
+    isLiveNetworkBroadcast,
+    estimateGas,
+    approveDeployment,
+    executeActions
   )
-
-  const managedService = new ethers.Contract(
-    getManagedServiceAddress(),
-    ManagedServiceArtifact.abi,
-    signer
-  )
-  const ownerSignatures = await Promise.all(
-    sphinxWallets.map((wallet) => signMerkleRoot(merkleTree.root, wallet))
-  )
-  const packedOwnerSignatures = ethers.solidityPacked(
-    new Array(ownerSignatures.length).fill('bytes'),
-    ownerSignatures
-  )
-
-  const approvalData = sphinxModule.interface.encodeFunctionData('approve', [
-    merkleTree.root,
-    approvalLeafWithProof,
-    packedOwnerSignatures,
-  ])
-  // TODO(docs): we submit the approval through the the ManagedService contract instead of
-  // impersonating the managed service to ensure that the gas estimation is accurate.
-  const approvalReceipt = await (
-    await managedService.exec(
-      parsedConfig.moduleAddress,
-      approvalData,
-      await getGasPriceOverrides(signer)
-    )
-  ).wait()
-
-  receipts.push(approvalReceipt)
-
-  // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
-  // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
-  // production environment when we broadcast the deployment on Anvil.
-  await removeSphinxWalletsFromGnosisSafeOwners(
-    sphinxWallets,
-    parsedConfig.safeAddress,
-    provider
-  )
-
-  const networkLeaves = merkleTree.leavesWithProofs.filter(
-    (leaf) => leaf.leaf.chainId === BigInt(parsedConfig.chainId)
-  )
-  const { status, failureAction, executionReceipts, batches } =
-    await executeBatchActions(
-      networkLeaves,
-      BigInt(parsedConfig.chainId),
-      sphinxModule,
-      BigInt(parsedConfig.blockGasLimit),
-      humanReadableActions,
-      signer,
-      executeActions,
-      estimateGas
-    )
-
-  if (status === MerkleRootStatus.FAILED) {
-    if (failureAction) {
-      throw new Error(
-        `Failed to execute deployment because the following action reverted:\n"${failureAction}`
-      )
-    } else {
-      throw new Error(`Deployment failed.`)
-    }
-  }
-
-  receipts.push(...executionReceipts)
 
   return { receipts, batches }
 }
-
-const setManagedServiceRelayer = async (
-  address: string,
-  provider: HardhatEthersProvider
-) => {
-  const managedServiceAddress = getManagedServiceAddress()
-  const accessControlRoleSlotKey = findStorageSlotKey(
-    ManagedServiceArtifact.storageLayout,
-    '_roles'
-  )
-  const roleSlotKey = getMappingValueSlotKey(
-    accessControlRoleSlotKey,
-    RELAYER_ROLE
-  )
-  const memberSlotKey = getMappingValueSlotKey(
-    roleSlotKey,
-    ethers.zeroPadValue(ethers.toBeHex(address), 32)
-  )
-
-  await provider.send('hardhat_setStorageAt', [
-    managedServiceAddress,
-    memberSlotKey,
-    '0x0000000000000000000000000000000000000000000000000000000000000001',
-  ])
-}
-
-// TODO: make sure the signer is correct in the simulation for "LiveNetworkBroadcast" and
-// "LocalNetworkBroadcast".

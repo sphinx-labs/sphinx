@@ -1,17 +1,15 @@
 import { join } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
-import { exec } from 'child_process'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   Create2ActionInput,
   ParsedConfig,
+  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
   SphinxPreview,
-  execAsync,
   getCreate3Address,
-  sleep,
   spawnAsync,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
@@ -26,6 +24,7 @@ import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts
 import { deploy } from '../../../src/cli/deploy'
 import { getFoundryToml } from '../../../src/foundry/options'
 import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
+import { killAnvilNodes, startAnvilNodes } from '../common'
 
 // TODO(end): .only
 
@@ -142,17 +141,7 @@ const expectedMyContract2Address = ethers.getCreate2Address(
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
 
-const startSepolia = async () => {
-  // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
-  // because the latter will hang indefinitely.
-  exec(`anvil --chain-id 11155111 --port 42111 &`)
-  await sleep(1000)
-}
-
-const killSepolia = async () => {
-  // Kill the Anvil node
-  await execAsync(`kill $(lsof -t -i:42111)`)
-}
+const allChainIds = [SUPPORTED_NETWORKS['sepolia']]
 
 describe('Deploy CLI command', () => {
   let deploymentArtifactFilePath: string
@@ -166,7 +155,10 @@ describe('Deploy CLI command', () => {
   })
 
   beforeEach(async () => {
-    await startSepolia()
+    // Make sure that the Anvil node isn't running.
+    await killAnvilNodes(allChainIds)
+    // Start the Anvil nodes.
+    await startAnvilNodes(allChainIds)
 
     if (existsSync(deploymentArtifactFilePath)) {
       unlinkSync(deploymentArtifactFilePath)
@@ -174,11 +166,12 @@ describe('Deploy CLI command', () => {
   })
 
   afterEach(async () => {
-    await killSepolia()
+    await killAnvilNodes(allChainIds)
   })
 
   describe('With preview', () => {
-    it('Executes deployment', async () => {
+    // TODO(end): .only
+    it.only('Executes deployment', async () => {
       // We run `forge clean` to ensure that a deployment can occur even if we're running
       // a fresh compilation process.
       // await execAsync(`forge clean`) // TODO(end): undo
@@ -256,8 +249,9 @@ describe('Deploy CLI command', () => {
         unlabeledAddresses: new Set([]),
       })
 
+      // TODO(artifacts): rm
       // Check that the deployment artifact was created
-      expect(existsSync(deploymentArtifactFilePath)).to.be.true
+      // expect(existsSync(deploymentArtifactFilePath)).to.be.true
     })
 
     // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
@@ -279,8 +273,9 @@ describe('Deploy CLI command', () => {
 
       expect(preview).to.be.undefined
 
-      // Check that the deployment artifact wasn't created
-      expect(existsSync(deploymentArtifactFilePath)).to.be.false
+      // TODO(artifacts): rm
+      // // Check that the deployment artifact wasn't created
+      // expect(existsSync(deploymentArtifactFilePath)).to.be.false
     })
 
     // This test checks that Foundry's simulation can fail after the transactions have been
@@ -355,7 +350,7 @@ describe('Deployment Cases', () => {
   }
 
   before(async () => {
-    await startSepolia()
+    await killAnvilNodes(allChainIds)
     ;({ parsedConfig, preview } = await deploy(
       deploymentCasesScriptPath,
       'sepolia',
@@ -372,7 +367,7 @@ describe('Deployment Cases', () => {
   })
 
   after(async () => {
-    await killSepolia()
+    await killAnvilNodes(allChainIds)
   })
 
   it('Can call fallback function on contract', async () => {

@@ -1,5 +1,9 @@
 import { ethers } from 'ethers'
+import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+
 import { SphinxPreview } from '../preview'
+import { SphinxJsonRpcProvider } from '../provider'
 
 /**
  * Possible action types.
@@ -90,11 +94,10 @@ export type HumanReadableActions = {
   [chainId: number]: Array<HumanReadableAction>
 }
 
-export type ParsedContractDeployments = {
-  [address: string]: {
-    fullyQualifiedName: string
-    initCodeWithArgs: string
-  }
+export type ParsedContractDeployment = {
+  address: string
+  fullyQualifiedName: string
+  initCodeWithArgs: string
 }
 
 /**
@@ -169,4 +172,13 @@ export type ExecuteActions = (
   moduleAddress: string,
   executionData: string,
   signer: ethers.Signer
-) => Promise<ethers.TransactionResponse>
+) => Promise<ethers.TransactionReceipt>
+
+export type ApproveDeployment = (
+  safeAddress: string,
+  moduleAddress: string,
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  signer: ethers.Signer
+) => Promise<ethers.TransactionReceipt>

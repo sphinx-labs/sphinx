@@ -2,25 +2,6 @@ import { join, resolve } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
-// TODO(test): test that arbitrum includes the ~600k-1M buffer. this should be a unit test on the
-// relevant function.
-
-// TODO(test): hardhat says that you need an archive node to fork mainnet. try running the propose
-// command with a public RPC url. preferably, you can output a helpful error message if one isn't
-// already thrown by default. note that different rpc providers may throw different errors, so try
-// using a non-standard public rpc endpoint.
-
-// TODO(md): if an archive node is required to run the `deploy` and `propose` command, you should
-// make this clear in the relevant guides.
-
-// TODO(docs): arbitrum's `estimateGas` includes the L1 gas.
-
-// TODO(test): in Large.s.sol, perform a ton of SSTOREs in the constructor of MyLargeContract.sol.
-
-// TODO(test): manually check that our hardhat.config.js is the closest in the file system to the
-// propose/index.ts file (i think). essentially, make sure that a different hardhat.config can't be
-// used instead by the user's machine.
-
 import {
   ProjectDeployment,
   ProposalRequest,
@@ -39,6 +20,8 @@ import {
   getNetworkNameForChainId,
   executeActionsViaManagedService,
   estimateGasViaManagedService,
+  approveDeploymentViaManagedService,
+  getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -382,11 +365,16 @@ export const propose = async (
       process.exit(1)
     }
 
+    const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0))
+
     const { receipts } = await simulate(
       compilerConfig,
       merkleTree,
       rpcUrl,
+      signer,
+      false, // Is not a live network broadcast
       estimateGasViaManagedService,
+      approveDeploymentViaManagedService,
       executeActionsViaManagedService
     )
 
@@ -527,3 +515,13 @@ const getProjectDeploymentForChain = (
     configUri,
   }
 }
+
+// TODO(test): hardhat says that you need an archive node to fork mainnet. try running the propose
+// command with a public RPC url. preferably, you can output a helpful error message if one isn't
+// already thrown by default. note that different rpc providers may throw different errors, so try
+// using a non-standard public rpc endpoint.
+
+// TODO(md): if an archive node is required to run the `deploy` and `propose` command, you should
+// make this clear in the relevant guides.
+
+// TODO(test): in Large.s.sol, perform a ton of SSTOREs in the constructor of MyLargeContract.sol.

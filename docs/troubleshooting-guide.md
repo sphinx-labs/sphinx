@@ -10,8 +10,6 @@ This guide covers some common issues you might encounter using Sphinx. If your q
   - [`Ineffective mark-compacts near heap limit allocation failed`](#ineffective-mark-compacts-near-heap-limit-allocation-failed)
   - [`EvmError: MemoryLimitOOG`](#evmerror-memorylimitoog)
 
-TODO(end): ToC
-
 ## Labeling contracts
 
 When Sphinx can't infer the contract corresponding to an address, you'll be asked to label it yourself. This makes it possible for Sphinx to verify the contract on Etherscan and create a deployment artifact for it.
@@ -59,22 +57,6 @@ If you don't include this prefix in a `forge` command, Foundry will continue usi
 
 ### `Ineffective mark-compacts near heap limit allocation failed`
 This bug can occur in repositories that have a very large number of contracts in them. This causes your build info artifact files to be extremely large, which can cause memory issues when using Sphinx. You can resolve this issue by running `forge clean`, which clears the artifacts directory, including the build info files.
-
-### Solidity compiler error when using Yul (i.e. `viaIR`)
-
-When compiling your contracts with Yul, you may run into cryptic errors like this:
-
-```sh
-Error: Internal compiler error (/Users/distiller/project/libsolidity/codegen/...)
-```
-
-...or like this:
-
-```sh
-Error: Yul exception:Variable expr_135_address is 2 slot(s) too deep inside the stack.
-```
-
-TODO(md)
 
 ### `EvmError: MemoryLimitOOG`
 

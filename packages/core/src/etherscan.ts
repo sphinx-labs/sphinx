@@ -1,30 +1,5 @@
-import assert from 'assert'
-
 import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
-// import {
-//   CustomChain,
-//   EtherscanNetworkEntry,
-//   EtherscanURLs,
-// } from '@nomiclabs/hardhat-etherscan/dist/src/types'
-// import {
-//   getVerificationStatus,
-//   verifyContract,
-//   delay,
-//   EtherscanResponse,
-// } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanService'
-// import {
-//   toVerifyRequest,
-//   toCheckStatusRequest,
-// } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
-import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
-// import { throwUnsupportedNetwork } from '@nomiclabs/hardhat-etherscan/dist/src/errors'
-// import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
-// import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
-// import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
-// import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 import {
   CompilerOutputMetadata,
@@ -37,24 +12,25 @@ import {
   sphinxBuildInfo,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
-// TODO(later): check that these dependencies aren't brittle (i.e. check that a minor/patch update
-// won't potentially break these dependencies).
 import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
-import { builtinChains } from '@nomicfoundation/hardhat-verify/internal/chain-config'
 import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { isLiveNetwork, sleep } from './utils'
+import { getNetworkNameForChainId, isLiveNetwork, sleep } from './utils'
 import { BuildInfo } from './languages'
 
 // Load environment variables from .env
 dotenv.config()
 
-// TODO(docs): we don't use hardhat's version because they use a different type of provider (an EthereumProvider).
-// TODO(docs): ref @nomicfoundation/hardhat-etherscan:src/internal/etherscan.ts:getChainConfig
+/**
+ * Get the current Etherscan chain config. This function copies some of the logic from Hardhat's
+ * `getCurrentChainConfig`. We don't use their function because they use a different type of
+ * provider (an `EthereumProvider`). ref:
+ * https://github.com/NomicFoundation/hardhat/blob/2a99de5908cd56766c3a77e2088d6b9f82bd85ef/packages/hardhat-verify/src/internal/etherscan.ts#L46
+ */
 export const getChainConfig = (chainId: number): ChainConfig => {
   const chainConfig = [
     // custom chains has higher precedence than builtin chains
@@ -69,158 +45,206 @@ export const getChainConfig = (chainId: number): ChainConfig => {
   return chainConfig
 }
 
+/**
+ * Verify a deployment on Etherscan. Meant to be used by the DevOps Platform.
+ */
 export const verifySphinxConfig = async (
   compilerConfig: CompilerConfig,
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
   apiKey: string
-) => {
-  const { urls } = getChainConfig(Number(compilerConfig.chainId))
-
+): Promise<void> => {
   for (const actionInput of compilerConfig.actionInputs) {
-    for (const address of Object.keys(actionInput.contracts)) {
-      const { fullyQualifiedName, initCodeWithArgs } =
-        actionInput.contracts[address]
+    for (const {
+      address,
+      fullyQualifiedName,
+      initCodeWithArgs,
+    } of actionInput.contracts) {
+      const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
 
-      const { artifact } = configArtifacts[fullyQualifiedName]
-      const { contractName, sourceName, metadata, bytecode } = artifact
+      const minimumCompilerInput = getMinimumCompilerInput(
+        buildInfo.input,
+        artifact.metadata
+      )
 
       // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
       // determine where the contract's creation code ends and the constructor arguments begin. This
-      // method works even if the `artifact.bytecode` contains externally linked library placeholders
-      // or immutable variable placeholders, which are always the same length as the real values.
+      // method works even if the `artifact.bytecode` contains externally linked library
+      // placeholders or immutable variable placeholders, which are always the same length as the
+      // real values.
       const encodedConstructorArgs = ethers.dataSlice(
         initCodeWithArgs,
-        ethers.dataLength(bytecode)
+        ethers.dataLength(artifact.bytecode)
       )
 
-      const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
-        Object.keys(compilerInput.input.sources).includes(sourceName)
+      const result = await attemptVerification(
+        address,
+        encodedConstructorArgs,
+        fullyQualifiedName,
+        buildInfo.solcLongVersion,
+        minimumCompilerInput,
+        provider,
+        compilerConfig.chainId,
+        apiKey
       )
 
-      if (!sphinxInput) {
+      if (!result.success) {
         throw new Error(
-          `Could not find compiler input for ${sourceName}. Should never happen.`
+          `Contract verification failed. Reason:\n${result.message}`
         )
       }
-      const { input, solcLongVersion } = sphinxInput
+    }
+  }
+}
 
-      const minimumCompilerInput = getMinimumCompilerInput(input, metadata)
+/**
+ * Verify a deployment on Etherscan with five retries per contract. Meant to be called by the Sphinx Foundry plugin.
+ */
+export const verifyDeploymentWithRetries = async (
+  compilerConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
+  provider: ethers.Provider,
+  apiKey: string
+): Promise<void> => {
+  const maxAttempts = 5
 
-      await attemptVerification(
-        provider,
-        networkName,
-        urls,
-        address,
-        sourceName,
-        contractName,
-        apiKey,
-        minimumCompilerInput,
-        solcLongVersion,
-        encodedConstructorArgs
-      )
+  for (const actionInput of compilerConfig.actionInputs) {
+    for (const {
+      address,
+      fullyQualifiedName,
+      initCodeWithArgs,
+    } of actionInput.contracts) {
+      let success = false
+
+      const contractName = fullyQualifiedName.split(':')[1]
+      for (let attempts = 0; attempts < maxAttempts; attempts++) {
+        const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+
+        const minimumCompilerInput = getMinimumCompilerInput(
+          buildInfo.input,
+          artifact.metadata
+        )
+
+        // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
+        // determine where the contract's creation code ends and the constructor arguments begin. This
+        // method works even if the `artifact.bytecode` contains externally linked library
+        // placeholders or immutable variable placeholders, which are always the same length as the
+        // real values.
+        const encodedConstructorArgs = ethers.dataSlice(
+          initCodeWithArgs,
+          ethers.dataLength(artifact.bytecode)
+        )
+
+        const result = await attemptVerification(
+          address,
+          encodedConstructorArgs,
+          fullyQualifiedName,
+          buildInfo.solcLongVersion,
+          minimumCompilerInput,
+          provider,
+          compilerConfig.chainId,
+          apiKey
+        )
+
+        if (result.success) {
+          success = true
+          break
+        } else {
+          console.log(
+            `Verification failed for ${contractName} at ${address}, retrying in 5 seconds...`
+          )
+          await sleep(5000)
+        }
+      }
+
+      if (!success) {
+        console.log(
+          `Failed to verify contract ${contractName} at ${address} after ${maxAttempts} attempts.`
+        )
+      }
     }
   }
 }
 
 export const attemptVerification = async (
-  provider: ethers.Provider,
-  networkName: string,
-  urls: ChainConfig['urls'],
-  contractAddress: string,
-  sourceName: string,
-  contractName: string,
-  etherscanApiKey: string,
-  compilerInput: CompilerInput,
+  address: string,
+  encodedConstructorArgs: string,
+  fullyQualifiedName: string,
   solcLongVersion: string,
-  encodedConstructorArgs: string
-) => {
-  const deployedBytecode = remove0x(await provider.getCode(contractAddress))
+  minimumCompilerInput: CompilerInput,
+  provider: ethers.Provider,
+  chainId: string,
+  etherscanApiKey: string
+): Promise<{ success: true } | { success: false; message: string }> => {
+  const { urls } = getChainConfig(Number(chainId))
+
+  const contractName = fullyQualifiedName.split(':')[1]
+
+  const deployedBytecode = remove0x(await provider.getCode(address))
   if (deployedBytecode.length === 0) {
-    throw new Error(`Contract is not deployed: ${contractAddress}`)
-  }
-
-  const instance = new Etherscan(etherscanApiKey, urls.apiURL, urls.browserURL)
-
-  if (!(await instance.isVerified(contractAddress))) {
-    const { message: guid } = await instance.verify(
-      contractAddress,
-      JSON.stringify(compilerInput),
-      `${sourceName}:${contractName}`,
-      solcLongVersion,
-      remove0x(encodedConstructorArgs)
-    )
-
     console.log(
-      `Successfully submitted source code for contract
-       ${contractName} at ${contractAddress} on ${networkName}
-       for verification on the block explorer. Waiting for verification result...
-      `
+      `Skipped verifying ${contractName} at ${address} because it is not deployed.`
     )
-
-    // TODO(later): copy the etherscan verification subtask logic instead of rolling your own
-
-    await sleep(1000)
-    let verificationStatus: TODO
-    try {
-      await instance.getVerificationStatus(guid)
-
-
-    if (verificationStatus.isSuccess()) {
-      const contractURL = instance.getContractUrl(contractAddress)
-      console.log(
-        `Successfully verified contract "${contractName}" at ${contractAddress} on ${networkName}:\n${contractURL}`
-      )
-    } else {
-      // Reaching this point shouldn't be possible unless the API is behaving in a new way.
-      throw new Error(
-        `The ${networkName} Etherscan API responded with an unexpected message.
-      Contract verification may have succeeded and should be checked manually.
-      Message: ${verificationStatus.message}`
-      )
-    }
+    // The bytecode probably doesn't exist because the deployment failed midway. We consider this a
+    // success so that we don't attempt to re-verify this contract later.
+    return { success: true }
   }
 
-  let verificationStatus: EtherscanResponse
-  try {
-    verificationStatus = await getVerificationStatus(urls.apiURL, pollRequest)
-  } catch (err) {
-    if (err.message.includes('Reason: Already Verified')) {
-      console.log(
-        `${contractName} has already been already verified:
-        ${buildContractUrl(urls.browserURL, contractAddress)}`
-      )
-      return
-    } else {
-      throw err
-    }
-  }
+  const etherscan = new Etherscan(etherscanApiKey, urls.apiURL, urls.browserURL)
 
-  if (verificationStatus.isVerificationSuccess()) {
-    const contractURL = buildContractUrl(urls.browserURL, contractAddress)
+  const contractURL = etherscan.getContractUrl(address)
+
+  const isVerified = await etherscan.isVerified(address)
+  if (isVerified) {
     console.log(
-      `Successfully verified ${contractName} on ${networkName} Etherscan:
-      ${contractURL}`
+      `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
     )
-  } else {
+    return { success: true }
+  }
+
+  const { message: guid } = await etherscan.verify(
+    address,
+    JSON.stringify(minimumCompilerInput),
+    fullyQualifiedName,
+    `v${solcLongVersion}`,
+    remove0x(encodedConstructorArgs)
+  )
+
+  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  console.log(
+    `Successfully submitted source code for contract ${contractName}\n` +
+      `at ${address} on ${networkName} for verification on the\n` +
+      `block explorer. Waiting for verification result...`
+  )
+
+  // Compilation is bound to take some time so there's no sense in requesting status immediately.
+  await sleep(700)
+  const verificationStatus = await etherscan.getVerificationStatus(guid)
+
+  if (!(verificationStatus.isFailure() || verificationStatus.isSuccess())) {
     // Reaching this point shouldn't be possible unless the API is behaving in a new way.
     throw new Error(
-      `The ${networkName} Etherscan API responded with an unexpected message.
-      Contract verification may have succeeded and should be checked manually.
-      Message: ${verificationStatus.message}`
+      `The API responded with an unexpected message. Please report this issue to the.\n` +
+        `Sphinx team. Contract verification may have succeeded and should be checked manually.\n` +
+        `Message: ${verificationStatus.message}`
     )
   }
+
+  if (verificationStatus.isSuccess()) {
+    console.log(
+      `Successfully verified contract ${contractName} on Etherscan:\n${contractURL}`
+    )
+    return { success: true }
+  } else {
+    return { success: false, message: verificationStatus.message }
   }
 }
 
-export const isSupportedNetworkOnEtherscan = (
-  chainId: number
-): boolean => {
-  const chainConfig = [
-    ...customChains,
-    ...builtinChains,
-  ].find((config) => config.chainId === chainId)
+export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
+  const chainConfig = [...customChains, ...builtinChains].find(
+    (config) => config.chainId === chainId
+  )
 
   return chainConfig !== undefined
 }
@@ -239,7 +263,7 @@ export const etherscanVerifySphinxSystem = async (
 
   const { name: networkName, chainId } = await provider.getNetwork()
   if (
-    !(isSupportedNetworkOnEtherscan(Number(chainId))) ||
+    !isSupportedNetworkOnEtherscan(Number(chainId)) ||
     !(await isLiveNetwork(provider))
   ) {
     logger.info(
@@ -251,7 +275,6 @@ export const etherscanVerifySphinxSystem = async (
   logger.info(
     '[Sphinx]: attempting to verify the sphinx contracts on etherscan...'
   )
-  const { urls } = getChainConfig(Number(chainId))
   const contracts = getSphinxConstants().concat(
     additionalSystemContractsToVerify
   )
@@ -295,16 +318,14 @@ export const etherscanVerifySphinxSystem = async (
       const encodedConstructorArgs = iface.encodeDeploy(constructorArgs)
 
       await attemptVerification(
-        provider,
-        networkName,
-        urls,
         expectedAddress,
-        sourceName,
-        contractName,
-        etherscanApiKey,
-        minimumCompilerInput,
+        encodedConstructorArgs,
+        `${sourceName}:${contractName}`,
         buildInfo.solcLongVersion,
-        encodedConstructorArgs
+        minimumCompilerInput,
+        provider,
+        String(chainId),
+        etherscanApiKey
       )
     }
 
@@ -319,3 +340,279 @@ export const etherscanVerifySphinxSystem = async (
     )
   }
 }
+
+// An array of built-in Etherscan chain configs. This is copied from Hardhat. We don't import their
+// array because it's an internal data structure that isn't part of their documentation. We copy it
+// to avoid a scenario where the structure of this array is changed or its file location is moved in
+// a future version of @nomicfoundation/hardhat-verify that has the same minor and/or patch version.
+// Note that Hardhat will not add new elements to this array anymore. ref:
+// https://github.com/NomicFoundation/hardhat/blob/2a99de5908cd56766c3a77e2088d6b9f82bd85ef/packages/hardhat-verify/src/internal/chain-config.ts
+const builtinChains: Array<ChainConfig> = [
+  {
+    network: 'mainnet',
+    chainId: 1,
+    urls: {
+      apiURL: 'https://api.etherscan.io/api',
+      browserURL: 'https://etherscan.io',
+    },
+  },
+  {
+    network: 'goerli',
+    chainId: 5,
+    urls: {
+      apiURL: 'https://api-goerli.etherscan.io/api',
+      browserURL: 'https://goerli.etherscan.io',
+    },
+  },
+  {
+    network: 'optimisticEthereum',
+    chainId: 10,
+    urls: {
+      apiURL: 'https://api-optimistic.etherscan.io/api',
+      browserURL: 'https://optimistic.etherscan.io/',
+    },
+  },
+  {
+    network: 'bsc',
+    chainId: 56,
+    urls: {
+      apiURL: 'https://api.bscscan.com/api',
+      browserURL: 'https://bscscan.com',
+    },
+  },
+  {
+    network: 'sokol',
+    chainId: 77,
+    urls: {
+      apiURL: 'https://blockscout.com/poa/sokol/api',
+      browserURL: 'https://blockscout.com/poa/sokol',
+    },
+  },
+  {
+    network: 'bscTestnet',
+    chainId: 97,
+    urls: {
+      apiURL: 'https://api-testnet.bscscan.com/api',
+      browserURL: 'https://testnet.bscscan.com',
+    },
+  },
+  {
+    network: 'xdai',
+    chainId: 100,
+    urls: {
+      apiURL: 'https://api.gnosisscan.io/api',
+      browserURL: 'https://gnosisscan.io',
+    },
+  },
+  {
+    network: 'gnosis',
+    chainId: 100,
+    urls: {
+      apiURL: 'https://api.gnosisscan.io/api',
+      browserURL: 'https://gnosisscan.io',
+    },
+  },
+  {
+    network: 'heco',
+    chainId: 128,
+    urls: {
+      apiURL: 'https://api.hecoinfo.com/api',
+      browserURL: 'https://hecoinfo.com',
+    },
+  },
+  {
+    network: 'polygon',
+    chainId: 137,
+    urls: {
+      apiURL: 'https://api.polygonscan.com/api',
+      browserURL: 'https://polygonscan.com',
+    },
+  },
+  {
+    network: 'opera',
+    chainId: 250,
+    urls: {
+      apiURL: 'https://api.ftmscan.com/api',
+      browserURL: 'https://ftmscan.com',
+    },
+  },
+  {
+    network: 'hecoTestnet',
+    chainId: 256,
+    urls: {
+      apiURL: 'https://api-testnet.hecoinfo.com/api',
+      browserURL: 'https://testnet.hecoinfo.com',
+    },
+  },
+  {
+    network: 'optimisticGoerli',
+    chainId: 420,
+    urls: {
+      apiURL: 'https://api-goerli-optimism.etherscan.io/api',
+      browserURL: 'https://goerli-optimism.etherscan.io/',
+    },
+  },
+  {
+    network: 'polygonZkEVM',
+    chainId: 1101,
+    urls: {
+      apiURL: 'https://api-zkevm.polygonscan.com/api',
+      browserURL: 'https://zkevm.polygonscan.com',
+    },
+  },
+  {
+    network: 'moonbeam',
+    chainId: 1284,
+    urls: {
+      apiURL: 'https://api-moonbeam.moonscan.io/api',
+      browserURL: 'https://moonbeam.moonscan.io',
+    },
+  },
+  {
+    network: 'moonriver',
+    chainId: 1285,
+    urls: {
+      apiURL: 'https://api-moonriver.moonscan.io/api',
+      browserURL: 'https://moonriver.moonscan.io',
+    },
+  },
+  {
+    network: 'moonbaseAlpha',
+    chainId: 1287,
+    urls: {
+      apiURL: 'https://api-moonbase.moonscan.io/api',
+      browserURL: 'https://moonbase.moonscan.io/',
+    },
+  },
+  {
+    network: 'polygonZkEVMTestnet',
+    chainId: 1442,
+    urls: {
+      apiURL: 'https://api-testnet-zkevm.polygonscan.com/api',
+      browserURL: 'https://testnet-zkevm.polygonscan.com',
+    },
+  },
+  {
+    network: 'ftmTestnet',
+    chainId: 4002,
+    urls: {
+      apiURL: 'https://api-testnet.ftmscan.com/api',
+      browserURL: 'https://testnet.ftmscan.com',
+    },
+  },
+  {
+    network: 'base',
+    chainId: 8453,
+    urls: {
+      apiURL: 'https://api.basescan.org/api',
+      browserURL: 'https://basescan.org/',
+    },
+  },
+  {
+    network: 'chiado',
+    chainId: 10200,
+    urls: {
+      apiURL: 'https://gnosis-chiado.blockscout.com/api',
+      browserURL: 'https://gnosis-chiado.blockscout.com',
+    },
+  },
+  {
+    network: 'arbitrumOne',
+    chainId: 42161,
+    urls: {
+      apiURL: 'https://api.arbiscan.io/api',
+      browserURL: 'https://arbiscan.io/',
+    },
+  },
+  {
+    network: 'avalancheFujiTestnet',
+    chainId: 43113,
+    urls: {
+      apiURL: 'https://api-testnet.snowtrace.io/api',
+      browserURL: 'https://testnet.snowtrace.io/',
+    },
+  },
+  {
+    network: 'avalanche',
+    chainId: 43114,
+    urls: {
+      apiURL: 'https://api.snowtrace.io/api',
+      browserURL: 'https://snowtrace.io/',
+    },
+  },
+  {
+    network: 'polygonMumbai',
+    chainId: 80001,
+    urls: {
+      apiURL: 'https://api-testnet.polygonscan.com/api',
+      browserURL: 'https://mumbai.polygonscan.com/',
+    },
+  },
+  {
+    network: 'baseGoerli',
+    chainId: 84531,
+    urls: {
+      apiURL: 'https://api-goerli.basescan.org/api',
+      browserURL: 'https://goerli.basescan.org/',
+    },
+  },
+  {
+    network: 'arbitrumTestnet',
+    chainId: 421611,
+    urls: {
+      apiURL: 'https://api-testnet.arbiscan.io/api',
+      browserURL: 'https://testnet.arbiscan.io/',
+    },
+  },
+  {
+    network: 'arbitrumGoerli',
+    chainId: 421613,
+    urls: {
+      apiURL: 'https://api-goerli.arbiscan.io/api',
+      browserURL: 'https://goerli.arbiscan.io/',
+    },
+  },
+  {
+    network: 'sepolia',
+    chainId: 11155111,
+    urls: {
+      apiURL: 'https://api-sepolia.etherscan.io/api',
+      browserURL: 'https://sepolia.etherscan.io',
+    },
+  },
+  {
+    network: 'aurora',
+    chainId: 1313161554,
+    urls: {
+      apiURL: 'https://explorer.mainnet.aurora.dev/api',
+      browserURL: 'https://explorer.mainnet.aurora.dev',
+    },
+  },
+  {
+    network: 'auroraTestnet',
+    chainId: 1313161555,
+    urls: {
+      apiURL: 'https://explorer.testnet.aurora.dev/api',
+      browserURL: 'https://explorer.testnet.aurora.dev',
+    },
+  },
+  {
+    network: 'harmony',
+    chainId: 1666600000,
+    urls: {
+      apiURL: 'https://ctrver.t.hmny.io/verify',
+      browserURL: 'https://explorer.harmony.one',
+    },
+  },
+  {
+    network: 'harmonyTest',
+    chainId: 1666700000,
+    urls: {
+      apiURL: 'https://ctrver.t.hmny.io/verify?network=testnet',
+      browserURL: 'https://explorer.pops.one',
+    },
+  },
+  // We are not adding new networks to the core of hardhat-verify anymore.
+  // Please read this to learn how to manually add support for custom networks:
+  // https://github.com/NomicFoundation/hardhat/tree/main/packages/hardhat-verify#adding-support-for-other-networks
+]

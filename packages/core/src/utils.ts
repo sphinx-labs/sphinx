@@ -1,8 +1,8 @@
-import * as path from 'path'
 import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
 
+import ora from 'ora'
 import yesno from 'yesno'
 import axios from 'axios'
 import * as semver from 'semver'
@@ -22,6 +22,11 @@ import {
   SphinxLeafType,
   getManagedServiceAddress,
   ManagedServiceABI,
+  SphinxModuleABI,
+  getGnosisSafeAddress,
+  GnosisSafeProxyFactoryArtifact,
+  getGnosisSafeProxyFactoryAddress,
+  ManagedServiceArtifact,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -47,8 +52,11 @@ import {
   MerkleRootStatus,
   EstimateGas,
   ExecuteActions,
+  ApproveDeployment,
+  HumanReadableAction,
+  MerkleRootState,
 } from './actions/types'
-import { Integration } from './constants'
+import { Integration, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import 'core-js/features/array/at'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
@@ -59,20 +67,8 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
-
-export const writeSnapshotId = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  networkDirName: string,
-  deploymentFolderPath: string
-) => {
-  const snapshotId = await provider.send('evm_snapshot', [])
-  const networkPath = path.join(deploymentFolderPath, networkDirName)
-  if (!fs.existsSync(networkPath)) {
-    fs.mkdirSync(networkPath, { recursive: true })
-  }
-  const snapshotIdPath = path.join(networkPath, '.snapshotId')
-  fs.writeFileSync(snapshotIdPath, snapshotId)
-}
+import { findStorageSlotKey } from './actions/artifacts'
+import { executeBatchActions } from './actions/execute'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -1189,7 +1185,7 @@ export const stringifyMerkleRootStatus = (status: bigint): string => {
 
 export const signMerkleRoot = async (
   merkleRoot: string,
-  wallet: ethers.Wallet
+  wallet: ethers.Signer
 ) => {
   const domain = {
     name: 'Sphinx',
@@ -1216,11 +1212,11 @@ export const setBalance = async (
   balance: string,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
-  // TODO(docs): Strip the leading zero if it exists. This is necessary because hex quantities
-  // with leading zeros are not valid at the JSON-RPC layer. Stripping the leading zero doesn't
-  // change the amount.
   await provider.send('hardhat_setBalance', [
     address,
+    // Strip the leading zero if it exists. This is necessary because hex quantities with leading
+    // zeros are not valid at the JSON-RPC layer. Stripping the leading zero doesn't change the
+    // amount.
     balance.replace('0x0', '0x'),
   ])
 }
@@ -1236,6 +1232,92 @@ export const getMappingValueSlotKey = (
   )
 }
 
+export const approveDeploymentViaSigner: ApproveDeployment = async (
+  safeAddress,
+  moduleAddress,
+  merkleRoot,
+  approvalLeafWithProof,
+  provider,
+  signer
+) => {
+  const ownerSignature = await signMerkleRoot(merkleRoot, signer)
+
+  const sphinxModule = new ethers.Contract(
+    moduleAddress,
+    SphinxModuleABI,
+    signer
+  )
+
+  return (
+    await sphinxModule.approve(
+      merkleRoot,
+      approvalLeafWithProof,
+      ownerSignature,
+      await getGasPriceOverrides(signer)
+    )
+  ).wait()
+}
+
+export const approveDeploymentViaManagedService: ApproveDeployment = async (
+  safeAddress,
+  moduleAddress,
+  merkleRoot,
+  approvalLeafWithProof,
+  provider,
+  signer
+) => {
+  // Before we can approve the deployment, we must add a set of auto-generated wallets as owners of
+  // the Gnosis Safe. This allows us to approve the deployment without knowing the private keys of
+  // the actual Gnosis Safe owners.
+  const sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
+    safeAddress,
+    provider
+  )
+
+  const managedService = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceABI,
+    signer
+  )
+  const ownerSignatures = await Promise.all(
+    sphinxWallets.map((wallet) => signMerkleRoot(merkleRoot, wallet))
+  )
+  const packedOwnerSignatures = ethers.solidityPacked(
+    new Array(ownerSignatures.length).fill('bytes'),
+    ownerSignatures
+  )
+
+  const sphinxModule = new ethers.Contract(
+    moduleAddress,
+    SphinxModuleABI,
+    signer
+  )
+
+  const approvalData = sphinxModule.interface.encodeFunctionData('approve', [
+    merkleRoot,
+    approvalLeafWithProof,
+    packedOwnerSignatures,
+  ])
+  const approvalReceipt = await (
+    await managedService.exec(
+      moduleAddress,
+      approvalData,
+      await getGasPriceOverrides(signer)
+    )
+  ).wait()
+
+  // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
+  // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
+  // production environment.
+  await removeSphinxWalletsFromGnosisSafeOwners(
+    sphinxWallets,
+    safeAddress,
+    provider
+  )
+
+  return approvalReceipt
+}
+
 export const executeActionsViaManagedService: ExecuteActions = async (
   moduleAddress,
   executionData,
@@ -1247,11 +1329,13 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     signer
   )
 
-  return managedService.exec(
-    moduleAddress,
-    executionData,
-    await getGasPriceOverrides(signer)
-  )
+  return (
+    await managedService.exec(
+      moduleAddress,
+      executionData,
+      await getGasPriceOverrides(signer)
+    )
+  ).wait()
 }
 
 export const executeActionsViaSigner: ExecuteActions = async (
@@ -1263,7 +1347,14 @@ export const executeActionsViaSigner: ExecuteActions = async (
     to: moduleAddress,
     data: executionData,
   })
-  return signer.sendTransaction(txn)
+  const receipt = await (await signer.sendTransaction(txn)).wait()
+
+  // Narrow the TypeScript type.
+  if (!receipt) {
+    throw new Error(`Receipt is null. Should never happen.`)
+  }
+
+  return receipt
 }
 
 export const estimateGasViaManagedService: EstimateGas = async (
@@ -1293,4 +1384,211 @@ export const estimateGasViaSigner: EstimateGas = async (
     data: executionData,
     gasLimit: maxGasLimit,
   })
+}
+
+export const runEntireDeploymentProcess = async (
+  parsedConfig: ParsedConfig,
+  merkleTree: SphinxMerkleTree,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  signer: ethers.Wallet,
+  isLiveNetworkBroadcast: boolean,
+  estimateGas: EstimateGas,
+  approveDeployment: ApproveDeployment,
+  executeActions: ExecuteActions,
+  spinner: ora.Ora = ora({ isSilent: true })
+): Promise<{
+  receipts: Array<ethers.TransactionReceipt>
+  batches: Array<Array<SphinxLeafWithProof>>
+}> => {
+  const humanReadableActions = {
+    [parsedConfig.chainId]: getReadableActions(parsedConfig.actionInputs),
+  }
+
+  if (!isLiveNetworkBroadcast) {
+    await fundAccount(signer.address, provider)
+    await setManagedServiceRelayer(signer.address, provider)
+  }
+
+  const sphinxModule = new ethers.Contract(
+    parsedConfig.moduleAddress,
+    SphinxModuleABI,
+    signer
+  )
+
+  const receipts: Array<ethers.TransactionReceipt> = []
+
+  if (!parsedConfig.initialState.isSafeDeployed) {
+    spinner.start(`Deploying Gnosis Safe and Sphinx Module...`)
+
+    const gnosisSafeProxyFactory = new ethers.Contract(
+      getGnosisSafeProxyFactoryAddress(),
+      GnosisSafeProxyFactoryArtifact.abi,
+      signer
+    )
+    const gnosisSafeDeploymentReceipt = await (
+      await gnosisSafeProxyFactory.createProxyWithNonce(
+        getGnosisSafeAddress(),
+        parsedConfig.safeInitData,
+        parsedConfig.newConfig.saltNonce,
+        await getGasPriceOverrides(signer)
+      )
+    ).wait()
+    receipts.push(gnosisSafeDeploymentReceipt)
+
+    spinner.succeed(`Deployed Gnosis Safe and Sphinx Module.`)
+  }
+
+  const approvalLeafWithProof = findLeafWithProof(
+    merkleTree,
+    SphinxLeafType.APPROVE,
+    BigInt(parsedConfig.chainId)
+  )
+
+  spinner.start(`Checking deployment status...`)
+
+  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
+    merkleTree.root
+  )
+
+  if (merkleRootState.status === MerkleRootStatus.EMPTY) {
+    spinner.succeed(`Deployment is new.`)
+    spinner.start(`Approving deployment...`)
+
+    const approvalReceipt = await approveDeployment(
+      parsedConfig.safeAddress,
+      parsedConfig.moduleAddress,
+      merkleTree.root,
+      approvalLeafWithProof,
+      provider,
+      signer
+    )
+    receipts.push(approvalReceipt)
+
+    spinner.succeed(`Approved deployment.`)
+  } else if (merkleRootState.status !== MerkleRootStatus.APPROVED) {
+    spinner.clear()
+    throw new Error(
+      `Deployment's status: ${stringifyMerkleRootStatus(
+        merkleRootState.status
+      )}`
+    )
+  } else {
+    spinner.succeed(`Deployment is already approved.`)
+  }
+
+  spinner.start(`Executing deployment...`)
+
+  const networkLeaves = merkleTree.leavesWithProofs.filter(
+    (leaf) => leaf.leaf.chainId === BigInt(parsedConfig.chainId)
+  )
+  const { status, failureAction, executionReceipts, batches } =
+    await executeBatchActions(
+      networkLeaves,
+      BigInt(parsedConfig.chainId),
+      sphinxModule,
+      BigInt(parsedConfig.blockGasLimit),
+      humanReadableActions,
+      signer,
+      executeActions,
+      estimateGas
+    )
+
+  spinner.succeed(`Executed deployment.`)
+  spinner.start(`Checking final deployment status...`)
+
+  if (status === MerkleRootStatus.FAILED) {
+    if (failureAction) {
+      throw new Error(
+        `Failed to execute deployment because the following action reverted:\n"${failureAction}`
+      )
+    } else {
+      throw new Error(`Deployment failed.`)
+    }
+  }
+
+  spinner.succeed(`Deployment succeeded.`)
+
+  receipts.push(...executionReceipts)
+
+  return { receipts, batches }
+}
+
+const setManagedServiceRelayer = async (
+  address: string,
+  provider: HardhatEthersProvider | SphinxJsonRpcProvider
+) => {
+  const managedServiceAddress = getManagedServiceAddress()
+  const accessControlRoleSlotKey = findStorageSlotKey(
+    ManagedServiceArtifact.storageLayout,
+    '_roles'
+  )
+  const roleSlotKey = getMappingValueSlotKey(
+    accessControlRoleSlotKey,
+    RELAYER_ROLE
+  )
+  const memberSlotKey = getMappingValueSlotKey(
+    roleSlotKey,
+    ethers.zeroPadValue(ethers.toBeHex(address), 32)
+  )
+
+  await provider.send('hardhat_setStorageAt', [
+    managedServiceAddress,
+    memberSlotKey,
+    '0x0000000000000000000000000000000000000000000000000000000000000001',
+  ])
+}
+
+export const getReadableActions = (
+  actionInputs: ActionInput[]
+): HumanReadableAction[] => {
+  return actionInputs.map((action) => {
+    const { referenceName, functionName, variables, address } =
+      action.decodedAction
+    const actionStr = prettyFunctionCall(
+      referenceName,
+      address,
+      functionName,
+      variables,
+      5,
+      3
+    )
+    return {
+      reason: actionStr,
+      actionIndex: action.index,
+    }
+  })
+}
+
+export const getCreate3Address = (deployer: string, salt: string): string => {
+  // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
+  // library for details.
+  const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
+
+  const proxyAddress = ethers.getCreate2Address(
+    deployer,
+    salt,
+    ethers.keccak256(proxyBytecode)
+  )
+
+  const addressHash = ethers.keccak256(
+    ethers.concat(['0xd694', proxyAddress, '0x01'])
+  )
+
+  // Return the last 20 bytes of the address hash
+  const last20Bytes = ethers.dataSlice(addressHash, 12)
+
+  // Return the checksum address
+  return ethers.getAddress(last20Bytes)
+}
+
+export const getCreate3Salt = (
+  referenceName: string,
+  userSalt: string
+): string => {
+  return ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ['string', 'bytes32'],
+      [referenceName, userSalt]
+    )
+  )
 }

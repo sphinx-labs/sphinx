@@ -23,7 +23,6 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
-  ParsedConfig,
   RawActionInput,
   SphinxConfig,
 } from '@sphinx-labs/core/dist/config/types'
@@ -35,23 +34,15 @@ import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
-  MerkleRootState,
-  MerkleRootStatus,
   SphinxJsonRpcProvider,
   SupportedNetworkName,
   networkEnumToName,
-  findLeafWithProof,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
   FoundryContractArtifact,
-  SphinxLeafType,
-  SphinxLeafWithProof,
-  SphinxMerkleTree,
-  SphinxModuleABI,
   parseFoundryArtifact,
   recursivelyConvertResult,
-  remove0x,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
@@ -317,8 +308,8 @@ export const makeGetConfigArtifacts = (
         buildInfoCache[file.name]?.time !== file.time
       ) {
         buildInfoCache[file.name].time = file.time
-      } else {
-        // Update the build info file dictionary in the cache
+      } else if (!buildInfoCache[file.name]) {
+        // Add the build info file to the cache
         buildInfoCache[file.name] = {
           name: file.name,
           time: file.time,
@@ -878,233 +869,6 @@ export const readFoundrySingleChainDryRun = (
   }
 }
 
-export const approveViaFoundry = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  merkleTree: SphinxMerkleTree,
-  sphinxIface: ethers.Interface,
-  chainId: number,
-  rpcUrl: string,
-  spinner?: ora.Ora,
-  targetContract?: string
-): Promise<FoundrySingleChainBroadcast> => {
-  const approveLeafWithProof = findLeafWithProof(
-    merkleTree,
-    SphinxLeafType.APPROVE,
-    BigInt(chainId)
-  )
-
-  const approveFragment = findFunctionFragment(sphinxIface, 'sphinxApprove')
-  const encodedFunctionParams = sphinxIface.encodeFunctionData(
-    approveFragment,
-    [merkleTree.root, approveLeafWithProof, false]
-  )
-
-  const dateBeforeForgeScript = new Date()
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    encodedFunctionParams,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const broadcast = readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    chainId,
-    remove0x(approveFragment.selector),
-    dateBeforeForgeScript
-  )
-
-  if (!broadcast) {
-    throw new Error(
-      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
-    )
-  }
-
-  return broadcast
-}
-
-export const deployModuleAndGnosisSafeViaFoundry = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  networkName: string,
-  chainId: string,
-  rpcUrl: string,
-  spinner?: ora.Ora,
-  targetContract?: string
-): Promise<FoundrySingleChainBroadcast> => {
-  const dateBeforeForgeScript = new Date()
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxDeployModuleAndGnosisSafe(string)',
-    networkName,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const broadcast = readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    chainId,
-    'sphinxDeployModuleAndGnosisSafe',
-    dateBeforeForgeScript
-  )
-
-  if (!broadcast) {
-    throw new Error(
-      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
-    )
-  }
-
-  return broadcast
-}
-
-export const execute = async (
-  scriptPath: string,
-  parsedConfig: ParsedConfig,
-  batches: Array<Array<SphinxLeafWithProof>>,
-  merkleRoot: string,
-  foundryToml: FoundryToml,
-  rpcUrl: string,
-  networkName: string,
-  silent: boolean,
-  sphinxPluginTypesInterface: ethers.Interface,
-  targetContract?: string,
-  verify?: boolean,
-  spinner?: ora.Ora
-): Promise<FoundrySingleChainBroadcast | undefined> => {
-  spinner?.start(`Executing deployment...`)
-
-  const provider = new SphinxJsonRpcProvider(rpcUrl)
-
-  const batchesFragment = findFunctionFragment(
-    sphinxPluginTypesInterface,
-    'leafWithProofBatchesType'
-  )
-
-  // ABI encode the inputs to the deployment function.
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedDeployTaskInputs = coder.encode(batchesFragment.outputs, [
-    batches,
-  ])
-  const executionParamsFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-execution-params.txt'
-  )
-  // Write the ABI encoded batches to the file system. We'll read it in the Forge script that
-  // executes the deployment. We do this instead of passing in the batches as a parameter to the
-  // Forge script because it's possible to hit Node's `spawn` input size limit if the data is large.
-  // This is particularly a concern for the Merkle leaves, which probably contain contract init
-  // code.
-  writeFileSync(executionParamsFilePath, encodedDeployTaskInputs)
-
-  const forgeScriptDeployArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxExecute(bytes32,string,string)',
-    merkleRoot,
-    networkName,
-    executionParamsFilePath,
-    '--fork-url',
-    rpcUrl,
-    '--broadcast',
-    // Set the gas estimate multiplier to be 40% instead of Foundry's default 30%. We set it to be
-    // slightly higher than normal because we encountered an issue on Anvil where Foundry
-    // successfully simulated the deployment, but then submitted an insufficient amount of gas to
-    // the Sphinx Module's `execute` function, leading to a "SphinxModule: insufficient gas" error.
-    '--gas-estimate-multiplier',
-    '140',
-  ]
-  if (verify) {
-    forgeScriptDeployArgs.push('--verify')
-  }
-  if (targetContract) {
-    forgeScriptDeployArgs.push('--target-contract', targetContract)
-  }
-
-  const dateBeforeForgeScriptDeploy = new Date()
-  const { code, stdout, stderr } = await spawnAsync(
-    'forge',
-    forgeScriptDeployArgs
-  )
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  } else if (!silent) {
-    console.log(stdout)
-  }
-
-  spinner?.succeed(`Executed deployment.`)
-  spinner?.start(`Checking final deployment status...`)
-
-  // Check the Merkle root's status. It's possible that the deployment succeeded during the
-  // simulation but was marked as `FAILED` when the transactions were broadcasted. This wouldn't
-  // cause the Forge script to throw an error because the transaction doesn't revert on-chain.
-  const sphinxModule = new ethers.Contract(
-    parsedConfig.moduleAddress,
-    SphinxModuleABI,
-    provider
-  )
-  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
-    merkleRoot
-  )
-  if (merkleRootState.status === MerkleRootStatus.FAILED) {
-    spinner?.fail(`Deployment failed when broadcasting the transactions.`)
-    process.exit(1)
-  }
-
-  spinner?.succeed(`Deployment succeeded.`)
-
-  return readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    parsedConfig.chainId,
-    'sphinxExecute',
-    dateBeforeForgeScriptDeploy
-  )
-}
-
 export const readInterface = (
   artifactFolder: string,
   contractName: string
@@ -1144,10 +908,9 @@ export const getEstimatedGas = async (
   // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
   // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
   // be closer to one million. This is because each transaction includes the L1 gas used. The local
-  // simulation that produced the transaction receipts doesn't capture this difference. For example,
-  // the minimum gas limit on an Arbitrum fork is 21k instead of roughly one million. We account for
-  // this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a more
-  // accurate estimate on networks like Arbitrum.
+  // simulation that produced the transaction receipts doesn't capture this difference. We account
+  // for this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a
+  // more accurate estimate on networks like Arbitrum.
   const estimatedMinGasLimit = await provider.estimateGas({
     to: ethers.ZeroAddress,
     data: '0x',
@@ -1158,12 +921,13 @@ export const getEstimatedGas = async (
     .map((receipt) => receipt.gasUsed)
     .map(Number)
     .map((gasUsed) => Math.round(gasUsed * 1.3))
-    // TODO(docs): we do this after multiplying by 1.3 because the estimated min gas limit already
-    // includes a ~1.35x buffer due to the fact that eth_estimateGas overestimates the gas. (include
-    // quote from json rpc docs).
     .map((gasWithBuffer) => {
+      // Add the adjusted gas limit amount. We add this after multiplying by the 1.3x buffer because
+      // the estimated minimum gas limit already includes a ~1.35x buffer due to the fact that the
+      // `eth_estimateGas` RPC method overestimates the gas. ref:
+      // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_estimategas
       const totalGas = gasWithBuffer + adjustedGasLimit
-      // TODO(docs): abundance of caution.
+      // Check that the total gas isn't negative out of an abundance of caution.
       if (totalGas < 0) {
         throw new Error('Gas used is less than 0. Should never happen.')
       }
@@ -1178,23 +942,8 @@ export const getEstimatedGas = async (
 
 // TODO(test): manually check how the logs look when verifying contracts in the `deploy` command.
 
-// TODO: undo demo:package.json:build:contracts
-
-// TODO: in `deploy` task, only verify if on a live network.
-
-// TODO: add linear ticket: verify previously completed deployments using deploy task.
-// (currently, if a deployment completes but etherscan verification fails, users can't verify the
-// contracts). we should either add this functionality to the `deploy` task or create a `sphinx
-// verify` CLI command. the latter may be preferable b/c it's possible that the merkle root may
-// change between after the first `deploy` command is invoked, which would cause another deployment
-// to occur.
-
-// TODO(later): do retries in the `deploy` command.
-
-// TODO: we need our own etherscan verification logic.
-
-// TODO: Switch from `@nomiclabs/hardhat-etherscan` to `hardhat-verify`. mark the linear ticket as
-// completed when done. make sure you add `customChains`. also make sure you remove the old package.
+// TODO(end): mark the linear ticket as completed:
+// https://linear.app/chugsplash/issue/CHU-286/switch-from-hardhat-etherscan-to-hardhat-verify.
 
 // TODO(end): grammarly *.md in this pr: https://github.com/sphinx-labs/sphinx/pull/1283/files
 

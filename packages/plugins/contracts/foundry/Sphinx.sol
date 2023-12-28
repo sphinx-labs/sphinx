@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// TODO: remove console.
-
 import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
-import { console } from "sphinx-forge-std/console.sol";
 
 import {
     MerkleRootStatus,
@@ -129,11 +126,10 @@ abstract contract Sphinx {
             sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, IGnosisSafe(sphinxSafe()));
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else {
-            // We use an auto-generated private key when deploying to a local network so that anyone
-            // can deploy a project even if they aren't the sole owner. This is useful for
-            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            uint256 privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
-            deployer = vm.addr(privateKey);
+            // Set the `ManagedService` contract as the deployer. Although this isn't strictly
+            // necessary, it allows us to reuse the DevOps Platform logic for local network
+            // broadcasts.
+            deployer = constants.managedServiceAddress();
         }
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(isLiveNetwork, deployer);
@@ -190,177 +186,6 @@ abstract contract Sphinx {
         }
 
         return deploymentInfo;
-    }
-
-    function sphinxDeployModuleAndGnosisSafe(string memory _networkName) external {
-        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName));
-
-        address safe = sphinxSafe();
-        require(safe.code.length == 0, "Sphinx: Gnosis Safe already deployed");
-
-        uint256 privateKey;
-        if (isLiveNetwork) {
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, IGnosisSafe(safe));
-
-            privateKey = vm.envUint("PRIVATE_KEY");
-        } else {
-            // We use an auto-generated private key when deploying to a local network so that anyone
-            // can deploy a project even if they aren't the sole owner. This is useful for
-            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
-        }
-
-        vm.startBroadcast(privateKey);
-        _sphinxDeployModuleAndGnosisSafe();
-        vm.stopBroadcast();
-    }
-
-    function sphinxApprove(
-        bytes32 _merkleRoot,
-        SphinxLeafWithProof memory _approveLeafWithProof,
-        bool _simulatingProposal
-    ) public {
-        NetworkInfo memory networkInfo = sphinxUtils.findNetworkInfoByChainId(
-            _approveLeafWithProof.leaf.chainId
-        );
-
-        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(networkInfo.name));
-
-        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
-        ISphinxModule module = ISphinxModule(sphinxModule());
-
-        require(address(safe).code.length > 0, "Sphinx: Gnosis Safe is not deployed");
-
-        (, , , , MerkleRootStatus status, ) = module.merkleRootStates(_merkleRoot);
-
-        require(
-            status == MerkleRootStatus.EMPTY,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Merkle root already ",
-                    sphinxUtils.merkleRootStatusToString(status),
-                    "."
-                )
-            )
-        );
-
-        uint256 privateKey;
-        if (isLiveNetwork && !_simulatingProposal) {
-            sphinxMode = SphinxMode.LiveNetworkBroadcast;
-
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, safe);
-
-            privateKey = vm.envUint("PRIVATE_KEY");
-        } else {
-            sphinxMode = SphinxMode.LocalNetworkBroadcast;
-
-            // We use an auto-generated private key when deploying to a local network so that anyone
-            // can deploy a project even if they aren't the sole owner. This is useful for
-            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
-        }
-
-        bytes memory ownerSignatures;
-        if (isLiveNetwork && !_simulatingProposal) {
-            Wallet[] memory walletArray = new Wallet[](1);
-            walletArray[0] = Wallet({ privateKey: privateKey, addr: vm.addr(privateKey) });
-
-            ownerSignatures = _sphinxSignMerkleRoot(walletArray, _merkleRoot);
-        } else {
-            uint256 ownerThreshold = safe.getThreshold();
-            Wallet[] memory sphinxWallets = sphinxUtils.getSphinxWalletsSortedByAddress(
-                ownerThreshold
-            );
-
-            ownerSignatures = _sphinxSignMerkleRoot(sphinxWallets, _merkleRoot);
-        }
-
-        // Broadcast if there isn't already an active broadcast.
-        (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        if (callerMode == VmSafe.CallerMode.None) vm.broadcast(privateKey);
-
-        // Execute the `APPROVE` leaf.
-        module.approve(_merkleRoot, _approveLeafWithProof, ownerSignatures);
-    }
-
-    /**
-     * @notice Broadcasts a deployment. Meant to be called in the `sphinx deploy` CLI command.
-     */
-    function sphinxExecute(
-        bytes32 _merkleRoot,
-        string memory _networkName,
-        string memory _executionParamsFilePath
-    ) external {
-        SphinxLeafWithProof[][] memory batches = abi.decode(
-                vm.parseBytes(vm.readFile(_executionParamsFilePath)),
-                (SphinxLeafWithProof[][])
-            );
-
-        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
-        ISphinxModule module = ISphinxModule(sphinxModule());
-
-        require(address(safe).code.length > 0, "Sphinx: Gnosis Safe is not deployed");
-
-        if (batches.length == 0) {
-            console.log(
-                string(
-                    abi.encodePacked(
-                        "Sphinx: Nothing to execute on ",
-                        sphinxUtils.findNetworkInfoByChainId(block.chainid).name,
-                        ". Exiting early."
-                    )
-                )
-            );
-            return;
-        }
-
-        MerkleRootStatus status;
-        (, , , , status, ) = module.merkleRootStates(_merkleRoot);
-
-        require(
-            status == MerkleRootStatus.APPROVED,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Merkle root must be be active, but its status is: ",
-                    sphinxUtils.merkleRootStatusToString(status),
-                    "."
-                )
-            )
-        );
-
-        bool isLiveNetwork = sphinxUtils.isLiveNetworkFFI(vm.rpcUrl(_networkName));
-        uint256 privateKey;
-        if (isLiveNetwork) {
-            sphinxMode = SphinxMode.LiveNetworkBroadcast;
-
-            sphinxUtils.validateLiveNetworkBroadcast(sphinxConfig, safe);
-
-            privateKey = vm.envUint("PRIVATE_KEY");
-        } else {
-            sphinxMode = SphinxMode.LocalNetworkBroadcast;
-
-            // We use an auto-generated private key when deploying to a local network so that anyone
-            // can deploy a project even if they aren't the sole owner. This is useful for
-            // broadcasting deployments onto Anvil when the project is owned by multiple accounts.
-            privateKey = sphinxUtils.getSphinxWalletPrivateKey(0);
-        }
-
-        vm.startBroadcast(privateKey);
-
-        for (uint256 i = 0; i < batches.length; i++) {
-            SphinxLeafWithProof[] memory batch = batches[i];
-
-            module.execute(batch);
-
-            (, , , , status, ) = module.merkleRootStates(_merkleRoot);
-
-            require(
-                status != MerkleRootStatus.FAILED,
-                "Sphinx: failed to execute deployment."
-            );
-        }
-
-        vm.stopBroadcast();
     }
 
     /**
@@ -571,33 +396,5 @@ abstract contract Sphinx {
         vm.stopPrank();
 
         return abi.encode(gasEstimates);
-    }
-
-    // TODO: remove unnecessary functions.
-
-    /**
-     * @notice Sign a Sphinx Merkle root using a set of Gnosis Safe owner wallets. This exists here
-     *         instead of `SphinxUtils` to ensure that the user's private key doesn't appear in a
-     *         stack trace, which may occur if we call an external function on `SphinxUtils`.
-     */
-    function _sphinxSignMerkleRoot(
-        Wallet[] memory _owners,
-        bytes32 _merkleRoot
-    ) private pure returns (bytes memory) {
-        require(_owners.length > 0, "Sphinx: owners array must have at least one element");
-
-        bytes memory typedData = abi.encodePacked(
-            "\x19\x01",
-            DOMAIN_SEPARATOR,
-            keccak256(abi.encode(TYPE_HASH, _merkleRoot))
-        );
-
-        bytes memory signatures;
-        for (uint256 i = 0; i < _owners.length; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_owners[i].privateKey, keccak256(typedData));
-            signatures = abi.encodePacked(signatures, r, s, v);
-        }
-
-        return signatures;
     }
 }

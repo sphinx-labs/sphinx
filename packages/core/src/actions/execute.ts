@@ -173,8 +173,14 @@ const findMaxBatchSize = async (
  * Helper function for executing a list of actions in batches. We execute actions in batches to
  * reduce the total number of transactions, which makes the deployment faster and cheaper.
  *
- * @returns TODO(docs): batches does not include `EXECUTE` merkle leaves that were executed before
- * this function was called.
+ * @returns An object containing:
+ * - `status`: Final deployment status.
+ * - `executionReceipts`: Array of transaction receipts from executed actions.
+ * - `batches`: An array of arrays of `EXECUTE` Merkle leaves representing grouped leaves processed in
+ * each batch. This array only contains leaves that were executed in this call and not leaves that were
+ * previously executed.
+ * - `failureAction`: An optional HumanReadableAction indicating the action that caused a deployment
+ * to fail.
  */
 export const executeBatchActions = async (
   leavesOnNetwork: SphinxLeafWithProof[],
@@ -204,8 +210,6 @@ export const executeBatchActions = async (
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await sphinxModule.activeMerkleRoot()
   let state: MerkleRootState = await sphinxModule.merkleRootStates(activeRoot)
-
-  // TODO(test): we previously didn't do human readable actions - 2. write a test case for this.
 
   if (state.status === MerkleRootStatus.FAILED) {
     return {
@@ -256,9 +260,7 @@ export const executeBatchActions = async (
     const executionData = sphinxModule.interface.encodeFunctionData('execute', [
       batch,
     ])
-    const receipt = await (
-      await executeActions(moduleAddress, executionData, signer)
-    ).wait()
+    const receipt = await executeActions(moduleAddress, executionData, signer)
 
     if (!receipt) {
       throw new Error(

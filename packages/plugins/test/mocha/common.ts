@@ -28,7 +28,14 @@ export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
     const port = getAnvilPort(chainId)
 
     if (await isPortOpen(port)) {
-      await execAsync(`kill $(lsof -t -i:${port})`)
+      const { stdout } = await execAsync(`lsof -t -i:${port}`)
+      const pids = stdout.trim().split('\n')
+
+      for (const pid of pids) {
+        if (pid) {
+          await execAsync(`kill ${pid}`)
+        }
+      }
     }
   }
 }

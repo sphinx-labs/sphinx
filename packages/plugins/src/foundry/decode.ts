@@ -12,7 +12,7 @@ import {
   RawActionInput,
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
-  ParsedContractDeployments,
+  ParsedContractDeployment,
   SphinxActionType,
   networkEnumToName,
 } from '@sphinx-labs/core'
@@ -291,10 +291,11 @@ export const makeParsedConfig = (
 
           const fullyQualifiedName = input.contractName
 
-          parsedContracts[input.create2Address] = {
+          parsedContracts.push({
+            address: input.create2Address,
             fullyQualifiedName,
             initCodeWithArgs,
-          }
+          })
         } else if (
           // Check if the `contractName` is a standard contract name (not a fully qualified name).
           input.contractName
@@ -304,18 +305,20 @@ export const makeParsedConfig = (
             configArtifacts
           )
 
-          parsedContracts[input.create2Address] = {
+          parsedContracts.push({
+            address: input.create2Address,
             fullyQualifiedName,
             initCodeWithArgs,
-          }
+          })
         } else {
           // There's no contract name in this CREATE2 transaction.
           const label = labels.find((l) => l.addr === input.create2Address)
           if (isLabel(label)) {
-            parsedContracts[input.create2Address] = {
+            parsedContracts.push({
+              address: input.create2Address,
               fullyQualifiedName: label.fullyQualifiedName,
               initCodeWithArgs,
-            }
+            })
 
             const contractName = label.fullyQualifiedName.split(':')[1]
             input.decodedAction = {
@@ -343,10 +346,11 @@ export const makeParsedConfig = (
                     configArtifacts
                   ).fullyQualifiedName
 
-              parsedContracts[input.create2Address] = {
+              parsedContracts.push({
+                address: input.create2Address,
                 fullyQualifiedName,
                 initCodeWithArgs,
-              }
+              })
 
               input.decodedAction = {
                 referenceName: fullyQualifiedName.split(':')[1],
@@ -412,10 +416,10 @@ const parseAdditionalContracts = (
   labels: Array<Label>,
   configArtifacts: ConfigArtifacts
 ): {
-  parsedContracts: ParsedContractDeployments
+  parsedContracts: Array<ParsedContractDeployment>
   unlabeledAdditionalContracts: Array<string>
 } => {
-  const parsed: ParsedContractDeployments = {}
+  const parsed: Array<ParsedContractDeployment> = []
   const unlabeled: Array<string> = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
@@ -423,10 +427,11 @@ const parseAdditionalContracts = (
     const label = labels.find((l) => l.addr === address)
     if (isLabel(label)) {
       if (label.fullyQualifiedName !== '') {
-        parsed[address] = {
+        parsed.push({
+          address,
           fullyQualifiedName: label.fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
-        }
+        })
       }
     } else if (
       // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3
@@ -448,10 +453,11 @@ const parseAdditionalContracts = (
           : getConfigArtifactForContractName(contractName, configArtifacts)
               .fullyQualifiedName
 
-        parsed[address] = {
+        parsed.push({
+          address,
           fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
-        }
+        })
       } else {
         unlabeled.push(address)
       }

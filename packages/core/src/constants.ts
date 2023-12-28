@@ -1,10 +1,10 @@
-import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
 import { ethers } from 'ethers'
 
 export const WEBSITE_URL = `https://sphinx.dev`
 
 // Etherscan constants
-export const customChains: CustomChain[] = [
+export const customChains: ChainConfig[] = [
   {
     network: 'gnosis-chiado',
     chainId: 10200,

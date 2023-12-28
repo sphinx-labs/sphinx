@@ -1,16 +1,14 @@
-import { exec } from 'child_process'
-
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   ConfigArtifacts,
   ParsedConfig,
   ProposalRequest,
+  SUPPORTED_NETWORKS,
   SphinxPreview,
   execAsync,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
-  sleep,
   spawnAsync,
   userConfirmation,
 } from '@sphinx-labs/core'
@@ -27,6 +25,7 @@ import {
 } from '../../../src/foundry/utils'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
+import { killAnvilNodes, startAnvilNodes } from '../common'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -39,6 +38,8 @@ const coder = new ethers.AbiCoder()
 const sphinxApiKey = 'test-api-key'
 const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 const sepoliaRpcUrl = `http://127.0.0.1:42111`
+
+const allNetworkNames = ['ethereum', 'sepolia', 'optimism']
 
 describe('Propose CLI command', () => {
   let foundryToml: FoundryToml
@@ -54,23 +55,23 @@ describe('Propose CLI command', () => {
   })
 
   beforeEach(async () => {
-    // Start Anvil nodes with fresh states. We must use `exec`
-    // instead of `execAsync` because the latter will hang indefinitely.
-    exec(`anvil --chain-id 1 --port 42001 --silent &`)
-    exec(`anvil --chain-id 11155111 --port 42111 --silent &`)
-    exec(`anvil --chain-id 10 --port 42010 --silent &`)
-    await sleep(1000)
+    const allChainIds = allNetworkNames.map(
+      (network) => SUPPORTED_NETWORKS[network]
+    )
+    // Make sure that the Anvil nodes aren't running.
+    await killAnvilNodes(allChainIds)
+    // Start the Anvil nodes.
+    await startAnvilNodes(allChainIds)
   })
 
   afterEach(async () => {
-    // Exit the Anvil nodes
-    await execAsync(`kill $(lsof -t -i:42001)`)
-    await execAsync(`kill $(lsof -t -i:42111)`)
-    await execAsync(`kill $(lsof -t -i:42010)`)
+    await killAnvilNodes(
+      allNetworkNames.map((network) => SUPPORTED_NETWORKS[network])
+    )
   })
 
   // TODO(end): .only
-  it.only('Proposes with preview on a single testnet', async () => {
+  it('Proposes with preview on a single testnet', async () => {
     // We run `forge clean` to ensure that a proposal can occur even if we're running
     // a fresh compilation process.
     // await execAsync(`forge clean`) // TODO(end): undo
@@ -640,10 +641,7 @@ describe('Propose CLI command', () => {
 
 /**
  * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the the
- * estimated gas is 35% to 55% greater than the actual gas used in the deployment. Although we
- * specify a gas estimate multiplier of 30% when calculating the gas estimates in the proposal
- * simulation, this tends to produce gas estimates that are roughly 35% to 55% higher than the
- * actual gas used.
+ * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (
   scriptPath: string,
@@ -689,11 +687,7 @@ const assertValidGasEstimates = async (
       throw new Error(`Could not find RPC URL for: ${networkName}.`)
     }
 
-    const {
-      moduleAndGnosisSafeBroadcast,
-      approvalBroadcast,
-      executionBroadcast,
-    } = await deploy(
+    const { receipts } = await deploy(
       scriptPath,
       networkName,
       true, // Skip preview
@@ -703,52 +697,22 @@ const assertValidGasEstimates = async (
       true // Skip force recompile
     )
 
-    if (!executionBroadcast || !approvalBroadcast) {
-      throw new Error(`Could not load approval or execution broadcast folder.`)
+    if (!receipts) {
+      throw new Error(`Could not load receipts.`)
     }
-
-    let moduleAndGnosisSafeGasUsedHexString: string
-    if (isModuleAndGnosisSafeDeployed) {
-      expect(moduleAndGnosisSafeBroadcast).to.be.undefined
-      moduleAndGnosisSafeGasUsedHexString = '0x00'
-    } else {
-      // Narrow the TypeScript type of the broadcast
-      if (!moduleAndGnosisSafeBroadcast) {
-        throw new Error(`Could not load deployment broadcast folder.`)
-      }
-
-      // Check that there's a single receipt for the broadcast file that deployed the Gnosis Safe and
-      // Sphinx Module.
-      expect(moduleAndGnosisSafeBroadcast.receipts.length).equals(1)
-
-      moduleAndGnosisSafeGasUsedHexString =
-        moduleAndGnosisSafeBroadcast.receipts[0].gasUsed
-    }
-
-    expect(approvalBroadcast.receipts.length).equals(1)
-    const approvalGasUsedHexString = approvalBroadcast.receipts[0].gasUsed
 
     // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
     // user's deployment because multiple actions may be batched into a single call to the Sphinx
     // Module's `execute` function.
 
     // Calculate the amount of gas used in the transaction receipts.
-    const actualGasUsed = executionBroadcast.receipts
+    const actualGasUsed = receipts
       .map((receipt) => receipt.gasUsed)
-      // Add the gas used to deploy the Gnosis Safe and Sphinx Module. This equals 0 if they were
-      // already deployed.
-      .concat(moduleAndGnosisSafeGasUsedHexString)
-      // Add the gas used by the `approve` transaction.
-      .concat(approvalGasUsedHexString)
-      // Convert the gas values from hex strings to decimal strings.
-      .map((gas) => parseInt(gas, 16))
+      .map(Number)
       // Sum the gas values
       .reduce((a, b) => a + b)
 
-    // Checks if the estimated gas is 35% to 55% greater than the actual gas used. We use a range to
-    // allow for fluctuations in the gas estimation logic.
-    expect(Number(estimatedGas)).to.be.above(actualGasUsed * 1.35)
-    expect(Number(estimatedGas)).to.be.below(actualGasUsed * 1.55)
+    expect(Number(estimatedGas)).to.equal(Math.round(actualGasUsed * 1.3))
   }
 }
 

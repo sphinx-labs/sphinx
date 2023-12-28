@@ -2,10 +2,13 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { makeSphinxMerkleTree, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { HumanReadableAction, HumanReadableActions } from '../actions/types'
-import { callWithTimeout, getConfigArtifactsRemote } from '../utils'
+import {
+  callWithTimeout,
+  getConfigArtifactsRemote,
+  getReadableActions,
+} from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
 import { makeDeploymentData, getParsedConfigWithCompilerInputs } from '../tasks'
-import { getReadableActions } from './utils'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string

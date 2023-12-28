@@ -13,7 +13,7 @@ import {
 import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedNetworkName } from '../networks'
-import { ParsedContractDeployments } from '../actions/types'
+import { ParsedContractDeployment } from '../actions/types'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -148,7 +148,7 @@ export interface RawCreate2ActionInput extends SphinxTransaction {
 }
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
-  contracts: ParsedContractDeployments
+  contracts: Array<ParsedContractDeployment>
   index: string
 }
 
@@ -171,7 +171,7 @@ export interface RawFunctionCallActionInput extends SphinxTransaction {
 }
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
-  contracts: ParsedContractDeployments
+  contracts: Array<ParsedContractDeployment>
   index: string
 }
 

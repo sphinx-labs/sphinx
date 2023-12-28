@@ -35,7 +35,6 @@
     "@ethersproject/bignumber": "^5.7.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@nomicfoundation/hardhat-verify": "^2.0.2",
-    "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/merkle-tree": "1.0.5",
     "@sphinx-labs/contracts": "^0.14.0",
