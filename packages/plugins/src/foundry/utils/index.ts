@@ -734,7 +734,6 @@ export const isFoundryMultiChainDryRun = (
   return (
     Array.isArray((dryRun as FoundryMultiChainDryRun).deployments) &&
     typeof (dryRun as FoundryMultiChainDryRun).timestamp === 'number' &&
-    typeof (dryRun as FoundryMultiChainDryRun).path === 'string' &&
     !isFoundrySingleChainDryRun(dryRun)
   )
 }

@@ -183,6 +183,12 @@ describe('Solidity Compiler', () => {
 
     // If no errors, the test passes
     expect(errorMessages).to.be.empty
+
+    if (errorMessages.length > 0) {
+      for (const error of errorMessages) {
+        console.error(error)
+      }
+    }
   })
 })
 

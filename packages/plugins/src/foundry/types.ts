@@ -46,7 +46,6 @@ export type FoundrySingleChainBroadcast = {
 export type FoundryMultiChainDryRun = {
   deployments: Array<FoundrySingleChainDryRun>
   timestamp: number
-  path: string
 }
 
 export type FoundrySingleChainDryRun = {
