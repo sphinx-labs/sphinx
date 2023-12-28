@@ -24,7 +24,6 @@ import ora from 'ora'
 import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
-  CompilerConfig,
   ConfigArtifacts,
   DeploymentInfo,
   ParsedConfig,
@@ -59,6 +58,7 @@ export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
+  mockConfigArtifacts?: ConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
@@ -228,10 +228,9 @@ export const buildParsedConfigArray = async (
     collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = mockConfigArtifacts
+    ? mockConfigArtifacts
+    : await getConfigArtifacts(uniqueFullyQualifiedNames, uniqueContractNames)
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo }, i) =>
       makeParsedConfig(
@@ -269,11 +268,13 @@ export const propose = async (
   scriptPath: string,
   targetContract?: string,
   skipForceRecompile: boolean = false,
+  mockConfigArtifacts?: ConfigArtifacts,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   proposalRequest?: ProposalRequest
   ipfsData?: string
   configArtifacts?: ConfigArtifacts
+  parsedConfigArray?: Array<ParsedConfig>
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -318,6 +319,7 @@ export const propose = async (
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
+      mockConfigArtifacts,
       targetContract,
       spinner
     )
@@ -348,14 +350,7 @@ export const propose = async (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const { configUri, compilerConfigs } =
-    await getParsedConfigWithCompilerInputs(
-      parsedConfigArray,
-      false,
-      configArtifacts
-    )
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const deploymentData = makeDeploymentData('', parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built proposal.`)
@@ -415,13 +410,16 @@ export const propose = async (
     'forge',
     proposalSimulationArgs
   )
+
   if (code !== 0) {
-    spinner.stop()
+    spinner?.stop()
     // The `stdout` contains the trace of the error.
     console.log(stdout)
     // The `stderr` contains the error message.
     console.log(stderr)
     process.exit(1)
+  } else if (!silent) {
+    console.log(stdout)
   }
 
   const dryRun =
@@ -454,7 +452,7 @@ export const propose = async (
 
   spinner.succeed(`Simulation succeeded.`)
 
-  const preview = getPreview(compilerConfigs)
+  const preview = getPreview(parsedConfigArray)
   if (confirm) {
     spinner.info(`Skipping preview.`)
   } else {
@@ -466,7 +464,7 @@ export const propose = async (
     ? spinner.start('Finishing dry run...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = compilerConfigs.map((compilerConfig) => {
+  const shouldBeEqual = parsedConfigArray.map((compilerConfig) => {
     return {
       newConfig: compilerConfig.newConfig,
       safeAddress: compilerConfig.safeAddress,
@@ -480,10 +478,11 @@ export const propose = async (
         `Please use the same Safe and SphinxModule on all chains.`
     )
   }
+
   // Since we know that the following fields are the same for each network, we get their values
   // here.
   const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    compilerConfigs[0]
+    parsedConfigArray[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   const chainStatus: Array<{
@@ -491,28 +490,28 @@ export const propose = async (
     numLeaves: number
   }> = []
   const chainIds: Array<number> = []
-  for (const compilerConfig of compilerConfigs) {
+  for (const parsedConfig of parsedConfigArray) {
     // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
     // logic. From the perspective of the backend, these networks don't serve any purpose in the
     // `ProposalRequest`.
-    if (compilerConfig.actionInputs.length === 0) {
+    if (parsedConfig.actionInputs.length === 0) {
       continue
     }
 
     const projectDeployment = getProjectDeploymentForChain(
-      configUri,
+      '',
       merkleTree,
-      compilerConfig
+      parsedConfig
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
 
     chainStatus.push({
-      chainId: Number(compilerConfig.chainId),
-      numLeaves: compilerConfig.actionInputs.length + 1,
+      chainId: Number(parsedConfig.chainId),
+      numLeaves: parsedConfig.actionInputs.length + 1,
     })
-    chainIds.push(Number(compilerConfig.chainId))
+    chainIds.push(Number(parsedConfig.chainId))
   }
 
   const proposalRequest: ProposalRequest = {
@@ -536,10 +535,25 @@ export const propose = async (
     },
   }
 
-  const ipfsData = JSON.stringify(compilerConfigs, null, 2)
+  let ipfsData: string | undefined
+  if (!mockConfigArtifacts) {
+    const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
+      parsedConfigArray,
+      false,
+      configArtifacts
+    )
+    ipfsData = JSON.stringify(compilerConfigs, null, 2)
+  }
+
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
+    if (!ipfsData || mockConfigArtifacts) {
+      throw new Error(
+        'Cannot use mock artifacts in production, please report this to the developers'
+      )
+    }
+
     await relayProposal(proposalRequest)
     await relayIPFSCommit(apiKey, newConfig.orgId, [ipfsData])
     spinner.succeed(
@@ -548,15 +562,15 @@ export const propose = async (
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData, configArtifacts }
+  return { proposalRequest, ipfsData, configArtifacts, parsedConfigArray }
 }
 
 const getProjectDeploymentForChain = (
   configUri: string,
   merkleTree: SphinxMerkleTree,
-  compilerConfig: CompilerConfig
+  parsedConfig: ParsedConfig
 ): ProjectDeployment | undefined => {
-  const { newConfig, initialState, chainId } = compilerConfig
+  const { newConfig, initialState, chainId } = parsedConfig
 
   const approvalLeaves = merkleTree.leavesWithProofs.filter(
     (l) =>

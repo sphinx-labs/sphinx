@@ -21,10 +21,10 @@ import {
   ParsedConfig,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
-  getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   MerkleRootState,
   MerkleRootStatus,
+  ConfigArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -60,6 +60,7 @@ export const deploy = async (
   targetContract?: string,
   verify?: boolean,
   skipForceRecompile: boolean = false,
+  mockConfigArtifacts?: ConfigArtifacts,
   prompt: (q: string) => Promise<void> = userConfirmation
 ): Promise<{
   parsedConfig?: ParsedConfig
@@ -263,10 +264,9 @@ export const deploy = async (
     [deploymentInfo]
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = mockConfigArtifacts
+    ? mockConfigArtifacts
+    : await getConfigArtifacts(uniqueFullyQualifiedNames, uniqueContractNames)
 
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
@@ -275,20 +275,8 @@ export const deploy = async (
     configArtifacts
   )
 
-  const { configUri, compilerConfigs } =
-    await getParsedConfigWithCompilerInputs(
-      [parsedConfig],
-      false,
-      configArtifacts
-    )
+  const deploymentData = makeDeploymentData('', [parsedConfig])
 
-  if (compilerConfigs.length !== 1) {
-    throw new Error(
-      `The 'compilerConfigs' array length is: ${compilerConfigs.length}. Expected: 1. Should never happen.`
-    )
-  }
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built deployment.`)
@@ -410,16 +398,18 @@ export const deploy = async (
 
   spinner.start(`Writing contract deployment artifacts...`)
 
-  const deploymentArtifactPath = await writeDeploymentArtifacts(
-    provider,
-    parsedConfig,
-    executionBroadcast,
-    deploymentFolder,
-    configArtifacts
-  )
-  spinner.succeed(
-    `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
-  )
+  if (!mockConfigArtifacts) {
+    const deploymentArtifactPath = await writeDeploymentArtifacts(
+      provider,
+      parsedConfig,
+      executionBroadcast,
+      deploymentFolder,
+      configArtifacts
+    )
+    spinner.succeed(
+      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+    )
+  }
 
   if (!silent) {
     displayDeploymentTable(parsedConfig)

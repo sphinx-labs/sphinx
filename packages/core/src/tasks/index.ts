@@ -116,10 +116,10 @@ IPFS_API_KEY_SECRET: ...
 
 export const makeDeploymentData = (
   configUri: string,
-  compilerConfigArray: Array<CompilerConfig>
+  parsedConfigArray: Array<ParsedConfig>
 ): DeploymentData => {
   const data: DeploymentData = {}
-  for (const compilerConfig of compilerConfigArray) {
+  for (const compilerConfig of parsedConfigArray) {
     // We only add a `DeploymentData` object for networks that have at least one `EXECUTE` leaf. If
     // we don't enforce this, the default behavior would be to add an `APPROVE` leaf without any
     // `EXECUTE` leaves on chains with empty deployments. This is only desirable if the user is
