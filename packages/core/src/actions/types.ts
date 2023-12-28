@@ -112,9 +112,6 @@ export type ContractInfo = {
   addr: string
 }
 
-type IPFSHash = string
-export type IPFSCommitResponse = IPFSHash[]
-
 /**
  * @param canonicalConfig Deprecated field.
  * @param gasEstimates The estimated amount of gas required to the entire deployment tree on each
@@ -135,6 +132,7 @@ export type ProposalRequest = {
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   diff: SphinxPreview
+  compilerConfigId: string | undefined
   tree: {
     root: string
     chainStatus: Array<{
@@ -154,5 +152,4 @@ export type ProjectDeployment = {
   deploymentId: string
   name: string
   isExecuting: boolean
-  configUri: string
 }

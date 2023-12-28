@@ -40,7 +40,6 @@ import {
 } from './config/types'
 import {
   SphinxActionType,
-  IPFSCommitResponse,
   ProposalRequest,
   MerkleRootStatus,
 } from './actions/types'
@@ -477,19 +476,22 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
   }
 }
 
-export const relayIPFSCommit = async (
+export const storeCanonicalConfig = async (
   apiKey: string,
   orgId: string,
-  ipfsData: Array<string>
-): Promise<IPFSCommitResponse> => {
-  const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+  configData: Array<string>
+): Promise<string> => {
+  const response: {
+    status: number
+    data: string[]
+  } = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
     apiKey,
     orgId,
-    ipfsData,
+    configData,
   })
 
   if (response.status === 200) {
-    return response.data
+    return response.data[0]
   } else if (response.status === 400) {
     throw new Error(
       'Malformed request pinning to IPFS, please report this to the developers'
