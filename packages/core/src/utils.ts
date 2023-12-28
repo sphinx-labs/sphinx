@@ -534,6 +534,10 @@ export const arraysEqual = (
   return true
 }
 
+/**
+ * @dev We do not call this function directly, instead we call it via SphinxContext to facilitate.
+ * dependency injection.
+ */
 export const userConfirmation = async (question: string) => {
   const confirmed = await yesno({
     question,

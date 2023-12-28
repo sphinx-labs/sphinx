@@ -11,6 +11,7 @@ import {
   fetchNPMRemappings,
   fetchPNPMRemappings,
 } from '../sample-project/sample-foundry-config'
+import { makeSphinxContext } from './context'
 
 // Load environment variables from .env
 dotenv.config()
@@ -107,6 +108,7 @@ yargs(hideBin(process.argv))
         dryRun,
         silent,
         scriptPath,
+        makeSphinxContext(),
         targetContract
       )
     }
@@ -245,7 +247,15 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      await deploy(scriptPath, network, confirm, silent, targetContract, verify)
+      await deploy(
+        scriptPath,
+        network,
+        confirm,
+        silent,
+        makeSphinxContext(),
+        targetContract,
+        verify
+      )
     }
   )
   // The following command displays the help menu when `npx sphinx` is called with an incorrect

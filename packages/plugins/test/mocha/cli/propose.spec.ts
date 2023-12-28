@@ -3,7 +3,6 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  ConfigArtifacts,
   Create2ActionInput,
   ParsedConfig,
   ProposalRequest,
@@ -12,7 +11,6 @@ import {
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
   sleep,
-  userConfirmation,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -27,7 +25,8 @@ import {
 } from '../../../src/foundry/utils'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
-import { fetchMockConfigArtifacts } from '../utils'
+import { makeMockSphinxContext } from '../utils'
+import { SphinxContext } from '../../../src/cli/context'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -78,6 +77,9 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
     const targetContract = 'Simple1'
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose(
         false, // Run preview
@@ -85,15 +87,12 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        context,
         targetContract,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyContract2',
-        ]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true
       )
 
     // This prevents a TypeScript type error.
@@ -157,7 +156,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       parsedConfigArray,
-      configArtifacts,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -169,6 +168,9 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
     const targetContract = 'Simple1'
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose(
         true, // Skip preview
@@ -176,17 +178,14 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        context,
         targetContract,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
+        true
         // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
         // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyContract2',
-        ]), // Skip reading the config artifacts, and use these instead
-        userConfirmation
       )
 
     // This prevents a TypeScript type error.
@@ -288,7 +287,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       parsedConfigArray,
-      configArtifacts,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -301,6 +300,9 @@ describe('Propose CLI command', () => {
   it('Proposes large deployment', async () => {
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyLargeContract',
+    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose(
         true, // Skip preview
@@ -308,15 +310,12 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        context,
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyLargeContract',
-        ]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true
       )
 
     // This prevents a TypeScript type error.
@@ -389,7 +388,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       parsedConfigArray,
-      configArtifacts,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -403,11 +402,10 @@ describe('Propose CLI command', () => {
       'sepolia',
       true, // Skip preview
       true, // Silent
+      makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
       'Simple1',
       false, // Don't verify on Etherscan
-      true, // Skip force recompile
-      fetchMockConfigArtifacts(['contracts/test/MyContracts.sol:MyContract2']), // Skip reading the config artifacts, and use these instead
-      mockPrompt
+      true // Skip force recompile
     )
 
     if (!firstParsedConfig) {
@@ -416,6 +414,9 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose(
         false, // Run preview
@@ -423,15 +424,12 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        context,
         targetContract,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyContract2',
-        ]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true
       )
 
     // This prevents a TypeScript type error.
@@ -483,7 +481,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       parsedConfigArray,
-      configArtifacts,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       true, // Gnosis Safe and Sphinx Module were already deployed.
@@ -501,13 +499,12 @@ describe('Propose CLI command', () => {
       true, // Dry run
       true, // Silent
       'contracts/test/script/Empty.s.sol',
+      makeMockSphinxContext([]),
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
-      true,
-      fetchMockConfigArtifacts([]), // Skip reading the config artifacts, and use these instead
-      mockPrompt
+      true
     )
 
     expect(proposalRequest).to.be.undefined
@@ -521,6 +518,9 @@ describe('Propose CLI command', () => {
   it('Proposes on one chain and skips proposal on a different chain', async () => {
     const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose(
         false, // Show preview
@@ -528,15 +528,12 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        context,
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
-        fetchMockConfigArtifacts([
-          'contracts/test/MyContracts.sol:MyContract2',
-        ]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true
       )
 
     // This prevents a TypeScript type error.
@@ -602,7 +599,7 @@ describe('Propose CLI command', () => {
       scriptPath,
       proposalRequest.gasEstimates,
       parsedConfigArray,
-      configArtifacts,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -659,13 +656,12 @@ describe('Propose CLI command', () => {
         true, // Dry run
         true, // Silent
         scriptPath,
+        makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
         'RevertDuringSimulation_Script', // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true,
-        fetchMockConfigArtifacts([`${scriptPath}:RevertDuringSimulation`]), // Skip reading the config artifacts, and use these instead
-        mockPrompt
+        true
       )
     } catch (e) {
       if (!e.message.includes('process.exit called')) {
@@ -696,7 +692,7 @@ const assertValidGasEstimates = async (
   scriptPath: string,
   networkGasEstimates: ProposalRequest['gasEstimates'],
   parsedConfigArray: Array<ParsedConfig>,
-  mockConfigArtifacts: ConfigArtifacts,
+  sphinxContext: SphinxContext,
   foundryToml: FoundryToml,
   sphinxPluginTypesInterface: ethers.Interface,
   isModuleAndGnosisSafeDeployed: boolean,
@@ -745,10 +741,10 @@ const assertValidGasEstimates = async (
       networkName,
       true, // Skip preview
       true, // Silent
+      sphinxContext,
       targetContract,
       false, // Don't verify on block explorer
-      true, // Skip force recompile
-      mockConfigArtifacts // Skip reading the config artifacts
+      true // Skip force recompile
     )
 
     if (!executionBroadcast || !approvalBroadcast) {

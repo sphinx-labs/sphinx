@@ -1,18 +1,46 @@
 import { ConfigArtifacts } from '@sphinx-labs/core'
 
-// The type is incorrect by design, only the fully qualified name is required when overriding the config artifacts
-// as long as the test does not rely on the deployment artifacts being output.
-// If testing the deployment artifacts, then we should use the standard config artifact fetching process.
-export const fetchMockConfigArtifacts = (
-  fullyQualifiedNames: string[]
-): ConfigArtifacts => {
-  const configArtifacts: ConfigArtifacts = {}
-  for (const name of fullyQualifiedNames) {
-    configArtifacts[name] = {
-      buildInfo: {},
-      artifact: {},
-    } as any
-  }
+import { readFoundryContractArtifact } from '../../src/foundry/utils'
 
-  return configArtifacts
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+const mockPrompt = async (q: string) => {}
+
+export const makeMockSphinxContext = (
+  mockedFullyQualifiedNames: Array<string>
+) => {
+  return {
+    prompt: mockPrompt,
+    makeGetConfigArtifacts: (
+      artifactFolder: string,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _buildInfoFolder: string,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      projectRoot: string,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      _cachePath: string
+    ) => {
+      return async (
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _fullyQualifiedNames: Array<string>,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _contractNames: Array<string>
+      ) => {
+        const configArtifacts: ConfigArtifacts = {}
+        for (const name of mockedFullyQualifiedNames) {
+          const artifact = await readFoundryContractArtifact(
+            name,
+            projectRoot,
+            artifactFolder
+          )
+          configArtifacts[name] = {
+            buildInfo: {
+              id: '0',
+            },
+            artifact,
+          } as any
+        }
+        return configArtifacts
+      }
+    },
+  }
 }

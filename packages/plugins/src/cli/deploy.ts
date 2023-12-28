@@ -15,7 +15,6 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  userConfirmation,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
   ParsedConfig,
@@ -24,7 +23,6 @@ import {
   makeDeploymentData,
   MerkleRootState,
   MerkleRootStatus,
-  ConfigArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -39,7 +37,6 @@ import {
   getSphinxLeafGasEstimates,
   getSphinxSafeAddressFromScript,
   getUniqueNames,
-  makeGetConfigArtifacts,
   readFoundrySingleChainDryRun,
   readInterface,
 } from '../foundry/utils'
@@ -51,17 +48,17 @@ import {
 } from '../foundry/decode'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 import { FoundrySingleChainBroadcast } from '../foundry/types'
+import { SphinxContext } from './context'
 
 export const deploy = async (
   scriptPath: string,
   network: string,
   skipPreview: boolean,
   silent: boolean,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   verify?: boolean,
-  skipForceRecompile: boolean = false,
-  mockConfigArtifacts?: ConfigArtifacts,
-  prompt: (q: string) => Promise<void> = userConfirmation
+  skipForceRecompile: boolean = false
 ): Promise<{
   parsedConfig?: ParsedConfig
   preview?: ReturnType<typeof getPreview>
@@ -144,7 +141,7 @@ export const deploy = async (
   )
   const sphinxIface = readInterface(artifactFolder, 'Sphinx')
 
-  const getConfigArtifacts = makeGetConfigArtifacts(
+  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     artifactFolder,
     buildInfoFolder,
     projectRoot,
@@ -263,9 +260,10 @@ export const deploy = async (
     [deploymentInfo]
   )
 
-  const configArtifacts = mockConfigArtifacts
-    ? mockConfigArtifacts
-    : await getConfigArtifacts(uniqueFullyQualifiedNames, uniqueContractNames)
+  const configArtifacts = await getConfigArtifacts(
+    uniqueFullyQualifiedNames,
+    uniqueContractNames
+  )
 
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
@@ -287,7 +285,7 @@ export const deploy = async (
     preview = getPreview([parsedConfig])
     spinner.stop()
     const previewString = getPreviewString(preview, true)
-    await prompt(previewString)
+    await sphinxContext.prompt(previewString)
   }
 
   // Check if the Gnosis Safe is already deployed. If it isn't, we'll deploy the Gnosis Safe and
@@ -397,18 +395,16 @@ export const deploy = async (
 
   spinner.start(`Writing contract deployment artifacts...`)
 
-  if (!mockConfigArtifacts) {
-    const deploymentArtifactPath = await writeDeploymentArtifacts(
-      provider,
-      parsedConfig,
-      executionBroadcast,
-      deploymentFolder,
-      configArtifacts
-    )
-    spinner.succeed(
-      `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
-    )
-  }
+  const deploymentArtifactPath = await writeDeploymentArtifacts(
+    provider,
+    parsedConfig,
+    executionBroadcast,
+    deploymentFolder,
+    configArtifacts
+  )
+  spinner.succeed(
+    `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+  )
 
   if (!silent) {
     displayDeploymentTable(parsedConfig)
