@@ -91,6 +91,7 @@ export const buildParsedConfigArray = async (
   const collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
+    forkUrl: string
   }> = []
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
@@ -192,7 +193,7 @@ export const buildParsedConfigArray = async (
         )
       : []
 
-    collected.push({ deploymentInfo, actionInputs })
+    collected.push({ deploymentInfo, actionInputs, forkUrl: rpcUrl })
   }
 
   spinner?.succeed(`Collected transactions.`)
@@ -213,7 +214,6 @@ export const buildParsedConfigArray = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    networkNames,
     sphinxPluginTypesInterface,
     collected,
     targetContract,

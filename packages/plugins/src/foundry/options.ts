@@ -49,7 +49,14 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
  * parsing needed to support them.
  */
 export const getFoundryToml = async (): Promise<FoundryToml> => {
-  const { stdout } = await spawnAsync('forge', ['config', '--json'])
+  const { stdout, stderr, code } = await spawnAsync('forge', [
+    'config',
+    '--json',
+  ])
+  if (code !== 0) {
+    console.log(stderr)
+    process.exit(1)
+  }
   const forgeConfig = JSON.parse(stdout)
 
   const buildInfoPath =
