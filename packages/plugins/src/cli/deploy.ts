@@ -272,7 +272,7 @@ export const deploy = async (
     configArtifacts
   )
 
-  const deploymentData = makeDeploymentData('', [parsedConfig])
+  const deploymentData = makeDeploymentData([parsedConfig])
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 

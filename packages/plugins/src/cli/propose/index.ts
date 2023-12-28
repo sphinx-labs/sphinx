@@ -13,11 +13,11 @@ import {
   getPreviewString,
   getReadableActions,
   makeDeploymentData,
-  relayIPFSCommit,
   relayProposal,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
   getNetworkNameForChainId,
+  storeCanonicalConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -271,7 +271,7 @@ export const propose = async (
   skipForceRecompile: boolean = false
 ): Promise<{
   proposalRequest?: ProposalRequest
-  ipfsData?: string
+  canonicalConfigData?: string
   configArtifacts?: ConfigArtifacts
   parsedConfigArray?: Array<ParsedConfig>
 }> => {
@@ -349,7 +349,7 @@ export const propose = async (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const deploymentData = makeDeploymentData('', parsedConfigArray)
+  const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built proposal.`)
@@ -498,7 +498,6 @@ export const propose = async (
     }
 
     const projectDeployment = getProjectDeploymentForChain(
-      '',
       merkleTree,
       parsedConfig
     )
@@ -528,13 +527,14 @@ export const propose = async (
     projectDeployments,
     gasEstimates,
     diff: preview,
+    compilerConfigId: undefined,
     tree: {
       root: merkleTree.root,
       chainStatus,
     },
   }
 
-  let ipfsData: string | undefined
+  let canonicalConfigData: string | undefined
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
@@ -542,30 +542,39 @@ export const propose = async (
     // We assume that our tests will always use the dry run flag when mocking.
     const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
       parsedConfigArray,
-      false,
       configArtifacts
     )
-    ipfsData = JSON.stringify(compilerConfigs, null, 2)
+    canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
 
-    if (!ipfsData) {
+    if (!canonicalConfigData) {
       throw new Error(
         'Cannot use mock artifacts in production, please report this to the developers'
       )
     }
 
+    const compilerConfigId = await storeCanonicalConfig(
+      apiKey,
+      newConfig.orgId,
+      [canonicalConfigData]
+    )
+    proposalRequest.compilerConfigId = compilerConfigId
+
     await relayProposal(proposalRequest)
-    await relayIPFSCommit(apiKey, newConfig.orgId, [ipfsData])
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData, configArtifacts, parsedConfigArray }
+  return {
+    proposalRequest,
+    canonicalConfigData,
+    configArtifacts,
+    parsedConfigArray,
+  }
 }
 
 const getProjectDeploymentForChain = (
-  configUri: string,
   merkleTree: SphinxMerkleTree,
   parsedConfig: ParsedConfig
 ): ProjectDeployment | undefined => {
@@ -592,6 +601,5 @@ const getProjectDeploymentForChain = (
     deploymentId,
     name: newConfig.projectName,
     isExecuting: initialState.isExecuting,
-    configUri,
   }
 }

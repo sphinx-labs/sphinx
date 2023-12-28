@@ -11,7 +11,7 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function setUp() public {
-        sphinxConfig.projectName = "11/10";
+        sphinxConfig.projectName = "test project";
         sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];

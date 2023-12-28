@@ -166,7 +166,7 @@ const testProposalSimulation = async (
     throw new Error(`ParsedConfig or ConfigArtifacts is not defined.`)
   }
 
-  const deploymentData = makeDeploymentData('', parsedConfigArray)
+  const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   const humanReadableActions = parsedConfigArray.map((e) =>

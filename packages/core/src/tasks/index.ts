@@ -1,8 +1,4 @@
-import process from 'process'
-
 import * as dotenv from 'dotenv'
-import Hash from 'ipfs-only-hash'
-import { create } from 'ipfs-http-client'
 import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
 import {
@@ -18,11 +14,8 @@ dotenv.config()
 
 export const getParsedConfigWithCompilerInputs = async (
   parsedConfigs: Array<ParsedConfig>,
-  commitToIpfs: boolean,
-  configArtifacts: ConfigArtifacts,
-  ipfsUrl?: string
+  configArtifacts: ConfigArtifacts
 ): Promise<{
-  configUri: string
   compilerConfigs: Array<CompilerConfig>
 }> => {
   const sphinxInputs: Array<BuildInfoInputs> = []
@@ -72,50 +65,10 @@ export const getParsedConfigWithCompilerInputs = async (
 
     compilerConfigs.push(compilerConfig)
   }
-
-  const ipfsData = JSON.stringify(compilerConfigs, null, 2)
-
-  let ipfsHash
-  if (!commitToIpfs) {
-    // Get the IPFS hash without publishing anything on IPFS.
-    ipfsHash = await Hash.of(ipfsData)
-  } else if (ipfsUrl) {
-    const ipfs = create({
-      url: ipfsUrl,
-    })
-    ipfsHash = (await ipfs.add(ipfsData)).path
-  } else if (process.env.IPFS_PROJECT_ID && process.env.IPFS_API_KEY_SECRET) {
-    const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-    const ipfs = create({
-      host: 'ipfs.infura.io',
-      port: 5001,
-      protocol: 'https',
-      headers: {
-        authorization: `Basic ${Buffer.from(projectCredentials).toString(
-          'base64'
-        )}`,
-      },
-    })
-    ipfsHash = (await ipfs.add(ipfsData)).path
-  } else {
-    throw new Error(
-      `To commit to IPFS, you must first setup an IPFS project with
-Infura: https://app.infura.io/. Once you've done this, copy and paste the following
-variables into your .env file:
-
-IPFS_PROJECT_ID: ...
-IPFS_API_KEY_SECRET: ...
-        `
-    )
-  }
-
-  const configUri = `ipfs://${ipfsHash}`
-
-  return { configUri, compilerConfigs }
+  return { compilerConfigs }
 }
 
 export const makeDeploymentData = (
-  configUri: string,
   parsedConfigArray: Array<ParsedConfig>
 ): DeploymentData => {
   const data: DeploymentData = {}
@@ -148,7 +101,7 @@ export const makeDeploymentData = (
       executor: compilerConfig.executorAddress,
       safeProxy: compilerConfig.safeAddress,
       moduleProxy: compilerConfig.moduleAddress,
-      uri: configUri,
+      uri: '',
       txs,
       arbitraryChain: compilerConfig.arbitraryChain,
     }
