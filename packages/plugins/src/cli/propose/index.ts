@@ -534,18 +534,36 @@ export const propose = async (
     },
   }
 
+  // This could fail if we're using mocked config artifacts which do not load the entire build info file.
+  // So we catch the error and then rethrow it if this is a production proposal (not a dry run).
+  // If this is not a production deployment, then `canonicalConfigData` will returned with the value undefined.
   let canonicalConfigData: string | undefined
-  if (isDryRun) {
-    spinner.succeed(`Proposal dry run succeeded.`)
-  } else {
-    // This could fail if we're using mocked config artifacts b/c we don't load the entire build info file.
-    // We assume that our tests will always use the dry run flag when mocking.
+  try {
     const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
       parsedConfigArray,
       configArtifacts
     )
     canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
+  } catch (e) {
+    if (!dryRun) {
+      throw e
+    } else {
+      if (!silent) {
+        console.error(e)
+      }
+      spinner.stop()
+      return {
+        proposalRequest,
+        canonicalConfigData,
+        configArtifacts,
+        parsedConfigArray,
+      }
+    }
+  }
 
+  if (isDryRun) {
+    spinner.succeed(`Proposal dry run succeeded.`)
+  } else {
     if (!canonicalConfigData) {
       throw new Error(
         'Cannot use mock artifacts in production, please report this to the developers'
