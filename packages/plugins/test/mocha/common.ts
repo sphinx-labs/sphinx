@@ -27,6 +27,7 @@ export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   for (const chainId of chainIds) {
     const port = getAnvilPort(chainId)
 
+    // TODO: undo for-loop
     if (await isPortOpen(port)) {
       const { stdout } = await execAsync(`lsof -t -i:${port}`)
       const pids = stdout.trim().split('\n')

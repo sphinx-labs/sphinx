@@ -61,7 +61,6 @@ export type ParsedVariable =
   | boolean
   | string
   | number
-  | bigint
   | Array<ParsedVariable>
   | {
       [name: string]: ParsedVariable

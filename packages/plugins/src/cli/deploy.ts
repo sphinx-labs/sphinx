@@ -319,13 +319,9 @@ export const deploy = async (
 
   await simulate(
     parsedConfig,
-    merkleTree,
+    deploymentData,
     forkUrl,
-    signer,
-    parsedConfig.isLiveNetwork,
-    estimateGas,
-    approveDeployment,
-    executeActions
+    parsedConfig.isLiveNetwork
   )
 
   // TODO(end): rm

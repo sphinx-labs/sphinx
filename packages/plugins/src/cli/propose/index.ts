@@ -18,10 +18,6 @@ import {
   getParsedConfigWithCompilerInputs,
   userConfirmation,
   getNetworkNameForChainId,
-  executeActionsViaManagedService,
-  estimateGasViaManagedService,
-  approveDeploymentViaManagedService,
-  getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -365,17 +361,11 @@ export const propose = async (
       process.exit(1)
     }
 
-    const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0))
-
     const { receipts } = await simulate(
       compilerConfig,
-      merkleTree,
+      deploymentData,
       rpcUrl,
-      signer,
-      false, // Is not a live network broadcast
-      estimateGasViaManagedService,
-      approveDeploymentViaManagedService,
-      executeActionsViaManagedService
+      false // Is not a live network broadcast
     )
 
     const provider = new SphinxJsonRpcProvider(rpcUrl)

@@ -836,8 +836,7 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
     typeof a === 'number' ||
     typeof a === 'boolean' ||
     typeof a === 'number' ||
-    typeof a === 'string' ||
-    typeof a === 'bigint'
+    typeof a === 'string'
   ) {
     return a === b
   } else {
@@ -914,12 +913,13 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
  * @notice Spawns a child process and returns a promise that resolves when the process exits. This
  * function doesn't return the output until the promise resolves. Use this function instead of
  * `execAsync` if the command generates a lot of output, since `execAsync` will run out of memory if
- * the output is too large.
+ * the output is too large. TODO(docs): `inputData`.
  */
 export const spawnAsync = (
   cmd: string,
   args: string[],
-  env?: NodeJS.ProcessEnv
+  env?: NodeJS.ProcessEnv,
+  inputData?: string
 ): Promise<{ stdout: string; stderr: string; code: number | null }> => {
   return new Promise((resolve) => {
     const output: Buffer[] = []
@@ -937,6 +937,12 @@ export const spawnAsync = (
     child.stderr.on('data', (data: Buffer) => {
       error.push(data)
     })
+
+    // Write inputData to the child process stdin
+    if (inputData) {
+      child.stdin.write(inputData)
+      child.stdin.end()
+    }
 
     child.on('close', (code) => {
       return resolve({

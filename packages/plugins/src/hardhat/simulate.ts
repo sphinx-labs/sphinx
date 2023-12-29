@@ -2,24 +2,32 @@ import { join } from 'path'
 
 import {
   ParsedConfig,
-  EstimateGas,
-  ExecuteActions,
-  ApproveDeployment,
   runEntireDeploymentProcess,
+  spawnAsync,
+  estimateGasViaSigner,
+  estimateGasViaManagedService,
+  approveDeploymentViaSigner,
+  approveDeploymentViaManagedService,
+  executeActionsViaSigner,
+  executeActionsViaManagedService,
+  EstimateGas,
+  ApproveDeployment,
+  ExecuteActions,
+  getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { SphinxLeafWithProof, SphinxMerkleTree } from '@sphinx-labs/contracts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import {
+  DeploymentData,
+  SphinxLeafWithProof,
+  makeSphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
-type simulateDeploymentSubtaskArgs = {
-  merkleTree: SphinxMerkleTree
+// TODO(docs): this can't have functions as fields b/c we pass it into a child process. it also
+// can't have any fields that contain BigInts b/c we stringify then parse JSON.
+export type simulateDeploymentSubtaskArgs = {
   parsedConfig: ParsedConfig
+  deploymentData: DeploymentData
   isLiveNetworkBroadcast: boolean
-  config: string
-  signer: ethers.Wallet
-  estimateGas: EstimateGas
-  approveDeployment: ApproveDeployment
-  executeActions: ExecuteActions
 }
 
 /**
@@ -51,61 +59,48 @@ type simulateDeploymentSubtaskArgs = {
  */
 export const simulate = async (
   parsedConfig: ParsedConfig,
-  merkleTree: SphinxMerkleTree,
+  deploymentData: DeploymentData,
   rpcUrl: string,
-  signer: ethers.Wallet,
-  isLiveNetworkBroadcast: boolean,
-  estimateGas: EstimateGas,
-  approveDeployment: ApproveDeployment,
-  executeActions: ExecuteActions
+  isLiveNetworkBroadcast: boolean
 ): Promise<{
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
-  const hardhatConfigPath = join(rootPluginPath, 'dist', 'hardhat.config.js')
 
-  process.env['SPHINX_INTERNAL__FORK_URL'] = rpcUrl
-  process.env['SPHINX_INTERNAL__CHAIN_ID'] = parsedConfig.chainId
-  const initialHardhatConfigEnvVar = process.env['HARDHAT_CONFIG']
-  // We must temporarily set the Hardhat config using an environment variable so that Hardhat
-  // recognizes the Hardhat config for the simulation. If the user specified a `HARDHAT_CONFIG`
-  // environment variable, we'll set it after the simulation is done.
-  process.env['HARDHAT_CONFIG'] = join('dist', 'hardhat.config.js')
-
-  // We run the simulation by invoking a Hardhat subtask. We need to load the Hardhat Runtime
-  // Environment (HRE) because Hardhat doesn't document any lower-level functionality for running a
-  // fork. We could theoretically interact with lower-level components, but this would be brittle
-  // because Hardhat could change their internal functionality in a future minor or patch version.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
+  const envVars = {
+    SPHINX_INTERNAL__FORK_URL: rpcUrl,
+    SPHINX_INTERNAL__CHAIN_ID: parsedConfig.chainId,
+    // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
+    // Hardhat config when we import the HRE in the child process.
+    HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
+  }
 
   const taskParams: simulateDeploymentSubtaskArgs = {
     parsedConfig,
-    merkleTree,
-    signer,
+    deploymentData,
     isLiveNetworkBroadcast,
-    // The `config` parameter takes priority over the `HARDHAT_CONFIG` environment variable. (ref:
-    // https://hardhat.org/hardhat-runner/docs/reference/environment-variables). It's not strictly
-    // necessary to use this variable, but we do it anyways to make sure that we're using the
-    // correct Hardhat config.
-    config: hardhatConfigPath,
-    estimateGas,
-    approveDeployment,
-    executeActions,
   }
-  const {
-    receipts,
-    batches,
-  }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> = await hre.run(
-    'sphinxSimulateDeployment',
-    taskParams
+
+  const hardhatRunnerPath = join(
+    rootPluginPath,
+    'dist',
+    'hardhat',
+    'hardhatRunner.js'
+  )
+  const { stdout, stderr, code } = await spawnAsync(
+    'node',
+    [hardhatRunnerPath],
+    envVars,
+    JSON.stringify(taskParams)
   )
 
-  delete process.env['SPHINX_INTERNAL__FORK_URL']
-  delete process.env['SPHINX_INTERNAL__CHAIN_ID']
-  process.env['HARDHAT_CONFIG'] = initialHardhatConfigEnvVar
+  if (code !== 0) {
+    throw new Error(`Simulation failed: ${stderr}`)
+  }
+
+  const { receipts, batches } = JSON.parse(stdout)
 
   return { receipts, batches }
 }
@@ -119,20 +114,34 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const {
-    merkleTree,
-    parsedConfig,
-    isLiveNetworkBroadcast,
-    estimateGas,
-    approveDeployment,
-    executeActions,
-  } = taskArgs
+  const { parsedConfig, isLiveNetworkBroadcast, deploymentData } = taskArgs
 
   // This provider is connected to the forked in-process Hardhat node.
-  const provider: HardhatEthersProvider = hre.ethers.provider
+  const provider = hre.ethers.provider
 
-  const signer = taskArgs.signer.connect(provider)
+  let estimateGas: EstimateGas
+  let approveDeployment: ApproveDeployment
+  let executeActions: ExecuteActions
+  let signer: ethers.Wallet
+  if (isLiveNetworkBroadcast) {
+    const privateKey = process.env.PRIVATE_KEY
+    if (!privateKey) {
+      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
+    }
+    signer = new ethers.Wallet(privateKey, provider)
 
+    estimateGas = estimateGasViaSigner
+    approveDeployment = approveDeploymentViaSigner
+    executeActions = executeActionsViaSigner
+  } else {
+    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+
+    estimateGas = estimateGasViaManagedService
+    approveDeployment = approveDeploymentViaManagedService
+    executeActions = executeActionsViaManagedService
+  }
+
+  const merkleTree = makeSphinxMerkleTree(deploymentData)
   const { receipts, batches } = await runEntireDeploymentProcess(
     parsedConfig,
     merkleTree,
@@ -146,3 +155,9 @@ export const simulateDeploymentSubtask = async (
 
   return { receipts, batches }
 }
+
+// TODO(docs): put this somewhere: We run the simulation by invoking a Hardhat subtask. We need to
+// load the Hardhat Runtime Environment (HRE) because Hardhat doesn't document any lower-level
+// functionality for running a fork. We could theoretically interact with lower-level components,
+// but this would be brittle because Hardhat could change their internal functionality in a future
+// minor or patch version.

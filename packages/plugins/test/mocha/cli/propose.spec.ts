@@ -293,7 +293,8 @@ describe('Propose CLI command', () => {
 
   // We'll propose a script that deploys a contract near the contract size limit. We'll deploy it
   // dozens of times in the script.
-  it('Proposes large deployment', async () => {
+  // TODO(end): .only
+  it('Proposes large tdeployment', async () => {
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
     const { proposalRequest, ipfsData, configArtifacts } = await propose(
