@@ -1,6 +1,9 @@
 import { ConfigArtifacts } from '@sphinx-labs/core'
 
-import { readFoundryContractArtifact } from '../../src/foundry/utils'
+import {
+  callForgeScriptFunction,
+  readFoundryContractArtifact,
+} from '../../src/foundry/utils'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
@@ -43,4 +46,18 @@ export const makeMockSphinxContext = (
       }
     },
   }
+}
+
+export const getSphinxModuleAddressFromScript = async (
+  scriptPath: string,
+  forkUrl: string,
+  targetContract?: string
+): Promise<string> => {
+  const json = await callForgeScriptFunction<{
+    0: { value: string }
+  }>(scriptPath, 'sphinxModule()', [], forkUrl, targetContract)
+
+  const safeAddress = json.returns[0].value
+
+  return safeAddress
 }

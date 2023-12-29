@@ -20,8 +20,8 @@ import { deploy } from '../../../src/cli/deploy'
 import { buildParsedConfigArray } from '../../../src/cli/propose'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import {
-  getSphinxModuleAddressFromScript,
-  getSphinxSafeAddressFromScript,
+  getSphinxConfigFromScript,
+  readInterface,
 } from '../../../src/foundry/utils'
 import { makeMockSphinxContext } from '../utils'
 
@@ -64,16 +64,16 @@ describe('Simulate proposal', () => {
     exec('anvil --silent --chain-id 421614 --port 42614 &')
     await sleep(1000)
 
-    safeAddress = await getSphinxSafeAddressFromScript(
-      scriptPath,
-      'http://localhost:42111',
-      'Proposal_Initial_Test'
+    const sphinxPluginTypesInterface = readInterface(
+      'out/artifacts',
+      'SphinxPluginTypes'
     )
-    moduleAddress = await getSphinxModuleAddressFromScript(
+    ;({ safeAddress, moduleAddress } = await getSphinxConfigFromScript(
       scriptPath,
-      'http://localhost:42111',
+      sphinxPluginTypesInterface,
       'Proposal_Initial_Test'
-    )
+    ))
+
     foundryToml = await getFoundryToml()
   })
 

@@ -44,7 +44,6 @@ import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getSphinxSafeAddressFromScript,
   getUniqueNames,
   getFoundrySingleChainDryRunPath,
   readFoundryMultiChainDryRun,
@@ -75,7 +74,7 @@ export const buildParsedConfigArray = async (
     foundryToml.cachePath
   )
 
-  const { testnets, mainnets } = await getSphinxConfigFromScript(
+  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
     targetContract,
@@ -125,13 +124,6 @@ export const buildParsedConfigArray = async (
     if (targetContract) {
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
-
-    const safeAddress = await getSphinxSafeAddressFromScript(
-      scriptPath,
-      rpcUrl,
-      targetContract,
-      spinner
-    )
 
     // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
     // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all

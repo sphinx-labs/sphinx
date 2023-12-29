@@ -34,8 +34,8 @@ import {
   deploySphinxModuleAndGnosisSafe,
   execute,
   getFoundrySingleChainDryRunPath,
+  getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getSphinxSafeAddressFromScript,
   getUniqueNames,
   readFoundrySingleChainDryRun,
   readInterface,
@@ -159,9 +159,9 @@ export const deploy = async (
     unlinkSync(deploymentInfoPath)
   }
 
-  const safeAddress = await getSphinxSafeAddressFromScript(
+  const { safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
-    forkUrl,
+    sphinxPluginTypesInterface,
     targetContract,
     spinner
   )

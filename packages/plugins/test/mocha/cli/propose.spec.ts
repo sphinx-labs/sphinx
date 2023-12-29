@@ -19,13 +19,13 @@ import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyC
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
-import {
-  getSphinxModuleAddressFromScript,
-  readInterface,
-} from '../../../src/foundry/utils'
+import { readInterface } from '../../../src/foundry/utils'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
-import { makeMockSphinxContext } from '../utils'
+import {
+  getSphinxModuleAddressFromScript,
+  makeMockSphinxContext,
+} from '../utils'
 import { SphinxContext } from '../../../src/cli/context'
 
 chai.use(chaiAsPromised)

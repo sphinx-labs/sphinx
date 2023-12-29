@@ -24,8 +24,10 @@ import * as ConstructorDeploysContractParentArtifact from '../../../out/artifact
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
 import { getFoundryToml } from '../../../src/foundry/options'
-import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
-import { makeMockSphinxContext } from '../utils'
+import {
+  getSphinxModuleAddressFromScript,
+  makeMockSphinxContext,
+} from '../utils'
 
 const coder = new ethers.AbiCoder()
 

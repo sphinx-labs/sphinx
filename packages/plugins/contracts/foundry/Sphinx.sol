@@ -660,7 +660,7 @@ abstract contract Sphinx {
      *         data types that are returned by invoking Forge scripts.
      */
     function sphinxConfigABIEncoded() external view returns (bytes memory) {
-        return abi.encode(sphinxConfig);
+        return abi.encode(sphinxConfig, sphinxSafe(), sphinxModule());
     }
 
     /**
