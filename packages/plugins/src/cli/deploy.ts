@@ -121,7 +121,7 @@ export const deploy = async (
   // network. This ensures that we're using the correct artifacts for live network deployments. This
   // is mostly out of an abundance of caution, since using an incorrect contract artifact will
   // prevent us from writing the deployment artifact for that contract.
-  if (!skipForceRecompile && !(await isLiveNetwork(provider))) {
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
     forgeBuildArgs.push('--force')
   }
 
