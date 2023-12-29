@@ -22,7 +22,8 @@ In this guide, you'll propose the deployment on the command line then approve it
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
   c. [Update your `run()` function](#c-update-your-run-function)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
-  e. [Add configuration options](#e-add-configuration-options)
+  e. [Handle new sender address](#e-handle-new-sender-address)\
+  f. [Add configuration options](#e-add-configuration-options)
 7. [Add environment variables](#7-add-environment-variables)
 8. [Update RPC endpoints](#8-update-rpc-endpoints)
 9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
@@ -133,9 +134,17 @@ We'll explain the Sphinx modifier in a later guide.
 
 ### d. Remove broadcasts
 
-Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment script. Broadcasting is no longer required because you aren't be executing your deployment from the CLI.
+Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment script. Broadcasting is no longer required because you won't be executing your deployment from the CLI.
 
-### e. Add configuration options
+### e. Handle new sender address
+
+When using Sphinx, your deployment will be executed from your Gnosis Safe. In other words, the `msg.sender` of your transactions will be your Gnosis Safe. You may need to make updates to your script if it relies on a particular sender address. If you need to access your Gnosis Safe address, you can fetch it in your script using `sphinxSafe()`.
+
+For example, you may need to:
+- Update hardcoded contract addresses
+- Assign permissions using your Gnosis Safe address
+
+### f. Add configuration options
 
 There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
 
