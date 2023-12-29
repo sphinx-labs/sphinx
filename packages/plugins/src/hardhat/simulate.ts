@@ -14,7 +14,7 @@ import {
   ApproveDeployment,
   ExecuteActions,
   getSphinxWalletPrivateKey,
-  toSphinxLeafWithProof,
+  toSphinxLeafWithProofArray,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -102,7 +102,7 @@ export const simulate = async (
   }
 
   const receipts = JSON.parse(stdout).receipts
-  const batches = JSON.parse(stdout).batches.map(toSphinxLeafWithProof)
+  const batches = JSON.parse(stdout).batches.map(toSphinxLeafWithProofArray)
 
   return { receipts, batches }
 }
@@ -163,3 +163,5 @@ export const simulateDeploymentSubtask = async (
 // functionality for running a fork. We could theoretically interact with lower-level components,
 // but this would be brittle because Hardhat could change their internal functionality in a future
 // minor or patch version.
+
+// TODO(docs): explain somewhere why we use a child process

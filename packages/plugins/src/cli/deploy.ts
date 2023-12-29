@@ -262,10 +262,16 @@ export const deploy = async (
     [deploymentInfo]
   )
 
+  // TODO(end): rm
+  const initial = Date.now()
+
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
   )
+
+  // TODO(end): rm
+  console.log('simulate', (Date.now() - initial) / 1000)
 
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
@@ -314,18 +320,12 @@ export const deploy = async (
     ? executeActionsViaSigner
     : executeActionsViaManagedService
 
-  // TODO(end): rm
-  const initial = Date.now()
-
   await simulate(
     parsedConfig,
     deploymentData,
     forkUrl,
     parsedConfig.isLiveNetwork
   )
-
-  // TODO(end): rm
-  console.log('deploy', (Date.now() - initial) / 1000)
 
   spinner.succeed(`Built deployment.`)
 

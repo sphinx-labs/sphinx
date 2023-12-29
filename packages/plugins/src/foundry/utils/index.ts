@@ -259,7 +259,7 @@ export const makeGetConfigArtifacts = (
   ) => {
     // Check if the cache directory exists, and create it if not
     if (!existsSync(cachePath)) {
-      mkdirSync(cachePath)
+      mkdirSync(cachePath, { recursive: true })
     }
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
@@ -285,7 +285,7 @@ export const makeGetConfigArtifacts = (
       buildInfoFileNames.length === 1 ||
       (!cachedNames.includes(buildInfoFileNames[0]) &&
         // handles an edge case where the user made a change and then reverted it and force recompiled
-        buildInfoFileNames.length > 1)
+        cachedNames.length > 1) // TODO(end): undo
     ) {
       buildInfoCache = {}
     }

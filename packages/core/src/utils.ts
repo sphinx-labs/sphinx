@@ -1588,7 +1588,7 @@ export const getCreate3Address = (deployer: string, salt: string): string => {
 }
 
 // TODO(docs)
-export const toSphinxLeafWithProof = (
+export const toSphinxLeafWithProofArray = (
   input: Array<{
     leaf: {
       chainId: string
