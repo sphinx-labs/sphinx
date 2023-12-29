@@ -26,7 +26,7 @@ import {
   GetConfigArtifacts,
   ParsedConfig,
   RawActionInput,
-  SphinxConfig,
+  SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -519,10 +519,7 @@ export const getSphinxConfigFromScript = async (
   sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<{
-  testnets: Array<SupportedNetworkName>
-  mainnets: Array<SupportedNetworkName>
-}> => {
+): Promise<SphinxConfigWithAddresses<SupportedNetworkName>> => {
   const json = await callForgeScriptFunction<{
     0: {
       value: string
@@ -544,13 +541,17 @@ export const getSphinxConfigFromScript = async (
     'sphinxConfigType'
   )
 
-  const decoded = coder.decode(sphinxConfigFragment.outputs, returned)
+  const decoded = coder.decode(
+    [...sphinxConfigFragment.outputs, 'address', 'address'],
+    returned
+  )
+
   const { sphinxConfig } = recursivelyConvertResult(
     sphinxConfigFragment.outputs,
     decoded
   ) as any
 
-  const parsed: SphinxConfig<SupportedNetworkName> = {
+  const parsed: SphinxConfigWithAddresses<SupportedNetworkName> = {
     projectName: sphinxConfig.projectName,
     owners: sortHexStrings(sphinxConfig.owners),
     threshold: sphinxConfig.threshold.toString(),
@@ -558,24 +559,11 @@ export const getSphinxConfigFromScript = async (
     testnets: sphinxConfig.testnets.map(networkEnumToName),
     mainnets: sphinxConfig.mainnets.map(networkEnumToName),
     saltNonce: sphinxConfig.saltNonce.toString(),
+    safeAddress: decoded[1],
+    moduleAddress: decoded[2],
   }
 
   return parsed
-}
-
-export const getSphinxModuleAddressFromScript = async (
-  scriptPath: string,
-  forkUrl: string,
-  targetContract?: string,
-  spinner?: ora.Ora
-): Promise<string> => {
-  const json = await callForgeScriptFunction<{
-    0: { value: string }
-  }>(scriptPath, 'sphinxModule()', [], forkUrl, targetContract, spinner)
-
-  const safeAddress = json.returns[0].value
-
-  return safeAddress
 }
 
 type ForgeScriptResponse<T> = {
@@ -681,21 +669,6 @@ export const callForgeScriptFunction = async <T>(
   }
 
   return JSON.parse(stdout)
-}
-
-export const getSphinxSafeAddressFromScript = async (
-  scriptPath: string,
-  forkUrl: string,
-  targetContract?: string,
-  spinner?: ora.Ora
-): Promise<string> => {
-  const json = await callForgeScriptFunction<{
-    0: { value: string }
-  }>(scriptPath, 'sphinxSafe()', [], forkUrl, targetContract, spinner)
-
-  const safeAddress = json.returns[0].value
-
-  return safeAddress
 }
 
 export const getSphinxLeafGasEstimates = async (
