@@ -296,12 +296,17 @@ export const makeGetConfigArtifacts = (
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
     if (
-      buildInfoFileNames.length === 1 ||
-      (!cachedNames.includes(buildInfoFileNames[0]) &&
-        // handles an edge case where the user made a change and then reverted it and force recompiled
-        buildInfoFileNames.length > 1)
+      buildInfoFileNames.length === 1 &&
+      !cachedNames.includes(buildInfoFileNames[0])
     ) {
       buildInfoCache = {}
+    }
+
+    // Remove any files in the cache that no longer exist
+    for (const cachedName of cachedNames) {
+      if (!buildInfoFileNames.includes(cachedName)) {
+        delete buildInfoCache[cachedName]
+      }
     }
 
     const buildInfoFileNamesWithTime = buildInfoFileNames
@@ -322,7 +327,7 @@ export const makeGetConfigArtifacts = (
         buildInfoCache[file.name]?.time !== file.time
       ) {
         buildInfoCache[file.name].time = file.time
-      } else {
+      } else if (!buildInfoCache[file.name]) {
         // Update the build info file dictionary in the cache
         buildInfoCache[file.name] = {
           name: file.name,
