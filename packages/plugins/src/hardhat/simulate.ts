@@ -14,6 +14,7 @@ import {
   ApproveDeployment,
   ExecuteActions,
   getSphinxWalletPrivateKey,
+  toSphinxLeafWithProof,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -63,7 +64,7 @@ export const simulate = async (
   rpcUrl: string,
   isLiveNetworkBroadcast: boolean
 ): Promise<{
-  receipts: Array<ethers.TransactionReceipt>
+  receipts: Array<ethers.TransactionReceipt> // TODO(artifacts): use SphinxTransactionReceipt, which shouldn't have any BigInt fields.
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
   const rootPluginPath =
@@ -100,7 +101,8 @@ export const simulate = async (
     throw new Error(`Simulation failed: ${stderr}`)
   }
 
-  const { receipts, batches } = JSON.parse(stdout)
+  const receipts = JSON.parse(stdout).receipts
+  const batches = JSON.parse(stdout).batches.map(toSphinxLeafWithProof)
 
   return { receipts, batches }
 }

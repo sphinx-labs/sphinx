@@ -1587,6 +1587,28 @@ export const getCreate3Address = (deployer: string, salt: string): string => {
   return ethers.getAddress(last20Bytes)
 }
 
+// TODO(docs)
+export const toSphinxLeafWithProof = (
+  input: Array<{
+    leaf: {
+      chainId: string
+      index: string
+      leafType: SphinxLeafType
+      data: string
+    }
+    proof: string[]
+  }>
+): Array<SphinxLeafWithProof> => {
+  return input.map((item) => ({
+    leaf: {
+      ...item.leaf,
+      chainId: BigInt(item.leaf.chainId),
+      index: BigInt(item.leaf.index),
+    },
+    proof: item.proof,
+  }))
+}
+
 export const getCreate3Salt = (
   referenceName: string,
   userSalt: string
