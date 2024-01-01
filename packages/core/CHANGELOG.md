@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.19.1
+
+### Patch Changes
+
+- 4a57beb: Support IR compilation pipeline
+- Updated dependencies [5aa6895]
+- Updated dependencies [4a57beb]
+  - @sphinx-labs/contracts@0.14.2
+
 ## 0.19.0
 
 ### Minor Changes
