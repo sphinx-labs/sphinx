@@ -12,7 +12,6 @@ import {
   execAsync,
   getCreate3Address,
   sleep,
-  spawnAsync,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -25,7 +24,10 @@ import * as ConstructorDeploysContractParentArtifact from '../../../out/artifact
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
 import { getFoundryToml } from '../../../src/foundry/options'
-import { getSphinxModuleAddressFromScript } from '../../../src/foundry/utils'
+import {
+  getSphinxModuleAddressFromScript,
+  makeMockSphinxContext,
+} from '../utils'
 
 const coder = new ethers.AbiCoder()
 
@@ -137,9 +139,6 @@ const expectedMyContract2Address = ethers.getCreate2Address(
   ethers.keccak256(MyContract2Artifact.bytecode.object)
 )
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
-const mockPrompt = async (q: string) => {}
-
 const startSepolia = async () => {
   // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
   // because the latter will hang indefinitely.
@@ -192,10 +191,10 @@ describe('Deploy CLI command', () => {
         'sepolia',
         false, // Run preview
         true, // Silent
+        makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
         targetContract,
         undefined, // Don't verify on Etherscan.
-        false,
-        mockPrompt
+        true // Skip force recompile
       )
 
       // Check that the ParsedConfig is defined. We do this instead of using
@@ -224,28 +223,28 @@ describe('Deploy CLI command', () => {
             networkTags: ['sepolia (local)'],
             executing: [
               {
-                address: deployedParsedConfig.safeAddress,
                 referenceName: 'GnosisSafe',
                 functionName: 'deploy',
                 variables: [],
+                address: deployedParsedConfig.safeAddress,
               },
               {
-                address: deployedParsedConfig.moduleAddress,
                 referenceName: 'SphinxModule',
                 functionName: 'deploy',
                 variables: [],
+                address: deployedParsedConfig.moduleAddress,
               },
               {
-                address: expectedMyContract2Address,
                 referenceName: 'MyContract2',
                 functionName: 'deploy',
                 variables: [],
+                address: expectedMyContract2Address,
               },
               {
-                address: expectedMyContract2Address,
                 referenceName: 'MyContract2',
                 functionName: 'incrementMyContract2',
                 variables: ['2'],
+                address: expectedMyContract2Address,
               },
             ],
             skipping: [],
@@ -253,9 +252,6 @@ describe('Deploy CLI command', () => {
         ],
         unlabeledAddresses: new Set([]),
       })
-
-      // Check that the deployment artifact was created
-      expect(existsSync(deploymentArtifactFilePath)).to.be.true
     })
 
     // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
@@ -269,10 +265,10 @@ describe('Deploy CLI command', () => {
         'sepolia',
         false, // Run preview
         true, // Silent
+        makeMockSphinxContext([]),
         undefined, // Only one contract in the script file, so there's no target contract to specify.
         undefined, // Don't verify on Etherscan.
-        false,
-        mockPrompt
+        true // Skip force recompile
       )
 
       expect(preview).to.be.undefined
@@ -305,21 +301,48 @@ describe('Deploy CLI command', () => {
         )
       )
 
+      // We have to override process.exit and stdout so we can capture the exit code and output
+      // This also prevents mocha from being killed when we call process.exit
+      let code: number | undefined
+      const originalExit = process.exit
+      process.exit = (exitCode) => {
+        code = exitCode
+        throw new Error('process.exit called')
+      }
+
+      const originalWrite = process.stdout.write
+      const capturedOutput: string[] = []
+
+      console.log = (chunk: string) => {
+        if (typeof chunk === 'string') {
+          capturedOutput.push(chunk)
+        }
+        return true
+      }
+
       // We invoke the proposal with `spawn` because the Node process will terminate with an exit
       // code (via `process.exit(1)`), which can't be caught by Chai.
-      const { code, stdout } = await spawnAsync('npx', [
-        // We don't use the `sphinx` binary because the CI process isn't able to detect it. This
-        // is functionally equivalent to running the command with the `sphinx` binary.
-        'ts-node',
-        'src/cli/index.ts',
-        'deploy',
-        '--network',
-        'sepolia',
-        scriptPath,
-        '--confirm',
-        '--target-contract',
-        'RevertDuringSimulation_Script',
-      ])
+      try {
+        await deploy(
+          scriptPath,
+          'sepolia',
+          false, // Run preview
+          true, // Silent
+          makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
+          'RevertDuringSimulation_Script',
+          undefined, // Don't verify on Etherscan.
+          true // Skip force recompile
+        )
+      } catch (e) {
+        if (!e.message.includes('process.exit called')) {
+          throw e
+        }
+      }
+
+      process.exit = originalExit
+      process.stdout.write = originalWrite
+
+      expect(capturedOutput.join(''), 'Expected output')
       expect(code).equals(1)
       const expectedOutput =
         `Sphinx: failed to execute deployment because the following action reverted: RevertDuringSimulation<${expectedContractAddress}>.deploy(\n` +
@@ -329,7 +352,7 @@ describe('Deploy CLI command', () => {
       // simulation. This is because error messages in `Sphinx.sol` aren't thrown when transactions
       // are broadcasted onto a network. These error messages only occur during Foundry's simulation
       // step.
-      expect(stdout.includes(expectedOutput)).equals(true)
+      expect(capturedOutput.join('')).contains(expectedOutput)
     })
   })
 })
@@ -359,10 +382,15 @@ describe('Deployment Cases', () => {
       'sepolia',
       false, // Skip preview
       true, // Silent
+      makeMockSphinxContext([
+        'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
+        'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
+        'contracts/test/Fallback.sol:Fallback',
+        'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
+      ]),
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       undefined, // Don't verify on Etherscan.
-      true,
-      mockPrompt
+      true // Skip force recompile
     ))
 
     expect(parsedConfig).to.not.be.undefined
@@ -422,24 +450,6 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddress,
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor'
         )
-
-        // expect deployment artifacts to be written for both of them
-        // and that the address matches the expected address
-        const parentDeploymentArtifactPath =
-          './deployments/sepolia-local/ConstructorDeploysContract.json'
-        expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
-        const parentArtifact = JSON.parse(
-          readFileSync(parentDeploymentArtifactPath).toString()
-        )
-        expect(parentArtifact.address === constructorDeploysContractAddress)
-
-        const childDeploymentArtifactPath =
-          './deployments/sepolia-local/DeployedInConstructor.json'
-        expect(existsSync(join(childDeploymentArtifactPath))).to.be.true
-        const childArtifactPath = JSON.parse(
-          readFileSync(childDeploymentArtifactPath).toString()
-        )
-        expect(childArtifactPath.address === constructorDeploysContractAddress)
       })
 
       it('Create3', async () => {

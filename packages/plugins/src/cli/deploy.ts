@@ -15,13 +15,11 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  userConfirmation,
   getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
   ParsedConfig,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
-  getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   MerkleRootState,
   MerkleRootStatus,
@@ -36,10 +34,9 @@ import {
   deploySphinxModuleAndGnosisSafe,
   execute,
   getFoundrySingleChainDryRunPath,
+  getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getSphinxSafeAddressFromScript,
   getUniqueNames,
-  makeGetConfigArtifacts,
   readFoundrySingleChainDryRun,
   readInterface,
 } from '../foundry/utils'
@@ -51,16 +48,17 @@ import {
 } from '../foundry/decode'
 import { writeDeploymentArtifacts } from '../foundry/artifacts'
 import { FoundrySingleChainBroadcast } from '../foundry/types'
+import { SphinxContext } from './context'
 
 export const deploy = async (
   scriptPath: string,
   network: string,
   skipPreview: boolean,
   silent: boolean,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   verify?: boolean,
-  skipForceRecompile: boolean = false,
-  prompt: (q: string) => Promise<void> = userConfirmation
+  skipForceRecompile: boolean = false
 ): Promise<{
   parsedConfig?: ParsedConfig
   preview?: ReturnType<typeof getPreview>
@@ -123,7 +121,7 @@ export const deploy = async (
   // network. This ensures that we're using the correct artifacts for live network deployments. This
   // is mostly out of an abundance of caution, since using an incorrect contract artifact will
   // prevent us from writing the deployment artifact for that contract.
-  if (!skipForceRecompile && !(await isLiveNetwork(provider))) {
+  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
     forgeBuildArgs.push('--force')
   }
 
@@ -143,7 +141,7 @@ export const deploy = async (
   )
   const sphinxIface = readInterface(artifactFolder, 'Sphinx')
 
-  const getConfigArtifacts = makeGetConfigArtifacts(
+  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     artifactFolder,
     buildInfoFolder,
     projectRoot,
@@ -161,9 +159,9 @@ export const deploy = async (
     unlinkSync(deploymentInfoPath)
   }
 
-  const safeAddress = await getSphinxSafeAddressFromScript(
+  const { safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
-    forkUrl,
+    sphinxPluginTypesInterface,
     targetContract,
     spinner
   )
@@ -242,9 +240,8 @@ export const deploy = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    [network],
     sphinxPluginTypesInterface,
-    [{ actionInputs, deploymentInfo }],
+    [{ actionInputs, deploymentInfo, forkUrl }],
     targetContract,
     spinner
   )
@@ -275,20 +272,8 @@ export const deploy = async (
     configArtifacts
   )
 
-  const { configUri, compilerConfigs } =
-    await getParsedConfigWithCompilerInputs(
-      [parsedConfig],
-      false,
-      configArtifacts
-    )
+  const deploymentData = makeDeploymentData([parsedConfig])
 
-  if (compilerConfigs.length !== 1) {
-    throw new Error(
-      `The 'compilerConfigs' array length is: ${compilerConfigs.length}. Expected: 1. Should never happen.`
-    )
-  }
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built deployment.`)
@@ -300,7 +285,7 @@ export const deploy = async (
     preview = getPreview([parsedConfig])
     spinner.stop()
     const previewString = getPreviewString(preview, true)
-    await prompt(previewString)
+    await sphinxContext.prompt(previewString)
   }
 
   // Check if the Gnosis Safe is already deployed. If it isn't, we'll deploy the Gnosis Safe and

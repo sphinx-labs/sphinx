@@ -3,7 +3,7 @@ import { exec } from 'child_process'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  ConfigArtifacts,
+  Create2ActionInput,
   ParsedConfig,
   ProposalRequest,
   SphinxPreview,
@@ -11,8 +11,6 @@ import {
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
   sleep,
-  spawnAsync,
-  userConfirmation,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -21,12 +19,14 @@ import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyC
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
-import {
-  getSphinxModuleAddressFromScript,
-  readInterface,
-} from '../../../src/foundry/utils'
+import { readInterface } from '../../../src/foundry/utils'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
+import {
+  getSphinxModuleAddressFromScript,
+  makeMockSphinxContext,
+} from '../utils'
+import { SphinxContext } from '../../../src/cli/context'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -77,22 +77,26 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
     const targetContract = 'Simple1'
-    const { proposalRequest, ipfsData, configArtifacts } = await propose(
-      false, // Run preview
-      isTestnet,
-      true, // Dry run
-      true, // Silent
-      scriptPath,
-      targetContract,
-      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-      // artifacts will always be used in CI because we don't modify the contracts source files
-      // during our test suite).
-      true,
-      mockPrompt
-    )
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
+    const { proposalRequest, parsedConfigArray, configArtifacts } =
+      await propose(
+        false, // Run preview
+        isTestnet,
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        context,
+        targetContract,
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+      )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest || !configArtifacts) {
+    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -142,18 +146,17 @@ describe('Propose CLI command', () => {
     )
 
     // Check that the CompilerConfig array contains a contract with the correct address.
-    const compilerConfigArray = JSON.parse(ipfsData)
-    expect(compilerConfigArray.length).to.equal(1)
-    const compilerConfig = compilerConfigArray[0]
-    expect(compilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddress
-    )
+    expect(parsedConfigArray.length).to.equal(1)
+    const parsedConfig = parsedConfigArray[0]
+    expect(
+      (parsedConfig.actionInputs[0] as Create2ActionInput).create2Address
+    ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
-      compilerConfigArray,
-      configArtifacts,
+      parsedConfigArray,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -165,24 +168,28 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
     const targetContract = 'Simple1'
-    const { proposalRequest, ipfsData, configArtifacts } = await propose(
-      true, // Skip preview
-      isTestnet,
-      true, // Dry run
-      true, // Silent
-      scriptPath,
-      targetContract,
-      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-      // artifacts will always be used in CI because we don't modify the contracts source files
-      // during our test suite).
-      true,
-      // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
-      // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
-      userConfirmation
-    )
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
+    const { proposalRequest, parsedConfigArray, configArtifacts } =
+      await propose(
+        true, // Skip preview
+        isTestnet,
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        context,
+        targetContract,
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+        // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
+        // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
+      )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest || !configArtifacts) {
+    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -267,21 +274,20 @@ describe('Propose CLI command', () => {
     )
 
     // Check that the CompilerConfig array contains contracts with the correct addresses.
-    const compilerConfigArray = JSON.parse(ipfsData)
-    expect(compilerConfigArray.length).to.equal(2)
-    const [ethereumCompilerConfig, optimismCompilerConfig] = compilerConfigArray
-    expect(ethereumCompilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddressEthereum
-    )
-    expect(optimismCompilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddressOptimism
-    )
+    expect(parsedConfigArray.length).to.equal(2)
+    const [ethereumConfig, optimismConfig] = parsedConfigArray
+    expect(
+      (ethereumConfig.actionInputs[0] as Create2ActionInput).create2Address
+    ).equals(expectedContractAddressEthereum)
+    expect(
+      (optimismConfig.actionInputs[0] as Create2ActionInput).create2Address
+    ).equals(expectedContractAddressOptimism)
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
-      compilerConfigArray,
-      configArtifacts,
+      parsedConfigArray,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -294,22 +300,26 @@ describe('Propose CLI command', () => {
   it('Proposes large deployment', async () => {
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
-    const { proposalRequest, ipfsData, configArtifacts } = await propose(
-      true, // Skip preview
-      isTestnet,
-      true, // Dry run
-      true, // Silent
-      scriptPath,
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
-      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-      // artifacts will always be used in CI because we don't modify the contracts source files
-      // during our test suite).
-      true,
-      mockPrompt
-    )
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyLargeContract',
+    ])
+    const { proposalRequest, parsedConfigArray, configArtifacts } =
+      await propose(
+        true, // Skip preview
+        isTestnet,
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        context,
+        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+      )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest || !configArtifacts) {
+    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -366,20 +376,19 @@ describe('Propose CLI command', () => {
     )
 
     // Check that the CompilerConfig array contains contracts with the correct addresses.
-    const compilerConfigArray = JSON.parse(ipfsData)
-    expect(compilerConfigArray.length).to.equal(1)
-    const compilerConfig = compilerConfigArray[0]
+    expect(parsedConfigArray.length).to.equal(1)
+    const parsedConfig = parsedConfigArray[0]
     for (let i = 0; i < 50; i++) {
-      expect(compilerConfig.actionInputs[i].create2Address).equals(
-        expectedContractAddresses[i]
-      )
+      expect(
+        (parsedConfig.actionInputs[i] as Create2ActionInput).create2Address
+      ).equals(expectedContractAddresses[i])
     }
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
-      compilerConfigArray,
-      configArtifacts,
+      parsedConfigArray,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -393,10 +402,10 @@ describe('Propose CLI command', () => {
       'sepolia',
       true, // Skip preview
       true, // Silent
+      makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
       'Simple1',
       false, // Don't verify on Etherscan
-      undefined,
-      mockPrompt
+      true // Skip force recompile
     )
 
     if (!firstParsedConfig) {
@@ -405,22 +414,26 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
-    const { proposalRequest, ipfsData, configArtifacts } = await propose(
-      false, // Run preview
-      isTestnet,
-      true, // Dry run
-      true, // Silent
-      scriptPath,
-      targetContract,
-      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-      // artifacts will always be used in CI because we don't modify the contracts source files
-      // during our test suite).
-      true,
-      mockPrompt
-    )
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
+    const { proposalRequest, parsedConfigArray, configArtifacts } =
+      await propose(
+        false, // Run preview
+        isTestnet,
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        context,
+        targetContract,
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+      )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest || !configArtifacts) {
+    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -458,18 +471,17 @@ describe('Propose CLI command', () => {
     )
 
     // Check that the CompilerConfig array contains a contract with the correct address.
-    const compilerConfigArray = JSON.parse(ipfsData)
-    expect(compilerConfigArray.length).to.equal(1)
-    const compilerConfig = compilerConfigArray[0]
-    expect(compilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddress
-    )
+    expect(parsedConfigArray.length).to.equal(1)
+    const parsedConfig = parsedConfigArray[0]
+    expect(
+      (parsedConfig.actionInputs[0] as Create2ActionInput).create2Address
+    ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
-      compilerConfigArray,
-      configArtifacts,
+      parsedConfigArray,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       true, // Gnosis Safe and Sphinx Module were already deployed.
@@ -481,22 +493,22 @@ describe('Propose CLI command', () => {
   // words, we don't allow the user to submit a proposal that just deploys a Gnosis Safe and Sphinx
   // Module.
   it('Exits early if there is nothing to execute on any network', async () => {
-    const { proposalRequest, ipfsData } = await propose(
+    const { proposalRequest, parsedConfigArray } = await propose(
       false, // Show preview
       false, // Is prod network
       true, // Dry run
       true, // Silent
       'contracts/test/script/Empty.s.sol',
+      makeMockSphinxContext([]),
       undefined, // Only one contract in the script file, so there's no target contract to specify.
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
-      true,
-      mockPrompt
+      true
     )
 
     expect(proposalRequest).to.be.undefined
-    expect(ipfsData).to.be.undefined
+    expect(parsedConfigArray).to.be.undefined
   })
 
   // In this test case, there is a deployment to execute on one chain and nothing to execute on
@@ -506,22 +518,26 @@ describe('Propose CLI command', () => {
   it('Proposes on one chain and skips proposal on a different chain', async () => {
     const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
-    const { proposalRequest, ipfsData, configArtifacts } = await propose(
-      false, // Show preview
-      isTestnet,
-      true, // Dry run
-      true, // Silent
-      scriptPath,
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
-      // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-      // artifacts will always be used in CI because we don't modify the contracts source files
-      // during our test suite).
-      true,
-      mockPrompt
-    )
+    const context = makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
+    const { proposalRequest, parsedConfigArray, configArtifacts } =
+      await propose(
+        false, // Show preview
+        isTestnet,
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        context,
+        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+      )
 
     // This prevents a TypeScript type error.
-    if (!ipfsData || !proposalRequest || !configArtifacts) {
+    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -571,20 +587,19 @@ describe('Propose CLI command', () => {
     )
 
     // Check that the CompilerConfig array contains a contract with the correct address.
-    const compilerConfigArray = JSON.parse(ipfsData)
-    expect(compilerConfigArray.length).to.equal(2)
-    const ethereumCompilerConfig = compilerConfigArray[0]
-    expect(ethereumCompilerConfig.actionInputs[0].create2Address).equals(
-      expectedContractAddress
-    )
-    const optimismCompilerConfig = compilerConfigArray[1]
-    expect(optimismCompilerConfig.actionInputs.length).equals(0)
+    expect(parsedConfigArray.length).to.equal(2)
+    const ethereumConfig = parsedConfigArray[0]
+    expect(
+      (ethereumConfig.actionInputs[0] as Create2ActionInput).create2Address
+    ).equals(expectedContractAddress)
+    const optimismConfig = parsedConfigArray[1]
+    expect(optimismConfig.actionInputs.length).equals(0)
 
     await assertValidGasEstimates(
       scriptPath,
       proposalRequest.gasEstimates,
-      compilerConfigArray,
-      configArtifacts,
+      parsedConfigArray,
+      context,
       foundryToml,
       sphinxPluginTypesInterface,
       false // Gnosis Safe and Sphinx Module haven't been deployed yet.
@@ -614,26 +629,55 @@ describe('Propose CLI command', () => {
       )
     )
 
-    // We invoke the deployment with `spawn` because the Node process will terminate with an exit
-    // code (via `process.exit(1)`), which can't be caught by Chai.
-    const { code, stdout } = await spawnAsync('npx', [
-      // We don't use the `sphinx` binary because the CI process isn't able to detect it. This
-      // is functionally equivalent to running the command with the `sphinx` binary.
-      'ts-node',
-      'src/cli/index.ts',
-      'propose',
-      '--mainnets',
-      'contracts/test/script/RevertDuringSimulation.s.sol',
-      '--confirm',
-      '--target-contract',
-      'RevertDuringSimulation_Script',
-    ])
+    // We have to override process.exit and stdout so we can capture the exit code and output
+    // This also prevents mocha from being killed when we call process.exit
+    let code: number | undefined
+    const originalExit = process.exit
+    process.exit = (exitCode) => {
+      code = exitCode
+      console.log('exit called')
+      throw new Error('process.exit called')
+    }
+
+    const originalWrite = process.stdout.write
+    const capturedOutput: string[] = []
+
+    console.log = (chunk: string) => {
+      if (typeof chunk === 'string') {
+        capturedOutput.push(chunk)
+      }
+      return true
+    }
+
+    try {
+      await propose(
+        false, // Show preview
+        false, // is mainnet
+        true, // Dry run
+        true, // Silent
+        scriptPath,
+        makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
+        'RevertDuringSimulation_Script', // Only one contract in the script file, so there's no target contract to specify.
+        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
+        // artifacts will always be used in CI because we don't modify the contracts source files
+        // during our test suite).
+        true
+      )
+    } catch (e) {
+      if (!e.message.includes('process.exit called')) {
+        throw e
+      }
+    }
+
+    process.exit = originalExit
+    process.stdout.write = originalWrite
+
     expect(code).equals(1)
     const expectedOutput =
       `Sphinx: failed to execute deployment because the following action reverted: RevertDuringSimulation<${expectedContractAddress}>.deploy(\n` +
       `     "${sphinxModuleAddress}"\n` +
       `   )`
-    expect(stdout.includes(expectedOutput)).equals(true)
+    expect(capturedOutput.join('')).contains(expectedOutput)
   })
 })
 
@@ -648,7 +692,7 @@ const assertValidGasEstimates = async (
   scriptPath: string,
   networkGasEstimates: ProposalRequest['gasEstimates'],
   parsedConfigArray: Array<ParsedConfig>,
-  configArtifacts: ConfigArtifacts,
+  sphinxContext: SphinxContext,
   foundryToml: FoundryToml,
   sphinxPluginTypesInterface: ethers.Interface,
   isModuleAndGnosisSafeDeployed: boolean,
@@ -697,6 +741,7 @@ const assertValidGasEstimates = async (
       networkName,
       true, // Skip preview
       true, // Silent
+      sphinxContext,
       targetContract,
       false, // Don't verify on block explorer
       true // Skip force recompile

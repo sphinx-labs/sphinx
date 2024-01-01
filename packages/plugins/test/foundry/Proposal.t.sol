@@ -26,8 +26,8 @@ abstract contract AbstractProposal_Test is Sphinx, Test, SphinxConstants {
     SphinxTestUtils testUtils;
     SphinxUtils sphinxUtils;
 
-    Network[] initialTestnets = [Network.sepolia, Network.optimism_sepolia];
-    string[] initialTestnetNames = ["sepolia", "optimism_sepolia"];
+    Network[] initialTestnets = [Network.arbitrum_sepolia, Network.optimism_sepolia];
+    string[] initialTestnetNames = ["arbitrum_sepolia", "optimism_sepolia"];
 
     MyOwnable ownable;
 

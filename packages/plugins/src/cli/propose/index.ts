@@ -13,18 +13,16 @@ import {
   getPreviewString,
   getReadableActions,
   makeDeploymentData,
-  relayIPFSCommit,
   relayProposal,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
-  userConfirmation,
   getNetworkNameForChainId,
+  storeCanonicalConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
-  CompilerConfig,
   ConfigArtifacts,
   DeploymentInfo,
   ParsedConfig,
@@ -44,21 +42,21 @@ import {
 } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
-  getSphinxConfigNetworksFromScript,
+  getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getSphinxSafeAddressFromScript,
   getUniqueNames,
-  makeGetConfigArtifacts,
   getFoundrySingleChainDryRunPath,
   readFoundryMultiChainDryRun,
   readFoundrySingleChainDryRun,
   getGasEstimatesOnNetworks,
 } from '../../foundry/utils'
+import { SphinxContext } from '../context'
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
@@ -69,15 +67,16 @@ export const buildParsedConfigArray = async (
   const projectRoot = process.cwd()
   const foundryToml = await getFoundryToml()
 
-  const getConfigArtifacts = makeGetConfigArtifacts(
+  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     foundryToml.artifactFolder,
     foundryToml.buildInfoFolder,
     projectRoot,
     foundryToml.cachePath
   )
 
-  const { testnets, mainnets } = await getSphinxConfigNetworksFromScript(
+  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
+    sphinxPluginTypesInterface,
     targetContract,
     spinner
   )
@@ -90,6 +89,7 @@ export const buildParsedConfigArray = async (
   const collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
+    forkUrl: string
   }> = []
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
@@ -124,13 +124,6 @@ export const buildParsedConfigArray = async (
     if (targetContract) {
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
-
-    const safeAddress = await getSphinxSafeAddressFromScript(
-      scriptPath,
-      rpcUrl,
-      targetContract,
-      spinner
-    )
 
     // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
     // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
@@ -191,7 +184,7 @@ export const buildParsedConfigArray = async (
         )
       : []
 
-    collected.push({ deploymentInfo, actionInputs })
+    collected.push({ deploymentInfo, actionInputs, forkUrl: rpcUrl })
   }
 
   spinner?.succeed(`Collected transactions.`)
@@ -212,7 +205,6 @@ export const buildParsedConfigArray = async (
   const gasEstimatesArray = await getSphinxLeafGasEstimates(
     scriptPath,
     foundryToml,
-    networkNames,
     sphinxPluginTypesInterface,
     collected,
     targetContract,
@@ -266,13 +258,14 @@ export const propose = async (
   isDryRun: boolean,
   silent: boolean,
   scriptPath: string,
+  sphinxContext: SphinxContext,
   targetContract?: string,
-  skipForceRecompile: boolean = false,
-  prompt: (q: string) => Promise<void> = userConfirmation
+  skipForceRecompile: boolean = false
 ): Promise<{
   proposalRequest?: ProposalRequest
-  ipfsData?: string
+  canonicalConfigData?: string
   configArtifacts?: ConfigArtifacts
+  parsedConfigArray?: Array<ParsedConfig>
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -317,6 +310,7 @@ export const propose = async (
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
+      sphinxContext,
       targetContract,
       spinner
     )
@@ -347,14 +341,7 @@ export const propose = async (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const { configUri, compilerConfigs } =
-    await getParsedConfigWithCompilerInputs(
-      parsedConfigArray,
-      false,
-      configArtifacts
-    )
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built proposal.`)
@@ -414,13 +401,16 @@ export const propose = async (
     'forge',
     proposalSimulationArgs
   )
+
   if (code !== 0) {
-    spinner.stop()
+    spinner?.stop()
     // The `stdout` contains the trace of the error.
     console.log(stdout)
     // The `stderr` contains the error message.
     console.log(stderr)
     process.exit(1)
+  } else if (!silent) {
+    console.log(stdout)
   }
 
   const dryRun =
@@ -453,19 +443,19 @@ export const propose = async (
 
   spinner.succeed(`Simulation succeeded.`)
 
-  const preview = getPreview(compilerConfigs)
+  const preview = getPreview(parsedConfigArray)
   if (confirm) {
     spinner.info(`Skipping preview.`)
   } else {
     const previewString = getPreviewString(preview, true)
-    await prompt(previewString)
+    await sphinxContext.prompt(previewString)
   }
 
   isDryRun
     ? spinner.start('Finishing dry run...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = compilerConfigs.map((compilerConfig) => {
+  const shouldBeEqual = parsedConfigArray.map((compilerConfig) => {
     return {
       newConfig: compilerConfig.newConfig,
       safeAddress: compilerConfig.safeAddress,
@@ -479,10 +469,11 @@ export const propose = async (
         `Please use the same Safe and SphinxModule on all chains.`
     )
   }
+
   // Since we know that the following fields are the same for each network, we get their values
   // here.
   const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    compilerConfigs[0]
+    parsedConfigArray[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   const chainStatus: Array<{
@@ -490,28 +481,27 @@ export const propose = async (
     numLeaves: number
   }> = []
   const chainIds: Array<number> = []
-  for (const compilerConfig of compilerConfigs) {
+  for (const parsedConfig of parsedConfigArray) {
     // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
     // logic. From the perspective of the backend, these networks don't serve any purpose in the
     // `ProposalRequest`.
-    if (compilerConfig.actionInputs.length === 0) {
+    if (parsedConfig.actionInputs.length === 0) {
       continue
     }
 
     const projectDeployment = getProjectDeploymentForChain(
-      configUri,
       merkleTree,
-      compilerConfig
+      parsedConfig
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
 
     chainStatus.push({
-      chainId: Number(compilerConfig.chainId),
-      numLeaves: compilerConfig.actionInputs.length + 1,
+      chainId: Number(parsedConfig.chainId),
+      numLeaves: parsedConfig.actionInputs.length + 1,
     })
-    chainIds.push(Number(compilerConfig.chainId))
+    chainIds.push(Number(parsedConfig.chainId))
   }
 
   const proposalRequest: ProposalRequest = {
@@ -529,33 +519,76 @@ export const propose = async (
     projectDeployments,
     gasEstimates,
     diff: preview,
+    compilerConfigId: undefined,
     tree: {
       root: merkleTree.root,
       chainStatus,
     },
   }
 
-  const ipfsData = JSON.stringify(compilerConfigs, null, 2)
+  // This could fail if we're using mocked config artifacts which do not load the entire build info file.
+  // So we catch the error and then rethrow it if this is a production proposal (not a dry run).
+  // If this is not a production deployment, then `canonicalConfigData` will returned with the value undefined.
+  let canonicalConfigData: string | undefined
+  try {
+    const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
+      parsedConfigArray,
+      configArtifacts
+    )
+    canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
+  } catch (e) {
+    if (!dryRun) {
+      throw e
+    } else {
+      if (!silent) {
+        console.error(e)
+      }
+      spinner.stop()
+      return {
+        proposalRequest,
+        canonicalConfigData,
+        configArtifacts,
+        parsedConfigArray,
+      }
+    }
+  }
+
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
+    if (!canonicalConfigData) {
+      throw new Error(
+        'Cannot use mock artifacts in production, please report this to the developers'
+      )
+    }
+
+    const compilerConfigId = await storeCanonicalConfig(
+      apiKey,
+      newConfig.orgId,
+      [canonicalConfigData]
+    )
+    proposalRequest.compilerConfigId = compilerConfigId
+
     await relayProposal(proposalRequest)
-    await relayIPFSCommit(apiKey, newConfig.orgId, [ipfsData])
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL
       )} to approve the deployment.`
     )
   }
-  return { proposalRequest, ipfsData, configArtifacts }
+  return {
+    proposalRequest,
+    canonicalConfigData,
+    configArtifacts,
+    parsedConfigArray,
+  }
 }
 
 const getProjectDeploymentForChain = (
-  configUri: string,
   merkleTree: SphinxMerkleTree,
-  compilerConfig: CompilerConfig
+  parsedConfig: ParsedConfig
 ): ProjectDeployment | undefined => {
-  const { newConfig, initialState, chainId } = compilerConfig
+  const { newConfig, initialState, chainId } = parsedConfig
 
   const approvalLeaves = merkleTree.leavesWithProofs.filter(
     (l) =>
@@ -578,6 +611,5 @@ const getProjectDeploymentForChain = (
     deploymentId,
     name: newConfig.projectName,
     isExecuting: initialState.isExecuting,
-    configUri,
   }
 }

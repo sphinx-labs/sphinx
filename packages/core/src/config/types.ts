@@ -128,6 +128,12 @@ export type Label = {
   fullyQualifiedName: string
 }
 
+export type SphinxConfigWithAddresses<N = bigint | SupportedNetworkName> =
+  SphinxConfig<N> & {
+    safeAddress: string
+    moduleAddress: string
+  }
+
 export type SphinxConfig<N = bigint | SupportedNetworkName> = {
   projectName: string
   orgId: string

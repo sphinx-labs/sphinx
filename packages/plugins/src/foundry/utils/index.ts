@@ -15,6 +15,7 @@ import {
 import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
+  sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
 } from '@sphinx-labs/core/dist/utils'
@@ -25,6 +26,7 @@ import {
   GetConfigArtifacts,
   ParsedConfig,
   RawActionInput,
+  SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -50,6 +52,7 @@ import {
   SphinxMerkleTree,
   SphinxModuleABI,
   parseFoundryArtifact,
+  recursivelyConvertResult,
   remove0x,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
@@ -254,6 +257,9 @@ export const getUniqueNames = (
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
  * `getConfigArtifacts` function, which may be used by Sphinx's future Hardhat plugin.
+ *
+ * @dev We do not use this function directly, instead we call it via SphinxContext to facilitate
+ * dependency injection.
  */
 export const makeGetConfigArtifacts = (
   artifactFolder: string,
@@ -290,12 +296,17 @@ export const makeGetConfigArtifacts = (
     // If there is only one build info file and it is not in the cache,
     // then clear the cache b/c the user must have force recompiled
     if (
-      buildInfoFileNames.length === 1 ||
-      (!cachedNames.includes(buildInfoFileNames[0]) &&
-        // handles an edge case where the user made a change and then reverted it and force recompiled
-        buildInfoFileNames.length > 1)
+      buildInfoFileNames.length === 1 &&
+      !cachedNames.includes(buildInfoFileNames[0])
     ) {
       buildInfoCache = {}
+    }
+
+    // Remove any files in the cache that no longer exist
+    for (const cachedName of cachedNames) {
+      if (!buildInfoFileNames.includes(cachedName)) {
+        delete buildInfoCache[cachedName]
+      }
     }
 
     const buildInfoFileNamesWithTime = buildInfoFileNames
@@ -316,7 +327,7 @@ export const makeGetConfigArtifacts = (
         buildInfoCache[file.name]?.time !== file.time
       ) {
         buildInfoCache[file.name].time = file.time
-      } else {
+      } else if (!buildInfoCache[file.name]) {
         // Update the build info file dictionary in the cache
         buildInfoCache[file.name] = {
           name: file.name,
@@ -508,108 +519,151 @@ export const getConfigArtifactForContractName = (
   )
 }
 
-export const getSphinxConfigNetworksFromScript = async (
+export const getSphinxConfigFromScript = async (
   scriptPath: string,
+  sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<{
-  testnets: Array<SupportedNetworkName>
-  mainnets: Array<SupportedNetworkName>
-}> => {
-  const forgeScriptArgs = [
-    'script',
+): Promise<SphinxConfigWithAddresses<SupportedNetworkName>> => {
+  const json = await callForgeScriptFunction<{
+    0: {
+      value: string
+    }
+  }>(
     scriptPath,
-    '--sig',
-    'sphinxConfigNetworks()',
-    '--silent', // Silence compiler output
-    '--json',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
+    'sphinxConfigABIEncoded()',
+    [],
+    undefined,
+    targetContract,
+    spinner
+  )
+
+  const returned = json.returns[0].value
+  // ABI decode the gas array.
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const sphinxConfigFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'sphinxConfigType'
+  )
+
+  const decoded = coder.decode(
+    [...sphinxConfigFragment.outputs, 'address', 'address'],
+    returned
+  )
+
+  const { sphinxConfig } = recursivelyConvertResult(
+    sphinxConfigFragment.outputs,
+    decoded
+  ) as any
+
+  const parsed: SphinxConfigWithAddresses<SupportedNetworkName> = {
+    projectName: sphinxConfig.projectName,
+    owners: sortHexStrings(sphinxConfig.owners),
+    threshold: sphinxConfig.threshold.toString(),
+    orgId: sphinxConfig.orgId,
+    testnets: sphinxConfig.testnets.map(networkEnumToName),
+    mainnets: sphinxConfig.mainnets.map(networkEnumToName),
+    saltNonce: sphinxConfig.saltNonce.toString(),
+    safeAddress: decoded[1],
+    moduleAddress: decoded[2],
   }
 
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const returned = JSON.parse(stdout).returns
-
-  const testnetEnums = JSON.parse(returned['0'].value).map((e) => BigInt(e))
-  const mainnetEnums = JSON.parse(returned['1'].value).map((e) => BigInt(e))
-
-  return {
-    testnets: testnetEnums.map(networkEnumToName),
-    mainnets: mainnetEnums.map(networkEnumToName),
-  }
+  return parsed
 }
 
-export const getSphinxModuleAddressFromScript = async (
-  scriptPath: string,
-  forkUrl: string,
-  targetContract?: string,
-  spinner?: ora.Ora
-): Promise<string> => {
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--rpc-url',
-    forkUrl,
-    '--sig',
-    'sphinxModule()',
-    '--silent', // Silence compiler output
-    '--json',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const json = JSON.parse(stdout)
-
-  const safeAddress = json.returns[0].value
-
-  return safeAddress
+type ForgeScriptResponse<T> = {
+  logs: Array<string>
+  returns: T
 }
 
-export const getSphinxSafeAddressFromScript = async (
+export const getForgeScriptArgs = (
   scriptPath: string,
-  forkUrl: string,
+  signature: string,
+  args: string[],
+  forkUrl?: string,
   targetContract?: string,
-  spinner?: ora.Ora
-): Promise<string> => {
+  silent: boolean = true,
+  json: boolean = true,
+  broadcast: boolean = false
+) => {
   const forgeScriptArgs = [
     'script',
     scriptPath,
-    '--rpc-url',
-    forkUrl,
+    ...(forkUrl ? ['--rpc-url', forkUrl] : []),
     '--sig',
-    'sphinxSafe()',
-    '--silent', // Silence compiler output
-    '--json',
+    signature,
+    ...args,
   ]
+
+  if (silent) {
+    forgeScriptArgs.push('--silent')
+  }
+
+  if (json) {
+    forgeScriptArgs.push('--json')
+  }
+
+  if (broadcast) {
+    forgeScriptArgs.push('--broadcast')
+  }
+
   if (targetContract) {
     forgeScriptArgs.push('--target-contract', targetContract)
   }
 
+  return forgeScriptArgs
+}
+
+export const callForgeScriptFunction = async <T>(
+  scriptPath: string,
+  signature: string,
+  args: string[],
+  forkUrl?: string,
+  targetContract?: string,
+  spinner?: ora.Ora
+): Promise<ForgeScriptResponse<T>> => {
+  // First we call without silent or json and detect any failures
+  // We have to do this b/c the returned `code` will be 0 even if the script failed.
+  // Also the trace isn't output if `--silent` or `--json` is enabled, so we also have
+  // to do this to provide a useful trace to the user.
+  const testScriptArgs = getForgeScriptArgs(
+    scriptPath,
+    signature,
+    args,
+    forkUrl,
+    targetContract,
+    false,
+    false
+  )
+  const {
+    code: testCode,
+    stdout: testOut,
+    stderr: testErr,
+  } = await spawnAsync('forge', testScriptArgs)
+
+  if (testCode !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(testOut)
+    // The `stderr` contains the error message.
+    console.log(testErr)
+    process.exit(1)
+  }
+
+  // Then call with silent and json, and parse the result
+  const forgeScriptArgs = getForgeScriptArgs(
+    scriptPath,
+    signature,
+    args,
+    forkUrl,
+    targetContract,
+    true,
+    true
+  )
+
   const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
 
+  // For good measure, we still read the code and error if necessary but this is unlikely to be triggered
   if (code !== 0) {
     spinner?.stop()
     // The `stdout` contains the trace of the error.
@@ -619,21 +673,17 @@ export const getSphinxSafeAddressFromScript = async (
     process.exit(1)
   }
 
-  const json = JSON.parse(stdout)
-
-  const safeAddress = json.returns[0].value
-
-  return safeAddress
+  return JSON.parse(stdout)
 }
 
 export const getSphinxLeafGasEstimates = async (
   scriptPath: string,
   foundryToml: FoundryToml,
-  networkNames: Array<SupportedNetworkName>,
   sphinxPluginTypesInterface: ethers.Interface,
   collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
+    forkUrl: string
   }>,
   targetContract?: string,
   spinner?: ora.Ora
@@ -650,7 +700,7 @@ export const getSphinxLeafGasEstimates = async (
   )
 
   const gasEstimatesArray: Array<Array<string>> = []
-  for (const { actionInputs, deploymentInfo } of collected) {
+  for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
     const txns = actionInputs.map(toSphinxTransaction)
     const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [txns])
 
@@ -660,35 +710,20 @@ export const getSphinxLeafGasEstimates = async (
     // the data contains contract init code.
     writeFileSync(leafGasInputsFilePath, encodedTxnArray)
 
-    const leafGasEstimationScriptArgs = [
-      'script',
+    const json = await callForgeScriptFunction<{
+      abiEncodedGasArray: {
+        value: string
+      }
+    }>(
       scriptPath,
-      '--sig',
-      'sphinxEstimateMerkleLeafGas(string,uint256)',
-      leafGasInputsFilePath,
-      deploymentInfo.chainId,
-      '--silent', // Silence compiler output
-      '--json',
-    ]
-    if (targetContract) {
-      leafGasEstimationScriptArgs.push('--target-contract', targetContract)
-    }
-
-    const gasEstimationSpawnOutput = await spawnAsync(
-      'forge',
-      leafGasEstimationScriptArgs
+      'sphinxEstimateMerkleLeafGas(string)',
+      [leafGasInputsFilePath, deploymentInfo.chainId],
+      forkUrl,
+      targetContract,
+      spinner
     )
-    if (gasEstimationSpawnOutput.code !== 0) {
-      spinner?.stop()
-      // The `stdout` contains the trace of the error.
-      console.log(gasEstimationSpawnOutput.stdout)
-      // The `stderr` contains the error message.
-      console.log(gasEstimationSpawnOutput.stderr)
-      process.exit(1)
-    }
 
-    const returned = JSON.parse(gasEstimationSpawnOutput.stdout).returns
-      .abiEncodedGasArray.value
+    const returned = json.returns.abiEncodedGasArray.value
     // ABI decode the gas array.
     const [decoded] = coder.decode(['uint256[]'], returned)
     // Convert the BigInt elements to Numbers, then multiply by a buffer. This ensures the user's
@@ -716,7 +751,6 @@ export const isFoundryMultiChainDryRun = (
   return (
     Array.isArray((dryRun as FoundryMultiChainDryRun).deployments) &&
     typeof (dryRun as FoundryMultiChainDryRun).timestamp === 'number' &&
-    typeof (dryRun as FoundryMultiChainDryRun).path === 'string' &&
     !isFoundrySingleChainDryRun(dryRun)
   )
 }

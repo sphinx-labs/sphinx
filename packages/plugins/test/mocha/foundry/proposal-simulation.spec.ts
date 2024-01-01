@@ -11,7 +11,7 @@ import {
   spawnAsync,
   getReadableActions,
   makeDeploymentData,
-  getParsedConfigWithCompilerInputs,
+  sleep,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { makeSphinxMerkleTree } from '@sphinx-labs/contracts'
@@ -20,9 +20,10 @@ import { deploy } from '../../../src/cli/deploy'
 import { buildParsedConfigArray } from '../../../src/cli/propose'
 import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
 import {
-  getSphinxModuleAddressFromScript,
-  getSphinxSafeAddressFromScript,
+  getSphinxConfigFromScript,
+  readInterface,
 } from '../../../src/foundry/utils'
+import { makeMockSphinxContext } from '../utils'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -55,22 +56,24 @@ describe('Simulate proposal', () => {
   let safeAddress: string
   before(async () => {
     await execAsync('yarn kill-nodes')
+    await sleep(1000)
 
     exec('anvil --silent --chain-id 11155111 --port 42111 &')
     exec('anvil --silent --chain-id 11155420 --port 42420 &')
     exec('anvil --silent --chain-id 10200 --port 42200 &')
     exec('anvil --silent --chain-id 421614 --port 42614 &')
+    await sleep(1000)
 
-    safeAddress = await getSphinxSafeAddressFromScript(
-      scriptPath,
-      'http://localhost:42111',
-      'Proposal_Initial_Test'
+    const sphinxPluginTypesInterface = readInterface(
+      'out/artifacts',
+      'SphinxPluginTypes'
     )
-    moduleAddress = await getSphinxModuleAddressFromScript(
+    ;({ safeAddress, moduleAddress } = await getSphinxConfigFromScript(
       scriptPath,
-      'http://localhost:42111',
+      sphinxPluginTypesInterface,
       'Proposal_Initial_Test'
-    )
+    ))
+
     foundryToml = await getFoundryToml()
   })
 
@@ -102,10 +105,13 @@ describe('Simulate proposal', () => {
           network.toString(),
           true, // Skip preview
           true, // Silent
+          makeMockSphinxContext([
+            'contracts/test/MyContracts.sol:MyContract1',
+            'contracts/test/MyContracts.sol:MyOwnable',
+          ]),
           'Proposal_Initial_Test',
           false, // Don't verify on Etherscan
-          undefined,
-          mockPrompt
+          true // Skip force recompile
         )
       }
     })
@@ -149,22 +155,18 @@ const testProposalSimulation = async (
     scriptPath,
     isTestnet,
     sphinxPluginTypesInterface,
-    testContractName,
-    undefined // No spinner.
+    makeMockSphinxContext([
+      'contracts/test/MyContracts.sol:MyContract1',
+      'contracts/test/MyContracts.sol:MyOwnable',
+    ]),
+    testContractName
   )
 
   if (!parsedConfigArray || !configArtifacts) {
     throw new Error(`ParsedConfig or ConfigArtifacts is not defined.`)
   }
 
-  const { configUri, compilerConfigs } =
-    await getParsedConfigWithCompilerInputs(
-      parsedConfigArray,
-      false,
-      configArtifacts
-    )
-
-  const deploymentData = makeDeploymentData(configUri, compilerConfigs)
+  const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   const humanReadableActions = parsedConfigArray.map((e) =>
@@ -202,9 +204,10 @@ const testProposalSimulation = async (
     {
       ROOT: merkleTree.root,
       SIMULATION_INPUTS_FILE_PATH: simulationInputsFilePath,
-      CONFIG_URI: configUri,
+      CONFIG_URI: '',
       ...envVars,
     }
   )
+
   expect(code).equals(0, `${stderr}\n${stdout}`)
 }
