@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.14.2
+
+### Patch Changes
+
+- 5aa6895: Remove dependency on @openzeppelin/contracts in SphinxUtils
+- 4a57beb: Support IR compilation pipeline
+
 ## 0.14.1
 
 ### Patch Changes
