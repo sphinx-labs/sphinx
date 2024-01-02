@@ -1,5 +1,22 @@
 # @sphinx-labs/plugins
 
+## 0.25.0
+
+### Minor Changes
+
+- 059071e: Store compiler config privately
+
+### Patch Changes
+
+- 2ebbbcc: Improve handling of forge script failures
+- 5aa6895: Remove dependency on @openzeppelin/contracts in SphinxUtils
+- 111e376: Use Arbitrum Sepolia in Getting Started guides
+- 4a57beb: Support IR compilation pipeline
+- Updated dependencies [5aa6895]
+- Updated dependencies [4a57beb]
+  - @sphinx-labs/contracts@0.14.2
+  - @sphinx-labs/core@0.19.1
+
 ## 0.24.0
 
 ### Minor Changes
