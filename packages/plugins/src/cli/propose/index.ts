@@ -409,8 +409,6 @@ export const propose = async (
     // The `stderr` contains the error message.
     console.log(stderr)
     process.exit(1)
-  } else if (!silent) {
-    console.log(stdout)
   }
 
   const dryRun =
