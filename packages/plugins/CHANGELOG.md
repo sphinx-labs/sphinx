@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.25.1
+
+### Patch Changes
+
+- 31e5e6a: Skip logging simulation output
+
 ## 0.25.0
 
 ### Minor Changes
