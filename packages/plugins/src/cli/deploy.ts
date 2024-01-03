@@ -1,38 +1,40 @@
 import { join } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
-  addSphinxWalletsToGnosisSafeOwners,
   displayDeploymentTable,
-  isLiveNetwork,
+  getNetworkNameDirectory,
+  getSphinxWalletPrivateKey,
   isSupportedNetworkName,
-  removeSphinxWalletsFromGnosisSafeOwners,
   spawnAsync,
-  stringifyMerkleRootStatus,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  getEtherscanEndpointForNetwork,
   SUPPORTED_NETWORKS,
-  ParsedConfig,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
   makeDeploymentData,
-  MerkleRootState,
-  MerkleRootStatus,
+  makeDeploymentArtifacts,
+  writeDeploymentArtifacts,
+  ContractDeploymentArtifact,
+  isContractDeploymentArtifact,
+  CompilerConfig,
+  getParsedConfigWithCompilerInputs,
+  verifyDeploymentWithRetries,
+  SphinxTransactionReceipt,
+  ExecutionMode,
+  runEntireDeploymentProcess,
+  ConfigArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { SphinxModuleABI, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
+import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
-  approve,
-  deploySphinxModuleAndGnosisSafe,
-  execute,
   getFoundrySingleChainDryRunPath,
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
@@ -46,8 +48,7 @@ import {
   makeParsedConfig,
   convertFoundryDryRunToActionInputs,
 } from '../foundry/decode'
-import { writeDeploymentArtifacts } from '../foundry/artifacts'
-import { FoundrySingleChainBroadcast } from '../foundry/types'
+import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 
 export const deploy = async (
@@ -60,11 +61,11 @@ export const deploy = async (
   verify?: boolean,
   skipForceRecompile: boolean = false
 ): Promise<{
-  parsedConfig?: ParsedConfig
+  compilerConfig?: CompilerConfig
+  merkleTree?: SphinxMerkleTree
   preview?: ReturnType<typeof getPreview>
-  moduleAndGnosisSafeBroadcast?: FoundrySingleChainBroadcast
-  approvalBroadcast?: FoundrySingleChainBroadcast
-  executionBroadcast?: FoundrySingleChainBroadcast
+  receipts?: Array<SphinxTransactionReceipt>
+  configArtifacts?: ConfigArtifacts
 }> => {
   const projectRoot = process.cwd()
   const foundryToml = await getFoundryToml()
@@ -75,7 +76,6 @@ export const deploy = async (
     rpcEndpoints,
     etherscan,
     broadcastFolder,
-    deploymentFolder,
   } = foundryToml
 
   const forkUrl = rpcEndpoints[network]
@@ -100,12 +100,11 @@ export const deploy = async (
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
     if (!etherscan || !etherscan[network]) {
-      const endpoint = getEtherscanEndpointForNetwork(chainId)
       console.error(
         red(
           `No etherscan configuration detected for ${network}. Please configure it in your foundry.toml file:\n` +
             `[etherscan]\n` +
-            `${network} = { key = "<your api key>", url = "${endpoint.urls.apiURL}", chain = ${SUPPORTED_NETWORKS[network]} }`
+            `${network} = { key = "<your api key>" }`
         )
       )
       process.exit(1)
@@ -115,13 +114,15 @@ export const deploy = async (
   const provider = new SphinxJsonRpcProvider(forkUrl)
   await ensureSphinxAndGnosisSafeDeployed(provider)
 
+  const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
+
   // Compile to make sure the user's contracts are up to date.
   const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  // Force re-compile the contracts unless it's explicitly been disabled or if we're not on a live
-  // network. This ensures that we're using the correct artifacts for live network deployments. This
-  // is mostly out of an abundance of caution, since using an incorrect contract artifact will
+  // Force re-compile the contracts if we're on a live network and re-compilation is not explicitly
+  // disabled. This ensures that we're using the correct artifacts for live network deployments.
+  // This is mostly out of an abundance of caution, since using an incorrect contract artifact will
   // prevent us from writing the deployment artifact for that contract.
-  if (!skipForceRecompile && (await isLiveNetwork(provider))) {
+  if (isLiveNetwork && !skipForceRecompile) {
     forgeBuildArgs.push('--force')
   }
 
@@ -139,7 +140,6 @@ export const deploy = async (
     artifactFolder,
     'SphinxPluginTypes'
   )
-  const sphinxIface = readInterface(artifactFolder, 'Sphinx')
 
   const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     artifactFolder,
@@ -166,12 +166,15 @@ export const deploy = async (
     spinner
   )
 
+  const executionMode = isLiveNetwork
+    ? ExecutionMode.LiveNetworkCLI
+    : ExecutionMode.LocalNetworkCLI
   const forgeScriptCollectArgs = [
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(string,string)',
-    network,
+    'sphinxCollectDeployment(uint8,string)',
+    executionMode.toString(),
     deploymentInfoPath,
     '--rpc-url',
     forkUrl,
@@ -225,7 +228,7 @@ export const deploy = async (
   // We return early in this case.
   if (!dryRunFile) {
     spinner.info(`Nothing to deploy. Exiting early.`)
-    return { parsedConfig: undefined, preview: undefined }
+    return {}
   }
 
   const actionInputs = convertFoundryDryRunToActionInputs(
@@ -269,12 +272,30 @@ export const deploy = async (
     deploymentInfo,
     actionInputs,
     gasEstimates,
-    configArtifacts
+    configArtifacts,
+    dryRunFile.libraries
   )
 
   const deploymentData = makeDeploymentData([parsedConfig])
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
+
+  let signer: ethers.Wallet
+  if (parsedConfig.executionMode === ExecutionMode.LiveNetworkCLI) {
+    const privateKey = process.env.PRIVATE_KEY
+    // Check if the private key exists. It should always exist because we checked that it's defined
+    // when we collected the transactions in the user's Forge script.
+    if (!privateKey) {
+      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
+    }
+    signer = new ethers.Wallet(privateKey, provider)
+  } else if (parsedConfig.executionMode === ExecutionMode.LocalNetworkCLI) {
+    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+  } else {
+    throw new Error(`Unknown execution mode.`)
+  }
+
+  await simulate([parsedConfig], chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 
@@ -288,133 +309,94 @@ export const deploy = async (
     await sphinxContext.prompt(previewString)
   }
 
-  // Check if the Gnosis Safe is already deployed. If it isn't, we'll deploy the Gnosis Safe and
-  // Sphinx Module here. We execute this separately from the Forge script that executes the user's
-  // deployment because we'll need to update the owners of the Gnosis Safe if the deployment is
-  // occurring on Anvil. This is necessary because the private keys of the actual Gnosis Safe owners
-  // aren't known. It's easiest to modify the owners of the Gnosis Safe in TypeScript instead of
-  // FFI'ing from Foundry.
-  let moduleAndGnosisSafeBroadcast: FoundrySingleChainBroadcast | undefined
-  if (!parsedConfig.initialState.isSafeDeployed) {
-    spinner?.start(`Deploying Gnosis Safe and Sphinx Module...`)
-
-    moduleAndGnosisSafeBroadcast = await deploySphinxModuleAndGnosisSafe(
-      scriptPath,
-      foundryToml,
-      network,
-      parsedConfig.chainId,
-      forkUrl,
-      spinner,
-      targetContract
-    )
-
-    spinner?.succeed(`Deployed Gnosis Safe and Sphinx Module.`)
-  }
-
-  spinner.start(`Checking deployment status...`)
-  const sphinxModule = new ethers.Contract(
-    parsedConfig.moduleAddress,
-    SphinxModuleABI,
-    provider
-  )
-  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
-    merkleTree.root
-  )
-
-  let approvalBroadcast: FoundrySingleChainBroadcast | undefined
-  if (merkleRootState.status === MerkleRootStatus.EMPTY) {
-    spinner.succeed(`Deployment's status: EMPTY`)
-    spinner.start(`Approving deployment...`)
-
-    let sphinxWallets: Array<ethers.Wallet> = []
-    if (!parsedConfig.isLiveNetwork) {
-      // Before we can approve the deployment on Anvil, we must add a set of auto-generated wallets
-      // as owners of the Gnosis Safe. This allows us to approve the deployment without knowing the
-      // private keys of the actual Gnosis Safe owners. We don't do this in a Forge script because
-      // we'd need to broadcast from the Gnosis Safe's address in order for the transactions to
-      // succeed, but we can't broadcast from a contract onto a standalone network.
-      sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
-        parsedConfig.safeAddress,
-        provider
-      )
-    }
-
-    approvalBroadcast = await approve(
-      scriptPath,
-      foundryToml,
-      merkleTree,
-      sphinxIface,
-      chainId,
-      forkUrl,
-      spinner,
-      targetContract
-    )
-
-    if (!parsedConfig.isLiveNetwork) {
-      // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
-      // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
-      // production environment when we broadcast the deployment on Anvil.
-      await removeSphinxWalletsFromGnosisSafeOwners(
-        sphinxWallets,
-        parsedConfig.safeAddress,
-        provider
-      )
-    }
-
-    spinner.succeed(`Approved deployment.`)
-  } else if (merkleRootState.status !== MerkleRootStatus.APPROVED) {
-    spinner.fail(
-      `Deployment's status: ${stringifyMerkleRootStatus(
-        merkleRootState.status
-      )}`
-    )
-    process.exit(1)
-  } else {
-    spinner.succeed(`Deployment's status: APPROVED`)
-  }
-
-  const executionBroadcast = await execute(
-    scriptPath,
+  const { receipts } = await runEntireDeploymentProcess(
     parsedConfig,
     merkleTree,
-    foundryToml,
-    forkUrl,
-    network,
-    silent,
-    sphinxPluginTypesInterface,
-    targetContract,
-    verify,
+    provider,
+    signer,
     spinner
   )
 
-  // Throw an error if we can't find the broadcast file. We should've already checked that the
-  // deployment isn't empty, so a broadcast should always occur if we make it to this point.
-  if (!executionBroadcast) {
-    throw new Error(`Could not find broadcast file. Should never happen.`)
+  spinner.start(`Building deployment artifacts...`)
+
+  const { projectName } = parsedConfig.newConfig
+
+  // Get the existing contract deployment artifacts
+  const contractArtifactDirPath = join(
+    `deployments`,
+    projectName,
+    getNetworkNameDirectory(chainId.toString(), parsedConfig.executionMode)
+  )
+  const artifactFileNames = existsSync(contractArtifactDirPath)
+    ? readdirSync(contractArtifactDirPath)
+    : []
+  const previousContractArtifacts: {
+    [fileName: string]: ContractDeploymentArtifact
+  } = {}
+  for (const fileName of artifactFileNames) {
+    if (fileName.endsWith('.json')) {
+      const filePath = join(contractArtifactDirPath, fileName)
+      const fileContent = readFileSync(filePath, 'utf8')
+      const artifact = JSON.parse(fileContent)
+      if (isContractDeploymentArtifact(artifact)) {
+        previousContractArtifacts[fileName] = artifact
+      }
+    }
   }
 
-  spinner.start(`Writing contract deployment artifacts...`)
-
-  const deploymentArtifactPath = await writeDeploymentArtifacts(
-    provider,
-    parsedConfig,
-    executionBroadcast,
-    deploymentFolder,
+  const [compilerConfig] = getParsedConfigWithCompilerInputs(
+    [parsedConfig],
     configArtifacts
   )
-  spinner.succeed(
-    `Wrote contract deployment artifacts to: ${deploymentArtifactPath}`
+
+  const deploymentArtifacts = await makeDeploymentArtifacts(
+    {
+      [chainId]: {
+        provider,
+        compilerConfig,
+        receipts,
+        previousContractArtifacts,
+      },
+    },
+    merkleTree.root,
+    configArtifacts
   )
+
+  spinner.succeed(`Built deployment artifacts.`)
+  spinner.start(`Writing deployment artifacts...`)
+
+  writeDeploymentArtifacts(
+    projectName,
+    parsedConfig.executionMode,
+    deploymentArtifacts
+  )
+
+  // Note that we don't display the artifact paths for the deployment artifacts because we may not
+  // modify all of the artifacts that we read from the file system earlier.
+  spinner.succeed(`Wrote deployment artifacts.`)
 
   if (!silent) {
     displayDeploymentTable(parsedConfig)
   }
 
+  if (parsedConfig.executionMode === ExecutionMode.LiveNetworkCLI && verify) {
+    spinner.info(`Verifying contracts on Etherscan.`)
+
+    const etherscanApiKey = etherscan[network].key
+
+    await verifyDeploymentWithRetries(
+      parsedConfig,
+      configArtifacts,
+      provider,
+      etherscanApiKey
+    )
+  }
+
   return {
-    parsedConfig,
+    compilerConfig,
+    merkleTree,
     preview,
-    moduleAndGnosisSafeBroadcast,
-    approvalBroadcast,
-    executionBroadcast,
+    receipts,
+    configArtifacts,
   }
 }

@@ -1,11 +1,11 @@
 # Getting Started in a New Repository
 
-This guide will introduce you to Sphinx's Foundry plugin and DevOps platform by walking you through a sample multi-chain deployment.
+This guide will introduce you to Sphinx's Foundry plugin and DevOps Platform by walking you through a sample multi-chain deployment.
 
-Deployments are a three-step process with the DevOps platform:
+Deployments are a three-step process with the DevOps Platform:
 
-1. **Propose**: Initiate the deployment from your command line or CI process by submitting the transactions to Sphinx's backend.
-2. **Approve**: Your Gnosis Safe owner(s) approve the deployment by signing a single meta transaction in the Sphinx UI.
+1. **Propose**: Initiate the deployment by submitting it to Sphinx's backend from your command line or CI process.
+2. **Approve**: Your Gnosis Safe owner(s) approve the deployment in the Sphinx UI by signing the deployment's unique identifier with a meta transaction. This unique identifier is the root of a [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree), which contains all the transaction data for the deployment across every chain.
 3. **Execute**: Sphinx's backend trustlessly executes the deployment through your Gnosis Safe.
 
 In this guide, you'll create a sample project, propose it on the command line, and then approve it in the Sphinx UI.
@@ -77,9 +77,9 @@ pnpm sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-a
 ```
 
 Command line argument descriptions:
-* `--org-id <SPHINX_ORG_ID>`: Your organization ID from the Sphinx UI.
-* `--sphinx-api-key <API_KEY>`: Your API key from the Sphinx UI.
-* `--alchemy-api-key <API_KEY>`: Your Alchemy API key.
+* `--org-id <SPHINX_ORG_ID>`: Your organization ID from the Sphinx UI (under "Options" -> "API Credentials").
+* `--sphinx-api-key <API_KEY>`: Your API key from the Sphinx UI (under "Options" -> "API Credentials").
+* `--alchemy-api-key <API_KEY>`: Your Alchemy API Key.
 * `--owner <YOUR_ADDRESS>`: The address of an account you own on live networks.
 * `--foundryup`: An optional flag that runs `foundryup` to update Foundry. We recommend using the latest Foundry version with Sphinx.
 * `--pnpm`: An optional flag that creates remappings for pnpm.
@@ -100,18 +100,18 @@ forge test
 
 ## 6. Propose on testnets
 
-Copy and paste one of the following commands to propose your deployment with the DevOps platform.
+Copy and paste one of the following commands to propose your deployment with the DevOps Platform.
 
 Using Yarn or npm:
 
 ```
-npx sphinx propose script/HelloSphinx.s.sol --testnets
+npx sphinx propose script/HelloSphinx.s.sol --networks testnets
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx propose script/HelloSphinx.s.sol --testnets
+pnpm sphinx propose script/HelloSphinx.s.sol --networks testnets
 ```
 
 Here are the steps that occur when you run this command:

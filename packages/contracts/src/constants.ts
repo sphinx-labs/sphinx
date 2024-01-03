@@ -12,7 +12,7 @@ export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 export const DEFAULT_ADMIN_ROLE = ethers.ZeroHash
 
 export const SPHINX_PROXY_ADMIN_ADDRESS_SLOT_KEY = toBeHex(
-  BigInt(ethers.keccak256(ethers.toUtf8Bytes('sphinx.proxy.admin'))) - 1n
+  BigInt(ethers.keccak256(ethers.toUtf8Bytes('sphinx.proxy.admin'))) - BigInt(1)
 )
 
 export const EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH = ethers.keccak256(

@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { ethers } from 'ethers'
 import { recursivelyConvertResult } from '@sphinx-labs/contracts'
 
-import { arraysEqual, equal } from '../src/utils'
+import { arraysEqual, equal, formatSolcLongVersion } from '../src/utils'
 
 describe('Utils', () => {
   describe('equal', () => {
@@ -523,6 +523,20 @@ describe('Utils', () => {
           },
         ],
       })
+    })
+  })
+
+  describe('formatSolcLongVersion', () => {
+    it('should return the same version string if it does not contain extra parts', () => {
+      const version = '0.8.23+commit.f704f362'
+      const formattedVersion = formatSolcLongVersion(version)
+      expect(formattedVersion).to.equal('0.8.23+commit.f704f362')
+    })
+
+    it('should trim the version string if it contains extra parts', () => {
+      const version = '0.8.23+commit.f704f362.Darwin.appleclang'
+      const formattedVersion = formatSolcLongVersion(version)
+      expect(formattedVersion).to.equal('0.8.23+commit.f704f362')
     })
   })
 })

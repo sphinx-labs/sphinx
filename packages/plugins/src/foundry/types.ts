@@ -3,7 +3,7 @@ import {
   FoundryDryRunTransaction,
 } from '@sphinx-labs/core'
 
-export type FoundryBroadcastReceipt = {
+export type FoundryTransactionReceipt = {
   transactionHash: string
   transactionIndex: string
   blockHash: string
@@ -11,7 +11,7 @@ export type FoundryBroadcastReceipt = {
   from: string
   cumulativeGasUsed: string
   gasUsed: string
-  to?: string
+  to: string | null
   contractAddress: string | null
   logs: Array<{
     address: string
@@ -33,8 +33,8 @@ export type FoundryBroadcastReceipt = {
 
 export type FoundrySingleChainBroadcast = {
   transactions: Array<FoundryBroadcastTransaction>
-  receipts: Array<FoundryBroadcastReceipt>
-  libraries: Array<any>
+  receipts: Array<FoundryTransactionReceipt>
+  libraries: Array<string>
   pending: Array<any>
   returns: any
   timestamp: number
@@ -45,17 +45,29 @@ export type FoundrySingleChainBroadcast = {
 
 export type FoundryMultiChainDryRun = {
   deployments: Array<FoundrySingleChainDryRun>
-  timestamp: number
 }
 
 export type FoundrySingleChainDryRun = {
   transactions: Array<FoundryDryRunTransaction>
   receipts: Array<any>
-  libraries: Array<any>
-  pending: Array<any>
-  returns: any
-  timestamp: number
-  chain: number
-  multi: boolean
-  commit: string
+  libraries: Array<string>
+}
+
+export type FoundryToml = {
+  src: string
+  test: string
+  script: string
+  solc: string
+  broadcastFolder: string
+  artifactFolder: string
+  buildInfoFolder: string
+  deploymentFolder: string
+  cachePath: string
+  rpcEndpoints: { [networkName: string]: string | undefined }
+  remappings: Record<string, string>
+  etherscan: {
+    [networkName: string]: {
+      key: string
+    }
+  }
 }

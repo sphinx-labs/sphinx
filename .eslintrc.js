@@ -23,7 +23,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['**/*.ts','**/*.tsx'],
+      files: ['**/*.ts', '**/*.tsx'],
       parser: '@typescript-eslint/parser',
       parserOptions: {
         project: './packages/**/tsconfig.json',
@@ -137,6 +137,16 @@ module.exports = {
     'no-new-func': 'error',
     'no-new-wrappers': 'error',
     'no-redeclare': 'error',
+    // Disallow BigInt literals: Ensures compatibility with JavaScript environments that do not
+    // support ES2020's BigInt literal syntax (e.g., 123n). This is important for maintaining
+    // broader support across various runtime environments, including older Node.js versions.
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'Literal[bigint]',
+        message: 'BigInt literals are not allowed.',
+      },
+    ],
     'no-return-await': 'error',
     'no-sequences': 'error',
     'no-sparse-arrays': 'error',

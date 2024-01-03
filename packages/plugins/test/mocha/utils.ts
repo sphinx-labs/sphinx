@@ -1,8 +1,8 @@
-import { ConfigArtifacts } from '@sphinx-labs/core'
+import { BuildInfo, ConfigArtifacts, isLiveNetwork } from '@sphinx-labs/core'
 
 import {
   callForgeScriptFunction,
-  readFoundryContractArtifact,
+  readContractArtifact,
 } from '../../src/foundry/utils'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
@@ -12,6 +12,7 @@ export const makeMockSphinxContext = (
   mockedFullyQualifiedNames: Array<string>
 ) => {
   return {
+    isLiveNetwork,
     prompt: mockPrompt,
     makeGetConfigArtifacts: (
       artifactFolder: string,
@@ -30,15 +31,34 @@ export const makeMockSphinxContext = (
       ) => {
         const configArtifacts: ConfigArtifacts = {}
         for (const name of mockedFullyQualifiedNames) {
-          const artifact = await readFoundryContractArtifact(
+          const artifact = await readContractArtifact(
             name,
             projectRoot,
             artifactFolder
           )
-          configArtifacts[name] = {
-            buildInfo: {
-              id: '0',
+          const buildInfo: BuildInfo = {
+            id: '0',
+            solcVersion: '0.8.0',
+            solcLongVersion: '0.8.21+commit.d9974bed',
+            input: {
+              language: 'Solidity',
+              settings: {
+                optimizer: {
+                  runs: undefined,
+                  enabled: undefined,
+                  details: undefined,
+                },
+                outputSelection: {},
+              },
+              sources: {},
             },
+            output: {
+              sources: {},
+              contracts: {},
+            },
+          }
+          configArtifacts[name] = {
+            buildInfo,
             artifact,
           } as any
         }

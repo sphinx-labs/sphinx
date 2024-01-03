@@ -22,27 +22,52 @@ const dryRunOption = 'dry-run'
 const targetContractOption = 'target-contract'
 const verifyOption = 'verify'
 
+const coerceNetworks = (
+  arg: string | Array<string>
+): 'testnets' | 'mainnets' => {
+  // Check if `arg` is an array and has both 'mainnets' and 'testnets'.
+  if (
+    Array.isArray(arg) &&
+    arg.length === 2 &&
+    arg.includes('testnets') &&
+    arg.includes('mainnets')
+  ) {
+    throw new Error(
+      `You must specify either 'testnets' or 'mainnets', but not both.`
+    )
+  }
+
+  // Check if `arg` is a single string and is either 'mainnets' or 'testnets'.
+  if (typeof arg === 'string' && (arg === 'testnets' || arg === 'mainnets')) {
+    return arg
+  }
+
+  // If none of the above conditions are met, throw a general error.
+  throw new Error(
+    `Invalid values:\n  Argument: networks, Given: "${arg}", Choices: "testnets", "mainnets"`
+  )
+}
+
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
     'propose',
-    `Propose a deployment. Signs a proposal meta transaction and relays it to Sphinx's back-end, unless dry run is enabled.`,
+    `Propose a deployment by submitting it to Sphinx's backend.`,
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose <scriptPath> [--testnets|--mainnets] [--tc <targetContract>] [--confirm] [--dry-run] [--silent]`
+          `Usage: sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
           type: 'string',
         })
-        .option('testnets', {
-          describe: `Propose on the 'sphinxConfig.testnets' in the script`,
-          boolean: true,
-        })
-        .option('mainnets', {
-          describe: `Propose on the 'sphinxConfig.mainnets' in the script`,
-          boolean: true,
+        .option('networks', {
+          describe: 'The networks to propose on.',
+          type: 'string',
+          choices: ['testnets', 'mainnets'],
+          coerce: coerceNetworks,
+          demandOption: true,
         })
         .option(confirmOption, {
           describe: 'Confirm the proposal without previewing it.',
@@ -64,33 +89,14 @@ yargs(hideBin(process.argv))
           boolean: true,
           default: false,
         })
-        .hide('version'),
+        .hide('version')
+        .demandCommand(1, 'You must provide a Forge script path.'),
     async (argv) => {
-      const { testnets, mainnets, targetContract, silent, dryRun, confirm } =
+      const { networks, scriptPath, targetContract, silent, dryRun, confirm } =
         argv
 
-      if (argv._.length < 2) {
-        console.error('Must specify a path to a Forge script.')
-        process.exit(1)
-      }
-      const scriptPath = argv._[1]
       if (typeof scriptPath !== 'string') {
-        throw new Error(
-          'Expected scriptPath to be a string. Should not happen.'
-        )
-      }
-
-      let isTestnet: boolean
-      if (testnets && mainnets) {
-        console.error('Cannot specify both --testnets and --mainnets')
-        process.exit(1)
-      } else if (testnets) {
-        isTestnet = true
-      } else if (mainnets) {
-        isTestnet = false
-      } else {
-        console.error('Must specify either --testnets or --mainnets')
-        process.exit(1)
+        throw new Error('Script path must be a string.')
       }
 
       if (silent && !confirm) {
@@ -102,6 +108,7 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
+      const isTestnet = networks === 'testnets'
       await propose(
         confirm,
         isTestnet,
@@ -113,13 +120,65 @@ yargs(hideBin(process.argv))
       )
     }
   )
+  // .command(
+  //   'artifacts',
+  //   `Retrieves deployment artifacts from the DevOps Platform and writes them to the file system.`,
+  //   (y) =>
+  //     y
+  //       .usage(
+  //         `Usage: sphinx artifacts --org-id <ORG_ID> --project-name <PROJECT_NAME>`
+  //       )
+  //       .option('org-id', {
+  //         describe: 'Your Sphinx organization ID.',
+  //         type: 'string',
+  //         demandOption: true,
+  //       })
+  //       .option('project-name', {
+  //         describe: 'The name of your project.',
+  //         type: 'string',
+  //         demandOption: true,
+  //       })
+  //       .hide('version')
+  //       .demandCommand(1, 'You must provide a Forge script path.'),
+  //   async (argv) => {
+  //     const { orgId, projectName } = argv
+
+  //     const apiKey = process.env.SPHINX_API_KEY
+  //     if (!apiKey) {
+  //       console.error(
+  //         "You must specify a 'SPHINX_API_KEY' environment variable."
+  //       )
+  //       process.exit(1)
+  //     }
+
+  //     const spinner = ora()
+  //     spinner.start(`Fetching artifacts...`)
+
+  //     const deploymentArtifacts = await fetchDeploymentArtifacts(
+  //       apiKey,
+  //       orgId,
+  //       projectName
+  //     )
+
+  //     spinner.succeed(`Fetched artifacts.`)
+  //     spinner.start(`Writing artifacts...`)
+
+  //     writeDeploymentArtifacts(
+  //       projectName,
+  //       ExecutionMode.Platform,
+  //       deploymentArtifacts
+  //     )
+
+  //     spinner.succeed(`Write artifacts.`)
+  //   }
+  // )
   .command(
     'init',
     'Initialize a sample Sphinx project',
     (y) =>
       y
         .usage(
-          'Usage: npx sphinx init [--pnpm] [--foundryup] --org-id <org-id> --sphinx-api-key <api-key> --alchemy-api-key <alchemy-key> --owner <owner-address>'
+          'Usage: sphinx init [--pnpm] [--foundryup] --org-id <org-id> --sphinx-api-key <api-key> --alchemy-api-key <alchemy-key> --owner <owner-address>'
         )
         .option('pnpm', {
           describe: `Create remappings for pnpm.`,
@@ -142,7 +201,7 @@ yargs(hideBin(process.argv))
           demandOption: true,
         })
         .option('alchemy-api-key', {
-          describe: 'Your Alchemy API key.',
+          describe: 'Your Alchemy API Key.',
           type: 'string',
           demandOption: true,
         })
@@ -164,7 +223,7 @@ yargs(hideBin(process.argv))
     'Output remappings for the Sphinx packages.',
     (y) =>
       y
-        .usage('Usage: npx sphinx remappings [--pnpm]')
+        .usage('Usage: sphinx remappings [--pnpm]')
         .option('pnpm', {
           describe: `Create remappings for pnpm.`,
           boolean: true,
@@ -187,7 +246,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx deploy <script_path> --network <network_name> [OPTIONS]`
+          `Usage: sphinx deploy <script_path> --network <network_name> [OPTIONS]`
         )
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',

@@ -17,34 +17,41 @@ The following steps occur when this command is run:
 3. **Relay**: Sphinx submits the deployment to the Sphinx UI, where the user will approve it.
 
 ## Usage
-```bash
-npx sphinx propose <scriptPath> [--testnets|--mainnets] [--confirm] [--dry-run] [--silent] [--tc <targetContract>]
+
+Using `npx`:
+
+```
+npx sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]
+```
+
+Using `pnpm`:
+
+```
+pnpm sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]
 ```
 
 ### Parameters
-- `<scriptPath>`: **Required**. The path to the Forge script file to propose.
+- `<SCRIPT_PATH>`: **Required**. The path to the Forge script file to propose.
 
 ### Options
-- `--testnets`: (boolean) Propose on the 'sphinxConfig.testnets' in the script. You are required to either specify this flag or `--mainnets`.
-- `--mainnets`: (boolean) Propose on the 'sphinxConfig.mainnets' in the script. You are required to either specify this flag or `--testnets`.
-- `--confirm`: (boolean) Confirm the proposal without previewing it.
-- `--dry-run`: (boolean) Dry run the proposal without sending it to Sphinx's backend.
-- `--silent`: (boolean) Silence the output except for error messages. If you specify this flag, you must confirm the proposal by specifying the `--confirm` flag because `--silent` silences the deployment preview.
-- `--target-contract <targetContract>`: (string) The name of the contract in the script. Necessary when the script contains multiple contracts.
-  - Shorthand: `--tc <targetContract>`
+- `--networks <testnets|mainnets>`: **Required**. Choose between proposing on the test networks (`sphinxConfig.testnets`) or the production networks (`sphinxConfig.mainnets`) in your script.
+- `--confirm`: **Optional**. Optionally confirm the proposal without previewing it. Useful for automating proposals.
+- `--dry-run`: **Optional**. Perform a trial run without sending data to Sphinx's backend. Useful for testing and validation.
+- `--silent`: **Optional**. Suppress output to display only error messages. Combine with `--confirm` for silent, confirmed deployments.
+- `--target-contract <TARGET_CONTRACT>`: **Optional**. Specify a contract in multi-contract scripts. Alias: `--tc <TARGET_CONTRACT>`.
 
 ## Examples
 1. Propose a deployment on testnets using a script located at `./path/to/script.s.sol`:
    ```bash
-   npx sphinx propose ./path/to/script.s.sol --testnets
+   npx sphinx propose ./path/to/script.s.sol --networks testnets
    ```
 
 2. Dry run a proposal on production networks using a script located at `./path/to/script.s.sol`:
    ```bash
-   npx sphinx propose ./path/to/script.s.sol --mainnets --dry-run
+   npx sphinx propose ./path/to/script.s.sol --networks mainnets --dry-run
    ```
 
 3. Propose a script at `./path/to/script.s.sol` on production networks, skipping the deployment preview:
    ```bash
-   npx sphinx propose ./path/to/script.s.sol --mainnets --confirm
+   npx sphinx propose ./path/to/script.s.sol --networks mainnets --confirm
    ```

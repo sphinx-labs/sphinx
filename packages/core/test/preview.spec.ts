@@ -6,6 +6,7 @@ import { Create2ActionInput, ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
 import { FunctionCallActionInput } from '../dist'
+import { ExecutionMode } from '../src/constants'
 
 const expectedGnosisSafe = {
   address: '0x' + 'ff'.repeat(20),
@@ -39,7 +40,7 @@ const expectedCreate2: Create2ActionInput = {
   txData: '',
   to: '',
   contractName: '',
-  contracts: {},
+  contracts: [],
   gas: '0',
   additionalContracts: [],
 }
@@ -60,7 +61,7 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
   requireSuccess: false,
   txData: '',
   to: '',
-  contracts: {},
+  contracts: [],
   contractName: '',
   additionalContracts: [],
   gas: '0',
@@ -81,14 +82,14 @@ const expectedCall: FunctionCallActionInput = {
   requireSuccess: false,
   txData: '',
   to: '',
-  contracts: {},
+  contracts: [],
   contractName: '',
   additionalContracts: [],
   gas: '0',
 }
 const originalParsedConfig: ParsedConfig = {
   chainId: '10',
-  isLiveNetwork: true,
+  executionMode: ExecutionMode.Platform,
   actionInputs: [expectedCreate2, expectedFunctionCallOne, expectedCall],
   unlabeledAddresses: ['0x' + '55'.repeat(20), '0x' + '66'.repeat(20)],
   safeAddress: '0x' + 'ff'.repeat(20),
@@ -104,6 +105,7 @@ const originalParsedConfig: ParsedConfig = {
   safeInitData: ethers.ZeroHash,
   nonce: '0',
   arbitraryChain: false,
+  blockGasLimit: '0',
   newConfig: {
     mainnets: [],
     projectName: '',
@@ -113,6 +115,8 @@ const originalParsedConfig: ParsedConfig = {
     threshold: '0',
     saltNonce: '0',
   },
+  libraries: [],
+  gitCommit: null,
 }
 
 describe('Preview', () => {
@@ -168,7 +172,7 @@ describe('Preview', () => {
           ...action,
           decodedAction: {
             ...action.decodedAction,
-            variables: Object.values(action.decodedAction.variables),
+            variables: Object.values(action.decodedAction.variables!),
           },
         }
       })
@@ -184,12 +188,12 @@ describe('Preview', () => {
       expect(sphinxModule).to.deep.equal(expectedSphinxModule)
       expect(create2).to.deep.equal({
         ...expectedCreate2.decodedAction,
-        variables: Object.values(expectedCreate2.decodedAction.variables),
+        variables: Object.values(expectedCreate2.decodedAction.variables!),
       })
       expect(functionCall).to.deep.equal({
         ...expectedFunctionCallOne.decodedAction,
         variables: Object.values(
-          expectedFunctionCallOne.decodedAction.variables
+          expectedFunctionCallOne.decodedAction.variables!
         ),
       })
       expect(call).to.deep.equal(expectedCall.decodedAction)

@@ -1,10 +1,9 @@
 import { makeSphinxMerkleTree, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { HumanReadableAction, HumanReadableActions } from '../actions/types'
-import { getConfigArtifactsRemote } from '../utils'
+import { getConfigArtifactsRemote, getReadableActions } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
 import { makeDeploymentData } from '../tasks'
-import { getReadableActions } from './utils'
 
 /**
  * Fetches a deployment from a URI.

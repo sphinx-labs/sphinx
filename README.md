@@ -63,9 +63,8 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 ## Coming Soon
 
 - Use existing Gnosis Safes with Sphinx.
-- Download deployment artifacts from the DevOps platform.
-- Pay for deployments with USDC on the DevOps platform.
-- Deploy from the CLI on networks that the DevOps platform doesn't support.
+- Pay for deployments with USDC on the DevOps Platform.
+- Deploy from the CLI on networks that the DevOps Platform doesn't support.
 
 Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
 
