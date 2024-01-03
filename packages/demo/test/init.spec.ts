@@ -89,6 +89,6 @@ describe('Init CLI command', () => {
       provider
     )
     expect(await contract.greeting()).to.equal('Hi')
-    expect(await contract.number()).to.equal(10n)
+    expect(await contract.number()).to.equal(BigInt(10))
   })
 })

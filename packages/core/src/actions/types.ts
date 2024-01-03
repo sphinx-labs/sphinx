@@ -1,24 +1,29 @@
+import { ethers } from 'ethers'
+import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+
 import { SphinxPreview } from '../preview'
+import { SphinxJsonRpcProvider } from '../provider'
 
 /**
  * Possible action types.
  */
 export const SphinxActionType = {
-  SET_STORAGE: 0n,
-  DEPLOY_CONTRACT: 1n,
-  CALL: 2n,
-  CREATE: 3n,
+  SET_STORAGE: BigInt(0),
+  DEPLOY_CONTRACT: BigInt(1),
+  CALL: BigInt(2),
+  CREATE: BigInt(3),
 }
 
 /**
  * The status of a Merkle root in a Sphinx Module.
  */
 export const MerkleRootStatus = {
-  EMPTY: 0n,
-  APPROVED: 1n,
-  COMPLETED: 2n,
-  CANCELED: 3n,
-  FAILED: 4n,
+  EMPTY: BigInt(0),
+  APPROVED: BigInt(1),
+  COMPLETED: BigInt(2),
+  CANCELED: BigInt(3),
+  FAILED: BigInt(4),
 }
 
 /**
@@ -89,11 +94,10 @@ export type HumanReadableActions = {
   [chainId: number]: Array<HumanReadableAction>
 }
 
-export type ParsedContractDeployments = {
-  [address: string]: {
-    fullyQualifiedName: string
-    initCodeWithArgs: string
-  }
+export type ParsedContractDeployment = {
+  address: string
+  fullyQualifiedName: string
+  initCodeWithArgs: string
 }
 
 /**
@@ -153,3 +157,24 @@ export type ProjectDeployment = {
   name: string
   isExecuting: boolean
 }
+
+export type EstimateGas = (
+  moduleAddress: string,
+  batch: Array<SphinxLeafWithProof>
+) => number
+
+export type ExecuteActions = (
+  moduleAddress: string,
+  executionData: string,
+  signer: ethers.Signer,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => Promise<ethers.TransactionReceipt | null>
+
+export type ApproveDeployment = (
+  safeAddress: string,
+  moduleAddress: string,
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  signer: ethers.Signer
+) => Promise<ethers.TransactionReceipt>

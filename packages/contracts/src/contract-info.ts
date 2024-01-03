@@ -15,14 +15,14 @@ import {
   SignMessageLibArtifact,
   SphinxModuleArtifact,
 } from './ifaces'
-import { FoundryContractArtifact, GnosisSafeContractArtifact } from './types'
+import { ContractArtifact, GnosisSafeContractArtifact } from './types'
 import {
   getCheckBalanceLowAddress,
   getCompatibilityFallbackHandlerAddress,
   getCreateCallAddress,
   getDefaultCallbackHandlerAddress,
   getDrippieAddress,
-  getGnosisSafeAddress,
+  getGnosisSafeSingletonAddress,
   getGnosisSafeL2Address,
   getGnosisSafeProxyFactoryAddress,
   getManagedServiceAddress,
@@ -42,7 +42,7 @@ export enum SystemContractType {
 }
 
 type SphinxSystemContract = {
-  artifact: FoundryContractArtifact | GnosisSafeContractArtifact
+  artifact: ContractArtifact | GnosisSafeContractArtifact
   expectedAddress: string
   constructorArgs: any[]
   type: SystemContractType
@@ -131,7 +131,7 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
     },
     {
       artifact: GnosisSafeArtifact,
-      expectedAddress: getGnosisSafeAddress(),
+      expectedAddress: getGnosisSafeSingletonAddress(),
       constructorArgs: [],
       type: SystemContractType.GNOSIS_SAFE,
     },

@@ -1,20 +1,28 @@
-import { join } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
-import { exec } from 'child_process'
+import { existsSync } from 'fs'
+import { rm } from 'fs/promises'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  CompilerConfig,
+  ConfigArtifacts,
   Create2ActionInput,
-  ParsedConfig,
+  DeploymentArtifacts,
+  ExecutionMode,
+  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
   SphinxPreview,
+  SphinxTransactionReceipt,
   execAsync,
   getCreate3Address,
-  sleep,
+  makeDeploymentArtifacts,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
+import {
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  SphinxMerkleTree,
+} from '@sphinx-labs/contracts'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
@@ -23,7 +31,7 @@ import * as ConflictingNameContractArtifact from '../../../out/artifacts/First.s
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
-import { getFoundryToml } from '../../../src/foundry/options'
+import { checkArtifacts, killAnvilNodes, startAnvilNodes } from '../common'
 import {
   getSphinxModuleAddressFromScript,
   makeMockSphinxContext,
@@ -139,119 +147,162 @@ const expectedMyContract2Address = ethers.getCreate2Address(
   ethers.keccak256(MyContract2Artifact.bytecode.object)
 )
 
-const startSepolia = async () => {
-  // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
-  // because the latter will hang indefinitely.
-  exec(`anvil --chain-id 11155111 --port 42111 &`)
-  await sleep(1000)
-}
-
-const killSepolia = async () => {
-  // Kill the Anvil node
-  await execAsync(`kill $(lsof -t -i:42111)`)
-}
+const allChainIds = [SUPPORTED_NETWORKS['sepolia']]
+const deploymentArtifactDirPath = 'deployments'
 
 describe('Deploy CLI command', () => {
-  let deploymentArtifactFilePath: string
-  before(async () => {
-    const { deploymentFolder } = await getFoundryToml()
-    deploymentArtifactFilePath = join(
-      deploymentFolder,
-      'sepolia-local',
-      'MyContract2.json'
-    )
-  })
-
   beforeEach(async () => {
-    await startSepolia()
+    // Make sure that the Anvil node isn't running.
+    await killAnvilNodes(allChainIds)
+    // Start the Anvil nodes.
+    await startAnvilNodes(allChainIds)
 
-    if (existsSync(deploymentArtifactFilePath)) {
-      unlinkSync(deploymentArtifactFilePath)
+    if (existsSync(deploymentArtifactDirPath)) {
+      await rm(deploymentArtifactDirPath, { recursive: true, force: true })
     }
   })
 
   afterEach(async () => {
-    await killSepolia()
+    await killAnvilNodes(allChainIds)
   })
 
   describe('With preview', () => {
-    it('Executes deployment', async () => {
+    const projectName = 'Simple_Project_1'
+
+    it('Executes deployment on local network', async () => {
       // We run `forge clean` to ensure that a deployment can occur even if we're running
       // a fresh compilation process.
       await execAsync(`forge clean`)
 
+      const executionMode = ExecutionMode.LocalNetworkCLI
+
+      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
+
+      // Check that the deployment artifacts have't been created yet
+      expect(existsSync(deploymentArtifactDirPath)).to.be.false
+
+      const targetContract = 'Simple1'
+      const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
+        await deploy(
+          forgeScriptPath,
+          'sepolia',
+          false, // Run preview
+          true, // Silent
+          makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
+          targetContract,
+          undefined, // Don't verify on Etherscan.
+          true // Skip force recompile
+        )
+
+      // Narrow the TypeScript types.
+      if (
+        !compilerConfig ||
+        !preview ||
+        !merkleTree ||
+        !receipts ||
+        !configArtifacts
+      ) {
+        throw new Error(`Object(s) undefined.`)
+      }
+
+      expect(compilerConfig.executionMode).equals(executionMode)
+
+      const artifacts = await makeDeploymentArtifacts(
+        {
+          [compilerConfig.chainId]: {
+            compilerConfig,
+            receipts,
+            provider,
+            previousContractArtifacts: {},
+          },
+        },
+        merkleTree.root,
+        configArtifacts
+      )
+
+      await expectValidDeployment(
+        compilerConfig,
+        preview,
+        'sepolia (local)',
+        projectName,
+        artifacts,
+        executionMode,
+        1,
+        ['MyContract2.json']
+      )
+    })
+
+    // This tests the logic that deploys on live networks, which uses a signer to call the Sphinx
+    // Module. This is separate from the logic that deploys on local network, which uses an
+    // auto-generated wallet and executes transactions through the `ManagedService`.
+    it('Executes deployment on live network', async () => {
       expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
       // Check that the deployment artifact hasn't been created yet
-      expect(existsSync(deploymentArtifactFilePath)).to.be.false
+      expect(existsSync(deploymentArtifactDirPath)).to.be.false
 
-      const targetContract = 'Simple1'
-      const { parsedConfig: deployedParsedConfig, preview } = await deploy(
-        forgeScriptPath,
-        'sepolia',
-        false, // Run preview
-        true, // Silent
-        makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
-        targetContract,
-        undefined, // Don't verify on Etherscan.
-        true // Skip force recompile
-      )
+      const sphinxContext = makeMockSphinxContext([
+        'contracts/test/MyContracts.sol:MyContract2',
+      ])
+      const executionMode = ExecutionMode.LiveNetworkCLI
 
-      // Check that the ParsedConfig is defined. We do this instead of using
-      // `expect(...).to.be.defined` because throwing an error narrows the TypeScript type.
-      if (!deployedParsedConfig) {
-        throw new Error(`ParsedConfig object is undefined.`)
+      // Override the `isLiveNetwork` function to always return `true`.
+      sphinxContext.isLiveNetwork = async (
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        provider_: SphinxJsonRpcProvider | HardhatEthersProvider
+      ): Promise<boolean> => {
+        return true
       }
 
-      expect(
-        (deployedParsedConfig.actionInputs[0] as Create2ActionInput)
-          .create2Address
-      ).to.equal(expectedMyContract2Address)
-      const contract = new ethers.Contract(
-        expectedMyContract2Address,
-        MyContract2Artifact.abi,
-        provider
-      )
-      expect(await provider.getCode(expectedMyContract2Address)).to.not.equal(
-        '0x'
-      )
-      expect(await contract.number()).to.equal(2n)
+      const targetContract = 'Simple1'
+      const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
+        await deploy(
+          forgeScriptPath,
+          'sepolia',
+          false, // Run preview
+          true, // Silent
+          sphinxContext,
+          targetContract,
+          undefined, // Don't verify on Etherscan.
+          true // Skip force recompile
+        )
 
-      expect(preview).to.deep.equal({
-        networks: [
-          {
-            networkTags: ['sepolia (local)'],
-            executing: [
-              {
-                referenceName: 'GnosisSafe',
-                functionName: 'deploy',
-                variables: [],
-                address: deployedParsedConfig.safeAddress,
-              },
-              {
-                referenceName: 'SphinxModule',
-                functionName: 'deploy',
-                variables: [],
-                address: deployedParsedConfig.moduleAddress,
-              },
-              {
-                referenceName: 'MyContract2',
-                functionName: 'deploy',
-                variables: [],
-                address: expectedMyContract2Address,
-              },
-              {
-                referenceName: 'MyContract2',
-                functionName: 'incrementMyContract2',
-                variables: ['2'],
-                address: expectedMyContract2Address,
-              },
-            ],
-            skipping: [],
+      // Narrow the TypeScript types.
+      if (
+        !compilerConfig ||
+        !preview ||
+        !merkleTree ||
+        !receipts ||
+        !configArtifacts
+      ) {
+        throw new Error(`Object(s) undefined.`)
+      }
+
+      expect(compilerConfig.executionMode).equals(executionMode)
+
+      const artifacts = await makeDeploymentArtifacts(
+        {
+          [compilerConfig.chainId]: {
+            compilerConfig,
+            receipts,
+            provider,
+            previousContractArtifacts: {},
           },
-        ],
-        unlabeledAddresses: new Set([]),
-      })
+        },
+        merkleTree.root,
+        configArtifacts
+      )
+
+      await expectValidDeployment(
+        compilerConfig,
+        preview,
+        'sepolia',
+        projectName,
+        artifacts,
+        executionMode,
+        1,
+        ['MyContract2.json']
+      )
     })
 
     // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
@@ -273,8 +324,8 @@ describe('Deploy CLI command', () => {
 
       expect(preview).to.be.undefined
 
-      // Check that the deployment artifact wasn't created
-      expect(existsSync(deploymentArtifactFilePath)).to.be.false
+      // Check that the deployment artifacts have't been created.
+      expect(existsSync(deploymentArtifactDirPath)).to.be.false
     })
 
     // This test checks that Foundry's simulation can fail after the transactions have been
@@ -301,27 +352,6 @@ describe('Deploy CLI command', () => {
         )
       )
 
-      // We have to override process.exit and stdout so we can capture the exit code and output
-      // This also prevents mocha from being killed when we call process.exit
-      let code: number | undefined
-      const originalExit = process.exit
-      process.exit = (exitCode) => {
-        code = exitCode
-        throw new Error('process.exit called')
-      }
-
-      const originalWrite = process.stdout.write
-      const capturedOutput: string[] = []
-
-      console.log = (chunk: string) => {
-        if (typeof chunk === 'string') {
-          capturedOutput.push(chunk)
-        }
-        return true
-      }
-
-      // We invoke the proposal with `spawn` because the Node process will terminate with an exit
-      // code (via `process.exit(1)`), which can't be caught by Chai.
       try {
         await deploy(
           scriptPath,
@@ -333,72 +363,85 @@ describe('Deploy CLI command', () => {
           undefined, // Don't verify on Etherscan.
           true // Skip force recompile
         )
+
+        // If the deployment does not fail as expected, force the test to fail
+        expect.fail()
       } catch (e) {
-        if (!e.message.includes('process.exit called')) {
-          throw e
-        }
+        const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
+        expect(e.message.includes(expectedOutput)).to.be.true
       }
-
-      process.exit = originalExit
-      process.stdout.write = originalWrite
-
-      expect(capturedOutput.join(''), 'Expected output')
-      expect(code).equals(1)
-      const expectedOutput =
-        `Sphinx: failed to execute deployment because the following action reverted: RevertDuringSimulation<${expectedContractAddress}>.deploy(\n` +
-        `     "${sphinxModuleAddress}"\n` +
-        `   )`
-      // If the `stdout` includes this error message, we know that the deployment failed during the
-      // simulation. This is because error messages in `Sphinx.sol` aren't thrown when transactions
-      // are broadcasted onto a network. These error messages only occur during Foundry's simulation
-      // step.
-      expect(capturedOutput.join('')).contains(expectedOutput)
     })
   })
 })
 
 describe('Deployment Cases', () => {
   let preview: SphinxPreview | undefined
-  let parsedConfig: ParsedConfig | undefined
+  let compilerConfig: CompilerConfig | undefined
+  let merkleTree: SphinxMerkleTree | undefined
+  let receipts: Array<SphinxTransactionReceipt> | undefined
+  let configArtifacts: ConfigArtifacts | undefined
 
-  const checkLabeled = (address: string, fullyQualifiedName: string) => {
-    const actionContract = parsedConfig?.actionInputs.find(
-      (a) => a.contracts[address] !== undefined
-    )?.contracts[address]
-    expect(actionContract?.fullyQualifiedName).to.eq(fullyQualifiedName)
+  const checkLabeled = (
+    address: string,
+    expectedFullyQualifiedName: string
+  ) => {
+    let fullyQualifiedName: string | undefined
+    for (const actionInput of compilerConfig!.actionInputs) {
+      for (const contract of actionInput.contracts) {
+        if (contract.address === address) {
+          fullyQualifiedName = contract.fullyQualifiedName
+        }
+      }
+    }
+    expect(fullyQualifiedName).to.eq(expectedFullyQualifiedName)
   }
 
   const checkNotLabeled = (address: string) => {
-    const actionContract = parsedConfig?.actionInputs.find(
-      (a) => a.contracts[address] !== undefined
-    )?.contracts[address]
-    expect(actionContract).to.be.undefined
+    let fullyQualifiedName: string | undefined
+    for (const actionInput of compilerConfig!.actionInputs) {
+      for (const contract of actionInput.contracts) {
+        if (contract.address === address) {
+          fullyQualifiedName = contract.fullyQualifiedName
+        }
+      }
+    }
+    expect(fullyQualifiedName).to.be.undefined
   }
 
   before(async () => {
-    await startSepolia()
-    ;({ parsedConfig, preview } = await deploy(
-      deploymentCasesScriptPath,
-      'sepolia',
-      false, // Skip preview
-      true, // Silent
-      makeMockSphinxContext([
-        'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
-        'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
-        'contracts/test/Fallback.sol:Fallback',
-        'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
-      ]),
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
-      undefined, // Don't verify on Etherscan.
-      true // Skip force recompile
-    ))
+    await killAnvilNodes(allChainIds)
+    // Start the Anvil nodes.
+    await startAnvilNodes(allChainIds)
 
-    expect(parsedConfig).to.not.be.undefined
+    if (existsSync(deploymentArtifactDirPath)) {
+      await rm(deploymentArtifactDirPath, { recursive: true, force: true })
+    }
+
+    ;({ compilerConfig, preview, receipts, merkleTree, configArtifacts } =
+      await deploy(
+        deploymentCasesScriptPath,
+        'sepolia',
+        false, // Skip preview
+        true, // Silent
+        makeMockSphinxContext([
+          'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
+          'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
+          'contracts/test/Fallback.sol:Fallback',
+          'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
+        ]),
+        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        undefined, // Don't verify on Etherscan.
+        true // Skip force recompile
+      ))
+
+    expect(compilerConfig).to.not.be.undefined
     expect(preview).to.not.be.undefined
   })
 
   after(async () => {
-    await killSepolia()
+    await killAnvilNodes(allChainIds)
+
+    await rm(deploymentArtifactDirPath, { recursive: true, force: true })
   })
 
   it('Can call fallback function on contract', async () => {
@@ -439,7 +482,7 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddress,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(1n)
+        expect(await childContract.x()).to.eq(BigInt(1))
 
         // expect both are labeled
         checkLabeled(
@@ -475,7 +518,7 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddressCreate3,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(2n)
+        expect(await childContract.x()).to.eq(BigInt(2))
 
         // expect both are labeled
         checkLabeled(
@@ -485,29 +528,6 @@ describe('Deployment Cases', () => {
         checkLabeled(
           constructorDeploysContractChildAddressCreate3,
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor'
-        )
-
-        // expect deployment artifacts to be written for both of them
-        // and that the address matches the expected address
-        const parentDeploymentArtifactPath =
-          './deployments/sepolia-local/ConstructorDeploysContract_1.json'
-        expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
-        const parentArtifact = JSON.parse(
-          readFileSync(parentDeploymentArtifactPath).toString()
-        )
-        expect(
-          parentArtifact.address === constructorDeploysContractAddressCreate3
-        )
-
-        const childDeploymentArtifactPath =
-          './deployments/sepolia-local/DeployedInConstructor_1.json'
-        expect(existsSync(join(childDeploymentArtifactPath))).to.be.true
-        const childArtifactPath = JSON.parse(
-          readFileSync(childDeploymentArtifactPath).toString()
-        )
-        expect(
-          childArtifactPath.address ===
-            constructorDeploysContractChildAddressCreate3
         )
       })
     })
@@ -538,31 +558,15 @@ describe('Deployment Cases', () => {
           unlabeledConstructorDeploysContractChildAddress,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(3n)
+        expect(await childContract.x()).to.eq(BigInt(3))
 
         // expect child is not labeled
         checkNotLabeled(unlabeledConstructorDeploysContractChildAddress)
         expect(
-          parsedConfig?.unlabeledAddresses.includes(
+          compilerConfig?.unlabeledAddresses.includes(
             unlabeledConstructorDeploysContractChildAddress
           )
         ).to.eq(true)
-
-        // expect that there is a deployment artifact for the parent
-        const parentDeploymentArtifactPath =
-          './deployments/sepolia-local/ConstructorDeploysContract_2.json'
-        expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
-        const parentArtifact = JSON.parse(
-          readFileSync(parentDeploymentArtifactPath).toString()
-        )
-        expect(
-          parentArtifact.address === unlabeledConstructorDeploysContractAddress
-        )
-
-        // expect there is not a deployment artifact for the child
-        const childDeploymentArtifactPath =
-          './deployments/sepolia-local/DeployedInConstructor_2.json'
-        expect(!existsSync(join(childDeploymentArtifactPath))).to.be.true
       })
 
       it('Create3', async () => {
@@ -592,40 +596,21 @@ describe('Deployment Cases', () => {
           unlabeledConstructorDeploysContractChildCreate3Address,
           ConstructorDeploysContractChildArtifact
         )
-        expect(await childContract.x()).to.eq(4n)
+        expect(await childContract.x()).to.eq(BigInt(4))
 
         // expect both are not labeled
         checkNotLabeled(unlabeledConstructorDeploysContractCreate3Address)
         checkNotLabeled(unlabeledConstructorDeploysContractChildCreate3Address)
         expect(
-          parsedConfig?.unlabeledAddresses.includes(
+          compilerConfig?.unlabeledAddresses.includes(
             unlabeledConstructorDeploysContractCreate3Address
           )
         ).to.eq(true)
         expect(
-          parsedConfig?.unlabeledAddresses.includes(
+          compilerConfig?.unlabeledAddresses.includes(
             unlabeledConstructorDeploysContractChildCreate3Address
           )
         ).to.eq(true)
-
-        // expect there is not a deployment artifact for either
-        expect(
-          !existsSync(
-            join(
-              './deployments/sepolia-local/ConstructorDeploysContract_3.json'
-            )
-          )
-        ).to.be.true
-        expect(
-          !existsSync(
-            join('./deployments/sepolia-local/DeployedInConstructor_2.json')
-          )
-        ).to.be.true
-        expect(
-          !existsSync(
-            join('./deployments/sepolia-local/DeployedInConstructor_3.json')
-          )
-        ).to.be.true
       })
     })
 
@@ -641,22 +626,13 @@ describe('Deployment Cases', () => {
           conflictingNameContractAddress,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(1n)
+        expect(await contract.number()).to.eq(BigInt(1))
 
         // expect contract is labeled
         checkLabeled(
           conflictingNameContractAddress,
           'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract'
         )
-
-        // expect deployment artifact to be written
-        const parentDeploymentArtifactPath =
-          './deployments/sepolia-local/ConflictingNameContract.json'
-        expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
-        const parentArtifact = JSON.parse(
-          readFileSync(parentDeploymentArtifactPath).toString()
-        )
-        expect(parentArtifact.address === conflictingNameContractAddress)
       })
 
       it('Without label', async () => {
@@ -670,7 +646,7 @@ describe('Deployment Cases', () => {
           unlabeledConflictingNameContract,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(2n)
+        expect(await contract.number()).to.eq(BigInt(2))
 
         // expect contract is labeled
         checkNotLabeled(unlabeledConflictingNameContract)
@@ -687,31 +663,125 @@ describe('Deployment Cases', () => {
           conflictingNameContractWithInteractionAddress,
           ConflictingNameContractArtifact
         )
-        expect(await contract.number()).to.eq(5n)
+        expect(await contract.number()).to.eq(BigInt(5))
 
         // expect contract is labeled
         checkLabeled(
           conflictingNameContractWithInteractionAddress,
           'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract'
         )
-
-        // expect deployment artifact to be written
-        const parentDeploymentArtifactPath =
-          './deployments/sepolia-local/ConflictingNameContract_1.json'
-        expect(existsSync(join(parentDeploymentArtifactPath))).to.be.true
-        const parentArtifact = JSON.parse(
-          readFileSync(parentDeploymentArtifactPath).toString()
-        )
-        expect(
-          parentArtifact.address ===
-            conflictingNameContractWithInteractionAddress
-        )
       })
     })
+  })
+
+  it('Writes deployment artifacts correctly', async () => {
+    // Narrow the TypeScript types.
+    if (!compilerConfig || !merkleTree || !receipts || !configArtifacts) {
+      throw new Error(`Object(s) undefined.`)
+    }
+
+    const artifacts = await makeDeploymentArtifacts(
+      {
+        [compilerConfig.chainId]: {
+          compilerConfig,
+          receipts,
+          provider,
+          previousContractArtifacts: {},
+        },
+      },
+      merkleTree.root,
+      configArtifacts
+    )
+
+    checkArtifacts(
+      'Deployment_Cases_Project',
+      [compilerConfig],
+      artifacts,
+      ExecutionMode.LocalNetworkCLI,
+      1,
+      [
+        'Fallback.json',
+        'Fallback_1.json',
+        'DeployedInConstructor.json',
+        'ConstructorDeploysContract.json',
+        'ConstructorDeploysContract_1.json',
+        'DeployedInConstructor_1.json',
+        'ConstructorDeploysContract_2.json',
+        'ConflictingNameContract.json',
+        'ConflictingNameContract_1.json',
+      ]
+    )
   })
 })
 
 const getContract = (address: string, artifact: any): ethers.Contract => {
   const contract = new ethers.Contract(address, artifact.abi, provider)
   return contract
+}
+
+const expectValidDeployment = async (
+  compilerConfig: CompilerConfig,
+  preview: SphinxPreview,
+  expectedNetworkTag: string,
+  projectName: string,
+  artifacts: DeploymentArtifacts,
+  executionMode: ExecutionMode,
+  expectedNumExecutionArtifacts: number,
+  expectedContractFileNames: Array<string>
+) => {
+  expect(
+    (compilerConfig.actionInputs[0] as Create2ActionInput).create2Address
+  ).to.equal(expectedMyContract2Address)
+  const contract = new ethers.Contract(
+    expectedMyContract2Address,
+    MyContract2Artifact.abi,
+    provider
+  )
+  expect(await provider.getCode(expectedMyContract2Address)).to.not.equal('0x')
+  expect(await contract.number()).to.equal(BigInt(2))
+
+  expect(preview).to.deep.equal({
+    networks: [
+      {
+        networkTags: [expectedNetworkTag],
+        executing: [
+          {
+            referenceName: 'GnosisSafe',
+            functionName: 'deploy',
+            variables: [],
+            address: compilerConfig.safeAddress,
+          },
+          {
+            referenceName: 'SphinxModule',
+            functionName: 'deploy',
+            variables: [],
+            address: compilerConfig.moduleAddress,
+          },
+          {
+            referenceName: 'MyContract2',
+            functionName: 'deploy',
+            variables: [],
+            address: expectedMyContract2Address,
+          },
+          {
+            referenceName: 'MyContract2',
+            functionName: 'incrementMyContract2',
+            variables: ['2'],
+            address: expectedMyContract2Address,
+          },
+        ],
+        skipping: [],
+      },
+    ],
+    unlabeledAddresses: new Set([]),
+  })
+
+  checkArtifacts(
+    projectName,
+    [compilerConfig],
+    artifacts,
+    executionMode,
+    expectedNumExecutionArtifacts,
+    expectedContractFileNames
+  )
 }

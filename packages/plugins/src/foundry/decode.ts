@@ -12,11 +12,13 @@ import {
   RawActionInput,
   RawCreate2ActionInput,
   RawFunctionCallActionInput,
-  ParsedContractDeployments,
   SphinxActionType,
   networkEnumToName,
+  assertValidProjectName,
+  getCurrentGitCommitHash,
+  ParsedContractDeployment,
 } from '@sphinx-labs/core'
-import { AbiCoder, Fragment, ethers } from 'ethers'
+import { AbiCoder, ethers } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -25,21 +27,20 @@ import {
 } from '@sphinx-labs/contracts'
 
 import { FoundrySingleChainDryRun } from './types'
-import { getConfigArtifactForContractName } from './utils'
+import {
+  convertLibraryFormat,
+  findFunctionFragment,
+  getConfigArtifactForContractName,
+} from './utils'
 
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface
 ): DeploymentInfo => {
-  const deploymentInfoFragment = sphinxPluginTypesInterface.fragments
-    .filter(Fragment.isFunction)
-    .find((fragment) => fragment.name === 'getDeploymentInfo')
-
-  if (!deploymentInfoFragment) {
-    throw new Error(
-      `'getDeploymentInfo' not found in the SphinxPluginTypes ABI. Should never happen.`
-    )
-  }
+  const deploymentInfoFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'getDeploymentInfo'
+  )
 
   const deploymentInfoResult = AbiCoder.defaultAbiCoder().decode(
     deploymentInfoFragment.outputs,
@@ -59,7 +60,7 @@ export const decodeDeploymentInfo = (
     chainId,
     blockGasLimit,
     initialState,
-    isLiveNetwork,
+    executionMode,
     newConfig,
     labels,
     requireSuccess,
@@ -67,7 +68,7 @@ export const decodeDeploymentInfo = (
     arbitraryChain,
   } = deploymentInfoBigInt
 
-  return {
+  const deploymentInfo: DeploymentInfo = {
     labels,
     safeAddress,
     moduleAddress,
@@ -80,7 +81,7 @@ export const decodeDeploymentInfo = (
     initialState: {
       ...initialState,
     },
-    isLiveNetwork,
+    executionMode: Number(executionMode),
     newConfig: {
       ...newConfig,
       testnets: newConfig.testnets.map(networkEnumToName),
@@ -90,6 +91,10 @@ export const decodeDeploymentInfo = (
     },
     arbitraryChain,
   }
+
+  assertValidProjectName(deploymentInfo.newConfig.projectName)
+
+  return deploymentInfo
 }
 
 export const convertFoundryDryRunToActionInputs = (
@@ -234,15 +239,17 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
   gasEstimates: Array<string>,
-  configArtifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts,
+  libraries: Array<string>
 ): ParsedConfig => {
   const {
     safeAddress,
     moduleAddress,
     nonce,
     chainId,
+    blockGasLimit,
     newConfig,
-    isLiveNetwork,
+    executionMode,
     initialState,
     labels,
     safeInitData,
@@ -253,7 +260,7 @@ export const makeParsedConfig = (
   // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
   // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
   // leaf. The 80% was chosen arbitrarily.
-  const maxAllowedGasPerLeaf = (8n * BigInt(deploymentInfo.blockGasLimit)) / 10n
+  const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledAddresses: Array<string> = []
@@ -288,10 +295,11 @@ export const makeParsedConfig = (
 
           const fullyQualifiedName = input.contractName
 
-          parsedContracts[input.create2Address] = {
+          parsedContracts.push({
+            address: input.create2Address,
             fullyQualifiedName,
             initCodeWithArgs,
-          }
+          })
         } else if (
           // Check if the `contractName` is a standard contract name (not a fully qualified name).
           input.contractName
@@ -301,18 +309,20 @@ export const makeParsedConfig = (
             configArtifacts
           )
 
-          parsedContracts[input.create2Address] = {
+          parsedContracts.push({
+            address: input.create2Address,
             fullyQualifiedName,
             initCodeWithArgs,
-          }
+          })
         } else {
           // There's no contract name in this CREATE2 transaction.
           const label = labels.find((l) => l.addr === input.create2Address)
           if (isLabel(label)) {
-            parsedContracts[input.create2Address] = {
+            parsedContracts.push({
+              address: input.create2Address,
               fullyQualifiedName: label.fullyQualifiedName,
               initCodeWithArgs,
-            }
+            })
 
             const contractName = label.fullyQualifiedName.split(':')[1]
             input.decodedAction = {
@@ -340,10 +350,11 @@ export const makeParsedConfig = (
                     configArtifacts
                   ).fullyQualifiedName
 
-              parsedContracts[input.create2Address] = {
+              parsedContracts.push({
+                address: input.create2Address,
                 fullyQualifiedName,
                 initCodeWithArgs,
-              }
+              })
 
               input.decodedAction = {
                 referenceName: fullyQualifiedName.split(':')[1],
@@ -384,20 +395,25 @@ export const makeParsedConfig = (
     actionIndex += 1
   }
 
-  return {
+  const parsedConfig: ParsedConfig = {
     safeAddress,
     moduleAddress,
     safeInitData,
     nonce,
     chainId,
+    blockGasLimit,
     newConfig,
-    isLiveNetwork,
+    executionMode,
     initialState,
     actionInputs: parsedActionInputs,
     unlabeledAddresses,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
+    libraries: convertLibraryFormat(libraries),
+    gitCommit: getCurrentGitCommitHash(),
   }
+
+  return parsedConfig
 }
 
 const parseAdditionalContracts = (
@@ -406,10 +422,10 @@ const parseAdditionalContracts = (
   labels: Array<Label>,
   configArtifacts: ConfigArtifacts
 ): {
-  parsedContracts: ParsedContractDeployments
+  parsedContracts: Array<ParsedContractDeployment>
   unlabeledAdditionalContracts: Array<string>
 } => {
-  const parsed: ParsedContractDeployments = {}
+  const parsedContracts: Array<ParsedContractDeployment> = []
   const unlabeled: Array<string> = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
@@ -417,10 +433,11 @@ const parseAdditionalContracts = (
     const label = labels.find((l) => l.addr === address)
     if (isLabel(label)) {
       if (label.fullyQualifiedName !== '') {
-        parsed[address] = {
+        parsedContracts.push({
+          address,
           fullyQualifiedName: label.fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
-        }
+        })
       }
     } else if (
       // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3
@@ -442,10 +459,11 @@ const parseAdditionalContracts = (
           : getConfigArtifactForContractName(contractName, configArtifacts)
               .fullyQualifiedName
 
-        parsed[address] = {
+        parsedContracts.push({
+          address,
           fullyQualifiedName,
           initCodeWithArgs: additionalContract.initCode,
-        }
+        })
       } else {
         unlabeled.push(address)
       }
@@ -455,7 +473,7 @@ const parseAdditionalContracts = (
   }
 
   return {
-    parsedContracts: parsed,
+    parsedContracts,
     unlabeledAdditionalContracts: unlabeled,
   }
 }

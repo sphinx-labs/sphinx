@@ -12,7 +12,7 @@ This guide covers some common issues you might encounter using Sphinx. If your q
 
 ## Labeling contracts
 
-When Sphinx can't infer the contract corresponding to an address, you'll be asked to label it yourself. This makes it possible for Sphinx to verify the contract on Etherscan and create a deployment artifact for it.
+When Sphinx can't infer the contract corresponding to an address, an error will be thrown asking you to label it yourself. This makes it possible for Sphinx to verify the contract on Etherscan and create a deployment artifact for it.
 
 You can label a contract in your deployment script with the `sphinxLabel` function, which is inherited from `Sphinx.sol`. For example:
 

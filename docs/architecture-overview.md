@@ -60,7 +60,7 @@ graph LR
 
 This Merkle tree contains a deployment on two chains. There are three transactions to execute on each chain.
 
-You'll notice that the "Approve" leaves contain an "executor" field. The executor is an address with sole permission to execute the deployment. The executor will be Sphinx's backend if you use the DevOps platform.
+You'll notice that the "Approve" leaves contain an "executor" field. The executor is an address with sole permission to execute the deployment. The executor will be Sphinx's backend if you use the DevOps Platform.
 
 You'll also notice that each Merkle leaf has an `index`. The Merkle leaves must be executed in ascending order according to their indexes on any given chain.
 

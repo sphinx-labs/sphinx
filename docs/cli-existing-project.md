@@ -2,13 +2,13 @@
 
 In this guide, you'll integrate Sphinx with your existing Foundry project. Then, you'll deploy your project on a few testnets.
 
-Deployments are a three-step process with the DevOps platform:
+Deployments are a three-step process with the DevOps Platform:
 
-1. **Propose**: Initiate the deployment from your command line or CI process by submitting the transactions to Sphinx's backend.
-2. **Approve**: Your Gnosis Safe owner(s) approve the deployment by signing a single meta transaction in the Sphinx UI.
+1. **Propose**: Initiate the deployment by submitting it to Sphinx's backend from your command line or CI process.
+2. **Approve**: Your Gnosis Safe owner(s) approve the deployment in the Sphinx UI by signing the deployment's unique identifier with a meta transaction. This unique identifier is the root of a [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree), which contains all the transaction data for the deployment across every chain.
 3. **Execute**: Sphinx's backend trustlessly executes the deployment through your Gnosis Safe.
 
-In this guide, you'll propose the deployment on the command line then approve it in the Sphinx UI.
+In this guide, you'll propose the deployment on the command line and then approve it in the Sphinx UI.
 
 ## Table of Contents
 
@@ -138,7 +138,7 @@ Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment scr
 
 ### e. Handle new sender address
 
-When using Sphinx, your deployment will be executed from your Gnosis Safe. In other words, the `msg.sender` of your transactions will be your Gnosis Safe. You may need to make updates to your script if it relies on a particular sender address. If you need to access your Gnosis Safe address, you can fetch it in your script using `sphinxSafe()`.
+When using Sphinx, your deployment will be executed from your Gnosis Safe. In other words, the `msg.sender` of your transactions will be your Gnosis Safe. You may need to update your script if it relies on a particular sender address. If you need to access your Gnosis Safe address, you can fetch it in your script using `sphinxSafe()`.
 
 For example, you may need to:
 - Update hardcoded contract addresses
@@ -158,7 +158,7 @@ sphinxConfig.testnets = [
   Network.optimism_sepolia,
   Network.arbitrum_sepolia
 ];
-sphinxConfig.projectName = "My First Project";
+sphinxConfig.projectName = "My_First_Project";
 sphinxConfig.threshold = 1;
 ```
 
@@ -198,7 +198,6 @@ arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
 ```
-ffi = true
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
@@ -213,18 +212,18 @@ If you can't get your test suite to pass, we're more than happy to help! Reach o
 
 ## 11. Propose on testnets
 
-Copy and paste one of the following commands to propose your deployment with the DevOps platform. Make sure to replace `<path/to/your/script.s.sol>` with the path to your Forge script.
+Copy and paste one of the following commands to propose your deployment with the DevOps Platform. Make sure to replace `<path/to/your/Script.s.sol>` with the path to your Forge script.
 
 Using Yarn or npm:
 
 ```
-npx sphinx propose <path/to/your/script.s.sol> --testnets
+npx sphinx propose <path/to/your/Script.s.sol> --networks testnets
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx propose <path/to/your/script.s.sol> --testnets
+pnpm sphinx propose <path/to/your/Script.s.sol> --networks testnets
 ```
 
 Here are the steps that occur when you run this command:

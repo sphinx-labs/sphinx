@@ -1,5 +1,5 @@
-import { join, resolve } from 'path'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { join } from 'path'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { spawnSync } from 'child_process'
 
 import {
@@ -11,12 +11,10 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
   getPreview,
   getPreviewString,
-  getReadableActions,
   makeDeploymentData,
   relayProposal,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
-  getNetworkNameForChainId,
   storeCanonicalConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -31,7 +29,6 @@ import {
 import {
   SphinxLeafType,
   SphinxMerkleTree,
-  getManagedServiceAddress,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
@@ -46,9 +43,9 @@ import {
   getSphinxLeafGasEstimates,
   getUniqueNames,
   getFoundrySingleChainDryRunPath,
-  readFoundryMultiChainDryRun,
   readFoundrySingleChainDryRun,
-  getGasEstimatesOnNetworks,
+  readInterface,
+  getNetworkGasEstimate,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 
@@ -89,6 +86,7 @@ export const buildParsedConfigArray = async (
   const collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
+    libraries: Array<string>
     forkUrl: string
   }> = []
   for (const networkName of networkNames) {
@@ -117,8 +115,7 @@ export const buildParsedConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(string,string)',
-      networkName,
+      'sphinxCollectProposal(string)',
       deploymentInfoPath,
     ]
     if (targetContract) {
@@ -184,14 +181,16 @@ export const buildParsedConfigArray = async (
         )
       : []
 
-    collected.push({ deploymentInfo, actionInputs, forkUrl: rpcUrl })
+    const libraries = collectionDryRun ? collectionDryRun.libraries : []
+
+    collected.push({ deploymentInfo, actionInputs, libraries, forkUrl: rpcUrl })
   }
 
   spinner?.succeed(`Collected transactions.`)
 
-  const isEmpty = collected.every(
-    ({ actionInputs }) => actionInputs.length === 0
-  )
+  const isEmpty =
+    collected.length === 0 ||
+    collected.every(({ actionInputs }) => actionInputs.length === 0)
   if (isEmpty) {
     return {
       isEmpty: true,
@@ -223,13 +222,15 @@ export const buildParsedConfigArray = async (
     uniqueFullyQualifiedNames,
     uniqueContractNames
   )
+
   const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo }, i) =>
+    ({ actionInputs, deploymentInfo, libraries }, i) =>
       makeParsedConfig(
         deploymentInfo,
         actionInputs,
         gasEstimatesArray[i],
-        configArtifacts
+        configArtifacts,
+        libraries
       )
   )
 
@@ -266,6 +267,7 @@ export const propose = async (
   canonicalConfigData?: string
   configArtifacts?: ConfigArtifacts
   parsedConfigArray?: Array<ParsedConfig>
+  merkleTree?: SphinxMerkleTree
 }> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -298,12 +300,10 @@ export const propose = async (
 
   // We must load any ABIs after running `forge build` to prevent a situation where the user clears
   // their artifacts then calls this task, in which case the artifact won't exist yet.
-  const sphinxPluginTypesABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(resolve(
-      `${foundryToml.artifactFolder}/SphinxPluginTypes.sol/SphinxPluginTypes.json`
-    )).abi
-  const sphinxPluginTypesInterface = new ethers.Interface(sphinxPluginTypesABI)
+  const sphinxPluginTypesInterface = readInterface(
+    foundryToml.artifactFolder,
+    'SphinxPluginTypes'
+  )
 
   const { parsedConfigArray, configArtifacts, isEmpty } =
     await buildParsedConfigArray(
@@ -329,118 +329,24 @@ export const propose = async (
     )
   }
 
-  const simulationInputsFragment = sphinxPluginTypesInterface.fragments
-    .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'proposalSimulationInputsType')
-  const merkleTreeFragment = sphinxPluginTypesInterface.fragments
-    .filter(ethers.Fragment.isFunction)
-    .find((fragment) => fragment.name === 'sphinxMerkleTreeType')
-  if (!simulationInputsFragment || !merkleTreeFragment) {
-    throw new Error(`Could not find fragment in ABI. Should never happen.`)
-  }
-
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-
   const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built proposal.`)
   spinner.start(`Running simulation...`)
 
-  // Get an array of chain IDs that contain at least one Merkle leaf.
-  const uniqueLeafChainIdsBigInt = Array.from(
-    new Set(merkleTree.leavesWithProofs.map(({ leaf }) => leaf.chainId))
-  )
-  const uniqueLeafChainIds = uniqueLeafChainIdsBigInt.map((chainId) =>
-    chainId.toString()
-  )
-  // Get an array of network names that contain at least one Merkle leaf.
-  const uniqueLeafNetworkNames = uniqueLeafChainIdsBigInt.map(
-    getNetworkNameForChainId
-  )
-
-  const humanReadableActions = parsedConfigArray.map((e) =>
-    getReadableActions(e.actionInputs)
-  )
-
-  // ABI encode the inputs to the proposal simulation function.
-  const encodedSimulationInputs = coder.encode(
-    simulationInputsFragment.outputs,
-    [merkleTree, humanReadableActions]
-  )
-  // Write the ABI encoded data to the file system. We'll read it in the Forge script that simulates
-  // the proposal. We do this instead of passing in the data as a parameter to the Forge script
-  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
-  // particularly a concern for the Merkle tree, which likely contains contract init code.
-  const simulationInputsFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-proposal-simulation-inputs.txt'
-  )
-  writeFileSync(simulationInputsFilePath, encodedSimulationInputs)
-
-  const proposalSimulationArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxSimulateProposal(string[],string)',
-    `[${uniqueLeafNetworkNames.join(',')}]`,
-    simulationInputsFilePath,
-    // Set the gas estimate multiplier to be 30%. This is Foundry's default multiplier, but we
-    // hard-code it just in case Foundry changes the default value in the future. In practice, this
-    // tends to produce a gas estimate multiplier that's around 35% to 55% higher than the actual
-    // gas used instead of 30%.
-    '--gas-estimate-multiplier',
-    '130',
-  ]
-  if (targetContract) {
-    proposalSimulationArgs.push('--target-contract', targetContract)
-  }
-
-  const dateBeforeForgeScript = new Date()
-  const { stdout, stderr, code } = await spawnAsync(
-    'forge',
-    proposalSimulationArgs
-  )
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const dryRun =
-    uniqueLeafChainIds.length > 1
-      ? readFoundryMultiChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          `sphinxSimulateProposal`,
-          dateBeforeForgeScript
-        )
-      : readFoundrySingleChainDryRun(
-          foundryToml.broadcastFolder,
-          scriptPath,
-          uniqueLeafChainIds[0],
-          `sphinxSimulateProposal`,
-          dateBeforeForgeScript
-        )
-
-  if (!dryRun) {
-    // This should never happen because the presence of Merkle leaves should always mean that a
-    // broadcast will occur.
-    throw new Error(`Could not read Foundry dry run file. Should never happen.`)
-  }
-
-  const gasEstimates = getGasEstimatesOnNetworks(
-    dryRun,
-    uniqueLeafChainIds,
-    getManagedServiceAddress()
-  )
+  const gasEstimatesPromises = parsedConfigArray
+    .filter((parsedConfig) => parsedConfig.actionInputs.length > 0)
+    .map((parsedConfig) =>
+      getNetworkGasEstimate(
+        parsedConfigArray,
+        parsedConfig.chainId,
+        foundryToml
+      )
+    )
+  const gasEstimates = await Promise.all(gasEstimatesPromises)
 
   spinner.succeed(`Simulation succeeded.`)
-
   const preview = getPreview(parsedConfigArray)
   if (confirm) {
     spinner.info(`Skipping preview.`)
@@ -453,12 +359,12 @@ export const propose = async (
     ? spinner.start('Finishing dry run...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = parsedConfigArray.map((compilerConfig) => {
+  const shouldBeEqual = parsedConfigArray.map((parsedConfig) => {
     return {
-      newConfig: compilerConfig.newConfig,
-      safeAddress: compilerConfig.safeAddress,
-      moduleAddress: compilerConfig.moduleAddress,
-      safeInitData: compilerConfig.safeInitData,
+      newConfig: parsedConfig.newConfig,
+      safeAddress: parsedConfig.safeAddress,
+      moduleAddress: parsedConfig.moduleAddress,
+      safeInitData: parsedConfig.safeInitData,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -524,42 +430,15 @@ export const propose = async (
     },
   }
 
-  // This could fail if we're using mocked config artifacts which do not load the entire build info file.
-  // So we catch the error and then rethrow it if this is a production proposal (not a dry run).
-  // If this is not a production deployment, then `canonicalConfigData` will returned with the value undefined.
-  let canonicalConfigData: string | undefined
-  try {
-    const { compilerConfigs } = await getParsedConfigWithCompilerInputs(
-      parsedConfigArray,
-      configArtifacts
-    )
-    canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
-  } catch (e) {
-    if (!dryRun) {
-      throw e
-    } else {
-      if (!silent) {
-        console.error(e)
-      }
-      spinner.stop()
-      return {
-        proposalRequest,
-        canonicalConfigData,
-        configArtifacts,
-        parsedConfigArray,
-      }
-    }
-  }
+  const compilerConfigs = getParsedConfigWithCompilerInputs(
+    parsedConfigArray,
+    configArtifacts
+  )
+  const canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
 
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
-    if (!canonicalConfigData) {
-      throw new Error(
-        'Cannot use mock artifacts in production, please report this to the developers'
-      )
-    }
-
     const compilerConfigId = await storeCanonicalConfig(
       apiKey,
       newConfig.orgId,
@@ -579,6 +458,7 @@ export const propose = async (
     canonicalConfigData,
     configArtifacts,
     parsedConfigArray,
+    merkleTree,
   }
 }
 

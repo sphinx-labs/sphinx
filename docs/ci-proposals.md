@@ -18,7 +18,7 @@ We'll use GitHub Actions as the CI platform in this guide. You can still follow 
 6. [Create the proposal workflow](#6-create-the-proposal-workflow)
 7. [Configure secret variables](#7-configure-secret-variables)
 8. [Test your integration](#8-test-your-integration)
-9. [Production Deployments](#9-production-deployments)
+9. [Production deployments](#9-production-deployments)
 
 ## 1. Prerequisites
 
@@ -83,7 +83,7 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Dry Run
-        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --testnets
+        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
 ```
 
 Here is a list of things you may need to change in the template:
@@ -122,7 +122,7 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Propose
-        run: npx sphinx propose <path/to/your/script.s.sol> --confirm --testnets
+        run: npx sphinx propose <path/to/your/script.s.sol> --confirm --networks testnets
 ```
 
 Here is a list of things you may need to change in the template:
@@ -137,14 +137,15 @@ Here is a list of things you may need to change in the template:
 You must add a few variables as secrets in your CI process. If you're not sure how to add secrets, [see here for a guide by GitHub on storing secrets in GitHub Actions](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
 
 Here is the list of secrets to add:
-- `SPHINX_API_KEY`: You can find this in the Sphinx UI after registering your organization.
+- `SPHINX_API_KEY`: After registering your organization, you can find this in the Sphinx UI under "Options" -> "API Credentials"
 - RPC node provider API keys for all target networks. Node providers like Alchemy generally use one API key across all networks they support.
 
 ## 8. Test your integration
 
-Push your branch to GitHub, open a PR, and merge it after the dry run succeeds. Then, you go to the [Sphinx UI](https://www.sphinx.dev) to approve your deployment.
+Push your branch to GitHub, open a PR, and merge it after the dry run succeeds. Then, go to the [Sphinx UI](https://www.sphinx.dev) to approve your deployment.
 
-## 9. Production Deployments
-In this guide, we've configured the CI process to deploy against test networks. If you want to go straight to production, you can switch the `--testnets` flag with the `--mainnets` flag in both templates.
+## 9. Production deployments
 
-In practice, you may want something different depending on your workflow. For a more robust setup, we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. We recommend using a separate workflow that triggers deployments on production networks when you merge from your `develop` branch to `main`.
+In this guide, we've configured the CI process to deploy against test networks. When you're ready to deploy in production, simply update the `sphinx propose` command to include `--networks mainnets` instead of `--networks testnets`. Make sure you update both templates.
+
+In practice, we recommend triggering testnet deployments when merging to your development branch, and triggering production deployments when you merge from your development branch to your main branch.

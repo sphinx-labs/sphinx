@@ -94,15 +94,21 @@ contract MyOwnable is Ownable {
     }
 }
 
-// This contract's size is ~22181 bytes, which is near the contract size limit of 24576 bytes.
+// This contract's size is ~22500 bytes, which is near the contract size limit of 24576 bytes. The
+// contract's deployment cost is very close to the maximum batch size limit on vanilla Anvil nodes.
 contract MyLargeContract is Governor, AccessControl {
+    constructor() Governor("") {
+        // The large number of SSTOREs increases the deployment cost significantly.
+        for (uint160 i = 0; i < 150; i++) {
+            _grantRole(bytes32(0), address(i));
+        }
+    }
+
     function supportsInterface(
         bytes4 interfaceId
     ) public view override(Governor, AccessControl) returns (bool) {}
 
     function name() public view override(Governor) returns (string memory) {}
-
-    constructor() Governor("") {}
 
     function clock() public view override returns (uint48) {}
 

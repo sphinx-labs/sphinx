@@ -14,9 +14,9 @@ function setUp() public {
 - [Configuration Options](#configuration-options)
   - [`address[] owners`](#address-owners)
   - [`uint256 threshold`](#uint256-threshold)
+  - [`string projectName`](#string-projectname)
   - [`uint256 saltNonce`](#uint256-saltnonce)
 - [DevOps Platform Options](#devops-platform-options)
-  - [`string projectName`](#string-projectname)
   - [`string orgId`](#string-orgid)
   - [`Network[] mainnets`](#network-mainnets)
   - [`Network[] testnets`](#network-testnets)
@@ -37,19 +37,19 @@ sphinxConfig.threshold = 1;
 
 The number of owners required to approve transactions.
 
-### `uint256 saltNonce`
-
-A nonce which is one of the inputs that determines the address of a Gnosis Safe. Changing this to a new value will cause a new Gnosis Safe to be deployed. Defaults to `0`.
-
-## DevOps Platform Options
-
 ### `string projectName`
 
 ```
-sphinxConfig.projectName = "My Project";
+sphinxConfig.projectName = "My_Project";
 ```
 
-The name of your project, which will appear in the Sphinx UI.
+The name of your project, which is the top-level directory for your [deployment artifacts](https://github.com/sphinx-labs/sphinx/blob/main/docs/deployment-artifacts.md).
+
+### `uint256 saltNonce`
+
+An optional nonce which is one of the inputs that determines the `CREATE2` address of a Gnosis Safe. Changing this to a new value will cause a Gnosis Safe to be deployed at a new address. Defaults to `0`.
+
+## DevOps Platform Options
 
 ### `string orgId`
 
@@ -57,7 +57,7 @@ The name of your project, which will appear in the Sphinx UI.
 sphinxConfig.orgId = "abcd-1234";
 ```
 
-Your organization ID from the Sphinx UI. This is a public field, so you don't need to keep it secret.
+Your organization ID from the Sphinx UI (under "Options" -> "API Credentials"). This is a public field, so you don't need to keep it secret.
 
 ### `Network[] mainnets`
 

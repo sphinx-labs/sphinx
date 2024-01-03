@@ -23,7 +23,8 @@ import {
     InitialChainState,
     OptionalAddress,
     Wallet,
-    Label
+    Label,
+    ExecutionMode
 } from "./SphinxPluginTypes.sol";
 import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
@@ -43,15 +44,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // because Solidity v0.8.0 doesn't support this operation. The test file `SphinxUtils.t.sol`
     // contains a test that ensures this value is correct.
     uint8 internal constant numSupportedNetworks = 23;
-
-    function getMainFFIScriptPath() private returns (string memory) {
-        string memory rootPluginPath = vm.envOr(
-            "DEV_FILE_PATH",
-            string("./node_modules/@sphinx-labs/plugins/")
-        );
-        string memory rootFfiPath = string(abi.encodePacked(rootPluginPath, "dist/foundry/"));
-        return string(abi.encodePacked(rootFfiPath, "index.js"));
-    }
 
     function slice(
         bytes calldata _data,
@@ -187,58 +179,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         )
     {
         return abi.decode(leaf.data, (address, uint256, uint256, bytes, uint256, bool));
-    }
-
-    /**
-     * Helper function that determines if a given batch is executable within the specified gas
-     *    limit.
-     */
-    function executable(
-        SphinxLeafWithProof[] memory selected,
-        uint256 maxGasLimit
-    ) public pure returns (bool) {
-        uint256 estGasUsed = 0;
-        for (uint256 i = 0; i < selected.length; i++) {
-            (, , uint256 gas, , , ) = decodeExecutionLeafData(selected[i].leaf);
-            estGasUsed += gas;
-        }
-        return maxGasLimit > estGasUsed;
-    }
-
-    /**
-     * Helper function for finding the maximum number of batch elements that can be executed from a
-     * given input list of actions. This is done by performing a binary search over the possible
-     * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
-     */
-    function findMaxBatchSize(
-        SphinxLeafWithProof[] memory leaves,
-        uint256 maxGasLimit
-    ) public pure returns (uint256) {
-        // Optimization, try to execute the entire batch at once before doing a binary search
-        if (executable(leaves, maxGasLimit)) {
-            return leaves.length;
-        }
-
-        // If the full batch isn't executavle, then do a binary search to find the largest
-        // executable batch size
-        uint256 min = 0;
-        uint256 max = leaves.length;
-        while (min < max) {
-            uint256 mid = ceilDiv((min + max), 2);
-            SphinxLeafWithProof[] memory left = inefficientSlice(leaves, 0, mid);
-            if (executable(left, maxGasLimit)) {
-                min = mid;
-            } else {
-                max = mid - 1;
-            }
-        }
-
-        // No possible size works, this is a problem and should never happen
-        if (min == 0) {
-            revert("Sphinx: Unable to find a batch size that does not exceed the block gas limit");
-        }
-
-        return min;
     }
 
     function equals(string memory _str1, string memory _str2) public pure returns (bool) {
@@ -600,26 +540,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return result;
     }
 
-    /**
-     * @notice Checks if the rpcUrl is a live network (e.g. Ethereum) or a local network (e.g. an
-     *         Anvil or Hardhat node). It does this by attempting to call an RPC method that only
-     *         exists on an Anvil or Hardhat node.
-     */
-    function isLiveNetworkFFI(string memory _rpcUrl) external returns (bool) {
-        string[] memory inputs = new string[](5);
-        inputs[0] = "npx";
-        inputs[1] = "node";
-        inputs[2] = getMainFFIScriptPath();
-        inputs[3] = "isLiveNetwork";
-        inputs[4] = _rpcUrl;
-
-        Vm.FfiResult memory result = vm.tryFfi(inputs);
-        if (result.exitCode != 0) {
-            revert(string(result.stderr));
-        }
-        return abi.decode(result.stdout, (bool));
-    }
-
     function arrayContainsAddress(
         address[] memory _ary,
         address _addr
@@ -740,6 +660,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.owners.length >= _config.threshold,
             "Sphinx: Your 'sphinxConfig.threshold' field must be less than or equal to the number of owners in your 'owners' array."
         );
+        require(
+            bytes(_config.projectName).length > 0,
+            "Sphinx: Your 'sphinxConfig.projectName' cannot be an empty string. Please enter a project name."
+        );
 
         address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
         Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
@@ -798,10 +722,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * @notice Performs validation for a broadcast on a live network (i.e. not an Anvil or Hardhat
      *         node).
      */
-    function validateLiveNetworkBroadcast(
-        SphinxConfig memory _config,
-        IGnosisSafe _safe
-    ) external view {
+    function validateLiveNetworkCLI(SphinxConfig memory _config, IGnosisSafe _safe) external view {
         require(
             sphinxModuleProxyFactoryAddress.code.length > 0,
             "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
@@ -892,13 +813,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             bytes(_config.orgId).length > 0,
             "Sphinx: Your 'sphinxConfig.orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
-        require(
-            bytes(_config.projectName).length > 0,
-            "Sphinx: Your 'sphinxConfig.projectName' cannot be an empty string. Please enter a project name."
-        );
     }
 
-    function getSphinxSafeAddress(SphinxConfig memory _config) public pure returns (address) {
+    function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
         address[] memory owners = _config.owners;
         uint256 threshold = _config.threshold;
 
@@ -940,9 +857,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
-        address safeProxyAddress = getSphinxSafeAddress(_config);
-        bytes32 saltNonce = bytes32(0);
-        bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, saltNonce));
+        address safeProxyAddress = getGnosisSafeProxyAddress(_config);
+        bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, _config.saltNonce));
         address addr = predictDeterministicAddress(
             sphinxModuleImplAddress,
             salt,

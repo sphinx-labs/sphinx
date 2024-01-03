@@ -37,31 +37,31 @@ export type SupportedNetworkName =
 // This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
 // The fields in the two enums must be kept in sync, and the order of the fields must be the same.
 export const NetworkEnum = {
-  anvil: 0n,
-  // production networks (i.e. mainnets)
-  ethereum: 1n,
-  optimism: 2n,
-  arbitrum: 3n,
-  polygon: 4n,
-  bnb: 5n,
-  gnosis: 6n,
-  linea: 7n,
-  polygon_zkevm: 8n,
-  avalanche: 9n,
-  fantom: 10n,
-  base: 11n,
-  // testnets
-  sepolia: 12n,
-  optimism_sepolia: 13n,
-  arbitrum_sepolia: 14n,
-  polygon_mumbai: 15n,
-  bnb_testnet: 16n,
-  gnosis_chiado: 17n,
-  linea_goerli: 18n,
-  polygon_zkevm_goerli: 19n,
-  avalanche_fuji: 20n,
-  fantom_testnet: 21n,
-  base_sepolia: 22n,
+  anvil: BigInt(0),
+  // Production networks:
+  ethereum: BigInt(1),
+  optimism: BigInt(2),
+  arbitrum: BigInt(3),
+  polygon: BigInt(4),
+  bnb: BigInt(5),
+  gnosis: BigInt(6),
+  linea: BigInt(7),
+  polygon_zkevm: BigInt(8),
+  avalanche: BigInt(9),
+  fantom: BigInt(10),
+  base: BigInt(11),
+  // Testnets:
+  sepolia: BigInt(12),
+  optimism_sepolia: BigInt(13),
+  arbitrum_sepolia: BigInt(14),
+  polygon_mumbai: BigInt(15),
+  bnb_testnet: BigInt(16),
+  gnosis_chiado: BigInt(17),
+  linea_goerli: BigInt(18),
+  polygon_zkevm_goerli: BigInt(19),
+  avalanche_fuji: BigInt(20),
+  fantom_testnet: BigInt(21),
+  base_sepolia: BigInt(22),
 }
 
 export const networkEnumToName = (

@@ -15,13 +15,14 @@
   "scripts": {
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
-    "build:ts": "tsc -p ./tsconfig.json && chmod +x dist/cli/index.js",
+    "build:ts": "tsc -p ./tsconfig.json && yarn copy-hardhat-config && chmod +x dist/cli/index.js",
     "build:contracts": "forge build",
+    "copy-hardhat-config": "cp src/hardhat.config.js dist/hardhat.config.js",
     "clean": "rimraf out/ dist/ ./tsconfig.tsbuildinfo ./forge-cache",
     "test": "yarn kill-nodes && yarn test:solc && yarn test:ts",
     "test:ts": "npx mocha --require ts-node/register --timeout 500000 'test/mocha/**/*.ts'",
     "test:solc": "/bin/bash ./script/solc.sh",
-    "test:forge": "forge test --no-match-contract '^(Proposal)'",
+    "test:forge": "forge test",
     "test:coverage": "export DEV_FILE_PATH='./' && export DISABLE_ANALYTICS=true && apt install lsof && yarn test",
     "kill-nodes": "/bin/bash ./script/kill-nodes.sh all",
     "start-nodes": "/bin/bash ./script/start-nodes.sh all",
@@ -45,6 +46,7 @@
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.40",
     "@ethersproject/bignumber": "^5.7.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@sphinx-labs/contracts": "^0.14.2",
@@ -54,6 +56,7 @@
     "core-js": "^3.31.1",
     "dotenv": "^16.0.3",
     "ethers": "^6.7.0",
+    "hardhat": "^2.17.1",
     "node-fetch": "^2.6.7",
     "ora": "^5.4.1",
     "semver": "^7.3.7",
@@ -69,7 +72,6 @@
   },
   "devDependencies": {
     "@layerzerolabs/solidity-examples": "^0.0.13",
-    "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@types/chai-as-promised": "^7.1.5",
@@ -79,7 +81,6 @@
     "chai": "^4.3.7",
     "chai-as-promised": "^7.1.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "hardhat": "^2.17.1",
     "solady": "^0.0.132"
   },
   "peerDependencies": {

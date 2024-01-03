@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
-import { MyContract2 } from "../../../contracts/test/MyContracts.sol";
+import { MyContract1, MyContract2 } from "../../../contracts/test/MyContracts.sol";
 import { Sphinx } from "../../foundry/Sphinx.sol";
 import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
 contract Simple1 is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Simple Project 1";
+        sphinxConfig.projectName = "Simple_Project_1";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
@@ -31,7 +31,7 @@ contract Simple1 is Script, Sphinx {
 
 contract Simple2 is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Simple Project 2";
+        sphinxConfig.projectName = "Simple_Project_2";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
