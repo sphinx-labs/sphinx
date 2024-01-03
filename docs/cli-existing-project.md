@@ -124,7 +124,7 @@ The entry point of your deployment script must be a `run()` function; it cannot 
 Then, add a `sphinx` modifier to your `run` function:
 
 ```sol
-function run() sphinx public override {
+function run() sphinx public {
     ...
 }
 ```

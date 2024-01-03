@@ -16,7 +16,7 @@ contract PartiallyEmpty is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         // Deploy a contract on Ethereum and don't deploy anything on Optimism.
         if (block.chainid == 1) {
             new MyContract2{ salt: 0 }();

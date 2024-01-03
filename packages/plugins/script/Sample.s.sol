@@ -20,7 +20,7 @@ contract Sample is Sphinx {
         sphinxConfig.saltNonce = 0;
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         new MyContract1{ salt: bytes32(uint(1)) }(
             -1,
             2,

@@ -25,7 +25,7 @@ address safe = sphinxSafe();
 The entry point for your deployment must always be a `run()` function that has a `sphinx` modifier:
 
 ```sol
-function run() public sphinx override {
+function run() public sphinx {
     ...
 }
 ```

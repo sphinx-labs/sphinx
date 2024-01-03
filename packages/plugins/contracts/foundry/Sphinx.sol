@@ -163,9 +163,14 @@ abstract contract Sphinx {
         deploymentInfo.requireSuccess = true;
 
         isCollecting = true;
-        vm.startBroadcast(safe);
-        run();
-        vm.stopBroadcast();
+
+        // Delegatecall the `run()` function on this contract to collect the transactions. This
+        // pattern gives us flexibility to support function names other than `run()` in the future.
+        (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("run()"));
+        // Throw an error if the deployment script fails. The error message in the user's script is
+        // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
+        // the delegatecall in our error message.
+        require(success, "Sphinx: Deployment script failed.");
 
         // Set the labels. We do this after running the user's script because the user may assign
         // labels in their deployment. We use a for-loop instead of directly assigning the labels to
@@ -243,11 +248,13 @@ abstract contract Sphinx {
 
         if (isCollecting) {
             // Execute the user's 'run()' function.
+            vm.startBroadcast(sphinxSafe());
             _;
+            vm.stopBroadcast();
         } else {
             // Prank the Gnosis Safe then execute the user's `run()` function. We prank the Gnosis
             // Safe to replicate the deployment process on live networks.
-            vm.startPrank(address(sphinxSafe()));
+            vm.startPrank(sphinxSafe());
             _;
             vm.stopPrank();
         }
@@ -256,8 +263,6 @@ abstract contract Sphinx {
 
         sphinxModifierEnabled = false;
     }
-
-    function run() public virtual;
 
     /**
      * @notice Get the address of the SphinxModule. Before calling this function, the

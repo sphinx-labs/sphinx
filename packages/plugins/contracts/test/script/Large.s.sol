@@ -16,7 +16,7 @@ contract Simple is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         new MyLargeContract{ salt: bytes32(uint(0)) }();
         new MyLargeContract{ salt: bytes32(uint(1)) }();
         new MyLargeContract{ salt: bytes32(uint(2)) }();

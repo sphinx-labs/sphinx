@@ -17,7 +17,7 @@ contract Simple1 is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         MyContract2 myContract;
         Network network = getSphinxNetwork(block.chainid);
         if (network == Network.ethereum || network == Network.sepolia) {
@@ -39,7 +39,7 @@ contract Simple2 is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         new MyContract2{ salt: bytes32(uint(2)) }();
     }
 }
