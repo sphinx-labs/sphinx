@@ -34,7 +34,8 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 ### References
 
-- [Writing Deployment Scripts](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md)
+TODO:
+- [Writing Deployment Scripts](./docs/writing-scripts.md)
 - [CLI Propose Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md)
 - [Propose in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
 - [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md)
