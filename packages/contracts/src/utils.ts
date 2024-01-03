@@ -3,7 +3,8 @@ import { AbiCoder, ethers } from 'ethers'
 import {
   DecodedApproveLeafData,
   DecodedExecuteLeafData,
-  FoundryContractArtifact,
+  ContractArtifact,
+  LinkReferences,
 } from './types'
 import { SphinxLeaf } from './merkle-tree'
 
@@ -54,33 +55,59 @@ export const decodeExecuteLeafData = (
 }
 
 /**
- * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
+ * Converts a Foundry contract artifact to an artifact with a standard format.
  *
- * @param artifact Raw artifact object.
- * @returns FoundryContractArtifact
+ * @param foundryArtifact Foundry artifact object.
  */
-export const parseFoundryArtifact = (
-  artifact: any
-): FoundryContractArtifact => {
-  const abi = artifact.abi
-  const bytecode = add0x(artifact.bytecode.object)
-  const deployedBytecode = add0x(artifact.deployedBytecode.object)
+export const parseFoundryContractArtifact = (
+  foundryArtifact: any
+): ContractArtifact => {
+  const abi = foundryArtifact.abi
+  const bytecode = add0x(foundryArtifact.bytecode.object)
+  const deployedBytecode = add0x(foundryArtifact.deployedBytecode.object)
 
-  const compilationTarget = artifact.metadata.settings.compilationTarget
+  const compilationTarget = foundryArtifact.metadata.settings.compilationTarget
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
-  const metadata = artifact.metadata
+  const metadata = foundryArtifact.metadata
 
-  return {
+  const artifact: ContractArtifact = {
     abi,
     bytecode,
     sourceName,
     contractName,
     deployedBytecode,
     metadata,
-    methodIdentifiers: artifact.methodIdentifiers,
-    storageLayout: artifact.storageLayout,
+    methodIdentifiers: foundryArtifact.methodIdentifiers,
+    storageLayout: foundryArtifact.storageLayout,
+    linkReferences: foundryArtifact.bytecode.linkReferences,
+    deployedLinkReferences: foundryArtifact.deployedBytecode.linkReferences,
   }
+
+  if (!isContractArtifact(artifact)) {
+    throw new Error(`Could not parse Foundry contract artifact.`)
+  }
+
+  return artifact
+}
+
+export const isContractArtifact = (obj: any): obj is ContractArtifact => {
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    Array.isArray(obj.abi) &&
+    typeof obj.sourceName === 'string' &&
+    typeof obj.contractName === 'string' &&
+    typeof obj.bytecode === 'string' &&
+    typeof obj.deployedBytecode === 'string' &&
+    isLinkReferences(obj.linkReferences) &&
+    isLinkReferences(obj.deployedLinkReferences) &&
+    isNonNullObject(obj.metadata) &&
+    (obj.storageLayout === undefined ||
+      isValidStorageLayout(obj.storageLayout)) &&
+    (isNonNullObject(obj.methodIdentifiers) ||
+      obj.methodIdentifiers === undefined)
+  )
 }
 
 /**
@@ -186,4 +213,42 @@ export const recursivelyConvertResult = (
     }
   }
   return converted
+}
+
+export const isLinkReferences = (obj: any): obj is LinkReferences => {
+  if (typeof obj !== 'object' || obj === null) {
+    return false
+  }
+
+  return Object.values(obj).every((libraryFileNameObj) => {
+    if (typeof libraryFileNameObj !== 'object' || libraryFileNameObj === null) {
+      return false
+    }
+
+    return Object.values(libraryFileNameObj).every(
+      (library) =>
+        Array.isArray(library) &&
+        library.every(
+          (ref) =>
+            ref !== null &&
+            typeof ref === 'object' &&
+            typeof ref.length === 'number' &&
+            typeof ref.start === 'number'
+        )
+    )
+  })
+}
+
+const isValidStorageLayout = (storageLayout: any): boolean => {
+  return (
+    storageLayout !== null &&
+    typeof storageLayout === 'object' &&
+    Array.isArray(storageLayout.storage) &&
+    typeof storageLayout.types === 'object' &&
+    storageLayout.types !== null
+  )
+}
+
+export const isNonNullObject = (obj: any): boolean => {
+  return typeof obj === 'object' && obj !== null
 }

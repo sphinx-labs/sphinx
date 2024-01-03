@@ -1,18 +1,15 @@
-import * as path from 'path'
 import * as fs from 'fs'
 import { promisify } from 'util'
-import { exec, spawn } from 'child_process'
+import { exec, execSync, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
-import * as semver from 'semver'
 import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import {
-  FoundryContractArtifact,
   GnosisSafeArtifact,
   SphinxLeaf,
   SphinxMerkleTree,
@@ -20,6 +17,12 @@ import {
   add0x,
   SphinxLeafWithProof,
   SphinxLeafType,
+  getManagedServiceAddress,
+  ManagedServiceArtifact,
+  Operation,
+  ContractArtifact,
+  isContractArtifact,
+  SolidityStorageLayout,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -27,7 +30,6 @@ import {
   UserContractKind,
   userContractKinds,
   ParsedVariable,
-  BuildInfoRemote,
   ConfigArtifactsRemote,
   RawFunctionCallActionInput,
   ActionInput,
@@ -42,10 +44,10 @@ import {
   SphinxActionType,
   ProposalRequest,
   MerkleRootStatus,
+  HumanReadableAction,
 } from './actions/types'
-import { Integration } from './constants'
+import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import 'core-js/features/array/at'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import {
@@ -54,20 +56,6 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
-
-export const writeSnapshotId = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  networkDirName: string,
-  deploymentFolderPath: string
-) => {
-  const snapshotId = await provider.send('evm_snapshot', [])
-  const networkPath = path.join(deploymentFolderPath, networkDirName)
-  if (!fs.existsSync(networkPath)) {
-    fs.mkdirSync(networkPath, { recursive: true })
-  }
-  const snapshotIdPath = path.join(networkPath, '.snapshotId')
-  fs.writeFileSync(snapshotIdPath, snapshotId)
-}
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -157,22 +145,35 @@ export const getEIP1967ProxyAdminAddress = async (
  * @returns The object whose gas price settings will be overridden.
  */
 export const getGasPriceOverrides = async (
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   overridden: ethers.TransactionRequest = {}
 ): Promise<ethers.TransactionRequest> => {
-  if (!signer.provider) {
-    throw new Error(
-      'Signer must be connected to a provider in order to get gas price overrides.'
-    )
+  const [block, isLiveNetwork_, feeData, network] = await Promise.all([
+    provider.getBlock('latest'),
+    isLiveNetwork(provider),
+    provider.getFeeData(),
+    provider.getNetwork(),
+  ])
+
+  if (!block) {
+    throw new Error(`Unable to retrieve latest block.`)
   }
 
-  const feeData = await signer.provider!.getFeeData()
+  if (!isLiveNetwork_) {
+    // Hard-code the gas limit to be the block gas limit. This is an optimization that significantly
+    // speeds up deployments on local networks because it removes the need for EthersJS to call
+    // `eth_estimateGas`, which is a very slow operation for large transactions. We don't override
+    // this on live networks because the signer is the user's wallet, which may have a limited
+    // amount of ETH. It's fine to set a very high gas limit on local networks because we use an
+    // auto-generated wallet to execute the transactions.
+    overridden.gasLimit = block.gasLimit
+    return overridden
+  }
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
 
-  const chainId = Number((await signer.provider!.getNetwork()).chainId)
-
-  switch (chainId) {
+  switch (Number(network.chainId)) {
     // Overrides the gasPrice for Fantom Opera
     case 250:
       if (gasPrice !== null) {
@@ -200,7 +201,7 @@ export const getGasPriceOverrides = async (
     // On mumbai, specify the nonce manually to override pending txs
     case 56:
     case 80001:
-      overridden.nonce = await signer.provider.getTransactionCount(
+      overridden.nonce = await provider.getTransactionCount(
         await signer.getAddress(),
         'latest'
       )
@@ -208,7 +209,7 @@ export const getGasPriceOverrides = async (
     // On Gnosis, set the gas limit artificially high (since ethers does not seem to always estimate it proplerly especially for contract deployments)
     case 100:
     case 10200:
-      overridden.gasLimit = 15_000_000
+      overridden.gasLimit = getMaxGasLimit(block.gasLimit)
       return overridden
     // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
     default:
@@ -227,26 +228,6 @@ export const isUserContractKind = (
 }
 
 /**
- * Retrieves an artifact by name from the local file system.
- */
-export const readFoundryContractArtifact = (
-  contractArtifactPath: string,
-  integration: Integration
-): FoundryContractArtifact => {
-  const artifact: FoundryContractArtifact = JSON.parse(
-    fs.readFileSync(contractArtifactPath, 'utf8')
-  )
-
-  if (integration === 'hardhat') {
-    return artifact
-  } else if (integration === 'foundry') {
-    return artifact
-  } else {
-    throw new Error('Unknown integration')
-  }
-}
-
-/**
  * Reads the build info from the local file system.
  *
  * @param buildInfoPath Path to the build info file.
@@ -258,29 +239,6 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
   )
 
   return buildInfo
-}
-
-export const validateBuildInfo = (
-  buildInfo: BuildInfo,
-  integration: Integration
-): void => {
-  if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  if (integration === 'hardhat') {
-    if (
-      !buildInfo.input.settings.outputSelection['*']['*'].includes(
-        'storageLayout'
-      )
-    ) {
-      throw new Error(
-        `Did you forget to set the "storageLayout" compiler option in your Hardhat config file?`
-      )
-    }
-  }
 }
 
 /**
@@ -309,7 +267,7 @@ export const callWithTimeout = async <T>(
 export const getConfigArtifactsRemote = async (
   compilerConfigs: Array<CompilerConfig>
 ): Promise<ConfigArtifactsRemote> => {
-  const solcArray: BuildInfoRemote[] = []
+  const solcArray: BuildInfo[] = []
   const artifacts: ConfigArtifactsRemote = {}
   // Get the compiler output for each compiler input.
   for (const compilerConfig of compilerConfigs) {
@@ -341,19 +299,21 @@ export const getConfigArtifactsRemote = async (
         }
       }
 
+      const formattedSolcLongVersion = formatSolcLongVersion(
+        sphinxInput.solcLongVersion
+      )
+
       solcArray.push({
         input: sphinxInput.input,
         output: compilerOutput,
         id: sphinxInput.id,
-        solcLongVersion: sphinxInput.solcLongVersion,
+        solcLongVersion: formattedSolcLongVersion,
         solcVersion: sphinxInput.solcVersion,
       })
     }
 
     for (const actionInput of compilerConfig.actionInputs) {
-      for (const address of Object.keys(actionInput.contracts)) {
-        const { fullyQualifiedName } = actionInput.contracts[address]
-
+      for (const { fullyQualifiedName } of actionInput.contracts) {
         // Split the contract's fully qualified name into its source name and contract name.
         const [sourceName, contractName] = fullyQualifiedName.split(':')
 
@@ -372,17 +332,30 @@ export const getConfigArtifactsRemote = async (
           typeof contractOutput.metadata === 'string'
             ? JSON.parse(contractOutput.metadata)
             : contractOutput.metadata
+
+        const artifact: ContractArtifact = {
+          abi: contractOutput.abi,
+          sourceName,
+          contractName,
+          bytecode: add0x(contractOutput.evm.bytecode.object),
+          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+          methodIdentifiers: contractOutput.evm.methodIdentifiers,
+          linkReferences: contractOutput.evm.bytecode.linkReferences,
+          deployedLinkReferences:
+            contractOutput.evm.deployedBytecode.linkReferences,
+          metadata,
+          storageLayout: contractOutput.storageLayout,
+        }
+
+        if (!isContractArtifact(artifact)) {
+          throw new Error(
+            `Invalid artifact for: ${fullyQualifiedName}. Should never happen.`
+          )
+        }
+
         artifacts[fullyQualifiedName] = {
           buildInfo,
-          artifact: {
-            abi: contractOutput.abi,
-            sourceName,
-            contractName,
-            bytecode: add0x(contractOutput.evm.bytecode.object),
-            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-            methodIdentifiers: contractOutput.evm.methodIdentifiers,
-            metadata,
-          },
+          artifact,
         }
       }
     }
@@ -407,7 +380,7 @@ export const isLiveNetwork = async (
     // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
     // namespace is an alias for `hardhat_`. Source:
     // https://book.getfoundry.sh/reference/anvil/#custom-methods
-    await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
+    await provider.send('hardhat_getAutomine', [])
   } catch (err) {
     return true
   }
@@ -426,6 +399,15 @@ export const getImpersonatedSigner = async (
   } else {
     return provider.getSigner(address)
   }
+}
+
+export const stopImpersonatingAccount = async (
+  address: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<void> => {
+  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [address])
 }
 
 /**
@@ -458,7 +440,7 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
       throw new Error(`Malformed Request: ${e.response.data}`)
     } else if (e.response.status === 401) {
       throw new Error(
-        `Unauthorized request. Please check your Sphinx API key and organization ID are correct.`
+        `Unauthorized request. Please check your Sphinx API Key and organization ID are correct.`
       )
     } else if (e.response.status === 409) {
       throw new Error(
@@ -582,31 +564,24 @@ export const resolveNetwork = async (
 }
 
 /**
- * @notice Returns the name of the directory that stores the artifacts for the specified network.
- * The directory name will be one of the following:
- *
- * 1. `networkName` if the network is a live network. For example, 'ethereum'.
- *
- * 2. `networkName-local` if the network matches a supported network and the network is local, i.e.
- * either a forked network or a local Anvil/Hardhat node with a user-defined chain ID. For
- * example, 'ethereum-local'. We say 'local' instead of 'fork' because it's difficult to reliably
- * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
- * `anvil --chain-id 5`.
- *
- * 3. `<hardhat/anvil>-chainId` otherwise. This will occur on standard Hardhat/Anvil nodes. For
- * example, 'hardhat-31337'.
+ * @notice Returns the name of the directory that stores artifacts for a network. This directory
+ * name is the string name of the network. If the network is a local node, the network name will be
+ * appended with `-local` (e.g. `ethereum-local`).
  */
-export const getNetworkDirName = (
-  networkName: string,
-  isLiveNetwork_: boolean,
-  chainId: number
+export const getNetworkNameDirectory = (
+  chainId: string,
+  executionMode: ExecutionMode
 ): string => {
-  if (isLiveNetwork_) {
+  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  if (
+    executionMode === ExecutionMode.LiveNetworkCLI ||
+    executionMode === ExecutionMode.Platform
+  ) {
     return networkName
-  } else if (networkName === 'anvil' || networkName === 'hardhat') {
-    return `${networkName}-${chainId}`
-  } else {
+  } else if (executionMode === ExecutionMode.LocalNetworkCLI) {
     return `${networkName}-local`
+  } else {
+    throw new Error(`Unknown execution type.`)
   }
 }
 
@@ -627,10 +602,13 @@ export const getNetworkDirName = (
  */
 export const getNetworkTag = (
   networkName: string,
-  isLiveNetwork_: boolean,
+  executionMode: ExecutionMode,
   chainId: bigint
 ): string => {
-  if (isLiveNetwork_) {
+  if (
+    executionMode === ExecutionMode.Platform ||
+    executionMode === ExecutionMode.LiveNetworkCLI
+  ) {
     return networkName
   } else if (
     Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
@@ -794,7 +772,9 @@ export const prettyRawFunctionCall = (to: string, data: string): string => {
  * @notice Returns true if and only if the two inputs are equal.
  */
 export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
-  if (
+  if (a === null || b === null) {
+    return a === b
+  } else if (
     (Array.isArray(a) && !Array.isArray(b)) ||
     (!Array.isArray(a) && Array.isArray(b)) ||
     typeof a !== typeof b
@@ -827,9 +807,7 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
     // equal to the type of `b` above.
     typeof a === 'number' ||
     typeof a === 'boolean' ||
-    typeof a === 'number' ||
-    typeof a === 'string' ||
-    typeof a === 'bigint'
+    typeof a === 'string'
   ) {
     return a === b
   } else {
@@ -887,8 +865,7 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
   const deployments = {}
   let idx = 0
   for (const input of parsedConfig.actionInputs) {
-    for (const address of Object.keys(input.contracts)) {
-      const fullyQualifiedName = input.contracts[address].fullyQualifiedName
+    for (const { address, fullyQualifiedName } of input.contracts) {
       const contractName = fullyQualifiedName.split(':')[1]
       deployments[idx + 1] = {
         Contract: contractName,
@@ -907,11 +884,14 @@ export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
  * function doesn't return the output until the promise resolves. Use this function instead of
  * `execAsync` if the command generates a lot of output, since `execAsync` will run out of memory if
  * the output is too large.
+ *
+ * @param inputData Optional string data to pass into the `stdin` of the child process.
  */
 export const spawnAsync = (
   cmd: string,
   args: string[],
-  env?: NodeJS.ProcessEnv
+  env?: NodeJS.ProcessEnv,
+  inputData?: string
 ): Promise<{ stdout: string; stderr: string; code: number | null }> => {
   return new Promise((resolve) => {
     const output: Buffer[] = []
@@ -929,6 +909,12 @@ export const spawnAsync = (
     child.stderr.on('data', (data: Buffer) => {
       error.push(data)
     })
+
+    // Write inputData to the child process stdin
+    if (inputData) {
+      child.stdin.write(inputData)
+      child.stdin.end()
+    }
 
     child.on('close', (code) => {
       return resolve({
@@ -974,7 +960,7 @@ export const toSphinxTransaction = (
  */
 export const getSphinxWalletsSortedByAddress = (
   numWallets: number | bigint,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Array<ethers.Wallet> => {
   const wallets: Array<ethers.Wallet> = []
   for (let i = 0; i < Number(numWallets); i++) {
@@ -1004,14 +990,15 @@ export const getSphinxWalletPrivateKey = (walletIndex: number): string => {
  */
 export const addSphinxWalletsToGnosisSafeOwners = async (
   safeAddress: string,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<Array<ethers.Wallet>> => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
+  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    await getImpersonatedSigner(safeAddress, provider)
+    safeSigner
   )
 
   // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
@@ -1019,10 +1006,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(ethers.parseEther('100')),
-  ])
+  await fundAccount(safeAddress, provider)
 
   const ownerThreshold: bigint = await safe.getThreshold()
 
@@ -1039,18 +1023,19 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   for (const wallet of sphinxWallets) {
     // The Gnosis Safe doesn't have an "addOwner" function, which is why we need to use
     // "addOwnerWithThreshold".
-    await safe.addOwnerWithThreshold(wallet.address, ownerThreshold)
+    await safe.addOwnerWithThreshold(
+      wallet.address,
+      ownerThreshold,
+      await getGasPriceOverrides(provider, safeSigner)
+    )
   }
 
   // Restore the initial balance of the Gnosis Safe.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(initialSafeBalance),
-  ])
+  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
 
   // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
-  // for 'anvil_impersonateAccount'.
-  await provider.send('hardhat_impersonateAccount', [safeAddress])
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
 
   return sphinxWallets
 }
@@ -1062,14 +1047,15 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 export const removeSphinxWalletsFromGnosisSafeOwners = async (
   sphinxWallets: Array<ethers.Wallet>,
   safeAddress: string,
-  provider: SphinxJsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
   // necessary to prevent the calls from reverting.
+  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    await getImpersonatedSigner(safeAddress, provider)
+    safeSigner
   )
 
   // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
@@ -1077,10 +1063,7 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(ethers.parseEther('100')),
-  ])
+  await fundAccount(safeAddress, provider)
 
   const ownerThreshold = Number(await safe.getThreshold())
 
@@ -1090,24 +1073,23 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
     await safe.removeOwner(
       sphinxWallets[i + 1].address,
       sphinxWallets[i].address,
-      ownerThreshold
+      ownerThreshold,
+      await getGasPriceOverrides(provider, safeSigner)
     )
   }
   await safe.removeOwner(
     '0x' + '00'.repeat(19) + '01', // This is `address(1)`. i.e. Gnosis Safe's `SENTINEL_OWNERS`.
     sphinxWallets[ownerThreshold - 1].address,
-    ownerThreshold
+    ownerThreshold,
+    await getGasPriceOverrides(provider, safeSigner)
   )
 
   // Restore the initial balance of the Gnosis Safe.
-  await provider.send('hardhat_setBalance', [
-    safeAddress,
-    ethers.toBeHex(initialSafeBalance),
-  ])
+  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
 
   // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
-  // for 'anvil_impersonateAccount'.
-  await provider.send('hardhat_impersonateAccount', [safeAddress])
+  // for 'anvil_stopImpersonatingAccount'.
+  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
 }
 
 export const getApproveLeaf = (
@@ -1177,4 +1159,266 @@ export const stringifyMerkleRootStatus = (status: bigint): string => {
     default:
       throw new Error(`Unknown Merkle root status: ${status}`)
   }
+}
+
+export const findStorageSlotKey = (
+  storageLayout: SolidityStorageLayout | undefined,
+  varName: string
+): string => {
+  if (!storageLayout) {
+    throw new Error(`Storage layout is undefined.`)
+  }
+
+  const storageObj = storageLayout.storage.find((s) => s.label === varName)
+
+  if (!storageObj) {
+    throw new Error(`Could not find storage slot key.`)
+  }
+
+  return storageObj.slot
+}
+
+/**
+ * Throws an error if the input project name contains invalid characters, which would prevent Sphinx
+ * from using it as a file name when writing the deployment artifacts. This function is in
+ * TypeScript instead of Solidity because it's impractical to implement regular expressions in
+ * Solidity.
+ */
+export const assertValidProjectName = (input: string): void => {
+  const forbiddenChars = /[\/:*?"<>|]/
+
+  // Check for forbidden characters
+  if (forbiddenChars.test(input)) {
+    throw new Error('Project name contains forbidden characters: \\/:*?"<>|')
+  }
+
+  // Check for length restrictions (common maximum length is 255)
+  if (input.length === 0 || input.length > 255) {
+    throw new Error('Project name length must be between 1 and 255 characters.')
+  }
+
+  // Reserved names (commonly reserved in Windows)
+  const reservedNames = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i
+  if (reservedNames.test(input)) {
+    throw new Error('Project name uses a reserved name in Windows.')
+  }
+
+  // Check for empty names
+  if (input.length === 0) {
+    throw new Error('Project name cannot be empty.')
+  }
+
+  // Check for names that contain whitespace
+  if (input.includes(' ')) {
+    throw new Error(`Project name cannot contain whitespace.`)
+  }
+}
+
+export const getCurrentGitCommitHash = (): string | null => {
+  let commitHash: string
+  try {
+    commitHash = execSync('git rev-parse HEAD').toString().trim()
+  } catch {
+    return null
+  }
+
+  if (commitHash.length !== 40) {
+    throw new Error(`Git commit hash is an unexpected length: ${commitHash}`)
+  }
+
+  return commitHash
+}
+
+export const isSphinxTransaction = (obj: any): obj is SphinxTransaction => {
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    typeof obj.to === 'string' &&
+    typeof obj.value === 'string' &&
+    typeof obj.txData === 'string' &&
+    typeof obj.gas === 'string' &&
+    obj.operation in Operation &&
+    typeof obj.requireSuccess === 'boolean'
+  )
+}
+
+export const signMerkleRoot = async (
+  merkleRoot: string,
+  wallet: ethers.Signer
+) => {
+  const domain = {
+    name: 'Sphinx',
+    version: '1.0.0',
+  }
+
+  const types = { MerkleRoot: [{ name: 'root', type: 'bytes32' }] }
+
+  const value = { root: merkleRoot }
+
+  const signature = await wallet.signTypedData(domain, types, value)
+  return signature
+}
+
+export const fundAccount = async (
+  address: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => {
+  await setBalance(address, ethers.toBeHex(ethers.parseEther('100')), provider)
+}
+
+export const setBalance = async (
+  address: string,
+  balance: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => {
+  await provider.send('hardhat_setBalance', [
+    address,
+    // Strip the leading zero if it exists. This is necessary because hex quantities with leading
+    // zeros are not valid at the JSON-RPC layer. Stripping the leading zero doesn't change the
+    // amount.
+    balance.replace('0x0', '0x'),
+  ])
+}
+
+export const getMappingValueSlotKey = (
+  mappingSlotKey: string,
+  key: string
+): string => {
+  const padded = ethers.zeroPadValue(ethers.toBeHex(mappingSlotKey), 32)
+
+  return ethers.keccak256(
+    ethers.solidityPacked(['bytes32', 'bytes32'], [key, padded])
+  )
+}
+
+export const setManagedServiceRelayer = async (
+  address: string,
+  provider: HardhatEthersProvider | SphinxJsonRpcProvider
+) => {
+  const managedServiceAddress = getManagedServiceAddress()
+
+  const accessControlRoleSlotKey = findStorageSlotKey(
+    ManagedServiceArtifact.storageLayout,
+    '_roles'
+  )
+  const roleSlotKey = getMappingValueSlotKey(
+    accessControlRoleSlotKey,
+    RELAYER_ROLE
+  )
+  const memberSlotKey = getMappingValueSlotKey(
+    roleSlotKey,
+    ethers.zeroPadValue(ethers.toBeHex(address), 32)
+  )
+
+  await provider.send('hardhat_setStorageAt', [
+    managedServiceAddress,
+    memberSlotKey,
+    '0x0000000000000000000000000000000000000000000000000000000000000001',
+  ])
+}
+
+export const getReadableActions = (
+  actionInputs: ActionInput[]
+): HumanReadableAction[] => {
+  return actionInputs.map((action) => {
+    const { referenceName, functionName, variables, address } =
+      action.decodedAction
+    const actionStr = prettyFunctionCall(
+      referenceName,
+      address,
+      functionName,
+      variables,
+      5,
+      3
+    )
+    return {
+      reason: actionStr,
+      actionIndex: action.index,
+    }
+  })
+}
+
+export const getCreate3Address = (deployer: string, salt: string): string => {
+  // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
+  // library for details.
+  const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
+
+  const proxyAddress = ethers.getCreate2Address(
+    deployer,
+    salt,
+    ethers.keccak256(proxyBytecode)
+  )
+
+  const addressHash = ethers.keccak256(
+    ethers.concat(['0xd694', proxyAddress, '0x01'])
+  )
+
+  // Return the last 20 bytes of the address hash
+  const last20Bytes = ethers.dataSlice(addressHash, 12)
+
+  // Return the checksum address
+  return ethers.getAddress(last20Bytes)
+}
+
+/**
+ * Converts the `chainId` and `index` fields of the `SphinxLeaf` from strings to BigInts. This is
+ * useful when the `SphinxLeafWithProof` array is created from `JSON.parse`, which sets all BigInt
+ * values to strings.
+ *
+ * @param input A `SphinxLeafWithProof` array where the `chainId` and `index` fields are strings
+ * instead of BigInts.
+ */
+export const toSphinxLeafWithProofArray = (
+  input: Array<{
+    leaf: {
+      chainId: string
+      index: string
+      leafType: SphinxLeafType
+      data: string
+    }
+    proof: string[]
+  }>
+): Array<SphinxLeafWithProof> => {
+  return input.map((item) => ({
+    leaf: {
+      ...item.leaf,
+      chainId: BigInt(item.leaf.chainId),
+      index: BigInt(item.leaf.index),
+    },
+    proof: item.proof,
+  }))
+}
+
+export const getCreate3Salt = (
+  referenceName: string,
+  userSalt: string
+): string => {
+  return ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ['string', 'bytes32'],
+      [referenceName, userSalt]
+    )
+  )
+}
+
+/**
+ * Get the maximum gas limit for a single transaction. This is mainly useful to determine the number
+ * of `EXECUTE` actions to fit into a single transaction. Approaching the maximum block gas limit can
+ * cause transactions to be executed slowly as a result of the algorithms that miners use to select
+ * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
+ * block gas limit.
+ */
+export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
+  return blockGasLimit / BigInt(2)
+}
+
+/**
+ * Format the solcLongVersion to be in the format '0.8.23+commit.f704f362'. The unparsed string may
+ * be in the format '0.8.23+commit.f704f362.Darwin.appleclang' (note the appended info). We format
+ * the string because the unparsed type cannot be verified on Etherscan.
+ */
+export const formatSolcLongVersion = (solcLongVersion: string) => {
+  // Match the version and commit hash, ignoring any additional parts
+  const match = solcLongVersion.match(/(\d+\.\d+\.\d+\+commit\.[a-f0-9]+)/)
+  return match ? match[0] : solcLongVersion
 }

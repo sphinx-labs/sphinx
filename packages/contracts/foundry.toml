@@ -7,6 +7,7 @@ solc = '0.8.4'
 optimizer = false
 test = 'test'
 script = 'scripts'
+extra_output=['storageLayout']
 remappings = [
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
   '@eth-optimism/contracts/=node_modules/@eth-optimism/contracts',

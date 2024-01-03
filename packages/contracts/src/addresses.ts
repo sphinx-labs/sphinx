@@ -157,7 +157,7 @@ export const getGnosisSafeL2Address = () => {
 }
 
 // GnosisSafe
-export const getGnosisSafeAddress = () => {
+export const getGnosisSafeSingletonAddress = () => {
   return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,

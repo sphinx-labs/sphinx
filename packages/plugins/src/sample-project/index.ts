@@ -85,7 +85,7 @@ export const init = (
 
   fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
   fs.writeFileSync('foundry.toml', fetchForgeConfig(pnpm, true))
-  // Create a `.env` file that contains the Sphinx API key and Alchemy API key supplied by the user.
+  // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
   fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
 
   spinner.succeed('Initialized sample Sphinx project.')

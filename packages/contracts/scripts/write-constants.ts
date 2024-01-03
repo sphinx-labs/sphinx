@@ -3,7 +3,7 @@ import {
   getManagedServiceAddress,
   getSphinxModuleProxyFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
-  getGnosisSafeAddress,
+  getGnosisSafeSingletonAddress,
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
   getSphinxModuleImplAddress,
@@ -43,7 +43,7 @@ const writeConstants = async () => {
     },
     safeSingletonAddress: {
       type: 'address',
-      value: getGnosisSafeAddress(),
+      value: getGnosisSafeSingletonAddress(),
     },
     sphinxModuleImplAddress: {
       type: 'address',

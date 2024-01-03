@@ -152,14 +152,14 @@ export const getPreview = (
       chainId,
       initialState,
       actionInputs,
-      isLiveNetwork,
+      executionMode,
       unlabeledAddresses,
     } = parsedConfig
 
     const networkName = getNetworkNameForChainId(BigInt(chainId))
     const networkTag = getNetworkTag(
       networkName,
-      isLiveNetwork,
+      executionMode,
       BigInt(chainId)
     )
 

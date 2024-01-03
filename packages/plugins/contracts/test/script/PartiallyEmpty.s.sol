@@ -8,7 +8,7 @@ import { Sphinx } from "../../foundry/Sphinx.sol";
 
 contract PartiallyEmpty is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Partially Empty";
+        sphinxConfig.projectName = "Partially_Empty";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 

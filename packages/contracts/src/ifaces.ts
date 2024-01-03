@@ -2,16 +2,16 @@ import { join } from 'path'
 import { readdirSync } from 'fs'
 
 import { GnosisSafeContractArtifact } from './types'
-import { parseFoundryArtifact } from './utils'
+import { parseFoundryContractArtifact } from './utils'
 
 /* eslint-disable @typescript-eslint/no-var-requires */
-export const ManagedServiceArtifact = parseFoundryArtifact(
+export const ManagedServiceArtifact = parseFoundryContractArtifact(
   require('../out/ManagedService.sol/ManagedService.json')
 )
-export const SphinxModuleArtifact = parseFoundryArtifact(
+export const SphinxModuleArtifact = parseFoundryContractArtifact(
   require('../out/SphinxModule.sol/SphinxModule.json')
 )
-export const SphinxModuleProxyFactoryArtifact = parseFoundryArtifact(
+export const SphinxModuleProxyFactoryArtifact = parseFoundryContractArtifact(
   require('../out/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
 

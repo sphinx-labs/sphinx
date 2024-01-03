@@ -52,7 +52,6 @@ export const fetchForgeConfig = (
 ): string => `[profile.default]
 script = 'script'
 test = 'test'
-ffi = true
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]

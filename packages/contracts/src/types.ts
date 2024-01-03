@@ -41,47 +41,48 @@ export type GnosisSafeContractArtifact = {
   deployedLinkReferences: any
 }
 
-export type FoundryContractArtifact = {
+export type LinkReferences = {
+  [libraryFileName: string]: {
+    [libraryName: string]: Array<{ length: number; start: number }>
+  }
+}
+
+export type ContractArtifact = {
   abi: Array<any>
   sourceName: string
   contractName: string
   bytecode: string
   deployedBytecode: string
-  methodIdentifiers: {
-    [methodSignature: string]: string
-  }
+  linkReferences: LinkReferences
+  deployedLinkReferences: LinkReferences
   metadata: CompilerOutputMetadata
   storageLayout?: SolidityStorageLayout
+  methodIdentifiers?: {
+    [methodSignature: string]: string
+  }
 }
 
 export interface CompilerOutputMetadata {
   sources: {
-    [sourceName: string]: {
-      keccak256: string
-      license: string
-      urls: string[]
+    [sourceName: string]: any
+  }
+  output: {
+    abi: Array<any>
+    devdoc: {
+      kind: 'dev'
+      methods: {
+        [key: string]: any
+      }
+      version: number
+    }
+    userdoc: {
+      kind: 'user'
+      methods: {
+        [key: string]: any
+      }
+      version: number
     }
   }
-  output: any
-}
-
-/**
- * Represents the JSON objects outputted by the Solidity compiler that describe the types used for
- * the various pieces of state in the contract. See
- * https://docs.soliditylang.org/en/v0.8.3/internals/layout_in_storage.html for more information.
- */
-export interface SolidityStorageType {
-  encoding: 'inplace' | 'mapping' | 'dynamic_array' | 'bytes'
-  label: string
-  numberOfBytes: string
-  key?: string
-  value?: string
-  base?: string
-  members?: SolidityStorageObj[]
-}
-
-export interface SolidityStorageTypes {
-  [name: string]: SolidityStorageType
 }
 
 /**
@@ -89,6 +90,16 @@ export interface SolidityStorageTypes {
  * https://docs.soliditylang.org/en/v0.8.3/internals/layout_in_storage.html for more information.
  */
 export interface SolidityStorageLayout {
-  storage: SolidityStorageObj[]
-  types: SolidityStorageTypes
+  storage: Array<SolidityStorageObj>
+  types: {
+    [typeName: string]: {
+      encoding: 'inplace' | 'mapping' | 'dynamic_array' | 'bytes'
+      label: string
+      numberOfBytes: string
+      key?: string
+      value?: string
+      base?: string
+      members?: Array<SolidityStorageObj>
+    }
+  }
 }

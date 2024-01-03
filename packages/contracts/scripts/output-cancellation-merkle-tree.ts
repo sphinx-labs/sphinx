@@ -68,7 +68,7 @@ type NetworkCancellationMerkleTreeInputs = {
   const leaves = makeSphinxLeaves(deploymentData)
 
   if (forceCancellationLeafIndexNonZero) {
-    leaves[0].index = 1n
+    leaves[0].index = BigInt(1)
   }
 
   const { root, leavesWithProofs } = makeSphinxMerkleTreeFromLeaves(leaves)
