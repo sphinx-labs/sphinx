@@ -51,7 +51,7 @@ const coerceNetworks = (
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
   .command(
-    'propose',
+    'propose <scriptPath>',
     `Propose a deployment by submitting it to Sphinx's backend.`,
     (y) =>
       y
@@ -61,6 +61,7 @@ yargs(hideBin(process.argv))
         .positional('scriptPath', {
           describe: 'Path to the Forge script file.',
           type: 'string',
+          demandOption: true,
         })
         .option('networks', {
           describe: 'The networks to propose on.',
@@ -89,15 +90,10 @@ yargs(hideBin(process.argv))
           boolean: true,
           default: false,
         })
-        .hide('version')
-        .demandCommand(1, 'You must provide a Forge script path.'),
+        .hide('version'),
     async (argv) => {
       const { networks, scriptPath, targetContract, silent, dryRun, confirm } =
         argv
-
-      if (typeof scriptPath !== 'string') {
-        throw new Error('Script path must be a string.')
-      }
 
       if (silent && !confirm) {
         // Since the '--silent' option silences the preview, the user must confirm the proposal
@@ -242,7 +238,7 @@ yargs(hideBin(process.argv))
   )
   .command(
     'deploy',
-    `Executes the user's 'deploy' function on the given network. Displays a preview before the deployment, and writes artifacts after.`,
+    `Executes a deployment on a network. Displays a preview before the deployment, and writes artifacts after.`,
     (y) =>
       y
         .usage(
