@@ -1,16 +1,14 @@
-import { exec } from 'child_process'
-
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   Create2ActionInput,
   ParsedConfig,
   ProposalRequest,
+  SUPPORTED_NETWORKS,
   SphinxPreview,
   execAsync,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
-  sleep,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -20,25 +18,26 @@ import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
 import { readInterface } from '../../../src/foundry/utils'
-import { FoundryToml, getFoundryToml } from '../../../src/foundry/options'
+import { getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
 import {
   getSphinxModuleAddressFromScript,
   makeMockSphinxContext,
 } from '../utils'
 import { SphinxContext } from '../../../src/cli/context'
+import { killAnvilNodes, startAnvilNodes } from '../common'
+import { FoundryToml } from '../../../src/foundry/types'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
-const mockPrompt = async (q: string) => {}
 
 const coder = new ethers.AbiCoder()
 
 const sphinxApiKey = 'test-api-key'
 const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 const sepoliaRpcUrl = `http://127.0.0.1:42111`
+
+const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
 
 describe('Propose CLI command', () => {
   let foundryToml: FoundryToml
@@ -54,19 +53,19 @@ describe('Propose CLI command', () => {
   })
 
   beforeEach(async () => {
-    // Start Anvil nodes with fresh states. We must use `exec`
-    // instead of `execAsync` because the latter will hang indefinitely.
-    exec(`anvil --chain-id 1 --port 42001 --silent &`)
-    exec(`anvil --chain-id 11155111 --port 42111 --silent &`)
-    exec(`anvil --chain-id 10 --port 42010 --silent &`)
-    await sleep(1000)
+    const allChainIds = allNetworkNames.map(
+      (network) => SUPPORTED_NETWORKS[network]
+    )
+    // Make sure that the Anvil nodes aren't running.
+    await killAnvilNodes(allChainIds)
+    // Start the Anvil nodes.
+    await startAnvilNodes(allChainIds)
   })
 
   afterEach(async () => {
-    // Exit the Anvil nodes
-    await execAsync(`kill $(lsof -t -i:42001)`)
-    await execAsync(`kill $(lsof -t -i:42111)`)
-    await execAsync(`kill $(lsof -t -i:42010)`)
+    await killAnvilNodes(
+      allNetworkNames.map((network) => SUPPORTED_NETWORKS[network])
+    )
   })
 
   it('Proposes with preview on a single testnet', async () => {
@@ -108,12 +107,12 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple Project 1',
+      'Simple_Project_1',
       isTestnet,
       [11155111],
       [
         {
-          networkTags: ['sepolia (local)'],
+          networkTags: ['sepolia'],
           executing: [
             {
               address: proposalRequest.safeAddress,
@@ -206,12 +205,12 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple Project 1',
+      'Simple_Project_1',
       isTestnet,
       [1, 10],
       [
         {
-          networkTags: ['ethereum (local)'],
+          networkTags: ['ethereum'],
           executing: [
             {
               referenceName: 'GnosisSafe',
@@ -241,7 +240,7 @@ describe('Propose CLI command', () => {
           skipping: [],
         },
         {
-          networkTags: ['optimism (local)'],
+          networkTags: ['optimism'],
           executing: [
             {
               referenceName: 'GnosisSafe',
@@ -349,12 +348,12 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Large Project',
+      'Large_Project',
       isTestnet,
       [11155111],
       [
         {
-          networkTags: ['sepolia (local)'],
+          networkTags: ['sepolia'],
           executing: [
             {
               referenceName: 'GnosisSafe',
@@ -397,7 +396,7 @@ describe('Propose CLI command', () => {
 
   it('Proposes for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
-    const { parsedConfig: firstParsedConfig } = await deploy(
+    const { compilerConfig: firstCompilerConfig } = await deploy(
       scriptPath,
       'sepolia',
       true, // Skip preview
@@ -408,7 +407,7 @@ describe('Propose CLI command', () => {
       true // Skip force recompile
     )
 
-    if (!firstParsedConfig) {
+    if (!firstCompilerConfig) {
       throw new Error(`The ParsedConfig is not defined.`)
     }
 
@@ -438,9 +437,9 @@ describe('Propose CLI command', () => {
     }
 
     // Check that the same Gnosis Safe and Sphinx Module are used for both deployments.
-    expect(proposalRequest.safeAddress).equals(firstParsedConfig.safeAddress)
+    expect(proposalRequest.safeAddress).equals(firstCompilerConfig.safeAddress)
     expect(proposalRequest.moduleAddress).equals(
-      firstParsedConfig.moduleAddress
+      firstCompilerConfig.moduleAddress
     )
 
     const expectedContractAddress = ethers.getCreate2Address(
@@ -451,12 +450,12 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Simple Project 2',
+      'Simple_Project_2',
       isTestnet,
       [11155111],
       [
         {
-          networkTags: ['sepolia (local)'],
+          networkTags: ['sepolia'],
           executing: [
             {
               address: expectedContractAddress,
@@ -549,13 +548,13 @@ describe('Propose CLI command', () => {
 
     assertValidProposalRequest(
       proposalRequest,
-      'Partially Empty',
+      'Partially_Empty',
       isTestnet,
       // Optimism is not included in the `chainIds` array because there's nothing to execute on it.
       [1],
       [
         {
-          networkTags: ['ethereum (local)'],
+          networkTags: ['ethereum'],
           executing: [
             {
               referenceName: 'GnosisSafe',
@@ -579,7 +578,7 @@ describe('Propose CLI command', () => {
           skipping: [],
         },
         {
-          networkTags: ['optimism (local)'],
+          networkTags: ['optimism'],
           executing: [],
           skipping: [],
         },
@@ -629,26 +628,6 @@ describe('Propose CLI command', () => {
       )
     )
 
-    // We have to override process.exit and stdout so we can capture the exit code and output
-    // This also prevents mocha from being killed when we call process.exit
-    let code: number | undefined
-    const originalExit = process.exit
-    process.exit = (exitCode) => {
-      code = exitCode
-      console.log('exit called')
-      throw new Error('process.exit called')
-    }
-
-    const originalWrite = process.stdout.write
-    const capturedOutput: string[] = []
-
-    console.log = (chunk: string) => {
-      if (typeof chunk === 'string') {
-        capturedOutput.push(chunk)
-      }
-      return true
-    }
-
     try {
       await propose(
         false, // Show preview
@@ -663,30 +642,19 @@ describe('Propose CLI command', () => {
         // during our test suite).
         true
       )
+
+      // If the proposal does not fail as expected, force the test to fail
+      expect.fail()
     } catch (e) {
-      if (!e.message.includes('process.exit called')) {
-        throw e
-      }
+      const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
+      expect(e.message.includes(expectedOutput)).to.be.true
     }
-
-    process.exit = originalExit
-    process.stdout.write = originalWrite
-
-    expect(code).equals(1)
-    const expectedOutput =
-      `Sphinx: failed to execute deployment because the following action reverted: RevertDuringSimulation<${expectedContractAddress}>.deploy(\n` +
-      `     "${sphinxModuleAddress}"\n` +
-      `   )`
-    expect(capturedOutput.join('')).contains(expectedOutput)
   })
 })
 
 /**
  * Validates the `gasEstimates` array in the ProposalRequest. This mainly checks that the the
- * estimated gas is 35% to 55% greater than the actual gas used in the deployment. Although we
- * specify a gas estimate multiplier of 30% when calculating the gas estimates in the proposal
- * simulation, this tends to produce gas estimates that are roughly 35% to 55% higher than the
- * actual gas used.
+ * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (
   scriptPath: string,
@@ -732,11 +700,7 @@ const assertValidGasEstimates = async (
       throw new Error(`Could not find RPC URL for: ${networkName}.`)
     }
 
-    const {
-      moduleAndGnosisSafeBroadcast,
-      approvalBroadcast,
-      executionBroadcast,
-    } = await deploy(
+    const { receipts } = await deploy(
       scriptPath,
       networkName,
       true, // Skip preview
@@ -747,52 +711,26 @@ const assertValidGasEstimates = async (
       true // Skip force recompile
     )
 
-    if (!executionBroadcast || !approvalBroadcast) {
-      throw new Error(`Could not load approval or execution broadcast folder.`)
+    if (!receipts) {
+      throw new Error(`Could not load receipts.`)
     }
-
-    let moduleAndGnosisSafeGasUsedHexString: string
-    if (isModuleAndGnosisSafeDeployed) {
-      expect(moduleAndGnosisSafeBroadcast).to.be.undefined
-      moduleAndGnosisSafeGasUsedHexString = '0x00'
-    } else {
-      // Narrow the TypeScript type of the broadcast
-      if (!moduleAndGnosisSafeBroadcast) {
-        throw new Error(`Could not load deployment broadcast folder.`)
-      }
-
-      // Check that there's a single receipt for the broadcast file that deployed the Gnosis Safe and
-      // Sphinx Module.
-      expect(moduleAndGnosisSafeBroadcast.receipts.length).equals(1)
-
-      moduleAndGnosisSafeGasUsedHexString =
-        moduleAndGnosisSafeBroadcast.receipts[0].gasUsed
-    }
-
-    expect(approvalBroadcast.receipts.length).equals(1)
-    const approvalGasUsedHexString = approvalBroadcast.receipts[0].gasUsed
 
     // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
     // user's deployment because multiple actions may be batched into a single call to the Sphinx
     // Module's `execute` function.
 
     // Calculate the amount of gas used in the transaction receipts.
-    const actualGasUsed = executionBroadcast.receipts
+    const actualGasUsed = receipts
       .map((receipt) => receipt.gasUsed)
-      // Add the gas used to deploy the Gnosis Safe and Sphinx Module. This equals 0 if they were
-      // already deployed.
-      .concat(moduleAndGnosisSafeGasUsedHexString)
-      // Add the gas used by the `approve` transaction.
-      .concat(approvalGasUsedHexString)
-      // Convert the gas values from hex strings to decimal strings.
-      .map((gas) => parseInt(gas, 16))
+      .map(Number)
       // Sum the gas values
-      .reduce((a, b) => a + b)
+      .reduce((a, b) => a + b, 0)
 
-    // Checks if the estimated gas is 35% to 55% greater than the actual gas used. We use a range to
-    // allow for fluctuations in the gas estimation logic.
-    expect(Number(estimatedGas)).to.be.above(actualGasUsed * 1.35)
-    expect(Number(estimatedGas)).to.be.below(actualGasUsed * 1.55)
+    const expectedGas = Math.round(actualGasUsed * 1.3)
+    const lowerBound = expectedGas * 0.99
+    const upperBound = expectedGas * 1.01
+    expect(Number(estimatedGas)).to.be.at.least(lowerBound)
+    expect(Number(estimatedGas)).to.be.at.most(upperBound)
   }
 }
 

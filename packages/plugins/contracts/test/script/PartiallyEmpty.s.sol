@@ -8,7 +8,7 @@ import { Sphinx } from "../../foundry/Sphinx.sol";
 
 contract PartiallyEmpty is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Partially Empty";
+        sphinxConfig.projectName = "Partially_Empty";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
@@ -16,7 +16,7 @@ contract PartiallyEmpty is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         // Deploy a contract on Ethereum and don't deploy anything on Optimism.
         if (block.chainid == 1) {
             new MyContract2{ salt: 0 }();

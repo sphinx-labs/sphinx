@@ -8,7 +8,7 @@ import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTy
 
 contract Simple is Script, Sphinx {
     constructor() {
-        sphinxConfig.projectName = "Large Project";
+        sphinxConfig.projectName = "Large_Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
@@ -16,7 +16,7 @@ contract Simple is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         new MyLargeContract{ salt: bytes32(uint(0)) }();
         new MyLargeContract{ salt: bytes32(uint(1)) }();
         new MyLargeContract{ salt: bytes32(uint(2)) }();

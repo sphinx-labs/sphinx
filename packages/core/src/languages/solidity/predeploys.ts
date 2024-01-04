@@ -21,6 +21,7 @@ import {
   isLiveNetwork,
   getImpersonatedSigner,
   getSphinxWalletPrivateKey,
+  fundAccount,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import { RELAYER_ROLE } from '../../constants'
@@ -31,7 +32,7 @@ import {
 } from '../../networks'
 
 export const ensureSphinxAndGnosisSafeDeployed = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider,
   relayers: string[] = [],
   logger?: Logger
 ) => {
@@ -42,10 +43,7 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
     // own keys, but it provides a better separation of concerns.
     const firstSphinxPrivateKey = getSphinxWalletPrivateKey(0)
     const wallet = new ethers.Wallet(firstSphinxPrivateKey, provider)
-    await provider.send('hardhat_setBalance', [
-      wallet.address,
-      ethers.toBeHex(ethers.parseEther('100')),
-    ])
+    await fundAccount(wallet.address, provider)
 
     await deploySphinxSystem(provider, wallet, relayers, logger)
   } else if (!(await allSphinxAndGnosisSafeContractsDeployed(provider))) {
@@ -71,7 +69,7 @@ const allSphinxAndGnosisSafeContractsDeployed = async (
 }
 
 export const deploySphinxSystem = async (
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  provider: SphinxJsonRpcProvider,
   signer: ethers.Signer,
   relayers: string[],
   logger?: Logger
@@ -166,7 +164,7 @@ export const deploySphinxSystem = async (
         await ManagedService.grantRole(
           RELAYER_ROLE,
           relayer,
-          await getGasPriceOverrides(owner)
+          await getGasPriceOverrides(provider, owner)
         )
       ).wait()
     }
@@ -217,11 +215,15 @@ export const deploySphinxSystem = async (
             checkparams,
             actions,
           },
-          await getGasPriceOverrides(owner)
+          await getGasPriceOverrides(provider, owner)
         )
       ).wait()
       await (
-        await Drippie.status(dripName, 2, await getGasPriceOverrides(owner))
+        await Drippie.status(
+          dripName,
+          2,
+          await getGasPriceOverrides(provider, owner)
+        )
       ).wait()
     } else if (status === BigInt(1)) {
       logger?.info(`[Sphinx]: Setting status for drip ${dripName}...`)
@@ -318,7 +320,7 @@ export const doDeterministicDeploy = async (
   }
 
   // Create a transaction request with gas price overrides.
-  const txnRequest = await getGasPriceOverrides(options.signer, {
+  const txnRequest = await getGasPriceOverrides(provider, options.signer, {
     to: deployer,
     data: options.salt + ethers.toBeHex(deploymentTx.data).slice(2),
   })

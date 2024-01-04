@@ -46,7 +46,7 @@ contract HelloSphinxScript is Sphinx {
         sphinxConfig.owners = [${owner}];
         sphinxConfig.orgId = "${orgId}";
         sphinxConfig.threshold = 1;
-        sphinxConfig.projectName = "My First Project";
+        sphinxConfig.projectName = "My_First_Project";
         sphinxConfig.testnets = [
             Network.sepolia,
             Network.optimism_sepolia,
@@ -54,7 +54,7 @@ contract HelloSphinxScript is Sphinx {
         ];
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         helloSphinx = new HelloSphinx{ salt: bytes32(0) }("Hi", 2);
         helloSphinx.add(8);
     }

@@ -13,3 +13,6 @@ tsconfig.tsbuildinfo
 
 # vim
 *.sw*
+
+# env
+.env

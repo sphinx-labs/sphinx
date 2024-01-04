@@ -30,14 +30,6 @@ struct FoundryContractConfig {
     bytes32 userSaltHash;
 }
 
-enum SphinxMode {
-    Default,
-    Collect,
-    LiveNetworkBroadcast,
-    LocalNetworkBroadcast,
-    Proposal
-}
-
 struct ParsedCallAction {
     address to;
     bytes data;
@@ -91,10 +83,16 @@ struct DeploymentInfo {
     bytes safeInitData;
     bool requireSuccess;
     SphinxConfig newConfig;
-    bool isLiveNetwork;
+    ExecutionMode executionMode;
     InitialChainState initialState;
     Label[] labels;
     bool arbitraryChain;
+}
+
+enum ExecutionMode {
+    LocalNetworkCLI,
+    LiveNetworkCLI,
+    Platform
 }
 
 /**
@@ -211,15 +209,6 @@ contract SphinxPluginTypes {
         returns (HumanReadableAction[] memory humanReadableActions)
     {}
 
-    function proposalSimulationInputsType()
-        external
-        pure
-        returns (
-            SphinxMerkleTree memory merkleTree,
-            HumanReadableAction[][] memory humanReadableActions
-        )
-    {}
-
     function deployTaskInputsType()
         external
         pure
@@ -245,5 +234,11 @@ contract SphinxPluginTypes {
         external
         view
         returns (SphinxLeafWithProof memory leafWithProof)
+    {}
+
+    function leafWithProofBatchesType()
+        external
+        view
+        returns (SphinxLeafWithProof[][] memory batches)
     {}
 }

@@ -2,25 +2,8 @@ import { join, resolve } from 'path'
 
 import { spawnAsync } from '@sphinx-labs/core'
 
-export type FoundryToml = {
-  src: string
-  test: string
-  script: string
-  solc: string
-  broadcastFolder: string
-  artifactFolder: string
-  buildInfoFolder: string
-  deploymentFolder: string
-  cachePath: string
-  storageLayout: boolean
-  rpcEndpoints: { [networkName: string]: string | undefined }
-  remappings: Record<string, string>
-  etherscan: {
-    [networkName: string]: {
-      key: string
-    }
-  }
-}
+import { FoundryToml } from './types'
+import { replaceEnvVariables } from './utils'
 
 export const cleanPath = (dirtyPath: string) => {
   let cleanQuotes = dirtyPath.replace(/'/g, '')
@@ -57,30 +40,42 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     console.log(stderr)
     process.exit(1)
   }
-  const forgeConfig = JSON.parse(stdout)
+  const raw = JSON.parse(stdout)
 
-  const buildInfoPath =
-    forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
+  const buildInfoPath = raw.build_info_path ?? join(raw.out, 'build-info')
 
-  const { cache_path: cachePath, src, test, script, solc } = forgeConfig
-  const rpcEndpoints = parseRpcEndpoints(forgeConfig.rpc_endpoints)
+  const parsed = replaceEnvVariables(raw)
 
-  // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
-  // artifacts will contain the necessary info as long as the config includes the expected options
-  const storageLayout = forgeConfig.extra_output.includes('storageLayout')
+  // Check if the user included the `storageLayout` option. Since foundry force recompiles after
+  // changing the foundry.toml file, we can assume that the contract artifacts will contain the
+  // necessary info as long as the config includes the expected options
+  if (!parsed.extra_output.includes('storageLayout')) {
+    console.error(
+      `Please include the 'storageLayout' option in your foundry.toml:\n` +
+        `extra_output = ['storageLayout']`
+    )
+    process.exit(1)
+  }
 
   const remappings: Record<string, string> = {}
-  for (const remapping of forgeConfig.remappings) {
+  for (const remapping of parsed.remappings) {
     const [from, to] = remapping.split('=')
     remappings[from] = to
   }
 
-  const etherscan = forgeConfig.etherscan
-  const broadcastFolder = forgeConfig.broadcast
+  const {
+    broadcast: broadcastFolder,
+    etherscan,
+    cache_path: cachePath,
+    rpc_endpoints: rpcEndpoints,
+    src,
+    test,
+    script,
+    solc,
+  } = parsed
 
-  return {
-    ...resolvePaths(forgeConfig.out, buildInfoPath),
-    storageLayout,
+  const resolved: FoundryToml = {
+    ...resolvePaths(parsed.out, buildInfoPath),
     cachePath,
     rpcEndpoints,
     src,
@@ -91,33 +86,6 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     etherscan,
     broadcastFolder,
   }
-}
 
-/**
- * @notice Parses the RPC endpoings in a foundry.toml file.
- *
- * @param rpcEndpoints The unparsed RPC endpoints object. The value of an endpoint can be either an
- * RPC URL or an environment variable that contains an RPC URL. An example of an environment
- * variable is "${RPC_ENDPOINT}}". Whitespace is allowed, so "   ${  RPC_ENDPOINT   }  " is also
- * valid.
- *
- * @returns An object where the keys are the chain aliases and the values are the RPC URLs. Note
- * that if the value of an RPC endpoint is an environment variable, but the environment variable
- * does not exist, then the endpoint will not be included in the returned object.
- */
-export const parseRpcEndpoints = (rpcEndpoints: {
-  [chainAlias: string]: string
-}): { [chainAlias: string]: string } => {
-  const result: { [key: string]: string } = {}
-  for (const key in rpcEndpoints) {
-    if (rpcEndpoints.hasOwnProperty(key)) {
-      // Removes whitespace at the beginning and end of the string
-      const trimmed = rpcEndpoints[key].trim()
-
-      result[key] = trimmed.replace(/\$\{((\w|\s)+)\}/g, (_, envVar) => {
-        return process.env[envVar.trim()] || ''
-      })
-    }
-  }
-  return result
+  return resolved
 }

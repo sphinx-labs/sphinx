@@ -12,9 +12,14 @@ import {
   writeFileSync,
 } from 'fs'
 
-import { BuildInfo } from '@sphinx-labs/core/dist/languages/solidity/types'
+import {
+  BuildInfo,
+  SphinxTransactionReceipt,
+} from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
+  formatSolcLongVersion,
+  getNetworkNameForChainId,
   sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
@@ -22,9 +27,9 @@ import {
 import {
   ConfigArtifacts,
   DeploymentInfo,
-  FoundryDryRunTransaction,
   GetConfigArtifacts,
   ParsedConfig,
+  ParsedVariable,
   RawActionInput,
   SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
@@ -35,34 +40,23 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import {
-  MerkleRootState,
-  MerkleRootStatus,
-  ProposalRequest,
-  SphinxJsonRpcProvider,
-  SupportedNetworkName,
-  getReadableActions,
-  networkEnumToName,
-  findLeafWithProof,
-} from '@sphinx-labs/core'
+import { SphinxJsonRpcProvider, networkEnumToName } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
-  FoundryContractArtifact,
-  SphinxLeafType,
-  SphinxMerkleTree,
-  SphinxModuleABI,
-  parseFoundryArtifact,
+  ContractArtifact,
+  parseFoundryContractArtifact,
   recursivelyConvertResult,
-  remove0x,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
+import { red } from 'chalk'
 
 import {
   FoundryMultiChainDryRun,
   FoundrySingleChainBroadcast,
   FoundrySingleChainDryRun,
+  FoundryToml,
 } from '../types'
-import { FoundryToml } from '../options'
+import { simulate } from '../../hardhat/simulate'
 
 const readFileAsync = promisify(readFile)
 
@@ -155,11 +149,11 @@ export const messageMultipleArtifactsFound = (
  * and finally 'myRepo/artifacts/MyFile/MyContract.json' (notice that 'src/tokens/ is removed in
  * this attempt). If the artifact is still not found, it throws an error.
  */
-export const readFoundryContractArtifact = async (
+export const readContractArtifact = async (
   fullyQualifiedName: string,
   projectRoot: string,
   artifactFolder: string
-): Promise<FoundryContractArtifact> => {
+): Promise<ContractArtifact> => {
   // Get the source file name (e.g. `MyFile.sol`) and contract name (e.g. `MyContractName`).
   const [sourceFileName, contractName] = path
     .basename(fullyQualifiedName)
@@ -192,7 +186,7 @@ export const readFoundryContractArtifact = async (
     )
 
     if (existsSync(currentPath)) {
-      return parseFoundryArtifact(
+      return parseFoundryContractArtifact(
         JSON.parse(await readFileAsync(currentPath, 'utf8'))
       )
     }
@@ -210,7 +204,7 @@ export const readFoundryContractArtifact = async (
     `${contractName}.json`
   )
   if (existsSync(shortestPath)) {
-    return parseFoundryArtifact(
+    return parseFoundryContractArtifact(
       JSON.parse(await readFileAsync(shortestPath, 'utf8'))
     )
   }
@@ -273,7 +267,7 @@ export const makeGetConfigArtifacts = (
   ) => {
     // Check if the cache directory exists, and create it if not
     if (!existsSync(cachePath)) {
-      mkdirSync(cachePath)
+      mkdirSync(cachePath, { recursive: true })
     }
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
@@ -352,7 +346,7 @@ export const makeGetConfigArtifacts = (
 
     const fullyQualifiedNamePromises = fullyQualifiedNames.map(
       async (fullyQualifiedName) => {
-        const artifact = await readFoundryContractArtifact(
+        const artifact = await readContractArtifact(
           fullyQualifiedName,
           projectRoot,
           artifactFolder
@@ -397,7 +391,7 @@ export const makeGetConfigArtifacts = (
                 toReadFiles.push(cachedFile.name)
               }
 
-              const artifact = await readFoundryContractArtifact(
+              const artifact = await readContractArtifact(
                 fullyQualifiedName,
                 projectRoot,
                 artifactFolder
@@ -467,6 +461,10 @@ export const makeGetConfigArtifacts = (
       artifact,
       buildInfo,
     } of completeArtifacts) {
+      buildInfo.solcLongVersion = formatSolcLongVersion(
+        buildInfo.solcLongVersion
+      )
+
       configArtifacts[fullyQualifiedName] = {
         artifact,
         buildInfo,
@@ -500,7 +498,7 @@ export const getConfigArtifactForContractName = (
 ): {
   fullyQualifiedName: string
   buildInfo: BuildInfo
-  artifact: FoundryContractArtifact
+  artifact: ContractArtifact
 } => {
   for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
     configArtifacts
@@ -524,7 +522,7 @@ export const getSphinxConfigFromScript = async (
   sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<SphinxConfigWithAddresses<SupportedNetworkName>> => {
+): Promise<SphinxConfigWithAddresses> => {
   const json = await callForgeScriptFunction<{
     0: {
       value: string
@@ -556,7 +554,7 @@ export const getSphinxConfigFromScript = async (
     decoded
   ) as any
 
-  const parsed: SphinxConfigWithAddresses<SupportedNetworkName> = {
+  const parsed: SphinxConfigWithAddresses = {
     projectName: sphinxConfig.projectName,
     owners: sortHexStrings(sphinxConfig.owners),
     threshold: sphinxConfig.threshold.toString(),
@@ -673,7 +671,14 @@ export const callForgeScriptFunction = async <T>(
     process.exit(1)
   }
 
-  return JSON.parse(stdout)
+  // Attempt to parse the `stdout`. This could fail if the user supplies an invalid Etherscan API
+  // key or URL in their `foundry.toml`. In this scenario, Foundry does not throw an error; instead,
+  // it writes a message to `stdout` that contains "etherscan: Failed to deserialize response".
+  try {
+    return JSON.parse(stdout)
+  } catch {
+    throw new Error(`Failed to parse Foundry output. Reason:\n${stdout}`)
+  }
 }
 
 export const getSphinxLeafGasEstimates = async (
@@ -733,10 +738,18 @@ export const getSphinxLeafGasEstimates = async (
       // Convert the BigInt elements to Numbers
       .map(Number)
       // Include a buffer to ensure the user's transaction doesn't fail on-chain due to variations
-      // in the chain state, which could occur between the time of the simulation and execution. We
-      // chose to multiply the gas by 1.3 because multiplying it by a higher number could make a
-      // very large transaction unexecutable on-chain. Since the 1.3x multiplier doesn't impact
-      // small transactions very much, we add a constant amount of 20k too.
+      // between the simulation and the live execution environment. There are a couple areas in
+      // particular that could lead to variations:
+      // 1. The on-chain state could vary. For example, existing contracts could have different
+      //    state, which could impact the cost of execution. This is inherently a source of
+      //    variation because there's a delay between the simulation and execution.
+      // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are more
+      //    likely to be "warm" (i.e. cheaper) than the production environment, where transactions
+      //    may be split between batches. In practice, the execution process uses large batches, so
+      //    the variation shouldn't be significant.
+      // We chose to multiply the gas by 1.3 because multiplying it by a higher number
+      // could make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
+      // doesn't impact small transactions very much, we add a constant amount of 20k too.
       .map((gas) => Math.round(gas * 1.3 + 20_000).toString())
 
     gasEstimatesArray.push(returnedGasArrayWithBuffer)
@@ -748,9 +761,9 @@ export const getSphinxLeafGasEstimates = async (
 export const isFoundryMultiChainDryRun = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
 ): dryRun is FoundryMultiChainDryRun => {
+  const multiChainDryRun = dryRun as FoundryMultiChainDryRun
   return (
-    Array.isArray((dryRun as FoundryMultiChainDryRun).deployments) &&
-    typeof (dryRun as FoundryMultiChainDryRun).timestamp === 'number' &&
+    Array.isArray(multiChainDryRun.deployments) &&
     !isFoundrySingleChainDryRun(dryRun)
   )
 }
@@ -758,16 +771,11 @@ export const isFoundryMultiChainDryRun = (
 export const isFoundrySingleChainDryRun = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
 ): dryRun is FoundrySingleChainDryRun => {
+  const singleChainDryRun = dryRun as FoundrySingleChainDryRun
   return (
-    Array.isArray((dryRun as FoundrySingleChainDryRun).transactions) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).receipts) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).libraries) &&
-    Array.isArray((dryRun as FoundrySingleChainDryRun).pending) &&
-    'returns' in (dryRun as FoundrySingleChainDryRun) &&
-    typeof (dryRun as FoundrySingleChainDryRun).timestamp === 'number' &&
-    typeof (dryRun as FoundrySingleChainDryRun).chain === 'number' &&
-    typeof (dryRun as FoundrySingleChainDryRun).multi === 'boolean' &&
-    typeof (dryRun as FoundrySingleChainDryRun).commit === 'string'
+    Array.isArray(singleChainDryRun.transactions) &&
+    Array.isArray(singleChainDryRun.receipts) &&
+    Array.isArray(singleChainDryRun.libraries)
   )
 }
 
@@ -894,293 +902,6 @@ export const readFoundrySingleChainDryRun = (
   }
 }
 
-export const approve = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  merkleTree: SphinxMerkleTree,
-  sphinxIface: ethers.Interface,
-  chainId: number,
-  rpcUrl: string,
-  spinner?: ora.Ora,
-  targetContract?: string
-): Promise<FoundrySingleChainBroadcast> => {
-  const approveLeafWithProof = findLeafWithProof(
-    merkleTree,
-    SphinxLeafType.APPROVE,
-    BigInt(chainId)
-  )
-
-  const approveFragment = findFunctionFragment(sphinxIface, 'sphinxApprove')
-  const encodedFunctionParams = sphinxIface.encodeFunctionData(
-    approveFragment,
-    [merkleTree.root, approveLeafWithProof, false]
-  )
-
-  const dateBeforeForgeScript = new Date()
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    encodedFunctionParams,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const broadcast = readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    chainId,
-    remove0x(approveFragment.selector),
-    dateBeforeForgeScript
-  )
-
-  if (!broadcast) {
-    throw new Error(
-      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
-    )
-  }
-
-  return broadcast
-}
-
-export const deploySphinxModuleAndGnosisSafe = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  networkName: string,
-  chainId: string,
-  rpcUrl: string,
-  spinner?: ora.Ora,
-  targetContract?: string
-): Promise<FoundrySingleChainBroadcast> => {
-  const dateBeforeForgeScript = new Date()
-  const forgeScriptArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxDeployModuleAndGnosisSafe(string)',
-    networkName,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ]
-  if (targetContract) {
-    forgeScriptArgs.push('--target-contract', targetContract)
-  }
-
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  }
-
-  const broadcast = readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    chainId,
-    'sphinxDeployModuleAndGnosisSafe',
-    dateBeforeForgeScript
-  )
-
-  if (!broadcast) {
-    throw new Error(
-      `Could not read broadcast file for the Sphinx Module and Gnosis Safe deployment. Should never happen.`
-    )
-  }
-
-  return broadcast
-}
-
-export const getGasEstimatesOnNetworks = (
-  dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun,
-  uniqueChainIds: Array<string>,
-  managedServiceAddress: string
-): ProposalRequest['gasEstimates'] => {
-  const gasEstimates: ProposalRequest['gasEstimates'] = []
-  for (const chainId of uniqueChainIds) {
-    let transactions: Array<FoundryDryRunTransaction>
-    if (isFoundryMultiChainDryRun(dryRun)) {
-      // Find the dry run that corresponds to the current network.
-      const deploymentOnNetwork = dryRun.deployments.find(
-        (deployment) => deployment.chain.toString() === chainId
-      )
-      // If we couldn't find a dry run that corresponds to the current network, then there must not
-      // be any transactions to execute on it. We use an empty transactions array in this case.
-      transactions = deploymentOnNetwork ? deploymentOnNetwork.transactions : []
-    } else if (isFoundrySingleChainDryRun(dryRun)) {
-      // Check if the current network matches the network of the dry run. If the current network
-      // doesn't match the dry run's network, then this means there weren't any transactions
-      // executed on the current network. We use an empty transactions array in this case.
-      transactions =
-        chainId === dryRun.chain.toString() ? dryRun.transactions : []
-    } else {
-      throw new Error(
-        `Foundry dry run is an incompatible type. Should never happen.`
-      )
-    }
-
-    const estimatedGasOnChain = transactions
-      // We remove any transactions that weren't broadcasted from the Managed Service contract.
-      // Particularly, we broadcast from the Gnosis Safe to make the auto-generated Sphinx wallets
-      // owners of the Gnosis Safe. We don't want to include those transactions in the gas estimate
-      // because they won't occur in production.
-      .filter(
-        (tx) =>
-          typeof tx.transaction.from === 'string' &&
-          ethers.getAddress(tx.transaction.from) === managedServiceAddress
-      )
-      .map((tx) => tx.transaction.gas)
-      // Narrow the TypeScript type of `gas` from `string | null` to `string`.
-      .map((gas) => {
-        if (typeof gas !== 'string') {
-          throw new Error(
-            `Detected a 'gas' field that is not a string. Should never happen.`
-          )
-        }
-        return gas
-      })
-      // Convert the gas values from hex strings to numbers.
-      .map((gas) => parseInt(gas, 16))
-
-    gasEstimates.push({
-      chainId: Number(chainId),
-      // Sum the gas estimates then convert to a string.
-      estimatedGas: estimatedGasOnChain.reduce((a, b) => a + b).toString(),
-    })
-  }
-
-  return gasEstimates
-}
-
-export const execute = async (
-  scriptPath: string,
-  parsedConfig: ParsedConfig,
-  merkleTree: SphinxMerkleTree,
-  foundryToml: FoundryToml,
-  rpcUrl: string,
-  networkName: string,
-  silent: boolean,
-  sphinxPluginTypesInterface: ethers.Interface,
-  targetContract?: string,
-  verify?: boolean,
-  spinner?: ora.Ora
-): Promise<FoundrySingleChainBroadcast | undefined> => {
-  spinner?.start(`Executing deployment...`)
-
-  const provider = new SphinxJsonRpcProvider(rpcUrl)
-
-  const deployTaskInputsFragment = findFunctionFragment(
-    sphinxPluginTypesInterface,
-    'deployTaskInputsType'
-  )
-
-  const humanReadableActions = getReadableActions(parsedConfig.actionInputs)
-
-  // ABI encode the inputs to the deployment function.
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  const encodedDeployTaskInputs = coder.encode(
-    deployTaskInputsFragment.outputs,
-    [merkleTree, humanReadableActions]
-  )
-  const deployTaskInputsPath = join(
-    foundryToml.cachePath,
-    'sphinx-deploy-task-inputs.txt'
-  )
-  // Write the ABI encoded data to the file system. We'll read it in the Forge script that executes
-  // the deployment. We do this instead of passing in the data as a parameter to the Forge script
-  // because it's possible to hit Node's `spawn` input size limit if the data is large. This is
-  // particularly a concern for the Merkle tree, which likely contains contract init code.
-  writeFileSync(deployTaskInputsPath, encodedDeployTaskInputs)
-
-  const forgeScriptDeployArgs = [
-    'script',
-    scriptPath,
-    '--sig',
-    'sphinxExecute(string,string)',
-    networkName,
-    deployTaskInputsPath,
-    '--fork-url',
-    rpcUrl,
-    '--broadcast',
-    // Set the gas estimate multiplier to be 40% instead of Foundry's default 30%. We set it to be
-    // slightly higher than normal because we encountered an issue on Anvil where Foundry
-    // successfully simulated the deployment, but then submitted an insufficient amount of gas to
-    // the Sphinx Module's `execute` function, leading to a "SphinxModule: insufficient gas" error.
-    '--gas-estimate-multiplier',
-    '140',
-  ]
-  if (verify) {
-    forgeScriptDeployArgs.push('--verify')
-  }
-  if (targetContract) {
-    forgeScriptDeployArgs.push('--target-contract', targetContract)
-  }
-
-  const dateBeforeForgeScriptDeploy = new Date()
-  const { code, stdout, stderr } = await spawnAsync(
-    'forge',
-    forgeScriptDeployArgs
-  )
-
-  if (code !== 0) {
-    spinner?.stop()
-    // The `stdout` contains the trace of the error.
-    console.log(stdout)
-    // The `stderr` contains the error message.
-    console.log(stderr)
-    process.exit(1)
-  } else if (!silent) {
-    console.log(stdout)
-  }
-
-  spinner?.succeed(`Executed deployment.`)
-  spinner?.start(`Checking final deployment status...`)
-
-  // Check the Merkle root's status. It's possible that the deployment succeeded during the
-  // simulation but was marked as `FAILED` when the transactions were broadcasted.
-  const sphinxModule = new ethers.Contract(
-    parsedConfig.moduleAddress,
-    SphinxModuleABI,
-    provider
-  )
-  const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
-    merkleTree.root
-  )
-  if (merkleRootState.status === MerkleRootStatus.FAILED) {
-    spinner?.fail(`Deployment failed when broadcasting the transactions.`)
-    process.exit(1)
-  }
-
-  spinner?.succeed(`Deployment succeeded.`)
-
-  return readFoundrySingleChainBroadcast(
-    foundryToml.broadcastFolder,
-    scriptPath,
-    parsedConfig.chainId,
-    'sphinxExecute',
-    dateBeforeForgeScriptDeploy
-  )
-}
-
 export const readInterface = (
   artifactFolder: string,
   contractName: string
@@ -1193,7 +914,7 @@ export const readInterface = (
   return new ethers.Interface(abi)
 }
 
-const findFunctionFragment = (
+export const findFunctionFragment = (
   iface: ethers.Interface,
   fragmentName: string
 ): ethers.FunctionFragment => {
@@ -1204,4 +925,130 @@ const findFunctionFragment = (
     throw new Error(`Fragment not found in ABI.`)
   }
   return functionFragment
+}
+
+export const convertLibraryFormat = (
+  librariesArray: Array<string>
+): Array<string> => {
+  return librariesArray.map((libraryString) => {
+    // Splitting by both ':' and '='
+    const parts = libraryString.split(/[:=]/)
+    if (parts.length !== 3) {
+      throw new Error('Invalid library string format.')
+    }
+
+    const [filePath, contractName, address] = parts
+    return `${filePath}:${contractName}=${ethers.getAddress(address)}`
+  })
+}
+/**
+ * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
+ * for variations between the local simulation and the production environment. Also adjusts the
+ * minimum gas limit on networks like Arbitrum to include the L1 gas fee, which isn't captured on
+ * forks.
+ */
+export const getEstimatedGas = async (
+  receipts: Array<SphinxTransactionReceipt>,
+  provider: SphinxJsonRpcProvider
+): Promise<string> => {
+  // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
+  // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
+  // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
+  // be closer to one million. This is because each transaction includes the L1 gas used. The local
+  // simulation that produced the transaction receipts doesn't capture this difference. We account
+  // for this difference by adding `estimatedMinGasLimit - 21_000` to each receipt. This provides a
+  // more accurate estimate on networks like Arbitrum.
+  const estimatedMinGasLimit = await provider.estimateGas({
+    to: ethers.ZeroAddress,
+    data: '0x',
+  })
+  const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
+
+  const estimatedGas = receipts
+    .map((receipt) => receipt.gasUsed)
+    .map(Number)
+    .map((gasUsed) => Math.round(gasUsed * 1.3))
+    .map((gasWithBuffer) => {
+      // Add the adjusted gas limit amount. We add this after multiplying by the 1.3x buffer because
+      // the estimated minimum gas limit already includes a ~1.35x buffer due to the fact that the
+      // `eth_estimateGas` RPC method overestimates the gas. ref:
+      // https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_estimategas
+      const totalGas = gasWithBuffer + adjustedGasLimit
+      // Check that the total gas isn't negative out of an abundance of caution.
+      if (totalGas < 0) {
+        throw new Error('Gas used is less than 0. Should never happen.')
+      }
+      return totalGas
+    })
+    .reduce((a, b) => a + b, 0)
+
+  return estimatedGas.toString()
+}
+
+export const getNetworkGasEstimate = async (
+  parsedConfigArray: Array<ParsedConfig>,
+  chainId: string,
+  foundryToml: FoundryToml
+): Promise<{
+  chainId: number
+  estimatedGas: string
+}> => {
+  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const rpcUrl = foundryToml.rpcEndpoints[networkName]
+
+  if (!rpcUrl) {
+    console.error(
+      red(
+        `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
+      )
+    )
+    process.exit(1)
+  }
+
+  const { receipts } = await simulate(parsedConfigArray, chainId, rpcUrl)
+
+  const provider = new SphinxJsonRpcProvider(rpcUrl)
+  const estimatedGas = await getEstimatedGas(receipts, provider)
+
+  return {
+    chainId: Number(chainId),
+    estimatedGas,
+  }
+}
+
+/**
+ * Recursively replaces environment variable placeholders in the input with their actual values.
+ * This function does not mutate the original object.
+ */
+export const replaceEnvVariables = (input: ParsedVariable): any => {
+  // Regular expression to match environment variables in the form ${VAR_NAME}
+  const envVarRegex = /\$\{((\w|\s)+)\}/g
+
+  // Function to replace environment variables in a string with their values
+  const replaceEnvVar = (str: string): string => {
+    // Trim whitespace and then replace environment variables
+    return str.trim().replace(envVarRegex, (_, envVar) => {
+      return process.env[envVar.trim()] || ''
+    })
+  }
+
+  if (typeof input === 'string') {
+    // If the input is a string, replace environment variables in it
+    return replaceEnvVar(input)
+  } else if (Array.isArray(input)) {
+    // If the input is an array, recursively process each element
+    return input.map((element) => replaceEnvVariables(element))
+  } else if (typeof input === 'object' && input !== null) {
+    // If the input is an object, recursively process each property
+    const result: { [key: string]: ParsedVariable } = {}
+    for (const key in input) {
+      if (input.hasOwnProperty(key)) {
+        result[key] = replaceEnvVariables(input[key])
+      }
+    }
+    return result
+  } else {
+    // For booleans and numbers, return as is
+    return input
+  }
 }

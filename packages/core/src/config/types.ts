@@ -7,13 +7,14 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
-  FoundryContractArtifact,
+  ContractArtifact,
 } from '@sphinx-labs/contracts'
 
-import { BuildInfo, CompilerOutput } from '../languages/solidity/types'
+import { BuildInfo, CompilerInput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
 import { SupportedNetworkName } from '../networks'
-import { ParsedContractDeployments } from '../actions/types'
+import { ParsedContractDeployment } from '../actions/types'
+import { ExecutionMode } from '../constants'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -54,14 +55,11 @@ export enum ContractKindEnum {
   IMMUTABLE,
 }
 
-/**
- * Parsed Sphinx config variable.
- */
 export type ParsedVariable =
   | boolean
   | string
   | number
-  | bigint
+  | null
   | Array<ParsedVariable>
   | {
       [name: string]: ParsedVariable
@@ -78,12 +76,15 @@ export type ParsedConfig = {
   safeInitData: string
   nonce: string
   chainId: string
+  blockGasLimit: string
   actionInputs: Array<ActionInput>
-  newConfig: SphinxConfig<SupportedNetworkName>
-  isLiveNetwork: boolean
+  newConfig: SphinxConfig
+  executionMode: ExecutionMode
   initialState: InitialChainState
-  unlabeledAddresses: string[]
+  unlabeledAddresses: Array<string>
   arbitraryChain: boolean
+  libraries: Array<string>
+  gitCommit: string | null
 }
 
 export type DeploymentInfo = {
@@ -95,8 +96,8 @@ export type DeploymentInfo = {
   chainId: string
   blockGasLimit: string
   safeInitData: string
-  newConfig: SphinxConfig<SupportedNetworkName>
-  isLiveNetwork: boolean
+  newConfig: SphinxConfig
+  executionMode: ExecutionMode
   initialState: InitialChainState
   labels: Array<Label>
   arbitraryChain: boolean
@@ -128,18 +129,17 @@ export type Label = {
   fullyQualifiedName: string
 }
 
-export type SphinxConfigWithAddresses<N = bigint | SupportedNetworkName> =
-  SphinxConfig<N> & {
-    safeAddress: string
-    moduleAddress: string
-  }
+export type SphinxConfigWithAddresses = SphinxConfig & {
+  safeAddress: string
+  moduleAddress: string
+}
 
-export type SphinxConfig<N = bigint | SupportedNetworkName> = {
+export type SphinxConfig = {
   projectName: string
   orgId: string
   owners: Array<string>
-  mainnets: Array<N>
-  testnets: Array<N>
+  mainnets: Array<SupportedNetworkName>
+  testnets: Array<SupportedNetworkName>
   threshold: string
   saltNonce: string
 }
@@ -153,7 +153,7 @@ export interface RawCreate2ActionInput extends SphinxTransaction {
 }
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
-  contracts: ParsedContractDeployments
+  contracts: Array<ParsedContractDeployment>
   index: string
 }
 
@@ -176,7 +176,7 @@ export interface RawFunctionCallActionInput extends SphinxTransaction {
 }
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
-  contracts: ParsedContractDeployments
+  contracts: Array<ParsedContractDeployment>
   index: string
 }
 
@@ -185,29 +185,20 @@ export interface FunctionCallActionInput extends RawFunctionCallActionInput {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CompilerConfig extends ParsedConfig {
-  inputs: Array<BuildInfoInputs>
+  inputs: Array<CompilerInput>
 }
-
-/**
- * @notice The `BuildInfo` object, but without the compiler ouputs.
- */
-export type BuildInfoInputs = Omit<BuildInfo, 'output'>
 
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
     buildInfo: BuildInfo
-    artifact: FoundryContractArtifact
+    artifact: ContractArtifact
   }
-}
-
-export type BuildInfoRemote = BuildInfo & {
-  output: CompilerOutput
 }
 
 export type ConfigArtifactsRemote = {
   [fullyQualifiedName: string]: {
-    buildInfo: BuildInfoRemote
-    artifact: FoundryContractArtifact
+    buildInfo: BuildInfo
+    artifact: ContractArtifact
   }
 }
 

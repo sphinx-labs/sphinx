@@ -1,32 +1,26 @@
 import * as dotenv from 'dotenv'
 import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
-import {
-  BuildInfoInputs,
-  ConfigArtifacts,
-  CompilerConfig,
-  ParsedConfig,
-} from '../config/types'
-import { getMinimumCompilerInput } from '../languages'
+import { ConfigArtifacts, CompilerConfig, ParsedConfig } from '../config/types'
+import { CompilerInput, getMinimumCompilerInput } from '../languages'
 
 // Load environment variables from .env
 dotenv.config()
 
-export const getParsedConfigWithCompilerInputs = async (
+export const getParsedConfigWithCompilerInputs = (
   parsedConfigs: Array<ParsedConfig>,
   configArtifacts: ConfigArtifacts
-): Promise<{
-  compilerConfigs: Array<CompilerConfig>
-}> => {
-  const sphinxInputs: Array<BuildInfoInputs> = []
+): Array<CompilerConfig> => {
+  const sphinxInputs: Array<CompilerInput> = []
   const compilerConfigs: Array<CompilerConfig> = []
 
   for (const parsedConfig of parsedConfigs) {
     for (const actionInput of parsedConfig.actionInputs) {
-      for (const address of Object.keys(actionInput.contracts)) {
-        const { fullyQualifiedName } = actionInput.contracts[address]
-
+      for (const { fullyQualifiedName } of actionInput.contracts) {
         const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
+        if (!buildInfo || !artifact) {
+          throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
+        }
 
         const prevSphinxInput = sphinxInputs.find(
           (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -38,7 +32,7 @@ export const getParsedConfigWithCompilerInputs = async (
         )
 
         if (prevSphinxInput === undefined) {
-          const sphinxInput: BuildInfoInputs = {
+          const sphinxInput: CompilerInput = {
             solcVersion: buildInfo.solcVersion,
             solcLongVersion: buildInfo.solcLongVersion,
             id: buildInfo.id,
@@ -65,7 +59,7 @@ export const getParsedConfigWithCompilerInputs = async (
 
     compilerConfigs.push(compilerConfig)
   }
-  return { compilerConfigs }
+  return compilerConfigs
 }
 
 export const makeDeploymentData = (

@@ -81,7 +81,7 @@ describe('Solidity Compiler', () => {
   // the optimizer. We don't test v0.8.0 because the sample Forge project can't compile with this
   // version and settings.
   it('Compiles with viaIR and optimizer enabled', async () => {
-    const versions = generateSemverRange(new SemVer('0.8.9'), latestSolcVersion)
+    const versions = generateSemverRange(new SemVer('0.8.1'), latestSolcVersion)
 
     // Generate output directory names. We use separate output directories for each compilation to
     // prevent race conditions.
@@ -110,7 +110,7 @@ describe('Solidity Compiler', () => {
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
         errorMessages.push(
-          `Build failed for: ${version}.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          `Build failed for ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
         )
       }
     })
@@ -132,7 +132,7 @@ describe('Solidity Compiler', () => {
   // project created by `forge init` can't compile with v0.8.20 using these settings. See these two
   // issues in the Solidity repo for more context:
   // The problem: https://github.com/ethereum/solidity/issues/12533
-  // The fix in v0.8.21: https://github.com/ethereum/solidity/issues/13972∑
+  // The fix in v0.8.21: https://github.com/ethereum/solidity/issues/13972
   it('Compiles with viaIR and the optimizer disabled', async () => {
     const versions = generateSemverRange(
       new SemVer('0.8.21'),
@@ -169,7 +169,7 @@ describe('Solidity Compiler', () => {
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
         errorMessages.push(
-          `Build failed for: ${version}.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          `Build failed for ${version} with optimizer disabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
         )
       }
     })

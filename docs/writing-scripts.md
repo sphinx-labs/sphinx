@@ -25,7 +25,7 @@ address safe = sphinxSafe();
 The entry point for your deployment must always be a `run()` function that has a `sphinx` modifier:
 
 ```sol
-function run() public sphinx override {
+function run() public sphinx {
     ...
 }
 ```
@@ -41,9 +41,9 @@ function setUp() public {
     // Required settings:
     sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     sphinxConfig.threshold = 1;
+    sphinxConfig.projectName = "My_Project";
 
     // Required settings for the Sphinx DevOps Platform:
-    sphinxConfig.projectName = "My Project";
     sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
     sphinxConfig.testnets = [Network.sepolia, Network.optimism_sepolia];
     sphinxConfig.orgId = "abcd-1234";
@@ -62,8 +62,8 @@ A couple of important points to note:
 
 ## Silent transaction failures
 
-As any Solidity developer knows, smart contracts generally revert upon failure. However, sometimes smart contract functions will be designed to return a value to indicate failure instead of reverting. A common example  is the [ERC20 `transferFrom` function](https://docs.openzeppelin.com/contracts/5.x/api/token/erc20#IERC20-transferFrom-address-address-uint256-), which returns `false` if a transfer fails instead of reverting.
+As any Solidity developer knows, smart contracts generally revert upon failure. However, sometimes smart contract functions will be designed to return a value to indicate failure instead of reverting. A common example is the [ERC20 `transferFrom` function](https://docs.openzeppelin.com/contracts/5.x/api/token/erc20#IERC20-transferFrom-address-address-uint256-), which returns `false` if a transfer fails instead of reverting.
 
-With Sphinx, a deployment will only fail if a transaction reverts. This means that if a transaction returns a success condition instead of reverting, the deployment will _not_ fail, and the executor will be able to submit further transactions for the deployment.
+With Sphinx, a deployment will only fail if a transaction reverts. This means that if a transaction returns a success condition instead of reverting, the deployment will _not_ fail, and the executor will continue to submit transactions for the deployment.
 
 If you want to avoid this behavior, we recommend designing your smart contracts so that they revert upon failure. For example, OpenZeppelin prevents the silent failure described above with their [`SafeERC20`](https://docs.openzeppelin.com/contracts/5.x/api/token/erc20#SafeERC20) contract, which reverts if an operation fails.
