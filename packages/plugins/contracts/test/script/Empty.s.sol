@@ -16,5 +16,5 @@ contract Empty is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {}
+    function run() public sphinx {}
 }

@@ -17,7 +17,7 @@ contract RevertDuringSimulation_Script is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         RevertDuringSimulation reverter = new RevertDuringSimulation{ salt: 0 }(sphinxModule());
         reverter.revertDuringSimulation();
     }

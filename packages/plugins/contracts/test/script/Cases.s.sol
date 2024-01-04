@@ -22,7 +22,7 @@ contract Simple is Script, Sphinx {
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public override sphinx {
+    function run() public sphinx {
         // Deploy with Create2
         Fallback fallbackCreate2 = new Fallback{ salt: 0 }(-1);
         // Perform low level call to fallback function
