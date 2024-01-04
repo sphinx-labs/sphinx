@@ -259,7 +259,19 @@ export const getSphinxModuleAddress = (
   const salt = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'address', 'uint256'],
-      [safeProxyAddress, safeProxyAddress, saltNonce]
+      [
+        safeProxyAddress,
+        safeProxyAddress,
+        // We always set the `saltNonce` of the Sphinx Module to `0` because the
+        // `sphinxConfig.saltNonce` field is only used when deploying the Gnosis Safe. It's not
+        // necessary to include the `saltNonce` here because a new Sphinx Module will be deployed if
+        // the user sets the `sphinxConfig.saltNonce` to a new value and then deploys a new Gnosis
+        // Safe using Sphinx's standard deployment method. A new Sphinx Module is deployed in this
+        // scenario because its address is determined by the address of the Gnosis Safe. It'd only
+        // be necessary to include a `saltNonce` for the Sphinx Module if a single Gnosis Safe wants
+        // to enable multiple Sphinx Modules, which isn't a feature that we currently support.
+        0,
+      ]
     )
   )
 
