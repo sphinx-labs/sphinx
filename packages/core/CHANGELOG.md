@@ -1,5 +1,17 @@
 # @sphinx-labs/core
 
+## 0.20.0
+
+### Minor Changes
+
+- ace53d7: Add core logic for deployment artifacts
+
+### Patch Changes
+
+- 187c913: Allow disabling gas price overrides
+- Updated dependencies [ace53d7]
+  - @sphinx-labs/contracts@0.15.0
+
 ## 0.19.1
 
 ### Patch Changes

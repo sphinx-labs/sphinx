@@ -1,5 +1,20 @@
 # @sphinx-labs/plugins
 
+## 0.26.0
+
+### Minor Changes
+
+- ace53d7: Add core logic for deployment artifacts
+
+### Patch Changes
+
+- 30a1296: Use scriptPath positional param in propose CLI command
+- ecededa: Stop requiring the user to override the `run()` function in their script.
+- Updated dependencies [ace53d7]
+- Updated dependencies [187c913]
+  - @sphinx-labs/contracts@0.15.0
+  - @sphinx-labs/core@0.20.0
+
 ## 0.25.1
 
 ### Patch Changes
