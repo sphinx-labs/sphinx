@@ -14,9 +14,10 @@
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
-    "build": "yarn build:ts && yarn build:contracts",
+    "build": "yarn build:ts && yarn write-initcode && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json && yarn copy-hardhat-config && chmod +x dist/cli/index.js",
     "build:contracts": "forge build",
+    "write-initcode": "npx ts-node script/write-initcode.ts > test/foundry/SphinxInitCode.sol",
     "copy-hardhat-config": "cp src/hardhat.config.js dist/hardhat.config.js",
     "clean": "rimraf out/ dist/ ./tsconfig.tsbuildinfo ./forge-cache",
     "test": "yarn kill-nodes && yarn test:solc && yarn test:ts",
