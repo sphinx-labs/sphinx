@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.15.0
+
+### Minor Changes
+
+- ace53d7: Add core logic for deployment artifacts
+
 ## 0.14.2
 
 ### Patch Changes
