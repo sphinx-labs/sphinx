@@ -4,22 +4,28 @@ pragma solidity ^0.8.0;
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import {
     Network,
-    NetworkInfo
+    NetworkInfo,
+    SphinxConfig
 } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "sphinx-forge-std/StdCheats.sol";
 
-import {
-    SphinxConstants,
-    SphinxContractInfo
-} from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import {
+    IGnosisSafeProxyFactory
+} from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
+import {
+    IGnosisSafeProxy
+} from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafeProxy.sol";
+import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
+import { SphinxInitCode, SphinxContractInfo } from "../../test/foundry/SphinxInitCode.sol";
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
  *         because this file only contains helper functions for tests, whereas `SphinxUtils`
  *         contains helper functions for the plugin itself.
  */
-contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
+contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxInitCode {
     // Same as the `RawTx1559` struct defined in StdCheats.sol, except this struct has two
     // addditional fields: `additionalContracts` and `isFixedGasLimit`.
     struct AnvilBroadcastedTxn {
@@ -180,5 +186,76 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils {
         uint256 end
     ) public pure returns (bytes memory) {
         return b[start:end];
+    }
+
+    /**
+     * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
+     *         and enables the Sphinx Module in the Gnosis Safe
+     */
+    function deploySphinxModuleAndGnosisSafe(
+        SphinxConfig memory _config
+    ) public returns (IGnosisSafe) {
+        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
+
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(
+            _config.owners,
+            _config.threshold
+        );
+
+        // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
+        // and enables the Sphinx Module in the Gnosis Safe.
+        IGnosisSafeProxy safeProxy = safeProxyFactory.createProxyWithNonce(
+            safeSingletonAddress,
+            safeInitializerData,
+            _config.saltNonce
+        );
+
+        return IGnosisSafe(address(safeProxy));
+    }
+
+    function deploySphinxSystem() public {
+        vm.etch(
+            DETERMINISTIC_DEPLOYMENT_PROXY,
+            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        );
+
+        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
+        for (uint256 i = 0; i < contracts.length; i++) {
+            SphinxContractInfo memory ct = contracts[i];
+            address addr = create2Deploy(ct.creationCode);
+            require(
+                addr == ct.expectedAddress,
+                string(
+                    abi.encodePacked(
+                        "address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
+                    )
+                )
+            );
+        }
+    }
+
+    function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
+        address addr = computeCreate2Address(
+            bytes32(0),
+            keccak256(_initCodeWithArgs),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        if (addr.code.length == 0) {
+            bytes memory code = abi.encodePacked(bytes32(0), _initCodeWithArgs);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(
+                success,
+                string(
+                    abi.encodePacked(
+                        "failed to deploy contract. expected address: ",
+                        vm.toString(addr)
+                    )
+                )
+            );
+        }
+
+        return addr;
     }
 }

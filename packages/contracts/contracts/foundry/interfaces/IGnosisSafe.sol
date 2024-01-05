@@ -41,6 +41,20 @@ interface IGnosisSafe {
     function getOwners() external view returns (address[] memory);
 
     /**
+     * @notice Returns an array of modules.
+     *         If all entries fit into a single page, the next pointer will be 0x1.
+     *         If another page is present, next will be the last element of the returned array.
+     * @param start Start of the page. Has to be a module or start pointer (0x1 address)
+     * @param pageSize Maximum number of modules that should be returned. Has to be > 0
+     * @return array Array of modules.
+     * @return next Start of the next page.
+     */
+    function getModulesPaginated(
+        address start,
+        uint256 pageSize
+    ) external view returns (address[] memory array, address next);
+
+    /**
      * @notice Returns the number of required confirmations for a Safe transaction aka the threshold.
      * @return Threshold number.
      */

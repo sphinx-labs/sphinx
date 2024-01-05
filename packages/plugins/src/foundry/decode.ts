@@ -328,7 +328,6 @@ export const makeParsedConfig = (
             input.decodedAction = {
               referenceName: contractName,
               functionName: 'deploy',
-              // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
               variables: {
                 initCode: initCodeWithArgs,
               },
@@ -359,7 +358,6 @@ export const makeParsedConfig = (
               input.decodedAction = {
                 referenceName: fullyQualifiedName.split(':')[1],
                 functionName: 'deploy',
-                // TODO: We could probably get the constructor args from the init code with some effort since we have the FQN
                 variables: [
                   {
                     initCode: initCodeWithArgs,
