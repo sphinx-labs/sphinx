@@ -9,7 +9,9 @@ import { getSphinxConstants, remove0x } from '@sphinx-labs/contracts'
  *
  * NOTE: The generated `SphinxInitCode` contract is for testing purposes only. Including it in the
  * production Foundry plugin would *significantly* slow down the user's compilation process if
- * they're using Yul (i.e. `viaIR`) with the optimizer enabled.
+ * they're using Yul (i.e. `viaIR`) with the optimizer enabled. It's not necessary for us to use the
+ * `SphinxInitCode` contract in the production Foundry plugin because we deploy the Sphinx system
+ * contracts from TypeScript via the `ensureSphinxAndGnosisSafeDeployed` function.
  */
 const writeConstants = async () => {
   const sphinxConstants = getSphinxConstants()
