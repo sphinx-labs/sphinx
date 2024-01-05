@@ -1013,7 +1013,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await fundAccount(safeAddress, provider)
+  await fundAccountMaxBalance(safeAddress, provider)
 
   const ownerThreshold: bigint = await safe.getThreshold()
 
@@ -1070,7 +1070,7 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
 
   // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
   // transactions.
-  await fundAccount(safeAddress, provider)
+  await fundAccountMaxBalance(safeAddress, provider)
 
   const ownerThreshold = Number(await safe.getThreshold())
 
@@ -1266,11 +1266,22 @@ export const signMerkleRoot = async (
   return signature
 }
 
-export const fundAccount = async (
+/**
+ * This function sets an account's balance to the maximum possible amount on local networks such as
+ * Hardhat or Anvil. The main purpose of setting an account's balance to the maximum amount is to
+ * prevent the possibility that a relayer runs out of funds when running a simulation of a network
+ * like Arbitrum Sepolia, which has an extremely high block gas limit. Running out of funds is a
+ * concern when simulating this type of network because we set each transaction's `gasLimit` equal
+ * to the block gas limit. This is an optimization that allows us to avoid making `eth_estimateGas`
+ * RPC calls, which can be expensive on local networks for large transactions. However, this makes
+ * the transactions extremely expensive, which is why we set the account's balance to be extremely
+ * high.
+ */
+export const fundAccountMaxBalance = async (
   address: string,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
-  await setBalance(address, ethers.toBeHex(ethers.parseEther('100')), provider)
+  await setBalance(address, ethers.toBeHex(ethers.MaxUint256), provider)
 }
 
 export const setBalance = async (
