@@ -49,6 +49,26 @@ import {
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 
+/**
+ * @param isDryRun If true, the proposal will not be relayed to the back-end.
+ * @param targetContract The name of the contract within the script file. Necessary when there are
+ * multiple contracts in the specified script.
+ * @param forceRecompile Force re-compile the contracts. By default, we force re-compile. This
+ * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
+ * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
+ * the contract on Etherscan and providing a deployment artifact for the contract.
+ */
+export interface ProposeArgs {
+  confirm: boolean
+  isTestnet: boolean
+  isDryRun: boolean
+  silent: boolean
+  scriptPath: string
+  sphinxContext: SphinxContext
+  forceRecompile: boolean
+  targetContract?: string
+}
+
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
@@ -241,27 +261,8 @@ export const buildParsedConfigArray = async (
   }
 }
 
-/**
- * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
- * that can be sent to the back-end.
- *
- * @param isDryRun If true, the proposal will not be relayed to the back-end.
- * @param targetContract The name of the contract within the script file. Necessary when there are
- * multiple contracts in the specified script.
- * @param skipForceRecompile Force re-compile the contracts. By default, we force re-compile. This
- * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
- * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
- * the contract on Etherscan and providing a deployment artifact for the contract.
- */
 export const propose = async (
-  confirm: boolean,
-  isTestnet: boolean,
-  isDryRun: boolean,
-  silent: boolean,
-  scriptPath: string,
-  sphinxContext: SphinxContext,
-  targetContract?: string,
-  skipForceRecompile: boolean = false
+  args: ProposeArgs
 ): Promise<{
   proposalRequest?: ProposalRequest
   canonicalConfigData?: string
@@ -269,6 +270,17 @@ export const propose = async (
   parsedConfigArray?: Array<ParsedConfig>
   merkleTree?: SphinxMerkleTree
 }> => {
+  const {
+    confirm,
+    isTestnet,
+    isDryRun,
+    silent,
+    scriptPath,
+    sphinxContext,
+    targetContract,
+    forceRecompile,
+  } = args
+
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
@@ -281,7 +293,7 @@ export const propose = async (
   // using the correct artifacts for proposals. This is mostly out of an abundance of caution, since
   // using an incorrect contract artifact will prevent us from creating the contract's deployment
   // and verifying it on Etherscan.
-  if (!skipForceRecompile) {
+  if (forceRecompile) {
     forgeBuildArgs.push('--force')
   }
 

@@ -6,7 +6,6 @@ import {
   ProposalRequest,
   SUPPORTED_NETWORKS,
   SphinxPreview,
-  execAsync,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
@@ -69,10 +68,6 @@ describe('Propose CLI command', () => {
   })
 
   it('Proposes with preview on a single testnet', async () => {
-    // We run `forge clean` to ensure that a proposal can occur even if we're running
-    // a fresh compilation process.
-    await execAsync(`forge clean`)
-
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
     const targetContract = 'Simple1'
@@ -80,19 +75,17 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
-      await propose(
-        false, // Run preview
+      await propose({
+        confirm: false, // Run preview
         isTestnet,
-        true, // Dry run
-        true, // Silent
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        context,
+        sphinxContext: context,
         targetContract,
-        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-        // artifacts will always be used in CI because we don't modify the contracts source files
-        // during our test suite).
-        true
-      )
+        // Force recompile to ensure that a proposal can occur after a fresh compilation process.
+        forceRecompile: true,
+      })
 
     // This prevents a TypeScript type error.
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
@@ -171,21 +164,19 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
-      await propose(
-        true, // Skip preview
+      await propose({
+        confirm: true, // Skip preview
         isTestnet,
-        true, // Dry run
-        true, // Silent
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        context,
+        sphinxContext: context,
         targetContract,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true
-        // Use the standard prompt. This should be skipped because we're skipping the preview. If it's
-        // not skipped, then this test will timeout, because we won't be able to confirm the proposal.
-      )
+        forceRecompile: false,
+      })
 
     // This prevents a TypeScript type error.
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
@@ -303,19 +294,19 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
-      await propose(
-        true, // Skip preview
+      await propose({
+        confirm: true, // Skip preview
         isTestnet,
-        true, // Dry run
-        true, // Silent
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        context,
-        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        sphinxContext: context,
+        targetContract: undefined, // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true
-      )
+        forceRecompile: false,
+      })
 
     // This prevents a TypeScript type error.
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
@@ -396,16 +387,18 @@ describe('Propose CLI command', () => {
 
   it('Proposes for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
-    const { compilerConfig: firstCompilerConfig } = await deploy(
+    const { compilerConfig: firstCompilerConfig } = await deploy({
       scriptPath,
-      'sepolia',
-      true, // Skip preview
-      true, // Silent
-      makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
-      'Simple1',
-      false, // Don't verify on Etherscan
-      true // Skip force recompile
-    )
+      network: 'sepolia',
+      skipPreview: true,
+      silent: true,
+      sphinxContext: makeMockSphinxContext([
+        'contracts/test/MyContracts.sol:MyContract2',
+      ]),
+      verify: false,
+      targetContract: 'Simple1',
+      forceRecompile: false,
+    })
 
     if (!firstCompilerConfig) {
       throw new Error(`The ParsedConfig is not defined.`)
@@ -417,19 +410,16 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
-      await propose(
-        false, // Run preview
+      await propose({
+        confirm: false, // Run preview
         isTestnet,
-        true, // Dry run
-        true, // Silent
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        context,
+        sphinxContext: context,
         targetContract,
-        // Skip force re-compiling. (This test would take a really long time otherwise. The correct
-        // artifacts will always be used in CI because we don't modify the contracts source files
-        // during our test suite).
-        true
-      )
+        forceRecompile: false,
+      })
 
     // This prevents a TypeScript type error.
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
@@ -492,19 +482,19 @@ describe('Propose CLI command', () => {
   // words, we don't allow the user to submit a proposal that just deploys a Gnosis Safe and Sphinx
   // Module.
   it('Exits early if there is nothing to execute on any network', async () => {
-    const { proposalRequest, parsedConfigArray } = await propose(
-      false, // Show preview
-      false, // Is prod network
-      true, // Dry run
-      true, // Silent
-      'contracts/test/script/Empty.s.sol',
-      makeMockSphinxContext([]),
-      undefined, // Only one contract in the script file, so there's no target contract to specify.
+    const { proposalRequest, parsedConfigArray } = await propose({
+      confirm: false, // Show preview
+      isTestnet: false,
+      isDryRun: true,
+      silent: true,
+      scriptPath: 'contracts/test/script/Empty.s.sol',
+      sphinxContext: makeMockSphinxContext([]),
+      targetContract: undefined,
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
-      true
-    )
+      forceRecompile: false,
+    })
 
     expect(proposalRequest).to.be.undefined
     expect(parsedConfigArray).to.be.undefined
@@ -521,19 +511,19 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
-      await propose(
-        false, // Show preview
+      await propose({
+        confirm: false, // Show preview
         isTestnet,
-        true, // Dry run
-        true, // Silent
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        context,
-        undefined, // Only one contract in the script file, so there's no target contract to specify.
+        sphinxContext: context,
+        targetContract: undefined,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true
-      )
+        forceRecompile: false,
+      })
 
     // This prevents a TypeScript type error.
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
@@ -628,27 +618,30 @@ describe('Propose CLI command', () => {
       )
     )
 
+    let errorThrown = false
     try {
-      await propose(
-        false, // Show preview
-        false, // is mainnet
-        true, // Dry run
-        true, // Silent
+      await propose({
+        confirm: false, // Show preview
+        isTestnet: false,
+        isDryRun: true,
+        silent: true,
         scriptPath,
-        makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
-        'RevertDuringSimulation_Script', // Only one contract in the script file, so there's no target contract to specify.
+        sphinxContext: makeMockSphinxContext([
+          `${scriptPath}:RevertDuringSimulation`,
+        ]),
+        targetContract: 'RevertDuringSimulation_Script', // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        true
-      )
-
-      // If the proposal does not fail as expected, force the test to fail
-      expect.fail()
+        forceRecompile: false,
+      })
     } catch (e) {
+      errorThrown = true
       const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
       expect(e.message.includes(expectedOutput)).to.be.true
     }
+
+    expect(errorThrown).to.be.true
   })
 })
 
@@ -700,16 +693,16 @@ const assertValidGasEstimates = async (
       throw new Error(`Could not find RPC URL for: ${networkName}.`)
     }
 
-    const { receipts } = await deploy(
+    const { receipts } = await deploy({
       scriptPath,
-      networkName,
-      true, // Skip preview
-      true, // Silent
+      network: networkName,
+      skipPreview: true,
+      silent: true,
       sphinxContext,
+      verify: false,
       targetContract,
-      false, // Don't verify on block explorer
-      true // Skip force recompile
-    )
+      forceRecompile: false,
+    })
 
     if (!receipts) {
       throw new Error(`Could not load receipts.`)

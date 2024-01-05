@@ -51,15 +51,19 @@ import {
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 
+export interface DeployArgs {
+  scriptPath: string
+  network: string
+  skipPreview: boolean
+  silent: boolean
+  sphinxContext: SphinxContext
+  verify: boolean
+  forceRecompile: boolean
+  targetContract?: string
+}
+
 export const deploy = async (
-  scriptPath: string,
-  network: string,
-  skipPreview: boolean,
-  silent: boolean,
-  sphinxContext: SphinxContext,
-  targetContract?: string,
-  verify?: boolean,
-  skipForceRecompile: boolean = false
+  args: DeployArgs
 ): Promise<{
   compilerConfig?: CompilerConfig
   merkleTree?: SphinxMerkleTree
@@ -67,6 +71,17 @@ export const deploy = async (
   receipts?: Array<SphinxTransactionReceipt>
   configArtifacts?: ConfigArtifacts
 }> => {
+  const {
+    scriptPath,
+    network,
+    skipPreview,
+    silent,
+    sphinxContext,
+    verify,
+    forceRecompile,
+    targetContract,
+  } = args
+
   const projectRoot = process.cwd()
   const foundryToml = await getFoundryToml()
   const {
@@ -122,7 +137,7 @@ export const deploy = async (
   // disabled. This ensures that we're using the correct artifacts for live network deployments.
   // This is mostly out of an abundance of caution, since using an incorrect contract artifact will
   // prevent us from writing the deployment artifact for that contract.
-  if (isLiveNetwork && !skipForceRecompile) {
+  if (isLiveNetwork && forceRecompile) {
     forgeBuildArgs.push('--force')
   }
 
