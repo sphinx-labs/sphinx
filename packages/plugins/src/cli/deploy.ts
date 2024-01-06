@@ -1,6 +1,5 @@
 import { join } from 'path'
 import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
-import { spawnSync } from 'child_process'
 
 import {
   displayDeploymentTable,
@@ -35,6 +34,7 @@ import { ethers } from 'ethers'
 import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
+  compile,
   getFoundrySingleChainDryRunPath,
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
@@ -83,6 +83,16 @@ export const deploy = async (
   } = args
 
   const projectRoot = process.cwd()
+
+  // Run the compiler. It's necessary to do this before we read any contract interfaces.
+  compile(
+    silent,
+    false // Do not force re-compile.
+  )
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(`Collecting transactions...`)
+
   const foundryToml = await getFoundryToml()
   const {
     artifactFolder,
@@ -131,26 +141,8 @@ export const deploy = async (
 
   const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
 
-  // Compile to make sure the user's contracts are up to date.
-  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  // Force re-compile the contracts if we're on a live network and re-compilation is not explicitly
-  // disabled. This ensures that we're using the correct artifacts for live network deployments.
-  // This is mostly out of an abundance of caution, since using an incorrect contract artifact will
-  // prevent us from writing the deployment artifact for that contract.
-  if (isLiveNetwork && forceRecompile) {
-    forgeBuildArgs.push('--force')
-  }
-
-  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatus !== 0) {
-    process.exit(1)
-  }
-
-  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  // We must load any ABIs after compiling the contracts to prevent a situation where the user
+  // clears their artifacts then calls this task, in which case the artifact won't exist yet.
   const sphinxPluginTypesInterface = readInterface(
     artifactFolder,
     'SphinxPluginTypes'
@@ -162,9 +154,6 @@ export const deploy = async (
     projectRoot,
     cachePath
   )
-
-  const spinner = ora({ isSilent: silent })
-  spinner.start(`Collecting transactions...`)
 
   const deploymentInfoPath = join(cachePath, 'sphinx-deployment-info.txt')
 
@@ -273,11 +262,31 @@ export const deploy = async (
   spinner.succeed(`Estimated gas.`)
   spinner.start(`Building deployment...`)
 
+  let signer: ethers.Wallet
+  if (executionMode === ExecutionMode.LiveNetworkCLI) {
+    const privateKey = process.env.PRIVATE_KEY
+    // Check if the private key exists. It should always exist because we checked that it's defined
+    // when we collected the transactions in the user's Forge script.
+    if (!privateKey) {
+      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
+    }
+    signer = new ethers.Wallet(privateKey, provider)
+  } else if (executionMode === ExecutionMode.LocalNetworkCLI) {
+    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+  } else {
+    throw new Error(`Unknown execution mode.`)
+  }
+
   const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
     [actionInputs],
     [deploymentInfo]
   )
 
+  if (forceRecompile) {
+    // Compile silently because compilation also occurred earlier in this function. It'd be
+    // confusing if we display the compilation process twice without explanation.
+    compile(true, true)
+  }
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
@@ -294,21 +303,6 @@ export const deploy = async (
   const deploymentData = makeDeploymentData([parsedConfig])
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
-
-  let signer: ethers.Wallet
-  if (parsedConfig.executionMode === ExecutionMode.LiveNetworkCLI) {
-    const privateKey = process.env.PRIVATE_KEY
-    // Check if the private key exists. It should always exist because we checked that it's defined
-    // when we collected the transactions in the user's Forge script.
-    if (!privateKey) {
-      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
-    }
-    signer = new ethers.Wallet(privateKey, provider)
-  } else if (parsedConfig.executionMode === ExecutionMode.LocalNetworkCLI) {
-    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
-  } else {
-    throw new Error(`Unknown execution mode.`)
-  }
 
   await simulate([parsedConfig], chainId.toString(), forkUrl)
 

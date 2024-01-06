@@ -86,6 +86,8 @@ describe('Solidity Compiler', () => {
     // Generate output directory names. We use separate output directories for each compilation to
     // prevent race conditions.
     const outputDirs = versions.map((version) => `out-${version}`)
+    // Generate separate cache directory names to prevent race conditions.
+    const cacheDirs = versions.map((version) => `cache-${version}`)
 
     const buildPromises = versions.map((version, index) => {
       return spawnAsync(`forge`, [
@@ -99,6 +101,8 @@ describe('Solidity Compiler', () => {
         '--force',
         '--out',
         outputDirs[index],
+        '--cache-path',
+        cacheDirs[index],
       ]).then(({ stdout, stderr, code }) => {
         return { version, stdout, stderr, code }
       })
@@ -142,6 +146,8 @@ describe('Solidity Compiler', () => {
     // Generate output directory names. We use separate output directories for each compilation to
     // prevent race conditions.
     const outputDirs = versions.map((version) => `out-${version}`)
+    // Generate separate cache directory names to prevent race conditions.
+    const cacheDirs = versions.map((version) => `cache-${version}`)
 
     const buildPromises = versions.map((version, index) => {
       return spawnAsync(
@@ -154,6 +160,8 @@ describe('Solidity Compiler', () => {
           '--force',
           '--out',
           outputDirs[index],
+          '--cache-path',
+          cacheDirs[index],
         ],
         {
           FOUNDRY_PROFILE: 'no_optimizer',

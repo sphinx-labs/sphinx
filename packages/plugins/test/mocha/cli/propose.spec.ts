@@ -6,6 +6,7 @@ import {
   ProposalRequest,
   SUPPORTED_NETWORKS,
   SphinxPreview,
+  execAsync,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
@@ -68,6 +69,13 @@ describe('Propose CLI command', () => {
   })
 
   it('Proposes with preview on a single testnet', async () => {
+    // We run `forge clean` to ensure that a proposal can occur even if there are no existing
+    // contract artifacts. This is worthwhile to test because we read contract interfaces in the
+    // `propose` function, which will fail if the function hasn't compiled the contracts yet. By
+    // running `forge clean` here, we're testing that this compilation occurs in the `propose`
+    // function.
+    await execAsync(`forge clean`)
+
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
     const targetContract = 'Simple1'
@@ -83,8 +91,7 @@ describe('Propose CLI command', () => {
         scriptPath,
         sphinxContext: context,
         targetContract,
-        // Force recompile to ensure that a proposal can occur after a fresh compilation process.
-        forceRecompile: true,
+        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
