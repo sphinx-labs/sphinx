@@ -49,7 +49,8 @@ describe('Simulate', () => {
   // local nodes. For example, networks like Arbitrum Sepolia have a block gas limit that's several
   // orders of magniture higher than standard local nodes, which caused a bug in the simulation
   // logic.
-  it('succeeds on every live supported network', async () => {
+  // TODO(end): .only
+  it.only('succeeds on every live supported network', async () => {
     const results = await Promise.allSettled(
       parsedConfigArray.map((parsedConfig) =>
         simulate(

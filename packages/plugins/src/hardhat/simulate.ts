@@ -19,6 +19,7 @@ import {
   SphinxLeafWithProof,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
+import { writeFileSync } from 'fs'
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
