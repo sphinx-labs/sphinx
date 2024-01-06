@@ -294,12 +294,12 @@ export const makeDeployment = async (
   merkleRootNonce: number,
   mainnets: Array<SupportedNetworkName>,
   testnets: Array<SupportedNetworkName>,
-  isTestnet: boolean,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  actions: Array<RawActionInput>
+  actions: Array<RawActionInput>,
+  getRpcUrl: (chainId: SupportedChainId) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
   compilerConfigArray: Array<CompilerConfig>
@@ -318,15 +318,11 @@ export const makeDeployment = async (
   }
 
   const ownerAddresses = owners.map((owner) => owner.address)
-  const networkNames = isTestnet ? testnets : mainnets
+  const networkNames = mainnets.concat(testnets)
 
-  const collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-  }> = []
-  for (const networkName of networkNames) {
+  const collectedPromises = networkNames.map(async (networkName) => {
     const chainId = SUPPORTED_NETWORKS[networkName]
-    const provider = new SphinxJsonRpcProvider(getAnvilRpcUrl(chainId))
+    const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
     const safeAddress = getGnosisSafeProxyAddress(
       ownerAddresses,
       threshold,
@@ -368,11 +364,13 @@ export const makeDeployment = async (
       arbitraryChain: false,
     }
 
-    collected.push({
+    return {
       actionInputs: actions,
       deploymentInfo,
-    })
-  }
+    }
+  })
+
+  const collected = await Promise.all(collectedPromises)
 
   const foundryToml = await getFoundryToml()
   const getConfigArtifacts = makeGetConfigArtifacts(
