@@ -1,5 +1,26 @@
 # @sphinx-labs/core
 
+## 0.20.1
+
+### Patch Changes
+
+- 5cbecd5: Set transaction gas limit lower than block gas limit in simulation
+- 9e587b9: Remove logic that fast forwards block number on forked local nodes
+- 3f6f20c: Test that the simulation works on all supported live networks
+- b7614c6: Set simulation account balance to avoid running out of funds
+
+## 0.20.0
+
+### Minor Changes
+
+- ace53d7: Add core logic for deployment artifacts
+
+### Patch Changes
+
+- 187c913: Allow disabling gas price overrides
+- Updated dependencies [ace53d7]
+  - @sphinx-labs/contracts@0.15.0
+
 ## 0.19.1
 
 ### Patch Changes

@@ -1,5 +1,37 @@
 # @sphinx-labs/plugins
 
+## 0.26.1
+
+### Patch Changes
+
+- c3ad210: Calculate correct Sphinx Module address for non-zero salt nonce
+- 0b42d2e: Force compile as late as possible
+- 5cbecd5: Set transaction gas limit lower than block gas limit in simulation
+- 9e587b9: Remove logic that fast forwards block number on forked local nodes
+- bb0b9af: Add tests for CLI args
+- 3f6f20c: Test that the simulation works on all supported live networks
+- b7614c6: Set simulation account balance to avoid running out of funds
+- Updated dependencies [5cbecd5]
+- Updated dependencies [9e587b9]
+- Updated dependencies [3f6f20c]
+- Updated dependencies [b7614c6]
+  - @sphinx-labs/core@0.20.1
+
+## 0.26.0
+
+### Minor Changes
+
+- ace53d7: Add core logic for deployment artifacts
+
+### Patch Changes
+
+- 30a1296: Use scriptPath positional param in propose CLI command
+- ecededa: Stop requiring the user to override the `run()` function in their script.
+- Updated dependencies [ace53d7]
+- Updated dependencies [187c913]
+  - @sphinx-labs/contracts@0.15.0
+  - @sphinx-labs/core@0.20.0
+
 ## 0.25.1
 
 ### Patch Changes
