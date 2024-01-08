@@ -36,6 +36,27 @@ export type SupportedNetworkName =
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
 
+/**
+ * Data returned by the `anvil_metadata` and `hardhat_metadata` RPC methods.
+ *
+ * @param forkedNetwork Info about the network that the local node is forking, if it exists. If the
+ * local node isn't forking a network, this field can be `undefined` or `null` depending on whether
+ * the network is an Anvil or Hardhat node.
+ */
+export type LocalNetworkMetadata = {
+  clientVersion: string
+  chainId: number
+  instanceId: string
+  latestBlockNumber: number
+  latestBlockHash: string
+  forkedNetwork?: {
+    chainId: number
+    forkBlockNumber: number
+    forkBlockHash: string
+  } | null
+  snapshots?: Record<string, unknown>
+}
+
 // This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
 // The fields in the two enums must be kept in sync, and the order of the fields must be the same.
 export const NetworkEnum = {
