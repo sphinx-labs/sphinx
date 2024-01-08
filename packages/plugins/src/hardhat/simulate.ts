@@ -137,7 +137,9 @@ export const simulate = async (
 
   if (code !== 0) {
     const networkName = getNetworkNameForChainId(BigInt(chainId))
-    throw new Error(`Simulation failed for ${networkName}: ${stderr}`)
+    throw new Error(
+      `Simulation failed for ${networkName} at block number ${block.number}. Reason:\n${stderr}`
+    )
   }
 
   const receipts = JSON.parse(stdout).receipts
