@@ -31,6 +31,7 @@ import {
   isExecutionArtifact,
   getCompilerInputDirName,
   getNetworkNameDirectory,
+  fetchURLForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -81,6 +82,18 @@ export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   }
 
   await sleep(1000)
+}
+
+export const startForkedAnvilNodes = async (
+  chainIds: Array<SupportedChainId>
+) => {
+  for (const chainId of chainIds) {
+    const forkUrl = fetchURLForNetwork(chainId)
+    // We must use `exec` instead of `execAsync` because the latter will hang indefinitely.
+    exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
+  }
+
+  await sleep(3000)
 }
 
 export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {

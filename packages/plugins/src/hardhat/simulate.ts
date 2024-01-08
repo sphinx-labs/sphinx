@@ -11,8 +11,9 @@ import {
   ExecutionMode,
   MerkleRootStatus,
   SphinxJsonRpcProvider,
-  isLiveNetwork,
   getNetworkNameForChainId,
+  isLiveNetwork,
+  isFork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -89,7 +90,9 @@ export const simulate = async (
     chainId,
   }
 
-  if (!(await isLiveNetwork(provider))) {
+  if (!(await isLiveNetwork(provider)) && !(await isFork(provider))) {
+    // The network is a non-forked local node.
+
     // Fast forward 1000 blocks. This is necessary to prevent the following edge case that occurs
     // when running the simulation against a vanilla Anvil node:
     // 1. We deploy the Gnosis Safe and Sphinx contracts.
