@@ -11,6 +11,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
+import { spawnSync } from 'child_process'
 
 import {
   BuildInfo,
@@ -244,6 +245,39 @@ export const getUniqueNames = (
   return {
     uniqueFullyQualifiedNames: Array.from(fullyQualifiedNamesSet),
     uniqueContractNames: Array.from(contractNamesSet),
+  }
+}
+
+/**
+ * Compile the contracts using Forge.
+ *
+ * @param force Force re-compile the contracts. This ensures that we're using the most recent
+ * artifacts for the user's contracts. This is mostly out of an abundance of caution, since using an
+ * incorrect contract artifact will prevent us from creating the correct contract deployment
+ * artifact and verifying the contract on Etherscan. It's best to force re-compile as late as
+ * possible in commands like the Deploy and Propose CLI commands because recompilation can take a
+ * very long time. If recompilation occurs early and the user runs into errors later in the command,
+ * they'll spend a lot of time waiting for recompilation to occur each time they run the command.
+ * It's fine for recompilation to occur after running the user's Forge script because Foundry
+ * automatically compiles the necessary contracts before executing it.
+ */
+export const compile = (silent: boolean, force: boolean): void => {
+  const forgeBuildArgs = ['build']
+
+  if (silent) {
+    forgeBuildArgs.push('--silent')
+  }
+  if (force) {
+    forgeBuildArgs.push('--force')
+  }
+
+  // We use `spawnSync` to display the compilation process to the user as it occurs. Compiler errors
+  // will be displayed to the user even if the `compilesilent` flag is included.
+  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
+    stdio: 'inherit',
+  })
+  if (compilationStatus !== 0) {
+    process.exit(1)
   }
 }
 
