@@ -51,6 +51,7 @@ import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import {
+  LocalNetworkMetadata,
   SUPPORTED_LOCAL_NETWORKS,
   SUPPORTED_NETWORKS,
   SupportedChainId,
@@ -399,6 +400,28 @@ export const isLiveNetwork = async (
     return true
   }
   return false
+}
+
+/**
+ * Returns `true` if the network is a local node (i.e. Hardhat or Anvil) that's forking a live
+ * network. Returns `false` if the network is a local node that isn't forking a live network, or if
+ * the network is a live network.
+ */
+export const isFork = async (
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<boolean> => {
+  try {
+    // The `hardhat_metadata` RPC method doesn't throw an error on Anvil because the `anvil_`
+    // namespace is an alias for `hardhat_`. Source:
+    // https://book.getfoundry.sh/reference/anvil/#custom-methods
+    const metadata: LocalNetworkMetadata = await provider.send(
+      `hardhat_metadata`,
+      []
+    )
+    return !!metadata.forkedNetwork
+  } catch {
+    return false
+  }
 }
 
 export const getImpersonatedSigner = async (

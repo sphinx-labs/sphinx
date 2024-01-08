@@ -5,17 +5,27 @@ import {
   ParsedConfig,
   SUPPORTED_MAINNETS,
   SUPPORTED_TESTNETS,
+  SphinxJsonRpcProvider,
   fetchURLForNetwork,
   getNetworkNameForChainId,
+  isFork,
+  isLiveNetwork,
   toSupportedChainId,
   toSupportedNetworkName,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
-import { makeDeployment, makeStandardDeployment } from './common'
+import {
+  getAnvilRpcUrl,
+  killAnvilNodes,
+  makeDeployment,
+  makeStandardDeployment,
+  startForkedAnvilNodes,
+} from './common'
 import { simulate } from '../../src/hardhat/simulate'
 
 chai.use(chaiAsPromised)
+const expect = chai.expect
 
 describe('Simulate', () => {
   let parsedConfigArray: Array<ParsedConfig>
@@ -69,7 +79,41 @@ describe('Simulate', () => {
     })
 
     // Check that all promises were resolved
-    chai.expect(results.every((result) => result.status === 'fulfilled')).to.be
-      .true
+    expect(results.every((result) => result.status === 'fulfilled')).to.be.true
+  })
+
+  // This test checks that we can simulate a deployment on an Anvil node that's forking Ethereum. We
+  // added this test because we were previously receiving a `HeadersTimeoutError` originating from
+  // undici, which is called by Hardhat during the simulation. The error was occurring because we
+  // were fast-forwarding the block number on forked local nodes. It was only occurring ~50% of the
+  // time in this situation for an unknown reason.
+  it(`succeeds on anvil fork of ethereum`, async () => {
+    const ethereumChainId = 1
+    await startForkedAnvilNodes([ethereumChainId])
+
+    const parsedConfig = parsedConfigArray.find(
+      ({ chainId }) => chainId === ethereumChainId.toString()
+    )
+    if (!parsedConfig) {
+      throw new Error(`Could not find Ethereum ParsedConfig.`)
+    }
+
+    // Get the Anvil RPC url, which is running the Ethereum fork.
+    const rpcUrl = getAnvilRpcUrl(ethereumChainId)
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+
+    // Sanity check that the provider is targeting a forked network which isn't a live network.
+    expect(await isFork(provider)).equals(true)
+    expect(await isLiveNetwork(provider)).equals(false)
+
+    // Run the simulation. If an error is thrown, the test will fail. We don't use `chaiAsPromised`
+    // here because it truncates the error message if an error occurs.
+    await simulate(
+      [parsedConfig],
+      parsedConfig.chainId,
+      getAnvilRpcUrl(ethereumChainId)
+    )
+
+    await killAnvilNodes([ethereumChainId])
   })
 })
