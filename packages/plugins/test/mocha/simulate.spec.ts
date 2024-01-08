@@ -1,4 +1,4 @@
-import chai from 'chai'
+import chai, { expect } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   ExecutionMode,
@@ -25,7 +25,6 @@ import {
 import { simulate } from '../../src/hardhat/simulate'
 
 chai.use(chaiAsPromised)
-const expect = chai.expect
 
 describe('Simulate', () => {
   let parsedConfigArray: Array<ParsedConfig>
