@@ -2,6 +2,8 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 
+import { isSupportedNetworkName } from './utils'
+
 export type SupportedLocalNetworkName = 'anvil'
 
 export type SupportedMainnetNetworkName =
@@ -393,4 +395,23 @@ export const fetchURLForNetwork = (chainId: SupportedChainId) => {
     default:
       throw new Error(`Unsupported chain for id ${chainId}`)
   }
+}
+
+export const toSupportedNetworkName = (
+  networkName: string
+): SupportedNetworkName => {
+  if (!isSupportedNetworkName(networkName)) {
+    throw new Error(`Network isn't supported: ${networkName}`)
+  }
+  return networkName
+}
+
+export const toSupportedChainId = (chainId: number): SupportedChainId => {
+  const network = Object.keys(SUPPORTED_NETWORKS).find(
+    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
+  )
+  if (!network) {
+    throw new Error(`Chain ID isn't supported: ${network}`)
+  }
+  return chainId as SupportedChainId
 }
