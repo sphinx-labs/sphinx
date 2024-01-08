@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.20.1
+
+### Patch Changes
+
+- 5cbecd5: Set transaction gas limit lower than block gas limit in simulation
+- 9e587b9: Remove logic that fast forwards block number on forked local nodes
+- 3f6f20c: Test that the simulation works on all supported live networks
+- b7614c6: Set simulation account balance to avoid running out of funds
+
 ## 0.20.0
 
 ### Minor Changes
