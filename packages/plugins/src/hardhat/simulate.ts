@@ -11,7 +11,9 @@ import {
   ExecutionMode,
   MerkleRootStatus,
   SphinxJsonRpcProvider,
+  getNetworkNameForChainId,
   isLiveNetwork,
+  isFork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -66,9 +68,18 @@ export const simulate = async (
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
 
+  const provider = new SphinxJsonRpcProvider(rpcUrl)
+
+  const block = await provider.getBlock('latest')
+  // Narrow the TypeScript type.
+  if (!block) {
+    throw new Error(`Could not find block. Should never happen.`)
+  }
+
   const envVars = {
     SPHINX_INTERNAL__FORK_URL: rpcUrl,
     SPHINX_INTERNAL__CHAIN_ID: chainId,
+    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: block.gasLimit.toString(),
     // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
     // Hardhat config when we import the HRE in the child process.
     HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
@@ -79,13 +90,13 @@ export const simulate = async (
     chainId,
   }
 
-  const provider = new SphinxJsonRpcProvider(rpcUrl)
+  if (!(await isLiveNetwork(provider)) && !(await isFork(provider))) {
+    // The network is a non-forked local node.
 
-  if (!(await isLiveNetwork(provider))) {
     // Fast forward 1000 blocks. This is necessary to prevent the following edge case that occurs
     // when running the simulation against a vanilla Anvil node:
     // 1. We deploy the Gnosis Safe and Sphinx contracts.
-    // 2. We create the Hardhat fork, which uses a block that's many confirmations behind the latest
+    // 2. We create the Hardhat fork, which uses a block that's multiple confirmations behind the latest
     // block. This is Hardhat's default behavior, which is meant to protect against chain reorgs
     // on forks of live networks.
     // 3. The simulation fails because some of the contracts deployed in step 1 don't exist on the
@@ -128,7 +139,10 @@ export const simulate = async (
   )
 
   if (code !== 0) {
-    throw new Error(`Simulation failed: ${stderr}`)
+    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    throw new Error(
+      `Simulation failed for ${networkName} at block number ${block.number}. Reason:\n${stderr}`
+    )
   }
 
   const receipts = JSON.parse(stdout).receipts

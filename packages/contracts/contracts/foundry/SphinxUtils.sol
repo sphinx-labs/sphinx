@@ -26,7 +26,7 @@ import {
     Label,
     ExecutionMode
 } from "./SphinxPluginTypes.sol";
-import { SphinxContractInfo, SphinxConstants } from "./SphinxConstants.sol";
+import { SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
@@ -62,30 +62,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         // Convert the bytes32 value to an address.
         return address(uint160(uint256(ownerBytes32)));
-    }
-
-    function create2Deploy(bytes memory _creationCode) public returns (address) {
-        address addr = computeCreate2Address(
-            bytes32(0),
-            keccak256(_creationCode),
-            DETERMINISTIC_DEPLOYMENT_PROXY
-        );
-
-        if (addr.code.length == 0) {
-            bytes memory code = abi.encodePacked(bytes32(0), _creationCode);
-            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
-            require(
-                success,
-                string(
-                    abi.encodePacked(
-                        "failed to deploy contract. expected address: ",
-                        vm.toString(addr)
-                    )
-                )
-            );
-        }
-
-        return addr;
     }
 
     function inefficientSlice(
@@ -858,7 +834,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
         address safeProxyAddress = getGnosisSafeProxyAddress(_config);
-        bytes32 salt = keccak256(abi.encode(safeProxyAddress, safeProxyAddress, _config.saltNonce));
+        bytes32 salt = keccak256(
+            abi.encode(
+                safeProxyAddress,
+                safeProxyAddress,
+                // We always set the `saltNonce` of the Sphinx Module to `0` because the
+                // `sphinxConfig.saltNonce` field is only used when deploying the Gnosis Safe. It's
+                // not necessary to include the `saltNonce` here because a new Sphinx Module will be
+                // deployed if the user sets the `sphinxConfig.saltNonce` to a new value and then
+                // deploys a new Gnosis Safe using Sphinx's standard deployment method. A new Sphinx
+                // Module is deployed in this scenario because its address is determined by the
+                // address of the Gnosis Safe. It'd only be necessary to include a `saltNonce` for
+                // the Sphinx Module if a single Gnosis Safe wants to enable multiple Sphinx
+                // Modules, which isn't a feature that we currently support.
+                0
+            )
+        );
         address addr = predictDeterministicAddress(
             sphinxModuleImplAddress,
             salt,

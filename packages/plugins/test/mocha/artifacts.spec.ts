@@ -13,6 +13,7 @@ import { ethers } from 'ethers'
 
 import {
   checkArtifacts,
+  getAnvilRpcUrl,
   killAnvilNodes,
   makeDeployment,
   makeRevertingDeployment,
@@ -141,12 +142,12 @@ const makeThenRunThenCheckDeployment = async (
       merkleRootNonce,
       [],
       networkNames,
-      true,
       projectName,
       owners,
       threshold,
       executionMode,
-      actionInputs
+      actionInputs,
+      getAnvilRpcUrl
     )
 
   const artifacts = await runDeployment(
@@ -192,12 +193,12 @@ const makeThenRunThenCheckRemoteDeployment = async (
     merkleRootNonce,
     [],
     networkNames,
-    true,
     projectName,
     owners,
     threshold,
     executionMode,
-    actionInputs
+    actionInputs,
+    getAnvilRpcUrl
   )
 
   const configArtifacts = await getConfigArtifactsRemote(compilerConfigArray)

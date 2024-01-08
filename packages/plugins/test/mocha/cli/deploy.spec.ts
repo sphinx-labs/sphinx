@@ -170,8 +170,11 @@ describe('Deploy CLI command', () => {
     const projectName = 'Simple_Project_1'
 
     it('Executes deployment on local network', async () => {
-      // We run `forge clean` to ensure that a deployment can occur even if we're running
-      // a fresh compilation process.
+      // We run `forge clean` to ensure that a deployment can occur even if there are no existing
+      // contract artifacts. This is worthwhile to test because we read contract interfaces in the
+      // `deploy` function, which will fail if the function hasn't compiled the contracts yet. By
+      // running `forge clean` here, we're testing that this compilation occurs in the `deploy`
+      // function.
       await execAsync(`forge clean`)
 
       const executionMode = ExecutionMode.LocalNetworkCLI
@@ -183,16 +186,18 @@ describe('Deploy CLI command', () => {
 
       const targetContract = 'Simple1'
       const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
-        await deploy(
-          forgeScriptPath,
-          'sepolia',
-          false, // Run preview
-          true, // Silent
-          makeMockSphinxContext(['contracts/test/MyContracts.sol:MyContract2']),
+        await deploy({
+          scriptPath: forgeScriptPath,
+          network: 'sepolia',
+          skipPreview: false,
+          silent: true,
+          sphinxContext: makeMockSphinxContext([
+            'contracts/test/MyContracts.sol:MyContract2',
+          ]),
+          verify: false,
           targetContract,
-          undefined, // Don't verify on Etherscan.
-          true // Skip force recompile
-        )
+          forceRecompile: false,
+        })
 
       // Narrow the TypeScript types.
       if (
@@ -256,16 +261,16 @@ describe('Deploy CLI command', () => {
 
       const targetContract = 'Simple1'
       const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
-        await deploy(
-          forgeScriptPath,
-          'sepolia',
-          false, // Run preview
-          true, // Silent
+        await deploy({
+          scriptPath: forgeScriptPath,
+          network: 'sepolia',
+          skipPreview: false,
+          silent: true,
           sphinxContext,
+          verify: false,
           targetContract,
-          undefined, // Don't verify on Etherscan.
-          true // Skip force recompile
-        )
+          forceRecompile: false,
+        })
 
       // Narrow the TypeScript types.
       if (
@@ -311,16 +316,15 @@ describe('Deploy CLI command', () => {
     it(`Displays preview then exits when there's nothing to execute`, async () => {
       expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
-      const { preview } = await deploy(
-        emptyScriptPath,
-        'sepolia',
-        false, // Run preview
-        true, // Silent
-        makeMockSphinxContext([]),
-        undefined, // Only one contract in the script file, so there's no target contract to specify.
-        undefined, // Don't verify on Etherscan.
-        true // Skip force recompile
-      )
+      const { preview } = await deploy({
+        scriptPath: emptyScriptPath,
+        network: 'sepolia',
+        skipPreview: false,
+        silent: true,
+        sphinxContext: makeMockSphinxContext([]),
+        verify: false,
+        forceRecompile: false,
+      })
 
       expect(preview).to.be.undefined
 
@@ -352,24 +356,27 @@ describe('Deploy CLI command', () => {
         )
       )
 
+      let errorThrown = false
       try {
-        await deploy(
+        await deploy({
           scriptPath,
-          'sepolia',
-          false, // Run preview
-          true, // Silent
-          makeMockSphinxContext([`${scriptPath}:RevertDuringSimulation`]),
-          'RevertDuringSimulation_Script',
-          undefined, // Don't verify on Etherscan.
-          true // Skip force recompile
-        )
-
-        // If the deployment does not fail as expected, force the test to fail
-        expect.fail()
+          network: 'sepolia',
+          skipPreview: false,
+          silent: true,
+          sphinxContext: makeMockSphinxContext([
+            `${scriptPath}:RevertDuringSimulation`,
+          ]),
+          verify: false,
+          targetContract: 'RevertDuringSimulation_Script',
+          forceRecompile: false,
+        })
       } catch (e) {
+        errorThrown = true
         const expectedOutput = `The following action reverted during the simulation:\nRevertDuringSimulation<${expectedContractAddress}>.revertDuringSimulation()`
         expect(e.message.includes(expectedOutput)).to.be.true
       }
+
+      expect(errorThrown).to.be.true
     })
   })
 })
@@ -418,21 +425,20 @@ describe('Deployment Cases', () => {
     }
 
     ;({ compilerConfig, preview, receipts, merkleTree, configArtifacts } =
-      await deploy(
-        deploymentCasesScriptPath,
-        'sepolia',
-        false, // Skip preview
-        true, // Silent
-        makeMockSphinxContext([
+      await deploy({
+        scriptPath: deploymentCasesScriptPath,
+        network: 'sepolia',
+        skipPreview: false,
+        silent: true,
+        sphinxContext: makeMockSphinxContext([
           'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
           'contracts/test/Fallback.sol:Fallback',
           'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
         ]),
-        undefined, // Only one contract in the script file, so there's no target contract to specify.
-        undefined, // Don't verify on Etherscan.
-        true // Skip force recompile
-      ))
+        verify: false,
+        forceRecompile: false,
+      }))
 
     expect(compilerConfig).to.not.be.undefined
     expect(preview).to.not.be.undefined

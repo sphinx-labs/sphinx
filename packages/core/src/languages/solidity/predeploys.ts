@@ -21,7 +21,7 @@ import {
   isLiveNetwork,
   getImpersonatedSigner,
   getSphinxWalletPrivateKey,
-  fundAccount,
+  fundAccountMaxBalance,
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import { RELAYER_ROLE } from '../../constants'
@@ -43,7 +43,7 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
     // own keys, but it provides a better separation of concerns.
     const firstSphinxPrivateKey = getSphinxWalletPrivateKey(0)
     const wallet = new ethers.Wallet(firstSphinxPrivateKey, provider)
-    await fundAccount(wallet.address, provider)
+    await fundAccountMaxBalance(wallet.address, provider)
 
     await deploySphinxSystem(provider, wallet, relayers, logger)
   } else if (!(await allSphinxAndGnosisSafeContractsDeployed(provider))) {

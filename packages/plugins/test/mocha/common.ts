@@ -31,6 +31,7 @@ import {
   isExecutionArtifact,
   getCompilerInputDirName,
   getNetworkNameDirectory,
+  fetchURLForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -81,6 +82,18 @@ export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   }
 
   await sleep(1000)
+}
+
+export const startForkedAnvilNodes = async (
+  chainIds: Array<SupportedChainId>
+) => {
+  for (const chainId of chainIds) {
+    const forkUrl = fetchURLForNetwork(chainId)
+    // We must use `exec` instead of `execAsync` because the latter will hang indefinitely.
+    exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
+  }
+
+  await sleep(3000)
 }
 
 export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
@@ -259,7 +272,19 @@ export const getSphinxModuleAddress = (
   const salt = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'address', 'uint256'],
-      [safeProxyAddress, safeProxyAddress, saltNonce]
+      [
+        safeProxyAddress,
+        safeProxyAddress,
+        // We always set the `saltNonce` of the Sphinx Module to `0` because the
+        // `sphinxConfig.saltNonce` field is only used when deploying the Gnosis Safe. It's not
+        // necessary to include the `saltNonce` here because a new Sphinx Module will be deployed if
+        // the user sets the `sphinxConfig.saltNonce` to a new value and then deploys a new Gnosis
+        // Safe using Sphinx's standard deployment method. A new Sphinx Module is deployed in this
+        // scenario because its address is determined by the address of the Gnosis Safe. It'd only
+        // be necessary to include a `saltNonce` for the Sphinx Module if a single Gnosis Safe wants
+        // to enable multiple Sphinx Modules, which isn't a feature that we currently support.
+        0,
+      ]
     )
   )
 
@@ -282,12 +307,12 @@ export const makeDeployment = async (
   merkleRootNonce: number,
   mainnets: Array<SupportedNetworkName>,
   testnets: Array<SupportedNetworkName>,
-  isTestnet: boolean,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  actions: Array<RawActionInput>
+  actions: Array<RawActionInput>,
+  getRpcUrl: (chainId: SupportedChainId) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
   compilerConfigArray: Array<CompilerConfig>
@@ -306,15 +331,11 @@ export const makeDeployment = async (
   }
 
   const ownerAddresses = owners.map((owner) => owner.address)
-  const networkNames = isTestnet ? testnets : mainnets
+  const networkNames = mainnets.concat(testnets)
 
-  const collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-  }> = []
-  for (const networkName of networkNames) {
+  const collectedPromises = networkNames.map(async (networkName) => {
     const chainId = SUPPORTED_NETWORKS[networkName]
-    const provider = new SphinxJsonRpcProvider(getAnvilRpcUrl(chainId))
+    const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
     const safeAddress = getGnosisSafeProxyAddress(
       ownerAddresses,
       threshold,
@@ -356,11 +377,13 @@ export const makeDeployment = async (
       arbitraryChain: false,
     }
 
-    collected.push({
+    return {
       actionInputs: actions,
       deploymentInfo,
-    })
-  }
+    }
+  })
+
+  const collected = await Promise.all(collectedPromises)
 
   const foundryToml = await getFoundryToml()
   const getConfigArtifacts = makeGetConfigArtifacts(

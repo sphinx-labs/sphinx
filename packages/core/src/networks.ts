@@ -2,6 +2,8 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 
+import { isSupportedNetworkName } from './utils'
+
 export type SupportedLocalNetworkName = 'anvil'
 
 export type SupportedMainnetNetworkName =
@@ -33,6 +35,27 @@ export type SupportedNetworkName =
   | SupportedMainnetNetworkName
   | SupportedTestnetNetworkName
   | SupportedLocalNetworkName
+
+/**
+ * Data returned by the `anvil_metadata` and `hardhat_metadata` RPC methods.
+ *
+ * @param forkedNetwork Info about the network that the local node is forking, if it exists. If the
+ * local node isn't forking a network, this field can be `undefined` or `null` depending on whether
+ * the network is an Anvil or Hardhat node.
+ */
+export type LocalNetworkMetadata = {
+  clientVersion: string
+  chainId: number
+  instanceId: string
+  latestBlockNumber: number
+  latestBlockHash: string
+  forkedNetwork?: {
+    chainId: number
+    forkBlockNumber: number
+    forkBlockHash: string
+  } | null
+  snapshots?: Record<string, unknown>
+}
 
 // This is the same as the `Network` enum defined in Solidity, which is used in the Foundry plugin.
 // The fields in the two enums must be kept in sync, and the order of the fields must be the same.
@@ -393,4 +416,23 @@ export const fetchURLForNetwork = (chainId: SupportedChainId) => {
     default:
       throw new Error(`Unsupported chain for id ${chainId}`)
   }
+}
+
+export const toSupportedNetworkName = (
+  networkName: string
+): SupportedNetworkName => {
+  if (!isSupportedNetworkName(networkName)) {
+    throw new Error(`Network isn't supported: ${networkName}`)
+  }
+  return networkName
+}
+
+export const toSupportedChainId = (chainId: number): SupportedChainId => {
+  const network = Object.keys(SUPPORTED_NETWORKS).find(
+    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
+  )
+  if (!network) {
+    throw new Error(`Chain ID isn't supported: ${network}`)
+  }
+  return chainId as SupportedChainId
 }

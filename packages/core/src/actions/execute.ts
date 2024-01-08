@@ -27,7 +27,7 @@ import {
 import {
   addSphinxWalletsToGnosisSafeOwners,
   findLeafWithProof,
-  fundAccount,
+  fundAccountMaxBalance,
   getGasPriceOverrides,
   getMaxGasLimit,
   getReadableActions,
@@ -574,7 +574,7 @@ export const runEntireDeploymentProcess = async (
     executionMode === ExecutionMode.LocalNetworkCLI ||
     executionMode === ExecutionMode.Platform
   ) {
-    await fundAccount(signer.address, provider)
+    await fundAccountMaxBalance(signer.address, provider)
     await setManagedServiceRelayer(signer.address, provider)
 
     estimateGas = estimateGasViaManagedService

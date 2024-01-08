@@ -1,6 +1,5 @@
 import { join } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
-import { spawnSync } from 'child_process'
 
 import {
   ProjectDeployment,
@@ -23,6 +22,7 @@ import { ethers } from 'ethers'
 import {
   ConfigArtifacts,
   DeploymentInfo,
+  GetConfigArtifacts,
   ParsedConfig,
   RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
@@ -46,14 +46,38 @@ import {
   readFoundrySingleChainDryRun,
   readInterface,
   getNetworkGasEstimate,
+  compile,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
+import { FoundryToml } from '../../foundry/types'
+
+/**
+ * @param isDryRun If true, the proposal will not be relayed to the back-end.
+ * @param targetContract The name of the contract within the script file. Necessary when there are
+ * multiple contracts in the specified script.
+ * @param forceRecompile Force re-compile the contracts. By default, we force re-compile. This
+ * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
+ * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
+ * the contract on Etherscan and providing a deployment artifact for the contract.
+ */
+export interface ProposeArgs {
+  confirm: boolean
+  isTestnet: boolean
+  isDryRun: boolean
+  silent: boolean
+  scriptPath: string
+  sphinxContext: SphinxContext
+  forceRecompile: boolean
+  targetContract?: string
+}
 
 export const buildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
-  sphinxContext: SphinxContext,
+  foundryToml: FoundryToml,
+  forceRecompile: boolean,
+  getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
@@ -61,16 +85,6 @@ export const buildParsedConfigArray = async (
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }> => {
-  const projectRoot = process.cwd()
-  const foundryToml = await getFoundryToml()
-
-  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    projectRoot,
-    foundryToml.cachePath
-  )
-
   const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
@@ -218,6 +232,11 @@ export const buildParsedConfigArray = async (
     collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
+  if (forceRecompile) {
+    // Compile silently because compilation also occurred earlier in this function. It'd be
+    // confusing if we display the compilation process twice without explanation.
+    compile(true, true)
+  }
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
@@ -241,27 +260,8 @@ export const buildParsedConfigArray = async (
   }
 }
 
-/**
- * @notice Calls the `sphinxProposeTask` Solidity function, then converts the output into a format
- * that can be sent to the back-end.
- *
- * @param isDryRun If true, the proposal will not be relayed to the back-end.
- * @param targetContract The name of the contract within the script file. Necessary when there are
- * multiple contracts in the specified script.
- * @param skipForceRecompile Force re-compile the contracts. By default, we force re-compile. This
- * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
- * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
- * the contract on Etherscan and providing a deployment artifact for the contract.
- */
 export const propose = async (
-  confirm: boolean,
-  isTestnet: boolean,
-  isDryRun: boolean,
-  silent: boolean,
-  scriptPath: string,
-  sphinxContext: SphinxContext,
-  targetContract?: string,
-  skipForceRecompile: boolean = false
+  args: ProposeArgs
 ): Promise<{
   proposalRequest?: ProposalRequest
   canonicalConfigData?: string
@@ -269,40 +269,48 @@ export const propose = async (
   parsedConfigArray?: Array<ParsedConfig>
   merkleTree?: SphinxMerkleTree
 }> => {
+  const {
+    confirm,
+    isTestnet,
+    isDryRun,
+    silent,
+    scriptPath,
+    sphinxContext,
+    targetContract,
+    forceRecompile,
+  } = args
+
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
     process.exit(1)
   }
 
-  // Compile to make sure the user's contracts are up to date.
-  const forgeBuildArgs = silent ? ['build', '--silent'] : ['build']
-  // Force re-compile the contracts unless it's explicitly been disabled. This ensures that we're
-  // using the correct artifacts for proposals. This is mostly out of an abundance of caution, since
-  // using an incorrect contract artifact will prevent us from creating the contract's deployment
-  // and verifying it on Etherscan.
-  if (!skipForceRecompile) {
-    forgeBuildArgs.push('--force')
-  }
+  const projectRoot = process.cwd()
 
-  const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
-    stdio: 'inherit',
-  })
-  // Exit the process if compilation fails.
-  if (compilationStatus !== 0) {
-    process.exit(1)
-  }
+  // Run the compiler. It's necessary to do this before we read any contract interfaces.
+  compile(
+    silent,
+    false // Do not force re-compile.
+  )
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
   const foundryToml = await getFoundryToml()
 
-  // We must load any ABIs after running `forge build` to prevent a situation where the user clears
-  // their artifacts then calls this task, in which case the artifact won't exist yet.
+  // We must load any ABIs after compiling the contracts to prevent a situation where the user
+  // clears their artifacts then calls this task, in which case the artifact won't exist yet.
   const sphinxPluginTypesInterface = readInterface(
     foundryToml.artifactFolder,
     'SphinxPluginTypes'
+  )
+
+  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
+    foundryToml.artifactFolder,
+    foundryToml.buildInfoFolder,
+    projectRoot,
+    foundryToml.cachePath
   )
 
   const { parsedConfigArray, configArtifacts, isEmpty } =
@@ -310,7 +318,9 @@ export const propose = async (
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
-      sphinxContext,
+      foundryToml,
+      forceRecompile,
+      getConfigArtifacts,
       targetContract,
       spinner
     )

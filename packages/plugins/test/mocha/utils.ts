@@ -4,6 +4,8 @@ import {
   callForgeScriptFunction,
   readContractArtifact,
 } from '../../src/foundry/utils'
+import { propose } from '../../src/cli/propose'
+import { deploy } from '../../src/cli/deploy'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
 const mockPrompt = async (q: string) => {}
@@ -13,6 +15,8 @@ export const makeMockSphinxContext = (
 ) => {
   return {
     isLiveNetwork,
+    propose,
+    deploy,
     prompt: mockPrompt,
     makeGetConfigArtifacts: (
       artifactFolder: string,
