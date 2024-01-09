@@ -1470,3 +1470,12 @@ export const formatSolcLongVersion = (solcLongVersion: string) => {
   const match = solcLongVersion.match(/(\d+\.\d+\.\d+\+commit\.[a-f0-9]+)/)
   return match ? match[0] : solcLongVersion
 }
+
+/**
+ * Strip the leading zero from the input hex string if it exists. This is necessary if the hex
+ * string is an input to a JSON-RPC method because hex quantities with leading zeros are not valid
+ * at the JSON-RPC layer. Stripping the leading zero doesn't change the amount.
+ */
+export const stripLeadingZero = (hexString: string): string => {
+  return hexString.replace('0x0', '0x')
+}
