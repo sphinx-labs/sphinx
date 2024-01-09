@@ -276,7 +276,6 @@ const proposeCommandHandler = async (
     scriptPath,
     sphinxContext,
     targetContract,
-    forceRecompile: true,
   })
 }
 
@@ -303,6 +302,5 @@ const deployCommandHandler = async (
     sphinxContext,
     verify,
     targetContract,
-    forceRecompile: true,
   })
 }
