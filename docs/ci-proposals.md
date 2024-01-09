@@ -83,7 +83,7 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Dry Run
-        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
+        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --confirm --networks testnets
 ```
 
 Here is a list of things you may need to change in the template:
