@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.26.2
+
+### Patch Changes
+
+- dbbd869: Temporarily remove simulation test suite to prevent rate limits
+- Updated dependencies [8fe3fd9]
+  - @sphinx-labs/contracts@0.15.1
+
 ## 0.26.1
 
 ### Patch Changes
