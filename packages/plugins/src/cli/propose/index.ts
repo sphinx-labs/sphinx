@@ -11,10 +11,8 @@ import {
   getPreview,
   getPreviewString,
   makeDeploymentData,
-  relayProposal,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
-  storeCanonicalConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -45,11 +43,11 @@ import {
   getFoundrySingleChainDryRunPath,
   readFoundrySingleChainDryRun,
   readInterface,
-  getNetworkGasEstimate,
   compile,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
+import { BuildParsedConfigArray } from '../types'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -71,7 +69,7 @@ export interface ProposeArgs {
   targetContract?: string
 }
 
-export const buildParsedConfigArray = async (
+export const buildParsedConfigArray: BuildParsedConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
@@ -314,7 +312,7 @@ export const propose = async (
   )
 
   const { parsedConfigArray, configArtifacts, isEmpty } =
-    await buildParsedConfigArray(
+    await sphinxContext.buildParsedConfigArray(
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
@@ -348,7 +346,7 @@ export const propose = async (
   const gasEstimatesPromises = parsedConfigArray
     .filter((parsedConfig) => parsedConfig.actionInputs.length > 0)
     .map((parsedConfig) =>
-      getNetworkGasEstimate(
+      sphinxContext.getNetworkGasEstimate(
         parsedConfigArray,
         parsedConfig.chainId,
         foundryToml
@@ -358,8 +356,11 @@ export const propose = async (
 
   spinner.succeed(`Simulation succeeded.`)
   const preview = getPreview(parsedConfigArray)
-  if (confirm) {
-    spinner.info(`Skipping preview.`)
+  if (confirm || isDryRun) {
+    if (!silent) {
+      const previewString = getPreviewString(preview, false)
+      console.log(previewString)
+    }
   } else {
     const previewString = getPreviewString(preview, true)
     await sphinxContext.prompt(previewString)
@@ -449,14 +450,14 @@ export const propose = async (
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
-    const compilerConfigId = await storeCanonicalConfig(
+    const compilerConfigId = await sphinxContext.storeCanonicalConfig(
       apiKey,
       newConfig.orgId,
       [canonicalConfigData]
     )
     proposalRequest.compilerConfigId = compilerConfigId
 
-    await relayProposal(proposalRequest)
+    await sphinxContext.relayProposal(proposalRequest)
     spinner.succeed(
       `Proposal succeeded! Go to ${blue.underline(
         WEBSITE_URL

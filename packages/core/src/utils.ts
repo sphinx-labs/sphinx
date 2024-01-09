@@ -57,6 +57,7 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
+import { RelayProposal, StoreCanonicalConfig } from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -464,7 +465,9 @@ export const fetchSphinxManagedBaseUrl = () => {
     : 'https://www.sphinx.dev'
 }
 
-export const relayProposal = async (proposalRequest: ProposalRequest) => {
+export const relayProposal: RelayProposal = async (
+  proposalRequest: ProposalRequest
+): Promise<void> => {
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,
@@ -495,7 +498,7 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
   }
 }
 
-export const storeCanonicalConfig = async (
+export const storeCanonicalConfig: StoreCanonicalConfig = async (
   apiKey: string,
   orgId: string,
   configData: Array<string>

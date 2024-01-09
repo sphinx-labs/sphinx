@@ -1,5 +1,8 @@
 export const BothNetworksSpecifiedError = `You must specify either 'testnets' or 'mainnets', but not both.`
 
+export const ConfirmAndDryRunError =
+  '--confirm and --dry-run cannot be used together'
+
 export const getInvalidNetworksArgumentError = (arg: string | Array<string>) =>
   `Invalid values:\n  Argument: networks, Given: "${arg}", Choices: "testnets", "mainnets"`
 

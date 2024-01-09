@@ -1,3 +1,13 @@
+import ora from 'ora'
+import { ethers } from 'ethers'
+import {
+  ConfigArtifacts,
+  GetConfigArtifacts,
+  ParsedConfig,
+} from '@sphinx-labs/core'
+
+import { FoundryToml } from '../foundry/types'
+
 export interface ProposeCommandArgs {
   scriptPath: string
   networks: 'testnets' | 'mainnets'
@@ -15,3 +25,27 @@ export interface DeployCommandArgs {
   verify: boolean
   targetContract?: string
 }
+
+export type GetNetworkGasEstimate = (
+  parsedConfigArray: Array<ParsedConfig>,
+  chainId: string,
+  foundryToml: FoundryToml
+) => Promise<{
+  chainId: number
+  estimatedGas: string
+}>
+
+export type BuildParsedConfigArray = (
+  scriptPath: string,
+  isTestnet: boolean,
+  sphinxPluginTypesInterface: ethers.Interface,
+  foundryToml: FoundryToml,
+  forceRecompile: boolean,
+  getConfigArtifacts: GetConfigArtifacts,
+  targetContract?: string,
+  spinner?: ora.Ora
+) => Promise<{
+  parsedConfigArray?: Array<ParsedConfig>
+  configArtifacts?: ConfigArtifacts
+  isEmpty: boolean
+}>

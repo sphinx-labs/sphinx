@@ -20,12 +20,13 @@ import { propose } from '../../../src/cli/propose'
 import { readInterface } from '../../../src/foundry/utils'
 import { getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
-import {
-  getSphinxModuleAddressFromScript,
-  makeMockSphinxContext,
-} from '../utils'
+import { makeMockSphinxContextForIntegrationTests } from '../mock'
 import { SphinxContext } from '../../../src/cli/context'
-import { killAnvilNodes, startAnvilNodes } from '../common'
+import {
+  killAnvilNodes,
+  startAnvilNodes,
+  getSphinxModuleAddressFromScript,
+} from '../common'
 import { FoundryToml } from '../../../src/foundry/types'
 
 chai.use(chaiAsPromised)
@@ -79,14 +80,15 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
     const targetContract = 'Simple1'
-    const context = makeMockSphinxContext([
+
+    const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose({
         confirm: false, // Run preview
         isTestnet,
-        isDryRun: true,
+        isDryRun: false,
         silent: true,
         scriptPath,
         sphinxContext: context,
@@ -104,6 +106,8 @@ describe('Propose CLI command', () => {
       ethers.ZeroHash,
       ethers.keccak256(MyContract2Artifact.bytecode.object)
     )
+
+    expect(prompt.called).to.be.true
 
     assertValidProposalRequest(
       proposalRequest,
@@ -167,14 +171,14 @@ describe('Propose CLI command', () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
     const targetContract = 'Simple1'
-    const context = makeMockSphinxContext([
+    const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
-        isDryRun: true,
+        isDryRun: false,
         silent: true,
         scriptPath,
         sphinxContext: context,
@@ -189,6 +193,9 @@ describe('Propose CLI command', () => {
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
+
+    // Check that the prompt was skipped.
+    expect(prompt.called).to.be.false
 
     const expectedContractAddressEthereum = ethers.getCreate2Address(
       DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -297,14 +304,14 @@ describe('Propose CLI command', () => {
   it('Proposes large deployment', async () => {
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
-    const context = makeMockSphinxContext([
+    const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
-        isDryRun: true,
+        isDryRun: false,
         silent: true,
         scriptPath,
         sphinxContext: context,
@@ -343,6 +350,9 @@ describe('Propose CLI command', () => {
         address,
       }
     })
+
+    // Check that the prompt was skipped.
+    expect(prompt.called).to.be.false
 
     assertValidProposalRequest(
       proposalRequest,
@@ -392,16 +402,17 @@ describe('Propose CLI command', () => {
     )
   })
 
-  it('Proposes for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
+  it('Dry runs for a Gnosis Safe and Sphinx Module that have already executed a deployment', async () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
+    const { context, prompt } = makeMockSphinxContextForIntegrationTests([
+      'contracts/test/MyContracts.sol:MyContract2',
+    ])
     const { compilerConfig: firstCompilerConfig } = await deploy({
       scriptPath,
       network: 'sepolia',
       skipPreview: true,
       silent: true,
-      sphinxContext: makeMockSphinxContext([
-        'contracts/test/MyContracts.sol:MyContract2',
-      ]),
+      sphinxContext: context,
       verify: false,
       targetContract: 'Simple1',
       forceRecompile: false,
@@ -413,12 +424,9 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
-    const context = makeMockSphinxContext([
-      'contracts/test/MyContracts.sol:MyContract2',
-    ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
       await propose({
-        confirm: false, // Run preview
+        confirm: false,
         isTestnet,
         isDryRun: true,
         silent: true,
@@ -432,6 +440,8 @@ describe('Propose CLI command', () => {
     if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
       throw new Error(`Expected field(s) to be defined`)
     }
+
+    expect(prompt.called).to.be.false
 
     // Check that the same Gnosis Safe and Sphinx Module are used for both deployments.
     expect(proposalRequest.safeAddress).equals(firstCompilerConfig.safeAddress)
@@ -489,13 +499,14 @@ describe('Propose CLI command', () => {
   // words, we don't allow the user to submit a proposal that just deploys a Gnosis Safe and Sphinx
   // Module.
   it('Exits early if there is nothing to execute on any network', async () => {
+    const { context } = makeMockSphinxContextForIntegrationTests([])
     const { proposalRequest, parsedConfigArray } = await propose({
       confirm: false, // Show preview
       isTestnet: false,
       isDryRun: true,
       silent: true,
       scriptPath: 'contracts/test/script/Empty.s.sol',
-      sphinxContext: makeMockSphinxContext([]),
+      sphinxContext: context,
       targetContract: undefined,
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
@@ -514,7 +525,7 @@ describe('Propose CLI command', () => {
   it('Proposes on one chain and skips proposal on a different chain', async () => {
     const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
-    const context = makeMockSphinxContext([
+    const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, parsedConfigArray, configArtifacts } =
@@ -542,6 +553,8 @@ describe('Propose CLI command', () => {
       ethers.ZeroHash,
       ethers.keccak256(MyContract2Artifact.bytecode.object)
     )
+
+    expect(prompt.called).to.be.false
 
     assertValidProposalRequest(
       proposalRequest,
@@ -625,6 +638,10 @@ describe('Propose CLI command', () => {
       )
     )
 
+    const { context } = makeMockSphinxContextForIntegrationTests([
+      `${scriptPath}:RevertDuringSimulation`,
+    ])
+
     let errorThrown = false
     try {
       await propose({
@@ -633,9 +650,7 @@ describe('Propose CLI command', () => {
         isDryRun: true,
         silent: true,
         scriptPath,
-        sphinxContext: makeMockSphinxContext([
-          `${scriptPath}:RevertDuringSimulation`,
-        ]),
+        sphinxContext: context,
         targetContract: 'RevertDuringSimulation_Script', // Only one contract in the script file, so there's no target contract to specify.
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files

@@ -8,7 +8,7 @@ import {
 } from '../sample-project/sample-foundry-config'
 import { SphinxContext, makeSphinxContext } from './context'
 import { DeployCommandArgs, ProposeCommandArgs } from './types'
-import { coerceNetworks } from './utils'
+import { ConfirmAndDryRunError, coerceNetworks } from './utils'
 
 const networkOption = 'network'
 const confirmOption = 'confirm'
@@ -250,6 +250,13 @@ const proposeCommandHandler = async (
   sphinxContext: SphinxContext
 ): Promise<void> => {
   const { networks, scriptPath, targetContract, silent, dryRun, confirm } = argv
+
+  if (dryRun && confirm) {
+    // Throw an error because these flags are redundant, which signals user error or a
+    // misunderstanding of the commands.
+    console.error(ConfirmAndDryRunError)
+    process.exit(1)
+  }
 
   if (silent && !confirm) {
     // Since the '--silent' option silences the preview, the user must confirm the proposal
