@@ -16,6 +16,7 @@ import {
   execAsync,
   getCreate3Address,
   makeDeploymentArtifacts,
+  setBalance,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -245,6 +246,20 @@ describe('Deploy CLI command', () => {
     // auto-generated wallet and executes transactions through the `ManagedService`.
     it('Executes deployment on live network', async () => {
       expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
+
+      // First private key on Anvil
+      const privateKey =
+        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+      process.env['PRIVATE_KEY'] = privateKey
+
+      const wallet = new ethers.Wallet(privateKey)
+      // Set the signer's balance to be low in order to emulate a live network scenario. This
+      // ensures that the signer can execute a deployment without having a very high balance of ETH.
+      await setBalance(
+        wallet.address,
+        ethers.toBeHex(ethers.parseEther('0.01')),
+        provider
+      )
 
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactDirPath)).to.be.false

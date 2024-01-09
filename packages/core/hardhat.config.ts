@@ -10,6 +10,7 @@ import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
 import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
 import { etherscanVerifySphinxSystem } from './src/etherscan'
+import { ExecutionMode } from './src/constants'
 
 // Load environment variables from .env
 dotenv.config()
@@ -175,7 +176,13 @@ task('deploy-system')
         name: 'Logger',
       })
 
-      await deploySphinxSystem(provider, signer, systemConfig.relayers, logger)
+      await deploySphinxSystem(
+        provider,
+        signer,
+        systemConfig.relayers,
+        ExecutionMode.LiveNetworkCLI,
+        logger
+      )
 
       await etherscanVerifySphinxSystem(provider, logger)
     }
