@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.15.1
+
+### Patch Changes
+
+- 8fe3fd9: Allow `storageLayout.types` to be `null`
+
 ## 0.15.0
 
 ### Minor Changes
