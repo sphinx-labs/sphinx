@@ -4,18 +4,23 @@ import {
   GetConfigArtifacts,
   ParsedConfig,
   ProposalRequest,
+  RelayProposal,
   SphinxJsonRpcProvider,
   SphinxTransactionReceipt,
+  StoreCanonicalConfig,
   getPreview,
   isLiveNetwork,
+  relayProposal,
+  storeCanonicalConfig,
   userConfirmation,
 } from '@sphinx-labs/core'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
-import { makeGetConfigArtifacts } from '../foundry/utils'
-import { ProposeArgs, propose } from './propose'
+import { getNetworkGasEstimate, makeGetConfigArtifacts } from '../foundry/utils'
+import { ProposeArgs, buildParsedConfigArray, propose } from './propose'
 import { DeployArgs, deploy } from './deploy'
+import { BuildParsedConfigArray, GetNetworkGasEstimate } from './types'
 
 export type SphinxContext = {
   makeGetConfigArtifacts: (
@@ -42,6 +47,10 @@ export type SphinxContext = {
     receipts?: Array<SphinxTransactionReceipt>
     configArtifacts?: ConfigArtifacts
   }>
+  getNetworkGasEstimate: GetNetworkGasEstimate
+  buildParsedConfigArray: BuildParsedConfigArray
+  storeCanonicalConfig: StoreCanonicalConfig
+  relayProposal: RelayProposal
 }
 
 export const makeSphinxContext = (): SphinxContext => {
@@ -51,5 +60,9 @@ export const makeSphinxContext = (): SphinxContext => {
     isLiveNetwork,
     propose,
     deploy,
+    getNetworkGasEstimate,
+    buildParsedConfigArray,
+    storeCanonicalConfig,
+    relayProposal,
   }
 }

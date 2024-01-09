@@ -5,6 +5,7 @@ import { SphinxContext, makeSphinxContext } from '../../../src/cli/context'
 import { makeCLI } from '../../../src/cli/setup'
 import {
   BothNetworksSpecifiedError,
+  ConfirmAndDryRunError,
   getInvalidNetworksArgumentError,
 } from '../../../src/cli/utils'
 
@@ -90,6 +91,25 @@ describe('CLI Commands', () => {
       expect(consoleErrorSpy.called).to.be.true
       expect(consoleErrorSpy.firstCall.args[0]).to.include(
         'Missing required argument: networks'
+      )
+    })
+
+    it('fails if both --confirm and --dry-run are specified', () => {
+      const args = [
+        'propose',
+        scriptPath,
+        '--confirm',
+        '--dry-run',
+        '--networks',
+        'testnets',
+      ]
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(
+        ConfirmAndDryRunError
       )
     })
 

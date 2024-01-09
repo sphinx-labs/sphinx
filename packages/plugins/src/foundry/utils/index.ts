@@ -58,6 +58,7 @@ import {
   FoundryToml,
 } from '../types'
 import { simulate } from '../../hardhat/simulate'
+import { GetNetworkGasEstimate } from '../../cli/types'
 
 const readFileAsync = promisify(readFile)
 
@@ -1019,7 +1020,7 @@ export const getEstimatedGas = async (
   return estimatedGas.toString()
 }
 
-export const getNetworkGasEstimate = async (
+export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   parsedConfigArray: Array<ParsedConfig>,
   chainId: string,
   foundryToml: FoundryToml
