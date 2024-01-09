@@ -101,5 +101,5 @@ export interface SolidityStorageLayout {
       base?: string
       members?: Array<SolidityStorageObj>
     }
-  }
+  } | null
 }
