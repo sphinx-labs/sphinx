@@ -13,7 +13,9 @@ import {
   SphinxJsonRpcProvider,
   getNetworkNameForChainId,
   isLiveNetwork,
+  getLargestPossibleReorg,
   isFork,
+  stripLeadingZero,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -90,26 +92,45 @@ export const simulate = async (
     chainId,
   }
 
-  if (!(await isLiveNetwork(provider)) && !(await isFork(provider))) {
-    // The network is a non-forked local node.
-
-    // Fast forward 1000 blocks. This is necessary to prevent the following edge case that occurs
-    // when running the simulation against a vanilla Anvil node:
-    // 1. We deploy the Gnosis Safe and Sphinx contracts.
-    // 2. We create the Hardhat fork, which uses a block that's multiple confirmations behind the latest
-    // block. This is Hardhat's default behavior, which is meant to protect against chain reorgs
-    // on forks of live networks.
-    // 3. The simulation fails because some of the contracts deployed in step 1 don't exist on the
-    // Hardhat fork.
+  if ((await isLiveNetwork(provider)) || (await isFork(provider))) {
+    // Hardcode the block number in the Hardhat config so that the simulation uses the latest block
+    // number. If we don't hardcode it, Hardhat uses a block number that's numerous confirmations
+    // behind the latest block number, which protects against chain reorgs. We choose to use the
+    // latest block number because it's aligned with Anvil's behavior and it ensures that any
+    // recently executed transactions submitted by the caller are included in the simulation.
+    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = block.number.toString()
+  } else {
+    // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
+    // do not hardcode the block number in the Hardhat config to avoid the following edge case:
+    // 1. Say we create an Anvil node with Ethereum's chain ID: `anvil --chain-id 1`. The block
+    //    number will be extremely low on this network (i.e. less than 100). This is standard
+    //    behavior for Anvil nodes.
+    // 2. Hardhat detects that the block number is extremely low and throws an error because the
+    //    block number corresponds to a hardfork that's too early to be supported. Here's the thrown
+    //    error:
+    //    https://github.com/NomicFoundation/hardhat/blob/caa504fe0e53c183578f42d66f4740b8ec147051/packages/hardhat-core/src/internal/hardhat-network/provider/node.ts#L305-L309
     //
-    // We chose 1000 blocks at random. The number of blocks must be sufficiently high to prevent
-    // this type of edge case on every network. The largest possible number of blocks that Hardhat
-    // rewinds is 100 blocks (as of Hardhat v2.19.0).
+    // Some notes about this edge case:
+    // 1. We only ran into this error when creating an Anvil node with Ethereum's chain ID, but it
+    //    may also occur on other popular networks.
+    // 2. We attempted to resolve this error by specifying the desired hardfork in the Hardhat
+    //    config's `hardfork` option as well as its `chains.hardforkHistory` option. Neither
+    //    resolved this error.
+    // 3. This error is only thrown when hardcoding the block number in the Hardhat config. When we
+    //    don't hardcode it, Hardhat uses the default hardfork, which is the behavior we want.
+
+    // Fast forward the block number. This is necessary to prevent the following edge case:
+    // 1. We deploy the Gnosis Safe and Sphinx contracts.
+    // 2. The simulation uses a block that's multiple confirmations behind the latest block. This is
+    //    Hardhat's default behavior, which is meant to protect against chain reorgs on forks of
+    //    live networks.
+    // 3. The simulation fails because some of the contracts deployed in step 1 don't exist on the
+    //    Hardhat fork.
+    const blocksToFastForward = getLargestPossibleReorg(chainId)
+    const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
     await provider.send(
-      // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
-      'hardhat_mine',
-      // 1000 blocks.
-      ['0x3e8']
+      'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
+      [blocksHex]
     )
   }
 
