@@ -92,7 +92,7 @@ export const executeDeployment = async (
         await managedService.exec(
           await module.getAddress(),
           approvalData,
-          await getGasPriceOverrides(provider, signer)
+          await getGasPriceOverrides(provider, signer, ExecutionMode.Platform)
         )
       ).wait()
     )
@@ -107,6 +107,7 @@ export const executeDeployment = async (
       module,
       blockGasLimit,
       humanReadableActions,
+      ExecutionMode.Platform,
       signer,
       provider,
       executeActionsViaManagedService,
@@ -187,6 +188,7 @@ export const executeBatchActions = async (
   sphinxModule: ethers.Contract,
   blockGasLimit: bigint,
   humanReadableActions: HumanReadableActions,
+  executionMode: ExecutionMode,
   signer: ethers.Signer,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   executeActions: ExecuteActions,
@@ -257,6 +259,7 @@ export const executeBatchActions = async (
     const receipt = await executeActions(
       moduleAddress,
       executionData,
+      executionMode,
       signer,
       provider
     )
@@ -313,6 +316,7 @@ export const approveDeploymentViaSigner: ApproveDeployment = async (
   moduleAddress,
   merkleRoot,
   approvalLeafWithProof,
+  executionMode,
   provider,
   signer
 ) => {
@@ -329,7 +333,7 @@ export const approveDeploymentViaSigner: ApproveDeployment = async (
       merkleRoot,
       approvalLeafWithProof,
       ownerSignature,
-      await getGasPriceOverrides(provider, signer)
+      await getGasPriceOverrides(provider, signer, executionMode)
     )
   ).wait()
 }
@@ -339,6 +343,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   moduleAddress,
   merkleRoot,
   approvalLeafWithProof,
+  executionMode,
   provider,
   signer
 ) => {
@@ -347,6 +352,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   // the actual Gnosis Safe owners.
   const sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
     safeAddress,
+    executionMode,
     provider
   )
 
@@ -378,7 +384,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
     await managedService.exec(
       moduleAddress,
       approvalData,
-      await getGasPriceOverrides(provider, signer)
+      await getGasPriceOverrides(provider, signer, executionMode)
     )
   ).wait()
 
@@ -388,6 +394,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   await removeSphinxWalletsFromGnosisSafeOwners(
     sphinxWallets,
     safeAddress,
+    executionMode,
     provider
   )
 
@@ -397,6 +404,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
 export const executeActionsViaManagedService: ExecuteActions = async (
   moduleAddress,
   executionData,
+  executionMode,
   signer,
   provider
 ) => {
@@ -410,7 +418,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     await managedService.exec(
       moduleAddress,
       executionData,
-      await getGasPriceOverrides(provider, signer)
+      await getGasPriceOverrides(provider, signer, executionMode)
     )
   ).wait()
 }
@@ -418,10 +426,11 @@ export const executeActionsViaManagedService: ExecuteActions = async (
 export const executeActionsViaSigner: ExecuteActions = async (
   moduleAddress,
   executionData,
+  executionMode,
   signer,
   provider
 ) => {
-  const txn = await getGasPriceOverrides(provider, signer, {
+  const txn = await getGasPriceOverrides(provider, signer, executionMode, {
     to: moduleAddress,
     data: executionData,
   })
@@ -609,7 +618,7 @@ export const runEntireDeploymentProcess = async (
         getGnosisSafeSingletonAddress(),
         parsedConfig.safeInitData,
         parsedConfig.newConfig.saltNonce,
-        await getGasPriceOverrides(provider, signer)
+        await getGasPriceOverrides(provider, signer, executionMode)
       )
     ).wait()
     ethersReceipts.push(gnosisSafeDeploymentReceipt)
@@ -638,6 +647,7 @@ export const runEntireDeploymentProcess = async (
       parsedConfig.moduleAddress,
       merkleTree.root,
       approvalLeafWithProof,
+      executionMode,
       provider,
       signer
     )
@@ -667,6 +677,7 @@ export const runEntireDeploymentProcess = async (
       sphinxModule,
       BigInt(parsedConfig.blockGasLimit),
       humanReadableActions,
+      executionMode,
       signer,
       provider,
       executeActions,
