@@ -244,8 +244,7 @@ const isValidStorageLayout = (storageLayout: any): boolean => {
     storageLayout !== null &&
     typeof storageLayout === 'object' &&
     Array.isArray(storageLayout.storage) &&
-    typeof storageLayout.types === 'object' &&
-    storageLayout.types !== null
+    typeof storageLayout.types === 'object'
   )
 }
 
