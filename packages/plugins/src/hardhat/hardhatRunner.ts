@@ -36,9 +36,15 @@ const runHardhatSimulation = async (
   process.stdout.write(JSON.stringify({ receipts, batches }))
 }
 
-// This display errors in a coherent stack trace. The default behavior displays the stack
-// trace twice, where one is a stringified version that's difficult to read.
+// If an error occurs, we write the error message and stack trace to `stdout` then exit the process
+// with exit code `1`. We write the error to `stdout` instead of `stderr` because `stderr` may
+// contain warnings that were written via `console.warn`, which are indistinguishable from the
+// actual error message in `stderr`. By using `stdout`, we can throw an error that doesn't contain
+// warnings in the parent process.
 process.on('uncaughtException', (error) => {
-  console.error(error)
+  process.stdout.write(
+    JSON.stringify({ message: error.message, stack: error.stack })
+  )
+
   process.exit(1)
 })
