@@ -60,11 +60,12 @@ import * as Reverter from '../../out/artifacts/Reverter.sol/Reverter.json'
 import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
-import { getUniqueNames, makeGetConfigArtifacts } from '../../dist'
+import {
+  callForgeScriptFunction,
+  getUniqueNames,
+  makeGetConfigArtifacts,
+} from '../../dist'
 import { makeParsedConfig } from '../../src/foundry/decode'
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
-export const mockPrompt = async (q: string) => {}
 
 export const getAnvilRpcUrl = (chainId: number): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
@@ -747,4 +748,18 @@ export const checkArtifacts = (
     expect(typeof compilerInput.solcVersion).to.equal('string')
     expect(isNonNullObject(compilerInput.input)).to.be.true
   }
+}
+
+export const getSphinxModuleAddressFromScript = async (
+  scriptPath: string,
+  forkUrl: string,
+  targetContract?: string
+): Promise<string> => {
+  const json = await callForgeScriptFunction<{
+    0: { value: string }
+  }>(scriptPath, 'sphinxModule()', [], forkUrl, targetContract)
+
+  const safeAddress = json.returns[0].value
+
+  return safeAddress
 }

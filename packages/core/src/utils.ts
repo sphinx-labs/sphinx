@@ -57,6 +57,7 @@ import {
   SupportedChainId,
   SupportedNetworkName,
 } from './networks'
+import { RelayProposal, StoreCanonicalConfig } from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -464,7 +465,9 @@ export const fetchSphinxManagedBaseUrl = () => {
     : 'https://www.sphinx.dev'
 }
 
-export const relayProposal = async (proposalRequest: ProposalRequest) => {
+export const relayProposal: RelayProposal = async (
+  proposalRequest: ProposalRequest
+): Promise<void> => {
   try {
     await axios.post(
       `${fetchSphinxManagedBaseUrl()}/api/propose`,
@@ -495,7 +498,7 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
   }
 }
 
-export const storeCanonicalConfig = async (
+export const storeCanonicalConfig: StoreCanonicalConfig = async (
   apiKey: string,
   orgId: string,
   configData: Array<string>
@@ -1469,4 +1472,13 @@ export const formatSolcLongVersion = (solcLongVersion: string) => {
   // Match the version and commit hash, ignoring any additional parts
   const match = solcLongVersion.match(/(\d+\.\d+\.\d+\+commit\.[a-f0-9]+)/)
   return match ? match[0] : solcLongVersion
+}
+
+/**
+ * Strip the leading zero from the input hex string if it exists. This is necessary if the hex
+ * string is an input to a JSON-RPC method because hex quantities with leading zeros are not valid
+ * at the JSON-RPC layer. Stripping the leading zero doesn't change the amount.
+ */
+export const stripLeadingZero = (hexString: string): string => {
+  return hexString.replace('0x0', '0x')
 }

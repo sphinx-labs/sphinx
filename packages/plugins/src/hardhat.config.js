@@ -21,6 +21,7 @@ const blockGasLimit = process.env.SPHINX_INTERNAL__BLOCK_GAS_LIMIT
 if (!blockGasLimit) {
   throw new Error(`Could not find block gas limit.`)
 }
+const blockNumber = process.env.SPHINX_INTERNAL__BLOCK_NUMBER
 
 subtask('sphinxSimulateDeployment', simulateDeploymentSubtask)
 
@@ -30,6 +31,8 @@ module.exports = {
       chainId: Number(chainId),
       forking: {
         url: forkUrl,
+        blockNumber:
+          typeof blockNumber === 'string' ? Number(blockNumber) : undefined,
       },
       blockGasLimit: Number(blockGasLimit),
     },

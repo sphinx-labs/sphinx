@@ -31,11 +31,13 @@ import * as ConflictingNameContractArtifact from '../../../out/artifacts/First.s
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
-import { checkArtifacts, killAnvilNodes, startAnvilNodes } from '../common'
 import {
+  checkArtifacts,
+  killAnvilNodes,
+  startAnvilNodes,
   getSphinxModuleAddressFromScript,
-  makeMockSphinxContext,
-} from '../utils'
+} from '../common'
+import { makeMockSphinxContextForIntegrationTests } from '../mock'
 
 const coder = new ethers.AbiCoder()
 
@@ -184,6 +186,10 @@ describe('Deploy CLI command', () => {
       // Check that the deployment artifacts have't been created yet
       expect(existsSync(deploymentArtifactDirPath)).to.be.false
 
+      const { context } = makeMockSphinxContextForIntegrationTests([
+        'contracts/test/MyContracts.sol:MyContract2',
+      ])
+
       const targetContract = 'Simple1'
       const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
         await deploy({
@@ -191,9 +197,7 @@ describe('Deploy CLI command', () => {
           network: 'sepolia',
           skipPreview: false,
           silent: true,
-          sphinxContext: makeMockSphinxContext([
-            'contracts/test/MyContracts.sol:MyContract2',
-          ]),
+          sphinxContext: context,
           verify: false,
           targetContract,
           forceRecompile: false,
@@ -246,13 +250,13 @@ describe('Deploy CLI command', () => {
       // Check that the deployment artifact hasn't been created yet
       expect(existsSync(deploymentArtifactDirPath)).to.be.false
 
-      const sphinxContext = makeMockSphinxContext([
+      const { context } = makeMockSphinxContextForIntegrationTests([
         'contracts/test/MyContracts.sol:MyContract2',
       ])
       const executionMode = ExecutionMode.LiveNetworkCLI
 
       // Override the `isLiveNetwork` function to always return `true`.
-      sphinxContext.isLiveNetwork = async (
+      context.isLiveNetwork = async (
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         provider_: SphinxJsonRpcProvider | HardhatEthersProvider
       ): Promise<boolean> => {
@@ -266,7 +270,7 @@ describe('Deploy CLI command', () => {
           network: 'sepolia',
           skipPreview: false,
           silent: true,
-          sphinxContext,
+          sphinxContext: context,
           verify: false,
           targetContract,
           forceRecompile: false,
@@ -316,12 +320,14 @@ describe('Deploy CLI command', () => {
     it(`Displays preview then exits when there's nothing to execute`, async () => {
       expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
 
+      const { context } = makeMockSphinxContextForIntegrationTests([])
+
       const { preview } = await deploy({
         scriptPath: emptyScriptPath,
         network: 'sepolia',
         skipPreview: false,
         silent: true,
-        sphinxContext: makeMockSphinxContext([]),
+        sphinxContext: context,
         verify: false,
         forceRecompile: false,
       })
@@ -356,6 +362,10 @@ describe('Deploy CLI command', () => {
         )
       )
 
+      const { context } = makeMockSphinxContextForIntegrationTests([
+        `${scriptPath}:RevertDuringSimulation`,
+      ])
+
       let errorThrown = false
       try {
         await deploy({
@@ -363,9 +373,7 @@ describe('Deploy CLI command', () => {
           network: 'sepolia',
           skipPreview: false,
           silent: true,
-          sphinxContext: makeMockSphinxContext([
-            `${scriptPath}:RevertDuringSimulation`,
-          ]),
+          sphinxContext: context,
           verify: false,
           targetContract: 'RevertDuringSimulation_Script',
           forceRecompile: false,
@@ -430,12 +438,12 @@ describe('Deployment Cases', () => {
         network: 'sepolia',
         skipPreview: false,
         silent: true,
-        sphinxContext: makeMockSphinxContext([
+        sphinxContext: makeMockSphinxContextForIntegrationTests([
           'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
           'contracts/test/Fallback.sol:Fallback',
           'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
-        ]),
+        ]).context,
         verify: false,
         forceRecompile: false,
       }))
