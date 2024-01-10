@@ -1,5 +1,14 @@
 # @sphinx-labs/plugins
 
+## 0.26.3
+
+### Patch Changes
+
+- 108866c: Make block numbers more accurate in simulation
+- 3a8c30a: Skip the manual confirmation step in proposal dry run
+- Updated dependencies [3a8c30a]
+  - @sphinx-labs/core@0.20.2
+
 ## 0.26.2
 
 ### Patch Changes
