@@ -54,7 +54,7 @@ script = 'script'
 test = 'test'
 build_info = true
 extra_output = ['storageLayout']
-fs_permissions = [{ access = "read-write", path = "./"}]
+fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
 ${fetchConfigRemappings(pnpm, includeStandard)}
 

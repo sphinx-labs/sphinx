@@ -177,7 +177,6 @@ SPHINX_API_KEY=<your_api_key>
 Also, if you haven't added your node provider API key as an environment variable, please do so now. For example:
 ```
 ALCHEMY_API_KEY=<your_api_key>
-INFURA_API_KEY=<your_api_key>
 ```
 
 ## 8. Update RPC endpoints
@@ -188,9 +187,9 @@ Here's what your `foundry.toml` might look like if you're using Alchemy:
 
 ```toml
 [rpc_endpoints]
-sepolia = "https://eth-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
-optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
-arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
+sepolia = "https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
+optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
+arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 ```
 
 ## 9. Update `foundry.toml` settings
@@ -201,7 +200,6 @@ Update your `foundry.toml` file to include a few settings required by Sphinx. We
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
-allow_paths = ["../.."]
 ```
 
 ## 10. Run tests
