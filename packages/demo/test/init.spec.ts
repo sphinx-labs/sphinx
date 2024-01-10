@@ -48,8 +48,10 @@ describe('Init CLI command', () => {
     expect(fs.existsSync(contractPath)).to.be.false
     expect(fs.existsSync(testPath)).to.be.false
 
+    const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+
     await execAsync(
-      `npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+      `npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner ${ownerAddress}`
     )
 
     // Check that the files have been created
@@ -68,11 +70,15 @@ describe('Init CLI command', () => {
     const artifact =
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require(path.resolve('./out/HelloSphinx.sol/HelloSphinx.json'))
+
     // Get the sample contract's address.
     const coder = ethers.AbiCoder.defaultAbiCoder()
+    const create2Salt = ethers.keccak256(
+      coder.encode([`address[]`], [[ownerAddress]])
+    )
     const contractAddress = ethers.getCreate2Address(
       DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      ethers.ZeroHash,
+      create2Salt,
       ethers.keccak256(
         ethers.concat([
           artifact.bytecode.object,
