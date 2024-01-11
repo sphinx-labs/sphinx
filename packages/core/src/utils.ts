@@ -152,13 +152,6 @@ export const getGasPriceOverrides = async (
   executionMode: ExecutionMode,
   overridden: ethers.TransactionRequest = {}
 ): Promise<ethers.TransactionRequest> => {
-  // Allows us to test cases where we execute deployments using wallets with normal amounts of funds on local networks.
-  // If we do not disable this function using the env variable, then the gas limit will be set extremely high which
-  // will cause transactions to fail for wallets with normal amounts of funds.
-  if (process.env.SPHINX_INTERNAL__DISABLE_GAS_PRICE_OVERRIDES) {
-    return overridden
-  }
-
   const [block, feeData, network] = await Promise.all([
     provider.getBlock('latest'),
     provider.getFeeData(),
