@@ -1,5 +1,17 @@
 # @sphinx-labs/demo
 
+## 0.12.1
+
+### Patch Changes
+
+- ae4d24c: Use `CREATE2` salt in quickstart guide to prevent contract address collision
+- Updated dependencies [ae4d24c]
+- Updated dependencies [7bbe520]
+- Updated dependencies [15b9a25]
+- Updated dependencies [d529b1f]
+  - @sphinx-labs/plugins@0.26.4
+  - @sphinx-labs/core@0.20.3
+
 ## 0.12.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/core",
-  "version": "0.20.2",
+  "version": "0.20.3",
   "description": "Sphinx core library",
   "main": "dist/index",
   "types": "dist/index",
