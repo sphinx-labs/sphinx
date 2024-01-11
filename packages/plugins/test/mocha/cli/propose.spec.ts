@@ -93,7 +93,6 @@ describe('Propose CLI command', () => {
         scriptPath,
         sphinxContext: context,
         targetContract,
-        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
@@ -186,7 +185,6 @@ describe('Propose CLI command', () => {
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
@@ -319,7 +317,6 @@ describe('Propose CLI command', () => {
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
@@ -415,7 +412,6 @@ describe('Propose CLI command', () => {
       sphinxContext: context,
       verify: false,
       targetContract: 'Simple1',
-      forceRecompile: false,
     })
 
     if (!firstCompilerConfig) {
@@ -433,7 +429,6 @@ describe('Propose CLI command', () => {
         scriptPath,
         sphinxContext: context,
         targetContract,
-        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
@@ -511,7 +506,6 @@ describe('Propose CLI command', () => {
       // Skip force re-compiling. (This test would take a really long time otherwise. The correct
       // artifacts will always be used in CI because we don't modify the contracts source files
       // during our test suite).
-      forceRecompile: false,
     })
 
     expect(proposalRequest).to.be.undefined
@@ -540,7 +534,6 @@ describe('Propose CLI command', () => {
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        forceRecompile: false,
       })
 
     // This prevents a TypeScript type error.
@@ -655,7 +648,6 @@ describe('Propose CLI command', () => {
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
-        forceRecompile: false,
       })
     } catch (e) {
       errorThrown = true
@@ -723,7 +715,6 @@ const assertValidGasEstimates = async (
       sphinxContext,
       verify: false,
       targetContract,
-      forceRecompile: false,
     })
 
     if (!receipts) {

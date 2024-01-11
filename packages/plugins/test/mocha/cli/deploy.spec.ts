@@ -201,7 +201,6 @@ describe('Deploy CLI command', () => {
           sphinxContext: context,
           verify: false,
           targetContract,
-          forceRecompile: false,
         })
 
       // Narrow the TypeScript types.
@@ -288,7 +287,6 @@ describe('Deploy CLI command', () => {
           sphinxContext: context,
           verify: false,
           targetContract,
-          forceRecompile: false,
         })
 
       // Narrow the TypeScript types.
@@ -344,7 +342,6 @@ describe('Deploy CLI command', () => {
         silent: true,
         sphinxContext: context,
         verify: false,
-        forceRecompile: false,
       })
 
       expect(preview).to.be.undefined
@@ -391,7 +388,6 @@ describe('Deploy CLI command', () => {
           sphinxContext: context,
           verify: false,
           targetContract: 'RevertDuringSimulation_Script',
-          forceRecompile: false,
         })
       } catch (e) {
         errorThrown = true
@@ -460,7 +456,6 @@ describe('Deployment Cases', () => {
           'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
         ]).context,
         verify: false,
-        forceRecompile: false,
       }))
 
     expect(compilerConfig).to.not.be.undefined

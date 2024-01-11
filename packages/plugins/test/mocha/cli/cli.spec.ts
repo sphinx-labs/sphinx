@@ -128,7 +128,6 @@ describe('CLI Commands', () => {
         scriptPath,
         sphinxContext: sinon.match.any,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       // Assert that the propose function was called with the correct object
@@ -148,7 +147,6 @@ describe('CLI Commands', () => {
         scriptPath,
         sphinxContext: sinon.match.any,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(proposeSpy.calledWithMatch(expectedParams)).to.be.true
@@ -173,7 +171,6 @@ describe('CLI Commands', () => {
         scriptPath,
         sphinxContext: sinon.match.any,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(proposeSpy.calledWithMatch(expectedParams)).to.be.true
@@ -199,7 +196,6 @@ describe('CLI Commands', () => {
         scriptPath,
         sphinxContext: sinon.match.any,
         targetContract: 'MyContract', // Specified target contract
-        forceRecompile: true,
       }
 
       expect(proposeSpy.calledWithMatch(expectedParams)).to.be.true
@@ -253,7 +249,6 @@ describe('CLI Commands', () => {
         sphinxContext: sinon.match.any,
         verify: false,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
@@ -274,7 +269,6 @@ describe('CLI Commands', () => {
         sphinxContext: sinon.match.any,
         verify: false,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
@@ -302,7 +296,6 @@ describe('CLI Commands', () => {
         sphinxContext: sinon.match.any,
         verify: false,
         targetContract: 'MyContract',
-        forceRecompile: true,
       }
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
@@ -323,7 +316,6 @@ describe('CLI Commands', () => {
         sphinxContext: sinon.match.any,
         verify: true,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
@@ -344,7 +336,6 @@ describe('CLI Commands', () => {
         sphinxContext: sinon.match.any,
         verify: false,
         targetContract: undefined,
-        forceRecompile: true,
       }
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
