@@ -12,10 +12,10 @@ import {
   MerkleRootStatus,
   SphinxJsonRpcProvider,
   getNetworkNameForChainId,
-  isLiveNetwork,
   getLargestPossibleReorg,
   isFork,
   stripLeadingZero,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -152,7 +152,7 @@ export const simulate = async (
   // (although unlikely) that this same situation could happen in a user's test suite. We resolve
   // this by creating the Hardhat node in a child process via `spawnAsync`. This child process exits
   // when `spawnAsync` returns.
-  const { stdout, stderr, code } = await spawnAsync(
+  const { stdout, code } = await spawnAsync(
     'node',
     [hardhatRunnerPath],
     envVars,
@@ -161,9 +161,29 @@ export const simulate = async (
 
   if (code !== 0) {
     const networkName = getNetworkNameForChainId(BigInt(chainId))
-    throw new Error(
-      `Simulation failed for ${networkName} at block number ${block.number}. Reason:\n${stderr}`
-    )
+    let errorMessage: string = `Simulation failed for ${networkName} at block number ${block.number}.`
+    try {
+      // Attempt to decode the error message. This try-statement could theoretically throw an error
+      // if `stdout` isn't a valid JSON string.
+      const error = JSON.parse(stdout)
+
+      // If the stack trace includes the error message, we only use the stack trace so that we don't
+      // display the error reason twice.
+      if (
+        typeof error.stack === 'string' &&
+        error.stack.includes(error.message)
+      ) {
+        errorMessage += `\n\n${error.stack}`
+      } else {
+        // Display both the error message and the stack trace.
+        errorMessage += `\n\n${error.message}\n\n${error.stack}`
+      }
+    } catch {
+      // An error occurred while attempting to decode `stdout` into an error message. We'll display
+      // the raw `stdout` to the user in case it's useful.
+      errorMessage += `\n\n${stdout}`
+    }
+    throw new Error(errorMessage)
   }
 
   const receipts = JSON.parse(stdout).receipts

@@ -58,7 +58,6 @@ export interface DeployArgs {
   silent: boolean
   sphinxContext: SphinxContext
   verify: boolean
-  forceRecompile: boolean
   targetContract?: string
 }
 
@@ -78,7 +77,6 @@ export const deploy = async (
     silent,
     sphinxContext,
     verify,
-    forceRecompile,
     targetContract,
   } = args
 
@@ -282,11 +280,6 @@ export const deploy = async (
     [deploymentInfo]
   )
 
-  if (forceRecompile) {
-    // Compile silently because compilation also occurred earlier in this function. It'd be
-    // confusing if we display the compilation process twice without explanation.
-    compile(true, true)
-  }
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames

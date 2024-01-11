@@ -273,7 +273,7 @@ export const compile = (silent: boolean, force: boolean): void => {
   }
 
   // We use `spawnSync` to display the compilation process to the user as it occurs. Compiler errors
-  // will be displayed to the user even if the `compilesilent` flag is included.
+  // will be displayed to the user even if the `silent` flag is included.
   const { status: compilationStatus } = spawnSync(`forge`, forgeBuildArgs, {
     stdio: 'inherit',
   })

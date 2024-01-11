@@ -4,6 +4,7 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 
 import { SphinxPreview } from '../preview'
 import { SphinxJsonRpcProvider } from '../provider'
+import { ExecutionMode } from '../constants'
 
 /**
  * Possible action types.
@@ -166,6 +167,7 @@ export type EstimateGas = (
 export type ExecuteActions = (
   moduleAddress: string,
   executionData: string,
+  executionMode: ExecutionMode,
   signer: ethers.Signer,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => Promise<ethers.TransactionReceipt | null>
@@ -175,6 +177,7 @@ export type ApproveDeployment = (
   moduleAddress: string,
   merkleRoot: string,
   approvalLeafWithProof: SphinxLeafWithProof,
+  executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer
 ) => Promise<ethers.TransactionReceipt>

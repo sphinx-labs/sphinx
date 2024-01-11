@@ -53,10 +53,6 @@ import { BuildParsedConfigArray } from '../types'
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
  * @param targetContract The name of the contract within the script file. Necessary when there are
  * multiple contracts in the specified script.
- * @param forceRecompile Force re-compile the contracts. By default, we force re-compile. This
- * ensures that we're using the correct artifacts for the proposal. This is mostly out of an
- * abundance of caution, since using the incorrect contract artifact will prevent us from verifying
- * the contract on Etherscan and providing a deployment artifact for the contract.
  */
 export interface ProposeArgs {
   confirm: boolean
@@ -65,7 +61,6 @@ export interface ProposeArgs {
   silent: boolean
   scriptPath: string
   sphinxContext: SphinxContext
-  forceRecompile: boolean
   targetContract?: string
 }
 
@@ -74,7 +69,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
-  forceRecompile: boolean,
   getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora
@@ -230,11 +224,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     collected.map(({ deploymentInfo }) => deploymentInfo)
   )
 
-  if (forceRecompile) {
-    // Compile silently because compilation also occurred earlier in this function. It'd be
-    // confusing if we display the compilation process twice without explanation.
-    compile(true, true)
-  }
   const configArtifacts = await getConfigArtifacts(
     uniqueFullyQualifiedNames,
     uniqueContractNames
@@ -275,7 +264,6 @@ export const propose = async (
     scriptPath,
     sphinxContext,
     targetContract,
-    forceRecompile,
   } = args
 
   const apiKey = process.env.SPHINX_API_KEY
@@ -317,7 +305,6 @@ export const propose = async (
       isTestnet,
       sphinxPluginTypesInterface,
       foundryToml,
-      forceRecompile,
       getConfigArtifacts,
       targetContract,
       spinner

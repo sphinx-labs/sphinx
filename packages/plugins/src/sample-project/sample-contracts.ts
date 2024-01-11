@@ -55,7 +55,10 @@ contract HelloSphinxScript is Sphinx {
     }
 
     function run() public sphinx {
-        helloSphinx = new HelloSphinx{ salt: bytes32(0) }("Hi", 2);
+        // Set the \`CREATE2\` salt to be the hash of the owner(s). Prevents
+        // address collisions.
+        bytes32 salt = keccak256(abi.encode(sphinxConfig.owners));
+        helloSphinx = new HelloSphinx{ salt: salt }("Hi", 2);
         helloSphinx.add(8);
     }
 }
