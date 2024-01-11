@@ -149,18 +149,11 @@ export const getEIP1967ProxyAdminAddress = async (
 export const getGasPriceOverrides = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
+  executionMode: ExecutionMode,
   overridden: ethers.TransactionRequest = {}
 ): Promise<ethers.TransactionRequest> => {
-  // Allows us to test cases where we execute deployments using wallets with normal amounts of funds on local networks.
-  // If we do not disable this function using the env variable, then the gas limit will be set extremely high which
-  // will cause transactions to fail for wallets with normal amounts of funds.
-  if (process.env.SPHINX_INTERNAL__DISABLE_GAS_PRICE_OVERRIDES) {
-    return overridden
-  }
-
-  const [block, isLiveNetwork_, feeData, network] = await Promise.all([
+  const [block, feeData, network] = await Promise.all([
     provider.getBlock('latest'),
-    isLiveNetwork(provider),
     provider.getFeeData(),
     provider.getNetwork(),
   ])
@@ -169,14 +162,17 @@ export const getGasPriceOverrides = async (
     throw new Error(`Unable to retrieve latest block.`)
   }
 
-  if (!isLiveNetwork_) {
+  if (
+    executionMode === ExecutionMode.LocalNetworkCLI ||
+    executionMode === ExecutionMode.Platform
+  ) {
     // Hard-code the gas limit to be the 3/4 of the block gas limit. This is an optimization that
-    // significantly speeds up deployments on local networks because it removes the need for
-    // EthersJS to call `eth_estimateGas`, which is a very slow operation for large transactions. We
-    // don't override this on live networks because the signer is the user's wallet, which may have
-    // a limited amount of ETH. It's fine to set a very high gas limit on local networks because we
-    // use an auto-generated wallet to execute the transactions. We set it to 3/4 of the block gas
-    // limit for two reasons:
+    // significantly speeds up deployments because it removes the need for EthersJS to call
+    // `eth_estimateGas`, which is a very slow operation for large transactions. We only make this
+    // optimization in situations where we can safely assume that the caller has an unlimited amount
+    // of ETH. We don't override this on live networks because the signer is the user's wallet,
+    // which may have a limited amount of ETH. We set it to 3/4 of the block gas limit for two
+    // reasons:
     // 1. This value is considerably higher than the max batch size for `EXECUTE` Merkle leaves,
     //    which ensures that we don't accidentally underfund the transaction.
     // 2. This value is considerably lower than the block gas limit. If, instead, we set this value
@@ -1030,6 +1026,7 @@ export const getSphinxWalletPrivateKey = (walletIndex: number): string => {
  */
 export const addSphinxWalletsToGnosisSafeOwners = async (
   safeAddress: string,
+  executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<Array<ethers.Wallet>> => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
@@ -1066,7 +1063,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
     await safe.addOwnerWithThreshold(
       wallet.address,
       ownerThreshold,
-      await getGasPriceOverrides(provider, safeSigner)
+      await getGasPriceOverrides(provider, safeSigner, executionMode)
     )
   }
 
@@ -1087,6 +1084,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 export const removeSphinxWalletsFromGnosisSafeOwners = async (
   sphinxWallets: Array<ethers.Wallet>,
   safeAddress: string,
+  executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
   // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
@@ -1114,14 +1112,14 @@ export const removeSphinxWalletsFromGnosisSafeOwners = async (
       sphinxWallets[i + 1].address,
       sphinxWallets[i].address,
       ownerThreshold,
-      await getGasPriceOverrides(provider, safeSigner)
+      await getGasPriceOverrides(provider, safeSigner, executionMode)
     )
   }
   await safe.removeOwner(
     '0x' + '00'.repeat(19) + '01', // This is `address(1)`. i.e. Gnosis Safe's `SENTINEL_OWNERS`.
     sphinxWallets[ownerThreshold - 1].address,
     ownerThreshold,
-    await getGasPriceOverrides(provider, safeSigner)
+    await getGasPriceOverrides(provider, safeSigner, executionMode)
   )
 
   // Restore the initial balance of the Gnosis Safe.

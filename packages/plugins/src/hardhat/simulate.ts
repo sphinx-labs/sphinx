@@ -12,10 +12,10 @@ import {
   MerkleRootStatus,
   SphinxJsonRpcProvider,
   getNetworkNameForChainId,
-  isLiveNetwork,
   getLargestPossibleReorg,
   isFork,
   stripLeadingZero,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
