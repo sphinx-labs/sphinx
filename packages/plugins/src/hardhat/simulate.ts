@@ -179,8 +179,9 @@ export const simulate = async (
         errorMessage += `\n\n${error.message}\n\n${error.stack}`
       }
     } catch {
-      // Do nothing if an error occurs while attempting to decode the error from the child process.
-      // We'll throw a generic error shortly.
+      // An error occurred while attempting to decode `stdout` into an error message. We'll display
+      // the raw `stdout` to the user in case it's useful.
+      errorMessage += `\n\n${stdout}`
     }
     throw new Error(errorMessage)
   }

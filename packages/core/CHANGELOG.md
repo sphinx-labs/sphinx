@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.20.2
+
+### Patch Changes
+
+- 3a8c30a: Skip the manual confirmation step in proposal dry run
+
 ## 0.20.1
 
 ### Patch Changes
