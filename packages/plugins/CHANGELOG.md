@@ -1,5 +1,16 @@
 # @sphinx-labs/plugins
 
+## 0.26.4
+
+### Patch Changes
+
+- ae4d24c: Use `CREATE2` salt in quickstart guide to prevent contract address collision
+- 7bbe520: Use default gas estimation overrides on live networks
+- 15b9a25: Display error from child process in simulation
+- d529b1f: Remove force recompilation in deploy and propose CLI commands
+- Updated dependencies [7bbe520]
+  - @sphinx-labs/core@0.20.3
+
 ## 0.26.3
 
 ### Patch Changes
