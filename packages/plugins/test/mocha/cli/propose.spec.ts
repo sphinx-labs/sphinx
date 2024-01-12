@@ -2,10 +2,13 @@ import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   Create2ActionInput,
+  ExecutionMode,
   ParsedConfig,
   ProposalRequest,
   SUPPORTED_NETWORKS,
+  SphinxJsonRpcProvider,
   SphinxPreview,
+  ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
@@ -26,6 +29,7 @@ import {
   killAnvilNodes,
   startAnvilNodes,
   getSphinxModuleAddressFromScript,
+  getAnvilRpcUrl,
 } from '../common'
 import { FoundryToml } from '../../../src/foundry/types'
 
@@ -61,6 +65,22 @@ describe('Propose CLI command', () => {
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
     await startAnvilNodes(allChainIds)
+
+    // Deploy the system contracts on all the Anvil nodes used in this test suite.
+    allChainIds.map(async (chainId) => {
+      const rpcUrl = getAnvilRpcUrl(chainId)
+      // Narrow the TypeScript type of the RPC URL.
+      if (!rpcUrl) {
+        throw new Error(`Could not find RPC URL.`)
+      }
+      const provider = new SphinxJsonRpcProvider(rpcUrl)
+      const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+      await ensureSphinxAndGnosisSafeDeployed(
+        provider,
+        wallet,
+        ExecutionMode.Platform
+      )
+    })
   })
 
   afterEach(async () => {

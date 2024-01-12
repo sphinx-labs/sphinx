@@ -100,6 +100,7 @@ const originalParsedConfig: ParsedConfig = {
     // This field is unused:
     isExecuting: false,
   },
+  isSystemDeployed: true,
   // The rest of the variables are unused:
   executorAddress: ethers.ZeroAddress,
   safeInitData: ethers.ZeroHash,
@@ -331,6 +332,41 @@ describe('Preview', () => {
       )
       expect(callArbitrum).to.deep.equal(expectedCall.decodedAction)
       expect(skippingArbitrum.length).to.equal(0)
+      expect(unlabeledAddresses).to.deep.equal(
+        new Set(originalParsedConfig.unlabeledAddresses)
+      )
+    })
+
+    it('returns preview when `isSystemDeployed` is `false`', () => {
+      const parsedConfigWithSystemNotDeployed =
+        structuredClone(originalParsedConfig)
+      parsedConfigWithSystemNotDeployed.isSystemDeployed = false
+
+      const { networks, unlabeledAddresses } = getPreview([
+        parsedConfigWithSystemNotDeployed,
+      ])
+
+      expect(networks.length).to.equal(1)
+      const { networkTags, executing, skipping } = networks[0]
+      expect(networkTags).to.deep.equal(['optimism'])
+      expect(executing.length).to.equal(6)
+      const [
+        systemContracts,
+        gnosisSafe,
+        sphinxModule,
+        create2,
+        functionCall,
+        call,
+      ] = executing
+      expect(systemContracts).to.deep.equal({
+        type: 'SystemDeployment',
+      })
+      expect(gnosisSafe).to.deep.equal(expectedGnosisSafe)
+      expect(sphinxModule).to.deep.equal(expectedSphinxModule)
+      expect(create2).to.deep.equal(expectedCreate2.decodedAction)
+      expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
+      expect(call).to.deep.equal(expectedCall.decodedAction)
+      expect(skipping.length).to.equal(0)
       expect(unlabeledAddresses).to.deep.equal(
         new Set(originalParsedConfig.unlabeledAddresses)
       )

@@ -21,6 +21,7 @@ import {
   execAsync,
   formatSolcLongVersion,
   getNetworkNameForChainId,
+  getSystemContractInfo,
   sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
@@ -742,7 +743,10 @@ export const getSphinxLeafGasEstimates = async (
   const gasEstimatesArray: Array<Array<string>> = []
   for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
     const txns = actionInputs.map(toSphinxTransaction)
-    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [txns])
+    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
+      txns,
+      getSystemContractInfo(),
+    ])
 
     // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
     // instead of passing in the data as a parameter to the Forge script because it's possible to hit

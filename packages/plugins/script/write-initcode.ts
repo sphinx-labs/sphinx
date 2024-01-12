@@ -1,5 +1,5 @@
-import { ethers } from 'ethers'
-import { getSphinxConstants, remove0x } from '@sphinx-labs/contracts'
+import { remove0x } from '@sphinx-labs/contracts'
+import { getSystemContractInfo } from '@sphinx-labs/core'
 
 /**
  * Writes the initcode and expected addresses of all Sphinx system contracts. This allows us to use
@@ -14,37 +14,20 @@ import { getSphinxConstants, remove0x } from '@sphinx-labs/contracts'
  * contracts from TypeScript via the `ensureSphinxAndGnosisSafeDeployed` function.
  */
 const writeConstants = async () => {
-  const sphinxConstants = getSphinxConstants()
-
-  const contractInfo = sphinxConstants.map(
-    ({ artifact, constructorArgs, expectedAddress }) => {
-      const { abi, bytecode } = artifact
-
-      const iface = new ethers.Interface(abi)
-
-      const creationCode = bytecode.concat(
-        remove0x(iface.encodeDeploy(constructorArgs))
-      )
-
-      return { creationCode, expectedAddress }
-    }
-  )
+  const contractInfo = getSystemContractInfo()
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
-    `struct SphinxContractInfo {\n` +
-    `  bytes creationCode;\n` +
-    `  address expectedAddress;\n` +
-    `}\n\n` +
+    `import { SystemContractInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";\n\n` +
     `contract SphinxInitCode {\n` +
-    `  function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {\n` +
-    `    SphinxContractInfo[] memory contracts = new SphinxContractInfo[](${contractInfo.length});\n` +
+    `  function getSystemContractInfo() public pure returns (SystemContractInfo[] memory) {\n` +
+    `    SystemContractInfo[] memory contracts = new SystemContractInfo[](${contractInfo.length});\n` +
     `${contractInfo
       .map(
-        ({ creationCode, expectedAddress }, i) =>
-          `    contracts[${i}] = SphinxContractInfo(hex"${remove0x(
-            creationCode
+        ({ initCodeWithArgs, expectedAddress }, i) =>
+          `    contracts[${i}] = SystemContractInfo(hex"${remove0x(
+            initCodeWithArgs
           )}", ${expectedAddress});`
       )
       .join('\n')}\n` +

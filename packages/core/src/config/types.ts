@@ -81,6 +81,7 @@ export type ParsedConfig = {
   newConfig: SphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
+  isSystemDeployed: boolean
   unlabeledAddresses: Array<string>
   arbitraryChain: boolean
   libraries: Array<string>

@@ -18,7 +18,8 @@ import {
     Wallet,
     Label,
     SphinxTransaction,
-    ExecutionMode
+    ExecutionMode,
+    SystemContractInfo
 } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
@@ -352,10 +353,17 @@ abstract contract Sphinx {
     function sphinxEstimateMerkleLeafGas(
         string memory _leafGasParamsFilePath
     ) external returns (bytes memory abiEncodedGasArray) {
-        SphinxTransaction[] memory txnArray = abi.decode(
-            vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
-            (SphinxTransaction[])
-        );
+        (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts) = abi
+            .decode(
+                vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
+                (SphinxTransaction[], SystemContractInfo[])
+            );
+
+        // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
+        // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
+        // because we're going to call the Gnosis Safe to estimate the gas. Also, this is necessary
+        // because the system contracts may not already be deployed on the current network.
+        sphinxUtils.deploySphinxSystem(systemContracts);
 
         IGnosisSafe safe = IGnosisSafe(sphinxSafe());
         address module = sphinxModule();
