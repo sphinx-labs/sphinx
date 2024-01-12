@@ -9,7 +9,14 @@ import {
   prettyRawFunctionCall,
 } from './utils'
 
-type PreviewElement = DecodedAction | { to: string; data: string }
+type SystemDeploymentElement = {
+  type: 'SystemDeployment'
+}
+
+type PreviewElement =
+  | DecodedAction
+  | { to: string; data: string }
+  | SystemDeploymentElement
 
 export type SphinxPreview = {
   networks: Array<{
@@ -73,6 +80,8 @@ export const getPreviewString = (
           )
 
           executingArray.push(green(`${i + 1}. ${actionStr}`))
+        } else if (isSystemDeploymentElement(element)) {
+          executingArray.push(green(`${i + 1}. Sphinx & Gnosis Safe Contracts`))
         } else {
           const { to, data } = element
           const actionStr = prettyRawFunctionCall(to, data)
@@ -89,16 +98,23 @@ export const getPreviewString = (
       skippingArray.push(skippingReason)
       for (let i = 0; i < skipping.length; i++) {
         const element = skipping[i]
-        const functionCallStr = isDecodedAction(element)
-          ? prettyFunctionCall(
-              element.referenceName,
-              element.address,
-              element.functionName,
-              element.variables,
-              5,
-              3
-            )
-          : prettyRawFunctionCall(element.to, element.data)
+        let functionCallStr: string
+        if (isDecodedAction(element)) {
+          functionCallStr = prettyFunctionCall(
+            element.referenceName,
+            element.address,
+            element.functionName,
+            element.variables,
+            5,
+            3
+          )
+        } else if (isSystemDeploymentElement(element)) {
+          throw new Error(
+            `Skipped preview elements contain the Sphinx system contracts. Should never happen.`
+          )
+        } else {
+          functionCallStr = prettyRawFunctionCall(element.to, element.data)
+        }
 
         const skippingStr = yellow(`${i + 1}. ${functionCallStr}`)
         skippingArray.push(skippingStr)
@@ -154,6 +170,7 @@ export const getPreview = (
       actionInputs,
       executionMode,
       unlabeledAddresses,
+      isSystemDeployed,
     } = parsedConfig
 
     const networkName = getNetworkNameForChainId(BigInt(chainId))
@@ -168,6 +185,11 @@ export const getPreview = (
     // been deployed yet because we don't currently allow the user to deploy the Safe and Module
     // without executing a deployment.
     if (actionInputs.length > 0) {
+      if (!isSystemDeployed) {
+        executing.push({
+          type: 'SystemDeployment',
+        })
+      }
       if (!initialState.isSafeDeployed) {
         executing.push({
           referenceName: 'GnosisSafe',
@@ -224,4 +246,10 @@ export const getPreview = (
   }
 
   return preview
+}
+
+const isSystemDeploymentElement = (
+  element: PreviewElement
+): element is SystemDeploymentElement => {
+  return (element as SystemDeploymentElement).type === 'SystemDeployment'
 }

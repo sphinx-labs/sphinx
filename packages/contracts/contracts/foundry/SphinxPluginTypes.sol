@@ -193,6 +193,15 @@ struct Version {
 }
 
 /**
+ * @notice Contract info for a contract that's required for Sphinx to work on a network. These are
+ *         mostly Gnosis Safe contracts.
+ */
+struct SystemContractInfo {
+    bytes initCodeWithArgs;
+    address expectedAddress;
+}
+
+/**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
  */
@@ -228,7 +237,11 @@ contract SphinxPluginTypes {
 
     function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
 
-    function leafGasParams() external view returns (SphinxTransaction[] memory txnArray) {}
+    function leafGasParams()
+        external
+        view
+        returns (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts)
+    {}
 
     function sphinxLeafWithProofType()
         external

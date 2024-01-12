@@ -4,10 +4,8 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 import {
   ProjectDeployment,
   ProposalRequest,
-  SphinxJsonRpcProvider,
   WEBSITE_URL,
   elementsEqual,
-  ensureSphinxAndGnosisSafeDeployed,
   getPreview,
   getPreviewString,
   makeDeploymentData,
@@ -105,9 +103,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       )
       process.exit(1)
     }
-
-    const provider = new SphinxJsonRpcProvider(rpcUrl)
-    await ensureSphinxAndGnosisSafeDeployed(provider)
 
     // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
     // use a file from a previous deployment.
@@ -235,6 +230,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
         deploymentInfo,
         actionInputs,
         gasEstimatesArray[i],
+        true, // System contracts are deployed.
         configArtifacts,
         libraries
       )

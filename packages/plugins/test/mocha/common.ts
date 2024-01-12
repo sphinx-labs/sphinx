@@ -15,7 +15,6 @@ import {
   SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
   SupportedNetworkName,
-  ensureSphinxAndGnosisSafeDeployed,
   getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
@@ -32,6 +31,7 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
+  ensureSphinxAndGnosisSafeDeployed,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -348,7 +348,8 @@ export const makeDeployment = async (
       saltNonce
     )
 
-    await ensureSphinxAndGnosisSafeDeployed(provider)
+    const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
 
     const deploymentInfo: DeploymentInfo = {
       labels: [],
@@ -411,6 +412,7 @@ export const makeDeployment = async (
         deploymentInfo,
         actionInputs,
         gasEstimatesArray,
+        true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
         configArtifacts,
         [] // No libraries
       )

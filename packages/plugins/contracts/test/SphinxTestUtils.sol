@@ -18,7 +18,7 @@ import {
     IGnosisSafeProxy
 } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafeProxy.sol";
 import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
-import { SphinxInitCode, SphinxContractInfo } from "../../test/foundry/SphinxInitCode.sol";
+import { SphinxInitCode, SystemContractInfo } from "../../test/foundry/SphinxInitCode.sol";
 
 /**
  * @notice Helper functions for testing the Sphinx plugin. This is separate from `SphinxUtils`
@@ -211,51 +211,5 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
         );
 
         return IGnosisSafe(address(safeProxy));
-    }
-
-    function deploySphinxSystem() public {
-        vm.etch(
-            DETERMINISTIC_DEPLOYMENT_PROXY,
-            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
-        );
-
-        SphinxContractInfo[] memory contracts = getSphinxContractInfo();
-        for (uint256 i = 0; i < contracts.length; i++) {
-            SphinxContractInfo memory ct = contracts[i];
-            address addr = create2Deploy(ct.creationCode);
-            require(
-                addr == ct.expectedAddress,
-                string(
-                    abi.encodePacked(
-                        "address mismatch. expected address: ",
-                        vm.toString(ct.expectedAddress)
-                    )
-                )
-            );
-        }
-    }
-
-    function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
-        address addr = computeCreate2Address(
-            bytes32(0),
-            keccak256(_initCodeWithArgs),
-            DETERMINISTIC_DEPLOYMENT_PROXY
-        );
-
-        if (addr.code.length == 0) {
-            bytes memory code = abi.encodePacked(bytes32(0), _initCodeWithArgs);
-            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
-            require(
-                success,
-                string(
-                    abi.encodePacked(
-                        "failed to deploy contract. expected address: ",
-                        vm.toString(addr)
-                    )
-                )
-            );
-        }
-
-        return addr;
     }
 }

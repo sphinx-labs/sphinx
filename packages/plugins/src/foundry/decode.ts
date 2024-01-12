@@ -239,6 +239,7 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
   gasEstimates: Array<string>,
+  isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
   libraries: Array<string>
 ): ParsedConfig => {
@@ -403,6 +404,7 @@ export const makeParsedConfig = (
     newConfig,
     executionMode,
     initialState,
+    isSystemDeployed,
     actionInputs: parsedActionInputs,
     unlabeledAddresses,
     arbitraryChain,

@@ -4,12 +4,14 @@ pragma solidity ^0.8.0;
 import "sphinx-forge-std/Test.sol";
 import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
+import { SystemContractInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
 
 contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
 
     function setUp() public {
-        deploySphinxSystem();
+        SystemContractInfo[] memory contracts = getSystemContractInfo();
+        deploySphinxSystem(contracts);
 
         sphinxConfig.projectName = "test_project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
