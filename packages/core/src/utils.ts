@@ -23,6 +23,8 @@ import {
   ContractArtifact,
   isContractArtifact,
   SolidityStorageLayout,
+  SPHINX_LOCAL_NETWORKS,
+  SPHINX_NETWORKS,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -50,13 +52,7 @@ import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import {
-  LocalNetworkMetadata,
-  SUPPORTED_LOCAL_NETWORKS,
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-  SupportedNetworkName,
-} from './networks'
+import { LocalNetworkMetadata } from './networks'
 import { RelayProposal, StoreCanonicalConfig } from './types'
 
 export const sphinxLog = (
@@ -525,18 +521,6 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
   }
 }
 
-export const findNetwork = (chainId: number): string => {
-  const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === chainId
-  )
-
-  if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return network
-}
-
 export const arraysEqual = (
   a: Array<ParsedVariable>,
   b: Array<ParsedVariable>
@@ -565,37 +549,6 @@ export const userConfirmation = async (question: string) => {
   if (!confirmed) {
     console.error(`Denied by the user.`)
     process.exit(1)
-  }
-}
-
-export const resolveNetwork = async (
-  network: {
-    chainId: number | bigint
-    name: string
-  },
-  isLiveNetwork_: boolean
-): Promise<{
-  networkName: string
-  chainId: number
-}> => {
-  const networkName = network.name
-  const chainIdNumber = Number(network.chainId)
-  if (networkName !== 'unknown') {
-    return { chainId: chainIdNumber, networkName }
-  } else {
-    // The network name could be 'unknown' on a supported network, e.g. gnosis-chiado. We check if
-    // the chain ID matches a supported network and use the network name if it does.
-    const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
-      ([, supportedChainId]) => supportedChainId === chainIdNumber
-    )
-    if (supportedNetwork) {
-      return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
-    } else if (!isLiveNetwork_) {
-      return { chainId: chainIdNumber, networkName: 'local' }
-    } else {
-      // The network is an unsupported live network.
-      throw new Error(`Unsupported network: ${chainIdNumber}`)
-    }
   }
 }
 
@@ -647,8 +600,8 @@ export const getNetworkTag = (
   ) {
     return networkName
   } else if (
-    Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
-    !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(networkName)
+    SPHINX_NETWORKS.some((n) => n.name === networkName) &&
+    !SPHINX_LOCAL_NETWORKS.some((n) => n.name === networkName)
   ) {
     return `${networkName} (local)`
   } else {
@@ -657,15 +610,13 @@ export const getNetworkTag = (
 }
 
 export const getNetworkNameForChainId = (chainId: bigint): string => {
-  const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
-  )
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
   if (!network) {
     return 'unknown'
   }
 
-  return network
+  return network.name
 }
 
 export const isEventLog = (
@@ -748,19 +699,15 @@ export const isHttpNetworkConfig = (
   return 'url' in config
 }
 
-export const isSupportedChainId = (
-  chainId: number | bigint
-): chainId is SupportedChainId => {
-  return Object.values(SUPPORTED_NETWORKS).some(
-    (supportedChainId) => supportedChainId === Number(chainId)
-  )
+export const isSupportedChainId = (chainId: bigint): boolean => {
+  return SPHINX_NETWORKS.some((n) => n.chainId === chainId)
 }
 
-export const isSupportedNetworkName = (
-  networkName: string
-): networkName is SupportedNetworkName => {
-  const chainId = SUPPORTED_NETWORKS[networkName]
-  return chainId !== undefined
+export const isSupportedNetworkName = (networkName: string): boolean => {
+  return (
+    SPHINX_NETWORKS.some((n) => n.name === networkName) ||
+    SPHINX_LOCAL_NETWORKS.some((n) => n.name === networkName)
+  )
 }
 
 /**

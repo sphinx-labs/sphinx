@@ -8,6 +8,7 @@ import {
   getMultiSendAddress,
   getSphinxModuleImplAddress,
 } from '../src/addresses'
+import { SPHINX_NETWORKS, SPHINX_LOCAL_NETWORKS } from '../src'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -51,9 +52,10 @@ const writeConstants = async () => {
     },
   }
 
-  const solidityFile =
+  const SphinxConstants =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
+    `import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";\n\n` +
     `contract SphinxConstants {\n` +
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
@@ -68,9 +70,35 @@ const writeConstants = async () => {
           return `  ${type} public constant ${name} = ${value};`
         }
       })
-      .join('\n')}\n}\n`
+      .join('\n')}\n\n` +
+    `  uint8 internal constant numSupportedNetworks = ${
+      SPHINX_NETWORKS.length + SPHINX_LOCAL_NETWORKS.length
+    };\n\n` +
+    `  function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {\n` +
+    `    NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);\n` +
+    `${[...SPHINX_LOCAL_NETWORKS, ...SPHINX_NETWORKS]
+      .map(
+        (network, index) =>
+          `    all[${index}] = NetworkInfo({\n      network: Network.${network.name},\n      name: "${network.name}",\n      chainId: ${network.chainId},\n      networkType: NetworkType.${network.networkType}\n    });`
+      )
+      .join('\n')}\n` +
+    `    return all;\n  }` +
+    `\n}\n`
 
-  process.stdout.write(solidityFile)
+  process.stdout.write(SphinxConstants)
+
+  const networksEnum =
+    `\nenum Network {\n` +
+    `${SPHINX_LOCAL_NETWORKS.map((network) => {
+      return `  ${network.name},`
+    }).join('\n')}\n` +
+    `${SPHINX_NETWORKS.map((network, index) => {
+      return `  ${network.name}${
+        index !== SPHINX_NETWORKS.length - 1 ? ',' : ''
+      }`
+    }).join('\n')}\n}\n`
+
+  process.stdout.write(networksEnum)
 }
 
 writeConstants()
