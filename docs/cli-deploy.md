@@ -19,7 +19,7 @@ The `deploy` command executes a deployment on a single network. This command exe
 The following steps occur during this command:
 1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of the network. If a transaction reverts during the simulation, Sphinx will throw an error.
 2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
-3. **Execute**: Sphinx executes the deployment on the target network. The execution process is idempotent, which means that if it halts midway for any reason, you can resume it by calling this command again.
+3. **Execute**: Sphinx executes the deployment on the target network.
 4. **Deployment Artifacts**: Sphinx will write deployment artifacts to your file system. See the [Deployment Artifacts](https://github.com/sphinx-labs/sphinx/blob/main/docs/deployment-artifacts.md) guide for more information.
 5. **Verification** (optional): Sphinx will verify your contracts on Etherscan.
 
