@@ -17,7 +17,7 @@ On live networks, your deployment will be executed from your Gnosis Safe. In oth
 If you need to use your Gnosis Safe's address in your deployment script, you can use the following helper function, which is inherited from the `Sphinx.sol` contract:
 
 ```sol
-address safe = sphinxSafe();
+address safe = safeAddress();
 ```
 
 ## The `sphinx` modifier
