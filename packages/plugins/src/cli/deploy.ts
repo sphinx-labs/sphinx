@@ -12,7 +12,6 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  SUPPORTED_NETWORKS,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
   makeDeploymentData,
@@ -27,11 +26,17 @@ import {
   ExecutionMode,
   runEntireDeploymentProcess,
   ConfigArtifacts,
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  SphinxMerkleTree,
+  makeSphinxMerkleTree,
+  SPHINX_NETWORKS,
+  SPHINX_LOCAL_NETWORKS,
+} from '@sphinx-labs/contracts'
 
 import {
   compile,
@@ -113,12 +118,12 @@ export const deploy = async (
 
   if (!isSupportedNetworkName(network)) {
     throw new Error(
-      `Network name ${network} is not supported. You must use a supported network: \n${Object.keys(
-        SUPPORTED_NETWORKS
-      ).join('\n')}`
+      `Network name ${network} is not supported. You must use a supported network: \n${SPHINX_NETWORKS.map(
+        (n) => n.name
+      ).join('\n')}\n${SPHINX_LOCAL_NETWORKS.map((n) => n.name).join('\n')}`
     )
   }
-  const chainId = SUPPORTED_NETWORKS[network]
+  const chainId = fetchChainIdForNetwork(network)
 
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
@@ -353,7 +358,7 @@ export const deploy = async (
 
   const deploymentArtifacts = await makeDeploymentArtifacts(
     {
-      [chainId]: {
+      [chainId.toString()]: {
         provider,
         compilerConfig,
         receipts,

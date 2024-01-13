@@ -4,9 +4,9 @@ import {
   Create2ActionInput,
   ParsedConfig,
   ProposalRequest,
-  SUPPORTED_NETWORKS,
   SphinxPreview,
   execAsync,
+  fetchChainIdForNetwork,
   getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
 } from '@sphinx-labs/core'
@@ -54,8 +54,8 @@ describe('Propose CLI command', () => {
   })
 
   beforeEach(async () => {
-    const allChainIds = allNetworkNames.map(
-      (network) => SUPPORTED_NETWORKS[network]
+    const allChainIds = allNetworkNames.map((network) =>
+      fetchChainIdForNetwork(network)
     )
     // Make sure that the Anvil nodes aren't running.
     await killAnvilNodes(allChainIds)
@@ -65,7 +65,7 @@ describe('Propose CLI command', () => {
 
   afterEach(async () => {
     await killAnvilNodes(
-      allNetworkNames.map((network) => SUPPORTED_NETWORKS[network])
+      allNetworkNames.map((network) => fetchChainIdForNetwork(network))
     )
   })
 

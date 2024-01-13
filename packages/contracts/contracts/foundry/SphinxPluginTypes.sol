@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
+import { Network } from "./SphinxConstants.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
 
 struct HumanReadableAction {
@@ -126,34 +127,6 @@ struct SphinxConfig {
 struct Label {
     address addr;
     string fullyQualifiedName;
-}
-
-enum Network {
-    anvil,
-    // production networks (i.e. mainnets)
-    ethereum,
-    optimism,
-    arbitrum,
-    polygon,
-    bnb,
-    gnosis,
-    linea,
-    polygon_zkevm,
-    avalanche,
-    fantom,
-    base,
-    // testnets
-    sepolia,
-    optimism_sepolia,
-    arbitrum_sepolia,
-    polygon_mumbai,
-    bnb_testnet,
-    gnosis_chiado,
-    linea_goerli,
-    polygon_zkevm_goerli,
-    avalanche_fuji,
-    fantom_testnet,
-    base_sepolia
 }
 
 struct DeployOptions {
