@@ -115,7 +115,7 @@ abstract contract Sphinx {
     ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
-            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(sphinxSafe()));
+            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(safeAddress()));
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else if (_executionMode == ExecutionMode.LocalNetworkCLI) {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
@@ -134,7 +134,7 @@ abstract contract Sphinx {
         ExecutionMode _executionMode,
         address _executor
     ) private returns (DeploymentInfo memory) {
-        address safe = sphinxSafe();
+        address safe = safeAddress();
         address module = sphinxModule();
 
         DeploymentInfo memory deploymentInfo;
@@ -248,13 +248,13 @@ abstract contract Sphinx {
 
         if (isCollecting) {
             // Execute the user's 'run()' function.
-            vm.startBroadcast(sphinxSafe());
+            vm.startBroadcast(safeAddress());
             _;
             vm.stopBroadcast();
         } else {
             // Prank the Gnosis Safe then execute the user's `run()` function. We prank the Gnosis
             // Safe to replicate the deployment process on live networks.
-            vm.startPrank(sphinxSafe());
+            vm.startPrank(safeAddress());
             _;
             vm.stopPrank();
         }
@@ -273,10 +273,10 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Get the address of the SphinxModule. Before calling this function, the
+     * @notice Get the address of the Gnosis Safe. Before calling this function, the
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function sphinxSafe() public view returns (address) {
+    function safeAddress() public view returns (address) {
         return sphinxUtils.getGnosisSafeProxyAddress(sphinxConfig);
     }
 
@@ -324,7 +324,7 @@ abstract contract Sphinx {
      *         data types that are returned by invoking Forge scripts.
      */
     function sphinxConfigABIEncoded() external view returns (bytes memory) {
-        return abi.encode(sphinxConfig, sphinxSafe(), sphinxModule());
+        return abi.encode(sphinxConfig, safeAddress(), sphinxModule());
     }
 
     /**
@@ -357,7 +357,7 @@ abstract contract Sphinx {
             (SphinxTransaction[])
         );
 
-        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+        IGnosisSafe safe = IGnosisSafe(safeAddress());
         address module = sphinxModule();
         address managedServiceAddress = constants.managedServiceAddress();
 
