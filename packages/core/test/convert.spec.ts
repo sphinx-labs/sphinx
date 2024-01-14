@@ -2,6 +2,7 @@ import { exec } from 'child_process'
 
 import { expect } from 'chai'
 import { ethers } from 'ethers'
+import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 
 import {
   convertEthersTransactionReceipt,
@@ -10,8 +11,6 @@ import {
   isSphinxTransactionResponse,
 } from '../src/artifacts'
 import {
-  SUPPORTED_MAINNETS,
-  SUPPORTED_TESTNETS,
   SphinxJsonRpcProvider,
   execAsync,
   fetchURLForNetwork,
@@ -63,13 +62,13 @@ describe('Convert EthersJS Objects', () => {
     // Check that an RPC endpoint API key exists for every network.
     const missingApiKey: Array<string> = []
     for (const chainIdStr of Object.keys(transactionHashes)) {
-      const chainId = Number(chainIdStr)
+      const chainId = BigInt(chainIdStr)
       if (!isSupportedChainId(chainId)) {
         throw new Error(`Unsupported chain ID: ${chainId}`)
       }
 
       try {
-        fetchURLForNetwork(chainId)
+        fetchURLForNetwork(BigInt(chainId))
       } catch {
         missingApiKey.push(getNetworkNameForChainId(BigInt(chainId)))
       }
@@ -87,8 +86,7 @@ describe('Convert EthersJS Objects', () => {
 
   it('contains a hash for each live supported network', () => {
     expect(Object.values(transactionHashes).length).equals(
-      Object.values(SUPPORTED_MAINNETS).length +
-        Object.values(SUPPORTED_TESTNETS).length
+      Object.values(SPHINX_NETWORKS).length
     )
   })
 
@@ -116,7 +114,7 @@ describe('Convert EthersJS Objects', () => {
       const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
 
       it(`succeeds on ${networkName}`, async () => {
-        const chainId = Number(chainIdStr)
+        const chainId = BigInt(chainIdStr)
 
         // Narrow the TypeScript type.
         if (!isSupportedChainId(chainId)) {
@@ -188,7 +186,7 @@ describe('Convert EthersJS Objects', () => {
       const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
 
       it(`succeeds on ${networkName}`, async () => {
-        const chainId = Number(chainIdStr)
+        const chainId = BigInt(chainIdStr)
 
         // Narrow the TypeScript type.
         if (!isSupportedChainId(chainId)) {

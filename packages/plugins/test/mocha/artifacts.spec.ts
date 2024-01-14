@@ -4,8 +4,7 @@ import {
   DeploymentArtifacts,
   ExecutionMode,
   RawActionInput,
-  SUPPORTED_NETWORKS,
-  SupportedNetworkName,
+  fetchChainIdForNetwork,
   getConfigArtifactsRemote,
   writeDeploymentArtifacts,
 } from '@sphinx-labs/core'
@@ -23,8 +22,8 @@ import {
 } from './common'
 
 const allNetworkNames = ['sepolia', 'optimism_sepolia']
-const allChainIds = allNetworkNames.map(
-  (network) => SUPPORTED_NETWORKS[network]
+const allChainIds = allNetworkNames.map((network) =>
+  fetchChainIdForNetwork(network)
 )
 
 const projectName = 'My_Project'
@@ -34,10 +33,7 @@ const owners = [
   ),
 ]
 const threshold = 1
-const networkNames: Array<SupportedNetworkName> = [
-  'sepolia',
-  'optimism_sepolia',
-]
+const networkNames = ['sepolia', 'optimism_sepolia']
 
 // This test suite tests the deployment artifact logic. We deploy a contract with and without
 // constructor args to test that the contract deployment artifact logic properly decodes constructor
