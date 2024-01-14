@@ -5,7 +5,6 @@ import {
   displayDeploymentTable,
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
-  isSupportedNetworkName,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -13,7 +12,6 @@ import {
   getPreview,
   getPreviewString,
   SphinxPreview,
-  ensureSphinxAndGnosisSafeDeployed,
   makeDeploymentData,
   makeDeploymentArtifacts,
   writeDeploymentArtifacts,
@@ -26,17 +24,13 @@ import {
   ExecutionMode,
   runEntireDeploymentProcess,
   ConfigArtifacts,
+  checkSystemDeployed,
   fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import {
-  SphinxMerkleTree,
-  makeSphinxMerkleTree,
-  SPHINX_NETWORKS,
-  SPHINX_LOCAL_NETWORKS,
-} from '@sphinx-labs/contracts'
+import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   compile,
@@ -116,13 +110,6 @@ export const deploy = async (
     process.exit(1)
   }
 
-  if (!isSupportedNetworkName(network)) {
-    throw new Error(
-      `Network name ${network} is not supported. You must use a supported network: \n${SPHINX_NETWORKS.map(
-        (n) => n.name
-      ).join('\n')}\n${SPHINX_LOCAL_NETWORKS.map((n) => n.name).join('\n')}`
-    )
-  }
   const chainId = fetchChainIdForNetwork(network)
 
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
@@ -140,7 +127,6 @@ export const deploy = async (
   }
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
-  await ensureSphinxAndGnosisSafeDeployed(provider)
 
   const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
 
@@ -290,10 +276,12 @@ export const deploy = async (
     uniqueContractNames
   )
 
+  const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
     gasEstimates,
+    isSystemDeployed,
     configArtifacts,
     dryRunFile.libraries
   )

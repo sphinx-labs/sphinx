@@ -120,11 +120,12 @@ export const simulate = async (
     //    don't hardcode it, Hardhat uses the default hardfork, which is the behavior we want.
 
     // Fast forward the block number. This is necessary to prevent the following edge case:
-    // 1. We deploy the Gnosis Safe and Sphinx contracts.
-    // 2. The simulation uses a block that's multiple confirmations behind the latest block. This is
-    //    Hardhat's default behavior, which is meant to protect against chain reorgs on forks of
-    //    live networks.
-    // 3. The simulation fails because some of the contracts deployed in step 1 don't exist on the
+    // 1. Some transactions are executed on the local network. These transactions could either be
+    //    sent by the Sphinx team (during testing) or by the user during local development.
+    // 2. The Deploy CLI command is executed, which creates a simulation using a block that's
+    //    multiple confirmations behind the latest block. This is Hardhat's default behavior, which
+    //    is meant to protect against chain reorgs on forks of live networks.
+    // 3. The simulation fails because the transactions executed in step 1 don't exist on the
     //    Hardhat fork.
     const blocksToFastForward = getLargestPossibleReorg(chainId)
     const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))

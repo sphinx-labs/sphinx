@@ -159,6 +159,7 @@ const makeMockParsedConfig = (): ParsedConfig => {
       isModuleDeployed: false,
       isExecuting: false,
     },
+    isSystemDeployed: true,
     unlabeledAddresses: [],
     arbitraryChain: false,
     libraries: [],

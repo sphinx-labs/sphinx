@@ -37,8 +37,8 @@ pnpm sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]
 - `--networks <testnets|mainnets>`: **Required**. Choose between proposing on the test networks (`sphinxConfig.testnets`) or the production networks (`sphinxConfig.mainnets`) in your script.
 - `--confirm`: **Optional**. Confirm the proposal without previewing it. Useful for automating proposals.
 - `--dry-run`: **Optional**. Perform a trial run without sending data to Sphinx's backend. Useful for testing and validation.
-- `--silent`: **Optional**. Suppress output to display only error messages. Combine with `--confirm` for silent, confirmed deployments.
-- `--target-contract <TARGET_CONTRACT>`: **Optional**. Specify a contract in multi-contract scripts. Alias: `--tc <TARGET_CONTRACT>`.
+- `--silent`: **Optional**. Suppress output to display only error messages. Must be combined with `--confirm` to confirm the proposal without previewing it.
+- `--target-contract <TARGET_CONTRACT>` (Alias: `--tc <TARGET_CONTRACT>`): **Optional**. Specify a contract in multi-contract scripts.
 
 ## Examples
 1. Propose a deployment on testnets using a script located at `./path/to/script.s.sol`:

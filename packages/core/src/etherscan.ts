@@ -116,7 +116,7 @@ export const verifyDeploymentWithRetries = async (
       let success = false
 
       const contractName = fullyQualifiedName.split(':')[1]
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
 
         const minimumCompilerInput = getMinimumCompilerInput(

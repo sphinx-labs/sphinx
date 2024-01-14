@@ -7,3 +7,8 @@ export type StoreCanonicalConfig = (
 ) => Promise<string>
 
 export type RelayProposal = (proposalRequest: ProposalRequest) => Promise<void>
+
+export type SystemContractInfo = {
+  initCodeWithArgs: string
+  expectedAddress: string
+}

@@ -257,7 +257,7 @@ describe('Deploy CLI command', () => {
       // ensures that the signer can execute a deployment without having a very high balance of ETH.
       await setBalance(
         wallet.address,
-        ethers.toBeHex(ethers.parseEther('0.01')),
+        ethers.toBeHex(ethers.parseEther('1.25')),
         provider
       )
 
@@ -769,6 +769,9 @@ const expectValidDeployment = async (
       {
         networkTags: [expectedNetworkTag],
         executing: [
+          {
+            type: 'SystemDeployment',
+          },
           {
             referenceName: 'GnosisSafe',
             functionName: 'deploy',

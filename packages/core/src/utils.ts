@@ -25,6 +25,8 @@ import {
   SolidityStorageLayout,
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
+  getSphinxConstants,
+  remove0x,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -53,7 +55,11 @@ import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import { LocalNetworkMetadata } from './networks'
-import { RelayProposal, StoreCanonicalConfig } from './types'
+import {
+  RelayProposal,
+  StoreCanonicalConfig,
+  SystemContractInfo,
+} from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -1426,4 +1432,23 @@ export const formatSolcLongVersion = (solcLongVersion: string) => {
  */
 export const stripLeadingZero = (hexString: string): string => {
   return hexString.replace('0x0', '0x')
+}
+
+/**
+ * Returns a minimal representation of the system contracts to use in the Sphinx Foundry plugin.
+ */
+export const getSystemContractInfo = (): Array<SystemContractInfo> => {
+  return getSphinxConstants().map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
+      const { abi, bytecode } = artifact
+
+      const iface = new ethers.Interface(abi)
+
+      const initCodeWithArgs = bytecode.concat(
+        remove0x(iface.encodeDeploy(constructorArgs))
+      )
+
+      return { initCodeWithArgs, expectedAddress }
+    }
+  )
 }

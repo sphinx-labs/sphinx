@@ -21,6 +21,8 @@ Deployments with Sphinx are a three-step process:
 
 * **Compatible with Forge Scripts**: You can integrate Sphinx by adding a few lines of code to your existing Forge scripts.
 
+* **No Lock-In**: You can execute deployments from your local machine without using the Sphinx DevOps Platform. These deployments are executed in the exact same manner as they would be executed with the DevOps Platform, including identical contract addresses. This includes networks that the DevOps Platform doesn't currently support.
+
 ## Request Access
 
 Sphinx is currently invite-only. [Request access on our website.](https://sphinx.dev)
@@ -38,7 +40,7 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 - [CLI Propose Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md)
 - [Propose in CI](https://github.com/sphinx-labs/sphinx/blob/main/docs/ci-proposals.md)
 - [Configuration Options](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md)
-- [Deploy from the CLI](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deployments.md)
+- [Deploy from the CLI](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md)
 - [Troubleshooting](https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md)
 - [FAQ](https://github.com/sphinx-labs/sphinx/blob/main/docs/faq.md)
 - [Architecture Overview](https://github.com/sphinx-labs/sphinx/blob/main/docs/architecture-overview.md)
@@ -59,6 +61,7 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 - Sphinx supports `CREATE2` and `CREATE3` but not the `CREATE` opcode, i.e. `new MyContract(...)`.
 - You cannot send ETH as part of a deployment.
+- You can only use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) on live networks if you're the only owner of the Gnosis Safe. (Deployments with the DevOps Platform support an arbitrary number of owners).
 
 ## Coming Soon
 
@@ -68,7 +71,9 @@ Sphinx is currently invite-only. [Request access on our website.](https://sphinx
 
 Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
 
-## Supported Networks
+## Networks Supported by the DevOps Platform
+
+> Note: You can use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) to deploy on networks that the DevOps Platform doesn't currently support.
 
 - Ethereum
 - Optimism

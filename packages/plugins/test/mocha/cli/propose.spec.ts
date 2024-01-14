@@ -2,32 +2,35 @@ import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   Create2ActionInput,
+  ExecutionMode,
   ParsedConfig,
   ProposalRequest,
+  SphinxJsonRpcProvider,
   SphinxPreview,
+  ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   fetchChainIdForNetwork,
-  getNetworkNameForChainId,
   getSphinxWalletPrivateKey,
+  runEntireDeploymentProcess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
+import {
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  SphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
-import { readInterface } from '../../../src/foundry/utils'
-import { getFoundryToml } from '../../../src/foundry/options'
 import { deploy } from '../../../src/cli/deploy'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
-import { SphinxContext } from '../../../src/cli/context'
 import {
   killAnvilNodes,
   startAnvilNodes,
   getSphinxModuleAddressFromScript,
+  getAnvilRpcUrl,
 } from '../common'
-import { FoundryToml } from '../../../src/foundry/types'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -41,16 +44,8 @@ const sepoliaRpcUrl = `http://127.0.0.1:42111`
 const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
 
 describe('Propose CLI command', () => {
-  let foundryToml: FoundryToml
-  let sphinxPluginTypesInterface: ethers.Interface
-
   before(async () => {
     process.env['SPHINX_API_KEY'] = sphinxApiKey
-    foundryToml = await getFoundryToml()
-    sphinxPluginTypesInterface = readInterface(
-      foundryToml.artifactFolder,
-      'SphinxPluginTypes'
-    )
   })
 
   beforeEach(async () => {
@@ -61,6 +56,22 @@ describe('Propose CLI command', () => {
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
     await startAnvilNodes(allChainIds)
+
+    // Deploy the system contracts on all the Anvil nodes used in this test suite.
+    allChainIds.map(async (chainId) => {
+      const rpcUrl = getAnvilRpcUrl(chainId)
+      // Narrow the TypeScript type of the RPC URL.
+      if (!rpcUrl) {
+        throw new Error(`Could not find RPC URL.`)
+      }
+      const provider = new SphinxJsonRpcProvider(rpcUrl)
+      const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+      await ensureSphinxAndGnosisSafeDeployed(
+        provider,
+        wallet,
+        ExecutionMode.Platform
+      )
+    })
   })
 
   afterEach(async () => {
@@ -84,7 +95,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts } =
+    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Run preview
         isTestnet,
@@ -96,7 +107,12 @@ describe('Propose CLI command', () => {
       })
 
     // This prevents a TypeScript type error.
-    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
+    if (
+      !parsedConfigArray ||
+      !proposalRequest ||
+      !configArtifacts ||
+      !merkleTree
+    ) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -155,14 +171,9 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      scriptPath,
+      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray,
-      context,
-      foundryToml,
-      sphinxPluginTypesInterface,
-      false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
-      targetContract
+      parsedConfigArray
     )
   })
 
@@ -173,7 +184,8 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts } =
+
+    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
@@ -188,7 +200,12 @@ describe('Propose CLI command', () => {
       })
 
     // This prevents a TypeScript type error.
-    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
+    if (
+      !parsedConfigArray ||
+      !proposalRequest ||
+      !configArtifacts ||
+      !merkleTree
+    ) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -286,14 +303,9 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddressOptimism)
 
     await assertValidGasEstimates(
-      scriptPath,
+      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray,
-      context,
-      foundryToml,
-      sphinxPluginTypesInterface,
-      false, // Gnosis Safe and Sphinx Module haven't been deployed yet.
-      targetContract
+      parsedConfigArray
     )
   })
 
@@ -305,7 +317,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts } =
+    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
@@ -320,7 +332,12 @@ describe('Propose CLI command', () => {
       })
 
     // This prevents a TypeScript type error.
-    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
+    if (
+      !parsedConfigArray ||
+      !proposalRequest ||
+      !configArtifacts ||
+      !merkleTree
+    ) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -389,13 +406,9 @@ describe('Propose CLI command', () => {
     }
 
     await assertValidGasEstimates(
-      scriptPath,
+      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray,
-      context,
-      foundryToml,
-      sphinxPluginTypesInterface,
-      false // Gnosis Safe and Sphinx Module haven't been deployed yet.
+      parsedConfigArray
     )
   })
 
@@ -420,7 +433,7 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
-    const { proposalRequest, parsedConfigArray, configArtifacts } =
+    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false,
         isTestnet,
@@ -432,7 +445,12 @@ describe('Propose CLI command', () => {
       })
 
     // This prevents a TypeScript type error.
-    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
+    if (
+      !parsedConfigArray ||
+      !proposalRequest ||
+      !configArtifacts ||
+      !merkleTree
+    ) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -479,14 +497,9 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      scriptPath,
+      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray,
-      context,
-      foundryToml,
-      sphinxPluginTypesInterface,
-      true, // Gnosis Safe and Sphinx Module were already deployed.
-      targetContract
+      parsedConfigArray
     )
   })
 
@@ -522,7 +535,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts } =
+    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Show preview
         isTestnet,
@@ -537,7 +550,12 @@ describe('Propose CLI command', () => {
       })
 
     // This prevents a TypeScript type error.
-    if (!parsedConfigArray || !proposalRequest || !configArtifacts) {
+    if (
+      !parsedConfigArray ||
+      !proposalRequest ||
+      !configArtifacts ||
+      !merkleTree
+    ) {
       throw new Error(`Expected field(s) to be defined`)
     }
 
@@ -598,13 +616,9 @@ describe('Propose CLI command', () => {
     expect(optimismConfig.actionInputs.length).equals(0)
 
     await assertValidGasEstimates(
-      scriptPath,
+      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray,
-      context,
-      foundryToml,
-      sphinxPluginTypesInterface,
-      false // Gnosis Safe and Sphinx Module haven't been deployed yet.
+      parsedConfigArray
     )
   })
 
@@ -664,14 +678,9 @@ describe('Propose CLI command', () => {
  * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (
-  scriptPath: string,
+  merkleTree: SphinxMerkleTree,
   networkGasEstimates: ProposalRequest['gasEstimates'],
-  parsedConfigArray: Array<ParsedConfig>,
-  sphinxContext: SphinxContext,
-  foundryToml: FoundryToml,
-  sphinxPluginTypesInterface: ethers.Interface,
-  isModuleAndGnosisSafeDeployed: boolean,
-  targetContract?: string
+  parsedConfigArray: Array<ParsedConfig>
 ) => {
   // Check that the number of gas estimates matches the number of ParsedConfig objects with at least
   // one action.
@@ -693,33 +702,21 @@ const assertValidGasEstimates = async (
       )
     }
 
+    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+
     // Change the executor's address from the `ManagedService` contract to an auto-generated Sphinx
     // private key. This is necessary because we need a private key to broadcast the deployment on
     // Anvil.
-    parsedConfig.executorAddress = new ethers.Wallet(
-      getSphinxWalletPrivateKey(0)
-    ).address
+    parsedConfig.executorAddress = signer.address
 
-    const networkName = getNetworkNameForChainId(BigInt(chainId))
-
-    const rpcUrl = foundryToml.rpcEndpoints[networkName]
-    if (!rpcUrl) {
-      throw new Error(`Could not find RPC URL for: ${networkName}.`)
-    }
-
-    const { receipts } = await deploy({
-      scriptPath,
-      network: networkName,
-      skipPreview: true,
-      silent: true,
-      sphinxContext,
-      verify: false,
-      targetContract,
-    })
-
-    if (!receipts) {
-      throw new Error(`Could not load receipts.`)
-    }
+    const { receipts } = await runEntireDeploymentProcess(
+      parsedConfig,
+      merkleTree,
+      provider,
+      signer
+    )
 
     // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
     // user's deployment because multiple actions may be batched into a single call to the Sphinx

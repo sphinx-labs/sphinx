@@ -24,7 +24,8 @@ import {
     OptionalAddress,
     Wallet,
     Label,
-    ExecutionMode
+    ExecutionMode,
+    SystemContractInfo
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
@@ -551,10 +552,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function validateLiveNetworkCLI(SphinxConfig memory _config, IGnosisSafe _safe) external view {
         require(
-            sphinxModuleProxyFactoryAddress.code.length > 0,
-            "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
-        );
-        require(
             _config.owners.length == 1,
             "Sphinx: There must be a single owner in your 'owners' array."
         );
@@ -832,6 +829,51 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return "failed";
         } else {
             revert("Sphinx: Invalid MerkleRootStatus. Should never happen.");
+        }
+    }
+
+    function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
+        address addr = computeCreate2Address(
+            bytes32(0),
+            keccak256(_initCodeWithArgs),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        if (addr.code.length == 0) {
+            bytes memory code = abi.encodePacked(bytes32(0), _initCodeWithArgs);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(
+                success,
+                string(
+                    abi.encodePacked(
+                        "failed to deploy contract. expected address: ",
+                        vm.toString(addr)
+                    )
+                )
+            );
+        }
+
+        return addr;
+    }
+
+    function deploySphinxSystem(SystemContractInfo[] memory _contracts) public {
+        vm.etch(
+            DETERMINISTIC_DEPLOYMENT_PROXY,
+            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        );
+
+        for (uint256 i = 0; i < _contracts.length; i++) {
+            SystemContractInfo memory ct = _contracts[i];
+            address addr = create2Deploy(ct.initCodeWithArgs);
+            require(
+                addr == ct.expectedAddress,
+                string(
+                    abi.encodePacked(
+                        "Sphinx: address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
+                    )
+                )
+            );
         }
     }
 }
