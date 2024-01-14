@@ -25,17 +25,12 @@ import {
   runEntireDeploymentProcess,
   ConfigArtifacts,
   checkSystemDeployed,
-  fetchChainIdForNetwork
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import {
-  SphinxMerkleTree,
-  makeSphinxMerkleTree,
-  SPHINX_NETWORKS,
-  SPHINX_LOCAL_NETWORKS,
-} from '@sphinx-labs/contracts'
+import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   compile,
