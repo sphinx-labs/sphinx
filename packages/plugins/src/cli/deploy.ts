@@ -11,7 +11,6 @@ import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  SUPPORTED_NETWORKS,
   SphinxPreview,
   makeDeploymentData,
   makeDeploymentArtifacts,
@@ -26,11 +25,17 @@ import {
   runEntireDeploymentProcess,
   ConfigArtifacts,
   checkSystemDeployed,
+  fetchChainIdForNetwork
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  SphinxMerkleTree,
+  makeSphinxMerkleTree,
+  SPHINX_NETWORKS,
+  SPHINX_LOCAL_NETWORKS,
+} from '@sphinx-labs/contracts'
 
 import {
   compile,
@@ -110,7 +115,7 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const chainId = SUPPORTED_NETWORKS[network]
+  const chainId = fetchChainIdForNetwork(network)
 
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
@@ -346,7 +351,7 @@ export const deploy = async (
 
   const deploymentArtifacts = await makeDeploymentArtifacts(
     {
-      [chainId]: {
+      [chainId.toString()]: {
         provider,
         compilerConfig,
         receipts,

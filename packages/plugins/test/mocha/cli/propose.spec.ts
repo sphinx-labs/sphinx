@@ -5,11 +5,11 @@ import {
   ExecutionMode,
   ParsedConfig,
   ProposalRequest,
-  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
   execAsync,
+  fetchChainIdForNetwork,
   getSphinxWalletPrivateKey,
   runEntireDeploymentProcess,
 } from '@sphinx-labs/core'
@@ -49,8 +49,8 @@ describe('Propose CLI command', () => {
   })
 
   beforeEach(async () => {
-    const allChainIds = allNetworkNames.map(
-      (network) => SUPPORTED_NETWORKS[network]
+    const allChainIds = allNetworkNames.map((network) =>
+      fetchChainIdForNetwork(network)
     )
     // Make sure that the Anvil nodes aren't running.
     await killAnvilNodes(allChainIds)
@@ -76,7 +76,7 @@ describe('Propose CLI command', () => {
 
   afterEach(async () => {
     await killAnvilNodes(
-      allNetworkNames.map((network) => SUPPORTED_NETWORKS[network])
+      allNetworkNames.map((network) => fetchChainIdForNetwork(network))
     )
   })
 
@@ -702,7 +702,7 @@ const assertValidGasEstimates = async (
       )
     }
 
-    const rpcUrl = getAnvilRpcUrl(Number(chainId))
+    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
 

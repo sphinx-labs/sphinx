@@ -9,11 +9,11 @@ import {
   Create2ActionInput,
   DeploymentArtifacts,
   ExecutionMode,
-  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
   SphinxPreview,
   SphinxTransactionReceipt,
   execAsync,
+  fetchChainIdForNetwork,
   getCreate3Address,
   makeDeploymentArtifacts,
   setBalance,
@@ -150,7 +150,7 @@ const expectedMyContract2Address = ethers.getCreate2Address(
   ethers.keccak256(MyContract2Artifact.bytecode.object)
 )
 
-const allChainIds = [SUPPORTED_NETWORKS['sepolia']]
+const allChainIds = [fetchChainIdForNetwork('sepolia')]
 const deploymentArtifactDirPath = 'deployments'
 
 describe('Deploy CLI command', () => {

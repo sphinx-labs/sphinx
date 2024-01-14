@@ -24,11 +24,7 @@ import {
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import { ExecutionMode, RELAYER_ROLE } from '../../constants'
-import {
-  DrippieDripSizes,
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-} from '../../networks'
+import { fetchDripSizeForNetwork } from '../../networks'
 
 export const ensureSphinxAndGnosisSafeDeployed = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
@@ -178,22 +174,19 @@ export const deploySphinxSystem = async (
   logger?.info('[Sphinx]: creating relayer drips...')
   for (const relayer of relayers) {
     const chainId = (await provider.getNetwork()).chainId
-    const targetNetworkName = Object.entries(SUPPORTED_NETWORKS).find(
-      ([, id]: [string, SupportedChainId]) => BigInt(id) === chainId
-    )![0]
 
     const reentrant = false
     const interval = 30
     const dripcheck = getCheckBalanceLowAddress()
     const checkparams = AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
-      [relayer, ethers.parseEther(DrippieDripSizes[targetNetworkName])]
+      [relayer, ethers.parseEther(fetchDripSizeForNetwork(chainId))]
     )
     const actions = [
       {
         target: relayer,
         data: ZeroHash,
-        value: ethers.parseEther(DrippieDripSizes[targetNetworkName]),
+        value: ethers.parseEther(fetchDripSizeForNetwork(chainId)),
       },
     ]
     const dripName = `sphinx_fund_${relayer}`

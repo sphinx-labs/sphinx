@@ -12,7 +12,6 @@ import {
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SupportedNetworkName } from '../networks'
 import { ParsedContractDeployment } from '../actions/types'
 import { ExecutionMode } from '../constants'
 
@@ -139,8 +138,8 @@ export type SphinxConfig = {
   projectName: string
   orgId: string
   owners: Array<string>
-  mainnets: Array<SupportedNetworkName>
-  testnets: Array<SupportedNetworkName>
+  mainnets: Array<string>
+  testnets: Array<string>
   threshold: string
   saltNonce: string
 }

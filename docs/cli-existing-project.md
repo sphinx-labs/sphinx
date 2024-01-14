@@ -138,7 +138,7 @@ Remove any `vm.startBroadcast` and `vm.broadcast` calls from your deployment scr
 
 ### e. Handle new sender address
 
-When using Sphinx, your deployment will be executed from your Gnosis Safe. In other words, the `msg.sender` of your transactions will be your Gnosis Safe. You may need to update your script if it relies on a particular sender address. If you need to access your Gnosis Safe address, you can fetch it in your script using `sphinxSafe()`.
+When using Sphinx, your deployment will be executed from your Gnosis Safe. In other words, the `msg.sender` of your transactions will be your Gnosis Safe. You may need to update your script if it relies on a particular sender address. If you need to access your Gnosis Safe address, you can fetch it in your script using `safeAddress()`.
 
 For example, you may need to:
 - Update hardcoded contract addresses

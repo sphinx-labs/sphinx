@@ -3,7 +3,6 @@ import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 
 import {
-  SupportedChainId,
   execAsync,
   sleep,
   sortHexStrings,
@@ -12,9 +11,8 @@ import {
   DeploymentInfo,
   ExecutionMode,
   RawActionInput,
-  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
-  SupportedNetworkName,
+  ensureSphinxAndGnosisSafeDeployed,
   getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
@@ -31,7 +29,7 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
-  ensureSphinxAndGnosisSafeDeployed,
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -67,15 +65,15 @@ import {
 } from '../../dist'
 import { makeParsedConfig } from '../../src/foundry/decode'
 
-export const getAnvilRpcUrl = (chainId: number): string => {
+export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
 }
 
-const getAnvilPort = (chainId: number): number => {
-  return 42000 + (chainId % 1000)
+const getAnvilPort = (chainId: bigint): number => {
+  return Number(BigInt(42000) + (BigInt(chainId) % BigInt(1000)))
 }
 
-export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
+export const startAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
     // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
     // because the latter will hang indefinitely.
@@ -85,11 +83,9 @@ export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   await sleep(1000)
 }
 
-export const startForkedAnvilNodes = async (
-  chainIds: Array<SupportedChainId>
-) => {
+export const startForkedAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
-    const forkUrl = fetchURLForNetwork(chainId)
+    const forkUrl = fetchURLForNetwork(BigInt(chainId))
     // We must use `exec` instead of `execAsync` because the latter will hang indefinitely.
     exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
   }
@@ -97,7 +93,7 @@ export const startForkedAnvilNodes = async (
   await sleep(3000)
 }
 
-export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
+export const killAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
     const port = getAnvilPort(chainId)
 
@@ -306,14 +302,14 @@ export const makeAddress = (uint: number): string => {
 
 export const makeDeployment = async (
   merkleRootNonce: number,
-  mainnets: Array<SupportedNetworkName>,
-  testnets: Array<SupportedNetworkName>,
+  mainnets: Array<string>,
+  testnets: Array<string>,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
   actions: Array<RawActionInput>,
-  getRpcUrl: (chainId: SupportedChainId) => string
+  getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
   compilerConfigArray: Array<CompilerConfig>
@@ -335,7 +331,7 @@ export const makeDeployment = async (
   const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
-    const chainId = SUPPORTED_NETWORKS[networkName]
+    const chainId = fetchChainIdForNetwork(networkName)
     const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
     const safeAddress = getGnosisSafeProxyAddress(
       ownerAddresses,
@@ -483,7 +479,7 @@ export const runDeployment = async (
 
   for (const compilerConfig of compilerConfigArray) {
     const { chainId } = compilerConfig
-    const rpcUrl = getAnvilRpcUrl(Number(chainId))
+    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
 
