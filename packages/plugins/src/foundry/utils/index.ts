@@ -20,11 +20,13 @@ import {
 import {
   execAsync,
   formatSolcLongVersion,
+  getBytesLength,
   getNetworkNameForChainId,
   getSystemContractInfo,
   sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
+  zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
   ConfigArtifacts,
@@ -49,7 +51,7 @@ import {
   parseFoundryContractArtifact,
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
 
 import {
@@ -550,6 +552,98 @@ export const getConfigArtifactForContractName = (
   }
   throw new Error(
     `Could not find artifact for ${targetContractName}. Should never happen.`
+  )
+}
+
+/**
+ * Returns `true` if the given contract init code with constructor args belongs to the given
+ * contract artifact, and returns `false` otherwise. There may be a couple differences between this
+ * init code (which we'll call the "actual" init code) and the contract artifact's `bytecode` field.
+ * We'll need to account for these differences when determining whether the init code belongs to the
+ * artifact.
+ *
+ * These differences are:
+ * 1. The actual init code may be appended with ABI-encoded constructor arguments, whereas the
+ * artifact's init code is not.
+ * 2. If the contract uses libraries, the actual init code contains library addresses, whereas the
+ * artifact's init code contains library placeholders. For more info on library placeholders,
+ * see: https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ *
+ * This function does not need to handle immutable variable references because these references only
+ * exist in the runtime bytecode and not the init code. This is made clear by the Solidity docs,
+ * which only have a `deployedBytecode.immutableReferences` field:
+ * https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ */
+export const isInitCodeMatch = (
+  actualInitCodeWithArgs: string,
+  artifact: ContractArtifact
+): boolean => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const iface = new ethers.Interface(artifact.abi)
+
+  const artifactBytecodeLength = getBytesLength(artifact.bytecode)
+  const actualInitCodeLength = getBytesLength(actualInitCodeWithArgs)
+
+  // Return `false` if the length of the artifact's init code is greater than the length of the
+  // actual init code. It's necessary to explicitly check this because the `ethers.dataSlice` call,
+  // which we'll execute soon, reverts with an out-of-bounds error under this condition.
+  if (artifactBytecodeLength > actualInitCodeLength) {
+    return false
+  }
+
+  // Split the actual init code into two parts:
+  // 1. The init code without the constructor arguments
+  // 2. The ABI encoded constructor arguments
+  //
+  // We use the length of the `artifact.bytecode` to determine where the contract's creation code
+  // ends and the constructor arguments begin. This works even if the `artifact.bytecode` contains
+  // externally linked library placeholders, which are always the same length as the real values.
+  const actualInitCodeNoArgs = ethers.dataSlice(
+    actualInitCodeWithArgs,
+    0,
+    artifactBytecodeLength
+  )
+  const encodedArgs = ethers.dataSlice(
+    actualInitCodeWithArgs,
+    artifactBytecodeLength
+  )
+
+  const constructorFragment = iface.fragments.find(
+    ConstructorFragment.isFragment
+  )
+  if (constructorFragment) {
+    // ABI-decode the constructor arguments. This will throw an error if the decoding fails.
+    try {
+      coder.decode(constructorFragment.inputs, encodedArgs)
+    } catch {
+      return false
+    }
+  } else if (
+    // If there's no constructor fragment, the length of the artifact's init code and the actual
+    // init code must match. They must match for contracts without a constructor fragment because
+    // the artifact's init code does _not_ include constructor arguments, whereas the actual init
+    // code does.
+    artifactBytecodeLength !== actualInitCodeLength
+  ) {
+    return false
+  }
+
+  // Replace the library references with zeros in both init codes. In the actual init code, this
+  // will replace the actual library addresses. In the artifact's init code, this will replace the
+  // library placeholders with zeros.
+  const artifactInitCodeNoLibraries = zeroOutLibraryReferences(
+    artifact.bytecode,
+    artifact.linkReferences
+  )
+  const actualInitCodeNoLibraries = zeroOutLibraryReferences(
+    actualInitCodeNoArgs,
+    artifact.linkReferences
+  )
+
+  // Check if we've found a match.
+  return (
+    artifactInitCodeNoLibraries.toLowerCase() ===
+    actualInitCodeNoLibraries.toLowerCase()
   )
 }
 
