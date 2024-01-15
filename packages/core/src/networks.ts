@@ -69,7 +69,7 @@ export const fetchCurrencyForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
   if (network) {
-    return network.name
+    return network.currency
   } else {
     throw new Error(`Unsupported network id ${chainId}`)
   }

@@ -7,7 +7,11 @@ import {
   fetchPNPMRemappings,
 } from '../sample-project/sample-foundry-config'
 import { SphinxContext, makeSphinxContext } from './context'
-import { DeployCommandArgs, ProposeCommandArgs } from './types'
+import {
+  ArtifactsCommandArgs,
+  DeployCommandArgs,
+  ProposeCommandArgs,
+} from './types'
 import { ConfirmAndDryRunError, coerceNetworks } from './utils'
 
 const networkOption = 'network'
@@ -65,58 +69,32 @@ export const makeCLI = (
           .hide('version'),
       async (argv) => proposeCommandHandler(argv, sphinxContext)
     )
-    // .command(
-    //   'artifacts',
-    //   `Retrieves deployment artifacts from the DevOps Platform and writes them to the file system.`,
-    //   (y) =>
-    //     y
-    //       .usage(
-    //         `Usage: sphinx artifacts --org-id <ORG_ID> --project-name <PROJECT_NAME>`
-    //       )
-    //       .option('org-id', {
-    //         describe: 'Your Sphinx organization ID.',
-    //         type: 'string',
-    //         demandOption: true,
-    //       })
-    //       .option('project-name', {
-    //         describe: 'The name of your project.',
-    //         type: 'string',
-    //         demandOption: true,
-    //       })
-    //       .hide('version')
-    //       .demandCommand(1, 'You must provide a Forge script path.'),
-    //   async (argv) => {
-    //     const { orgId, projectName } = argv
-
-    //     const apiKey = process.env.SPHINX_API_KEY
-    //     if (!apiKey) {
-    //       console.error(
-    //         "You must specify a 'SPHINX_API_KEY' environment variable."
-    //       )
-    //       process.exit(1)
-    //     }
-
-    //     const spinner = ora()
-    //     spinner.start(`Fetching artifacts...`)
-
-    //     const deploymentArtifacts = await fetchDeploymentArtifacts(
-    //       apiKey,
-    //       orgId,
-    //       projectName
-    //     )
-
-    //     spinner.succeed(`Fetched artifacts.`)
-    //     spinner.start(`Writing artifacts...`)
-
-    //     writeDeploymentArtifacts(
-    //       projectName,
-    //       ExecutionMode.Platform,
-    //       deploymentArtifacts
-    //     )
-
-    //     spinner.succeed(`Write artifacts.`)
-    //   }
-    // )
+    .command(
+      'artifacts',
+      `Retrieves deployment artifacts from the DevOps Platform and writes them to the file system.`,
+      (y) =>
+        y
+          .usage(
+            `Usage: sphinx artifacts --org-id <ORG_ID> --project-name <PROJECT_NAME> [options]`
+          )
+          .option('org-id', {
+            describe: 'Your Sphinx organization ID.',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('project-name', {
+            describe: 'The name of your project.',
+            type: 'string',
+            demandOption: true,
+          })
+          .option('silent', {
+            describe: 'Silence the output except for error messages.',
+            boolean: true,
+            default: false,
+          })
+          .hide('version'),
+      async (argv) => artifactsCommandHandler(argv, sphinxContext)
+    )
     .command(
       'init',
       'Initialize a sample Sphinx project',
@@ -303,4 +281,19 @@ const deployCommandHandler = async (
     verify,
     targetContract,
   })
+}
+
+const artifactsCommandHandler = async (
+  argv: ArtifactsCommandArgs,
+  sphinxContext: SphinxContext
+): Promise<void> => {
+  const { orgId, projectName, silent } = argv
+
+  const apiKey = process.env.SPHINX_API_KEY
+  if (!apiKey) {
+    console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
+    process.exit(1)
+  }
+
+  sphinxContext.fetchRemoteArtifacts({ apiKey, orgId, projectName, silent })
 }

@@ -14,7 +14,6 @@ import {
   SphinxPreview,
   makeDeploymentData,
   makeDeploymentArtifacts,
-  writeDeploymentArtifacts,
   ContractDeploymentArtifact,
   isContractDeploymentArtifact,
   CompilerConfig,
@@ -26,6 +25,7 @@ import {
   ConfigArtifacts,
   checkSystemDeployed,
   fetchChainIdForNetwork,
+  writeDeploymentArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'

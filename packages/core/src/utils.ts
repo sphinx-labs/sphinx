@@ -165,8 +165,9 @@ export const getGasPriceOverrides = async (
   }
 
   if (
-    executionMode === ExecutionMode.LocalNetworkCLI ||
-    executionMode === ExecutionMode.Platform
+    (executionMode === ExecutionMode.LocalNetworkCLI ||
+      executionMode === ExecutionMode.Platform) &&
+    process.env.SPHINX_INTERNAL__DISABLE_HARDCODED_GAS_LIMIT !== 'true'
   ) {
     // Hard-code the gas limit to be the 3/4 of the block gas limit. This is an optimization that
     // significantly speeds up deployments because it removes the need for EthersJS to call
@@ -504,27 +505,33 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
   const response: {
     status: number
     data: string[]
-  } = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
-    apiKey,
-    orgId,
-    configData,
-  })
+  } = await axios
+    .post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+      apiKey,
+      orgId,
+      configData,
+    })
+    .catch((err) => {
+      if (err.response) {
+        if (err.response.status === 400) {
+          throw new Error(
+            'Malformed request storing compiler config, please report this to the developers'
+          )
+        } else if (err.response.status === 401) {
+          throw new Error(
+            `Unauthorized, please check your API key and Org Id are correct`
+          )
+        } else {
+          throw new Error(
+            `Unexpected response code, please report this to the developers`
+          )
+        }
+      } else {
+        throw err
+      }
+    })
 
-  if (response.status === 200) {
-    return response.data[0]
-  } else if (response.status === 400) {
-    throw new Error(
-      'Malformed request pinning to IPFS, please report this to the developers'
-    )
-  } else if (response.status === 401) {
-    throw new Error(
-      `Unauthorized, please check your API key and Org Id are correct`
-    )
-  } else {
-    throw new Error(
-      `Unexpected response code, please report this to the developers`
-    )
-  }
+  return response.data[0]
 }
 
 export const arraysEqual = (
