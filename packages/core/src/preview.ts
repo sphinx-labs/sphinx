@@ -1,4 +1,4 @@
-import { yellow, green, blue, bold } from 'chalk'
+import { yellow, green, bold } from 'chalk'
 
 import { DecodedAction, ParsedConfig } from './config/types'
 import {
@@ -127,20 +127,17 @@ export const getPreviewString = (
 
   // Warn about unlabeled addresses
   if (preview.unlabeledAddresses.size > 0) {
-    const troubleshootingGuideLink = blue.underline(
-      `https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md#labeling-contracts\n\n`
-    )
     previewString += `${yellow.bold(
-      `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`
+      `Warning: Sphinx couldn't find a contract artifact for the following addresses:\n`
     )}`
     previewString += `${Array.from(preview.unlabeledAddresses)
       .map((e) => yellow(`- ${e}`))
       .join('\n')}\n`
-    previewString +=
-      yellow(
-        `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
-          `please label them in your script. See the troubleshooting guide for more information:\n`
-      ) + troubleshootingGuideLink
+    previewString += yellow(
+      `This typically happens when deploying contracts using hardcoded bytecode and no \n` +
+        `associated source file. Sphinx will not create a deployment artifact or attempt \n` +
+        `Etherscan verification for any address in the list above.\n\n`
+    )
   }
 
   if (includeConfirmQuestion) {

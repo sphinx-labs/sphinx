@@ -4,37 +4,10 @@ This guide covers some common issues you might encounter using Sphinx. If your q
 
 ## Table of Contents
 
-- [Labeling contracts](#labeling-contracts)
 - [Slow compilation speed](#slow-compilation-speed)
 - [Errors](#errors)
   - [`Ineffective mark-compacts near heap limit allocation failed`](#ineffective-mark-compacts-near-heap-limit-allocation-failed)
   - [`EvmError: MemoryLimitOOG`](#evmerror-memorylimitoog)
-
-## Labeling contracts
-
-When Sphinx can't infer the contract corresponding to an address, an error will be thrown asking you to label it yourself. This makes it possible for Sphinx to verify the contract on Etherscan and create a deployment artifact for it.
-
-You can label a contract in your deployment script with the `sphinxLabel` function, which is inherited from `Sphinx.sol`. For example:
-
-```sol
-MyToken token = new MyToken{ salt: bytes32(0) }();
-sphinxLabel(address(token), "src/tokens/MyToken.sol:MyToken");
-```
-
-You must use the **fully qualified name** of the contract, which is in the format `full/path/to/SourceFile.sol:ContractName`, as shown in the example above.
-
-If you're having trouble finding the contract corresponding to an address, we recommend using `console.log`. You can import it into your script using:
-
-```
-import "forge-std/console.sol";
-```
-
-Then, you can log the addresses of your contracts:
-
-```
-MyToken token = new MyToken{ salt: bytes32(0) }();
-console.log('MyToken', address(token));
-```
 
 ## Slow compilation speed
 

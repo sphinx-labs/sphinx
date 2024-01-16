@@ -99,7 +99,6 @@ export type DeploymentInfo = {
   newConfig: SphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
-  labels: Array<Label>
   arbitraryChain: boolean
 }
 
@@ -122,11 +121,6 @@ export type UnsafeAllow = {
 export type UserAddressOverrides = {
   chains: Array<string>
   address: string
-}
-
-export type Label = {
-  addr: string
-  fullyQualifiedName: string
 }
 
 export type SphinxConfigWithAddresses = SphinxConfig & {

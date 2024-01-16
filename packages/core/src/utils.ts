@@ -40,7 +40,6 @@ import {
   ActionInput,
   RawCreate2ActionInput,
   RawActionInput,
-  Label,
   ParsedConfig,
   Create2ActionInput,
   FunctionCallActionInput,
@@ -926,17 +925,6 @@ export const spawnAsync = (
 
 export const isString = (str: string | null | undefined): str is string => {
   return typeof str === 'string'
-}
-
-export const isLabel = (l: Label | undefined): l is Label => {
-  if (l === undefined) {
-    return false
-  }
-
-  return (
-    typeof (l as Label).addr === 'string' &&
-    typeof (l as Label).fullyQualifiedName === 'string'
-  )
 }
 
 export const toSphinxTransaction = (
