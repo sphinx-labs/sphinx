@@ -259,7 +259,7 @@ export const makeParsedConfig = (
   const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
-  const unlabeledAddresses: Array<string> = []
+  const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
   // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
   // means the `EXECUTE` leaves start with an index of 1.
   let actionIndex = 1
@@ -275,7 +275,7 @@ export const makeParsedConfig = (
 
     const { parsedContracts, unlabeledAdditionalContracts } =
       parseAdditionalContracts(input, configArtifacts)
-    unlabeledAddresses.push(...unlabeledAdditionalContracts)
+    unlabeledContracts.push(...unlabeledAdditionalContracts)
 
     if (isRawCreate2ActionInput(input)) {
       const fullyQualifiedName = findFullyQualifiedName(
@@ -294,7 +294,10 @@ export const makeParsedConfig = (
       } else {
         // We couldn't find the fully qualified name, so the contract must not belong to a source
         // file. We mark it as unlabeled.
-        unlabeledAddresses.push(input.create2Address)
+        unlabeledContracts.push({
+          address: input.create2Address,
+          initCodeWithArgs: input.initCodeWithArgs,
+        })
       }
 
       parsedActionInputs.push({
@@ -330,7 +333,7 @@ export const makeParsedConfig = (
     initialState,
     isSystemDeployed,
     actionInputs: parsedActionInputs,
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
     libraries: convertLibraryFormat(libraries),
@@ -350,10 +353,10 @@ const parseAdditionalContracts = (
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: Array<ParsedContractDeployment>
-  unlabeledAdditionalContracts: Array<string>
+  unlabeledAdditionalContracts: ParsedConfig['unlabeledContracts']
 } => {
   const parsedContracts: Array<ParsedContractDeployment> = []
-  const unlabeled: Array<string> = []
+  const unlabeled: ParsedConfig['unlabeledContracts'] = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
 
@@ -368,7 +371,7 @@ const parseAdditionalContracts = (
         initCodeWithArgs: additionalContract.initCode,
       })
     } else {
-      unlabeled.push(address)
+      unlabeled.push({ address, initCodeWithArgs: additionalContract.initCode })
     }
   }
 

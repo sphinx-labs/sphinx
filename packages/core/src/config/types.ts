@@ -81,7 +81,10 @@ export type ParsedConfig = {
   executionMode: ExecutionMode
   initialState: InitialChainState
   isSystemDeployed: boolean
-  unlabeledAddresses: Array<string>
+  unlabeledContracts: Array<{
+    address: string
+    initCodeWithArgs: string
+  }>
   arbitraryChain: boolean
   libraries: Array<string>
   gitCommit: string | null

@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { Operation } from '@sphinx-labs/contracts'
+import { CREATE3_PROXY_INITCODE, Operation } from '@sphinx-labs/contracts'
 
 import { Create2ActionInput, ParsedConfig } from '../src/config/types'
 import { SphinxActionType } from '../src/actions/types'
@@ -88,11 +88,23 @@ const expectedCall: FunctionCallActionInput = {
   additionalContracts: [],
   gas: '0',
 }
+
+const unlabeledAddressOne = '0x' + '55'.repeat(20)
+const unlabeledAddressTwo = '0x' + '66'.repeat(20)
 const originalParsedConfig: ParsedConfig = {
   chainId: '10',
   executionMode: ExecutionMode.Platform,
   actionInputs: [expectedCreate2, expectedFunctionCallOne, expectedCall],
-  unlabeledAddresses: ['0x' + '55'.repeat(20), '0x' + '66'.repeat(20)],
+  unlabeledContracts: [
+    { address: unlabeledAddressOne, initCodeWithArgs: '0x123456' },
+    { address: unlabeledAddressTwo, initCodeWithArgs: '0x7890' },
+    // We include a `CREATE3` proxy to test that the preview doesn't include it in the
+    // `unlabeledAddresses` set.
+    {
+      address: '0x' + '77'.repeat(20),
+      initCodeWithArgs: CREATE3_PROXY_INITCODE,
+    },
+  ],
   safeAddress: '0x' + 'ff'.repeat(20),
   moduleAddress: '0x' + 'ee'.repeat(20),
   initialState: {
@@ -122,6 +134,11 @@ const originalParsedConfig: ParsedConfig = {
 }
 
 describe('Preview', () => {
+  const expectedUnlabeledAddresses = new Set([
+    unlabeledAddressOne,
+    unlabeledAddressTwo,
+  ])
+
   describe('getPreview', () => {
     it('returns preview for single network that is executing everything, including Gnosis Safe and Sphinx Module', () => {
       const { networks, unlabeledAddresses } = getPreview([
@@ -139,9 +156,7 @@ describe('Preview', () => {
       expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
       expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(skipping.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
 
     it('returns preview for single network that is executing everything, except Gnosis Safe and Sphinx Module', () => {
@@ -160,9 +175,7 @@ describe('Preview', () => {
       expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
       expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(skipping.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
 
     // If a function call or constructor has at least one unnamed argument, then the arguments will be
@@ -200,9 +213,7 @@ describe('Preview', () => {
       })
       expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(skipping.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
 
     it('returns merged preview for networks that are the same', () => {
@@ -236,9 +247,7 @@ describe('Preview', () => {
         expectedFunctionCallOne.decodedAction
       )
       expect(callOptimism).to.deep.equal(expectedCall.decodedAction)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
 
     it('returns preview for networks that are different', () => {
@@ -333,9 +342,7 @@ describe('Preview', () => {
       )
       expect(callArbitrum).to.deep.equal(expectedCall.decodedAction)
       expect(skippingArbitrum.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
 
     it('returns preview when `isSystemDeployed` is `false`', () => {
@@ -368,9 +375,7 @@ describe('Preview', () => {
       expect(functionCall).to.deep.equal(expectedFunctionCallOne.decodedAction)
       expect(call).to.deep.equal(expectedCall.decodedAction)
       expect(skipping.length).to.equal(0)
-      expect(unlabeledAddresses).to.deep.equal(
-        new Set(originalParsedConfig.unlabeledAddresses)
-      )
+      expect(unlabeledAddresses).to.deep.equal(expectedUnlabeledAddresses)
     })
   })
 })

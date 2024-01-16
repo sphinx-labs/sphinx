@@ -34,10 +34,10 @@ import { ExecutionMode } from '../../constants'
  * via the CLI, on a live network via the CLI, or via the DevOps Platform.
  * @property {Object} initialState - On-chain state variables that were recorded before the
  * deployment was executed.
- * @property {Array<string>} unlabeledAddresses - An array of contract addresses in the deployment
- * that weren't labeled. These contracts won't be verified on block explorers, and Sphinx will not
- * create a deployment artifact for them. If a contract does not have a source file, it will be in
- * this array. Common examples are minimal `CREATE3` or `EIP-1167` proxies.
+ * @property {Array<Object>} unlabeledContracts - An array of contracts Sphinx couldn't find an
+ * artifact for. These contracts won't be verified on block explorers, and Sphinx will not create a
+ * deployment artifact for them. If a contract does not have a source file, it will be in this
+ * array. Common examples are minimal `CREATE3` or `EIP-1167` proxies.
  * @property {boolean} arbitraryChain - Indicates whether the deployment can be executed on an
  * arbitrary chain. Currently always false.
  * @property {Array<string>} libraries - An array of libraries that were used in the deployment.
@@ -81,7 +81,10 @@ export type ExecutionArtifact = {
     isModuleDeployed: boolean
     isExecuting: boolean
   }
-  unlabeledAddresses: Array<string>
+  unlabeledContracts: Array<{
+    address: string
+    initCodeWithArgs: string
+  }>
   arbitraryChain: boolean
   libraries: Array<string>
   gitCommit: string | null
