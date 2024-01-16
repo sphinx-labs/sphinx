@@ -30,6 +30,7 @@ import {
   fetchURLForNetwork,
   ensureSphinxAndGnosisSafeDeployed,
   spawnAsync,
+  RawCreate2ActionInput,
   fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
@@ -59,14 +60,13 @@ import * as Reverter from '../../out/artifacts/Reverter.sol/Reverter.json'
 import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
-import {
-  callForgeScriptFunction,
-  getUniqueNames,
-  makeGetConfigArtifacts,
-} from '../../dist'
+import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
 import { makeParsedConfig } from '../../src/foundry/decode'
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
-import { readFoundrySingleChainBroadcast } from '../../src/foundry/utils'
+import {
+  getInitCodeWithArgsArray,
+  readFoundrySingleChainBroadcast,
+} from '../../src/foundry/utils'
 
 export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
@@ -398,15 +398,11 @@ export const makeDeployment = async (
     foundryToml.cachePath
   )
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    collected.map(({ actionInputs }) => actionInputs),
-    collected.map(({ deploymentInfo }) => deploymentInfo)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ actionInputs }) => actionInputs)
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo }) => {
@@ -540,7 +536,7 @@ const makeRawCreate2Action = (
   salt: number,
   artifact: ContractArtifact,
   abiEncodedConstructorArgs: string
-): RawActionInput => {
+): RawCreate2ActionInput => {
   const { bytecode, contractName } = artifact
 
   const gas = (5_000_000).toString()
@@ -562,6 +558,7 @@ const makeRawCreate2Action = (
     value: '0x0',
     operation: Operation.Call,
     txData,
+    initCodeWithArgs,
     actionType: SphinxActionType.CALL.toString(),
     gas,
     additionalContracts: [],

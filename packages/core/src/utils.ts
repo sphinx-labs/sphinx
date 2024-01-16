@@ -832,6 +832,7 @@ export const isRawCreate2ActionInput = (
   return (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
+    rawCreate2.initCodeWithArgs !== undefined &&
     rawCreate2.create2Address !== undefined &&
     rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
@@ -1506,3 +1507,12 @@ export const zeroOutLibraryReferences = (
 
   return modifiedBytecode
 }
+
+/**
+ * Type guard to check if a value is not undefined.
+ *
+ * @param value The value to check.
+ * @returns true if the value is not undefined, false otherwise.
+ */
+export const isDefined = <T>(value: T | undefined): value is T =>
+  value !== undefined
