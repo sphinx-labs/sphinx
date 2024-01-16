@@ -8,6 +8,7 @@ import {
   isNonNullObject,
   remove0x,
 } from '@sphinx-labs/contracts'
+import axios from 'axios'
 
 import {
   CompilerInput,
@@ -19,6 +20,7 @@ import {
 import { SphinxJsonRpcProvider } from './provider'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import {
+  fetchSphinxManagedBaseUrl,
   getNetworkNameDirectory,
   isSphinxTransaction,
   toSphinxTransaction,
@@ -51,11 +53,35 @@ export const fetchDeploymentArtifacts = async (
   orgId: string,
   projectName: string
 ): Promise<DeploymentArtifacts> => {
-  apiKey
-  orgId
-  projectName
+  const response = await axios
+    .post(`${fetchSphinxManagedBaseUrl()}/api/artifacts`, {
+      apiKey,
+      orgId,
+      projectName,
+    })
+    .catch((err) => {
+      if (err.response) {
+        if (err.response.status === 400) {
+          throw new Error(
+            'Malformed request fetching deployment artifacts, please report this to the developers'
+          )
+        } else if (err.response.status === 401) {
+          throw new Error(
+            `Unauthorized, please check your API key and Org Id are correct`
+          )
+        } else if (err.response.status === 404) {
+          throw new Error(`No artifacts found for this project`)
+        } else {
+          throw new Error(
+            `Unexpected response code, please report this to the developers`
+          )
+        }
+      } else {
+        throw err
+      }
+    })
 
-  return {} as any
+  return response.data
 }
 
 /**

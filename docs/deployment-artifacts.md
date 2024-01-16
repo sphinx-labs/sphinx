@@ -58,6 +58,7 @@ pnpm sphinx artifacts --org-id <ORG_ID> --project-name <PROJECT_NAME>
 
 - `--org-id <ORG_ID>`: **Required**. Your Sphinx organization ID. You can either retrieve this from the Sphinx UI (under "Options" -> "API Credentials") or from the `sphinxConfig.orgId` config option in your deployment script.
 - `--project-name <PROJECT_NAME>`: **Required**. The name of your project. You can retrieve this from the `sphinxConfig.projectName` config option in your deployment script.
+- `--silent`: **Optional**. Silence the output except for error messages.
 
 ### Example Usage
 
