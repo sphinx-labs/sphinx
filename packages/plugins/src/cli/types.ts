@@ -26,6 +26,19 @@ export interface DeployCommandArgs {
   targetContract?: string
 }
 
+export interface FetchArtifactsArgs {
+  apiKey: string
+  orgId: string
+  projectName: string
+  silent: boolean
+}
+
+export interface ArtifactsCommandArgs {
+  orgId: string
+  projectName: string
+  silent: boolean
+}
+
 export type GetNetworkGasEstimate = (
   parsedConfigArray: Array<ParsedConfig>,
   chainId: string,
@@ -48,3 +61,5 @@ export type BuildParsedConfigArray = (
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }>
+
+export type FetchRemoteArtifacts = (args: FetchArtifactsArgs) => void
