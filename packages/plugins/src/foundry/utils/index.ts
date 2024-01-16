@@ -14,7 +14,6 @@ import {
 import { spawnSync } from 'child_process'
 
 import {
-  BuildInfo,
   CompilerOutputContracts,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
@@ -500,31 +499,6 @@ export const inferSolcVersion = async (): Promise<string> => {
   } catch (err) {
     return defaultSolcVersion
   }
-}
-
-export const getConfigArtifactForContractName = (
-  targetContractName: string,
-  configArtifacts: ConfigArtifacts
-): {
-  fullyQualifiedName: string
-  buildInfo: BuildInfo
-  artifact: ContractArtifact
-} => {
-  for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
-    configArtifacts
-  )) {
-    const contractName = fullyQualifiedName.split(':')[1]
-    if (contractName === targetContractName) {
-      return {
-        fullyQualifiedName,
-        buildInfo,
-        artifact,
-      }
-    }
-  }
-  throw new Error(
-    `Could not find artifact for ${targetContractName}. Should never happen.`
-  )
 }
 
 /**
@@ -1161,4 +1135,36 @@ export const replaceEnvVariables = (input: ParsedVariable): any => {
     // For booleans and numbers, return as is
     return input
   }
+}
+
+/**
+ * Searches the `configArtifacts` to find the fully qualified name for the given `initCodeWithArgs`.
+ * Returns `undefined` if the `initCodeWithArgs` does not exist in the `configArtifacts`, which
+ * means that it does not belong to a source file.
+ */
+export const findFullyQualifiedName = (
+  initCodeWithArgs: string,
+  configArtifacts: ConfigArtifacts
+): string | undefined => {
+  for (const fullyQualifiedName of Object.keys(configArtifacts)) {
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const { bytecode, linkReferences, abi } = artifact
+
+    const iface = new ethers.Interface(abi)
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
+    )
+
+    if (
+      isInitCodeMatch(initCodeWithArgs, {
+        bytecode,
+        linkReferences,
+        constructorFragment,
+      })
+    ) {
+      return fullyQualifiedName
+    }
+  }
+  // If we make it to this point, we couldn't find a fully qualified name for this init code.
+  return undefined
 }

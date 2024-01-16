@@ -20,6 +20,7 @@ import {
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
+  CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
@@ -28,7 +29,6 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
-import * as ConflictingNameContractArtifact from '../../../out/artifacts/First.sol/ConflictingNameContract.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
@@ -78,61 +78,6 @@ const constructorDeploysContractChildAddressCreate3 = ethers.getCreateAddress({
   from: constructorDeploysContractAddressCreate3,
   nonce: 1,
 })
-const unlabeledConstructorDeploysContractAddress = ethers.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  '0x' + '00'.repeat(31) + '02',
-  ethers.keccak256(
-    ethers.concat([
-      ConstructorDeploysContractParentArtifact.bytecode.object,
-      coder.encode(['uint'], [3]),
-    ])
-  )
-)
-const unlabeledConstructorDeploysContractChildAddress = ethers.getCreateAddress(
-  {
-    from: unlabeledConstructorDeploysContractAddress,
-    nonce: 1,
-  }
-)
-const unlabeledConstructorDeploysContractCreate3Address = getCreate3Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  '0x' + '00'.repeat(31) + '02'
-)
-const unlabeledConstructorDeploysContractChildCreate3Address =
-  ethers.getCreateAddress({
-    from: unlabeledConstructorDeploysContractCreate3Address,
-    nonce: 1,
-  })
-const conflictingNameContractAddress = ethers.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.ZeroHash,
-  ethers.keccak256(
-    ethers.concat([
-      ConflictingNameContractArtifact.bytecode.object,
-      coder.encode(['uint'], [1]),
-    ])
-  )
-)
-const unlabeledConflictingNameContract = ethers.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  '0x' + '00'.repeat(31) + '01',
-  ethers.keccak256(
-    ethers.concat([
-      ConflictingNameContractArtifact.bytecode.object,
-      coder.encode(['uint'], [2]),
-    ])
-  )
-)
-const conflictingNameContractWithInteractionAddress = ethers.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  '0x' + '00'.repeat(31) + '02',
-  ethers.keccak256(
-    ethers.concat([
-      ConflictingNameContractArtifact.bytecode.object,
-      coder.encode(['uint'], [3]),
-    ])
-  )
-)
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -423,15 +368,7 @@ describe('Deployment Cases', () => {
   }
 
   const checkNotLabeled = (address: string) => {
-    let fullyQualifiedName: string | undefined
-    for (const actionInput of compilerConfig!.actionInputs) {
-      for (const contract of actionInput.contracts) {
-        if (contract.address === address) {
-          fullyQualifiedName = contract.fullyQualifiedName
-        }
-      }
-    }
-    expect(fullyQualifiedName).to.be.undefined
+    expect(compilerConfig!.unlabeledAddresses.includes(address)).to.eq(true)
   }
 
   before(async () => {
@@ -453,7 +390,6 @@ describe('Deployment Cases', () => {
           'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
           'contracts/test/Fallback.sol:Fallback',
-          'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract',
         ]).context,
         verify: false,
       }))
@@ -476,10 +412,18 @@ describe('Deployment Cases', () => {
     expect(await contract.myString()).to.equal('did fallback')
   })
 
-  it('Can deploy with Create3 and label via interaction', async () => {
+  it('Can deploy with Create3 and infer artifact', async () => {
     expect(await provider.getCode(fallbackCreate3Address)).to.not.eq('0x')
 
     checkLabeled(fallbackCreate3Address, 'contracts/test/Fallback.sol:Fallback')
+
+    // Check that the `CREATE3` proxy is not labeled.
+    const create3ProxyAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(CREATE3_PROXY_INITCODE)
+    )
+    checkNotLabeled(create3ProxyAddress)
   })
 
   describe('Can deploy contract that deploys contract in constructor', async () => {
@@ -553,147 +497,14 @@ describe('Deployment Cases', () => {
           constructorDeploysContractChildAddressCreate3,
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor'
         )
-      })
-    })
 
-    describe('Without label', async () => {
-      it('Create2', async () => {
-        // expect both deployed
-        expect(
-          await provider.getCode(unlabeledConstructorDeploysContractAddress)
-        ).to.not.eq('0x')
-        expect(
-          await provider.getCode(
-            unlabeledConstructorDeploysContractChildAddress
-          )
-        ).to.not.eq('0x')
-
-        // expect child is stored in parent
-        const parentContract = getContract(
-          unlabeledConstructorDeploysContractAddress,
-          ConstructorDeploysContractParentArtifact
+        // Check that the `CREATE3` proxy is not labeled.
+        const create3ProxyAddress = ethers.getCreate2Address(
+          DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          ethers.zeroPadValue('0x01', 32), // Salt is `bytes32(uint(1))`
+          ethers.keccak256(CREATE3_PROXY_INITCODE)
         )
-        expect(await parentContract.myContract()).to.equal(
-          unlabeledConstructorDeploysContractChildAddress
-        )
-
-        // expect can interact with child
-        const childContract = getContract(
-          unlabeledConstructorDeploysContractChildAddress,
-          ConstructorDeploysContractChildArtifact
-        )
-        expect(await childContract.x()).to.eq(BigInt(3))
-
-        // expect child is not labeled
-        checkNotLabeled(unlabeledConstructorDeploysContractChildAddress)
-        expect(
-          compilerConfig?.unlabeledAddresses.includes(
-            unlabeledConstructorDeploysContractChildAddress
-          )
-        ).to.eq(true)
-      })
-
-      it('Create3', async () => {
-        // expect both deployed
-        expect(
-          await provider.getCode(
-            unlabeledConstructorDeploysContractCreate3Address
-          )
-        ).to.not.eq('0x')
-        expect(
-          await provider.getCode(
-            unlabeledConstructorDeploysContractChildCreate3Address
-          )
-        ).to.not.eq('0x')
-
-        // expect child is stored in parent
-        const parentContract = getContract(
-          unlabeledConstructorDeploysContractCreate3Address,
-          ConstructorDeploysContractParentArtifact
-        )
-        expect(await parentContract.myContract()).to.equal(
-          unlabeledConstructorDeploysContractChildCreate3Address
-        )
-
-        // expect can interact with child
-        const childContract = getContract(
-          unlabeledConstructorDeploysContractChildCreate3Address,
-          ConstructorDeploysContractChildArtifact
-        )
-        expect(await childContract.x()).to.eq(BigInt(4))
-
-        // expect both are not labeled
-        checkNotLabeled(unlabeledConstructorDeploysContractCreate3Address)
-        checkNotLabeled(unlabeledConstructorDeploysContractChildCreate3Address)
-        expect(
-          compilerConfig?.unlabeledAddresses.includes(
-            unlabeledConstructorDeploysContractCreate3Address
-          )
-        ).to.eq(true)
-        expect(
-          compilerConfig?.unlabeledAddresses.includes(
-            unlabeledConstructorDeploysContractChildCreate3Address
-          )
-        ).to.eq(true)
-      })
-    })
-
-    describe('Can deploy ambiguously named contract', async () => {
-      it('With label', async () => {
-        // expect contract to be deployed
-        expect(
-          await provider.getCode(conflictingNameContractAddress)
-        ).to.not.eq('0x')
-
-        // check can interact with the contract
-        const contract = getContract(
-          conflictingNameContractAddress,
-          ConflictingNameContractArtifact
-        )
-        expect(await contract.number()).to.eq(BigInt(1))
-
-        // expect contract is labeled
-        checkLabeled(
-          conflictingNameContractAddress,
-          'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract'
-        )
-      })
-
-      it('Without label', async () => {
-        // expect contract to be deployed
-        expect(
-          await provider.getCode(unlabeledConflictingNameContract)
-        ).to.not.eq('0x')
-
-        // check can interact with the contract
-        const contract = getContract(
-          unlabeledConflictingNameContract,
-          ConflictingNameContractArtifact
-        )
-        expect(await contract.number()).to.eq(BigInt(2))
-
-        // expect contract is labeled
-        checkNotLabeled(unlabeledConflictingNameContract)
-      })
-
-      it('With interaction', async () => {
-        // expect contract to be deployed
-        expect(
-          await provider.getCode(conflictingNameContractWithInteractionAddress)
-        ).to.not.eq('0x')
-
-        // check can interact with the contract
-        const contract = getContract(
-          conflictingNameContractWithInteractionAddress,
-          ConflictingNameContractArtifact
-        )
-        expect(await contract.number()).to.eq(BigInt(5))
-
-        // expect contract is labeled
-        checkLabeled(
-          conflictingNameContractWithInteractionAddress,
-          'contracts/test/conflictingNameContracts/First.sol:ConflictingNameContract'
-        )
+        checkNotLabeled(create3ProxyAddress)
       })
     })
   })
@@ -730,9 +541,6 @@ describe('Deployment Cases', () => {
         'ConstructorDeploysContract.json',
         'ConstructorDeploysContract_1.json',
         'DeployedInConstructor_1.json',
-        'ConstructorDeploysContract_2.json',
-        'ConflictingNameContract.json',
-        'ConflictingNameContract_1.json',
       ]
     )
   })

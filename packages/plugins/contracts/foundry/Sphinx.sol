@@ -16,7 +16,6 @@ import {
     DeploymentInfo,
     NetworkInfo,
     Wallet,
-    Label,
     SphinxTransaction,
     ExecutionMode,
     SystemContractInfo
@@ -64,8 +63,6 @@ abstract contract Sphinx {
      *      visibility so that the user can set fields on it.
      */
     SphinxConfig public sphinxConfig;
-
-    Label[] private labels;
 
     SphinxConstants private constants;
 
@@ -173,18 +170,6 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
 
-        // Set the labels. We do this after running the user's script because the user may assign
-        // labels in their deployment. We use a for-loop instead of directly assigning the labels to
-        // prevent an error when compiling with `viaIR` and the solc optimizer enabled (runs =
-        // 200) using solc v0.8.5.
-        deploymentInfo.labels = new Label[](labels.length);
-        for (uint i = 0; i < labels.length; i++) {
-            deploymentInfo.labels[i] = Label({
-                addr: labels[i].addr,
-                fullyQualifiedName: labels[i].fullyQualifiedName
-            });
-        }
-
         return deploymentInfo;
     }
 
@@ -291,32 +276,6 @@ abstract contract Sphinx {
         revert(
             string(abi.encodePacked("No network found with the chain ID: ", vm.toString(_chainId)))
         );
-    }
-
-    function sphinxLabel(address _addr, string memory _fullyQualifiedName) internal {
-        for (uint256 i = 0; i < labels.length; i++) {
-            Label memory label = labels[i];
-            if (label.addr == _addr) {
-                require(
-                    keccak256(abi.encodePacked(_fullyQualifiedName)) ==
-                        keccak256(abi.encodePacked(label.fullyQualifiedName)),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address ",
-                            vm.toString(_addr),
-                            " was labeled with two names:\n",
-                            label.fullyQualifiedName,
-                            "\n",
-                            _fullyQualifiedName,
-                            "\nPlease choose one label."
-                        )
-                    )
-                );
-                return;
-            }
-        }
-
-        labels.push(Label(_addr, _fullyQualifiedName));
     }
 
     /**

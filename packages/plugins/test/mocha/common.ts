@@ -355,7 +355,6 @@ export const makeDeployment = async (
     await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
 
     const deploymentInfo: DeploymentInfo = {
-      labels: [],
       safeAddress,
       moduleAddress,
       safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),

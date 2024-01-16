@@ -86,7 +86,6 @@ struct DeploymentInfo {
     SphinxConfig newConfig;
     ExecutionMode executionMode;
     InitialChainState initialState;
-    Label[] labels;
     bool arbitraryChain;
 }
 
@@ -122,11 +121,6 @@ struct SphinxConfig {
     Network[] mainnets;
     Network[] testnets;
     uint256 saltNonce;
-}
-
-struct Label {
-    address addr;
-    string fullyQualifiedName;
 }
 
 struct DeployOptions {

@@ -23,7 +23,6 @@ import {
     InitialChainState,
     OptionalAddress,
     Wallet,
-    Label,
     ExecutionMode,
     SystemContractInfo
 } from "./SphinxPluginTypes.sol";
