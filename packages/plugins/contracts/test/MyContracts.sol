@@ -149,3 +149,48 @@ contract MyLargeContract is Governor, AccessControl {
 contract DuplicateContractName {
     function duplicateContractTwo() external {}
 }
+
+library MyLibraryOne {
+    function myFirstLibraryFunction() external pure returns (uint256) {
+        return 42;
+    }
+}
+
+library MyLibraryTwo {
+    function mySecondLibraryFunction() external pure returns (uint256) {
+        return 123;
+    }
+}
+
+// A contract that contains calls to libraries. We call two distinct libraries, and make two calls
+// to the same library, to ensure that our TypeScript logic can handle contracts with a somewhat
+// complex `linkReferences` field in its artifact.
+contract MyContractWithLibraries {
+    uint256 public myValue;
+
+    function doubleValue() external {
+        myValue = 2 * MyLibraryOne.myFirstLibraryFunction();
+    }
+
+    function tripleValue() external {
+        myValue = 3 * MyLibraryOne.myFirstLibraryFunction();
+    }
+
+    function newValue() external {
+        myValue = MyLibraryTwo.mySecondLibraryFunction();
+    }
+}
+
+contract MyImmutableContract {
+    uint256 public immutable myFirstImmutable;
+    uint8 public immutable mySecondImmutable;
+
+    constructor(uint256 _one, uint8 _two) {
+        myFirstImmutable = _one;
+        mySecondImmutable = _two;
+    }
+
+    function addImmutables() external view returns (uint) {
+        return myFirstImmutable + uint256(mySecondImmutable);
+    }
+}

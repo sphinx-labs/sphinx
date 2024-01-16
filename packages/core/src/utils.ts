@@ -27,6 +27,7 @@ import {
   SPHINX_NETWORKS,
   getSphinxConstants,
   remove0x,
+  LinkReferences,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -1458,4 +1459,50 @@ export const getSystemContractInfo = (): Array<SystemContractInfo> => {
       return { initCodeWithArgs, expectedAddress }
     }
   )
+}
+
+/**
+ * Returns the length in bytes of the input hex string.
+ *
+ * The difference between this function and `ethers.dataLength` is that this function does not throw
+ * an error if the input hex string contains library placeholders. This function will return the
+ * correct length for hex strings with library placeholders because the placeholders are the same
+ * length as library addresses. For more info on library placeholders, see:
+ * https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ *
+ * @example
+ * // returns 3
+ * getBytesLength("0x123456")
+ */
+export const getBytesLength = (hexString: string): number => {
+  return remove0x(hexString).length / 2
+}
+
+/**
+ * Replace library references in the `bytecode` with zeros. This function uses the `linkReferences`
+ * to find the location of the library references.
+ *
+ * @returns The `bytecode` with zeros instead of library references.
+ */
+export const zeroOutLibraryReferences = (
+  bytecode: string,
+  linkReferences: LinkReferences
+): string => {
+  const replacer = remove0x(ethers.ZeroAddress)
+
+  let modifiedBytecode = bytecode
+
+  for (const references of Object.values(linkReferences)) {
+    for (const libraryReferences of Object.values(references)) {
+      for (const ref of libraryReferences) {
+        const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
+        modifiedBytecode =
+          modifiedBytecode.substring(0, start) +
+          replacer +
+          modifiedBytecode.substring(start + ref.length * 2)
+      }
+    }
+  }
+
+  return modifiedBytecode
 }

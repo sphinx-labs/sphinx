@@ -12,7 +12,6 @@ import {
   ExecutionMode,
   RawActionInput,
   SphinxJsonRpcProvider,
-  ensureSphinxAndGnosisSafeDeployed,
   getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
@@ -29,6 +28,8 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
+  ensureSphinxAndGnosisSafeDeployed,
+  spawnAsync,
   fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
@@ -64,13 +65,19 @@ import {
   makeGetConfigArtifacts,
 } from '../../dist'
 import { makeParsedConfig } from '../../src/foundry/decode'
+import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
+import { readFoundrySingleChainBroadcast } from '../../src/foundry/utils'
 
 export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
 }
 
-const getAnvilPort = (chainId: bigint): number => {
-  return Number(BigInt(42000) + (BigInt(chainId) % BigInt(1000)))
+const getAnvilPort = (chainId: bigint): bigint => {
+  if (chainId === BigInt(31337)) {
+    return BigInt(8545)
+  } else {
+    return BigInt(42000) + (chainId % BigInt(1000))
+  }
 }
 
 export const startAnvilNodes = async (chainIds: Array<bigint>) => {
@@ -103,7 +110,7 @@ export const killAnvilNodes = async (chainIds: Array<bigint>) => {
   }
 }
 
-const isPortOpen = async (port: number): Promise<boolean> => {
+const isPortOpen = async (port: bigint): Promise<boolean> => {
   try {
     const { stdout } = await execAsync(`lsof -t -i:${port}`)
     return stdout.trim() !== ''
@@ -760,4 +767,36 @@ export const getSphinxModuleAddressFromScript = async (
   const safeAddress = json.returns[0].value
 
   return safeAddress
+}
+
+export const runForgeScript = async (
+  scriptPath: string,
+  broadcastFolder: string,
+  rpcUrl: string
+): Promise<FoundrySingleChainBroadcast> => {
+  const initialTime = new Date()
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+  ]
+  const { code, stdout, stderr } = await spawnAsync(`forge`, forgeScriptArgs)
+  if (code !== 0) {
+    throw new Error(`${stdout}\n${stderr}`)
+  }
+
+  const broadcast = readFoundrySingleChainBroadcast(
+    broadcastFolder,
+    scriptPath,
+    31337,
+    'run',
+    initialTime
+  )
+  // Narrow the TypeScript type.
+  if (!broadcast) {
+    throw new Error('Could not find broadcast file.')
+  }
+  return broadcast
 }
