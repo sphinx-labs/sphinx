@@ -35,9 +35,9 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 import {
   compile,
   getFoundrySingleChainDryRunPath,
+  getInitCodeWithArgsArray,
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getUniqueNames,
   readFoundrySingleChainDryRun,
   readInterface,
 } from '../foundry/utils'
@@ -266,15 +266,8 @@ export const deploy = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    [actionInputs],
-    [deploymentInfo]
-  )
-
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(actionInputs)
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(

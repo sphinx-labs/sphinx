@@ -181,6 +181,7 @@ export const convertFoundryDryRunToActionInputs = (
           value: transaction.value ?? '0x0',
           operation: Operation.Call,
           txData: transaction.data,
+          initCodeWithArgs,
           actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,

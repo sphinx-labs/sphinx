@@ -60,9 +60,7 @@ export const makeMockSphinxContext = (
   ): GetConfigArtifacts => {
     return async (
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _fullyQualifiedNames: Array<string>,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _contractNames: Array<string>
+      _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
       for (const name of mockedFullyQualifiedNames) {

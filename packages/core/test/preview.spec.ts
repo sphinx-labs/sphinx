@@ -33,6 +33,7 @@ const expectedCreate2: Create2ActionInput = {
   },
   // These fields are unused:
   create2Address: '',
+  initCodeWithArgs: '',
   index: '0',
   value: '',
   operation: Operation.Call,

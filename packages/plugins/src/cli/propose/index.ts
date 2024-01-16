@@ -37,11 +37,11 @@ import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getUniqueNames,
   getFoundrySingleChainDryRunPath,
   readFoundrySingleChainDryRun,
   readInterface,
   compile,
+  getInitCodeWithArgsArray,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -214,15 +214,11 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   spinner?.succeed(`Estimated gas.`)
   spinner?.start(`Building proposal...`)
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    collected.map(({ actionInputs }) => actionInputs),
-    collected.map(({ deploymentInfo }) => deploymentInfo)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ actionInputs }) => actionInputs)
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo, libraries }, i) =>

@@ -147,6 +147,7 @@ export type SphinxConfig = {
 export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
+  initCodeWithArgs: string
   actionType: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
@@ -220,8 +221,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  fullyQualifiedNames: Array<string>,
-  contractNames: Array<string>
+  initCodeWithArgsArray: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
