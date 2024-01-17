@@ -320,7 +320,10 @@ type ExecutionArtifact = {
     isModuleDeployed: boolean
     isExecuting: boolean
   }
-  unlabeledAddresses: Array<string>
+  unlabeledContracts: Array<{
+    address: string
+    initCodeWithArgs: string
+  }>
   arbitraryChain: boolean
   libraries: Array<string>
   gitCommit: string | null
@@ -343,7 +346,7 @@ type ExecutionArtifact = {
 * **sphinxConfig**: The configuration options in the deployment script.
 * **executionMode**: Whether the deployment was executed on a local network via the CLI (`0`), on a live network via the CLI (`1`), or via the DevOps Platform (`2`).
 * **initialState**: On-chain state variables that were recorded before the deployment was executed.
-* **unlabeledAddresses**: An array of contract addresses in the deployment that weren't labeled. These contracts won't be verified on block explorers, and Sphinx will not create a deployment artifact for them. If a contract does not have a source file, it will be in this array. Common examples are minimal `CREATE3` or `EIP-1167` proxies.
+* **unlabeledContracts**: An array of contracts Sphinx couldn't find an artifact for. These contracts won't be verified on block explorers, and Sphinx will not create a deployment artifact for them. If a contract does not have a source file, it will be in this array. Common examples are minimal `CREATE3` or `EIP-1167` proxies.
 * **arbitraryChain**: Indicates whether the deployment can be executed on an arbitrary chain. Currently always false.
 * **libraries**: An array of libraries that were used in the deployment. These are in the format that the Solidity compiler expects. For example, `path/to/file.sol:MyLibrary=0x1234567890123456789012345678901234567890`.
 * **gitCommit**: The full git commit hash on the machine that initiated the deployment. If the deployment was executed via the DevOps Platform, this is recorded on the machine that proposed the deployment. If the deployment was executed from the user's local machine instead of the DevOps Platform, this is recorded on the user's machine when they run the `deploy` CLI command. This is null if the repository was not a git repository when the deployment was initiated.
@@ -450,7 +453,7 @@ type ExecutionArtifact = {
     "isModuleDeployed": false,
     "isExecuting": false
   },
-  "unlabeledAddresses": [],
+  "unlabeledContracts": [],
   "arbitraryChain": false,
   "libraries": [],
   "gitCommit": "88a023502161a4be85b4b4340e1066c03f60ce54",

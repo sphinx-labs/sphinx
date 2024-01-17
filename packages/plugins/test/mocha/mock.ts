@@ -158,7 +158,7 @@ const makeMockParsedConfig = (): ParsedConfig => {
       isExecuting: false,
     },
     isSystemDeployed: true,
-    unlabeledAddresses: [],
+    unlabeledContracts: [],
     arbitraryChain: false,
     libraries: [],
     gitCommit: null,

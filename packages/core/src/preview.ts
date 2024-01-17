@@ -1,4 +1,5 @@
 import { yellow, green, bold } from 'chalk'
+import { CREATE3_PROXY_INITCODE } from '@sphinx-labs/contracts'
 
 import { DecodedAction, ParsedConfig } from './config/types'
 import {
@@ -18,6 +19,15 @@ type PreviewElement =
   | { to: string; data: string }
   | SystemDeploymentElement
 
+/**
+ * @property unlabeledAddresses A set of unlabeled addresses. The preview will warn the user that
+ * these addresses will not be verified on Etherscan and they will not have a deployment artifact.
+ * This set does not include any `CREATE3` proxies even though they're unlabeled. We exclude
+ * `CREATE3` proxies because we assume that the user doesn't need a contract deployment artifact for
+ * them, since users never interact directly with these proxies. Also, if a user isn't aware that
+ * `CREATE3` involves a proxy deployment, they may reasonably be confused about a warning for a
+ * contract they didn't know existed.
+ */
 export type SphinxPreview = {
   networks: Array<{
     networkTags: Array<string>
@@ -166,9 +176,16 @@ export const getPreview = (
       initialState,
       actionInputs,
       executionMode,
-      unlabeledAddresses,
+      unlabeledContracts,
       isSystemDeployed,
     } = parsedConfig
+
+    const unlabeledAddresses = unlabeledContracts
+      // Remove the `CREATE3` proxies.
+      .filter(
+        (contract) => contract.initCodeWithArgs !== CREATE3_PROXY_INITCODE
+      )
+      .map((contract) => contract.address)
 
     const networkName = getNetworkNameForChainId(BigInt(chainId))
     const networkTag = getNetworkTag(

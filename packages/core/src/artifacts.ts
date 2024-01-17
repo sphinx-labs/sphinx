@@ -635,7 +635,7 @@ const makeExecutionArtifact = async (
     chainId,
     actionInputs,
     executionMode,
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     libraries,
     gitCommit,
@@ -684,7 +684,7 @@ const makeExecutionArtifact = async (
       isModuleDeployed,
       isExecuting,
     },
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     libraries,
     gitCommit,
@@ -719,6 +719,16 @@ const isLibraryArray = (ary: any): boolean => {
 
     return ethers.isAddress(address)
   })
+}
+
+const isUnlabeledContracts = (ary: any): boolean => {
+  return (
+    Array.isArray(ary) &&
+    ary.every(
+      ({ address, initCodeWithArgs }) =>
+        ethers.isAddress(address) && typeof initCodeWithArgs === 'string'
+    )
+  )
 }
 
 export const isExecutionArtifact = (obj: any): obj is ExecutionArtifact => {
@@ -760,8 +770,7 @@ export const isExecutionArtifact = (obj: any): obj is ExecutionArtifact => {
     typeof obj.initialState.isSafeDeployed === 'boolean' &&
     typeof obj.initialState.isModuleDeployed === 'boolean' &&
     typeof obj.initialState.isExecuting === 'boolean' &&
-    Array.isArray(obj.unlabeledAddresses) &&
-    obj.unlabeledAddresses.every((addr) => typeof addr === 'string') &&
+    isUnlabeledContracts(obj.unlabeledContracts) &&
     typeof obj.arbitraryChain === 'boolean' &&
     isLibraryArray(obj.libraries) &&
     (typeof obj.gitCommit === 'string' || obj.gitCommit === null) &&

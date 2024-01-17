@@ -368,7 +368,10 @@ describe('Deployment Cases', () => {
   }
 
   const checkNotLabeled = (address: string) => {
-    expect(compilerConfig!.unlabeledAddresses.includes(address)).to.eq(true)
+    const isAddressUnlabeled = compilerConfig!.unlabeledContracts.some(
+      (contract) => contract.address === address
+    )
+    expect(isAddressUnlabeled).to.eq(true)
   }
 
   before(async () => {
