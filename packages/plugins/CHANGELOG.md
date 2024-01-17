@@ -1,5 +1,30 @@
 # @sphinx-labs/plugins
 
+## 0.26.5
+
+### Patch Changes
+
+- f6ad422: Support CLI deployments on networks not supported by the DevOps Platform
+- c0b72d8: Remove unused legacy network variables
+- 1640d3c: Use more specific fs_permissions configuration
+- b802adf: Use artifact inference in Foundry plugin
+- d426f7c: Rename Gnosis Safe address variable for clarity
+- c8fc9e0: Remove `CREATE3` proxies from preview warning
+- 9b987df: Simplify network integration interface
+- d7aa858: Check if init code belongs to contract artifact
+- aa6203b: Optimize deployments in proposal test suite
+- 1d2d46d: Enable deployment artifact cli task
+- 57e0dbd: Use bytecode inference to determine contract artifact
+- Updated dependencies [f6ad422]
+- Updated dependencies [b802adf]
+- Updated dependencies [c8fc9e0]
+- Updated dependencies [9b987df]
+- Updated dependencies [d7aa858]
+- Updated dependencies [1d2d46d]
+- Updated dependencies [57e0dbd]
+  - @sphinx-labs/contracts@0.15.2
+  - @sphinx-labs/core@0.20.4
+
 ## 0.26.4
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @sphinx-labs/contracts
 
+## 0.15.2
+
+### Patch Changes
+
+- f6ad422: Support CLI deployments on networks not supported by the DevOps Platform
+- b802adf: Use artifact inference in Foundry plugin
+- 9b987df: Simplify network integration interface
+
 ## 0.15.1
 
 ### Patch Changes
