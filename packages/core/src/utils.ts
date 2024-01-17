@@ -4,7 +4,7 @@ import { exec, execSync, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
-import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
+import { ethers, AbiCoder, Provider, JsonRpcSigner, parseUnits } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
@@ -141,6 +141,64 @@ export const getEIP1967ProxyAdminAddress = async (
   return ownerAddress
 }
 
+export type FeeHistory = {
+  oldestBlock: number
+  reward: string[][]
+  baseFeePerGas: string[]
+  gasUsedRatio: number[]
+}
+
+/**
+ * Calculates the gas fees to use on Linea and Linea Goerli. This function was largely copied from their example:
+ * https://docs.linea.build/build-on-linea/gas-fees
+ */
+export const getLineaOverrides = async (
+  overridden: ethers.TransactionRequest,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  signer: ethers.Signer
+): Promise<ethers.TransactionRequest> => {
+  // Cap on the fee we're willing to pay. Since we're aggressive about execution speed we set this high.
+  // The linea docs recommend using 10.
+  const maxFeePerGasFromConfig = parseUnits('20', 'gwei')
+  const percentile = 20
+
+  const { reward, baseFeePerGas }: FeeHistory = await provider.send(
+    'eth_feeHistory',
+    ['0x5', 'latest', [percentile]]
+  )
+
+  // Calculate average 20 percentile priority fee over last 5 blocks
+  const maxPriorityFeePerGas =
+    reward.length > 0
+      ? reward.reduce(
+          (acc: bigint, currentValue: string[]) =>
+            acc + BigInt(currentValue[0]),
+          BigInt(0)
+        ) / BigInt(reward.length)
+      : parseUnits('1', 'gwei') // default to 10 gwei if there were no previous blocks (local networks)
+
+  // Use base fee from latest block to calculate max fee per gas
+  const maxFeePerGas =
+    (baseFeePerGas?.length > 0
+      ? BigInt(baseFeePerGas[baseFeePerGas.length - 1])
+      : BigInt(10)) *
+      BigInt(2) +
+    maxPriorityFeePerGas
+
+  // Sanity check that the gas values are positive
+  overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+  overridden.maxFeePerGas =
+    maxFeePerGas > maxFeePerGasFromConfig
+      ? maxFeePerGasFromConfig
+      : maxFeePerGas
+  overridden.nonce = await provider.getTransactionCount(
+    await signer.getAddress(),
+    'latest'
+  )
+
+  return overridden
+}
+
 /**
  * Overrides an object's gas price settings to handle a variety of edge cases on different networks.
  *
@@ -199,13 +257,10 @@ export const getGasPriceOverrides = async (
     case 1442:
     case 1101:
       return overridden
-    // On linea and its testnet, just override the gasPrice
+    // On linea and its testnet override using recommended gas calculation
     case 59140:
     case 59144:
-      if (gasPrice !== null) {
-        overridden.gasPrice = gasPrice
-        return overridden
-      }
+      return getLineaOverrides(overridden, provider, signer)
     // On Polygon PoS, override the maxPriorityFeePerGas using the max fee
     case 137:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
