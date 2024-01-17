@@ -3,7 +3,6 @@ import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 
 import {
-  SupportedChainId,
   execAsync,
   sleep,
   sortHexStrings,
@@ -12,10 +11,7 @@ import {
   DeploymentInfo,
   ExecutionMode,
   RawActionInput,
-  SUPPORTED_NETWORKS,
   SphinxJsonRpcProvider,
-  SupportedNetworkName,
-  ensureSphinxAndGnosisSafeDeployed,
   getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
@@ -32,6 +28,10 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
+  ensureSphinxAndGnosisSafeDeployed,
+  spawnAsync,
+  RawCreate2ActionInput,
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -60,22 +60,27 @@ import * as Reverter from '../../out/artifacts/Reverter.sol/Reverter.json'
 import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
-import {
-  callForgeScriptFunction,
-  getUniqueNames,
-  makeGetConfigArtifacts,
-} from '../../dist'
+import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
 import { makeParsedConfig } from '../../src/foundry/decode'
+import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
+import {
+  getInitCodeWithArgsArray,
+  readFoundrySingleChainBroadcast,
+} from '../../src/foundry/utils'
 
-export const getAnvilRpcUrl = (chainId: number): string => {
+export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
 }
 
-const getAnvilPort = (chainId: number): number => {
-  return 42000 + (chainId % 1000)
+const getAnvilPort = (chainId: bigint): bigint => {
+  if (chainId === BigInt(31337)) {
+    return BigInt(8545)
+  } else {
+    return BigInt(42000) + (chainId % BigInt(1000))
+  }
 }
 
-export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
+export const startAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
     // Start an Anvil node with a fresh state. We must use `exec` instead of `execAsync`
     // because the latter will hang indefinitely.
@@ -85,11 +90,9 @@ export const startAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   await sleep(1000)
 }
 
-export const startForkedAnvilNodes = async (
-  chainIds: Array<SupportedChainId>
-) => {
+export const startForkedAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
-    const forkUrl = fetchURLForNetwork(chainId)
+    const forkUrl = fetchURLForNetwork(BigInt(chainId))
     // We must use `exec` instead of `execAsync` because the latter will hang indefinitely.
     exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
   }
@@ -97,7 +100,7 @@ export const startForkedAnvilNodes = async (
   await sleep(3000)
 }
 
-export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
+export const killAnvilNodes = async (chainIds: Array<bigint>) => {
   for (const chainId of chainIds) {
     const port = getAnvilPort(chainId)
 
@@ -107,7 +110,7 @@ export const killAnvilNodes = async (chainIds: Array<SupportedChainId>) => {
   }
 }
 
-const isPortOpen = async (port: number): Promise<boolean> => {
+const isPortOpen = async (port: bigint): Promise<boolean> => {
   try {
     const { stdout } = await execAsync(`lsof -t -i:${port}`)
     return stdout.trim() !== ''
@@ -306,14 +309,14 @@ export const makeAddress = (uint: number): string => {
 
 export const makeDeployment = async (
   merkleRootNonce: number,
-  mainnets: Array<SupportedNetworkName>,
-  testnets: Array<SupportedNetworkName>,
+  mainnets: Array<string>,
+  testnets: Array<string>,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
   actions: Array<RawActionInput>,
-  getRpcUrl: (chainId: SupportedChainId) => string
+  getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
   compilerConfigArray: Array<CompilerConfig>
@@ -335,7 +338,7 @@ export const makeDeployment = async (
   const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
-    const chainId = SUPPORTED_NETWORKS[networkName]
+    const chainId = fetchChainIdForNetwork(networkName)
     const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
     const safeAddress = getGnosisSafeProxyAddress(
       ownerAddresses,
@@ -348,10 +351,10 @@ export const makeDeployment = async (
       saltNonce
     )
 
-    await ensureSphinxAndGnosisSafeDeployed(provider)
+    const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
 
     const deploymentInfo: DeploymentInfo = {
-      labels: [],
       safeAddress,
       moduleAddress,
       safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
@@ -394,15 +397,11 @@ export const makeDeployment = async (
     foundryToml.cachePath
   )
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    collected.map(({ actionInputs }) => actionInputs),
-    collected.map(({ deploymentInfo }) => deploymentInfo)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ actionInputs }) => actionInputs)
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo }) => {
@@ -411,6 +410,7 @@ export const makeDeployment = async (
         deploymentInfo,
         actionInputs,
         gasEstimatesArray,
+        true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
         configArtifacts,
         [] // No libraries
       )
@@ -481,7 +481,7 @@ export const runDeployment = async (
 
   for (const compilerConfig of compilerConfigArray) {
     const { chainId } = compilerConfig
-    const rpcUrl = getAnvilRpcUrl(Number(chainId))
+    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
 
@@ -535,7 +535,7 @@ const makeRawCreate2Action = (
   salt: number,
   artifact: ContractArtifact,
   abiEncodedConstructorArgs: string
-): RawActionInput => {
+): RawCreate2ActionInput => {
   const { bytecode, contractName } = artifact
 
   const gas = (5_000_000).toString()
@@ -557,6 +557,7 @@ const makeRawCreate2Action = (
     value: '0x0',
     operation: Operation.Call,
     txData,
+    initCodeWithArgs,
     actionType: SphinxActionType.CALL.toString(),
     gas,
     additionalContracts: [],
@@ -762,4 +763,36 @@ export const getSphinxModuleAddressFromScript = async (
   const safeAddress = json.returns[0].value
 
   return safeAddress
+}
+
+export const runForgeScript = async (
+  scriptPath: string,
+  broadcastFolder: string,
+  rpcUrl: string
+): Promise<FoundrySingleChainBroadcast> => {
+  const initialTime = new Date()
+  const forgeScriptArgs = [
+    'script',
+    scriptPath,
+    '--rpc-url',
+    rpcUrl,
+    '--broadcast',
+  ]
+  const { code, stdout, stderr } = await spawnAsync(`forge`, forgeScriptArgs)
+  if (code !== 0) {
+    throw new Error(`${stdout}\n${stderr}`)
+  }
+
+  const broadcast = readFoundrySingleChainBroadcast(
+    broadcastFolder,
+    scriptPath,
+    31337,
+    'run',
+    initialTime
+  )
+  // Narrow the TypeScript type.
+  if (!broadcast) {
+    throw new Error('Could not find broadcast file.')
+  }
+  return broadcast
 }

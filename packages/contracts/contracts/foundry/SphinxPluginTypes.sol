@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
+import { Network } from "./SphinxConstants.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
 
 struct HumanReadableAction {
@@ -85,7 +86,6 @@ struct DeploymentInfo {
     SphinxConfig newConfig;
     ExecutionMode executionMode;
     InitialChainState initialState;
-    Label[] labels;
     bool arbitraryChain;
 }
 
@@ -121,39 +121,6 @@ struct SphinxConfig {
     Network[] mainnets;
     Network[] testnets;
     uint256 saltNonce;
-}
-
-struct Label {
-    address addr;
-    string fullyQualifiedName;
-}
-
-enum Network {
-    anvil,
-    // production networks (i.e. mainnets)
-    ethereum,
-    optimism,
-    arbitrum,
-    polygon,
-    bnb,
-    gnosis,
-    linea,
-    polygon_zkevm,
-    avalanche,
-    fantom,
-    base,
-    // testnets
-    sepolia,
-    optimism_sepolia,
-    arbitrum_sepolia,
-    polygon_mumbai,
-    bnb_testnet,
-    gnosis_chiado,
-    linea_goerli,
-    polygon_zkevm_goerli,
-    avalanche_fuji,
-    fantom_testnet,
-    base_sepolia
 }
 
 struct DeployOptions {
@@ -193,6 +160,15 @@ struct Version {
 }
 
 /**
+ * @notice Contract info for a contract that's required for Sphinx to work on a network. These are
+ *         mostly Gnosis Safe contracts.
+ */
+struct SystemContractInfo {
+    bytes initCodeWithArgs;
+    address expectedAddress;
+}
+
+/**
  * @notice Provides an easy way to get complex data types off-chain (via the ABI) without
  *         needing to hard-code them.
  */
@@ -228,7 +204,11 @@ contract SphinxPluginTypes {
 
     function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
 
-    function leafGasParams() external view returns (SphinxTransaction[] memory txnArray) {}
+    function leafGasParams()
+        external
+        view
+        returns (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts)
+    {}
 
     function sphinxLeafWithProofType()
         external

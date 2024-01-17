@@ -23,8 +23,8 @@ import {
     InitialChainState,
     OptionalAddress,
     Wallet,
-    Label,
-    ExecutionMode
+    ExecutionMode,
+    SystemContractInfo
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
@@ -38,12 +38,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
-    // Number of networks that Sphinx supports, i.e. the number of networks in the `Networks` enum
-    // in SphinxPluginTypes.sol. Unfortunately, we can't retrieve this value using type(Network).max
-    // because Solidity v0.8.0 doesn't support this operation. The test file `SphinxUtils.t.sol`
-    // contains a test that ensures this value is correct.
-    uint8 internal constant numSupportedNetworks = 23;
 
     function slice(
         bytes calldata _data,
@@ -321,149 +315,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
-        NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
-        all[0] = NetworkInfo({
-            network: Network.anvil,
-            name: "anvil",
-            chainId: 31337,
-            networkType: NetworkType.Local
-        });
-        all[1] = NetworkInfo({
-            network: Network.ethereum,
-            name: "ethereum",
-            chainId: 1,
-            networkType: NetworkType.Mainnet
-        });
-        all[2] = NetworkInfo({
-            network: Network.optimism,
-            name: "optimism",
-            chainId: 10,
-            networkType: NetworkType.Mainnet
-        });
-        all[3] = NetworkInfo({
-            network: Network.arbitrum,
-            name: "arbitrum",
-            chainId: 42161,
-            networkType: NetworkType.Mainnet
-        });
-        all[4] = NetworkInfo({
-            network: Network.polygon,
-            name: "polygon",
-            chainId: 137,
-            networkType: NetworkType.Mainnet
-        });
-        all[5] = NetworkInfo({
-            network: Network.bnb,
-            name: "bnb",
-            chainId: 56,
-            networkType: NetworkType.Mainnet
-        });
-        all[6] = NetworkInfo({
-            network: Network.gnosis,
-            name: "gnosis",
-            chainId: 100,
-            networkType: NetworkType.Mainnet
-        });
-        all[7] = NetworkInfo({
-            network: Network.linea,
-            name: "linea",
-            chainId: 59144,
-            networkType: NetworkType.Mainnet
-        });
-        all[8] = NetworkInfo({
-            network: Network.polygon_zkevm,
-            name: "polygon_zkevm",
-            chainId: 1101,
-            networkType: NetworkType.Mainnet
-        });
-        all[9] = NetworkInfo({
-            network: Network.avalanche,
-            name: "avalanche",
-            chainId: 43114,
-            networkType: NetworkType.Mainnet
-        });
-        all[10] = NetworkInfo({
-            network: Network.fantom,
-            name: "fantom",
-            chainId: 250,
-            networkType: NetworkType.Mainnet
-        });
-        all[11] = NetworkInfo({
-            network: Network.base,
-            name: "base",
-            chainId: 8453,
-            networkType: NetworkType.Mainnet
-        });
-        all[12] = NetworkInfo({
-            network: Network.sepolia,
-            name: "sepolia",
-            chainId: 11155111,
-            networkType: NetworkType.Testnet
-        });
-        all[13] = NetworkInfo({
-            network: Network.optimism_sepolia,
-            name: "optimism_sepolia",
-            chainId: 11155420,
-            networkType: NetworkType.Testnet
-        });
-        all[14] = NetworkInfo({
-            network: Network.arbitrum_sepolia,
-            name: "arbitrum_sepolia",
-            chainId: 421614,
-            networkType: NetworkType.Testnet
-        });
-        all[15] = NetworkInfo({
-            network: Network.polygon_mumbai,
-            name: "polygon_mumbai",
-            chainId: 80001,
-            networkType: NetworkType.Testnet
-        });
-        all[16] = NetworkInfo({
-            network: Network.bnb_testnet,
-            name: "bnb_testnet",
-            chainId: 97,
-            networkType: NetworkType.Testnet
-        });
-        all[17] = NetworkInfo({
-            network: Network.gnosis_chiado,
-            name: "gnosis_chiado",
-            chainId: 10200,
-            networkType: NetworkType.Testnet
-        });
-        all[18] = NetworkInfo({
-            network: Network.linea_goerli,
-            name: "linea_goerli",
-            chainId: 59140,
-            networkType: NetworkType.Testnet
-        });
-        all[19] = NetworkInfo({
-            network: Network.polygon_zkevm_goerli,
-            name: "polygon_zkevm_goerli",
-            chainId: 1442,
-            networkType: NetworkType.Testnet
-        });
-        all[20] = NetworkInfo({
-            network: Network.avalanche_fuji,
-            name: "avalanche_fuji",
-            chainId: 43113,
-            networkType: NetworkType.Testnet
-        });
-        all[21] = NetworkInfo({
-            network: Network.fantom_testnet,
-            name: "fantom_testnet",
-            chainId: 4002,
-            networkType: NetworkType.Testnet
-        });
-        all[22] = NetworkInfo({
-            network: Network.base_sepolia,
-            name: "base_sepolia",
-            chainId: 84532,
-            networkType: NetworkType.Testnet
-        });
-        return all;
-    }
-
     function getNetworkInfo(Network _network) public pure returns (NetworkInfo memory) {
         NetworkInfo[] memory all = getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {
@@ -699,10 +550,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         node).
      */
     function validateLiveNetworkCLI(SphinxConfig memory _config, IGnosisSafe _safe) external view {
-        require(
-            sphinxModuleProxyFactoryAddress.code.length > 0,
-            "Sphinx: Unsupported network. Contact the Sphinx team if you'd like us to support it."
-        );
         require(
             _config.owners.length == 1,
             "Sphinx: There must be a single owner in your 'owners' array."
@@ -981,6 +828,51 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return "failed";
         } else {
             revert("Sphinx: Invalid MerkleRootStatus. Should never happen.");
+        }
+    }
+
+    function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
+        address addr = computeCreate2Address(
+            bytes32(0),
+            keccak256(_initCodeWithArgs),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        if (addr.code.length == 0) {
+            bytes memory code = abi.encodePacked(bytes32(0), _initCodeWithArgs);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(
+                success,
+                string(
+                    abi.encodePacked(
+                        "failed to deploy contract. expected address: ",
+                        vm.toString(addr)
+                    )
+                )
+            );
+        }
+
+        return addr;
+    }
+
+    function deploySphinxSystem(SystemContractInfo[] memory _contracts) public {
+        vm.etch(
+            DETERMINISTIC_DEPLOYMENT_PROXY,
+            hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        );
+
+        for (uint256 i = 0; i < _contracts.length; i++) {
+            SystemContractInfo memory ct = _contracts[i];
+            address addr = create2Deploy(ct.initCodeWithArgs);
+            require(
+                addr == ct.expectedAddress,
+                string(
+                    abi.encodePacked(
+                        "Sphinx: address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
+                    )
+                )
+            );
         }
     }
 }

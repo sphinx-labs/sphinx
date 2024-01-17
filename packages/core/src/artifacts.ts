@@ -8,6 +8,7 @@ import {
   isNonNullObject,
   remove0x,
 } from '@sphinx-labs/contracts'
+import axios from 'axios'
 
 import {
   CompilerInput,
@@ -19,6 +20,7 @@ import {
 import { SphinxJsonRpcProvider } from './provider'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import {
+  fetchSphinxManagedBaseUrl,
   getNetworkNameDirectory,
   isSphinxTransaction,
   toSphinxTransaction,
@@ -51,11 +53,35 @@ export const fetchDeploymentArtifacts = async (
   orgId: string,
   projectName: string
 ): Promise<DeploymentArtifacts> => {
-  apiKey
-  orgId
-  projectName
+  const response = await axios
+    .post(`${fetchSphinxManagedBaseUrl()}/api/artifacts`, {
+      apiKey,
+      orgId,
+      projectName,
+    })
+    .catch((err) => {
+      if (err.response) {
+        if (err.response.status === 400) {
+          throw new Error(
+            'Malformed request fetching deployment artifacts, please report this to the developers'
+          )
+        } else if (err.response.status === 401) {
+          throw new Error(
+            `Unauthorized, please check your API key and Org Id are correct`
+          )
+        } else if (err.response.status === 404) {
+          throw new Error(`No artifacts found for this project`)
+        } else {
+          throw new Error(
+            `Unexpected response code, please report this to the developers`
+          )
+        }
+      } else {
+        throw err
+      }
+    })
 
-  return {} as any
+  return response.data
 }
 
 /**
@@ -609,7 +635,7 @@ const makeExecutionArtifact = async (
     chainId,
     actionInputs,
     executionMode,
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     libraries,
     gitCommit,
@@ -658,7 +684,7 @@ const makeExecutionArtifact = async (
       isModuleDeployed,
       isExecuting,
     },
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     libraries,
     gitCommit,
@@ -693,6 +719,16 @@ const isLibraryArray = (ary: any): boolean => {
 
     return ethers.isAddress(address)
   })
+}
+
+const isUnlabeledContracts = (ary: any): boolean => {
+  return (
+    Array.isArray(ary) &&
+    ary.every(
+      ({ address, initCodeWithArgs }) =>
+        ethers.isAddress(address) && typeof initCodeWithArgs === 'string'
+    )
+  )
 }
 
 export const isExecutionArtifact = (obj: any): obj is ExecutionArtifact => {
@@ -734,8 +770,7 @@ export const isExecutionArtifact = (obj: any): obj is ExecutionArtifact => {
     typeof obj.initialState.isSafeDeployed === 'boolean' &&
     typeof obj.initialState.isModuleDeployed === 'boolean' &&
     typeof obj.initialState.isExecuting === 'boolean' &&
-    Array.isArray(obj.unlabeledAddresses) &&
-    obj.unlabeledAddresses.every((addr) => typeof addr === 'string') &&
+    isUnlabeledContracts(obj.unlabeledContracts) &&
     typeof obj.arbitraryChain === 'boolean' &&
     isLibraryArray(obj.libraries) &&
     (typeof obj.gitCommit === 'string' || obj.gitCommit === null) &&

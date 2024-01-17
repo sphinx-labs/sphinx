@@ -341,4 +341,74 @@ describe('CLI Commands', () => {
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
     })
   })
+
+  describe('artifacts', () => {
+    let fetchArtifactsSpy: sinon.SinonStub
+
+    beforeEach(() => {
+      fetchArtifactsSpy = sinon.stub(sphinxContext, 'fetchRemoteArtifacts')
+    })
+
+    it('fails if no org-id defined', async () => {
+      const args = ['artifacts', '--project-name', 'test_project']
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(
+        'Missing required argument: org-id'
+      )
+    })
+
+    it('fails if no project-name defined', async () => {
+      const args = ['artifacts', '--org-id', 'test_id']
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(
+        'Missing required argument: project-name'
+      )
+    })
+
+    it('fails if neither defined', async () => {
+      const args = ['artifacts']
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(
+        'Missing required arguments: org-id, project-name'
+      )
+    })
+
+    it('succeeds with both defined', async () => {
+      const projectName = 'my_project'
+      const orgId = 'test_id'
+      const args = [
+        'artifacts',
+        '--org-id',
+        orgId,
+        '--project-name',
+        projectName,
+        '--silent',
+      ]
+
+      makeCLI(args, sphinxContext)
+
+      expect(fetchArtifactsSpy.called).to.be.true
+
+      expect(
+        fetchArtifactsSpy.calledWithMatch({
+          apiKey: process.env.SPHINX_API_KEY,
+          orgId,
+          projectName,
+          silent: true, // silent
+        })
+      ).to.be.true
+    })
+  })
 })

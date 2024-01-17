@@ -12,7 +12,6 @@ import {
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
 import { SphinxJsonRpcProvider } from '../provider'
-import { SupportedNetworkName } from '../networks'
 import { ParsedContractDeployment } from '../actions/types'
 import { ExecutionMode } from '../constants'
 
@@ -81,7 +80,11 @@ export type ParsedConfig = {
   newConfig: SphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
-  unlabeledAddresses: Array<string>
+  isSystemDeployed: boolean
+  unlabeledContracts: Array<{
+    address: string
+    initCodeWithArgs: string
+  }>
   arbitraryChain: boolean
   libraries: Array<string>
   gitCommit: string | null
@@ -99,7 +102,6 @@ export type DeploymentInfo = {
   newConfig: SphinxConfig
   executionMode: ExecutionMode
   initialState: InitialChainState
-  labels: Array<Label>
   arbitraryChain: boolean
 }
 
@@ -124,11 +126,6 @@ export type UserAddressOverrides = {
   address: string
 }
 
-export type Label = {
-  addr: string
-  fullyQualifiedName: string
-}
-
 export type SphinxConfigWithAddresses = SphinxConfig & {
   safeAddress: string
   moduleAddress: string
@@ -138,8 +135,8 @@ export type SphinxConfig = {
   projectName: string
   orgId: string
   owners: Array<string>
-  mainnets: Array<SupportedNetworkName>
-  testnets: Array<SupportedNetworkName>
+  mainnets: Array<string>
+  testnets: Array<string>
   threshold: string
   saltNonce: string
 }
@@ -147,6 +144,7 @@ export type SphinxConfig = {
 export interface RawCreate2ActionInput extends SphinxTransaction {
   contractName: string | null
   create2Address: string
+  initCodeWithArgs: string
   actionType: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
   decodedAction: DecodedAction
@@ -220,8 +218,7 @@ export type FoundryContractConfig = {
 }
 
 export type GetConfigArtifacts = (
-  fullyQualifiedNames: Array<string>,
-  contractNames: Array<string>
+  initCodeWithArgsArray: Array<string>
 ) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider

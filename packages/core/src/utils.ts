@@ -23,6 +23,11 @@ import {
   ContractArtifact,
   isContractArtifact,
   SolidityStorageLayout,
+  SPHINX_LOCAL_NETWORKS,
+  SPHINX_NETWORKS,
+  getSphinxConstants,
+  remove0x,
+  LinkReferences,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -35,7 +40,6 @@ import {
   ActionInput,
   RawCreate2ActionInput,
   RawActionInput,
-  Label,
   ParsedConfig,
   Create2ActionInput,
   FunctionCallActionInput,
@@ -50,14 +54,12 @@ import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
+import { LocalNetworkMetadata } from './networks'
 import {
-  LocalNetworkMetadata,
-  SUPPORTED_LOCAL_NETWORKS,
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-  SupportedNetworkName,
-} from './networks'
-import { RelayProposal, StoreCanonicalConfig } from './types'
+  RelayProposal,
+  StoreCanonicalConfig,
+  SystemContractInfo,
+} from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -163,8 +165,9 @@ export const getGasPriceOverrides = async (
   }
 
   if (
-    executionMode === ExecutionMode.LocalNetworkCLI ||
-    executionMode === ExecutionMode.Platform
+    (executionMode === ExecutionMode.LocalNetworkCLI ||
+      executionMode === ExecutionMode.Platform) &&
+    process.env.SPHINX_INTERNAL__DISABLE_HARDCODED_GAS_LIMIT !== 'true'
   ) {
     // Hard-code the gas limit to be the 3/4 of the block gas limit. This is an optimization that
     // significantly speeds up deployments because it removes the need for EthersJS to call
@@ -502,39 +505,33 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
   const response: {
     status: number
     data: string[]
-  } = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
-    apiKey,
-    orgId,
-    configData,
-  })
+  } = await axios
+    .post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+      apiKey,
+      orgId,
+      configData,
+    })
+    .catch((err) => {
+      if (err.response) {
+        if (err.response.status === 400) {
+          throw new Error(
+            'Malformed request storing compiler config, please report this to the developers'
+          )
+        } else if (err.response.status === 401) {
+          throw new Error(
+            `Unauthorized, please check your API key and Org Id are correct`
+          )
+        } else {
+          throw new Error(
+            `Unexpected response code, please report this to the developers`
+          )
+        }
+      } else {
+        throw err
+      }
+    })
 
-  if (response.status === 200) {
-    return response.data[0]
-  } else if (response.status === 400) {
-    throw new Error(
-      'Malformed request pinning to IPFS, please report this to the developers'
-    )
-  } else if (response.status === 401) {
-    throw new Error(
-      `Unauthorized, please check your API key and Org Id are correct`
-    )
-  } else {
-    throw new Error(
-      `Unexpected response code, please report this to the developers`
-    )
-  }
-}
-
-export const findNetwork = (chainId: number): string => {
-  const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === chainId
-  )
-
-  if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return network
+  return response.data[0]
 }
 
 export const arraysEqual = (
@@ -565,37 +562,6 @@ export const userConfirmation = async (question: string) => {
   if (!confirmed) {
     console.error(`Denied by the user.`)
     process.exit(1)
-  }
-}
-
-export const resolveNetwork = async (
-  network: {
-    chainId: number | bigint
-    name: string
-  },
-  isLiveNetwork_: boolean
-): Promise<{
-  networkName: string
-  chainId: number
-}> => {
-  const networkName = network.name
-  const chainIdNumber = Number(network.chainId)
-  if (networkName !== 'unknown') {
-    return { chainId: chainIdNumber, networkName }
-  } else {
-    // The network name could be 'unknown' on a supported network, e.g. gnosis-chiado. We check if
-    // the chain ID matches a supported network and use the network name if it does.
-    const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
-      ([, supportedChainId]) => supportedChainId === chainIdNumber
-    )
-    if (supportedNetwork) {
-      return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
-    } else if (!isLiveNetwork_) {
-      return { chainId: chainIdNumber, networkName: 'local' }
-    } else {
-      // The network is an unsupported live network.
-      throw new Error(`Unsupported network: ${chainIdNumber}`)
-    }
   }
 }
 
@@ -647,8 +613,8 @@ export const getNetworkTag = (
   ) {
     return networkName
   } else if (
-    Object.keys(SUPPORTED_NETWORKS).includes(networkName) &&
-    !Object.keys(SUPPORTED_LOCAL_NETWORKS).includes(networkName)
+    SPHINX_NETWORKS.some((n) => n.name === networkName) &&
+    !SPHINX_LOCAL_NETWORKS.some((n) => n.name === networkName)
   ) {
     return `${networkName} (local)`
   } else {
@@ -657,15 +623,13 @@ export const getNetworkTag = (
 }
 
 export const getNetworkNameForChainId = (chainId: bigint): string => {
-  const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === Number(chainId)
-  )
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
   if (!network) {
     return 'unknown'
   }
 
-  return network
+  return network.name
 }
 
 export const isEventLog = (
@@ -748,19 +712,15 @@ export const isHttpNetworkConfig = (
   return 'url' in config
 }
 
-export const isSupportedChainId = (
-  chainId: number | bigint
-): chainId is SupportedChainId => {
-  return Object.values(SUPPORTED_NETWORKS).some(
-    (supportedChainId) => supportedChainId === Number(chainId)
-  )
+export const isSupportedChainId = (chainId: bigint): boolean => {
+  return SPHINX_NETWORKS.some((n) => n.chainId === chainId)
 }
 
-export const isSupportedNetworkName = (
-  networkName: string
-): networkName is SupportedNetworkName => {
-  const chainId = SUPPORTED_NETWORKS[networkName]
-  return chainId !== undefined
+export const isSupportedNetworkName = (networkName: string): boolean => {
+  return (
+    SPHINX_NETWORKS.some((n) => n.name === networkName) ||
+    SPHINX_LOCAL_NETWORKS.some((n) => n.name === networkName)
+  )
 }
 
 /**
@@ -871,6 +831,7 @@ export const isRawCreate2ActionInput = (
   return (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
     rawCreate2.contractName !== undefined &&
+    rawCreate2.initCodeWithArgs !== undefined &&
     rawCreate2.create2Address !== undefined &&
     rawCreate2.txData !== undefined &&
     rawCreate2.gas !== undefined
@@ -964,17 +925,6 @@ export const spawnAsync = (
 
 export const isString = (str: string | null | undefined): str is string => {
   return typeof str === 'string'
-}
-
-export const isLabel = (l: Label | undefined): l is Label => {
-  if (l === undefined) {
-    return false
-  }
-
-  return (
-    typeof (l as Label).addr === 'string' &&
-    typeof (l as Label).fullyQualifiedName === 'string'
-  )
 }
 
 export const toSphinxTransaction = (
@@ -1480,3 +1430,77 @@ export const formatSolcLongVersion = (solcLongVersion: string) => {
 export const stripLeadingZero = (hexString: string): string => {
   return hexString.replace('0x0', '0x')
 }
+
+/**
+ * Returns a minimal representation of the system contracts to use in the Sphinx Foundry plugin.
+ */
+export const getSystemContractInfo = (): Array<SystemContractInfo> => {
+  return getSphinxConstants().map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
+      const { abi, bytecode } = artifact
+
+      const iface = new ethers.Interface(abi)
+
+      const initCodeWithArgs = bytecode.concat(
+        remove0x(iface.encodeDeploy(constructorArgs))
+      )
+
+      return { initCodeWithArgs, expectedAddress }
+    }
+  )
+}
+
+/**
+ * Returns the length in bytes of the input hex string.
+ *
+ * The difference between this function and `ethers.dataLength` is that this function does not throw
+ * an error if the input hex string contains library placeholders. This function will return the
+ * correct length for hex strings with library placeholders because the placeholders are the same
+ * length as library addresses. For more info on library placeholders, see:
+ * https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ *
+ * @example
+ * // returns 3
+ * getBytesLength("0x123456")
+ */
+export const getBytesLength = (hexString: string): number => {
+  return remove0x(hexString).length / 2
+}
+
+/**
+ * Replace library references in the `bytecode` with zeros. This function uses the `linkReferences`
+ * to find the location of the library references.
+ *
+ * @returns The `bytecode` with zeros instead of library references.
+ */
+export const zeroOutLibraryReferences = (
+  bytecode: string,
+  linkReferences: LinkReferences
+): string => {
+  const replacer = remove0x(ethers.ZeroAddress)
+
+  let modifiedBytecode = bytecode
+
+  for (const references of Object.values(linkReferences)) {
+    for (const libraryReferences of Object.values(references)) {
+      for (const ref of libraryReferences) {
+        const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
+        modifiedBytecode =
+          modifiedBytecode.substring(0, start) +
+          replacer +
+          modifiedBytecode.substring(start + ref.length * 2)
+      }
+    }
+  }
+
+  return modifiedBytecode
+}
+
+/**
+ * Type guard to check if a value is not undefined.
+ *
+ * @param value The value to check.
+ * @returns true if the value is not undefined, false otherwise.
+ */
+export const isDefined = <T>(value: T | undefined): value is T =>
+  value !== undefined

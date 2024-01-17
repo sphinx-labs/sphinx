@@ -4,10 +4,8 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 import {
   ProjectDeployment,
   ProposalRequest,
-  SphinxJsonRpcProvider,
   WEBSITE_URL,
   elementsEqual,
-  ensureSphinxAndGnosisSafeDeployed,
   getPreview,
   getPreviewString,
   makeDeploymentData,
@@ -39,11 +37,11 @@ import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getUniqueNames,
   getFoundrySingleChainDryRunPath,
   readFoundrySingleChainDryRun,
   readInterface,
   compile,
+  getInitCodeWithArgsArray,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -105,9 +103,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       )
       process.exit(1)
     }
-
-    const provider = new SphinxJsonRpcProvider(rpcUrl)
-    await ensureSphinxAndGnosisSafeDeployed(provider)
 
     // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
     // use a file from a previous deployment.
@@ -219,15 +214,11 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   spinner?.succeed(`Estimated gas.`)
   spinner?.start(`Building proposal...`)
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    collected.map(({ actionInputs }) => actionInputs),
-    collected.map(({ deploymentInfo }) => deploymentInfo)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ actionInputs }) => actionInputs)
   )
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
     ({ actionInputs, deploymentInfo, libraries }, i) =>
@@ -235,6 +226,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
         deploymentInfo,
         actionInputs,
         gasEstimatesArray[i],
+        true, // System contracts are deployed.
         configArtifacts,
         libraries
       )

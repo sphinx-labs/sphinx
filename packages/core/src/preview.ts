@@ -1,4 +1,5 @@
-import { yellow, green, blue, bold } from 'chalk'
+import { yellow, green, bold } from 'chalk'
+import { CREATE3_PROXY_INITCODE } from '@sphinx-labs/contracts'
 
 import { DecodedAction, ParsedConfig } from './config/types'
 import {
@@ -9,8 +10,24 @@ import {
   prettyRawFunctionCall,
 } from './utils'
 
-type PreviewElement = DecodedAction | { to: string; data: string }
+type SystemDeploymentElement = {
+  type: 'SystemDeployment'
+}
 
+type PreviewElement =
+  | DecodedAction
+  | { to: string; data: string }
+  | SystemDeploymentElement
+
+/**
+ * @property unlabeledAddresses A set of unlabeled addresses. The preview will warn the user that
+ * these addresses will not be verified on Etherscan and they will not have a deployment artifact.
+ * This set does not include any `CREATE3` proxies even though they're unlabeled. We exclude
+ * `CREATE3` proxies because we assume that the user doesn't need a contract deployment artifact for
+ * them, since users never interact directly with these proxies. Also, if a user isn't aware that
+ * `CREATE3` involves a proxy deployment, they may reasonably be confused about a warning for a
+ * contract they didn't know existed.
+ */
 export type SphinxPreview = {
   networks: Array<{
     networkTags: Array<string>
@@ -73,6 +90,8 @@ export const getPreviewString = (
           )
 
           executingArray.push(green(`${i + 1}. ${actionStr}`))
+        } else if (isSystemDeploymentElement(element)) {
+          executingArray.push(green(`${i + 1}. Sphinx & Gnosis Safe Contracts`))
         } else {
           const { to, data } = element
           const actionStr = prettyRawFunctionCall(to, data)
@@ -89,16 +108,23 @@ export const getPreviewString = (
       skippingArray.push(skippingReason)
       for (let i = 0; i < skipping.length; i++) {
         const element = skipping[i]
-        const functionCallStr = isDecodedAction(element)
-          ? prettyFunctionCall(
-              element.referenceName,
-              element.address,
-              element.functionName,
-              element.variables,
-              5,
-              3
-            )
-          : prettyRawFunctionCall(element.to, element.data)
+        let functionCallStr: string
+        if (isDecodedAction(element)) {
+          functionCallStr = prettyFunctionCall(
+            element.referenceName,
+            element.address,
+            element.functionName,
+            element.variables,
+            5,
+            3
+          )
+        } else if (isSystemDeploymentElement(element)) {
+          throw new Error(
+            `Skipped preview elements contain the Sphinx system contracts. Should never happen.`
+          )
+        } else {
+          functionCallStr = prettyRawFunctionCall(element.to, element.data)
+        }
 
         const skippingStr = yellow(`${i + 1}. ${functionCallStr}`)
         skippingArray.push(skippingStr)
@@ -111,20 +137,17 @@ export const getPreviewString = (
 
   // Warn about unlabeled addresses
   if (preview.unlabeledAddresses.size > 0) {
-    const troubleshootingGuideLink = blue.underline(
-      `https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md#labeling-contracts\n\n`
-    )
     previewString += `${yellow.bold(
-      `Warning: Sphinx can't infer the contracts that correspond to the following addresses:\n`
+      `Warning: Sphinx couldn't find a contract artifact for the following addresses:\n`
     )}`
     previewString += `${Array.from(preview.unlabeledAddresses)
       .map((e) => yellow(`- ${e}`))
       .join('\n')}\n`
-    previewString +=
-      yellow(
-        `If you'd like Sphinx to verify any of these contracts on Etherscan or create their deployment artifacts,\n` +
-          `please label them in your script. See the troubleshooting guide for more information:\n`
-      ) + troubleshootingGuideLink
+    previewString += yellow(
+      `This typically happens when deploying contracts using hardcoded bytecode and no \n` +
+        `associated source file. Sphinx will not create a deployment artifact or attempt \n` +
+        `Etherscan verification for any address in the list above.\n\n`
+    )
   }
 
   if (includeConfirmQuestion) {
@@ -153,8 +176,16 @@ export const getPreview = (
       initialState,
       actionInputs,
       executionMode,
-      unlabeledAddresses,
+      unlabeledContracts,
+      isSystemDeployed,
     } = parsedConfig
+
+    const unlabeledAddresses = unlabeledContracts
+      // Remove the `CREATE3` proxies.
+      .filter(
+        (contract) => contract.initCodeWithArgs !== CREATE3_PROXY_INITCODE
+      )
+      .map((contract) => contract.address)
 
     const networkName = getNetworkNameForChainId(BigInt(chainId))
     const networkTag = getNetworkTag(
@@ -168,6 +199,11 @@ export const getPreview = (
     // been deployed yet because we don't currently allow the user to deploy the Safe and Module
     // without executing a deployment.
     if (actionInputs.length > 0) {
+      if (!isSystemDeployed) {
+        executing.push({
+          type: 'SystemDeployment',
+        })
+      }
       if (!initialState.isSafeDeployed) {
         executing.push({
           referenceName: 'GnosisSafe',
@@ -224,4 +260,10 @@ export const getPreview = (
   }
 
   return preview
+}
+
+const isSystemDeploymentElement = (
+  element: PreviewElement
+): element is SystemDeploymentElement => {
+  return (element as SystemDeploymentElement).type === 'SystemDeployment'
 }

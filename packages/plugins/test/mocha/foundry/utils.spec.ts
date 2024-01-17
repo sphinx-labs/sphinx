@@ -3,26 +3,53 @@ import { existsSync } from 'fs'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
+import { ConstructorFragment, ethers } from 'ethers'
+import {
+  ContractArtifact,
+  LinkReferences,
+  parseFoundryContractArtifact,
+} from '@sphinx-labs/contracts'
+import { GetConfigArtifacts, getBytesLength } from '@sphinx-labs/core'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
 
 import {
   convertLibraryFormat,
+  isInitCodeMatch,
   messageArtifactNotFound,
   readContractArtifact,
   replaceEnvVariables,
 } from '../../../src/foundry/utils'
 import { getFoundryToml } from '../../../src/foundry/options'
+import * as MyContract1Artifact from '../../../out/artifacts/MyContracts.sol/MyContract1.json'
+import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
+import * as MyContractWithLibrariesArtifact from '../../../out/artifacts/MyContracts.sol/MyContractWithLibraries.json'
+import * as MyImmutableContractArtifact from '../../../out/artifacts/MyContracts.sol/MyImmutableContract.json'
+import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
+import {
+  getAnvilRpcUrl,
+  killAnvilNodes,
+  makeAddress,
+  runForgeScript,
+  startAnvilNodes,
+} from '../common'
+import { FoundryToml } from '../../../src/foundry/types'
+import { makeGetConfigArtifacts } from '../../../dist'
 
 describe('Utils', async () => {
+  let foundryToml: FoundryToml
+
+  before(async () => {
+    foundryToml = await getFoundryToml()
+  })
+
   describe('readContractArtifact', async () => {
     const projectRoot = process.cwd()
 
     let artifactFolder: string
 
     before(async () => {
-      const foundryToml = await getFoundryToml()
       artifactFolder = foundryToml.artifactFolder
     })
 
@@ -556,6 +583,186 @@ describe('Utils', async () => {
         cancun: false,
       }
       expect(replaceEnvVariables(input)).to.deep.equal(expected)
+    })
+  })
+
+  describe('getConfigArtifacts', () => {
+    let getConfigArtifacts: GetConfigArtifacts
+
+    before(() => {
+      getConfigArtifacts = makeGetConfigArtifacts(
+        foundryToml.artifactFolder,
+        foundryToml.buildInfoFolder,
+        process.cwd(),
+        foundryToml.cachePath
+      )
+    })
+
+    // Test that this function returns an empty object if it can't find an artifact for the given
+    // init code. This ensures the user can deploy contracts that are defined as inline bytecode,
+    // like a `CREATE3` proxy.
+    it('returns empty object for init code that does not belong to a source file', async () => {
+      const artifacts = await getConfigArtifacts([
+        '0x67363d3d37363d34f03d5260086018f3', // `CREATE3` proxy initcode
+      ])
+      expect(artifacts).deep.equals({})
+    })
+  })
+
+  describe('isInitCodeMatch', () => {
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+
+    /**
+     * A helper function that creates the artifact parameter passed into `isInitCodeMatch`.
+     */
+    const makeArtifactParam = (
+      artifact: ContractArtifact
+    ): {
+      bytecode: string
+      linkReferences: LinkReferences
+      constructorFragment?: ethers.ConstructorFragment
+    } => {
+      const iface = new ethers.Interface(artifact.abi)
+      const constructorFragment = iface.fragments.find(
+        ConstructorFragment.isFragment
+      )
+
+      return {
+        bytecode: artifact.bytecode,
+        linkReferences: artifact.linkReferences,
+        constructorFragment,
+      }
+    }
+
+    it('returns false for different contracts', () => {
+      const artifactOne = parseFoundryContractArtifact(MyContract1Artifact)
+      const artifactTwo = parseFoundryContractArtifact(MyContract2Artifact)
+
+      expect(
+        isInitCodeMatch(artifactOne.bytecode, makeArtifactParam(artifactTwo))
+      ).to.equal(false)
+    })
+
+    it('returns false if artifact bytecode length is greater than actual bytecode length', () => {
+      const artifact = parseFoundryContractArtifact(MyContract2Artifact)
+      const actualInitCode = '0x22'
+      expect(getBytesLength(artifact.bytecode)).gt(
+        getBytesLength(actualInitCode)
+      )
+
+      expect(
+        isInitCodeMatch(actualInitCode, makeArtifactParam(artifact))
+      ).to.equal(false)
+    })
+
+    it('returns false if constructor cannot be ABI decoded', () => {
+      const artifact = parseFoundryContractArtifact(MyContract1Artifact)
+
+      // Encode an incorrect number of constructor args. (There should be 4, but we only encode 3).
+      const encodedConstructorArgs = coder.encode(
+        ['int256', 'uint256', 'address'],
+        [3, 4, makeAddress(5)]
+      )
+
+      // Sanity check that we're encoding the wrong number of constructor args.
+      const constructorFragment = new ethers.Interface(
+        artifact.abi
+      ).fragments.find(ConstructorFragment.isFragment)
+      // Narrow the TypeScript type of the constructor fragment.
+      if (!constructorFragment) {
+        throw new Error(`Could not find constructor fragment.`)
+      }
+      expect(constructorFragment.inputs.length).does.not.equal(3)
+
+      const initCodeWithArgs = ethers.concat([
+        artifact.bytecode,
+        encodedConstructorArgs,
+      ])
+
+      expect(
+        isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
+      ).to.equal(false)
+    })
+
+    it('returns true for contract with no constructor args', () => {
+      const artifact = parseFoundryContractArtifact(MyContract2Artifact)
+
+      expect(
+        isInitCodeMatch(artifact.bytecode, makeArtifactParam(artifact))
+      ).to.equal(true)
+    })
+
+    it('returns true for contract with constructor args', () => {
+      const artifact = parseFoundryContractArtifact(MyContract1Artifact)
+
+      const encodedConstructorArgs = coder.encode(
+        ['int256', 'uint256', 'address', 'address'],
+        [3, 4, makeAddress(5), makeAddress(6)]
+      )
+      const initCodeWithArgs = ethers.concat([
+        artifact.bytecode,
+        encodedConstructorArgs,
+      ])
+
+      expect(
+        isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
+      ).to.equal(true)
+    })
+
+    it('returns true for large contract', () => {
+      const artifact = parseFoundryContractArtifact(MyLargeContractArtifact)
+
+      expect(
+        isInitCodeMatch(artifact.bytecode, makeArtifactParam(artifact))
+      ).to.equal(true)
+    })
+
+    it('returns true for contract with libraries', async () => {
+      const artifact = parseFoundryContractArtifact(
+        MyContractWithLibrariesArtifact
+      )
+
+      const chainId = BigInt(31337)
+      // Start an Anvil node, then deploy the contract and its libraries, then kill the Anvil node.
+      // We must deploy the contract so that its bytecode contains the actual library addresses
+      // instead of placeholders.
+      await startAnvilNodes([chainId])
+      const broadcast = await runForgeScript(
+        'contracts/test/script/Libraries.s.sol',
+        foundryToml.broadcastFolder,
+        getAnvilRpcUrl(chainId)
+      )
+      await killAnvilNodes([chainId])
+
+      const initCodeWithArgs =
+        broadcast.transactions[broadcast.transactions.length - 1].transaction
+          .data
+      // Narrow the TypeScript type.
+      if (!initCodeWithArgs) {
+        throw new Error(`Could not find init code.`)
+      }
+
+      expect(
+        isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
+      ).to.equal(true)
+    })
+
+    it('returns true for contract with immutable variables', async () => {
+      const artifact = parseFoundryContractArtifact(MyImmutableContractArtifact)
+
+      // Create the contract's init code. We don't need to deploy the contract because immutable
+      // variable references only exist in the runtime bytecode and not the init code. This is
+      // different from library placeholders, which exist in both the runtime bytecode and the init
+      // code.
+      const encodedConstructorArgs = coder.encode(['uint256', 'uint8'], [1, 2])
+      const initCodeWithArgs = ethers.concat([
+        artifact.bytecode,
+        encodedConstructorArgs,
+      ])
+
+      expect(
+        isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
+      ).to.equal(true)
     })
   })
 })

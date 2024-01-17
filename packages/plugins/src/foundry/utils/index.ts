@@ -14,16 +14,21 @@ import {
 import { spawnSync } from 'child_process'
 
 import {
-  BuildInfo,
+  CompilerOutputContracts,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   execAsync,
   formatSolcLongVersion,
+  getBytesLength,
   getNetworkNameForChainId,
+  getSystemContractInfo,
+  isDefined,
+  isRawCreate2ActionInput,
   sortHexStrings,
   spawnAsync,
   toSphinxTransaction,
+  zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
   ConfigArtifacts,
@@ -45,10 +50,12 @@ import { SphinxJsonRpcProvider, networkEnumToName } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
   ContractArtifact,
+  LinkReferences,
+  add0x,
   parseFoundryContractArtifact,
   recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
-import { ethers } from 'ethers'
+import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
 
 import {
@@ -63,40 +70,56 @@ import { GetNetworkGasEstimate } from '../../cli/types'
 const readFileAsync = promisify(readFile)
 
 /**
- * @field fullyQualifiedNames An array of fully qualified names, which are the keys of the
- * `BuildInfo.output.contracts` object. The fully qualified name is in the format
- * `path/to/SourceFile.sol:MyContract`. The source path can be an absolute path or a path relative
- * to the Foundry project's root.
+ * @field contracts An array where each element corresponds to a contract in the
+ * `BuildInfo.output.contracts` object. We use this array to match collected contract init code to
+ * its artifact (in the `isInitCodeMatch` function).
  */
 type BuildInfoCacheEntry = {
   name: string
   time: number
-  fullyQualifiedNames: string[]
+  contracts: Array<{
+    fullyQualifiedName: string
+    bytecode: string
+    linkReferences: LinkReferences
+    constructorFragment?: ethers.ConstructorFragment
+  }>
 }
 
-export const streamFullyQualifiedNames = async (filePath: string) => {
+export const streamBuildInfoCacheContracts = async (filePath: string) => {
   const pipeline = new chain([
     createReadStream(filePath),
     parser(),
     pick({ filter: 'output' }),
     pick({ filter: 'contracts' }),
     streamObject(),
-    (data) => {
-      const fullyQualifiedNames: Array<string> = []
-      for (const contractName of Object.keys(data.value)) {
-        fullyQualifiedNames.push(`${data.key}:${contractName}`)
+    (data: { key: string; value: CompilerOutputContracts[string] }) => {
+      const sourceName = data.key
+
+      const contracts: BuildInfoCacheEntry['contracts'] = []
+      for (const [contractName, contract] of Object.entries(data.value)) {
+        const iface = new ethers.Interface(contract.abi)
+        const constructorFragment = iface.fragments.find(
+          ConstructorFragment.isFragment
+        )
+
+        contracts.push({
+          fullyQualifiedName: `${sourceName}:${contractName}`,
+          bytecode: add0x(contract.evm.bytecode.object),
+          linkReferences: contract.evm.bytecode.linkReferences,
+          constructorFragment,
+        })
       }
-      return fullyQualifiedNames
+      return contracts
     },
   ])
 
-  const names: string[] = []
+  const buildInfoCacheContracts: BuildInfoCacheEntry['contracts'] = []
   pipeline.on('data', (name) => {
-    names.push(name)
+    buildInfoCacheContracts.push(name)
   })
 
   await new Promise((resolve) => pipeline.on('finish', resolve))
-  return names
+  return buildInfoCacheContracts
 }
 
 export const streamBuildInfo = async (filePath: string) => {
@@ -214,39 +237,19 @@ export const readContractArtifact = async (
   throw new Error(messageArtifactNotFound(fullyQualifiedName))
 }
 
-export const getUniqueNames = (
-  actionInputArray: Array<Array<RawActionInput>>,
-  deploymentInfoArray: Array<DeploymentInfo>
-): {
-  uniqueFullyQualifiedNames: Array<string>
-  uniqueContractNames: Array<string>
-} => {
-  const contractNamesSet = new Set<string>()
-  const fullyQualifiedNamesSet = new Set<string>()
-  for (const actionInputs of actionInputArray) {
-    for (const rawInput of actionInputs) {
-      if (typeof rawInput.contractName === 'string') {
-        rawInput.contractName.includes(':')
-          ? fullyQualifiedNamesSet.add(rawInput.contractName)
-          : contractNamesSet.add(rawInput.contractName)
-      }
-    }
-  }
-
-  for (const deploymentInfo of deploymentInfoArray) {
-    for (const label of deploymentInfo.labels) {
-      // Only add the fully qualified name if it's not an empty string. The user can specify an empty
-      // string when they want a contract to remain unlabeled.
-      if (label.fullyQualifiedName !== '') {
-        fullyQualifiedNamesSet.add(label.fullyQualifiedName)
-      }
-    }
-  }
-
-  return {
-    uniqueFullyQualifiedNames: Array.from(fullyQualifiedNamesSet),
-    uniqueContractNames: Array.from(contractNamesSet),
-  }
+/**
+ * Returns the init code of every contract deployment collected from a Forge script.
+ */
+export const getInitCodeWithArgsArray = (
+  rawActions: Array<RawActionInput>
+): Array<string> => {
+  const create2Actions = rawActions.filter(isRawCreate2ActionInput)
+  const additionalContracts = rawActions.flatMap(
+    (action) => action.additionalContracts
+  )
+  return create2Actions
+    .map((action) => action.initCodeWithArgs)
+    .concat(additionalContracts.map((contract) => contract.initCode))
 }
 
 /**
@@ -296,10 +299,13 @@ export const makeGetConfigArtifacts = (
   projectRoot: string,
   cachePath: string
 ): GetConfigArtifacts => {
-  return async (
-    fullyQualifiedNames: Array<string>,
-    contractNames: Array<string>
-  ) => {
+  return async (initCodeWithArgsIncludingDuplicates: Array<string>) => {
+    // Remove duplicates from the array. This is a performance optimization that prevents us from
+    // needing to search for the same artifact multiple times.
+    const initCodeWithArgsArray = Array.from(
+      new Set(initCodeWithArgsIncludingDuplicates)
+    )
+
     // Check if the cache directory exists, and create it if not
     if (!existsSync(cachePath)) {
       mkdirSync(cachePath, { recursive: true })
@@ -361,7 +367,7 @@ export const makeGetConfigArtifacts = (
         buildInfoCache[file.name] = {
           name: file.name,
           time: file.time,
-          fullyQualifiedNames: await streamFullyQualifiedNames(
+          contracts: await streamBuildInfoCacheContracts(
             join(buildInfoFolder, file.name)
           ),
         }
@@ -379,80 +385,48 @@ export const makeGetConfigArtifacts = (
     const toReadFiles: string[] = []
     const localBuildInfoCache = {}
 
-    const fullyQualifiedNamePromises = fullyQualifiedNames.map(
-      async (fullyQualifiedName) => {
-        const artifact = await readContractArtifact(
-          fullyQualifiedName,
-          projectRoot,
-          artifactFolder
-        )
-
+    const fullyQualifiedNamePromises = initCodeWithArgsArray.map(
+      async (initCodeWithArgs) => {
         // Look through the cache for the first build info file that contains the contract
         for (const file of sortedCachedFiles) {
-          if (file.fullyQualifiedNames?.includes(fullyQualifiedName)) {
+          const contract = file.contracts.find((ct) => {
+            const { bytecode, constructorFragment, linkReferences } = ct
+
+            return isInitCodeMatch(initCodeWithArgs, {
+              bytecode,
+              linkReferences,
+              constructorFragment,
+            })
+          })
+
+          if (contract) {
             // Keep track of if we need to read the file or not
             if (!toReadFiles.includes(file.name)) {
               toReadFiles.push(file.name)
             }
 
+            const artifact = await readContractArtifact(
+              contract.fullyQualifiedName,
+              projectRoot,
+              artifactFolder
+            )
+
             return {
-              fullyQualifiedName,
+              fullyQualifiedName: contract.fullyQualifiedName,
               artifact,
               buildInfoName: file.name,
             }
           }
         }
-
-        // Throw an error if no build info file is found in the cache for this contract
-        // This should only happen if the user manually deletes a build info file
-        if (existsSync(buildInfoCacheFilePath)) {
-          unlinkSync(buildInfoCacheFilePath)
-        }
-        throw new Error(
-          `Build info cache is outdated, please run 'forge build --force' then try again.`
-        )
       }
     )
 
-    const contractNamePromises = contractNames.map(
-      async (targetContractName) => {
-        // Look through the cache for the first build info file that contains the contract name.
-        for (const cachedFile of sortedCachedFiles) {
-          for (const fullyQualifiedName of cachedFile.fullyQualifiedNames) {
-            const contractName = fullyQualifiedName.split(':')[1]
-            if (contractName === targetContractName) {
-              // Keep track of whether or not we need to read the build info file later
-              if (!toReadFiles.includes(cachedFile.name)) {
-                toReadFiles.push(cachedFile.name)
-              }
-
-              const artifact = await readContractArtifact(
-                fullyQualifiedName,
-                projectRoot,
-                artifactFolder
-              )
-              return {
-                fullyQualifiedName,
-                artifact,
-                buildInfoName: cachedFile.name,
-              }
-            }
-          }
-        }
-
-        // Throw an error if no build info file is found in the cache for this contract name. This
-        // should only happen if the user manually deletes a build info file.
-        if (existsSync(buildInfoCacheFilePath)) {
-          unlinkSync(buildInfoCacheFilePath)
-        }
-        throw new Error(
-          `Build info cache is outdated. Please run 'forge build --force' then try again.`
-        )
-      }
-    )
-
-    const resolved = await Promise.all(
-      fullyQualifiedNamePromises.concat(contractNamePromises)
+    // Resolve the promises, then filter out any that resolved to `undefined`, which will happen if
+    // we couldn't find an artifact for a contract's init code. We can fail to find the artifact
+    // either because the user defined the contract as inline bytecode (e.g. a `CREATE3` proxy) or
+    // the user deleted a build info file.
+    const resolved = (await Promise.all(fullyQualifiedNamePromises)).filter(
+      isDefined
     )
 
     // Read any build info files that we didn't already have in memory. This sometimes means we read
@@ -527,28 +501,100 @@ export const inferSolcVersion = async (): Promise<string> => {
   }
 }
 
-export const getConfigArtifactForContractName = (
-  targetContractName: string,
-  configArtifacts: ConfigArtifacts
-): {
-  fullyQualifiedName: string
-  buildInfo: BuildInfo
-  artifact: ContractArtifact
-} => {
-  for (const [fullyQualifiedName, { buildInfo, artifact }] of Object.entries(
-    configArtifacts
-  )) {
-    const contractName = fullyQualifiedName.split(':')[1]
-    if (contractName === targetContractName) {
-      return {
-        fullyQualifiedName,
-        buildInfo,
-        artifact,
-      }
-    }
+/**
+ * Returns `true` if the given contract init code with constructor args belongs to the given
+ * contract artifact, and returns `false` otherwise. There may be a couple differences between this
+ * init code (which we'll call the "actual" init code) and the contract artifact's `bytecode` field.
+ * We'll need to account for these differences when determining whether the init code belongs to the
+ * artifact.
+ *
+ * These differences are:
+ * 1. The actual init code may be appended with ABI-encoded constructor arguments, whereas the
+ * artifact's init code is not.
+ * 2. If the contract uses libraries, the actual init code contains library addresses, whereas the
+ * artifact's init code contains library placeholders. For more info on library placeholders,
+ * see: https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ *
+ * This function does not need to handle immutable variable references because these references only
+ * exist in the runtime bytecode and not the init code. This is made clear by the Solidity docs,
+ * which only have a `deployedBytecode.immutableReferences` field:
+ * https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#library-linking
+ *
+ * @param artifact Artifact info. This object contains only the necessary variables from the
+ * artifact because we store these variables in a cache file. Storing the entire artifact in the
+ * cache would result in an enormous cache size because we need to store the artifact info for
+ * each contract in the user's repository.
+ */
+export const isInitCodeMatch = (
+  actualInitCodeWithArgs: string,
+  artifact: {
+    bytecode: string
+    linkReferences: LinkReferences
+    constructorFragment?: ethers.ConstructorFragment
   }
-  throw new Error(
-    `Could not find artifact for ${targetContractName}. Should never happen.`
+): boolean => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+
+  const artifactBytecodeLength = getBytesLength(artifact.bytecode)
+  const actualInitCodeLength = getBytesLength(actualInitCodeWithArgs)
+
+  // Return `false` if the length of the artifact's init code is greater than the length of the
+  // actual init code. It's necessary to explicitly check this because the `ethers.dataSlice` call,
+  // which we'll execute soon, reverts with an out-of-bounds error under this condition.
+  if (artifactBytecodeLength > actualInitCodeLength) {
+    return false
+  }
+
+  // Split the actual init code into two parts:
+  // 1. The init code without the constructor arguments
+  // 2. The ABI encoded constructor arguments
+  //
+  // We use the length of the `artifact.bytecode` to determine where the contract's creation code
+  // ends and the constructor arguments begin. This works even if the `artifact.bytecode` contains
+  // externally linked library placeholders, which are always the same length as the real values.
+  const actualInitCodeNoArgs = ethers.dataSlice(
+    actualInitCodeWithArgs,
+    0,
+    artifactBytecodeLength
+  )
+  const encodedArgs = ethers.dataSlice(
+    actualInitCodeWithArgs,
+    artifactBytecodeLength
+  )
+
+  if (artifact.constructorFragment) {
+    // ABI-decode the constructor arguments. This will throw an error if the decoding fails.
+    try {
+      coder.decode(artifact.constructorFragment.inputs, encodedArgs)
+    } catch {
+      return false
+    }
+  } else if (
+    // If there's no constructor fragment, the length of the artifact's init code and the actual
+    // init code must match. They must match for contracts without a constructor fragment because
+    // the artifact's init code does _not_ include constructor arguments, whereas the actual init
+    // code does.
+    artifactBytecodeLength !== actualInitCodeLength
+  ) {
+    return false
+  }
+
+  // Replace the library references with zeros in both init codes. In the actual init code, this
+  // will replace the actual library addresses. In the artifact's init code, this will replace the
+  // library placeholders with zeros.
+  const artifactInitCodeNoLibraries = zeroOutLibraryReferences(
+    artifact.bytecode,
+    artifact.linkReferences
+  )
+  const actualInitCodeNoLibraries = zeroOutLibraryReferences(
+    actualInitCodeNoArgs,
+    artifact.linkReferences
+  )
+
+  // Check if we've found a match.
+  return (
+    artifactInitCodeNoLibraries.toLowerCase() ===
+    actualInitCodeNoLibraries.toLowerCase()
   )
 }
 
@@ -742,7 +788,10 @@ export const getSphinxLeafGasEstimates = async (
   const gasEstimatesArray: Array<Array<string>> = []
   for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
     const txns = actionInputs.map(toSphinxTransaction)
-    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [txns])
+    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
+      txns,
+      getSystemContractInfo(),
+    ])
 
     // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
     // instead of passing in the data as a parameter to the Forge script because it's possible to hit
@@ -1086,4 +1135,36 @@ export const replaceEnvVariables = (input: ParsedVariable): any => {
     // For booleans and numbers, return as is
     return input
   }
+}
+
+/**
+ * Searches the `configArtifacts` to find the fully qualified name for the given `initCodeWithArgs`.
+ * Returns `undefined` if the `initCodeWithArgs` does not exist in the `configArtifacts`, which
+ * means that it does not belong to a source file.
+ */
+export const findFullyQualifiedName = (
+  initCodeWithArgs: string,
+  configArtifacts: ConfigArtifacts
+): string | undefined => {
+  for (const fullyQualifiedName of Object.keys(configArtifacts)) {
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const { bytecode, linkReferences, abi } = artifact
+
+    const iface = new ethers.Interface(abi)
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
+    )
+
+    if (
+      isInitCodeMatch(initCodeWithArgs, {
+        bytecode,
+        linkReferences,
+        constructorFragment,
+      })
+    ) {
+      return fullyQualifiedName
+    }
+  }
+  // If we make it to this point, we couldn't find a fully qualified name for this init code.
+  return undefined
 }

@@ -1,5 +1,4 @@
 import {
-  isLabel,
   isRawCreate2ActionInput,
   isRawFunctionCallActionInput,
   isString,
@@ -7,7 +6,6 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   FunctionCallActionInput,
-  Label,
   ParsedConfig,
   RawActionInput,
   RawCreate2ActionInput,
@@ -20,7 +18,6 @@ import {
 } from '@sphinx-labs/core'
 import { AbiCoder, ethers } from 'ethers'
 import {
-  CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
   recursivelyConvertResult,
@@ -29,8 +26,8 @@ import {
 import { FoundrySingleChainDryRun } from './types'
 import {
   convertLibraryFormat,
+  findFullyQualifiedName,
   findFunctionFragment,
-  getConfigArtifactForContractName,
 } from './utils'
 
 export const decodeDeploymentInfo = (
@@ -62,14 +59,12 @@ export const decodeDeploymentInfo = (
     initialState,
     executionMode,
     newConfig,
-    labels,
     requireSuccess,
     safeInitData,
     arbitraryChain,
   } = deploymentInfoBigInt
 
   const deploymentInfo: DeploymentInfo = {
-    labels,
     safeAddress,
     moduleAddress,
     safeInitData,
@@ -181,6 +176,7 @@ export const convertFoundryDryRunToActionInputs = (
           value: transaction.value ?? '0x0',
           operation: Operation.Call,
           txData: transaction.data,
+          initCodeWithArgs,
           actionType: SphinxActionType.CALL.toString(),
           gas: transaction.gas,
           additionalContracts,
@@ -239,6 +235,7 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   rawInputs: Array<RawActionInput>,
   gasEstimates: Array<string>,
+  isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
   libraries: Array<string>
 ): ParsedConfig => {
@@ -251,7 +248,6 @@ export const makeParsedConfig = (
     newConfig,
     executionMode,
     initialState,
-    labels,
     safeInitData,
     arbitraryChain,
   } = deploymentInfo
@@ -263,7 +259,7 @@ export const makeParsedConfig = (
   const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
-  const unlabeledAddresses: Array<string> = []
+  const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
   // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
   // means the `EXECUTE` leaves start with an index of 1.
   let actionIndex = 1
@@ -278,98 +274,30 @@ export const makeParsedConfig = (
     }
 
     const { parsedContracts, unlabeledAdditionalContracts } =
-      parseAdditionalContracts(input, rawInputs, labels, configArtifacts)
-    unlabeledAddresses.push(...unlabeledAdditionalContracts)
+      parseAdditionalContracts(input, configArtifacts)
+    unlabeledContracts.push(...unlabeledAdditionalContracts)
 
     if (isRawCreate2ActionInput(input)) {
-      // Get the creation code of the CREATE2 deployment by removing the salt,
-      // which is the first 32 bytes of the data.
-      const initCodeWithArgs = ethers.dataSlice(input.txData, 32)
+      const fullyQualifiedName = findFullyQualifiedName(
+        input.initCodeWithArgs,
+        configArtifacts
+      )
 
-      // Check if the contract is a CREATE3 proxy. If it is, we won't attempt to verify it because
-      // it doesn't have its own source file in any commonly used CREATE3 library.
-      if (initCodeWithArgs !== CREATE3_PROXY_INITCODE) {
-        // Check if the `contractName` is a fully qualified name.
-        if (input.contractName && input.contractName.includes(':')) {
-          // It's a fully qualified name.
-
-          const fullyQualifiedName = input.contractName
-
-          parsedContracts.push({
-            address: input.create2Address,
-            fullyQualifiedName,
-            initCodeWithArgs,
-          })
-        } else if (
-          // Check if the `contractName` is a standard contract name (not a fully qualified name).
-          input.contractName
-        ) {
-          const { fullyQualifiedName } = getConfigArtifactForContractName(
-            input.contractName,
-            configArtifacts
-          )
-
-          parsedContracts.push({
-            address: input.create2Address,
-            fullyQualifiedName,
-            initCodeWithArgs,
-          })
-        } else {
-          // There's no contract name in this CREATE2 transaction.
-          const label = labels.find((l) => l.addr === input.create2Address)
-          if (isLabel(label)) {
-            parsedContracts.push({
-              address: input.create2Address,
-              fullyQualifiedName: label.fullyQualifiedName,
-              initCodeWithArgs,
-            })
-
-            const contractName = label.fullyQualifiedName.split(':')[1]
-            input.decodedAction = {
-              referenceName: contractName,
-              functionName: 'deploy',
-              variables: {
-                initCode: initCodeWithArgs,
-              },
-              address: '',
-            }
-          } else {
-            // Attempt to infer the name of the contract deployed using CREATE2. We may need to do this
-            // if the contract name isn't unique in the repo. This is likely a bug in Foundry.
-            const contractName = rawInputs
-              .filter(isRawFunctionCallActionInput)
-              .filter((e) => e.to === input.create2Address)
-              .map((e) => e.contractName)
-              .find(isString)
-            if (contractName) {
-              const fullyQualifiedName = contractName.includes(':')
-                ? contractName
-                : getConfigArtifactForContractName(
-                    contractName,
-                    configArtifacts
-                  ).fullyQualifiedName
-
-              parsedContracts.push({
-                address: input.create2Address,
-                fullyQualifiedName,
-                initCodeWithArgs,
-              })
-
-              input.decodedAction = {
-                referenceName: fullyQualifiedName.split(':')[1],
-                functionName: 'deploy',
-                variables: [
-                  {
-                    initCode: initCodeWithArgs,
-                  },
-                ],
-                address: '',
-              }
-            } else {
-              unlabeledAddresses.push(input.create2Address)
-            }
-          }
-        }
+      // If the fully qualified name exists, add the contract deployed via `CREATE2` to the list of
+      // parsed contracts.
+      if (fullyQualifiedName) {
+        parsedContracts.push({
+          address: input.create2Address,
+          fullyQualifiedName,
+          initCodeWithArgs: input.initCodeWithArgs,
+        })
+      } else {
+        // We couldn't find the fully qualified name, so the contract must not belong to a source
+        // file. We mark it as unlabeled.
+        unlabeledContracts.push({
+          address: input.create2Address,
+          initCodeWithArgs: input.initCodeWithArgs,
+        })
       }
 
       parsedActionInputs.push({
@@ -403,8 +331,9 @@ export const makeParsedConfig = (
     newConfig,
     executionMode,
     initialState,
+    isSystemDeployed,
     actionInputs: parsedActionInputs,
-    unlabeledAddresses,
+    unlabeledContracts,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
     libraries: convertLibraryFormat(libraries),
@@ -414,59 +343,35 @@ export const makeParsedConfig = (
   return parsedConfig
 }
 
+/**
+ * Parse the `additionalContracts` array of the Foundry broadcast, which contains all nested
+ * contract deployments for the given action. For example, if a contract deploys another contract in
+ * its constructor, the child contract's deployment info would exist in this array.
+ */
 const parseAdditionalContracts = (
   currentInput: RawActionInput,
-  allInputs: Array<RawActionInput>,
-  labels: Array<Label>,
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: Array<ParsedContractDeployment>
-  unlabeledAdditionalContracts: Array<string>
+  unlabeledAdditionalContracts: ParsedConfig['unlabeledContracts']
 } => {
   const parsedContracts: Array<ParsedContractDeployment> = []
-  const unlabeled: Array<string> = []
+  const unlabeled: ParsedConfig['unlabeledContracts'] = []
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
 
-    const label = labels.find((l) => l.addr === address)
-    if (isLabel(label)) {
-      if (label.fullyQualifiedName !== '') {
-        parsedContracts.push({
-          address,
-          fullyQualifiedName: label.fullyQualifiedName,
-          initCodeWithArgs: additionalContract.initCode,
-        })
-      }
-    } else if (
-      // Check if the current transaction is a call to deploy a contract using CREATE3. CREATE3
-      // transactions are 'CALL' types where the 'data' field of the transaction is equal to the
-      // contract's creation code. This transaction happens when calling the minimal CREATE3 proxy.
-      isRawFunctionCallActionInput(currentInput) &&
-      currentInput.txData === additionalContract.initCode
-    ) {
-      // We'll attempt to infer the name of the contract that was deployed using CREATE3.
-      const contractName = allInputs
-        .filter(isRawFunctionCallActionInput)
-        .filter((e) => e.to === address)
-        .map((e) => e.contractName)
-        .find(isString)
-
-      if (contractName) {
-        const fullyQualifiedName = contractName.includes(':')
-          ? contractName
-          : getConfigArtifactForContractName(contractName, configArtifacts)
-              .fullyQualifiedName
-
-        parsedContracts.push({
-          address,
-          fullyQualifiedName,
-          initCodeWithArgs: additionalContract.initCode,
-        })
-      } else {
-        unlabeled.push(address)
-      }
+    const fullyQualifiedName = findFullyQualifiedName(
+      additionalContract.initCode,
+      configArtifacts
+    )
+    if (fullyQualifiedName) {
+      parsedContracts.push({
+        address,
+        fullyQualifiedName,
+        initCodeWithArgs: additionalContract.initCode,
+      })
     } else {
-      unlabeled.push(address)
+      unlabeled.push({ address, initCodeWithArgs: additionalContract.initCode })
     }
   }
 

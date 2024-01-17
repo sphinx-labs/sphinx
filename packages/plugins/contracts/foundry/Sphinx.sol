@@ -16,9 +16,9 @@ import {
     DeploymentInfo,
     NetworkInfo,
     Wallet,
-    Label,
     SphinxTransaction,
-    ExecutionMode
+    ExecutionMode,
+    SystemContractInfo
 } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
 import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
@@ -63,8 +63,6 @@ abstract contract Sphinx {
      *      visibility so that the user can set fields on it.
      */
     SphinxConfig public sphinxConfig;
-
-    Label[] private labels;
 
     SphinxConstants private constants;
 
@@ -115,7 +113,7 @@ abstract contract Sphinx {
     ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
-            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(sphinxSafe()));
+            sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(safeAddress()));
             deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         } else if (_executionMode == ExecutionMode.LocalNetworkCLI) {
             // Set the `ManagedService` contract as the deployer. Although this isn't strictly
@@ -134,7 +132,7 @@ abstract contract Sphinx {
         ExecutionMode _executionMode,
         address _executor
     ) private returns (DeploymentInfo memory) {
-        address safe = sphinxSafe();
+        address safe = safeAddress();
         address module = sphinxModule();
 
         DeploymentInfo memory deploymentInfo;
@@ -171,18 +169,6 @@ abstract contract Sphinx {
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
-
-        // Set the labels. We do this after running the user's script because the user may assign
-        // labels in their deployment. We use a for-loop instead of directly assigning the labels to
-        // prevent an error when compiling with `viaIR` and the solc optimizer enabled (runs =
-        // 200) using solc v0.8.5.
-        deploymentInfo.labels = new Label[](labels.length);
-        for (uint i = 0; i < labels.length; i++) {
-            deploymentInfo.labels[i] = Label({
-                addr: labels[i].addr,
-                fullyQualifiedName: labels[i].fullyQualifiedName
-            });
-        }
 
         return deploymentInfo;
     }
@@ -248,13 +234,13 @@ abstract contract Sphinx {
 
         if (isCollecting) {
             // Execute the user's 'run()' function.
-            vm.startBroadcast(sphinxSafe());
+            vm.startBroadcast(safeAddress());
             _;
             vm.stopBroadcast();
         } else {
             // Prank the Gnosis Safe then execute the user's `run()` function. We prank the Gnosis
             // Safe to replicate the deployment process on live networks.
-            vm.startPrank(sphinxSafe());
+            vm.startPrank(safeAddress());
             _;
             vm.stopPrank();
         }
@@ -273,10 +259,10 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice Get the address of the SphinxModule. Before calling this function, the
+     * @notice Get the address of the Gnosis Safe. Before calling this function, the
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function sphinxSafe() public view returns (address) {
+    function safeAddress() public view returns (address) {
         return sphinxUtils.getGnosisSafeProxyAddress(sphinxConfig);
     }
 
@@ -292,39 +278,13 @@ abstract contract Sphinx {
         );
     }
 
-    function sphinxLabel(address _addr, string memory _fullyQualifiedName) internal {
-        for (uint256 i = 0; i < labels.length; i++) {
-            Label memory label = labels[i];
-            if (label.addr == _addr) {
-                require(
-                    keccak256(abi.encodePacked(_fullyQualifiedName)) ==
-                        keccak256(abi.encodePacked(label.fullyQualifiedName)),
-                    string(
-                        abi.encodePacked(
-                            "Sphinx: The address ",
-                            vm.toString(_addr),
-                            " was labeled with two names:\n",
-                            label.fullyQualifiedName,
-                            "\n",
-                            _fullyQualifiedName,
-                            "\nPlease choose one label."
-                        )
-                    )
-                );
-                return;
-            }
-        }
-
-        labels.push(Label(_addr, _fullyQualifiedName));
-    }
-
     /**
      * @notice Return the user's config ABI encoded. This is useful for retrieving the config
      *         off-chain. We ABI encode the config because it's difficult to decode complex
      *         data types that are returned by invoking Forge scripts.
      */
     function sphinxConfigABIEncoded() external view returns (bytes memory) {
-        return abi.encode(sphinxConfig, sphinxSafe(), sphinxModule());
+        return abi.encode(sphinxConfig, safeAddress(), sphinxModule());
     }
 
     /**
@@ -352,12 +312,19 @@ abstract contract Sphinx {
     function sphinxEstimateMerkleLeafGas(
         string memory _leafGasParamsFilePath
     ) external returns (bytes memory abiEncodedGasArray) {
-        SphinxTransaction[] memory txnArray = abi.decode(
-            vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
-            (SphinxTransaction[])
-        );
+        (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts) = abi
+            .decode(
+                vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
+                (SphinxTransaction[], SystemContractInfo[])
+            );
 
-        IGnosisSafe safe = IGnosisSafe(sphinxSafe());
+        // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
+        // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
+        // because we're going to call the Gnosis Safe to estimate the gas. Also, this is necessary
+        // because the system contracts may not already be deployed on the current network.
+        sphinxUtils.deploySphinxSystem(systemContracts);
+
+        IGnosisSafe safe = IGnosisSafe(safeAddress());
         address module = sphinxModule();
         address managedServiceAddress = constants.managedServiceAddress();
 

@@ -20,7 +20,12 @@ import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 import { getNetworkGasEstimate, makeGetConfigArtifacts } from '../foundry/utils'
 import { ProposeArgs, buildParsedConfigArray, propose } from './propose'
 import { DeployArgs, deploy } from './deploy'
-import { BuildParsedConfigArray, GetNetworkGasEstimate } from './types'
+import {
+  BuildParsedConfigArray,
+  FetchRemoteArtifacts,
+  GetNetworkGasEstimate,
+} from './types'
+import { fetchRemoteArtifacts } from './artifacts'
 
 export type SphinxContext = {
   makeGetConfigArtifacts: (
@@ -51,6 +56,7 @@ export type SphinxContext = {
   buildParsedConfigArray: BuildParsedConfigArray
   storeCanonicalConfig: StoreCanonicalConfig
   relayProposal: RelayProposal
+  fetchRemoteArtifacts: FetchRemoteArtifacts
 }
 
 export const makeSphinxContext = (): SphinxContext => {
@@ -64,5 +70,6 @@ export const makeSphinxContext = (): SphinxContext => {
     buildParsedConfigArray,
     storeCanonicalConfig,
     relayProposal,
+    fetchRemoteArtifacts,
   }
 }

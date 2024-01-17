@@ -39,7 +39,10 @@ import {
 import { SphinxJsonRpcProvider } from '../provider'
 import { ExecutionMode } from '../constants'
 import { convertEthersTransactionReceipt } from '../artifacts'
-import { SphinxTransactionReceipt } from '../languages'
+import {
+  SphinxTransactionReceipt,
+  ensureSphinxAndGnosisSafeDeployed,
+} from '../languages'
 import { ParsedConfig } from '../config'
 
 export const executeDeployment = async (
@@ -570,10 +573,15 @@ export const runEntireDeploymentProcess = async (
   finalStatus: MerkleRootState['status']
   failureAction?: HumanReadableAction
 }> => {
-  const { chainId, executionMode, actionInputs } = parsedConfig
+  const { chainId, executionMode, actionInputs, isSystemDeployed } =
+    parsedConfig
 
   const humanReadableActions = {
     [chainId]: getReadableActions(actionInputs),
+  }
+
+  if (!isSystemDeployed) {
+    await ensureSphinxAndGnosisSafeDeployed(provider, signer, executionMode)
   }
 
   let estimateGas: EstimateGas

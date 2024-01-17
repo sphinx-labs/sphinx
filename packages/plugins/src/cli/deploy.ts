@@ -5,19 +5,15 @@ import {
   displayDeploymentTable,
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
-  isSupportedNetworkName,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   getPreview,
   getPreviewString,
-  SUPPORTED_NETWORKS,
   SphinxPreview,
-  ensureSphinxAndGnosisSafeDeployed,
   makeDeploymentData,
   makeDeploymentArtifacts,
-  writeDeploymentArtifacts,
   ContractDeploymentArtifact,
   isContractDeploymentArtifact,
   CompilerConfig,
@@ -27,6 +23,9 @@ import {
   ExecutionMode,
   runEntireDeploymentProcess,
   ConfigArtifacts,
+  checkSystemDeployed,
+  fetchChainIdForNetwork,
+  writeDeploymentArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -36,9 +35,9 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 import {
   compile,
   getFoundrySingleChainDryRunPath,
+  getInitCodeWithArgsArray,
   getSphinxConfigFromScript,
   getSphinxLeafGasEstimates,
-  getUniqueNames,
   readFoundrySingleChainDryRun,
   readInterface,
 } from '../foundry/utils'
@@ -111,14 +110,7 @@ export const deploy = async (
     process.exit(1)
   }
 
-  if (!isSupportedNetworkName(network)) {
-    throw new Error(
-      `Network name ${network} is not supported. You must use a supported network: \n${Object.keys(
-        SUPPORTED_NETWORKS
-      ).join('\n')}`
-    )
-  }
-  const chainId = SUPPORTED_NETWORKS[network]
+  const chainId = fetchChainIdForNetwork(network)
 
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
@@ -135,7 +127,6 @@ export const deploy = async (
   }
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
-  await ensureSphinxAndGnosisSafeDeployed(provider)
 
   const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
 
@@ -275,20 +266,15 @@ export const deploy = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const { uniqueFullyQualifiedNames, uniqueContractNames } = getUniqueNames(
-    [actionInputs],
-    [deploymentInfo]
-  )
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(actionInputs)
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
-  const configArtifacts = await getConfigArtifacts(
-    uniqueFullyQualifiedNames,
-    uniqueContractNames
-  )
-
+  const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
     gasEstimates,
+    isSystemDeployed,
     configArtifacts,
     dryRunFile.libraries
   )
@@ -353,7 +339,7 @@ export const deploy = async (
 
   const deploymentArtifacts = await makeDeploymentArtifacts(
     {
-      [chainId]: {
+      [chainId.toString()]: {
         provider,
         compilerConfig,
         receipts,
