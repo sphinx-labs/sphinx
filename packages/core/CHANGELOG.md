@@ -1,5 +1,21 @@
 # @sphinx-labs/core
 
+## 0.20.4
+
+### Patch Changes
+
+- f6ad422: Support CLI deployments on networks not supported by the DevOps Platform
+- b802adf: Use artifact inference in Foundry plugin
+- c8fc9e0: Remove `CREATE3` proxies from preview warning
+- 9b987df: Simplify network integration interface
+- d7aa858: Check if init code belongs to contract artifact
+- 1d2d46d: Enable deployment artifact cli task
+- 57e0dbd: Use bytecode inference to determine contract artifact
+- Updated dependencies [f6ad422]
+- Updated dependencies [b802adf]
+- Updated dependencies [9b987df]
+  - @sphinx-labs/contracts@0.15.2
+
 ## 0.20.3
 
 ### Patch Changes
