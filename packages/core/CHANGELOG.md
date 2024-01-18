@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.20.5
+
+### Patch Changes
+
+- 95511b1: Remove git output when user isn't in a git repository
+- dde661c: Add large gas price pad on linea goerli
+
 ## 0.20.4
 
 ### Patch Changes
