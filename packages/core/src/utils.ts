@@ -199,13 +199,19 @@ export const getGasPriceOverrides = async (
     case 1442:
     case 1101:
       return overridden
-    // On linea and its testnet, just override the gasPrice
+    // On linea testnet, 10x the gas price because of this bug:
+    // https://github.com/ethers-io/ethers.js/issues/4533
     case 59140:
+      if (gasPrice !== null) {
+        overridden.gasPrice = gasPrice * BigInt(10)
+        return overridden
+      }
+    // On linea, override the gasPrice
     case 59144:
       if (gasPrice !== null) {
         overridden.gasPrice = gasPrice
-        return overridden
       }
+      return overridden
     // On Polygon PoS, override the maxPriorityFeePerGas using the max fee
     case 137:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
@@ -1205,7 +1211,12 @@ export const assertValidProjectName = (input: string): void => {
 export const getCurrentGitCommitHash = (): string | null => {
   let commitHash: string
   try {
-    commitHash = execSync('git rev-parse HEAD').toString().trim()
+    // Get the current git commit. We call this command with "2>/dev/null" to discard the `stderr`.
+    // If we don't discard the `stderr`, the following statement would be displayed to the user if
+    // they aren't in a git repository:
+    //
+    // "fatal: not a git repository (or any of the parent directories): .git".
+    commitHash = execSync('git rev-parse HEAD 2>/dev/null').toString().trim()
   } catch {
     return null
   }
