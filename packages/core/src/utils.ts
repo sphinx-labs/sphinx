@@ -1205,7 +1205,12 @@ export const assertValidProjectName = (input: string): void => {
 export const getCurrentGitCommitHash = (): string | null => {
   let commitHash: string
   try {
-    commitHash = execSync('git rev-parse HEAD').toString().trim()
+    // Get the current git commit. We call this command with "2>/dev/null" to discard the `stderr`.
+    // If we don't discard the `stderr`, the following statement would be displayed to the user if
+    // they aren't in a git repository:
+    //
+    // "fatal: not a git repository (or any of the parent directories): .git".
+    commitHash = execSync('git rev-parse HEAD 2>/dev/null').toString().trim()
   } catch {
     return null
   }
