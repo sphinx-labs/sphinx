@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// To avoid having the user define a remapping for our installation of forge std, we must import it directly
+// using a relative import. This will work both in our monorepo and when the repo is installed inside of the users
+// project.
 import { Vm } from "sphinx-forge-std/Vm.sol";
 import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+
+// // To avoid having the user define a remapping for our installation of forge std, we must import it directly
+// // using a relative import. This will work both in our monorepo and when the repo is installed inside of the users
+// // project.
+// import { Vm } from "../../../../lib/forge-std/src/Vm.sol";
+// import { StdUtils } from "../../../../lib/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";

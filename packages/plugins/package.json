@@ -63,7 +63,6 @@
     "semver": "^7.3.7",
     "sinon": "^17.0.1",
     "solidity-ast": "^0.4.52",
-    "sphinx-solmate": "npm:solmate@^6.7.0",
     "stream-chain": "^2.2.5",
     "stream-json": "^1.8.0",
     "ts-node": "^10.9.1",

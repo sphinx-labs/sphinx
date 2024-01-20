@@ -8,6 +8,7 @@ optimizer = false
 test = 'test'
 script = 'scripts'
 extra_output=['storageLayout']
+libs = ["../../lib"]
 remappings = [
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
   '@eth-optimism/contracts/=node_modules/@eth-optimism/contracts',

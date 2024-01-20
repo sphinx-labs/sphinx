@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// We import our forge installation here using a relative import. This allows us to avoid
-// having the user define a remapping for this themselves
-import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
+
+// To avoid having the user define a remapping for our installation of forge std, we must import it directly
+// using a relative import. This will work both in our monorepo and when the repo is installed inside of the users
+// project.
+import { VmSafe, Vm } from "../../../../lib/forge-std/src/Vm.sol";
 
 import {
     MerkleRootStatus,

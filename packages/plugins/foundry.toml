@@ -7,11 +7,11 @@ extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 optimizer = false
 ffi = true
-libs = ["node_modules", "lib"]
+libs = ["node_modules", "../../lib"]
 test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
-allow_paths = ["../contracts"]
+allow_paths = ["../contracts", "../../lib"]
 solc = '0.8.21'
 memory_limit = 3355443200
 
