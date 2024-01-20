@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
+// We import our forge installation here using a relative import. This allows us to avoid
+// having the user define a remapping for this themselves
+import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
 
 import {
     MerkleRootStatus,
