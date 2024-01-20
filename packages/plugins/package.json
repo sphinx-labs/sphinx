@@ -63,7 +63,6 @@
     "semver": "^7.3.7",
     "sinon": "^17.0.1",
     "solidity-ast": "^0.4.52",
-    "sphinx-forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1",
     "sphinx-solmate": "npm:solmate@^6.7.0",
     "stream-chain": "^2.2.5",
     "stream-json": "^1.8.0",
