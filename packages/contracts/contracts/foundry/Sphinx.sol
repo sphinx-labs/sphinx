@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { VmSafe, Vm } from "sphinx-forge-std/Vm.sol";
+// We chose not to use any remappings when importing the standard forge library. This is because when our library is installed in
+// the users project we will be subject to their configured remappings. Bugs can also occur if we rely on the users installation of
+// forge-std which may not be the same exact version our library expects. To resolve both of these issues, we install the version of
+// forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
+// having to define a separate remapping just for our installation of forge-std.
+import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
 
-import {
-    MerkleRootStatus,
-    SphinxLeafWithProof
-} from "@sphinx-labs/contracts/contracts/core/SphinxDataTypes.sol";
-import { ISphinxModule } from "@sphinx-labs/contracts/contracts/core/interfaces/ISphinxModule.sol";
+import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
+import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import {
     SphinxMerkleTree,
     HumanReadableAction,
@@ -19,13 +21,11 @@ import {
     SphinxTransaction,
     ExecutionMode,
     SystemContractInfo
-} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
-import { SphinxConstants } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
-import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
-import {
-    IGnosisSafeProxyFactory
-} from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
+} from "./SphinxPluginTypes.sol";
+import { SphinxUtils } from "./SphinxUtils.sol";
+import { SphinxConstants } from "./SphinxConstants.sol";
+import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
+import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.

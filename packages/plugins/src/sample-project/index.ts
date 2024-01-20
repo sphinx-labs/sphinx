@@ -23,7 +23,6 @@ export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
 export const init = (
-  pnpm: boolean,
   foundryup: boolean,
   orgId: string,
   sphinxApiKey: string,
@@ -84,7 +83,7 @@ export const init = (
   )
 
   fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
-  fs.writeFileSync('foundry.toml', fetchForgeConfig(pnpm, true))
+  fs.writeFileSync('foundry.toml', fetchForgeConfig(true))
   // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
   fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
 

@@ -10,12 +10,11 @@ script = 'scripts'
 extra_output=['storageLayout']
 remappings = [
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',
-  '@eth-optimism/contracts/=node_modules/@eth-optimism/contracts',
-  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
   '@gnosis.pm/safe-contracts-1.3.0/=node_modules/@gnosis.pm/safe-contracts/contracts/',
   '@gnosis.pm/safe-contracts-1.4.1/=node_modules/@gnosis.pm/safe-contracts-1.4.1/contracts/'
 ]
+libs = []
 
 [profile.core]
 src = 'contracts/core'

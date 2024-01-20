@@ -1,3 +1,5 @@
+import { ethers } from 'ethers'
+
 import {
   CheckBalanceLowArtifact,
   CompatibilityFallbackHandlerArtifact,
@@ -15,7 +17,11 @@ import {
   SignMessageLibArtifact,
   SphinxModuleArtifact,
 } from './ifaces'
-import { ContractArtifact, GnosisSafeContractArtifact } from './types'
+import {
+  ContractArtifact,
+  GnosisSafeContractArtifact,
+  SystemContractInfo,
+} from './types'
 import {
   getCheckBalanceLowAddress,
   getCompatibilityFallbackHandlerAddress,
@@ -34,6 +40,7 @@ import {
   getSphinxModuleProxyFactoryAddress,
 } from './addresses'
 import { getOwnerAddress } from './constants'
+import { remove0x } from './utils'
 
 export enum SystemContractType {
   SPHINX,
@@ -150,4 +157,23 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
   ]
 
   return contractInfo
+}
+
+/**
+ * Returns a minimal representation of the system contracts to use in the Sphinx Foundry plugin.
+ */
+export const getSystemContractInfo = (): Array<SystemContractInfo> => {
+  return getSphinxConstants().map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
+      const { abi, bytecode } = artifact
+
+      const iface = new ethers.Interface(abi)
+
+      const initCodeWithArgs = bytecode.concat(
+        remove0x(iface.encodeDeploy(constructorArgs))
+      )
+
+      return { initCodeWithArgs, expectedAddress }
+    }
+  )
 }

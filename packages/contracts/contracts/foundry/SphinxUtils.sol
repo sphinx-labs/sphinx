@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "sphinx-forge-std/Vm.sol";
-import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";
