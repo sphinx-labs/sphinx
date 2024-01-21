@@ -22,7 +22,6 @@ import {
   formatSolcLongVersion,
   getBytesLength,
   getNetworkNameForChainId,
-  getSystemContractInfo,
   isDefined,
   isRawCreate2ActionInput,
   sortHexStrings,
@@ -54,6 +53,7 @@ import {
   add0x,
   parseFoundryContractArtifact,
   recursivelyConvertResult,
+  getSystemContractInfo,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'

@@ -1,7 +1,6 @@
 import { join } from 'path'
 import { appendFileSync, rmSync } from 'fs'
 
-import { spawnAsync } from '@sphinx-labs/core'
 import { expect } from 'chai'
 import {
   sampleContractFileName,
@@ -9,6 +8,7 @@ import {
   sampleTestFileName,
 } from '@sphinx-labs/plugins'
 import { SemVer, coerce, gt, lte } from 'semver'
+import { spawnAsync } from '@sphinx-labs/core'
 
 import { deleteForgeProject } from './common'
 

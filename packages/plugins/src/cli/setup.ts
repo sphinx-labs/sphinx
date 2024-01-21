@@ -2,10 +2,6 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 
 import { init } from '../sample-project'
-import {
-  fetchNPMRemappings,
-  fetchPNPMRemappings,
-} from '../sample-project/sample-foundry-config'
 import { SphinxContext, makeSphinxContext } from './context'
 import {
   ArtifactsCommandArgs,
@@ -135,32 +131,9 @@ export const makeCLI = (
           })
           .hide('version'),
       async (argv) => {
-        const { pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } =
-          argv
+        const { foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } = argv
 
-        init(pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
-      }
-    )
-    .command(
-      'remappings',
-      'Output remappings for the Sphinx packages.',
-      (y) =>
-        y
-          .usage('Usage: sphinx remappings [--pnpm]')
-          .option('pnpm', {
-            describe: `Create remappings for pnpm.`,
-            boolean: true,
-            default: false,
-          })
-          .hide('version'),
-      async (argv) => {
-        const { pnpm } = argv
-
-        const remappings = pnpm
-          ? fetchPNPMRemappings(false)
-          : fetchNPMRemappings(false)
-
-        console.log(remappings.join('\n'))
+        init(foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
       }
     )
     .command(

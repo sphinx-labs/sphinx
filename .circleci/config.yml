@@ -12,6 +12,11 @@ jobs:
           keys:
             - v2-cache-source-{{ .Branch }}-{{ .Revision }}
             - v2-cache-source-{{ .Branch }}
+      - run:
+          name: Initialize submodules
+          command: |
+            git submodule init
+            git submodule update
       - checkout
       - save_cache:
           key: v2-cache-source-{{ .Branch }}-{{ .Revision }}
@@ -66,18 +71,11 @@ jobs:
           name: Lint
           command: yarn lint:check
           working_directory: packages/<<parameters.package_name>>
-      - when:
-          condition:
-            or:
-              - equal: [ "develop", << pipeline.git.branch >> ]
-              - not:
-                  equal: [ "contracts", <<parameters.package_name>> ]
-          steps:
-            - run:
-                name: Test
-                command: yarn test:coverage
-                no_output_timeout: 20m
-                working_directory: packages/<<parameters.package_name>>
+      - run:
+          name: Test
+          command: yarn test:coverage
+          no_output_timeout: 20m
+          working_directory: packages/<<parameters.package_name>>
 
   depcheck:
     docker:

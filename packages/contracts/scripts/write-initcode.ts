@@ -1,5 +1,4 @@
-import { remove0x } from '@sphinx-labs/contracts'
-import { getSystemContractInfo } from '@sphinx-labs/core'
+import { getSystemContractInfo, remove0x } from '../src'
 
 /**
  * Writes the initcode and expected addresses of all Sphinx system contracts. This allows us to use
@@ -19,7 +18,7 @@ const writeConstants = async () => {
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
-    `import { SystemContractInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";\n\n` +
+    `import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";\n\n` +
     `contract SphinxInitCode {\n` +
     `  function getSystemContractInfo() public pure returns (SystemContractInfo[] memory) {\n` +
     `    SystemContractInfo[] memory contracts = new SystemContractInfo[](${contractInfo.length});\n` +

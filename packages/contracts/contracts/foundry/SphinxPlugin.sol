@@ -6,4 +6,4 @@ pragma solidity ^0.8.0;
 // import items that we have mentioned in the user-facing documentation.
 
 import { Sphinx } from "./Sphinx.sol";
-import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
+import { Network } from "./SphinxConstants.sol";

@@ -103,3 +103,8 @@ export interface SolidityStorageLayout {
     }
   } | null
 }
+
+export type SystemContractInfo = {
+  initCodeWithArgs: string
+  expectedAddress: string
+}

@@ -8,10 +8,7 @@ allow_paths = ["../.."]
 remappings=[
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
-  '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
-  '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
-  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
-  'sphinx-solmate/=node_modules/sphinx-solmate/src/',
+  '@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry',
 ]
 
 [rpc_endpoints]
@@ -19,3 +16,6 @@ anvil = "http://127.0.0.1:8545"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
+
+[profile.no_optimizer]
+optimizer = false
