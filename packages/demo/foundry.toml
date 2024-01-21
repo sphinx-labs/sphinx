@@ -3,7 +3,7 @@ script = 'script'
 test = 'test'
 build_info = true
 extra_output = ['storageLayout']
-fs_permissions = [{ access = "read-write", path = "./"}]
+fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
 remappings=[
   'forge-std/=node_modules/forge-std/src/',
@@ -19,6 +19,3 @@ anvil = "http://127.0.0.1:8545"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
 arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${RPC_API_KEY}"
-
-[profile.no_optimizer]
-optimizer = false
