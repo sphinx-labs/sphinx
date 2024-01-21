@@ -9,6 +9,7 @@ import {
   getSphinxModuleImplAddress,
 } from '../src/addresses'
 import { SPHINX_NETWORKS, SPHINX_LOCAL_NETWORKS } from '../src'
+import { version } from '../package.json'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -57,6 +58,7 @@ const writeConstants = async () => {
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
     `import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";\n\n` +
     `contract SphinxConstants {\n` +
+    `  string public constant sphinxVersion = 'v${version}';\n` +
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
         if (type === 'bytes') {

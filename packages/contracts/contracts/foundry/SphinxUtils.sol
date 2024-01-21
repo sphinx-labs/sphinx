@@ -87,6 +87,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return uint256(keccak256(abi.encode("sphinx.wallet", _num)));
     }
 
+    function getSphinxLibraryVersion() public pure returns (string memory) {
+        return sphinxVersion;
+    }
+
     /**
      * @notice Get auto-generated wallets sorted in ascending order according to their addresses.
      *         We don't use `vm.createWallet` because this function must be view/pure, since it may

@@ -12,12 +12,12 @@ jobs:
           keys:
             - v2-cache-source-{{ .Branch }}-{{ .Revision }}
             - v2-cache-source-{{ .Branch }}
+      - checkout
       - run:
           name: Initialize submodules
           command: |
             git submodule init
             git submodule update
-      - checkout
       - save_cache:
           key: v2-cache-source-{{ .Branch }}-{{ .Revision }}
           paths:

@@ -1,0 +1,1 @@
+export const CONTRACTS_LIBRARY_VERSION = 'v0.15.2'
