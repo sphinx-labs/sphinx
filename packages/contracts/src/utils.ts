@@ -1,3 +1,5 @@
+import { execSync } from 'child_process'
+
 import { AbiCoder, ethers } from 'ethers'
 
 import {
@@ -250,4 +252,24 @@ const isValidStorageLayout = (storageLayout: any): boolean => {
 
 export const isNonNullObject = (obj: any): boolean => {
   return typeof obj === 'object' && obj !== null
+}
+
+export const getCurrentGitCommitHash = (): string | null => {
+  let commitHash: string
+  try {
+    // Get the current git commit. We call this command with "2>/dev/null" to discard the `stderr`.
+    // If we don't discard the `stderr`, the following statement would be displayed to the user if
+    // they aren't in a git repository:
+    //
+    // "fatal: not a git repository (or any of the parent directories): .git".
+    commitHash = execSync('git rev-parse HEAD 2>/dev/null').toString().trim()
+  } catch {
+    return null
+  }
+
+  if (commitHash.length !== 40) {
+    throw new Error(`Git commit hash is an unexpected length: ${commitHash}`)
+  }
+
+  return commitHash
 }
