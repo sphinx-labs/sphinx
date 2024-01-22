@@ -1,3 +1,5 @@
+import { RECOMMENDED_REMAPPING } from '@sphinx-labs/contracts'
+
 const standardRemappings = [
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
@@ -5,7 +7,7 @@ const standardRemappings = [
 
 export const fetchRemappings = (includeStandard: boolean) => [
   ...(includeStandard ? standardRemappings : []),
-  `@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry`,
+  RECOMMENDED_REMAPPING,
 ]
 
 const fetchConfigRemappings = (includeStandard: boolean) => {

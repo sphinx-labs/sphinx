@@ -149,7 +149,7 @@ export const makeCLI = (
       async (argv) => {
         const { noCommit } = argv
 
-        handleInstall(noCommit)
+        handleInstall(noCommit, 'inherit')
       }
     )
     .command(

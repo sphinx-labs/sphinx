@@ -17,6 +17,7 @@ import {
   getSampleFoundryTestFile,
   getSampleScriptFile,
 } from './sample-contracts'
+import { handleInstall } from '../cli/install'
 
 export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleScriptFileName = 'HelloSphinx.s.sol'
@@ -86,6 +87,8 @@ export const init = (
   fs.writeFileSync('foundry.toml', fetchForgeConfig(true))
   // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
   fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
+
+  handleInstall(true, 'ignore')
 
   spinner.succeed('Initialized sample Sphinx project.')
 }
