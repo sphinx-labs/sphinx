@@ -157,6 +157,7 @@ abstract contract Sphinx {
         });
         deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, ISphinxModule(module));
         deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(ISphinxModule(module));
+        deploymentInfo.sphinxLibraryHash = sphinxUtils.getSphinxLibraryHash();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
 

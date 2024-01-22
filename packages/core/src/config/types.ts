@@ -103,6 +103,7 @@ export type DeploymentInfo = {
   executionMode: ExecutionMode
   initialState: InitialChainState
   arbitraryChain: boolean
+  sphinxLibraryHash: string
 }
 
 export type InitialChainState = {
