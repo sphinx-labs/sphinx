@@ -15,9 +15,11 @@
     "contract-artifacts/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn write-constants && yarn write-initcode && forge build && yarn build:ts",
+    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn generate && forge build && yarn build:ts",
+    "generate": "yarn write-constants && yarn write-initcode && yarn write-version",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "write-initcode": "npx ts-node scripts/write-initcode.ts > test/SphinxInitCode.sol",
+    "write-version": "npx ts-node scripts/write-version.ts > src/version.ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",
     "test:coverage": "apt install lsof && yarn test",

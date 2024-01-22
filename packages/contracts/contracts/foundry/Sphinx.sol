@@ -266,6 +266,10 @@ abstract contract Sphinx {
         return sphinxUtils.getGnosisSafeProxyAddress(sphinxConfig);
     }
 
+    function sphinxLibraryVersion() public view returns (string memory) {
+        return sphinxUtils.getSphinxLibraryVersion();
+    }
+
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
         NetworkInfo[] memory all = sphinxUtils.getNetworkInfoArray();
         for (uint256 i = 0; i < all.length; i++) {

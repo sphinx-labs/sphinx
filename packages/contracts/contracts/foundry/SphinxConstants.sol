@@ -4,6 +4,7 @@ pragma solidity >=0.6.2 <0.9.0;
 import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";
 
 contract SphinxConstants {
+  string public constant sphinxVersion = 'v0.15.2';
   address public constant compatibilityFallbackHandlerAddress = 0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4;
   address public constant multiSendAddress = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
   address public constant sphinxModuleProxyFactoryAddress = 0x8f3301c9Eada5642B5bB12FD047D3EBb2932E619;
