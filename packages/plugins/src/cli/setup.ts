@@ -134,22 +134,15 @@ export const makeCLI = (
       async (argv) => {
         const { foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } = argv
 
-        init(foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
+        await init(foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
       }
     )
     .command(
       'install',
       'Installs the required version of the Sphinx Solidity library contracts',
-      (y) =>
-        y.usage('Usage: sphinx install [--no-commit]').option('no-commit', {
-          describe: `Skip committing dependency installation to version control`,
-          boolean: true,
-          default: false,
-        }),
-      async (argv) => {
-        const { noCommit } = argv
-
-        handleInstall(noCommit, 'inherit')
+      (y) => y.usage('Usage: sphinx install'),
+      async () => {
+        await handleInstall()
       }
     )
     .command(
