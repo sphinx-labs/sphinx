@@ -53,6 +53,7 @@ import {
   ContractArtifact,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   isNonNullObject,
+  getCurrentGitCommitHash,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -379,6 +380,7 @@ export const makeDeployment = async (
         saltNonce: saltNonce.toString(),
       },
       arbitraryChain: false,
+      sphinxLibraryHash: getCurrentGitCommitHash()!,
     }
 
     return {

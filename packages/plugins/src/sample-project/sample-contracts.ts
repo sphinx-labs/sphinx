@@ -37,7 +37,7 @@ export const getSampleScriptFile = (
 pragma solidity ^0.8.0;
 
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
-import "@sphinx-labs/plugins/SphinxPlugin.sol";
+import "@sphinx-labs/contracts/SphinxPlugin.sol";
 
 contract HelloSphinxScript is Sphinx {
     HelloSphinx helloSphinx;

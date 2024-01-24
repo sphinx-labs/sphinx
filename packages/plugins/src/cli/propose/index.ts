@@ -46,6 +46,7 @@ import {
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
 import { BuildParsedConfigArray } from '../types'
+import { checkLibraryVersion } from '../utils'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -156,6 +157,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       abiEncodedDeploymentInfo,
       sphinxPluginTypesInterface
     )
+
+    checkLibraryVersion(deploymentInfo.sphinxLibraryHash)
 
     const collectionDryRunPath = getFoundrySingleChainDryRunPath(
       foundryToml.broadcastFolder,

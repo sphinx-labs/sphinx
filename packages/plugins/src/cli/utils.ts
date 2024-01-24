@@ -1,3 +1,5 @@
+import { CONTRACTS_LIBRARY_COMMIT_HASH } from '@sphinx-labs/contracts'
+
 export const BothNetworksSpecifiedError = `You must specify either 'testnets' or 'mainnets', but not both.`
 
 export const ConfirmAndDryRunError =
@@ -26,4 +28,12 @@ export const coerceNetworks = (
 
   // If none of the above conditions are met, throw a general error.
   throw new Error(getInvalidNetworksArgumentError(arg))
+}
+
+export const checkLibraryVersion = (libraryVersion: string) => {
+  if (libraryVersion !== CONTRACTS_LIBRARY_COMMIT_HASH) {
+    throw Error(
+      'Incorrect Sphinx library contracts version detected. Please run `npx sphinx install` to update to the required version.'
+    )
+  }
 }

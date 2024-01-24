@@ -6,6 +6,7 @@ import { spawnSync } from 'child_process'
 
 import ora from 'ora'
 import { ethers } from 'ethers'
+import { spawnAsync } from '@sphinx-labs/core'
 
 import {
   fetchDotEnvFile,
@@ -17,13 +18,58 @@ import {
   getSampleFoundryTestFile,
   getSampleScriptFile,
 } from './sample-contracts'
+import { handleInstall } from '../cli/install'
 
 export const sampleContractFileName = 'HelloSphinx.sol'
 export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
-export const init = (
-  pnpm: boolean,
+const handleGitInit = async () => {
+  if (process.env.SPHINX_INTERNAL_TEST__SKIP_GIT === 'true') {
+    return
+  }
+
+  // Commit all changes
+  const spawnOutput = await spawnAsync('git', ['init'])
+  if (spawnOutput.code !== 0) {
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+}
+
+const handleCommit = async () => {
+  if (process.env.SPHINX_INTERNAL_TEST__SKIP_GIT === 'true') {
+    return
+  }
+
+  // Commit all changes
+  const gitAddOutput = await spawnAsync('git', ['add', '.'])
+  if (gitAddOutput.code !== 0) {
+    // The `stdout` contains the trace of the error.
+    console.log(gitAddOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(gitAddOutput.stderr)
+    process.exit(1)
+  }
+
+  const gitCommitOutput = await spawnAsync('git', [
+    'commit',
+    '-m',
+    '"feat: Initialized Sphinx"',
+  ])
+  if (gitCommitOutput.code !== 0) {
+    // The `stdout` contains the trace of the error.
+    console.log(gitCommitOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(gitCommitOutput.stderr)
+    process.exit(1)
+  }
+}
+
+export const init = async (
   foundryup: boolean,
   orgId: string,
   sphinxApiKey: string,
@@ -42,6 +88,10 @@ export const init = (
 
   const spinner = ora()
   spinner.start(`Initializing sample Sphinx project...`)
+
+  // To make the installation process smoother and b/c installing out library requires a git repo, we just
+  // automatically create a repo and commit everything to it at the end of the initialization process.
+  await handleGitInit()
 
   const contractDirPath = 'src'
   const testDirPath = 'test'
@@ -84,9 +134,13 @@ export const init = (
   )
 
   fs.writeFileSync('.gitignore', sampleGitIgnoreFile)
-  fs.writeFileSync('foundry.toml', fetchForgeConfig(pnpm, true))
+  fs.writeFileSync('foundry.toml', fetchForgeConfig(true))
   // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
   fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
+
+  await handleInstall()
+
+  await handleCommit()
 
   spinner.succeed('Initialized sample Sphinx project.')
 }

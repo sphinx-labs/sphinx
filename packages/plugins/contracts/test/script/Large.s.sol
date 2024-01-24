@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
 import { MyLargeContract } from "../../../contracts/test/MyContracts.sol";
-import { Sphinx } from "../../foundry/Sphinx.sol";
+import { Sphinx } from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
 contract Simple is Script, Sphinx {
