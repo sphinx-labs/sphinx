@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "sphinx-forge-std/Test.sol";
-import { Sphinx } from "../../contracts/foundry/Sphinx.sol";
-import { IGnosisSafe } from "@sphinx-labs/contracts/contracts/foundry/interfaces/IGnosisSafe.sol";
-import { SystemContractInfo } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
-import { SphinxTestUtils } from "../../contracts/test/SphinxTestUtils.sol";
+// Technically, we could use a forge-std remapping in our non-production contracts (scripts, tests, etc). We chose not too because allowing
+// that would increase the chance that we accidentally ship something that may not compile in the users project because we accidentially
+// relied on a remapping in the wrong file.
+import "../lib/forge-std/src/Test.sol";
+
+import { Sphinx } from "../contracts/foundry/Sphinx.sol";
+import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
+import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
 contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
 

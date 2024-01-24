@@ -50,8 +50,10 @@ describe('Init CLI command', () => {
 
     const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
+    // We use `SPHINX_INTERNAL_TEST__SKIP_GIT` to skip the init command steps where we create a git repo and commit all the files to it.
+    // We do this to avoid messing with out commit history when testing locally.
     await execAsync(
-      `npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner ${ownerAddress}`
+      `export SPHINX_INTERNAL_TEST__SKIP_GIT=true && npx sphinx init --org-id TEST_ORG_ID --sphinx-api-key TEST_SPHINX_KEY --alchemy-api-key TEST_ALCHEMY_KEY --owner ${ownerAddress}`
     )
 
     // Check that the files have been created

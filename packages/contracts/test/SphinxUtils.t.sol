@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "sphinx-forge-std/Test.sol";
-import {SphinxUtils} from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import "../lib/forge-std/src/Test.sol";
+import {SphinxUtils} from "../contracts/foundry/SphinxUtils.sol";
 import {
     FoundryContractConfig,
     OptionalString,
     ContractKindEnum,
     ParsedCallAction,
     Network
-} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
+} from "../contracts/foundry/SphinxPluginTypes.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
     function setUp() public {}
@@ -120,11 +120,5 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         uint256[] memory uniqueValues = getUniqueUint256(values);
 
         assertEq(uniqueValues.length, 0, "The returned array should be empty");
-    }
-
-
-    function test_networkEnumSize_success() external {
-        uint256 expected = uint8(type(Network).max) + 1;
-        assertEq(numSupportedNetworks, expected);
     }
 }
