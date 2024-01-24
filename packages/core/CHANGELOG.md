@@ -1,5 +1,19 @@
 # @sphinx-labs/core
 
+## 0.21.0
+
+### Minor Changes
+
+- e6b4e01: Support monorepo installation
+
+### Patch Changes
+
+- Updated dependencies [87308e3]
+- Updated dependencies [e6b4e01]
+- Updated dependencies [9107c65]
+- Updated dependencies [3094d17]
+  - @sphinx-labs/contracts@0.16.0
+
 ## 0.20.5
 
 ### Patch Changes
