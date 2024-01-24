@@ -1,4 +1,4 @@
-import { remove0x } from '../src/utils'
+import { getCurrentGitCommitHash, remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
   getSphinxModuleProxyFactoryAddress,
@@ -8,11 +8,7 @@ import {
   getMultiSendAddress,
   getSphinxModuleImplAddress,
 } from '../src/addresses'
-import {
-  SPHINX_NETWORKS,
-  SPHINX_LOCAL_NETWORKS,
-  CONTRACTS_LIBRARY_COMMIT_HASH,
-} from '../src'
+import { SPHINX_NETWORKS, SPHINX_LOCAL_NETWORKS } from '../src'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -56,12 +52,17 @@ const writeConstants = async () => {
     },
   }
 
+  const commit = getCurrentGitCommitHash()
+  if (!commit) {
+    throw Error('Failed to fetch git commit hash')
+  }
+
   const SphinxConstants =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
     `import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";\n\n` +
     `contract SphinxConstants {\n` +
-    `  string public constant sphinxLibraryCommitHash = '${CONTRACTS_LIBRARY_COMMIT_HASH}';\n` +
+    `  string public constant sphinxLibraryCommitHash = '${commit}';\n` +
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
         if (type === 'bytes') {
