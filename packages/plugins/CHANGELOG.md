@@ -1,5 +1,22 @@
 # @sphinx-labs/plugins
 
+## 0.27.0
+
+### Minor Changes
+
+- e6b4e01: Support monorepo installation
+
+### Patch Changes
+
+- 3af5552: Add sphinx install command
+- ce5c34a: Install Sphinx Library contracts during init command
+- Updated dependencies [87308e3]
+- Updated dependencies [e6b4e01]
+- Updated dependencies [9107c65]
+- Updated dependencies [3094d17]
+  - @sphinx-labs/contracts@0.16.0
+  - @sphinx-labs/core@0.21.0
+
 ## 0.26.5
 
 ### Patch Changes

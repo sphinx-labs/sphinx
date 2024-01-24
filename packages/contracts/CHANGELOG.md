@@ -1,5 +1,17 @@
 # @sphinx-labs/contracts
 
+## 0.16.0
+
+### Minor Changes
+
+- e6b4e01: Support monorepo installation
+
+### Patch Changes
+
+- 87308e3: Introduce contract library version and release workflow
+- 9107c65: Permanently store core contract artifacts
+- 3094d17: Fix constants generation file
+
 ## 0.15.2
 
 ### Patch Changes
