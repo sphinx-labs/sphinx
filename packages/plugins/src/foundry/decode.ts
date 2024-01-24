@@ -13,6 +13,7 @@ import {
   SphinxActionType,
   networkEnumToName,
   assertValidProjectName,
+  getCurrentGitCommitHash,
   ParsedContractDeployment,
 } from '@sphinx-labs/core'
 import { AbiCoder, ethers } from 'ethers'
@@ -20,7 +21,6 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
   recursivelyConvertResult,
-  getCurrentGitCommitHash,
 } from '@sphinx-labs/contracts'
 
 import { FoundrySingleChainDryRun } from './types'
@@ -62,7 +62,6 @@ export const decodeDeploymentInfo = (
     requireSuccess,
     safeInitData,
     arbitraryChain,
-    sphinxLibraryHash,
   } = deploymentInfoBigInt
 
   const deploymentInfo: DeploymentInfo = {
@@ -86,7 +85,6 @@ export const decodeDeploymentInfo = (
       saltNonce: newConfig.saltNonce.toString(),
     },
     arbitraryChain,
-    sphinxLibraryHash,
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)

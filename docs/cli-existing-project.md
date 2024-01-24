@@ -14,23 +14,22 @@ In this guide, you'll propose the deployment on the command line and then approv
 
 1. [Prerequisites](#1-prerequisites)
 2. [Update Foundry](#2-update-foundry)
-3. [Install Sphinx CLI](#3-install-sphinx-cli)
-4. [Install Sphinx Foundry library](#4-install-sphinx-foundry-library)
-5. [Update `.gitignore`](#5-update-gitignore)
-6. [Add remapping](#6-add-remapping)
-7. [Update your deployment script](#7-update-your-deployment-script)\
+3. [Install Sphinx](#3-install-sphinx)
+4. [Update `.gitignore`](#4-update-gitignore)
+5. [Add remappings](#5-add-remappings)
+6. [Update your deployment script](#6-update-your-deployment-script)\
   a. [Import Sphinx](#a-import-sphinx)\
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
   c. [Update your `run()` function](#c-update-your-run-function)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
   e. [Handle new sender address](#e-handle-new-sender-address)\
   f. [Add configuration options](#e-add-configuration-options)
-8. [Add environment variables](#8-add-environment-variables)
-9. [Update RPC endpoints](#9-update-rpc-endpoints)
-10. [Update `foundry.toml` settings](#10-update-foundrytoml-settings)
-11. [Run tests](#11-run-tests)
-12. [Propose on testnets](#12-propose-on-testnets)
-13. [Next steps](#13-next-steps)
+7. [Add environment variables](#7-add-environment-variables)
+8. [Update RPC endpoints](#8-update-rpc-endpoints)
+9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
+10. [Run tests](#10-run-tests)
+11. [Propose on testnets](#11-propose-on-testnets)
+12. [Next steps](#12-next-steps)
 
 ## 1. Prerequisites
 
@@ -49,7 +48,7 @@ In this guide, you'll propose the deployment on the command line and then approv
 foundryup
 ```
 
-## 3. Install Sphinx CLI
+## 3. Install Sphinx
 
 First, navigate to the root of your repository.
 
@@ -70,41 +69,32 @@ pnpm:
 pnpm add -D @sphinx-labs/plugins
 ```
 
-## 4. Install Sphinx Foundry Library
-
-First, navigate to your smart contract workspace. In a standard repo, this is the root of your project. In a monorepo, you should move to your contracts package. Then, use the `sphinx install` command to install the Sphinx Foundry library.
-
-Yarn:
-```
-yarn sphinx install
-```
-
-npm:
-```
-npm sphinx install
-```
-
-pnpm:
-```
-pnpm sphinx install
-```
-
-## 5. Update `.gitignore`
+## 4. Update `.gitignore`
 
 Add the following to your `.gitignore` file:
 ```
 node_modules/
 ```
 
-## 6. Add remapping
+## 5. Add remappings
 
-Configure the following remapping in either your `foundry.toml` file or `remappings.txt` file:
+Run the following command to generate remappings for the Sphinx packages.
 
+Using Yarn or npm:
+
+```bash
+npx sphinx remappings
 ```
-@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry
+
+Using pnpm:
+
+```bash
+pnpm sphinx remappings --pnpm
 ```
 
-## 7. Update your deployment script
+Add the remappings to your `remappings.txt` file or the `remappings` array in your `foundry.toml`.
+
+## 6. Update your deployment script
 
 Navigate to your deployment script. In this section, we'll update it to be compatible with Sphinx.
 
@@ -113,7 +103,7 @@ Navigate to your deployment script. In this section, we'll update it to be compa
 Add the following import in your deployment script:
 
 ```sol
-import "@sphinx-labs/contracts/SphinxPlugin.sol";
+import "@sphinx-labs/plugins/SphinxPlugin.sol";
 ```
 
 ### b. Inherit from `Sphinx`
@@ -177,7 +167,7 @@ You'll need to update the following fields in this template:
 * Enter your Sphinx Organization ID in the `orgId` field. It's a public field, so you don't need to keep it secret. You can find it in the Sphinx UI.
 * If you'd like to deploy on networks other than Sepolia, Optimism Sepolia, and Arbitrum Sepolia, update the `testnets` array. You can find a list of valid fields in the [Sphinx Configuration Options reference](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md#network-testnets).
 
-## 8. Add environment variables
+## 7. Add environment variables
 
 Get your Sphinx API Key from the Sphinx UI, then enter it as an environment variable:
 ```
@@ -189,7 +179,7 @@ Also, if you haven't added your node provider API key as an environment variable
 ALCHEMY_API_KEY=<your_api_key>
 ```
 
-## 9. Update RPC endpoints
+## 8. Update RPC endpoints
 
 Include an RPC endpoint in your `foundry.toml` for each testnet you'd like to deploy on. The names of the RPC endpoints in your `foundry.toml` must match the testnet names in the `sphinxConfig.testnets` array that you defined in your deployment script. For example, `sepolia` is a valid RPC endpoint name, but `ethereum_testnet` is not.
 
@@ -202,7 +192,7 @@ optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 ```
 
-## 10. Update `foundry.toml` settings
+## 9. Update `foundry.toml` settings
 
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
@@ -212,13 +202,13 @@ extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
-## 11. Run tests
+## 10. Run tests
 
 You've finished integrating Sphinx! Your next step is to check that your existing tests are passing. Go ahead and run your Forge tests.
 
 If you can't get your test suite to pass, we're more than happy to help! Reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np).
 
-## 12. Propose on testnets
+## 11. Propose on testnets
 
 Copy and paste one of the following commands to propose your deployment with the DevOps Platform. Make sure to replace `<path/to/your/Script.s.sol>` with the path to your Forge script.
 
@@ -241,6 +231,6 @@ Here are the steps that occur when you run this command:
 
 When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
-## 13. Next steps
+## 12. Next steps
 
 Before you use Sphinx in production, we recommend reading the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md), which covers essential information for using Sphinx.

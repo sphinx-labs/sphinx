@@ -1,6 +1,7 @@
 import { join } from 'path'
 import { appendFileSync, rmSync } from 'fs'
 
+import { spawnAsync } from '@sphinx-labs/core'
 import { expect } from 'chai'
 import {
   sampleContractFileName,
@@ -8,7 +9,6 @@ import {
   sampleTestFileName,
 } from '@sphinx-labs/plugins'
 import { SemVer, coerce, gt, lte } from 'semver'
-import { spawnAsync } from '@sphinx-labs/core'
 
 import { deleteForgeProject } from './common'
 
@@ -32,24 +32,18 @@ describe('Solidity Compiler', () => {
 
     deleteForgeProject(contractPath, scriptPath, testPath)
 
-    const { code } = await spawnAsync(
-      `npx`,
-      [
-        'sphinx',
-        'init',
-        '--org-id',
-        'TEST_ORG_ID',
-        '--sphinx-api-key',
-        'TEST_SPHINX_KEY',
-        '--alchemy-api-key',
-        'TEST_ALCHEMY_KEY',
-        '--owner',
-        '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      ],
-      {
-        SPHINX_INTERNAL_TEST__SKIP_GIT: 'true',
-      }
-    )
+    const { code } = await spawnAsync(`npx`, [
+      'sphinx',
+      'init',
+      '--org-id',
+      'TEST_ORG_ID',
+      '--sphinx-api-key',
+      'TEST_SPHINX_KEY',
+      '--alchemy-api-key',
+      'TEST_ALCHEMY_KEY',
+      '--owner',
+      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    ])
     if (code !== 0) {
       throw new Error(`Failed to run 'sphinx init' command.`)
     }

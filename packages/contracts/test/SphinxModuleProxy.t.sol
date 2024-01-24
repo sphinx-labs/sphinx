@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { StdUtils } from "../lib/forge-std/src/StdUtils.sol";
-import { StdStorage, stdStorage } from "../lib/forge-std/src/StdStorage.sol";
+import { StdUtils } from "sphinx-forge-std/StdUtils.sol";
+import { StdStorage, stdStorage } from "sphinx-forge-std/StdStorage.sol";
 import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import {
