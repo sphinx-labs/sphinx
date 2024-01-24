@@ -37,8 +37,7 @@
     "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
-    "lint:fix": "yarn workspaces run lint:fix",
-    "changeset:version:custom": "yarn changeset version && yarn workspace @sphinx-labs/contracts run write-version"
+    "lint:fix": "yarn workspaces run lint:fix"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.18.2",

@@ -8,11 +8,7 @@ import {
   getMultiSendAddress,
   getSphinxModuleImplAddress,
 } from '../src/addresses'
-import {
-  SPHINX_NETWORKS,
-  SPHINX_LOCAL_NETWORKS,
-  CONTRACTS_LIBRARY_COMMIT_HASH,
-} from '../src'
+import { SPHINX_NETWORKS, SPHINX_LOCAL_NETWORKS } from '../src'
 
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
@@ -61,7 +57,6 @@ const writeConstants = async () => {
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
     `import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";\n\n` +
     `contract SphinxConstants {\n` +
-    `  string public constant sphinxLibraryCommitHash = '${CONTRACTS_LIBRARY_COMMIT_HASH}';\n` +
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
         if (type === 'bytes') {

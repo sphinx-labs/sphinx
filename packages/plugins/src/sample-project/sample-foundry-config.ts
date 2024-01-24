@@ -1,17 +1,45 @@
-import { RECOMMENDED_REMAPPING } from '@sphinx-labs/contracts'
+import { readdirSync } from 'fs'
 
 const standardRemappings = [
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
 ]
 
-export const fetchRemappings = (includeStandard: boolean) => [
+export const fetchPNPMRemappings = (includeStandard: boolean) => {
+  const contracts = readdirSync('./node_modules/.pnpm').find((dir) =>
+    dir.startsWith('@sphinx-labs+contracts')
+  )
+  const plugins = readdirSync('./node_modules/.pnpm').find((dir) =>
+    dir.startsWith('@sphinx-labs+plugins')
+  )
+
+  if (!plugins || !contracts) {
+    throw new Error(
+      'Missing pnpm package names. This is likely a bug. Please report it to the Sphinx team.'
+    )
+  }
+
+  return [
+    ...(includeStandard ? standardRemappings : []),
+    '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
+    `@sphinx-labs/contracts/=node_modules/.pnpm/${contracts}/node_modules/@sphinx-labs/contracts/`,
+    `sphinx-forge-std/=node_modules/.pnpm/${plugins}/node_modules/sphinx-forge-std/src/`,
+    `sphinx-solmate/=node_modules/.pnpm/${plugins}/node_modules/sphinx-solmate/src/`,
+  ]
+}
+
+export const fetchNPMRemappings = (includeStandard: boolean) => [
   ...(includeStandard ? standardRemappings : []),
-  RECOMMENDED_REMAPPING,
+  '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
+  '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
+  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
+  'sphinx-solmate/=node_modules/sphinx-solmate/src/',
 ]
 
-const fetchConfigRemappings = (includeStandard: boolean) => {
-  const remappings = fetchRemappings(includeStandard)
+const fetchConfigRemappings = (pnpm: boolean, includeStandard: boolean) => {
+  const remappings = pnpm
+    ? fetchPNPMRemappings(includeStandard)
+    : fetchNPMRemappings(includeStandard)
 
   return `remappings=[
   ${remappings.map((remapping) => `'${remapping}',`).join('\n  ')}
@@ -19,6 +47,7 @@ const fetchConfigRemappings = (includeStandard: boolean) => {
 }
 
 export const fetchForgeConfig = (
+  pnpm: boolean,
   includeStandard: boolean
 ): string => `[profile.default]
 script = 'script'
@@ -27,7 +56,7 @@ build_info = true
 extra_output = ['storageLayout']
 fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
-${fetchConfigRemappings(includeStandard)}
+${fetchConfigRemappings(pnpm, includeStandard)}
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"

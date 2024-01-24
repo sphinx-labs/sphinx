@@ -25,17 +25,7 @@ Deployments with Sphinx are a three-step process:
 
 ## Request Access
 
-Sphinx is currently invite-only. [Request access on our website](https://sphinx.dev).
-
-## Pricing
-
-Pricing for the DevOps Platform is on the [website's landing page](https://sphinx.dev).
-
-Sphinx does not charge for the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md), which executes the deployment from your local machine without using the DevOps Platform. However, since it doesn't use the DevOps Platform, you'll need native gas tokens for the deployment.
-
-## Demo
-
-A demo of the DevOps Platform is on the [website's landing page](https://sphinx.dev).
+Sphinx is currently invite-only. [Request access on our website.](https://sphinx.dev)
 
 ## Documentation
 

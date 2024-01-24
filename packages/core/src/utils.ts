@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import { promisify } from 'util'
-import { exec, spawn } from 'child_process'
+import { exec, execSync, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
@@ -25,6 +25,7 @@ import {
   SolidityStorageLayout,
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
+  getSphinxConstants,
   remove0x,
   LinkReferences,
 } from '@sphinx-labs/contracts'
@@ -54,7 +55,11 @@ import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
 import { LocalNetworkMetadata } from './networks'
-import { RelayProposal, StoreCanonicalConfig } from './types'
+import {
+  RelayProposal,
+  StoreCanonicalConfig,
+  SystemContractInfo,
+} from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -1203,6 +1208,26 @@ export const assertValidProjectName = (input: string): void => {
   }
 }
 
+export const getCurrentGitCommitHash = (): string | null => {
+  let commitHash: string
+  try {
+    // Get the current git commit. We call this command with "2>/dev/null" to discard the `stderr`.
+    // If we don't discard the `stderr`, the following statement would be displayed to the user if
+    // they aren't in a git repository:
+    //
+    // "fatal: not a git repository (or any of the parent directories): .git".
+    commitHash = execSync('git rev-parse HEAD 2>/dev/null').toString().trim()
+  } catch {
+    return null
+  }
+
+  if (commitHash.length !== 40) {
+    throw new Error(`Git commit hash is an unexpected length: ${commitHash}`)
+  }
+
+  return commitHash
+}
+
 export const isSphinxTransaction = (obj: any): obj is SphinxTransaction => {
   return (
     obj !== null &&
@@ -1415,6 +1440,25 @@ export const formatSolcLongVersion = (solcLongVersion: string) => {
  */
 export const stripLeadingZero = (hexString: string): string => {
   return hexString.replace('0x0', '0x')
+}
+
+/**
+ * Returns a minimal representation of the system contracts to use in the Sphinx Foundry plugin.
+ */
+export const getSystemContractInfo = (): Array<SystemContractInfo> => {
+  return getSphinxConstants().map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
+      const { abi, bytecode } = artifact
+
+      const iface = new ethers.Interface(abi)
+
+      const initCodeWithArgs = bytecode.concat(
+        remove0x(iface.encodeDeploy(constructorArgs))
+      )
+
+      return { initCodeWithArgs, expectedAddress }
+    }
+  )
 }
 
 /**

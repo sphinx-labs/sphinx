@@ -87,7 +87,6 @@ struct DeploymentInfo {
     ExecutionMode executionMode;
     InitialChainState initialState;
     bool arbitraryChain;
-    string sphinxLibraryHash;
 }
 
 enum ExecutionMode {

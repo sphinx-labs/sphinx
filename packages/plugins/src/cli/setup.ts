@@ -2,6 +2,10 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 
 import { init } from '../sample-project'
+import {
+  fetchNPMRemappings,
+  fetchPNPMRemappings,
+} from '../sample-project/sample-foundry-config'
 import { SphinxContext, makeSphinxContext } from './context'
 import {
   ArtifactsCommandArgs,
@@ -9,7 +13,6 @@ import {
   ProposeCommandArgs,
 } from './types'
 import { ConfirmAndDryRunError, coerceNetworks } from './utils'
-import { handleInstall } from './install'
 
 const networkOption = 'network'
 const confirmOption = 'confirm'
@@ -132,17 +135,32 @@ export const makeCLI = (
           })
           .hide('version'),
       async (argv) => {
-        const { foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } = argv
+        const { pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } =
+          argv
 
-        await init(foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
+        init(pnpm, foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
       }
     )
     .command(
-      'install',
-      'Installs the required version of the Sphinx Solidity library contracts',
-      (y) => y.usage('Usage: sphinx install'),
-      async () => {
-        await handleInstall()
+      'remappings',
+      'Output remappings for the Sphinx packages.',
+      (y) =>
+        y
+          .usage('Usage: sphinx remappings [--pnpm]')
+          .option('pnpm', {
+            describe: `Create remappings for pnpm.`,
+            boolean: true,
+            default: false,
+          })
+          .hide('version'),
+      async (argv) => {
+        const { pnpm } = argv
+
+        const remappings = pnpm
+          ? fetchPNPMRemappings(false)
+          : fetchNPMRemappings(false)
+
+        console.log(remappings.join('\n'))
       }
     )
     .command(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../lib/forge-std/src/Test.sol";
+import "sphinx-forge-std/Test.sol";
 import { ManagedService } from "contracts/core/ManagedService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 

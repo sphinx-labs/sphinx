@@ -49,7 +49,6 @@ import {
 } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
-import { checkLibraryVersion } from './utils'
 
 export interface DeployArgs {
   scriptPath: string
@@ -203,8 +202,6 @@ export const deploy = async (
     abiEncodedDeploymentInfo,
     sphinxPluginTypesInterface
   )
-
-  checkLibraryVersion(deploymentInfo.sphinxLibraryHash)
 
   const dryRunPath = getFoundrySingleChainDryRunPath(
     broadcastFolder,

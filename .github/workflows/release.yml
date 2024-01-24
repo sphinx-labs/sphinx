@@ -49,7 +49,6 @@ jobs:
         id: changesets
         with:
           publish: yarn changeset publish
-          version: yarn changeset:version:custom
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
