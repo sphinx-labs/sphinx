@@ -1,4 +1,4 @@
-import { getCurrentGitCommitHash } from '../src'
+import { getCurrentGitCommitHash } from '../src/utils'
 
 /**
  * Generates a Typescript constant for the contracts package version which is used by the plugins package to determine what
