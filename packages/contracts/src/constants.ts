@@ -39,3 +39,6 @@ export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =
   '0x4e59b44847b379578588920cA78FbF26c0B4956C'
 export const CREATE3_PROXY_INITCODE = '0x67363d3d37363d34f03d5260086018f3'
 export const EXECUTION_LOCK_TIME = 15 * 60
+
+export const RECOMMENDED_REMAPPING =
+  '@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry'

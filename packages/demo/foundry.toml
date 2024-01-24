@@ -3,15 +3,12 @@ script = 'script'
 test = 'test'
 build_info = true
 extra_output = ['storageLayout']
-fs_permissions = [{ access = "read-write", path = "./"}]
+fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
 remappings=[
   'forge-std/=node_modules/forge-std/src/',
   'ds-test/=node_modules/ds-test/src/',
-  '@sphinx-labs/plugins/=node_modules/@sphinx-labs/plugins/contracts/foundry/',
-  '@sphinx-labs/contracts/=node_modules/@sphinx-labs/contracts/',
-  'sphinx-forge-std/=node_modules/sphinx-forge-std/src/',
-  'sphinx-solmate/=node_modules/sphinx-solmate/src/',
+  '@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry',
 ]
 
 [rpc_endpoints]

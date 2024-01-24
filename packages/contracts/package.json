@@ -12,11 +12,14 @@
     "out/SphinxModule.sol/*.json",
     "out/SphinxModuleProxyFactory.sol/*.json",
     "out/SphinxModuleProxyFactory.sol/*.json",
-    "external-artifacts/**/*.json"
+    "contract-artifacts/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn write-constants && forge build && yarn build:ts",
+    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn generate && forge build && yarn build:ts",
+    "generate": "yarn write-constants && yarn write-initcode",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
+    "write-initcode": "npx ts-node scripts/write-initcode.ts > test/SphinxInitCode.sol",
+    "write-version": "yarn generate && npx ts-node scripts/write-version.ts > src/version.ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",
     "test:coverage": "apt install lsof && yarn test",
@@ -48,7 +51,8 @@
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "sphinx-forge-std": "https://github.com/foundry-rs/forge-std.git#v1.7.1",
     "mocha": "^10.2.0",
-    "chai": "^4.3.10"
+    "chai": "^4.3.10",
+    "sinon": "^17.0.1"
   },
   "dependencies": {
     "@gnosis.pm/safe-contracts": "https://github.com/safe-global/safe-contracts.git#767ef36bba88bdbc0c9fe3708a4290cabef4c376",

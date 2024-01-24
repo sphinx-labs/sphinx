@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "sphinx-forge-std/Test.sol";
-import { Vm } from "sphinx-forge-std/Vm.sol";
-import { StdCheats } from "sphinx-forge-std/StdCheats.sol";
+import "../lib/forge-std/src/Test.sol";
+import { Vm } from "../lib/forge-std/src/Vm.sol";
+import { StdCheats } from "../lib/forge-std/src/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
 import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
@@ -519,15 +519,15 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         // initcode in the artifact files. This isn't strictly necessary, but we do it anyways
         // to emulate the production environment.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json",
+            "contract-artifacts/gnosis-safe/v1.3.0/proxies/GnosisSafeProxyFactory.sol/GnosisSafeProxyFactory.json",
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.3.0/GnosisSafe.sol/GnosisSafe.json",
+            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafe.sol/GnosisSafe.json",
             bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json",
+            "contract-artifacts/gnosis-safe/v1.3.0/GnosisSafeL2.sol/GnosisSafeL2.json",
             bytes32(0)
         );
 
@@ -556,15 +556,15 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         // initcode in the artifact files. This isn't strictly necessary, but we do it anyways
         // to emulate the production environment.
         address safeProxyFactoryAddr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json",
+            "contract-artifacts/gnosis-safe/v1.4.1/proxies/SafeProxyFactory.sol/SafeProxyFactory.json",
             bytes32(0)
         );
         address safeSingletonL1Addr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.4.1/Safe.sol/Safe.json",
+            "contract-artifacts/gnosis-safe/v1.4.1/Safe.sol/Safe.json",
             bytes32(0)
         );
         address safeSingletonL2Addr = deployCodeViaCreate2(
-            "external-artifacts/gnosis-safe/v1.4.1/SafeL2.sol/SafeL2.json",
+            "contract-artifacts/gnosis-safe/v1.4.1/SafeL2.sol/SafeL2.json",
             bytes32(0)
         );
 
