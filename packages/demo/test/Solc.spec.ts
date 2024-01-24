@@ -32,18 +32,24 @@ describe('Solidity Compiler', () => {
 
     deleteForgeProject(contractPath, scriptPath, testPath)
 
-    const { code } = await spawnAsync(`npx`, [
-      'sphinx',
-      'init',
-      '--org-id',
-      'TEST_ORG_ID',
-      '--sphinx-api-key',
-      'TEST_SPHINX_KEY',
-      '--alchemy-api-key',
-      'TEST_ALCHEMY_KEY',
-      '--owner',
-      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    ])
+    const { code } = await spawnAsync(
+      `npx`,
+      [
+        'sphinx',
+        'init',
+        '--org-id',
+        'TEST_ORG_ID',
+        '--sphinx-api-key',
+        'TEST_SPHINX_KEY',
+        '--alchemy-api-key',
+        'TEST_ALCHEMY_KEY',
+        '--owner',
+        '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      ],
+      {
+        SPHINX_INTERNAL_TEST__SKIP_GIT: 'true',
+      }
+    )
     if (code !== 0) {
       throw new Error(`Failed to run 'sphinx init' command.`)
     }
