@@ -19,7 +19,7 @@
     "generate": "yarn write-constants && yarn write-initcode",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "write-initcode": "npx ts-node scripts/write-initcode.ts > test/SphinxInitCode.sol",
-    "write-version": "yarn generate && npx ts-node scripts/write-version.ts > src/version.ts",
+    "write-version": "npx ts-node scripts/write-version.ts > src/version.ts && yarn generate ",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo out/ cache/",
     "test:coverage": "apt install lsof && yarn test",
