@@ -62,7 +62,7 @@ export const decodeDeploymentInfo = (
     requireSuccess,
     safeInitData,
     arbitraryChain,
-    sphinxLibraryHash,
+    sphinxLibraryVersion,
   } = deploymentInfoBigInt
 
   const deploymentInfo: DeploymentInfo = {
@@ -86,7 +86,7 @@ export const decodeDeploymentInfo = (
       saltNonce: newConfig.saltNonce.toString(),
     },
     arbitraryChain,
-    sphinxLibraryHash,
+    sphinxLibraryVersion,
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)

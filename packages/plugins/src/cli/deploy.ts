@@ -204,7 +204,7 @@ export const deploy = async (
     sphinxPluginTypesInterface
   )
 
-  checkLibraryVersion(deploymentInfo.sphinxLibraryHash)
+  checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
   const dryRunPath = getFoundrySingleChainDryRunPath(
     broadcastFolder,
