@@ -5,7 +5,9 @@ import { ethers } from 'ethers'
 export const WEBSITE_URL = `https://sphinx.dev`
 
 // Etherscan constants
-export const customChains: ChainConfig[] = SPHINX_NETWORKS.map((network) => {
+export const customChains: ChainConfig[] = SPHINX_NETWORKS.filter(
+  (network) => network.etherscan.blockExplorer !== 'Unsupported'
+).map((network) => {
   return {
     network: network.name,
     chainId: Number(network.chainId),
