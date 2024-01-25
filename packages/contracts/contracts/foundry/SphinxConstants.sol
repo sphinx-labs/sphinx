@@ -13,7 +13,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 23;
+  uint8 internal constant numSupportedNetworks = 34;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -155,6 +155,72 @@ contract SphinxConstants {
       chainId: 84532,
       networkType: NetworkType.Testnet
     });
+    all[23] = NetworkInfo({
+      network: Network.celo,
+      name: "celo",
+      chainId: 42220,
+      networkType: NetworkType.Mainnet
+    });
+    all[24] = NetworkInfo({
+      network: Network.celo_alfajores,
+      name: "celo_alfajores",
+      chainId: 44787,
+      networkType: NetworkType.Testnet
+    });
+    all[25] = NetworkInfo({
+      network: Network.moonbeam,
+      name: "moonbeam",
+      chainId: 1284,
+      networkType: NetworkType.Mainnet
+    });
+    all[26] = NetworkInfo({
+      network: Network.moonbase_alpha,
+      name: "moonbase_alpha",
+      chainId: 1287,
+      networkType: NetworkType.Testnet
+    });
+    all[27] = NetworkInfo({
+      network: Network.fuse,
+      name: "fuse",
+      chainId: 122,
+      networkType: NetworkType.Mainnet
+    });
+    all[28] = NetworkInfo({
+      network: Network.fuse_sparknet,
+      name: "fuse_sparknet",
+      chainId: 123,
+      networkType: NetworkType.Testnet
+    });
+    all[29] = NetworkInfo({
+      network: Network.evmos_testnet,
+      name: "evmos_testnet",
+      chainId: 9000,
+      networkType: NetworkType.Testnet
+    });
+    all[30] = NetworkInfo({
+      network: Network.kava_testnet,
+      name: "kava_testnet",
+      chainId: 2221,
+      networkType: NetworkType.Testnet
+    });
+    all[31] = NetworkInfo({
+      network: Network.rootstock_testnet,
+      name: "rootstock_testnet",
+      chainId: 31,
+      networkType: NetworkType.Testnet
+    });
+    all[32] = NetworkInfo({
+      network: Network.scroll,
+      name: "scroll",
+      chainId: 534352,
+      networkType: NetworkType.Testnet
+    });
+    all[33] = NetworkInfo({
+      network: Network.scroll_sepolia,
+      name: "scroll_sepolia",
+      chainId: 534351,
+      networkType: NetworkType.Testnet
+    });
     return all;
   }
 }
@@ -182,5 +248,16 @@ enum Network {
   fantom,
   fantom_testnet,
   base,
-  base_sepolia
+  base_sepolia,
+  celo,
+  celo_alfajores,
+  moonbeam,
+  moonbase_alpha,
+  fuse,
+  fuse_sparknet,
+  evmos_testnet,
+  kava_testnet,
+  rootstock_testnet,
+  scroll,
+  scroll_sepolia
 }

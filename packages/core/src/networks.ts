@@ -65,6 +65,27 @@ export const fetchDripSizeForNetwork = (chainId: bigint) => {
 }
 
 // Warning: Not supported on Anvil since this is expected to only be used on live networks
+export const fetchDripVersionForNetwork = (chainId: bigint) => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.dripVersion
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
+export const isVerificationSupportedForNetwork = (chainId: bigint) => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.etherscan.supported
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
+// Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchCurrencyForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
