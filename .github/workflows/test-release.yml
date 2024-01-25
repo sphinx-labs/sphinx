@@ -76,15 +76,7 @@ jobs:
                   sha,
                 });
 
-                // Your logic to update the package or any other files
-                // For example, create a new file (replace this with your actual logic)
-                await exec.exec('git', ['checkout', newBranchName]);
-                await exec.exec('echo "some changes" > newfile.txt');
-                await exec.exec('git', ['add', 'newfile.txt']);
-                await exec.exec('git', ['commit', '-m', 'Add new changes']);
                 await exec.exec('git', ['push', 'origin', newBranchName]);
-
-                // Additional logic can be added here if needed
               }
             }
 
