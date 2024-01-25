@@ -158,7 +158,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       sphinxPluginTypesInterface
     )
 
-    checkLibraryVersion(deploymentInfo.sphinxLibraryHash)
+    checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
     const collectionDryRunPath = getFoundrySingleChainDryRunPath(
       foundryToml.broadcastFolder,

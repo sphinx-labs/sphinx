@@ -119,9 +119,15 @@ describe('Solidity Compiler', () => {
     const errorMessages: Array<string> = []
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
-        errorMessages.push(
-          `Build failed for ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
-        )
+        if (stderr.includes('Unknown version provided')) {
+          console.log(
+            `Detected solc version not currently supported by foundry: ${version}`
+          )
+        } else {
+          errorMessages.push(
+            `Build failed for ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          )
+        }
       }
     })
 
@@ -182,9 +188,15 @@ describe('Solidity Compiler', () => {
     const errorMessages: Array<string> = []
     results.forEach(({ version, stdout, stderr, code }) => {
       if (code !== 0) {
-        errorMessages.push(
-          `Build failed for ${version} with optimizer disabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
-        )
+        if (stderr.includes('Unknown version provided')) {
+          console.log(
+            `Detected solc version not currently supported by foundry: ${version}`
+          )
+        } else {
+          errorMessages.push(
+            `Build failed for ${version} with optimizer enabled.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`
+          )
+        }
       }
     })
 
@@ -225,5 +237,7 @@ const generateSemverRange = (
     }
   }
 
-  return versions
+  // We intentionally filter out `0.8.24` since foundry does not appear to support it in the latest version.
+  // See CHU-436 for more information.
+  return versions.filter((version) => version !== '0.8.24')
 }

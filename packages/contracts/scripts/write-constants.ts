@@ -11,7 +11,7 @@ import {
 import {
   SPHINX_NETWORKS,
   SPHINX_LOCAL_NETWORKS,
-  CONTRACTS_LIBRARY_COMMIT_HASH,
+  CONTRACTS_LIBRARY_VERSION,
 } from '../src'
 
 /**
@@ -61,7 +61,7 @@ const writeConstants = async () => {
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
     `import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";\n\n` +
     `contract SphinxConstants {\n` +
-    `  string public constant sphinxLibraryCommitHash = '${CONTRACTS_LIBRARY_COMMIT_HASH}';\n` +
+    `  string public constant sphinxLibraryVersion = '${CONTRACTS_LIBRARY_VERSION}';\n` +
     `${Object.entries(constants)
       .map(([name, { type, value }]) => {
         if (type === 'bytes') {
