@@ -51,7 +51,7 @@ foundryup
 
 ## 3. Install Sphinx CLI
 
-First, navigate to the root of your repository.
+Navigate to your smart contract workspace. In a standard repo, this is the root of your project. In a monorepo, you should move to your contracts package.
 
 Then, install Sphinx using your preferred package manager.
 
@@ -72,7 +72,7 @@ pnpm add -D @sphinx-labs/plugins
 
 ## 4. Install Sphinx Foundry Library
 
-First, navigate to your smart contract workspace. In a standard repo, this is the root of your project. In a monorepo, you should move to your contracts package. Then, use the `sphinx install` command to install the Sphinx Foundry library.
+Use the `sphinx install` command to install the Sphinx Foundry library.
 
 Yarn:
 ```
