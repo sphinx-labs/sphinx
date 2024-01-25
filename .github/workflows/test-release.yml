@@ -48,10 +48,6 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const github = require('@actions/github');
-            const core = require('@actions/core');
-            const exec = require('@actions/exec');
-
             async function run() {
               const contractsPackage = 'v0.16.0'
 
