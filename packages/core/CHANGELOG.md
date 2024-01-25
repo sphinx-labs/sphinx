@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.21.1
+
+### Patch Changes
+
+- Updated dependencies [952f4bb]
+  - @sphinx-labs/contracts@0.17.0
+
 ## 0.21.0
 
 ### Minor Changes

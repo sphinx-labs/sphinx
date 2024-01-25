@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.17.0
+
+### Minor Changes
+
+- 952f4bb: Switch to using branch name in library installation
+
 ## 0.16.0
 
 ### Minor Changes
