@@ -87,8 +87,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return uint256(keccak256(abi.encode("sphinx.wallet", _num)));
     }
 
-    function getSphinxLibraryHash() public pure returns (string memory) {
-        return sphinxLibraryCommitHash;
+    function getSphinxLibraryVersion() public pure returns (string memory) {
+        return sphinxLibraryVersion;
     }
 
     /**

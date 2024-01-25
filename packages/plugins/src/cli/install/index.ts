@@ -1,12 +1,12 @@
 import { execSync } from 'child_process'
 
-import { CONTRACTS_LIBRARY_COMMIT_HASH } from '@sphinx-labs/contracts'
+import { CONTRACTS_LIBRARY_VERSION } from '@sphinx-labs/contracts'
 import { spawnAsync } from '@sphinx-labs/core'
 
 export const handleInstall = async () => {
   const args = [
     'install',
-    `sphinx-labs/sphinx@${CONTRACTS_LIBRARY_COMMIT_HASH}`,
+    `sphinx-labs/sphinx@${CONTRACTS_LIBRARY_VERSION}`,
     // We always use --no-commit here because it's necessary if the user has any files that have been changed, but not committed.
     // This will almost always be the case during installation b/c the user first needs to install our CLI.
     '--no-commit',
