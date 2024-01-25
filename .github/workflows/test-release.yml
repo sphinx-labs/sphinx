@@ -46,12 +46,8 @@ jobs:
 
       - name: Publish Solidity Library
         uses: actions/github-script@v6
-        env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         with:
           script: |
-            # const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
-            # const contractsPackage = publishedPackages.find((pkg) => pkg.name === '@sphinx-labs/contracts');
             const contractsPackage = 'v0.16.0'
             if (contractsPackage) {
               github.rest.git.createRef({
