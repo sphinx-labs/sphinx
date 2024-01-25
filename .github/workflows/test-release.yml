@@ -1,13 +1,13 @@
-name: Release packages (prod)
+name: Test Release
 
 on:
   push:
     branches:
-      - main
+      - pate/monorepo-release-with-branch
 
 jobs:
   release-prod:
-    name: Release packages (prod)
+    name: Release packages (test)
     runs-on: ubuntu-latest
 
     steps:
@@ -44,24 +44,15 @@ jobs:
       - name: Build
         run: yarn build:release
 
-      - name: Publish to NPM
-        uses: changesets/action@v1
-        id: changesets
-        with:
-          publish: yarn changeset publish
-          version: yarn changeset:version:custom
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish Solidity Library
-        if: steps.changesets.outputs.published == 'true'
         uses: actions/github-script@v6
         env:
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         with:
           script: |
-            const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
-            const contractsPackage = publishedPackages.find((pkg) => pkg.name === '@sphinx-labs/contracts');
+            # const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
+            # const contractsPackage = publishedPackages.find((pkg) => pkg.name === '@sphinx-labs/contracts');
+            const contractsPackage = 'v0.16.0'
             if (contractsPackage) {
               github.rest.git.createRef({
                 owner: context.repo.owner,
