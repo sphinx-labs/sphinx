@@ -1,5 +1,14 @@
 # @sphinx-labs/demo
 
+## 0.12.3
+
+### Patch Changes
+
+- Updated dependencies [952f4bb]
+  - @sphinx-labs/contracts@0.17.0
+  - @sphinx-labs/core@0.21.1
+  - @sphinx-labs/plugins@0.27.1
+
 ## 0.12.2
 
 ### Patch Changes
