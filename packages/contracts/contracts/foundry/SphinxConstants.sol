@@ -186,16 +186,16 @@ contract SphinxConstants {
       networkType: NetworkType.Mainnet
     });
     all[28] = NetworkInfo({
-      network: Network.fuse_sparknet,
-      name: "fuse_sparknet",
-      chainId: 123,
-      networkType: NetworkType.Testnet
+      network: Network.evmos,
+      name: "evmos",
+      chainId: 9001,
+      networkType: NetworkType.Mainnet
     });
     all[29] = NetworkInfo({
-      network: Network.evmos_testnet,
-      name: "evmos_testnet",
-      chainId: 9000,
-      networkType: NetworkType.Testnet
+      network: Network.kava,
+      name: "kava",
+      chainId: 2222,
+      networkType: NetworkType.Mainnet
     });
     all[30] = NetworkInfo({
       network: Network.kava_testnet,
@@ -254,8 +254,8 @@ enum Network {
   moonbeam,
   moonbase_alpha,
   fuse,
-  fuse_sparknet,
-  evmos_testnet,
+  evmos,
+  kava,
   kava_testnet,
   rootstock_testnet,
   scroll,
