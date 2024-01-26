@@ -1,5 +1,6 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
+import ora from 'ora'
 
 import { init } from '../sample-project'
 import { SphinxContext, makeSphinxContext } from './context'
@@ -142,7 +143,8 @@ export const makeCLI = (
       'Installs the required version of the Sphinx Solidity library contracts',
       (y) => y.usage('Usage: sphinx install'),
       async () => {
-        await handleInstall()
+        const spinner = ora()
+        await handleInstall(spinner)
       }
     )
     .command(

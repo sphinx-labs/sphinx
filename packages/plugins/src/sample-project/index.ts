@@ -138,9 +138,9 @@ export const init = async (
   // Create a `.env` file that contains the Sphinx API Key and Alchemy API Key supplied by the user.
   fs.writeFileSync('.env', fetchDotEnvFile(sphinxApiKey, alchemyApiKey))
 
-  await handleInstall()
+  spinner.succeed('Initialized sample Sphinx project.')
+
+  await handleInstall(spinner)
 
   await handleCommit()
-
-  spinner.succeed('Initialized sample Sphinx project.')
 }
