@@ -288,6 +288,27 @@ export const getConfigArtifactsRemote = async (
   // Get the compiler output for each compiler input.
   for (const compilerConfig of compilerConfigs) {
     for (const sphinxInput of compilerConfig.inputs) {
+      // Make sure any contracts we need are included in the output selection as long as they are in the input sources
+      for (const actionInput of compilerConfig.actionInputs) {
+        for (const { fullyQualifiedName } of actionInput.contracts) {
+          // Split the contract's fully qualified name into its source name and contract name.
+          const [sourceName] = fullyQualifiedName.split(':')
+          if (sphinxInput.input.sources[sourceName]) {
+            sphinxInput.input.settings.outputSelection[sourceName] = {
+              '': ['ast'],
+              '*': [
+                'abi',
+                'evm.bytecode',
+                'evm.deployedBytecode',
+                'evm.methodIdentifiers',
+                'metadata',
+                'storageLayout',
+              ],
+            }
+          }
+        }
+      }
+
       const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
       let compilerOutput: CompilerOutput
       if (solcBuild.isSolcJs) {
