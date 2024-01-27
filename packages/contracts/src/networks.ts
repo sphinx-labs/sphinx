@@ -450,10 +450,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(1284),
     rpcUrl: () => process.env.MOONBEAM_RPC_URL!,
     etherscan: {
+      // Seems like their API is bugged, I keep getting "Invalid API Key" when trying to verify.
+      // My API key is definitely valid.
       apiURL: 'https://api-moonriver.moonscan.io/api',
       browserURL: 'https://moonriver.moonscan.io',
       envKey: 'MOON_ETHERSCAN_API_KEY',
-      supported: true,
+      supported: false,
     },
     currency: 'GLMR',
     dripSize: '1',
@@ -526,23 +528,23 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripVersion: 0,
     networkType: 'Mainnet',
   },
-  // {
-  //   name: 'evmos_testnet',
-  //   chainId: BigInt(9000),
-  //   rpcUrl: () => process.env.EVMOS_TESTNET_RPC_URL!,
-  //   etherscan: {
-  //     // Need to support sourcify
-  //     supported: false,
-  //     apiURL: '',
-  //     browserURL: '',
-  //     envKey: '',
-  //   },
-  //   currency: 'EVMOS',
-  //   dripSize: '0.01',
-  //   requiredEnvVariables: ['EVMOS_TESTNET_RPC_URL'],
-  //   networkType: 'Testnet',
-  //   dripVersion: 1, // todo - redeploy this
-  // },
+  {
+    name: 'evmos_testnet',
+    chainId: BigInt(9000),
+    rpcUrl: () => process.env.EVMOS_TESTNET_RPC_URL!,
+    etherscan: {
+      // Need to support sourcify
+      supported: false,
+      apiURL: '',
+      browserURL: '',
+      envKey: '',
+    },
+    currency: 'EVMOS',
+    dripSize: '0.01',
+    requiredEnvVariables: ['EVMOS_TESTNET_RPC_URL'],
+    networkType: 'Testnet',
+    dripVersion: 1, // todo - redeploy this
+  },
   {
     name: 'kava',
     chainId: BigInt(2222),
@@ -577,34 +579,39 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     networkType: 'Testnet',
     dripVersion: 0,
   },
-  // {
-  //   name: 'oktc',
-  //   chainId: BigInt(66),
-  //   rpcUrl: () => process.env.OKTC_RPC_URL!,
-  //   etherscan: {
-  //     apiURL:
-  //       'https://www.oklink.com/api/explorer/v1/contract/verify/async/api',
-  //     browserURL: 'https://www.okx.com/explorer/oktc/',
-  //     envKey: 'OKTC_ETHERSCAN_API_KEY',
-  //   },
-  //   currency: 'OKT',
-  //   dripSize: '0.15',
-  //   requiredEnvVariables: ['OKTC_RPC_URL'],
-  // },
-  // {
-  //   name: 'rootstock',
-  //   chainId: BigInt(30),
-  //   rpcUrl: () => process.env.ROOTSTOCK_RPC_URL!,
-  //   etherscan: {
-  //     // Need to support sourcify
-  //     apiURL: '',
-  //     browserURL: '',
-  //     envKey: '',
-  //   },
-  //   currency: 'RBTC',
-  //   dripSize: '0.0001',
-  //   requiredEnvVariables: ['ROOTSTOCK_RPC_URL'],
-  // },
+  {
+    name: 'okc',
+    chainId: BigInt(66),
+    rpcUrl: () => process.env.OKC_RPC_URL!,
+    etherscan: {
+      apiURL: '',
+      browserURL: '',
+      envKey: '',
+      supported: false,
+    },
+    currency: 'OKT',
+    dripSize: '0.15',
+    requiredEnvVariables: ['OKC_RPC_URL'],
+    dripVersion: 0,
+    networkType: 'Mainnet',
+  },
+  {
+    name: 'rootstock',
+    chainId: BigInt(30),
+    rpcUrl: () => process.env.ROOTSTOCK_RPC_URL!,
+    etherscan: {
+      // Need to support sourcify
+      apiURL: '',
+      browserURL: '',
+      envKey: '',
+      supported: false,
+    },
+    currency: 'RBTC',
+    dripSize: '0.0001',
+    requiredEnvVariables: ['ROOTSTOCK_RPC_URL'],
+    dripVersion: 0,
+    networkType: 'Mainnet',
+  },
   {
     name: 'rootstock_testnet',
     chainId: BigInt(31),
@@ -627,7 +634,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(534352),
     rpcUrl: () => process.env.SCROLL_RPC_URL!,
     etherscan: {
-      apiURL: 'https://scrollscan.com/api',
+      apiURL: 'https://api.scrollscan.com/api',
       browserURL: 'https://scrollscan.com/',
       envKey: 'SCROLL_ETHERSCAN_API_KEY',
       supported: true,
@@ -643,8 +650,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(534351),
     rpcUrl: () => process.env.SCROLL_TESTNET_RPC_URL!,
     etherscan: {
-      apiURL: 'https://sepolia-blockscout.scroll.io/api',
-      browserURL: 'https://sepolia-blockscout.scroll.io/api',
+      apiURL: 'https://api-sepolia.scrollscan.com/api',
+      browserURL: 'https://sepolia.scrollscan.com/',
       envKey: 'SCROLL_ETHERSCAN_API_KEY',
       supported: true,
     },

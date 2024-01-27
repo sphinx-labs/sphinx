@@ -10,6 +10,7 @@ import {
 } from 'hardhat/types'
 import { Logger } from '@eth-optimism/common-ts'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
+import { Wallet } from 'ethers'
 
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
@@ -76,7 +77,7 @@ task('deploy-system')
         )
       }
       const provider = new SphinxJsonRpcProvider(hre.network.config.url)
-      const signer = await hre.ethers.provider.getSigner()
+      const signer = new Wallet(process.env.PRIVATE_KEY!).connect(provider)
 
       const systemConfig: SphinxSystemConfig =
         require(args.systemConfig).default

@@ -340,7 +340,7 @@ export const etherscanVerifySphinxSystem = async (
 
       const encodedConstructorArgs = iface.encodeDeploy(constructorArgs)
 
-      await attemptVerification(
+      const result = await attemptVerification(
         expectedAddress,
         encodedConstructorArgs,
         `${sourceName}:${contractName}`,
@@ -350,6 +350,10 @@ export const etherscanVerifySphinxSystem = async (
         String(chainId),
         etherscanApiKey
       )
+
+      if (!result.success) {
+        throw Error(result.message)
+      }
     }
 
     logger.info(

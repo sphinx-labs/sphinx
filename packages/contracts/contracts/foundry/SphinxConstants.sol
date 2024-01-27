@@ -13,7 +13,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 34;
+  uint8 internal constant numSupportedNetworks = 37;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -192,30 +192,48 @@ contract SphinxConstants {
       networkType: NetworkType.Mainnet
     });
     all[29] = NetworkInfo({
+      network: Network.evmos_testnet,
+      name: "evmos_testnet",
+      chainId: 9000,
+      networkType: NetworkType.Testnet
+    });
+    all[30] = NetworkInfo({
       network: Network.kava,
       name: "kava",
       chainId: 2222,
       networkType: NetworkType.Mainnet
     });
-    all[30] = NetworkInfo({
+    all[31] = NetworkInfo({
       network: Network.kava_testnet,
       name: "kava_testnet",
       chainId: 2221,
       networkType: NetworkType.Testnet
     });
-    all[31] = NetworkInfo({
+    all[32] = NetworkInfo({
+      network: Network.okc,
+      name: "okc",
+      chainId: 66,
+      networkType: NetworkType.Mainnet
+    });
+    all[33] = NetworkInfo({
+      network: Network.rootstock,
+      name: "rootstock",
+      chainId: 30,
+      networkType: NetworkType.Mainnet
+    });
+    all[34] = NetworkInfo({
       network: Network.rootstock_testnet,
       name: "rootstock_testnet",
       chainId: 31,
       networkType: NetworkType.Testnet
     });
-    all[32] = NetworkInfo({
+    all[35] = NetworkInfo({
       network: Network.scroll,
       name: "scroll",
       chainId: 534352,
       networkType: NetworkType.Testnet
     });
-    all[33] = NetworkInfo({
+    all[36] = NetworkInfo({
       network: Network.scroll_sepolia,
       name: "scroll_sepolia",
       chainId: 534351,
@@ -255,8 +273,11 @@ enum Network {
   moonbase_alpha,
   fuse,
   evmos,
+  evmos_testnet,
   kava,
   kava_testnet,
+  okc,
+  rootstock,
   rootstock_testnet,
   scroll,
   scroll_sepolia
