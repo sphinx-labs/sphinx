@@ -24,7 +24,8 @@ export const getParsedConfigWithCompilerInputs = (
 
         const prevSphinxInput = sphinxInputs.find(
           (input) => input.solcLongVersion === buildInfo.solcLongVersion
-        )
+
+          )
 
         const { language, settings, sources } = getMinimumCompilerInput(
           buildInfo.input,
