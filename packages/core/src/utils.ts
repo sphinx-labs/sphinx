@@ -334,7 +334,9 @@ export const getConfigArtifactsRemote = async (
         const [sourceName, contractName] = fullyQualifiedName.split(':')
 
         const buildInfo = solcArray.find(
-          (e) => e.output.contracts[sourceName][contractName]
+          // We use the optional chaining operator so that this line doesn't throw an error if
+          // `contracts[sourceName]` is undefined.
+          (e) => e.output.contracts[sourceName]?.[contractName]
         )
         if (!buildInfo) {
           throw new Error(
