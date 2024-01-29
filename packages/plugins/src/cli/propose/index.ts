@@ -11,6 +11,7 @@ import {
   makeDeploymentData,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
+  getNetworkNameForChainId,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -32,6 +33,7 @@ import {
   makeParsedConfig,
   decodeDeploymentInfo,
   convertFoundryDryRunToActionInputs,
+  decodeDeploymentInfoArray,
 } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
@@ -42,9 +44,11 @@ import {
   readInterface,
   compile,
   getInitCodeWithArgsArray,
+  readFoundryMultiChainDryRun,
+  getFoundryMultiChainDryRunPath,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
-import { FoundryToml } from '../../foundry/types'
+import { FoundrySingleChainDryRun, FoundryToml } from '../../foundry/types'
 import { BuildParsedConfigArray } from '../types'
 import { checkLibraryVersion } from '../utils'
 
@@ -83,109 +87,128 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     spinner
   )
 
-  const deploymentInfoPath = join(
+  const deploymentInfoArrayPath = join(
     foundryToml.cachePath,
     'sphinx-deployment-info.txt'
   )
   const networkNames = isTestnet ? testnets : mainnets
+
+  // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
+  // use a file from a previous deployment.
+  if (existsSync(deploymentInfoArrayPath)) {
+    unlinkSync(deploymentInfoArrayPath)
+  }
+
+  const forgeScriptCollectArgs = [
+    'script',
+    scriptPath,
+    '--sig',
+    'sphinxCollectProposal(string[],string)',
+    `[${networkNames.join(',')}]`,
+    deploymentInfoArrayPath,
+  ]
+  if (targetContract) {
+    forgeScriptCollectArgs.push('--target-contract', targetContract)
+  }
+
+  // Collect the transactions for all networks.
+  const dateBeforeForgeScript = new Date()
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+
+  if (spawnOutput.code !== 0) {
+    spinner?.stop()
+    // The `stdout` contains the trace of the error.
+    console.log(spawnOutput.stdout)
+    // The `stderr` contains the error message.
+    console.log(spawnOutput.stderr)
+    process.exit(1)
+  }
+  const abiEncodedDeploymentInfoArray = readFileSync(
+    deploymentInfoArrayPath,
+    'utf-8'
+  )
+  const deploymentInfoArray = decodeDeploymentInfoArray(
+    abiEncodedDeploymentInfoArray,
+    sphinxPluginTypesInterface
+  )
+
+  const functionName = `sphinxCollectProposal`
+  const multichainDryRun =
+    networkNames.length > 1
+      ? readFoundryMultiChainDryRun(
+          foundryToml.broadcastFolder,
+          scriptPath,
+          functionName,
+          dateBeforeForgeScript
+        )
+      : undefined
+
+      // TODO(later-later): refactor this into its own function?
   const collected: Array<{
     deploymentInfo: DeploymentInfo
     actionInputs: Array<RawActionInput>
     libraries: Array<string>
     forkUrl: string
   }> = []
-  for (const networkName of networkNames) {
-    const rpcUrl = foundryToml.rpcEndpoints[networkName]
-    if (!rpcUrl) {
-      console.error(
-        red(
-          `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
-        )
-      )
-      process.exit(1)
-    }
-
-    // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
-    // use a file from a previous deployment.
-    if (existsSync(deploymentInfoPath)) {
-      unlinkSync(deploymentInfoPath)
-    }
-
-    const forgeScriptCollectArgs = [
-      'script',
-      scriptPath,
-      '--rpc-url',
-      rpcUrl,
-      '--sig',
-      'sphinxCollectProposal(string)',
-      deploymentInfoPath,
-    ]
-    if (targetContract) {
-      forgeScriptCollectArgs.push('--target-contract', targetContract)
-    }
-
-    // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
-    // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
-    // transactions. We need to do this even though we also broadcast from the Safe's
-    // address in the script. Specifically, this is necessary if the user is deploying a contract
-    // via CREATE2 that uses a linked library. In this scenario, the caller that deploys the library
-    // would be Foundry's default sender if we don't set this environment variable. Note that
-    // `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER` environment
-    // variable. Also, passing the environment variable directly into the script overrides the
-    // user defining it in their `.env` file.
-    // It's worth mentioning that we can't run a single Forge script for all networks using
-    // cheatcodes like `vm.createSelectFork`. This is because we use the `FOUNDRY_SENDER`.
-    // Specifically, the state of the Safe on the first fork is persisted across all forks
-    // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
-    // state across networks. This is a Foundry quirk; it may be a bug.
-    const dateBeforeForgeScript = new Date()
-    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-      FOUNDRY_SENDER: safeAddress,
-    })
-
-    if (spawnOutput.code !== 0) {
-      spinner?.stop()
-      // The `stdout` contains the trace of the error.
-      console.log(spawnOutput.stdout)
-      // The `stderr` contains the error message.
-      console.log(spawnOutput.stderr)
-      process.exit(1)
-    }
-
-    const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
-    const deploymentInfo = decodeDeploymentInfo(
-      abiEncodedDeploymentInfo,
-      sphinxPluginTypesInterface
-    )
-
+  for (const deploymentInfo of deploymentInfoArray) {
     checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
-    const collectionDryRunPath = getFoundrySingleChainDryRunPath(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`
-    )
-    const collectionDryRun = readFoundrySingleChainDryRun(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`,
-      dateBeforeForgeScript
-    )
+    const networkName = getNetworkNameForChainId(BigInt(deploymentInfo.chainId))
+    const rpcUrl = foundryToml.rpcEndpoints[networkName]
+    if (!rpcUrl) {
+      throw new Error(
+        `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
+      )
+    }
 
-    // Check if the dry run file exists. If it doesn't, this must mean that there weren't any
-    // transactions broadcasted in the user's script for this network. We return an empty array in
-    // this case.
-    const actionInputs = collectionDryRun
-      ? convertFoundryDryRunToActionInputs(
-          deploymentInfo,
-          collectionDryRun,
-          collectionDryRunPath
-        )
-      : []
+    let dryRunWithPath: {dryRun: FoundrySingleChainDryRun, dryRunPath: string } | undefined
+    if (multichainDryRun) {
 
-    const libraries = collectionDryRun ? collectionDryRun.libraries : []
+      const dryRun = multichainDryRun.deployments.find(
+        (currentDryRun) =>
+          currentDryRun.chain.toString() === deploymentInfo.chainId
+      )
+      if (dryRun) {
+        dryRunWithPath = {
+          dryRun,
+          dryRunPath: getFoundryMultiChainDryRunPath(foundryToml.broadcastFolder, scriptPath, functionName)
+        }
+      }
+    }
+
+    if (!dryRunWithPath) {
+      const dryRun = readFoundrySingleChainDryRun(
+        foundryToml.broadcastFolder,
+        scriptPath,
+        deploymentInfo.chainId,
+        functionName,
+        dateBeforeForgeScript
+      )
+      if (dryRun) {
+        dryRunWithPath = {
+          dryRun,
+          dryRunPath: getFoundrySingleChainDryRunPath(
+            foundryToml.broadcastFolder,
+            scriptPath,
+            deploymentInfo.chainId,
+            functionName
+          )
+        }
+      }
+    }
+
+    let actionInputs: Array<RawActionInput> = []
+    let libraries: Array<string> = []
+    if (dryRunWithPath) {
+      const { dryRun, dryRunPath } = dryRunWithPath
+
+      actionInputs = convertFoundryDryRunToActionInputs(
+        deploymentInfo,
+        dryRun,
+        dryRunPath
+      )
+      libraries = dryRun.libraries
+    }
 
     collected.push({ deploymentInfo, actionInputs, libraries, forkUrl: rpcUrl })
   }

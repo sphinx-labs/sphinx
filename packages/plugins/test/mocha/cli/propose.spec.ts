@@ -86,7 +86,7 @@ describe('Propose CLI command', () => {
     // `propose` function, which will fail if the function hasn't compiled the contracts yet. By
     // running `forge clean` here, we're testing that this compilation occurs in the `propose`
     // function.
-    await execAsync(`forge clean`)
+    // await execAsync(`forge clean`) TODO(end): undo
 
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true

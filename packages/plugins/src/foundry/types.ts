@@ -51,6 +51,7 @@ export type FoundrySingleChainDryRun = {
   transactions: Array<FoundryDryRunTransaction>
   receipts: Array<any>
   libraries: Array<string>
+  chain: number
 }
 
 export type FoundryToml = {

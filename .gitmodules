@@ -1,3 +1,6 @@
 [submodule "packages/contracts/lib/forge-std"]
 	path = packages/contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/demo/lib/sphinx"]
+	path = packages/demo/lib/sphinx
+	url = https://github.com/sphinx-labs/sphinx

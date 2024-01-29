@@ -30,6 +30,29 @@ import {
   findFunctionFragment,
 } from './utils'
 
+export const decodeDeploymentInfoArray = (
+  abiEncodedDeploymentInfoArray: string,
+  sphinxPluginTypesInterface: ethers.Interface
+): Array<DeploymentInfo> => {
+  const deploymentInfoFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'getDeploymentInfoArray'
+  )
+
+  const deploymentInfoArrayResult = AbiCoder.defaultAbiCoder().decode(
+    deploymentInfoFragment.outputs,
+    abiEncodedDeploymentInfoArray
+  )
+
+  const { deploymentInfoArray: deploymentInfoArrayBigInt } =
+    recursivelyConvertResult(
+      deploymentInfoFragment.outputs,
+      deploymentInfoArrayResult
+    ) as any
+
+  return deploymentInfoArrayBigInt.map((raw) => parseDeploymentInfo(raw))
+}
+
 export const decodeDeploymentInfo = (
   abiEncodedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface
@@ -49,6 +72,10 @@ export const decodeDeploymentInfo = (
     deploymentInfoResult
   ) as any
 
+  return parseDeploymentInfo(deploymentInfoBigInt)
+}
+
+const parseDeploymentInfo = (rawDeploymentInfo: any): DeploymentInfo => {
   const {
     safeAddress,
     moduleAddress,
@@ -63,7 +90,7 @@ export const decodeDeploymentInfo = (
     safeInitData,
     arbitraryChain,
     sphinxLibraryVersion,
-  } = deploymentInfoBigInt
+  } = rawDeploymentInfo
 
   const deploymentInfo: DeploymentInfo = {
     safeAddress,

@@ -96,15 +96,23 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(string memory _deploymentInfoPath) external {
-        sphinxUtils.validateProposal(sphinxConfig);
+    function sphinxCollectProposal(string[] memory _networkNames, string memory _deploymentInfoArrayPath) external {
+        DeploymentInfo[] memory deploymentInfoArray = new DeploymentInfo[](_networkNames.length);
+        for (uint256 i = 0; i < _networkNames.length; i++) {
+            sphinxUtils.validateProposal(sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(
-            ExecutionMode.Platform,
-            constants.managedServiceAddress()
-        );
+            string memory networkName = _networkNames[i];
 
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+            vm.createSelectFork(vm.rpcUrl(networkName));
+
+            DeploymentInfo memory deploymentInfo = sphinxCollect(
+                ExecutionMode.Platform,
+                constants.managedServiceAddress()
+            );
+            deploymentInfoArray[i] = deploymentInfo;
+        }
+
+        vm.writeFile(_deploymentInfoArrayPath, vm.toString(abi.encode(deploymentInfoArray)));
     }
 
     function sphinxCollectDeployment(

@@ -859,7 +859,8 @@ export const isFoundrySingleChainDryRun = (
   return (
     Array.isArray(singleChainDryRun.transactions) &&
     Array.isArray(singleChainDryRun.receipts) &&
-    Array.isArray(singleChainDryRun.libraries)
+    Array.isArray(singleChainDryRun.libraries) &&
+    typeof singleChainDryRun.chain === 'number'
   )
 }
 
@@ -897,6 +898,22 @@ export const readFoundryMultiChainDryRun = (
   } else {
     return undefined
   }
+}
+
+export const getFoundryMultiChainDryRunPath = (
+  broadcastFolder: string,
+  scriptPath: string,
+  functionNameOrSelector: string
+): string => {
+  // An example of the file location:
+  // `broadcast/multi/dry-run/MyScript.s.sol-latest/myScriptFunctionName.json`
+  return join(
+    broadcastFolder,
+    'multi',
+    'dry-run',
+    `${basename(scriptPath)}-latest`,
+    `${functionNameOrSelector}.json`
+  )
 }
 
 export const getFoundrySingleChainDryRunPath = (
