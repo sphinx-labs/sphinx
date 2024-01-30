@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.21.2
+
+### Patch Changes
+
+- 7f49d54: Merge compiler inputs based on build info ID instead of solc version
+
 ## 0.21.1
 
 ### Patch Changes
