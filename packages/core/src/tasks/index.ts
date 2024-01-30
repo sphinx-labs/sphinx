@@ -22,8 +22,11 @@ export const getParsedConfigWithCompilerInputs = (
           throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
         }
 
+        // Check if we've already added the current build info to the inputs array. If we have,
+        // we'll merge the new sources into the existing sources. Otherwise, we'll create a new
+        // element in the inputs array.
         const prevSphinxInput = sphinxInputs.find(
-          (input) => input.solcLongVersion === buildInfo.solcLongVersion
+          (input) => input.id === buildInfo.id
         )
 
         const { language, settings, sources } = getMinimumCompilerInput(

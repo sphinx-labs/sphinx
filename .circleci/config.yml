@@ -12,10 +12,6 @@ jobs:
           keys:
             - v2-cache-source-{{ .Branch }}-{{ .Revision }}
             - v2-cache-source-{{ .Branch }}
-      - run:
-          name: Git reset
-          command: |
-            git reset --hard
       - checkout
       - run:
           name: Initialize submodules
