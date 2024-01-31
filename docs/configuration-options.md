@@ -90,6 +90,7 @@ Valid values:
 | Evmos | `Network.evmos` |
 | Kava | `Network.kava` |
 | OKT Chain | `Network.oktc` |
+| Rootstock | `Network.rootstock` |
 
 ### `Network[] testnets`
 ```

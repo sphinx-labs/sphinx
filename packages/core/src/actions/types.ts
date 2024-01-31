@@ -166,10 +166,12 @@ export type EstimateGas = (
 
 export type ExecuteActions = (
   moduleAddress: string,
-  executionData: string,
+  batch: SphinxLeafWithProof[],
   executionMode: ExecutionMode,
   signer: ethers.Signer,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  blockGasLimit: bigint,
+  chainId: bigint
 ) => Promise<ethers.TransactionReceipt | null>
 
 export type ApproveDeployment = (
