@@ -1,6 +1,6 @@
 import { assert } from 'console'
 
-import { AbiCoder, ZeroHash, ethers } from 'ethers'
+import { AbiCoder, Contract, ZeroHash, ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   DrippieArtifact,
@@ -24,7 +24,11 @@ import {
 } from '../../utils'
 import { SphinxJsonRpcProvider } from '../../provider'
 import { ExecutionMode, RELAYER_ROLE } from '../../constants'
-import { fetchDripSizeForNetwork } from '../../networks'
+import {
+  fetchDripSizeForNetwork,
+  fetchDripVersionForNetwork,
+  fetchDecimalsForNetwork,
+} from '../../networks'
 
 export const ensureSphinxAndGnosisSafeDeployed = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
@@ -42,6 +46,48 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
   }
 
   await deploySphinxSystem(provider, wallet, relayers, executionMode, logger)
+}
+
+export const cancelPreviousDripVersions = async (
+  Drippie: Contract,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  wallet: ethers.Signer,
+  executionMode: ExecutionMode,
+  dripName: string,
+  currentDripVersion: number,
+  logger?: Logger
+) => {
+  if (currentDripVersion === 0) {
+    return
+  } else {
+    for (let version = 0; version < currentDripVersion; version++) {
+      const previousDripName =
+        version === 0 ? dripName : `${dripName}_${version}`
+
+      // Cancel drip if not archived
+      const [status] = await Drippie.drips(previousDripName)
+      if (status !== BigInt(3) && status !== BigInt(0)) {
+        logger?.info(`[Sphinx]: Archiving outdated drip: ${previousDripName}`)
+        if (status !== BigInt(1)) {
+          await (
+            await Drippie.status(
+              previousDripName,
+              1,
+              await getGasPriceOverrides(provider, wallet, executionMode)
+            )
+          ).wait()
+        }
+
+        await (
+          await Drippie.status(
+            previousDripName,
+            3,
+            await getGasPriceOverrides(provider, wallet, executionMode)
+          )
+        ).wait()
+      }
+    }
+  }
 }
 
 export const checkSystemDeployed = async (
@@ -175,21 +221,39 @@ export const deploySphinxSystem = async (
   for (const relayer of relayers) {
     const chainId = (await provider.getNetwork()).chainId
 
+    const currentDripVersion = fetchDripVersionForNetwork(chainId)
+    const baseDripName = `sphinx_fund_${relayer}`
+    const dripName =
+      baseDripName + (currentDripVersion > 0 ? `_${currentDripVersion}` : '')
+
+    // Cancel any out of date drips
+    await cancelPreviousDripVersions(
+      Drippie,
+      provider,
+      owner,
+      executionMode,
+      baseDripName,
+      currentDripVersion,
+      logger
+    )
+
     const reentrant = false
     const interval = 30
     const dripcheck = getCheckBalanceLowAddress()
     const checkparams = AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
-      [relayer, ethers.parseEther(fetchDripSizeForNetwork(chainId))]
+      [relayer, ethers.parseEther(fetchDripSizeForNetwork(chainId)) * BigInt(5)]
     )
     const actions = [
       {
         target: relayer,
         data: ZeroHash,
-        value: ethers.parseEther(fetchDripSizeForNetwork(chainId)),
+        value: ethers.parseUnits(
+          fetchDripSizeForNetwork(chainId),
+          fetchDecimalsForNetwork(chainId)
+        ),
       },
     ]
-    const dripName = `sphinx_fund_${relayer}`
 
     const [status] = await Drippie.drips(dripName)
     if (status === BigInt(2)) {
@@ -218,7 +282,13 @@ export const deploySphinxSystem = async (
       ).wait()
     } else if (status === BigInt(1)) {
       logger?.info(`[Sphinx]: Setting status for drip ${dripName}...`)
-      await (await Drippie.status(dripName, 2)).wait()
+      await (
+        await Drippie.status(
+          dripName,
+          2,
+          await getGasPriceOverrides(provider, owner, executionMode)
+        )
+      ).wait()
     } else {
       throw new Error(`Drip ${dripName} has archived status`)
     }

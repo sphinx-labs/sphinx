@@ -11,6 +11,8 @@ import {
   makeDeploymentData,
   spawnAsync,
   getParsedConfigWithCompilerInputs,
+  isLegacyTransactionsRequiredForNetwork,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -121,6 +123,15 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       'sphinxCollectProposal(string)',
       deploymentInfoPath,
     ]
+
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    if (
+      isLegacyTransactionsRequiredForNetwork(
+        (await provider.getNetwork()).chainId
+      )
+    ) {
+      forgeScriptCollectArgs.push('--legacy')
+    }
     if (targetContract) {
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }

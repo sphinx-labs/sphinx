@@ -82,6 +82,15 @@ Valid values:
 | Avalanche C-Chain | `Network.avalanche` |
 | Fantom | `Network.fantom` |
 | Base | `Network.base` |
+| Scroll | `Network.scroll` |
+| Celo | `Network.celo` |
+| Moonbeam | `Network.moonbeam` |
+| Moonriver | `Network.moonriver` |
+| Fuse | `Network.fuse` |
+| Evmos | `Network.evmos` |
+| Kava | `Network.kava` |
+| OKT Chain | `Network.oktc` |
+| Rootstock | `Network.rootstock` |
 
 ### `Network[] testnets`
 ```
@@ -105,3 +114,8 @@ Valid values:
 | Avalanche Fuji | `Network.avalanche_fuji` |
 | Fantom Testnet | `Network.fantom_testnet` |
 | Base Sepolia | `Network.base_sepolia` |
+| Scroll | `Network.scroll` |
+| Celo | `Network.celo` |
+| Moonbase Alpha | `Network.moonbase_alpha` |
+| Evmos Testnet | `Network.evmos_testnet` |
+| Kava Testnet | `Network.kava_testnet` |

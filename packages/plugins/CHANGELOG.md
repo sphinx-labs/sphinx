@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.27.3
+
+### Patch Changes
+
+- ecf87be: Support Rootstock, Evmos, Kava, Scroll, Moonbeam, Moonriver, OKT Chain
+
 ## 0.27.2
 
 ### Patch Changes

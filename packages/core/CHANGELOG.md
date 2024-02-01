@@ -1,5 +1,13 @@
 # @sphinx-labs/core
 
+## 0.21.3
+
+### Patch Changes
+
+- e00aa7c: Support Celo, Fuse, Evmos, Kava, Scroll, Moonbeam, Moonriver, OKC, and associated testnets
+- Updated dependencies [e00aa7c]
+  - @sphinx-labs/contracts@0.17.1
+
 ## 0.21.2
 
 ### Patch Changes

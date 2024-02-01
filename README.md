@@ -11,7 +11,7 @@ Deployments with Sphinx are a three-step process:
 
 * **Gasless Deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll bill you in fiat after your deployment is finished. Deployments on testnets are completely free.
 
-* **One-Click Multichain Deployments**: Approve deployments across 11 supported networks by signing a single meta transaction. Sphinx's backend will deploy on each network in parallel and verify your smart contracts on Etherscan.
+* **One-Click Multichain Deployments**: Approve deployments across dozens of networks by signing a single meta transaction. Sphinx's backend will deploy on each network in parallel and verify your smart contracts on Etherscan.
 
 * **Deployments in CI**: Eliminate human error and improve security by gaslessly triggering deployments from your CI process. You can always propose from your local machine if you'd prefer.
 
@@ -20,6 +20,10 @@ Deployments with Sphinx are a three-step process:
 * **Trustless**: It's impossible to execute anything your Gnosis Safe owners have not explicitly approved. Spearbit has audited our system; see our audit report [here](https://github.com/sphinx-labs/sphinx/blob/main/audit/spearbit.pdf).
 
 * **Compatible with Forge Scripts**: You can integrate Sphinx by adding a few lines of code to your existing Forge scripts.
+
+* **Deployment Artifact Management**: Sphinx generates and stores deployment artifacts, which can be retrieved at any time.
+
+* **Contract Verification**: Sphinx automatically verifies contracts on block explorers with no configuration necessary.
 
 * **No Lock-In**: You can execute deployments from your local machine without using the Sphinx DevOps Platform. These deployments are executed in the exact same manner as they would be executed with the DevOps Platform, including identical contract addresses. This includes networks that the DevOps Platform doesn't currently support.
 
@@ -71,13 +75,12 @@ A demo of the DevOps Platform is on the [website's landing page](https://sphinx.
 
 - Sphinx supports `CREATE2` and `CREATE3` but not the `CREATE` opcode, i.e. `new MyContract(...)`.
 - You cannot send ETH as part of a deployment.
-- You can only use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) on live networks if you're the only owner of the Gnosis Safe. (Deployments with the DevOps Platform support an arbitrary number of owners).
+- You can only use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) on live networks if your Gnosis Safe has a single owner. (Deployments with the DevOps Platform support an arbitrary number of owners).
 
 ## Coming Soon
 
 - Use existing Gnosis Safes with Sphinx.
 - Pay for deployments with USDC on the DevOps Platform.
-- Deploy from the CLI on networks that the DevOps Platform doesn't support.
 
 Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) to request a feature!
 
@@ -96,6 +99,15 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Linea
 - Fantom
 - Base
+- Scroll
+- Celo
+- Moonbeam
+- Moonriver
+- Fuse
+- Evmos
+- Kava
+- OKT Chain
+- Rootstock
 
 Test networks:
 
@@ -110,6 +122,11 @@ Test networks:
 - Linea Goerli
 - Fantom Testnet
 - Base Sepolia
+- Scroll Sepolia
+- Celo Alfajores
+- Moonbase Alpha
+- Evmos Testnet
+- Kava Testnet
 
 More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
