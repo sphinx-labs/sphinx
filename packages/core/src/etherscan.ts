@@ -19,8 +19,14 @@ import { customChains } from './constants'
 import { ConfigArtifacts, ParsedConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { getNetworkNameForChainId, isLiveNetwork, sleep } from './utils'
+import {
+  formatSolcLongVersion,
+  getNetworkNameForChainId,
+  isLiveNetwork,
+  sleep,
+} from './utils'
 import { BuildInfo } from './languages'
+import { isVerificationSupportedForNetwork } from './networks'
 
 // Load environment variables from .env
 dotenv.config()
@@ -35,7 +41,6 @@ export const getChainConfig = (chainId: number): ChainConfig => {
   const chainConfig = [
     // custom chains has higher precedence than builtin chains
     ...[...customChains].reverse(), // the last entry has higher precedence
-    ...builtinChains,
   ].find((config) => config.chainId === chainId)
 
   if (chainConfig === undefined) {
@@ -259,14 +264,6 @@ export const attemptVerification = async (
   }
 }
 
-export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
-  const chainConfig = [...customChains, ...builtinChains].find(
-    (config) => config.chainId === chainId
-  )
-
-  return chainConfig !== undefined
-}
-
 export const etherscanVerifySphinxSystem = async (
   provider: SphinxJsonRpcProvider,
   logger: Logger
@@ -281,7 +278,7 @@ export const etherscanVerifySphinxSystem = async (
 
   const { name: networkName, chainId } = await provider.getNetwork()
   if (
-    !isSupportedNetworkOnEtherscan(Number(chainId)) ||
+    !isVerificationSupportedForNetwork(chainId) ||
     !(await isLiveNetwork(provider))
   ) {
     logger.info(
@@ -311,6 +308,9 @@ export const etherscanVerifySphinxSystem = async (
       let buildInfo: BuildInfo
       if (type === SystemContractType.SPHINX) {
         buildInfo = sphinxBuildInfo
+        buildInfo.solcLongVersion = formatSolcLongVersion(
+          buildInfo.solcLongVersion
+        )
       } else if (type === SystemContractType.OPTIMISM) {
         buildInfo = optimismPeripheryBuildInfo
       } else if (type === SystemContractType.GNOSIS_SAFE) {
@@ -365,7 +365,9 @@ export const etherscanVerifySphinxSystem = async (
 // a future version of @nomicfoundation/hardhat-verify that has the same minor and/or patch version.
 // Note that Hardhat will not add new elements to this array anymore. ref:
 // https://github.com/NomicFoundation/hardhat/blob/2a99de5908cd56766c3a77e2088d6b9f82bd85ef/packages/hardhat-verify/src/internal/chain-config.ts
-const builtinChains: Array<ChainConfig> = [
+// We don't actually need this since we define all network info in our contracts package SPHINX_NETWORKS array
+// But it's convenient to keep this to pull info from when necessary.
+export const builtinChains: Array<ChainConfig> = [
   {
     network: 'mainnet',
     chainId: 1,
