@@ -30,7 +30,8 @@ import {
 import { FoundrySingleChainDryRun } from './types'
 import {
   convertLibraryFormat,
-  findFullyQualifiedName,
+  findFullyQualifiedNameForAddress,
+  findFullyQualifiedNameForInitCode,
   findFunctionFragment,
 } from './utils'
 
@@ -256,7 +257,7 @@ export const makeParsedConfig = (
     unlabeledContracts.push(...unlabeledAdditionalContracts)
 
     if (isRawCreate2ActionInput(input)) {
-      const fullyQualifiedName = findFullyQualifiedName(
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
         input.initCodeWithArgs,
         configArtifacts
       )
@@ -293,13 +294,11 @@ export const makeParsedConfig = (
         gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
-      const initCodeWithArgs = findInitCodeWithArgsForAddress(
+      const fullyQualifiedName = findFullyQualifiedNameForAddress(
         input.to,
-        rawInputs
+        rawInputs,
+        configArtifacts
       )
-      const fullyQualifiedName = initCodeWithArgs
-        ? findFullyQualifiedName(initCodeWithArgs, configArtifacts)
-        : undefined
 
       const decodedAction = makeFunctionCallDecodedAction(
         input.to,
@@ -363,7 +362,7 @@ const parseAdditionalContracts = (
   for (const additionalContract of currentInput.additionalContracts) {
     const address = ethers.getAddress(additionalContract.address)
 
-    const fullyQualifiedName = findFullyQualifiedName(
+    const fullyQualifiedName = findFullyQualifiedNameForInitCode(
       additionalContract.initCode,
       configArtifacts
     )
@@ -475,17 +474,4 @@ export const makeFunctionCallDecodedAction = (
       address: '',
     }
   }
-}
-
-/**
- * Returns the contract init code with constructor args for a given address if the init code exists
- * in the array of actions. Returns undefined if the init code does not exist in the actions.
- */
-const findInitCodeWithArgsForAddress = (
-  to: string,
-  rawActions: Array<RawActionInput>
-): string | undefined => {
-  to
-  rawActions
-  return undefined
 }

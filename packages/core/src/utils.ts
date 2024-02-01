@@ -1497,6 +1497,11 @@ export const getAbiEncodedConstructorArgs = (
   return ethers.dataSlice(initCodeWithArgs, ethers.dataLength(artifactBytecode))
 }
 
+/**
+ * Uses the given interface to decode calldata into a function name (e.g. 'myFunction') and
+ * variables. Returns `undefined` if the interface cannot be used to decode the calldata, which
+ * could happen if the calldata is meant to trigger the contract's `fallback` function.
+ */
 export const decodeCall = (
   iface: ethers.Interface,
   data: string

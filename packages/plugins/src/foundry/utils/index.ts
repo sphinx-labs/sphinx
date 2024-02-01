@@ -1142,7 +1142,7 @@ export const replaceEnvVariables = (input: ParsedVariable): any => {
  * Returns `undefined` if the `initCodeWithArgs` does not exist in the `configArtifacts`, which
  * means that it does not belong to a source file.
  */
-export const findFullyQualifiedName = (
+export const findFullyQualifiedNameForInitCode = (
   initCodeWithArgs: string,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
@@ -1167,4 +1167,27 @@ export const findFullyQualifiedName = (
   }
   // If we make it to this point, we couldn't find a fully qualified name for this init code.
   return undefined
+}
+
+/**
+ * Returns the fully qualified name that corresponds to a given address. Returns `undefined` if no
+ * fully qualified name exists for the address. This function will only find a fully qualified name
+ * if it corresponds to a contract deployed in one of the actions.
+ */
+export const findFullyQualifiedNameForAddress = (
+  address: string,
+  inputs: Array<RawActionInput>,
+  configArtifacts: ConfigArtifacts
+): string | undefined => {
+  address
+  inputs
+  configArtifacts
+  return undefined
+
+  // TODO: Search the `inputs` array for a CREATE or CREATE2 action that deploys the given
+  // `address`. If we find an action, we'll use its `initCodeWithArgs` in the
+  // `findFullyQualifiedNameForInitCode` below, which is already used elsewhere in the repo.
+  // return initCodeWithArgs
+  //   ? findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
+  //   : undefined
 }
