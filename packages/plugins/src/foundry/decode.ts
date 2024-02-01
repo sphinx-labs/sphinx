@@ -294,6 +294,8 @@ export const makeParsedConfig = (
         gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
+      // Find the fully qualified name that corresponds to the `to` address, if such a fully
+      // qualified name exists. We'll use the fully qualified name to create the decoded action.
       const fullyQualifiedName = findFullyQualifiedNameForAddress(
         input.to,
         rawInputs,
@@ -443,8 +445,8 @@ export const makeFunctionCallDecodedAction = (
     const iface = new ethers.Interface(artifact.abi)
 
     // Attempt to decode the call. This will return `undefined` if the call cannot be decoded, which
-    // will happen if the function does not exist on the target contract. For example, this will
-    // return `undefined` if the contract's `fallback` function was called.
+    // will happen if the function does not exist on the contract. For example, this will return
+    // `undefined` if the contract's `fallback` function was called.
     const decoded = decodeCall(iface, data)
     const functionName = decoded ? decoded.functionName : 'call'
     const variables = decoded
