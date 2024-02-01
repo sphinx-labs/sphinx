@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.17.1
+
+### Patch Changes
+
+- e00aa7c: Support Celo, Fuse, Evmos, Kava, Scroll, Moonbeam, Moonriver, OKC, and associated testnets
+
 ## 0.17.0
 
 ### Minor Changes
