@@ -26,6 +26,7 @@ import {
   checkSystemDeployed,
   fetchChainIdForNetwork,
   writeDeploymentArtifacts,
+  isLegacyTransactionsRequiredForNetwork,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -173,6 +174,13 @@ export const deploy = async (
     '--rpc-url',
     forkUrl,
   ]
+  if (
+    isLegacyTransactionsRequiredForNetwork(
+      (await provider.getNetwork()).chainId
+    )
+  ) {
+    forgeScriptCollectArgs.push('--legacy')
+  }
   if (targetContract) {
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
