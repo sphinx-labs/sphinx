@@ -229,8 +229,7 @@ export const deploy = async (
 
   const actionInputs = convertFoundryDryRunToActionInputs(
     deploymentInfo,
-    dryRunFile,
-    dryRunPath
+    dryRunFile
   )
 
   spinner.succeed(`Collected transactions.`)
@@ -279,7 +278,8 @@ export const deploy = async (
     gasEstimates,
     isSystemDeployed,
     configArtifacts,
-    dryRunFile.libraries
+    dryRunFile.libraries,
+    dryRunPath
   )
 
   const deploymentData = makeDeploymentData([parsedConfig])

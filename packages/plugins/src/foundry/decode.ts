@@ -14,8 +14,12 @@ import {
   networkEnumToName,
   assertValidProjectName,
   ParsedContractDeployment,
+  DecodedAction,
+  ParsedVariable,
+  getAbiEncodedConstructorArgs,
+  decodeCall,
 } from '@sphinx-labs/core'
-import { AbiCoder, ethers } from 'ethers'
+import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
@@ -96,8 +100,7 @@ export const decodeDeploymentInfo = (
 
 export const convertFoundryDryRunToActionInputs = (
   deploymentInfo: DeploymentInfo,
-  dryRun: FoundrySingleChainDryRun,
-  dryRunPath: string
+  dryRun: FoundrySingleChainDryRun
 ): Array<RawActionInput> => {
   const notFromGnosisSafe = dryRun.transactions
     .map((t) => t.transaction.from)
@@ -119,16 +122,9 @@ export const convertFoundryDryRunToActionInputs = (
   const actionInputs: Array<RawActionInput> = []
   for (const {
     transaction,
-    contractName,
     transactionType,
     additionalContracts,
-    arguments: callArguments,
-    function: functionName,
   } of dryRun.transactions) {
-    const contractNameWithoutPath = contractName?.includes(':')
-      ? contractName.split(':')[1]
-      : contractName
-
     if (transaction.value !== undefined && transaction.value !== '0x0') {
       console.error(
         `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
@@ -174,7 +170,6 @@ export const convertFoundryDryRunToActionInputs = (
         const rawCreate2: RawCreate2ActionInput = {
           to,
           create2Address,
-          contractName,
           value: transaction.value ?? '0x0',
           operation: Operation.Call,
           txData: transaction.data,
@@ -183,12 +178,6 @@ export const convertFoundryDryRunToActionInputs = (
           gas: transaction.gas,
           additionalContracts,
           requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName: contractNameWithoutPath ?? create2Address,
-            functionName: 'deploy',
-            variables: callArguments ?? [],
-            address: create2Address,
-          },
         }
         actionInputs.push(rawCreate2)
       } else if (transactionType === 'CALL') {
@@ -198,12 +187,6 @@ export const convertFoundryDryRunToActionInputs = (
           )
         }
 
-        const variables = callArguments ?? [
-          transaction.data.length > 1000
-            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
-            : transaction.data,
-        ]
-
         const rawCall: RawFunctionCallActionInput = {
           actionType: SphinxActionType.CALL.toString(),
           to,
@@ -211,16 +194,8 @@ export const convertFoundryDryRunToActionInputs = (
           txData: transaction.data,
           operation: Operation.Call,
           gas: transaction.gas,
-          contractName,
           additionalContracts,
           requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName:
-              contractNameWithoutPath ?? ethers.getAddress(transaction.to),
-            functionName: functionName?.split('(')[0] ?? 'call',
-            variables,
-            address: contractNameWithoutPath !== null ? to : '',
-          },
         }
 
         actionInputs.push(rawCall)
@@ -239,7 +214,8 @@ export const makeParsedConfig = (
   gasEstimates: Array<string>,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
-  libraries: Array<string>
+  libraries: Array<string>,
+  dryRunPath: string
 ): ParsedConfig => {
   const {
     safeAddress,
@@ -285,6 +261,13 @@ export const makeParsedConfig = (
         configArtifacts
       )
 
+      const decodedAction = makeCreate2DecodedAction(
+        input.create2Address,
+        input.initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+
       // If the fully qualified name exists, add the contract deployed via `CREATE2` to the list of
       // parsed contracts.
       if (fullyQualifiedName) {
@@ -305,13 +288,31 @@ export const makeParsedConfig = (
       parsedActionInputs.push({
         contracts: parsedContracts,
         index: actionIndex.toString(),
+        decodedAction,
         ...input,
         gas,
       })
     } else if (isRawFunctionCallActionInput(input)) {
+      const initCodeWithArgs = findInitCodeWithArgsForAddress(
+        input.to,
+        rawInputs
+      )
+      const fullyQualifiedName = initCodeWithArgs
+        ? findFullyQualifiedName(initCodeWithArgs, configArtifacts)
+        : undefined
+
+      const decodedAction = makeFunctionCallDecodedAction(
+        input.to,
+        input.txData,
+        configArtifacts,
+        dryRunPath,
+        fullyQualifiedName
+      )
+
       const callInput: FunctionCallActionInput = {
         contracts: parsedContracts,
         index: actionIndex.toString(),
+        decodedAction,
         ...input,
         gas,
       }
@@ -381,4 +382,110 @@ const parseAdditionalContracts = (
     parsedContracts,
     unlabeledAdditionalContracts: unlabeled,
   }
+}
+
+export const makeCreate2DecodedAction = (
+  create2Address: string,
+  initCodeWithArgs: string,
+  configArtifacts: ConfigArtifacts,
+  fullyQualifiedName?: string
+): DecodedAction => {
+  if (fullyQualifiedName) {
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const contractName = fullyQualifiedName.split(':')[1]
+    const iface = new ethers.Interface(artifact.abi)
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
+    )
+
+    let variables: ParsedVariable = {}
+    if (constructorFragment) {
+      const encodedConstructorArgs = getAbiEncodedConstructorArgs(
+        initCodeWithArgs,
+        artifact.bytecode
+      )
+      const constructorArgsResult = coder.decode(
+        constructorFragment.inputs,
+        encodedConstructorArgs
+      )
+      variables = recursivelyConvertResult(
+        constructorFragment.inputs,
+        constructorArgsResult
+      ) as ParsedVariable
+    }
+
+    return {
+      referenceName: contractName,
+      functionName: 'deploy',
+      variables,
+      address: create2Address,
+    }
+  } else {
+    return {
+      referenceName: create2Address,
+      functionName: 'deploy',
+      variables: [],
+      address: create2Address,
+    }
+  }
+}
+
+export const makeFunctionCallDecodedAction = (
+  to: string,
+  data: string,
+  configArtifacts: ConfigArtifacts,
+  dryRunPath: string,
+  fullyQualifiedName?: string
+): DecodedAction => {
+  if (fullyQualifiedName) {
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const contractName = fullyQualifiedName.split(':')[1]
+    const iface = new ethers.Interface(artifact.abi)
+
+    // Attempt to decode the call. This will return `undefined` if the call cannot be decoded, which
+    // will happen if the function does not exist on the target contract. For example, this will
+    // return `undefined` if the contract's `fallback` function was called.
+    const decoded = decodeCall(iface, data)
+    const functionName = decoded ? decoded.functionName : 'call'
+    const variables = decoded
+      ? decoded.variables
+      : [
+          data.length > 1000
+            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
+            : data,
+        ]
+
+    return {
+      referenceName: contractName,
+      functionName,
+      variables,
+      address: to,
+    }
+  } else {
+    const variables = [
+      data.length > 1000
+        ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
+        : data,
+    ]
+    return {
+      referenceName: to,
+      functionName: 'call',
+      variables,
+      address: '',
+    }
+  }
+}
+
+/**
+ * Returns the contract init code with constructor args for a given address if the init code exists
+ * in the array of actions. Returns undefined if the init code does not exist in the actions.
+ */
+const findInitCodeWithArgsForAddress = (
+  to: string,
+  rawActions: Array<RawActionInput>
+): string | undefined => {
+  to
+  rawActions
+  return undefined
 }
