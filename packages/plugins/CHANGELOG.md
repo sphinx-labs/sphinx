@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.27.2
+
+### Patch Changes
+
+- c289baa: Add handling for previously installed incorrect version
+- Updated dependencies [7f49d54]
+  - @sphinx-labs/core@0.21.2
+
 ## 0.27.1
 
 ### Patch Changes
