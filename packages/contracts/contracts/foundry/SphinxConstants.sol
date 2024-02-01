@@ -13,7 +13,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 36;
+  uint8 internal constant numSupportedNetworks = 37;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -233,6 +233,12 @@ contract SphinxConstants {
       chainId: 534351,
       networkType: NetworkType.Testnet
     });
+    all[36] = NetworkInfo({
+      network: Network.rootstock,
+      name: "rootstock",
+      chainId: 30,
+      networkType: NetworkType.Mainnet
+    });
     return all;
   }
 }
@@ -273,5 +279,6 @@ enum Network {
   kava_testnet,
   oktc,
   scroll,
-  scroll_sepolia
+  scroll_sepolia,
+  rootstock
 }

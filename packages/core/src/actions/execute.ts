@@ -44,6 +44,7 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
 } from '../languages'
 import { ParsedConfig } from '../config'
+import { shouldBufferExecuteActionsGasLimit } from '../networks'
 
 export const executeDeployment = async (
   module: ethers.Contract,
@@ -256,15 +257,14 @@ export const executeBatchActions = async (
       }...`
     )
 
-    const executionData = sphinxModule.interface.encodeFunctionData('execute', [
-      batch,
-    ])
     const receipt = await executeActions(
       moduleAddress,
-      executionData,
+      batch,
       executionMode,
       signer,
-      provider
+      provider,
+      blockGasLimit,
+      chainId
     )
 
     if (!receipt) {
@@ -406,10 +406,12 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
 
 export const executeActionsViaManagedService: ExecuteActions = async (
   moduleAddress,
-  executionData,
+  batch,
   executionMode,
   signer,
-  provider
+  provider,
+  blockGasLimit,
+  chainId
 ) => {
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
@@ -417,25 +419,85 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     signer
   )
 
+  const sphinxModule = new ethers.Contract(
+    moduleAddress,
+    SphinxModuleABI,
+    provider
+  )
+
+  const executionData = sphinxModule.interface.encodeFunctionData('execute', [
+    batch,
+  ])
+  const managedServiceExecData = managedService.interface.encodeFunctionData(
+    'exec',
+    [moduleAddress, executionData]
+  )
+
+  const overrides: ethers.TransactionRequest = {}
+  if (shouldBufferExecuteActionsGasLimit(chainId)) {
+    const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
+    const gasEstimate = await signer.estimateGas({
+      to: getManagedServiceAddress(),
+      data: managedServiceExecData,
+    })
+
+    let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
+    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+    if (limit > maxGasLimit) {
+      limit = maxGasLimit
+    }
+
+    overrides.gasLimit = limit
+  }
+
   return (
     await managedService.exec(
       moduleAddress,
       executionData,
-      await getGasPriceOverrides(provider, signer, executionMode)
+      await getGasPriceOverrides(provider, signer, executionMode, overrides)
     )
   ).wait()
 }
 
 export const executeActionsViaSigner: ExecuteActions = async (
   moduleAddress,
-  executionData,
+  batch,
   executionMode,
   signer,
-  provider
+  provider,
+  blockGasLimit,
+  chainId
 ) => {
+  const sphinxModule = new ethers.Contract(
+    moduleAddress,
+    SphinxModuleABI,
+    provider
+  )
+
+  const executionData = sphinxModule.interface.encodeFunctionData('execute', [
+    batch,
+  ])
+
+  const minimumActionGas = estimateGasViaSigner(moduleAddress, batch)
+  const overrides: ethers.TransactionRequest = {}
+  if (shouldBufferExecuteActionsGasLimit(chainId)) {
+    const gasEstimate = await signer.estimateGas({
+      to: moduleAddress,
+      data: executionData,
+    })
+
+    let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
+    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+    if (limit > maxGasLimit) {
+      limit = maxGasLimit
+    }
+    overrides.gasLimit = limit
+  }
+
   const txn = await getGasPriceOverrides(provider, signer, executionMode, {
     to: moduleAddress,
     data: executionData,
+    ...overrides,
   })
   const receipt = await (await signer.sendTransaction(txn)).wait()
 
