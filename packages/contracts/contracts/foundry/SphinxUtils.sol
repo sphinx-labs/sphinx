@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -24,9 +24,11 @@ import {
     OptionalAddress,
     Wallet,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    GnosisSafeTransaction
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
+import { ICreateCall } from "./interfaces/ICreateCall.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
@@ -879,4 +881,47 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
         }
     }
+
+    function makeGnosisSafeTransactions(address _gnosisSafeAddress, Vm.AccountAccess[] memory _accountAccesses) external pure returns (GnosisSafeTransaction[] memory) {
+        // First, we'll get the number of transactions that will be sent from the Gnosis Safe. We'll
+        // need this value because Solidity requires that we define memory arrays with a set number
+        // of elements.
+        uint256 numTxns = 0;
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+            if (accountAccess.accessor == _gnosisSafeAddress) {
+                numTxns += 1;
+            }
+        }
+
+        GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+            if (accountAccess.accessor == _gnosisSafeAddress) {
+                if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
+                    txns[i] = GnosisSafeTransaction({
+                        operation: IEnum.GnosisSafeOperation.DelegateCall,
+                        value: 0, // TODO(docs): `value` is always unused for `DelegateCall` operations. Instead, value is transferred via `performCreate` below.
+                        to: createCallAddress,
+                        txData: abi.encodePacked(
+                            ICreateCall.performCreate.selector,
+                            abi.encode(accountAccess.value, accountAccess.data)
+                        )
+                    });
+                } else if (accountAccess.kind == VmSafe.AccountAccessKind.Call) {
+                    txns[i] = GnosisSafeTransaction({
+                        operation: IEnum.GnosisSafeOperation.Call,
+                        value: accountAccess.value,
+                        to: accountAccess.account,
+                        txData: accountAccess.data
+                    });
+                }
+            }
+        }
+
+        return txns;
+    }
 }
+
+// TODO(later-later): check that we have tests that make sure contracts deployed via `create` are at
+// the expected address. we may already do this in the tests that we wrote for the `create` opcode.

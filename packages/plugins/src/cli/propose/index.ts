@@ -38,12 +38,12 @@ import {
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
-  getSphinxLeafGasEstimates,
   getFoundrySingleChainDryRunPath,
   readFoundrySingleChainDryRun,
   readInterface,
   compile,
   getInitCodeWithArgsArray,
+  writeSystemContracts,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -85,6 +85,11 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     spinner
   )
 
+  const systemContractsFilePath = writeSystemContracts(
+    sphinxPluginTypesInterface,
+    foundryToml.cachePath
+  )
+
   const deploymentInfoPath = join(
     foundryToml.cachePath,
     'sphinx-deployment-info.txt'
@@ -120,8 +125,9 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(string)',
+      'sphinxCollectProposal(string,string)',
       deploymentInfoPath,
+      systemContractsFilePath,
     ]
 
     const provider = new SphinxJsonRpcProvider(rpcUrl)
@@ -217,18 +223,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     }
   }
 
-  spinner?.start(`Estimating gas...`)
-
-  const gasEstimatesArray = await getSphinxLeafGasEstimates(
-    scriptPath,
-    foundryToml,
-    sphinxPluginTypesInterface,
-    collected,
-    targetContract,
-    spinner
-  )
-
-  spinner?.succeed(`Estimated gas.`)
   spinner?.start(`Building proposal...`)
 
   const initCodeWithArgsArray = getInitCodeWithArgsArray(
@@ -238,11 +232,10 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo, libraries, dryRunPath }, i) =>
+    ({ actionInputs, deploymentInfo, libraries, dryRunPath }) =>
       makeParsedConfig(
         deploymentInfo,
         actionInputs,
-        gasEstimatesArray[i],
         true, // System contracts are deployed.
         configArtifacts,
         libraries,

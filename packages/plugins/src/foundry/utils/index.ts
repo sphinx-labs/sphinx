@@ -18,9 +18,11 @@ import {
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
+  decodeDeterministicDeploymentProxyData,
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
+  getDeterministicDeploymentProxyCreate2Address,
   getNetworkNameForChainId,
   isDefined,
   isRawCreate2ActionInput,
@@ -30,6 +32,9 @@ import {
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
+  AccountAccess,
+  AccountAccessKind,
+  ActionInput,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -45,7 +50,11 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import { SphinxJsonRpcProvider, networkEnumToName } from '@sphinx-labs/core'
+import {
+  ParsedContractDeployment,
+  SphinxJsonRpcProvider,
+  networkEnumToName,
+} from '@sphinx-labs/core'
 import ora from 'ora'
 import {
   ContractArtifact,
@@ -54,6 +63,7 @@ import {
   parseFoundryContractArtifact,
   recursivelyConvertResult,
   getSystemContractInfo,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
@@ -762,86 +772,6 @@ export const callForgeScriptFunction = async <T>(
   }
 }
 
-export const getSphinxLeafGasEstimates = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  sphinxPluginTypesInterface: ethers.Interface,
-  collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-    forkUrl: string
-  }>,
-  targetContract?: string,
-  spinner?: ora.Ora
-): Promise<Array<Array<string>>> => {
-  const leafGasParamsFragment = findFunctionFragment(
-    sphinxPluginTypesInterface,
-    'leafGasParams'
-  )
-
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  const leafGasInputsFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-estimate-leaf-gas.txt'
-  )
-
-  const gasEstimatesArray: Array<Array<string>> = []
-  for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
-    const txns = actionInputs.map(toSphinxTransaction)
-    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
-      txns,
-      getSystemContractInfo(),
-    ])
-
-    // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
-    // instead of passing in the data as a parameter to the Forge script because it's possible to hit
-    // Node's `spawn` input size limit if the data is large. This is particularly a concern because
-    // the data contains contract init code.
-    writeFileSync(leafGasInputsFilePath, encodedTxnArray)
-
-    const json = await callForgeScriptFunction<{
-      abiEncodedGasArray: {
-        value: string
-      }
-    }>(
-      scriptPath,
-      'sphinxEstimateMerkleLeafGas(string)',
-      [leafGasInputsFilePath, deploymentInfo.chainId],
-      forkUrl,
-      targetContract,
-      spinner
-    )
-
-    const returned = json.returns.abiEncodedGasArray.value
-    // ABI decode the gas array.
-    const [decoded] = coder.decode(['uint256[]'], returned)
-    // Convert the BigInt elements to Numbers, then multiply by a buffer. This ensures the user's
-    // transaction doesn't fail on-chain due to variations in the chain state, which could occur
-    // between the time of the simulation and execution.
-    const returnedGasArrayWithBuffer = decoded
-      // Convert the BigInt elements to Numbers
-      .map(Number)
-      // Include a buffer to ensure the user's transaction doesn't fail on-chain due to variations
-      // between the simulation and the live execution environment. There are a couple areas in
-      // particular that could lead to variations:
-      // 1. The on-chain state could vary. For example, existing contracts could have different
-      //    state, which could impact the cost of execution. This is inherently a source of
-      //    variation because there's a delay between the simulation and execution.
-      // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are more
-      //    likely to be "warm" (i.e. cheaper) than the production environment, where transactions
-      //    may be split between batches. In practice, the execution process uses large batches, so
-      //    the variation shouldn't be significant.
-      // We chose to multiply the gas by 1.3 because multiplying it by a higher number
-      // could make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
-      // doesn't impact small transactions very much, we add a constant amount of 20k too.
-      .map((gas) => Math.round(gas * 1.3 + 20_000).toString())
-
-    gasEstimatesArray.push(returnedGasArrayWithBuffer)
-  }
-
-  return gasEstimatesArray
-}
-
 export const isFoundryMultiChainDryRun = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
 ): dryRun is FoundryMultiChainDryRun => {
@@ -1190,4 +1120,118 @@ export const findFullyQualifiedNameForAddress = (
   // return initCodeWithArgs
   //   ? findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
   //   : undefined
+}
+
+// TODO(docs): resurrect the rationale of writing this to the file system. it was in
+// `sphinxEstimateMerkleLeafGas` in TypeScript.
+export const writeSystemContracts = (
+  sphinxPluginTypesInterface: ethers.Interface,
+  cachePath: string
+): string => {
+  const systemContractsArrayFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'systemContractInfoArrayType'
+  )
+
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const filePath = join(cachePath, 'sphinx-system-contracts.txt')
+
+  const encodedSystemContractArray = coder.encode(
+    systemContractsArrayFragment.outputs,
+    [getSystemContractInfo()]
+  )
+
+  // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
+  // instead of passing in the data as a parameter to the Forge script because it's possible to hit
+  // Node's `spawn` input size limit if the data is large. This is particularly a concern because
+  // the data contains contract init code.
+  writeFileSync(filePath, encodedSystemContractArray)
+
+  return filePath
+}
+
+export const assertValidAccountAccesses = (
+  accountAccesses: Array<AccountAccess>,
+  safeAddress: string
+): void => {
+  for (const accountAccess of accountAccesses) {
+    if (accountAccess.accessor === safeAddress) {
+      if (accountAccess.value > BigInt(0)) {
+        throw new Error(
+          `Detected value transfer in script:\n` +
+            `To: ${accountAccess.account}\n` +
+            `Amount: ${ethers.parseEther(accountAccess.value.toString())}\n` +
+            `Sphinx does not support transferring native gas tokens during deployments.\n` +
+            `Let us know if you want this feature!`
+        )
+      }
+    }
+  }
+}
+
+export const isCreate2AccountAccess = (
+  accountAccess: AccountAccess,
+  nextAccountAccess?: AccountAccess
+): boolean => {
+  const isCreate2Call =
+    accountAccess.kind === AccountAccessKind.Call &&
+    accountAccess.account === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
+    getBytesLength(accountAccess.data) >= 32
+  if (!isCreate2Call) {
+    return false
+  }
+
+  const { create2Address } = decodeDeterministicDeploymentProxyData(
+    accountAccess.data
+  )
+
+  return (
+    nextAccountAccess !== undefined &&
+    nextAccountAccess.kind === AccountAccessKind.Create &&
+    nextAccountAccess.accessor === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
+    nextAccountAccess.account === create2Address
+  )
+}
+
+export const parseNestedContractDeployments = (
+  nextAccountAccesses: Array<AccountAccess>,
+  safeAddress: string,
+  configArtifacts: ConfigArtifacts
+): {
+  parsedContracts: ActionInput['contracts']
+  unlabeled: ParsedConfig['unlabeledContracts']
+} => {
+  const parsed: Array<ParsedContractDeployment> = []
+  const unlabeled: ParsedConfig['unlabeledContracts'] = []
+
+  for (const accountAccess of nextAccountAccesses) {
+    if (accountAccess.accessor === safeAddress) {
+      return { parsed, unlabeled }
+    }
+
+    if (accountAccess.kind === AccountAccessKind.Create) {
+      const initCodeWithArgs = accountAccess.data
+      const address = accountAccess.account
+
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
+        initCodeWithArgs,
+        configArtifacts
+      )
+
+      if (fullyQualifiedName) {
+        parsed.push({
+          address,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        })
+      } else {
+        unlabeled.push({
+          address,
+          initCodeWithArgs,
+        })
+      }
+    }
+  }
+
+  return { parsed, unlabeled }
 }

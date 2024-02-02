@@ -66,7 +66,10 @@ export type ParsedVariable =
 
 export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
 
-export type ActionInput = FunctionCallActionInput | Create2ActionInput
+export type ActionInput =
+  | FunctionCallActionInput
+  | Create2ActionInput
+  | CreateActionInput
 
 export type ParsedConfig = {
   safeAddress: string
@@ -104,6 +107,8 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
+  accountAccesses: Array<AccountAccess>
+  gasEstimates: Array<bigint>
 }
 
 export type InitialChainState = {
@@ -142,14 +147,17 @@ export type SphinxConfig = {
   saltNonce: string
 }
 
-export interface RawCreate2ActionInput extends SphinxTransaction {
+export interface Create2ActionInput extends SphinxTransaction {
   create2Address: string
   initCodeWithArgs: string
-  actionType: string
-  additionalContracts: FoundryDryRunTransaction['additionalContracts']
+  contracts: Array<ParsedContractDeployment>
+  decodedAction: DecodedAction
+  index: string
 }
 
-export interface Create2ActionInput extends RawCreate2ActionInput {
+export interface CreateActionInput extends SphinxTransaction {
+  contractAddress: string
+  initCodeWithArgs: string
   contracts: Array<ParsedContractDeployment>
   decodedAction: DecodedAction
   index: string
@@ -266,4 +274,43 @@ export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {
 export interface FoundryBroadcastTransaction
   extends AbstractFoundryTransaction {
   hash: string
+}
+
+export enum AccountAccessKind {
+  Call,
+  DelegateCall,
+  CallCode,
+  StaticCall,
+  Create,
+  SelfDestruct,
+  Resume,
+  Balance,
+  Extcodesize,
+  Extcodehash,
+  Extcodecopy,
+}
+
+export type AccountAccess = {
+  chainInfo: {
+    forkId: bigint
+    chainId: bigint
+  }
+  kind: AccountAccessKind
+  account: string
+  accessor: string
+  initialized: boolean
+  oldBalance: bigint
+  newBalance: bigint
+  deployedCode: string
+  value: bigint
+  data: string
+  reverted: boolean
+  storageAccesses: Array<{
+    account: string
+    slot: string
+    isWrite: boolean
+    previousValue: string
+    newValue: string
+    reverted: boolean
+  }>
 }

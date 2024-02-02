@@ -34,6 +34,8 @@ import {
   remove0x,
   LinkReferences,
   recursivelyConvertResult,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CreateCallArtifact,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -49,6 +51,8 @@ import {
   ParsedConfig,
   Create2ActionInput,
   FunctionCallActionInput,
+  AccountAccess,
+  AccountAccessKind,
 } from './config/types'
 import {
   SphinxActionType,
@@ -1525,3 +1529,26 @@ export const decodeCall = (
   }
   return undefined
 }
+
+export const encodeCreateCall = (
+  value: bigint,
+  initCodeWithArgs: string
+): string => {
+  const iface = new ethers.Interface(CreateCallArtifact.abi)
+  return iface.encodeFunctionData('performCreate', [value, initCodeWithArgs])
+}
+
+export const decodeDeterministicDeploymentProxyData = (
+  saltAndInitCodeWithArgs: string
+): { salt: string; initCodeWithArgs: string; create2Address: string } => {
+  const salt = ethers.dataSlice(saltAndInitCodeWithArgs, 0, 32)
+  const initCodeWithArgs = ethers.dataSlice(saltAndInitCodeWithArgs, 32)
+  const create2Address = ethers.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    salt,
+    ethers.keccak256(initCodeWithArgs)
+  )
+  return { salt, initCodeWithArgs, create2Address }
+}
+
+// TODO(later-later): remove all the rawactioninput stuff

@@ -38,9 +38,9 @@ import {
   getFoundrySingleChainDryRunPath,
   getInitCodeWithArgsArray,
   getSphinxConfigFromScript,
-  getSphinxLeafGasEstimates,
   readFoundrySingleChainDryRun,
   readInterface,
+  writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
 import {
@@ -161,6 +161,11 @@ export const deploy = async (
     spinner
   )
 
+  const systemContractsFilePath = writeSystemContracts(
+    sphinxPluginTypesInterface,
+    foundryToml.cachePath
+  )
+
   const executionMode = isLiveNetwork
     ? ExecutionMode.LiveNetworkCLI
     : ExecutionMode.LocalNetworkCLI
@@ -168,9 +173,10 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(uint8,string)',
+    'sphinxCollectDeployment(uint8,string,string)',
     executionMode.toString(),
     deploymentInfoPath,
+    systemContractsFilePath,
     '--rpc-url',
     forkUrl,
   ]
@@ -241,24 +247,6 @@ export const deploy = async (
   )
 
   spinner.succeed(`Collected transactions.`)
-  spinner.start(`Estimating gas...`)
-
-  const gasEstimatesArray = await getSphinxLeafGasEstimates(
-    scriptPath,
-    foundryToml,
-    sphinxPluginTypesInterface,
-    [{ actionInputs, deploymentInfo, forkUrl }],
-    targetContract,
-    spinner
-  )
-  if (gasEstimatesArray.length !== 1) {
-    throw new Error(
-      `Gas estimates array is an incorrect length. Should never happen.`
-    )
-  }
-  const gasEstimates = gasEstimatesArray[0]
-
-  spinner.succeed(`Estimated gas.`)
   spinner.start(`Building deployment...`)
 
   let signer: ethers.Wallet
@@ -283,7 +271,6 @@ export const deploy = async (
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     actionInputs,
-    gasEstimates,
     isSystemDeployed,
     configArtifacts,
     dryRunFile.libraries,
@@ -399,3 +386,15 @@ export const deploy = async (
     configArtifacts,
   }
 }
+
+// todo(later-later): do `ethers.getAddress(addr)` for all addresses or check that they're already
+// checksummed.
+
+// todo(later-later): merge the existing PR that has the `create` opcode tests.
+
+// todo(md): remove the 'we don't support create opcode' current limitation in main readme.
+// todo(md): include a current limitation about linked libraries in the main readme.
+
+// TODO(later): in sphinx.sol, delete the new state variable after finishing collection.
+
+// TODO: in the AccountAccess struct: check valu
