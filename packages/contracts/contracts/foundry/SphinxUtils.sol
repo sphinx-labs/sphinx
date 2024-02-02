@@ -896,11 +896,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
 
         GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
+        uint256 txnIndex = 0;
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
             SphinxAccountAccess memory accountAccess = _accountAccesses[i];
             if (accountAccess.accessor == _gnosisSafeAddress) {
                 if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
-                    txns[i] = GnosisSafeTransaction({
+                    txns[txnIndex] = GnosisSafeTransaction({
                         operation: IEnum.GnosisSafeOperation.DelegateCall,
                         value: 0, // TODO(docs): `value` is always unused for `DelegateCall` operations. Instead, value is transferred via `performCreate` below.
                         to: createCallAddress,
@@ -910,13 +911,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                         )
                     });
                 } else if (accountAccess.kind == VmSafe.AccountAccessKind.Call) {
-                    txns[i] = GnosisSafeTransaction({
+                    txns[txnIndex] = GnosisSafeTransaction({
                         operation: IEnum.GnosisSafeOperation.Call,
                         value: accountAccess.value,
                         to: accountAccess.account,
                         txData: accountAccess.data
                     });
                 }
+                txnIndex += 1;
             }
         }
 

@@ -106,7 +106,7 @@ export type DeploymentInfo = {
   arbitraryChain: boolean
   sphinxLibraryVersion: string
   accountAccesses: Array<SphinxAccountAccess>
-  gasEstimates: Array<bigint>
+  gasEstimates: Array<string>
 }
 
 export type InitialChainState = {
@@ -275,23 +275,23 @@ export interface FoundryBroadcastTransaction
 }
 
 export enum AccountAccessKind {
-  Call,
-  DelegateCall,
-  CallCode,
-  StaticCall,
-  Create,
-  SelfDestruct,
-  Resume,
-  Balance,
-  Extcodesize,
-  Extcodehash,
-  Extcodecopy,
+  Call = '0',
+  DelegateCall = '1',
+  CallCode = '2',
+  StaticCall = '3',
+  Create = '4',
+  SelfDestruct = '5',
+  Resume = '6',
+  Balance = '7',
+  Extcodesize = '8',
+  Extcodehash = '9',
+  Extcodecopy = '10',
 }
 
 export type SphinxAccountAccess = {
   kind: AccountAccessKind
   account: string
   accessor: string
-  value: bigint
+  value: string
   data: string
 }

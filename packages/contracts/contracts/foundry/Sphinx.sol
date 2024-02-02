@@ -277,6 +277,8 @@ abstract contract Sphinx {
         vm.startStateDiffRecording();
         _;
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+        vm.stopPrank();
+
         for (uint256 i = 0; i < accesses.length; i++) {
             Vm.AccountAccess memory access = accesses[i];
             accountAccesses.push(SphinxAccountAccess({

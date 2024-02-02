@@ -36,7 +36,6 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 import {
   compile,
   getInitCodeWithArgsArray,
-  getSphinxConfigFromScript,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
@@ -147,13 +146,6 @@ export const deploy = async (
     unlinkSync(deploymentInfoPath)
   }
 
-  const { safeAddress } = await getSphinxConfigFromScript(
-    scriptPath,
-    sphinxPluginTypesInterface,
-    targetContract,
-    spinner
-  )
-
   const systemContractsFilePath = writeSystemContracts(
     sphinxPluginTypesInterface,
     foundryToml.cachePath
@@ -184,16 +176,26 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
-  // Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We need
-  // to do this even though we also broadcast from the Safe's address in the script.
+  // TODO(gh): we had to remove the `FOUNDRY_SENDER` b/c of a bug where the `createProxyWithNonce`
+  // would fail b/c a deployed address can't be the sender. was happening on `createProxyWithNonce`,
+  // where we deploy the safe.
+
+  // TODO(end): add a ticket to detect and throw an error when the user is attempting to deploy a
+  // linked library. previously, we always threw an error b/c libraries are deployed via `create`,
+  // but now i have no idea how we handle linked library deployments.
+
+  // TODO(end): add to 'support linked libraries' ticket:
+  // previously, we added `FOUNDRY_SENDER: safeAddress` when collecting txns. do we need to do
+  // anything special to handle this edge case? "We use the `FOUNDRY_SENDER` environment variable to
+  // set the Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We
+  // need to do this even though we also broadcast from the Safe's address in the script.
   // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
   // linked library. In this scenario, the caller that deploys the library would be Foundry's
   // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
-  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-    FOUNDRY_SENDER: safeAddress,
-  })
+  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable."
+
+  // Collect the transactions.
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
   if (spawnOutput.code !== 0) {
     spinner.stop()
@@ -358,8 +360,8 @@ export const deploy = async (
   }
 }
 
-// todo(later-later): do `ethers.getAddress(addr)` for all addresses or check that they're already
-// checksummed.
+// TODO(later): don't we need to snapshot and rewind the actions in the user's script before
+// collecting the merkle leaf gas? otherwise, isn't everything executed twice?
 
 // todo(later-later): merge the existing PR that has the `create` opcode tests.
 

@@ -1148,7 +1148,7 @@ export const assertValidAccountAccesses = (
 ): void => {
   for (const accountAccess of accountAccesses) {
     if (accountAccess.accessor === safeAddress) {
-      if (accountAccess.value > BigInt(0)) {
+      if (BigInt(accountAccess.value) > BigInt(0)) {
         throw new Error(
           `Detected value transfer in script:\n` +
             `To: ${accountAccess.account}\n` +

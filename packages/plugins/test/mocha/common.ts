@@ -563,14 +563,14 @@ const makeCreate2AccountAccesses = (
     accountAccesses.push({
       account: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
       accessor: safeAddress,
-      value: BigInt(0),
+      value: '0',
       data,
       kind: AccountAccessKind.Call,
     })
     accountAccesses.push({
       account: create2Address,
       accessor: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      value: BigInt(0),
+      value: '0',
       data: initCodeWithArgs,
       kind: AccountAccessKind.Create,
     })

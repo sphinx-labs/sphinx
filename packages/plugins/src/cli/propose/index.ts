@@ -71,7 +71,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }> => {
-  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
+  const { testnets, mainnets } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
     targetContract,
@@ -133,23 +133,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
 
-    // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
-    // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
-    // transactions. We need to do this even though we also broadcast from the Safe's
-    // address in the script. Specifically, this is necessary if the user is deploying a contract
-    // via CREATE2 that uses a linked library. In this scenario, the caller that deploys the library
-    // would be Foundry's default sender if we don't set this environment variable. Note that
-    // `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER` environment
-    // variable. Also, passing the environment variable directly into the script overrides the
-    // user defining it in their `.env` file.
-    // It's worth mentioning that we can't run a single Forge script for all networks using
-    // cheatcodes like `vm.createSelectFork`. This is because we use the `FOUNDRY_SENDER`.
-    // Specifically, the state of the Safe on the first fork is persisted across all forks
-    // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
-    // state across networks. This is a Foundry quirk; it may be a bug.
-    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-      FOUNDRY_SENDER: safeAddress,
-    })
+    // Collect the transactions for the current network.
+    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
     if (spawnOutput.code !== 0) {
       spinner?.stop()

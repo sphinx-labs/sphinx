@@ -1486,11 +1486,14 @@ export const decodeCall = (
 }
 
 export const encodeCreateCall = (
-  value: bigint,
+  value: string,
   initCodeWithArgs: string
 ): string => {
   const iface = new ethers.Interface(CreateCallArtifact.abi)
-  return iface.encodeFunctionData('performCreate', [value, initCodeWithArgs])
+  return iface.encodeFunctionData('performCreate', [
+    BigInt(value),
+    initCodeWithArgs,
+  ])
 }
 
 export const decodeDeterministicDeploymentProxyData = (
@@ -1551,4 +1554,3 @@ export const isCreateActionInput = (
     typeof create.requireSuccess === 'boolean'
   )
 }
-

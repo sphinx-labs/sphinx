@@ -89,7 +89,7 @@ abstract contract AbstractSphinxModuleProxyFactory_Test is
     // - Deploy a `SphinxModule` implementation contract at a `CREATE2` address determined by the
     //   address of the `SphinxModuleProxyFactory` and a `bytes32(0)` salt.
     function test_constructor_success() external {
-        address expectedModuleImpl = vm.computeCreate2Address({
+        address expectedModuleImpl = computeCreate2Address({
             salt: bytes32(0),
             initcodeHash: keccak256(type(SphinxModule).creationCode),
             deployer: address(moduleProxyFactory)
