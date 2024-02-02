@@ -64,8 +64,6 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
-
 export type ActionInput =
   | FunctionCallActionInput
   | Create2ActionInput
@@ -107,7 +105,7 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
-  accountAccesses: Array<AccountAccess>
+  accountAccesses: Array<SphinxAccountAccess>
   gasEstimates: Array<bigint>
 }
 
@@ -147,7 +145,14 @@ export type SphinxConfig = {
   saltNonce: string
 }
 
+export enum ActionInputType {
+  CREATE,
+  CREATE2,
+  CALL,
+}
+
 export interface Create2ActionInput extends SphinxTransaction {
+  actionType: ActionInputType.CREATE2
   create2Address: string
   initCodeWithArgs: string
   contracts: Array<ParsedContractDeployment>
@@ -156,6 +161,7 @@ export interface Create2ActionInput extends SphinxTransaction {
 }
 
 export interface CreateActionInput extends SphinxTransaction {
+  actionType: ActionInputType.CREATE
   contractAddress: string
   initCodeWithArgs: string
   contracts: Array<ParsedContractDeployment>
@@ -170,16 +176,8 @@ export type DecodedAction = {
   address: string
 }
 
-export interface RawFunctionCallActionInput extends SphinxTransaction {
-  actionType: string
-  additionalContracts: Array<{
-    transactionType: string
-    address: string
-    initCode: string
-  }>
-}
-
-export interface FunctionCallActionInput extends RawFunctionCallActionInput {
+export interface FunctionCallActionInput extends SphinxTransaction {
+  actionType: ActionInputType.CALL
   contracts: Array<ParsedContractDeployment>
   decodedAction: DecodedAction
   index: string
@@ -290,27 +288,10 @@ export enum AccountAccessKind {
   Extcodecopy,
 }
 
-export type AccountAccess = {
-  chainInfo: {
-    forkId: bigint
-    chainId: bigint
-  }
+export type SphinxAccountAccess = {
   kind: AccountAccessKind
   account: string
   accessor: string
-  initialized: boolean
-  oldBalance: bigint
-  newBalance: bigint
-  deployedCode: string
   value: bigint
   data: string
-  reverted: boolean
-  storageAccesses: Array<{
-    account: string
-    slot: string
-    isWrite: boolean
-    previousValue: string
-    newValue: string
-    reverted: boolean
-  }>
 }

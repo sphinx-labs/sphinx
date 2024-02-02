@@ -22,7 +22,6 @@ import {
   DeploymentInfo,
   GetConfigArtifacts,
   ParsedConfig,
-  RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
   SphinxLeafType,
@@ -30,16 +29,10 @@ import {
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import {
-  makeParsedConfig,
-  decodeDeploymentInfo,
-  convertFoundryDryRunToActionInputs,
-} from '../../foundry/decode'
+import { makeParsedConfig, decodeDeploymentInfo } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
-  getFoundrySingleChainDryRunPath,
-  readFoundrySingleChainDryRun,
   readInterface,
   compile,
   getInitCodeWithArgsArray,
@@ -97,10 +90,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
     libraries: Array<string>
     forkUrl: string
-    dryRunPath: string
   }> = []
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
@@ -156,7 +147,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     // Specifically, the state of the Safe on the first fork is persisted across all forks
     // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
     // state across networks. This is a Foundry quirk; it may be a bug.
-    const dateBeforeForgeScript = new Date()
     const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
       FOUNDRY_SENDER: safeAddress,
     })
@@ -178,43 +168,35 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
     checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
-    const collectionDryRunPath = getFoundrySingleChainDryRunPath(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`
-    )
-    const collectionDryRun = readFoundrySingleChainDryRun(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`,
-      dateBeforeForgeScript
-    )
-
-    // Check if the dry run file exists. If it doesn't, this must mean that there weren't any
-    // transactions broadcasted in the user's script for this network. We return an empty array in
-    // this case.
-    const actionInputs = collectionDryRun
-      ? convertFoundryDryRunToActionInputs(deploymentInfo, collectionDryRun)
-      : []
-
-    const libraries = collectionDryRun ? collectionDryRun.libraries : []
-
     collected.push({
       deploymentInfo,
-      actionInputs,
-      libraries,
+      libraries: [], // TODO(docs): no linked libraries rn
       forkUrl: rpcUrl,
-      dryRunPath: collectionDryRunPath,
     })
   }
 
   spinner?.succeed(`Collected transactions.`)
 
-  const isEmpty =
-    collected.length === 0 ||
-    collected.every(({ actionInputs }) => actionInputs.length === 0)
+  spinner?.start(`Building proposal...`)
+
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ deploymentInfo }) => deploymentInfo.accountAccesses)
+  )
+
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+
+  const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
+    makeParsedConfig(
+      deploymentInfo,
+      true, // System contracts are deployed.
+      configArtifacts,
+      libraries
+    )
+  )
+
+  const isEmpty = parsedConfigArray.every(
+    (parsedConfig) => parsedConfig.actionInputs.length === 0
+  )
   if (isEmpty) {
     return {
       isEmpty: true,
@@ -222,26 +204,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       configArtifacts: undefined,
     }
   }
-
-  spinner?.start(`Building proposal...`)
-
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    collected.flatMap(({ actionInputs }) => actionInputs)
-  )
-
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
-
-  const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo, libraries, dryRunPath }) =>
-      makeParsedConfig(
-        deploymentInfo,
-        actionInputs,
-        true, // System contracts are deployed.
-        configArtifacts,
-        libraries,
-        dryRunPath
-      )
-  )
 
   return {
     parsedConfigArray,

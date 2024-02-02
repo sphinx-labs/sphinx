@@ -44,18 +44,13 @@ import {
   userContractKinds,
   ParsedVariable,
   ConfigArtifactsRemote,
-  RawFunctionCallActionInput,
   ActionInput,
-  RawCreate2ActionInput,
-  RawActionInput,
   ParsedConfig,
   Create2ActionInput,
-  FunctionCallActionInput,
-  AccountAccess,
-  AccountAccessKind,
+  ActionInputType,
+  CreateActionInput,
 } from './config/types'
 import {
-  SphinxActionType,
   ProposalRequest,
   MerkleRootStatus,
   HumanReadableAction,
@@ -830,46 +825,6 @@ export const equal = (a: ParsedVariable, b: ParsedVariable): boolean => {
   }
 }
 
-export const isRawFunctionCallActionInput = (
-  actionInput: ActionInput | RawActionInput
-): actionInput is RawFunctionCallActionInput => {
-  const callActionInput = actionInput as RawFunctionCallActionInput
-  return (
-    callActionInput.actionType === SphinxActionType.CALL.toString() &&
-    callActionInput.to !== undefined &&
-    callActionInput.txData !== undefined
-  )
-}
-
-export const isRawCreate2ActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is RawCreate2ActionInput => {
-  const rawCreate2 = actionInput as RawCreate2ActionInput
-  return (
-    rawCreate2.actionType === SphinxActionType.CALL.toString() &&
-    rawCreate2.initCodeWithArgs !== undefined &&
-    rawCreate2.create2Address !== undefined &&
-    rawCreate2.txData !== undefined &&
-    rawCreate2.gas !== undefined
-  )
-}
-
-export const isFunctionCallActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is FunctionCallActionInput => {
-  const functionCall = actionInput as Create2ActionInput
-  return (
-    isRawCreate2ActionInput(actionInput) && functionCall.contracts !== undefined
-  )
-}
-
-export const isCreate2ActionInput = (
-  actionInput: RawActionInput | ActionInput
-): actionInput is Create2ActionInput => {
-  const create2 = actionInput as Create2ActionInput
-  return isRawCreate2ActionInput(actionInput) && create2.contracts !== undefined
-}
-
 export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
@@ -944,7 +899,7 @@ export const isString = (str: string | null | undefined): str is string => {
 }
 
 export const toSphinxTransaction = (
-  actionInput: RawActionInput
+  actionInput: ActionInput
 ): SphinxTransaction => {
   const { to, value, txData, gas, operation, requireSuccess } = actionInput
   return {
@@ -1551,4 +1506,49 @@ export const decodeDeterministicDeploymentProxyData = (
   return { salt, initCodeWithArgs, create2Address }
 }
 
-// TODO(later-later): remove all the rawactioninput stuff
+export const isCreate2ActionInput = (
+  action: ActionInput
+): action is Create2ActionInput => {
+  const create2 = action as Create2ActionInput
+
+  return (
+    create2 !== null &&
+    typeof create2 === 'object' &&
+    create2.actionType === ActionInputType.CREATE2 &&
+    typeof create2.create2Address === 'string' &&
+    typeof create2.initCodeWithArgs === 'string' &&
+    Array.isArray(create2.contracts) &&
+    typeof create2.decodedAction === 'object' &&
+    typeof create2.index === 'string' &&
+    typeof create2.to === 'string' &&
+    typeof create2.value === 'string' &&
+    typeof create2.txData === 'string' &&
+    typeof create2.gas === 'string' &&
+    create2.operation === Operation.Call &&
+    typeof create2.requireSuccess === 'boolean'
+  )
+}
+
+export const isCreateActionInput = (
+  action: ActionInput
+): action is CreateActionInput => {
+  const create = action as CreateActionInput
+
+  return (
+    create !== null &&
+    typeof create === 'object' &&
+    create.actionType === ActionInputType.CREATE &&
+    typeof create.contractAddress === 'string' &&
+    typeof create.initCodeWithArgs === 'string' &&
+    Array.isArray(create.contracts) &&
+    typeof create.decodedAction === 'object' &&
+    typeof create.index === 'string' &&
+    typeof create.to === 'string' &&
+    typeof create.value === 'string' &&
+    typeof create.txData === 'string' &&
+    typeof create.gas === 'string' &&
+    create.operation === Operation.Call &&
+    typeof create.requireSuccess === 'boolean'
+  )
+}
+

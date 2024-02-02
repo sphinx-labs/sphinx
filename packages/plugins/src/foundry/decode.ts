@@ -1,19 +1,11 @@
 import {
-  isRawCreate2ActionInput,
-  isRawFunctionCallActionInput,
-  isString,
   ActionInput,
   ConfigArtifacts,
   DeploymentInfo,
   FunctionCallActionInput,
   ParsedConfig,
-  RawActionInput,
-  RawCreate2ActionInput,
-  RawFunctionCallActionInput,
-  SphinxActionType,
   networkEnumToName,
   assertValidProjectName,
-  ParsedContractDeployment,
   DecodedAction,
   ParsedVariable,
   getAbiEncodedConstructorArgs,
@@ -23,6 +15,7 @@ import {
   encodeCreateCall,
   decodeDeterministicDeploymentProxyData,
   Create2ActionInput,
+  ActionInputType,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -33,7 +26,6 @@ import {
   getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 
-import { FoundrySingleChainDryRun } from './types'
 import {
   assertValidAccountAccesses,
   convertLibraryFormat,
@@ -120,8 +112,7 @@ export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
-  libraries: Array<string>,
-  dryRunPath: string
+  libraries: Array<string>
 ): ParsedConfig => {
   const {
     safeAddress,
@@ -141,16 +132,19 @@ export const makeParsedConfig = (
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
-  // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
-  // means the `EXECUTE` leaves start with an index of 1.
-  let actionIndex = 1
+  let actionInputIndex = 0
   for (let i = 0; i < accountAccesses.length; i++) {
     const accountAccess = accountAccesses[i]
     if (accountAccess.accessor !== safeAddress) {
       continue
     }
 
-    const gas = gasEstimates[i].toString()
+    // TODO(docs): update
+    // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
+    // means the `EXECUTE` leaves start with an index of 1.
+    const executeActionIndex = actionInputIndex + 1
+
+    const gas = gasEstimates[actionInputIndex].toString()
 
     const nextAccountAccesses = accountAccesses.slice(i + 1)
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
@@ -168,7 +162,7 @@ export const makeParsedConfig = (
         configArtifacts
       )
 
-      const decodedAction = makeContractDeploymentDecodedAction(
+      const decodedAction = makeContractDecodedAction(
         address,
         initCodeWithArgs,
         configArtifacts,
@@ -191,10 +185,11 @@ export const makeParsedConfig = (
       }
 
       const action: CreateActionInput = {
+        actionType: ActionInputType.CREATE,
         contractAddress: address,
         initCodeWithArgs,
         contracts: parsedContracts,
-        index: actionIndex.toString(),
+        index: executeActionIndex.toString(),
         decodedAction,
         gas,
         requireSuccess,
@@ -215,7 +210,7 @@ export const makeParsedConfig = (
         configArtifacts
       )
 
-      const decodedAction = makeContractDeploymentDecodedAction(
+      const decodedAction = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         configArtifacts,
@@ -223,10 +218,11 @@ export const makeParsedConfig = (
       )
 
       const action: Create2ActionInput = {
+        actionType: ActionInputType.CREATE2,
         create2Address,
         initCodeWithArgs,
         contracts: parsedContracts,
-        index: actionIndex.toString(),
+        index: executeActionIndex.toString(),
         decodedAction,
         gas,
         requireSuccess,
@@ -236,36 +232,50 @@ export const makeParsedConfig = (
         txData: accountAccess.data,
       }
       parsedActionInputs.push(action)
-    } else if (isRawFunctionCallActionInput(input)) {
+    } else if (accountAccess.kind === AccountAccessKind.Call) {
+      const to = accountAccess.account
+
       // Find the fully qualified name that corresponds to the `to` address, if such a fully
       // qualified name exists. We'll use the fully qualified name to create the decoded action.
       const fullyQualifiedName = findFullyQualifiedNameForAddress(
-        input.to,
-        rawInputs,
+        to,
+        accountAccesses,
         configArtifacts
       )
 
       const decodedAction = makeFunctionCallDecodedAction(
-        input.to,
-        input.txData,
+        to,
+        accountAccess.data,
         configArtifacts,
-        dryRunPath,
         fullyQualifiedName
       )
 
       const callInput: FunctionCallActionInput = {
+        actionType: ActionInputType.CALL,
         contracts: parsedContracts,
-        index: actionIndex.toString(),
+        index: executeActionIndex.toString(),
         decodedAction,
-        ...input,
         gas,
+        requireSuccess,
+        value: accountAccess.value.toString(),
+        operation: Operation.Call,
+        to,
+        txData: accountAccess.data,
       }
 
       parsedActionInputs.push(callInput)
     } else {
       throw new Error(`Unknown action input type. Should never happen.`)
     }
-    actionIndex += 1
+    actionInputIndex += 1
+  }
+
+  // TODO(docs): sanity check
+  if (parsedActionInputs.length !== gasEstimates.length) {
+    throw new Error(
+      `Parsed action input array length (${parsedActionInputs.length}) does not equal gas\n` +
+        `estimates array length (${gasEstimates.length}). Should never happen.`
+    )
   }
 
   const parsedConfig: ParsedConfig = {
@@ -290,7 +300,7 @@ export const makeParsedConfig = (
   return parsedConfig
 }
 
-export const makeContractDeploymentDecodedAction = (
+export const makeContractDecodedAction = (
   contractAddress: string,
   initCodeWithArgs: string,
   configArtifacts: ConfigArtifacts,
@@ -341,7 +351,6 @@ export const makeFunctionCallDecodedAction = (
   to: string,
   data: string,
   configArtifacts: ConfigArtifacts,
-  dryRunPath: string,
   fullyQualifiedName?: string
 ): DecodedAction => {
   if (fullyQualifiedName) {
@@ -356,11 +365,7 @@ export const makeFunctionCallDecodedAction = (
     const functionName = decoded ? decoded.functionName : 'call'
     const variables = decoded
       ? decoded.variables
-      : [
-          data.length > 1000
-            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
-            : data,
-        ]
+      : [data.length > 1000 ? `Calldata is too large to display.` : data]
 
     return {
       referenceName: contractName,
@@ -370,9 +375,7 @@ export const makeFunctionCallDecodedAction = (
     }
   } else {
     const variables = [
-      data.length > 1000
-        ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
-        : data,
+      data.length > 1000 ? `Calldata is too large to display.` : data,
     ]
     return {
       referenceName: to,
@@ -385,8 +388,6 @@ export const makeFunctionCallDecodedAction = (
 
 // TODO(end): did you remove contracti? if so, mark ticket as 'in review'.
 
-// TODO(md): do you mention broadcasting anywhere in user docs? if so, change this language.
-
 // TODO(later-later): test: in `makeParsedConfig`, do we handle the situation where there's a call
 // at the end of the account access array? specifically, there shouldn't be an array out of bounds
 // error when we attempt to get all of the elements after the current element, which could occur
@@ -397,20 +398,8 @@ export const makeFunctionCallDecodedAction = (
 // action?"). the answer is that we need to know this when we're creating the contract deployment
 // artifact, specifically so that we can know which txn receipt corresponds to the contract.
 
-// TODO(later-later): when you're validating the AccountAccess array, make sure that you're only
-// validating the actions from the gnosis safe. users should be able to e.g. transfer funds from
-// randomContractOne to randomContractTwo as long as it doesn't involve sending ETH from the gnosis
-// safe.
-
-// TODO(later-later): somewhere in typescript, you should sanity check that the gasEstimates array's
-// length equals the actionInputs array's length. i guess you'll need to do this at the end of
-// `makeParsedConfig` or after it finishes.
-
 // TODO(end): make a ticket to change the sample contract to use `create` instead of `create2`,
 // which allows us to get rid of the weird create2 salt thing.
-
-// TODO(later): make sure you aren't adding misc AccountAccessKinds in `makeParsedConfig`. e.g.
-// `kind.Delegatecall`.
 
 // TODO(later-later): make sure that you run the demo tests in CI. if they're disabled, run them
 // locally.

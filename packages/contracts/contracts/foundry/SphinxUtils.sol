@@ -25,7 +25,8 @@ import {
     Wallet,
     ExecutionMode,
     SystemContractInfo,
-    GnosisSafeTransaction
+    GnosisSafeTransaction,
+    SphinxAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -391,7 +392,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // library for details.
         bytes memory proxyBytecode = hex"67363d3d37363d34f03d5260086018f3";
 
-        address proxy = computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
+        address proxy = vm.computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
         return computeCreateAddress(proxy, 1);
     }
 
@@ -659,7 +660,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
         );
-        address addr = computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
+        address addr = vm.computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
         return addr;
     }
 
@@ -838,7 +839,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
-        address addr = computeCreate2Address(
+        address addr = vm.computeCreate2Address(
             bytes32(0),
             keccak256(_initCodeWithArgs),
             DETERMINISTIC_DEPLOYMENT_PROXY
@@ -882,13 +883,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function makeGnosisSafeTransactions(address _gnosisSafeAddress, Vm.AccountAccess[] memory _accountAccesses) external pure returns (GnosisSafeTransaction[] memory) {
+    function makeGnosisSafeTransactions(address _gnosisSafeAddress, SphinxAccountAccess[] memory _accountAccesses) external pure returns (GnosisSafeTransaction[] memory) {
         // First, we'll get the number of transactions that will be sent from the Gnosis Safe. We'll
         // need this value because Solidity requires that we define memory arrays with a set number
         // of elements.
         uint256 numTxns = 0;
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+            SphinxAccountAccess memory accountAccess = _accountAccesses[i];
             if (accountAccess.accessor == _gnosisSafeAddress) {
                 numTxns += 1;
             }
@@ -896,7 +897,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+            SphinxAccountAccess memory accountAccess = _accountAccesses[i];
             if (accountAccess.accessor == _gnosisSafeAddress) {
                 if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
                     txns[i] = GnosisSafeTransaction({

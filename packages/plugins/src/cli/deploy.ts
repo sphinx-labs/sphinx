@@ -35,19 +35,13 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   compile,
-  getFoundrySingleChainDryRunPath,
   getInitCodeWithArgsArray,
   getSphinxConfigFromScript,
-  readFoundrySingleChainDryRun,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
-import {
-  decodeDeploymentInfo,
-  makeParsedConfig,
-  convertFoundryDryRunToActionInputs,
-} from '../foundry/decode'
+import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 import { checkLibraryVersion } from './utils'
@@ -99,7 +93,6 @@ export const deploy = async (
     cachePath,
     rpcEndpoints,
     etherscan,
-    broadcastFolder,
   } = foundryToml
 
   const forkUrl = rpcEndpoints[network]
@@ -198,7 +191,6 @@ export const deploy = async (
   // linked library. In this scenario, the caller that deploys the library would be Foundry's
   // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
   // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
-  const dateBeforeForgeScriptCollect = new Date()
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
     FOUNDRY_SENDER: safeAddress,
   })
@@ -220,32 +212,6 @@ export const deploy = async (
 
   checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
-  const dryRunPath = getFoundrySingleChainDryRunPath(
-    broadcastFolder,
-    scriptPath,
-    chainId.toString(),
-    `sphinxCollectDeployment`
-  )
-  const dryRunFile = readFoundrySingleChainDryRun(
-    broadcastFolder,
-    scriptPath,
-    deploymentInfo.chainId,
-    `sphinxCollectDeployment`,
-    dateBeforeForgeScriptCollect
-  )
-
-  // Check if the dry run file exists. If it doesn't, this must mean that the deployment is empty.
-  // We return early in this case.
-  if (!dryRunFile) {
-    spinner.info(`Nothing to deploy. Exiting early.`)
-    return {}
-  }
-
-  const actionInputs = convertFoundryDryRunToActionInputs(
-    deploymentInfo,
-    dryRunFile
-  )
-
   spinner.succeed(`Collected transactions.`)
   spinner.start(`Building deployment...`)
 
@@ -264,18 +230,23 @@ export const deploy = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(actionInputs)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    deploymentInfo.accountAccesses
+  )
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
-    actionInputs,
     isSystemDeployed,
     configArtifacts,
-    dryRunFile.libraries,
-    dryRunPath
+    [] // TODO(docs): no linked libraries rn
   )
+
+  if (parsedConfig.actionInputs.length === 0) {
+    spinner.info(`Nothing to deploy. Exiting early.`)
+    return {}
+  }
 
   const deploymentData = makeDeploymentData([parsedConfig])
 
@@ -394,7 +365,3 @@ export const deploy = async (
 
 // todo(md): remove the 'we don't support create opcode' current limitation in main readme.
 // todo(md): include a current limitation about linked libraries in the main readme.
-
-// TODO(later): in sphinx.sol, delete the new state variable after finishing collection.
-
-// TODO: in the AccountAccess struct: check valu

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { Network } from "./SphinxConstants.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
-import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 
 struct HumanReadableAction {
     string reason;
@@ -87,7 +87,7 @@ struct DeploymentInfo {
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
-    Vm.AccountAccess[] accountAccesses;
+    SphinxAccountAccess[] accountAccesses;
     uint256[] gasEstimates;
 }
 
@@ -168,6 +168,15 @@ struct Version {
 struct SystemContractInfo {
     bytes initCodeWithArgs;
     address expectedAddress;
+}
+
+// TODO(docs): only the necessary stuff from Foundry's AccountAccess struct.
+struct SphinxAccountAccess {
+    VmSafe.AccountAccessKind kind;
+    address account;
+    address accessor;
+    uint256 value;
+    bytes data;
 }
 
 /**

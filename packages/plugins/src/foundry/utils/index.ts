@@ -22,25 +22,20 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
-  getDeterministicDeploymentProxyCreate2Address,
   getNetworkNameForChainId,
   isDefined,
-  isRawCreate2ActionInput,
   sortHexStrings,
   spawnAsync,
-  toSphinxTransaction,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
-  AccountAccess,
+  SphinxAccountAccess,
   AccountAccessKind,
   ActionInput,
   ConfigArtifacts,
-  DeploymentInfo,
   GetConfigArtifacts,
   ParsedConfig,
   ParsedVariable,
-  RawActionInput,
   SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -251,15 +246,11 @@ export const readContractArtifact = async (
  * Returns the init code of every contract deployment collected from a Forge script.
  */
 export const getInitCodeWithArgsArray = (
-  rawActions: Array<RawActionInput>
+  accountAccesses: Array<SphinxAccountAccess>
 ): Array<string> => {
-  const create2Actions = rawActions.filter(isRawCreate2ActionInput)
-  const additionalContracts = rawActions.flatMap(
-    (action) => action.additionalContracts
-  )
-  return create2Actions
-    .map((action) => action.initCodeWithArgs)
-    .concat(additionalContracts.map((contract) => contract.initCode))
+  return accountAccesses
+    .filter((accountAccess) => accountAccess.kind === AccountAccessKind.Create)
+    .map((accountAccess) => accountAccess.data)
 }
 
 /**
@@ -1106,20 +1097,21 @@ export const findFullyQualifiedNameForInitCode = (
  */
 export const findFullyQualifiedNameForAddress = (
   address: string,
-  inputs: Array<RawActionInput>,
+  accountAccesses: Array<SphinxAccountAccess>,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
-  address
-  inputs
-  configArtifacts
-  return undefined
+  const createAccountAccess = accountAccesses.find(
+    (accountAccess) =>
+      accountAccess.kind === AccountAccessKind.Create &&
+      accountAccess.account === address
+  )
 
-  // TODO: Search the `inputs` array for a CREATE or CREATE2 action that deploys the given
-  // `address`. If we find an action, we'll use its `initCodeWithArgs` in the
-  // `findFullyQualifiedNameForInitCode` below, which is already used elsewhere in the repo.
-  // return initCodeWithArgs
-  //   ? findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
-  //   : undefined
+  if (createAccountAccess) {
+    const initCodeWithArgs = createAccountAccess.data
+    return findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
+  } else {
+    return undefined
+  }
 }
 
 // TODO(docs): resurrect the rationale of writing this to the file system. it was in
@@ -1151,7 +1143,7 @@ export const writeSystemContracts = (
 }
 
 export const assertValidAccountAccesses = (
-  accountAccesses: Array<AccountAccess>,
+  accountAccesses: Array<SphinxAccountAccess>,
   safeAddress: string
 ): void => {
   for (const accountAccess of accountAccesses) {
@@ -1170,8 +1162,8 @@ export const assertValidAccountAccesses = (
 }
 
 export const isCreate2AccountAccess = (
-  accountAccess: AccountAccess,
-  nextAccountAccess?: AccountAccess
+  accountAccess: SphinxAccountAccess,
+  nextAccountAccess?: SphinxAccountAccess
 ): boolean => {
   const isCreate2Call =
     accountAccess.kind === AccountAccessKind.Call &&
@@ -1194,19 +1186,19 @@ export const isCreate2AccountAccess = (
 }
 
 export const parseNestedContractDeployments = (
-  nextAccountAccesses: Array<AccountAccess>,
+  nextAccountAccesses: Array<SphinxAccountAccess>,
   safeAddress: string,
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: ActionInput['contracts']
   unlabeled: ParsedConfig['unlabeledContracts']
 } => {
-  const parsed: Array<ParsedContractDeployment> = []
+  const parsedContracts: Array<ParsedContractDeployment> = []
   const unlabeled: ParsedConfig['unlabeledContracts'] = []
 
   for (const accountAccess of nextAccountAccesses) {
     if (accountAccess.accessor === safeAddress) {
-      return { parsed, unlabeled }
+      return { parsedContracts, unlabeled }
     }
 
     if (accountAccess.kind === AccountAccessKind.Create) {
@@ -1219,7 +1211,7 @@ export const parseNestedContractDeployments = (
       )
 
       if (fullyQualifiedName) {
-        parsed.push({
+        parsedContracts.push({
           address,
           initCodeWithArgs,
           fullyQualifiedName,
@@ -1233,5 +1225,5 @@ export const parseNestedContractDeployments = (
     }
   }
 
-  return { parsed, unlabeled }
+  return { parsedContracts, unlabeled }
 }

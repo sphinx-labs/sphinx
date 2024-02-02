@@ -24,11 +24,7 @@
 // } from './common'
 // import { simulate } from '../../src/hardhat/simulate'
 
-<<<<<<< Updated upstream
 // chai.use(chaiAsPromised)
-=======
-chai.use(chaiAsPromised)
->>>>>>> Stashed changes
 
 // describe('Simulate', () => {
 //   let parsedConfigArray: Array<ParsedConfig>

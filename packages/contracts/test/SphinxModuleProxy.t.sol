@@ -21,8 +21,8 @@ import {
     MerkleRootStatus,
     SphinxLeaf
 } from "../contracts/core/SphinxDataTypes.sol";
-import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { TestUtils } from "./TestUtils.t.sol";
+import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTransaction, TestUtils } from "./TestUtils.t.sol";
 import {
     MyContract,
     MyDelegateCallContract,
@@ -128,7 +128,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
             address(safeProxy),
             vm.getNonce(address(safeProxy))
         );
-        deployedViaCreate2 = computeCreate2Address({
+        deployedViaCreate2 = vm.computeCreate2Address({
             salt: bytes32(0),
             initcodeHash: keccak256(type(MyContract).creationCode),
             deployer: address(safeProxy)
@@ -216,7 +216,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
         );
         bytes memory secondCreate3MultiSendData = abi.encodePacked(
             uint8(Operation.Call),
-            computeCreate2Address({
+            vm.computeCreate2Address({
                 salt: bytes32(0),
                 initcodeHash: keccak256(CREATE3_PROXY_BYTECODE),
                 deployer: address(safeProxy)
@@ -259,7 +259,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
 
     // Test that the `SphinxModule` implementation contract can't be initialized directly.
     function test_constructor_success() external {
-        address expectedModuleAddr = computeCreate2Address({
+        address expectedModuleAddr = vm.computeCreate2Address({
             salt: bytes32(0),
             initcodeHash: keccak256(type(SphinxModule).creationCode),
             deployer: address(this)

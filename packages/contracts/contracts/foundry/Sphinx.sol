@@ -7,6 +7,7 @@ pragma solidity ^0.8.0;
 // forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
+import { console2 as console } from '../../lib/forge-std/src/console2.sol';
 
 import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -20,7 +21,8 @@ import {
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    SphinxAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -68,7 +70,7 @@ abstract contract Sphinx {
 
     SphinxUtils private sphinxUtils;
 
-    Vm.AccountAccess[] private accountAccesses;
+    SphinxAccountAccess[] private accountAccesses;
 
     bool private sphinxModifierEnabled;
 
@@ -219,6 +221,8 @@ abstract contract Sphinx {
         );
         address singletonAddress = constants.safeSingletonAddress();
 
+        console.log('safe TODO', 0x6e667164e47986fF1108425153f32B02Fc2f5af2.code.length);
+
         bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
             sphinxConfig.owners,
             sphinxConfig.threshold
@@ -272,7 +276,17 @@ abstract contract Sphinx {
         // state diff array.
         vm.startStateDiffRecording();
         _;
-        accountAccesses = vm.stopAndReturnStateDiff();
+        Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+        for (uint256 i = 0; i < accesses.length; i++) {
+            Vm.AccountAccess memory access = accesses[i];
+            accountAccesses.push(SphinxAccountAccess({
+                kind: access.kind,
+                account: access.account,
+                accessor: access.accessor,
+                value: access.value,
+                data: access.data
+            }));
+        }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
 
@@ -333,7 +347,7 @@ abstract contract Sphinx {
      *            there's a large gas refund.
      */
     function _sphinxEstimateMerkleLeafGas(
-        Vm.AccountAccess[] memory _accountAccesses,
+        SphinxAccountAccess[] memory _accountAccesses,
         IGnosisSafe _safe,
         address _moduleAddress
     ) private returns (uint256[] memory) {
