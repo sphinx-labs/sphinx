@@ -193,6 +193,8 @@ abstract contract Sphinx {
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
 
+        uint256 snapshotId = vm.snapshot();
+
         // Delegatecall the `run()` function on this contract to collect the transactions. This
         // pattern gives us flexibility to support function names other than `run()` in the future.
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("run()"));
@@ -202,7 +204,9 @@ abstract contract Sphinx {
         require(success, "Sphinx: Deployment script failed.");
 
         deploymentInfo.accountAccesses = accountAccesses;
-        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(accountAccesses, IGnosisSafe(safe), module);
+
+        vm.revertTo(snapshotId);
+        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(deploymentInfo.accountAccesses, IGnosisSafe(safe), module);
 
         return deploymentInfo;
     }

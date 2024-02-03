@@ -360,10 +360,9 @@ export const deploy = async (
   }
 }
 
-// TODO(later): don't we need to snapshot and rewind the actions in the user's script before
-// collecting the merkle leaf gas? otherwise, isn't everything executed twice?
-
 // todo(later-later): merge the existing PR that has the `create` opcode tests.
 
 // todo(md): remove the 'we don't support create opcode' current limitation in main readme.
 // todo(md): include a current limitation about linked libraries in the main readme.
+
+// TODO(later): check that the `vm.revertTo` doesn't erase any important state variables.
