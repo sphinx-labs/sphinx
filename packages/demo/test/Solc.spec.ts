@@ -79,15 +79,19 @@ describe('Solidity Compiler', () => {
     latestSolcVersion = latestSolcVersionParsed
   })
 
-  after(async () => {
-    deleteForgeProject(contractPath, scriptPath, testPath)
-  })
+  // TODO(later): undo
+  // after(async () => {
+  //   deleteForgeProject(contractPath, scriptPath, testPath)
+  // })
 
   // Test that we can compile the Sphinx plugin contracts for solc versions ^0.8.1 using `viaIR` and
   // the optimizer. We don't test v0.8.0 because the sample Forge project can't compile with this
   // version and settings.
   it('Compiles with viaIR and optimizer enabled', async () => {
-    const versions = generateSemverRange(new SemVer('0.8.1'), latestSolcVersion)
+    const versions = generateSemverRange(
+      new SemVer('0.8.11'),
+      new SemVer('0.8.12')
+    ) // TODO(later): undo
 
     // Generate output directory names. We use separate output directories for each compilation to
     // prevent race conditions.

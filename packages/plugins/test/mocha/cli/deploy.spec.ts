@@ -604,7 +604,7 @@ const expectValidDeployment = async (
           {
             referenceName: 'MyContract2',
             functionName: 'incrementMyContract2',
-            variables: ['2'],
+            variables: { _num: '2' },
             address: expectedMyContract2Address,
           },
         ],
@@ -623,3 +623,7 @@ const expectValidDeployment = async (
     expectedContractFileNames
   )
 }
+
+// TODO(end): linked library ticket: mention that there are test cases in `deploy.spec.ts` and
+// `Cases.s.sol` in this PR:
+// https://github.com/sphinx-labs/sphinx/pull/1256

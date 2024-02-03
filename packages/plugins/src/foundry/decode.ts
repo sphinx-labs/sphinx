@@ -391,11 +391,6 @@ export const makeFunctionCallDecodedAction = (
 
 // TODO(end): did you remove contracti? if so, mark ticket as 'in review'.
 
-// TODO(later-later): test: in `makeParsedConfig`, do we handle the situation where there's a call
-// at the end of the account access array? specifically, there shouldn't be an array out of bounds
-// error when we attempt to get all of the elements after the current element, which could occur
-// when we're finding the contract deployments for the current account access.
-
 // TODO(docs): document somewhere why we have actionInput.contracts instead of
 // parsedConfig.contracts (i.e. answer "why do we need to know the contracts deployed in each
 // action?"). the answer is that we need to know this when we're creating the contract deployment
@@ -404,5 +399,4 @@ export const makeFunctionCallDecodedAction = (
 // TODO(end): make a ticket to change the sample contract to use `create` instead of `create2`,
 // which allows us to get rid of the weird create2 salt thing.
 
-// TODO(later-later): make sure that you run the demo tests in CI. if they're disabled, run them
-// locally.
+// TODO(later): make sure that you run the demo tests locally.

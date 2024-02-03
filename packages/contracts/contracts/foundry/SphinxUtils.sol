@@ -930,5 +930,5 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 }
 
-// TODO(later-later): check that we have tests that make sure contracts deployed via `create` are at
+// TODO(later): check that we have tests that make sure contracts deployed via `create` are at
 // the expected address. we may already do this in the tests that we wrote for the `create` opcode.

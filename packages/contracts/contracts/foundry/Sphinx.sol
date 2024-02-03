@@ -156,17 +156,6 @@ abstract contract Sphinx {
         address safe = safeAddress();
         address module = sphinxModule();
 
-        // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
-        // going to call the Gnosis Safe to estimate the gas.
-        if (address(safe).code.length == 0) {
-            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
-            // Managed Service contract, but this replicates the prod environment for the DevOps
-            // Platform, so we do it anyways.
-            vm.startPrank(constants.managedServiceAddress());
-            _sphinxDeployModuleAndGnosisSafe();
-            vm.stopPrank();
-        }
-
         DeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
@@ -192,6 +181,17 @@ abstract contract Sphinx {
         deploymentInfo.sphinxLibraryVersion = sphinxUtils.getSphinxLibraryVersion();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
+
+        // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
+        // going to call the Gnosis Safe to estimate the gas.
+        if (address(safe).code.length == 0) {
+            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
+            // Managed Service contract, but this replicates the prod environment for the DevOps
+            // Platform, so we do it anyways.
+            vm.startPrank(constants.managedServiceAddress());
+            _sphinxDeployModuleAndGnosisSafe();
+            vm.stopPrank();
+        }
 
         uint256 snapshotId = vm.snapshot();
 

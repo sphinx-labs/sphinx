@@ -360,7 +360,14 @@ export const deploy = async (
   }
 }
 
-// todo(later-later): merge the existing PR that has the `create` opcode tests.
-
 // todo(md): remove the 'we don't support create opcode' current limitation in main readme.
 // todo(md): include a current limitation about linked libraries in the main readme.
+
+// TODO(later):
+// // Deploy a contract, then call a function on it, then deploy another contract. it's
+// // important to keep the order of these three actions in order to test that the Gnosis
+// // Safe's nonce is incremented as a contract instead of an EOA. Contract nonces are not
+// // incremented for function calls, whereas EOA nonces are.
+// MyContract2 createContractOne = new MyContract2();
+// createContractOne.incrementMyContract2(3);
+// new MyContract2();

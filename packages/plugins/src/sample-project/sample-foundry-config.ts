@@ -27,6 +27,7 @@ build_info = true
 extra_output = ['storageLayout']
 fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
+always_use_create_2_factory=true
 ${fetchConfigRemappings(includeStandard)}
 
 [rpc_endpoints]
