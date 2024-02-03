@@ -890,7 +890,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         uint256 numTxns = 0;
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
             SphinxAccountAccess memory accountAccess = _accountAccesses[i];
-            if (accountAccess.accessor == _gnosisSafeAddress) {
+            bool isActionInput = accountAccess.accessor == _gnosisSafeAddress &&
+                (accountAccess.kind == VmSafe.AccountAccessKind.Call ||
+                accountAccess.kind == VmSafe.AccountAccessKind.Create);
+            if (isActionInput) {
                 numTxns += 1;
             }
         }
@@ -910,6 +913,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                             abi.encode(accountAccess.value, accountAccess.data)
                         )
                     });
+                    txnIndex += 1;
                 } else if (accountAccess.kind == VmSafe.AccountAccessKind.Call) {
                     txns[txnIndex] = GnosisSafeTransaction({
                         operation: IEnum.GnosisSafeOperation.Call,
@@ -917,8 +921,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                         to: accountAccess.account,
                         txData: accountAccess.data
                     });
+                    txnIndex += 1;
                 }
-                txnIndex += 1;
             }
         }
 

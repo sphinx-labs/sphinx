@@ -205,6 +205,10 @@ abstract contract Sphinx {
 
         deploymentInfo.accountAccesses = accountAccesses;
 
+        // TODO(docs): document how revertTo works for storage state variables vs memory state
+        // variables. mention that this is why we call `_sphinxEstimateMerkleLeafGas` with
+        // `deploymentInfo.accountAccesses` instead of the `accountAccesses` state variable.
+
         vm.revertTo(snapshotId);
         deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(deploymentInfo.accountAccesses, IGnosisSafe(safe), module);
 
@@ -224,8 +228,6 @@ abstract contract Sphinx {
             constants.safeFactoryAddress()
         );
         address singletonAddress = constants.safeSingletonAddress();
-
-        console.log('safe TODO', 0x6e667164e47986fF1108425153f32B02Fc2f5af2.code.length);
 
         bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
             sphinxConfig.owners,

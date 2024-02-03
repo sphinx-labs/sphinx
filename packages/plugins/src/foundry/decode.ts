@@ -404,8 +404,5 @@ export const makeFunctionCallDecodedAction = (
 // TODO(end): make a ticket to change the sample contract to use `create` instead of `create2`,
 // which allows us to get rid of the weird create2 salt thing.
 
-// TODO(later): the `gasEstimates` array contains really low elements for the first `deploy.spec.ts`
-// test.
-
 // TODO(later-later): make sure that you run the demo tests in CI. if they're disabled, run them
 // locally.

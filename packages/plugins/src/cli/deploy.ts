@@ -364,5 +364,3 @@ export const deploy = async (
 
 // todo(md): remove the 'we don't support create opcode' current limitation in main readme.
 // todo(md): include a current limitation about linked libraries in the main readme.
-
-// TODO(later): check that the `vm.revertTo` doesn't erase any important state variables.
