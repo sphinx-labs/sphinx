@@ -4,7 +4,13 @@ import { exec, spawn } from 'child_process'
 
 import yesno from 'yesno'
 import axios from 'axios'
-import { ethers, AbiCoder, Provider, JsonRpcSigner } from 'ethers'
+import {
+  ethers,
+  AbiCoder,
+  Provider,
+  JsonRpcSigner,
+  FunctionFragment,
+} from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
@@ -27,6 +33,7 @@ import {
   SPHINX_NETWORKS,
   remove0x,
   LinkReferences,
+  recursivelyConvertResult,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -836,7 +843,6 @@ export const isRawCreate2ActionInput = (
   const rawCreate2 = actionInput as RawCreate2ActionInput
   return (
     rawCreate2.actionType === SphinxActionType.CALL.toString() &&
-    rawCreate2.contractName !== undefined &&
     rawCreate2.initCodeWithArgs !== undefined &&
     rawCreate2.create2Address !== undefined &&
     rawCreate2.txData !== undefined &&
@@ -1476,3 +1482,46 @@ export const zeroOutLibraryReferences = (
  */
 export const isDefined = <T>(value: T | undefined): value is T =>
   value !== undefined
+
+/**
+ * Get the ABI encoded constructor arguments from the init code. We use the length of the
+ * `artifact.bytecode` to determine where the contract's creation code ends and the constructor
+ * arguments begin. This method works even if the `artifact.bytecode` contains externally linked
+ * library placeholders or immutable variable placeholders, which are always the same length as the
+ * real values.
+ */
+export const getAbiEncodedConstructorArgs = (
+  initCodeWithArgs: string,
+  artifactBytecode: string
+): string => {
+  return ethers.dataSlice(initCodeWithArgs, ethers.dataLength(artifactBytecode))
+}
+
+/**
+ * Uses the given interface to decode calldata into a function name (e.g. 'myFunction') and
+ * variables. Returns `undefined` if the interface cannot be used to decode the calldata, which
+ * could happen if the calldata is meant to trigger the contract's `fallback` function.
+ */
+export const decodeCall = (
+  iface: ethers.Interface,
+  data: string
+): { functionName: string; variables: ParsedVariable } | undefined => {
+  // Check if the data is long enough to contain a function selector, which is four bytes. The data
+  // may be shorter than four bytes if the transaction is called on a contract's fallback function,
+  // for example.
+  if (getBytesLength(data) >= 4) {
+    const selector = ethers.dataSlice(data, 0, 4)
+    const fragment = iface.fragments
+      .filter(FunctionFragment.isFragment)
+      .find((frag) => frag.selector === selector)
+    if (fragment) {
+      const variablesResult = iface.decodeFunctionData(fragment, data)
+      const variables = recursivelyConvertResult(
+        fragment.inputs,
+        variablesResult
+      ) as ParsedVariable
+      return { functionName: fragment.name, variables }
+    }
+  }
+  return undefined
+}

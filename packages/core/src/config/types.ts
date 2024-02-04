@@ -143,16 +143,15 @@ export type SphinxConfig = {
 }
 
 export interface RawCreate2ActionInput extends SphinxTransaction {
-  contractName: string | null
   create2Address: string
   initCodeWithArgs: string
   actionType: string
   additionalContracts: FoundryDryRunTransaction['additionalContracts']
-  decodedAction: DecodedAction
 }
 
 export interface Create2ActionInput extends RawCreate2ActionInput {
   contracts: Array<ParsedContractDeployment>
+  decodedAction: DecodedAction
   index: string
 }
 
@@ -165,17 +164,16 @@ export type DecodedAction = {
 
 export interface RawFunctionCallActionInput extends SphinxTransaction {
   actionType: string
-  contractName: string | null
   additionalContracts: Array<{
     transactionType: string
     address: string
     initCode: string
   }>
-  decodedAction: DecodedAction
 }
 
 export interface FunctionCallActionInput extends RawFunctionCallActionInput {
   contracts: Array<ParsedContractDeployment>
+  decodedAction: DecodedAction
   index: string
 }
 

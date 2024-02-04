@@ -95,6 +95,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     actionInputs: Array<RawActionInput>
     libraries: Array<string>
     forkUrl: string
+    dryRunPath: string
   }> = []
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
@@ -189,16 +190,18 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     // transactions broadcasted in the user's script for this network. We return an empty array in
     // this case.
     const actionInputs = collectionDryRun
-      ? convertFoundryDryRunToActionInputs(
-          deploymentInfo,
-          collectionDryRun,
-          collectionDryRunPath
-        )
+      ? convertFoundryDryRunToActionInputs(deploymentInfo, collectionDryRun)
       : []
 
     const libraries = collectionDryRun ? collectionDryRun.libraries : []
 
-    collected.push({ deploymentInfo, actionInputs, libraries, forkUrl: rpcUrl })
+    collected.push({
+      deploymentInfo,
+      actionInputs,
+      libraries,
+      forkUrl: rpcUrl,
+      dryRunPath: collectionDryRunPath,
+    })
   }
 
   spinner?.succeed(`Collected transactions.`)
@@ -235,14 +238,15 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo, libraries }, i) =>
+    ({ actionInputs, deploymentInfo, libraries, dryRunPath }, i) =>
       makeParsedConfig(
         deploymentInfo,
         actionInputs,
         gasEstimatesArray[i],
         true, // System contracts are deployed.
         configArtifacts,
-        libraries
+        libraries,
+        dryRunPath
       )
   )
 

@@ -414,7 +414,8 @@ export const makeDeployment = async (
         gasEstimatesArray,
         true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
         configArtifacts,
-        [] // No libraries
+        [], // No libraries
+        'path/to/dryRun.json' // Dummy dry run path
       )
     }
   )
@@ -538,7 +539,7 @@ const makeRawCreate2Action = (
   artifact: ContractArtifact,
   abiEncodedConstructorArgs: string
 ): RawCreate2ActionInput => {
-  const { bytecode, contractName } = artifact
+  const { bytecode } = artifact
 
   const gas = (5_000_000).toString()
 
@@ -555,7 +556,6 @@ const makeRawCreate2Action = (
   return {
     to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     create2Address,
-    contractName,
     value: '0x0',
     operation: Operation.Call,
     txData,
@@ -564,13 +564,6 @@ const makeRawCreate2Action = (
     gas,
     additionalContracts: [],
     requireSuccess: true,
-    // Unused:
-    decodedAction: {
-      referenceName: contractName,
-      functionName: 'deploy',
-      variables: [],
-      address: create2Address,
-    },
   }
 }
 
