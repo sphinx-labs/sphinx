@@ -351,6 +351,8 @@ describe('Deployment Cases', () => {
   let merkleTree: SphinxMerkleTree | undefined
   let receipts: Array<SphinxTransactionReceipt> | undefined
   let configArtifacts: ConfigArtifacts | undefined
+  let createAddressOne: string
+  let createAddressTwo: string
 
   const checkLabeled = (
     address: string,
@@ -393,18 +395,64 @@ describe('Deployment Cases', () => {
           'contracts/test/ConstructorDeploysContract.sol:ConstructorDeploysContract',
           'contracts/test/ConstructorDeploysContract.sol:DeployedInConstructor',
           'contracts/test/Fallback.sol:Fallback',
+          'contracts/test/MyContracts.sol:MyContract2',
         ]).context,
         verify: false,
       }))
 
     expect(compilerConfig).to.not.be.undefined
     expect(preview).to.not.be.undefined
+
+    createAddressOne = ethers.getCreateAddress({
+      from: compilerConfig!.safeAddress,
+      // The nonce is one because contract nonces start at 1, whereas EOA nonces start at
+      // 0.
+      nonce: 1,
+    })
+    createAddressTwo = ethers.getCreateAddress({
+      from: compilerConfig!.safeAddress,
+      nonce: 2,
+    })
   })
 
   after(async () => {
     await killAnvilNodes(allChainIds)
 
     await rm(deploymentArtifactDirPath, { recursive: true, force: true })
+  })
+
+  it('Can deploy contract using CREATE', async () => {
+    expect(await provider.getCode(createAddressOne)).to.not.eq('0x')
+
+    const contract = new ethers.Contract(
+      createAddressOne,
+      MyContract2Artifact.abi,
+      provider
+    )
+
+    expect(await contract.number()).to.equal(BigInt(1))
+  })
+
+  // This test checks that the Gnosis Safe's nonce is incremented as a contract instead of an EOA.
+  // We test this by deploying a contract, then calling a function on it, then deploying another
+  // contract. This tests that the Gnosis Safe's nonce is incremented as a contract because contract
+  // nonces are not incremented for function calls, whereas EOA nonces are.
+  it(`Gnosis Safe's nonce is incremented as a contract`, async () => {
+    // Check that the
+    const contractOne = new ethers.Contract(
+      createAddressOne,
+      MyContract2Artifact.abi,
+      provider
+    )
+    expect(await contractOne.number()).to.equal(BigInt(1))
+
+    expect(await provider.getCode(createAddressTwo)).to.not.eq('0x')
+    const contract = new ethers.Contract(
+      createAddressTwo,
+      MyContract2Artifact.abi,
+      provider
+    )
+    expect(await contract.number()).to.equal(BigInt(0))
   })
 
   it('Can call fallback function on contract', async () => {
@@ -538,10 +586,12 @@ describe('Deployment Cases', () => {
       ExecutionMode.LocalNetworkCLI,
       1,
       [
+        'MyContract2.json',
+        'MyContract2_1.json',
         'Fallback.json',
         'Fallback_1.json',
-        'DeployedInConstructor.json',
         'ConstructorDeploysContract.json',
+        'DeployedInConstructor.json',
         'ConstructorDeploysContract_1.json',
         'DeployedInConstructor_1.json',
       ]
@@ -604,7 +654,7 @@ const expectValidDeployment = async (
           {
             referenceName: 'MyContract2',
             functionName: 'incrementMyContract2',
-            variables: ['2'],
+            variables: { _num: '2' },
             address: expectedMyContract2Address,
           },
         ],

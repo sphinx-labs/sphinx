@@ -10,7 +10,7 @@ import { makeAddress } from '../common'
 import * as MyContract1FoundryArtifact from '../../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2FoundryArtifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import {
-  makeCreate2DecodedAction,
+  makeContractDecodedAction,
   makeFunctionCallDecodedAction,
 } from '../../../src/foundry/decode'
 
@@ -34,7 +34,7 @@ describe('Decoded Actions', () => {
     },
   }
 
-  describe('makeCreate2DecodedAction', () => {
+  describe('makeContractDecodedAction', () => {
     const create2Address = makeAddress(255)
 
     it('returns decoded action for provided fully qualified name and contract with constructor', () => {
@@ -51,7 +51,7 @@ describe('Decoded Actions', () => {
         iface.encodeDeploy(Object.values(constructorArgs)),
       ])
 
-      const result = makeCreate2DecodedAction(
+      const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         mockConfigArtifacts,
@@ -70,11 +70,11 @@ describe('Decoded Actions', () => {
       const iface = new ethers.Interface(abi)
       const initCodeWithArgs = ethers.concat([bytecode, iface.encodeDeploy([])])
 
-      const result = makeCreate2DecodedAction(
+      const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         mockConfigArtifacts,
-        myContract1FullyQualifiedName
+        myContract2FullyQualifiedName
       )
       expect(result).to.deep.equal({
         referenceName: contractName,
@@ -90,7 +90,7 @@ describe('Decoded Actions', () => {
     it('returns decoded action for contract with no fully qualified name', () => {
       const initCodeWithArgs = CREATE3_PROXY_INITCODE
       const configArtifacts = {}
-      const result = makeCreate2DecodedAction(
+      const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         configArtifacts
@@ -106,7 +106,6 @@ describe('Decoded Actions', () => {
 
   describe('makeFunctionCallDecodedAction', () => {
     const to = makeAddress(512)
-    const dryRunPath = './path/to/dry/run/file.json'
 
     it('returns decoded action for a call with fully qualified name and successful decoding', () => {
       const functionName = 'incrementMyContract2'
@@ -116,7 +115,6 @@ describe('Decoded Actions', () => {
         to,
         data,
         mockConfigArtifacts,
-        dryRunPath,
         myContract2FullyQualifiedName
       )
 
@@ -134,7 +132,6 @@ describe('Decoded Actions', () => {
         to,
         data,
         mockConfigArtifacts,
-        dryRunPath,
         myContract2FullyQualifiedName
       )
       expect(result).to.deep.equal({
@@ -150,8 +147,7 @@ describe('Decoded Actions', () => {
       const result = makeFunctionCallDecodedAction(
         to,
         data,
-        mockConfigArtifacts,
-        dryRunPath
+        mockConfigArtifacts
       )
       expect(result).to.deep.equal({
         referenceName: to,
@@ -166,15 +162,12 @@ describe('Decoded Actions', () => {
       const result = makeFunctionCallDecodedAction(
         to,
         largeData,
-        mockConfigArtifacts,
-        dryRunPath
+        mockConfigArtifacts
       )
       expect(result).to.deep.equal({
         referenceName: to,
         functionName: 'call',
-        variables: [
-          `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`,
-        ],
+        variables: [`Calldata is too large to display.`],
         address: '',
       })
     })

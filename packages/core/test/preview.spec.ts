@@ -3,25 +3,24 @@ import { ethers } from 'ethers'
 import { CREATE3_PROXY_INITCODE, Operation } from '@sphinx-labs/contracts'
 
 import { Create2ActionInput, ParsedConfig } from '../src/config/types'
-import { SphinxActionType } from '../src/actions/types'
 import { getPreview } from '../src/preview'
-import { FunctionCallActionInput } from '../dist'
+import { ActionInputType, FunctionCallActionInput } from '../dist'
 import { ExecutionMode } from '../src/constants'
 
 const expectedGnosisSafe = {
   address: '0x' + 'ff'.repeat(20),
   referenceName: 'GnosisSafe',
   functionName: 'deploy',
-  variables: [],
+  variables: {},
 }
 const expectedSphinxModule = {
   address: '0x' + 'ee'.repeat(20),
   referenceName: 'SphinxModule',
   functionName: 'deploy',
-  variables: [],
+  variables: {},
 }
 const expectedCreate2: Create2ActionInput = {
-  actionType: SphinxActionType.CALL.toString(),
+  actionType: ActionInputType.CREATE2,
   decodedAction: {
     referenceName: 'MyFirstContract',
     functionName: 'constructor',
@@ -42,10 +41,9 @@ const expectedCreate2: Create2ActionInput = {
   to: '',
   contracts: [],
   gas: '0',
-  additionalContracts: [],
 }
 const expectedFunctionCallOne: FunctionCallActionInput = {
-  actionType: SphinxActionType.CALL.toString(),
+  actionType: ActionInputType.CALL,
   decodedAction: {
     referenceName: 'MySecondContract',
     functionName: 'myFunction',
@@ -62,12 +60,11 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
   txData: '',
   to: '',
   contracts: [],
-  additionalContracts: [],
   gas: '0',
 }
 
 const expectedCall: FunctionCallActionInput = {
-  actionType: SphinxActionType.CALL.toString(),
+  actionType: ActionInputType.CALL,
   decodedAction: {
     referenceName: '0x' + '11'.repeat(20),
     functionName: 'call',
@@ -82,7 +79,6 @@ const expectedCall: FunctionCallActionInput = {
   txData: '',
   to: '',
   contracts: [],
-  additionalContracts: [],
   gas: '0',
 }
 

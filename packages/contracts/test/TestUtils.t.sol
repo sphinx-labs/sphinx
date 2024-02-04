@@ -6,7 +6,7 @@ import { Vm } from "../lib/forge-std/src/Vm.sol";
 import { StdCheats } from "../lib/forge-std/src/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
-import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDataTypes.sol";
 import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
@@ -69,6 +69,15 @@ import {
 } from "@gnosis.pm/safe-contracts-1.4.1/libraries/SignMessageLib.sol";
 import { SafeL2 as SafeL2_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/SafeL2.sol";
 import { Safe as Safe_1_4_1 } from "@gnosis.pm/safe-contracts-1.4.1/Safe.sol";
+
+struct SphinxTransaction {
+    address to;
+    uint256 value;
+    bytes txData;
+    IEnum.GnosisSafeOperation operation;
+    uint256 gas;
+    bool requireSuccess;
+}
 
 contract TestUtils is SphinxUtils, IEnum, Test {
     // These are constants thare are used when signing an EIP-712 meta transaction.

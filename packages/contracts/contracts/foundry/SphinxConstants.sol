@@ -7,6 +7,7 @@ contract SphinxConstants {
   string public constant sphinxLibraryVersion = 'v0.17.1';
   address public constant compatibilityFallbackHandlerAddress = 0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4;
   address public constant multiSendAddress = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
+  address public constant createCallAddress = 0x7cbB62EaA69F79e6873cD1ecB2392971036cFAa4;
   address public constant sphinxModuleProxyFactoryAddress = 0x8f3301c9Eada5642B5bB12FD047D3EBb2932E619;
   address public constant managedServiceAddress = 0xB5E96127D417b1B3ef8438496a38A143167209c7;
   address public constant safeFactoryAddress = 0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2;

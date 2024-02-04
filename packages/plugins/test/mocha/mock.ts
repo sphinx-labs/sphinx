@@ -1,4 +1,5 @@
 import {
+  ActionInputType,
   BuildInfo,
   ConfigArtifacts,
   ExecutionMode,
@@ -125,8 +126,7 @@ const makeMockParsedConfig = (): ParsedConfig => {
       {
         contracts: [],
         index: '0',
-        actionType: 'MockActionType',
-        additionalContracts: [],
+        actionType: ActionInputType.CALL,
         decodedAction: {
           referenceName: 'MockReference',
           functionName: 'MockFunction',
