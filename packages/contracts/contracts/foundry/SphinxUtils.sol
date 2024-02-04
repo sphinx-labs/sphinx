@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -24,9 +24,11 @@ import {
     OptionalAddress,
     Wallet,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    GnosisSafeTransaction
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
+import { ICreateCall } from "./interfaces/ICreateCall.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
@@ -389,7 +391,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // library for details.
         bytes memory proxyBytecode = hex"67363d3d37363d34f03d5260086018f3";
 
-        address proxy = computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
+        address proxy = vm.computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
         return computeCreateAddress(proxy, 1);
     }
 
@@ -657,7 +659,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
         );
-        address addr = computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
+        address addr = vm.computeCreate2Address(
+            salt,
+            keccak256(deploymentData),
+            safeFactoryAddress
+        );
         return addr;
     }
 
@@ -836,7 +842,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
-        address addr = computeCreate2Address(
+        address addr = vm.computeCreate2Address(
             bytes32(0),
             keccak256(_initCodeWithArgs),
             DETERMINISTIC_DEPLOYMENT_PROXY
@@ -878,5 +884,67 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             );
         }
+    }
+
+    /**
+     * @notice Converts an array of `AccountAccess` structs to an array of transactions
+     *         that can be executed from a Gnosis Safe.
+     */
+    function makeGnosisSafeTransactions(
+        address _gnosisSafeAddress,
+        Vm.AccountAccess[] memory _accountAccesses
+    ) external pure returns (GnosisSafeTransaction[] memory) {
+        // First, we'll get the number of transactions that will be sent from the Gnosis Safe. We'll
+        // need this value because Solidity requires us to define memory arrays with an explicit
+        // number of elements.
+        uint256 numTxns = 0;
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+
+            // We'll add the `AccountAccess` struct if its sender (i.e. `accessor`) is the Gnosis
+            // Safe, and it's either a `Call` or `Create` kind.
+            bool isActionInput = accountAccess.accessor == _gnosisSafeAddress &&
+                (accountAccess.kind == VmSafe.AccountAccessKind.Call ||
+                    accountAccess.kind == VmSafe.AccountAccessKind.Create);
+
+            if (isActionInput) {
+                numTxns += 1;
+            }
+        }
+
+        GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
+        uint256 txnIndex = 0;
+        // Create the Gnosis Safe transactions.
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+            if (accountAccess.accessor == _gnosisSafeAddress) {
+                if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
+                    // `Create` transactions are executed by delegatecalling the `CreateCall`
+                    // contract from the Gnosis Safe.
+                    txns[txnIndex] = GnosisSafeTransaction({
+                        operation: IEnum.GnosisSafeOperation.DelegateCall,
+                        // The `value` field is always unused for `DelegateCall` operations.
+                        // Instead, value is transferred via `performCreate` below.
+                        value: 0,
+                        to: createCallAddress,
+                        txData: abi.encodePacked(
+                            ICreateCall.performCreate.selector,
+                            abi.encode(accountAccess.value, accountAccess.data)
+                        )
+                    });
+                    txnIndex += 1;
+                } else if (accountAccess.kind == VmSafe.AccountAccessKind.Call) {
+                    txns[txnIndex] = GnosisSafeTransaction({
+                        operation: IEnum.GnosisSafeOperation.Call,
+                        value: accountAccess.value,
+                        to: accountAccess.account,
+                        txData: accountAccess.data
+                    });
+                    txnIndex += 1;
+                }
+            }
+        }
+
+        return txns;
     }
 }

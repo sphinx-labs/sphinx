@@ -21,8 +21,8 @@ import {
     MerkleRootStatus,
     SphinxLeaf
 } from "../contracts/core/SphinxDataTypes.sol";
-import { SphinxTransaction, Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { TestUtils } from "./TestUtils.t.sol";
+import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTransaction, TestUtils } from "./TestUtils.t.sol";
 import {
     MyContract,
     MyDelegateCallContract,

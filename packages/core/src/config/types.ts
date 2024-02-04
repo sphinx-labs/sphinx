@@ -64,9 +64,10 @@ export type ParsedVariable =
       [name: string]: ParsedVariable
     }
 
-export type RawActionInput = RawFunctionCallActionInput | RawCreate2ActionInput
-
-export type ActionInput = FunctionCallActionInput | Create2ActionInput
+export type ActionInput =
+  | FunctionCallActionInput
+  | Create2ActionInput
+  | CreateActionInput
 
 export type ParsedConfig = {
   safeAddress: string
@@ -104,6 +105,8 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
+  accountAccesses: Array<AccountAccess>
+  gasEstimates: Array<string>
 }
 
 export type InitialChainState = {
@@ -142,17 +145,22 @@ export type SphinxConfig = {
   saltNonce: string
 }
 
-export interface RawCreate2ActionInput extends SphinxTransaction {
-  create2Address: string
-  initCodeWithArgs: string
-  actionType: string
-  additionalContracts: FoundryDryRunTransaction['additionalContracts']
+export enum ActionInputType {
+  CREATE,
+  CREATE2,
+  CALL,
 }
 
-export interface Create2ActionInput extends RawCreate2ActionInput {
-  contracts: Array<ParsedContractDeployment>
-  decodedAction: DecodedAction
-  index: string
+export interface Create2ActionInput extends AbstractActionInput {
+  create2Address: string
+  initCodeWithArgs: string
+  actionType: ActionInputType.CREATE2
+}
+
+export interface CreateActionInput extends AbstractActionInput {
+  contractAddress: string
+  initCodeWithArgs: string
+  actionType: ActionInputType.CREATE
 }
 
 export type DecodedAction = {
@@ -162,16 +170,17 @@ export type DecodedAction = {
   address: string
 }
 
-export interface RawFunctionCallActionInput extends SphinxTransaction {
-  actionType: string
-  additionalContracts: Array<{
-    transactionType: string
-    address: string
-    initCode: string
-  }>
+export interface FunctionCallActionInput extends AbstractActionInput {
+  actionType: ActionInputType.CALL
 }
 
-export interface FunctionCallActionInput extends RawFunctionCallActionInput {
+/**
+ * @property contracts - The contracts deployed in this action that belong to a source file (i.e.
+ * they each correspond to a fully qualified name). We need to know which contracts are deployed in
+ * each action so that we can determine which transaction receipt corresponds to each contract
+ * deployment when writing the contract deployment artifacts.
+ */
+interface AbstractActionInput extends SphinxTransaction {
   contracts: Array<ParsedContractDeployment>
   decodedAction: DecodedAction
   index: string
@@ -266,4 +275,43 @@ export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {
 export interface FoundryBroadcastTransaction
   extends AbstractFoundryTransaction {
   hash: string
+}
+
+export enum AccountAccessKind {
+  Call = '0',
+  DelegateCall = '1',
+  CallCode = '2',
+  StaticCall = '3',
+  Create = '4',
+  SelfDestruct = '5',
+  Resume = '6',
+  Balance = '7',
+  Extcodesize = '8',
+  Extcodehash = '9',
+  Extcodecopy = '10',
+}
+
+export type AccountAccess = {
+  chainInfo: {
+    forkId: string
+    chainId: string
+  }
+  kind: AccountAccessKind
+  account: string
+  accessor: string
+  initialized: boolean
+  oldBalance: string
+  newBalance: string
+  deployedCode: string
+  value: string
+  data: string
+  reverted: boolean
+  storageAccesses: Array<{
+    account: string
+    slot: string
+    isWrite: boolean
+    previousValue: string
+    newValue: string
+    reverted: boolean
+  }>
 }

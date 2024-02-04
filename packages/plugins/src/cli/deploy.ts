@@ -35,19 +35,12 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   compile,
-  getFoundrySingleChainDryRunPath,
   getInitCodeWithArgsArray,
-  getSphinxConfigFromScript,
-  getSphinxLeafGasEstimates,
-  readFoundrySingleChainDryRun,
   readInterface,
+  writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
-import {
-  decodeDeploymentInfo,
-  makeParsedConfig,
-  convertFoundryDryRunToActionInputs,
-} from '../foundry/decode'
+import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 import { checkLibraryVersion } from './utils'
@@ -99,7 +92,6 @@ export const deploy = async (
     cachePath,
     rpcEndpoints,
     etherscan,
-    broadcastFolder,
   } = foundryToml
 
   const forkUrl = rpcEndpoints[network]
@@ -154,11 +146,9 @@ export const deploy = async (
     unlinkSync(deploymentInfoPath)
   }
 
-  const { safeAddress } = await getSphinxConfigFromScript(
-    scriptPath,
+  const systemContractsFilePath = writeSystemContracts(
     sphinxPluginTypesInterface,
-    targetContract,
-    spinner
+    foundryToml.cachePath
   )
 
   const executionMode = isLiveNetwork
@@ -168,9 +158,10 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(uint8,string)',
+    'sphinxCollectDeployment(uint8,string,string)',
     executionMode.toString(),
     deploymentInfoPath,
+    systemContractsFilePath,
     '--rpc-url',
     forkUrl,
   ]
@@ -185,17 +176,8 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  // Collect the transactions. We use the `FOUNDRY_SENDER` environment variable to set the
-  // Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We need
-  // to do this even though we also broadcast from the Safe's address in the script.
-  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
-  // linked library. In this scenario, the caller that deploys the library would be Foundry's
-  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
-  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable.
-  const dateBeforeForgeScriptCollect = new Date()
-  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-    FOUNDRY_SENDER: safeAddress,
-  })
+  // Collect the transactions.
+  const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
   if (spawnOutput.code !== 0) {
     spinner.stop()
@@ -214,51 +196,7 @@ export const deploy = async (
 
   checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
-  const dryRunPath = getFoundrySingleChainDryRunPath(
-    broadcastFolder,
-    scriptPath,
-    chainId.toString(),
-    `sphinxCollectDeployment`
-  )
-  const dryRunFile = readFoundrySingleChainDryRun(
-    broadcastFolder,
-    scriptPath,
-    deploymentInfo.chainId,
-    `sphinxCollectDeployment`,
-    dateBeforeForgeScriptCollect
-  )
-
-  // Check if the dry run file exists. If it doesn't, this must mean that the deployment is empty.
-  // We return early in this case.
-  if (!dryRunFile) {
-    spinner.info(`Nothing to deploy. Exiting early.`)
-    return {}
-  }
-
-  const actionInputs = convertFoundryDryRunToActionInputs(
-    deploymentInfo,
-    dryRunFile
-  )
-
   spinner.succeed(`Collected transactions.`)
-  spinner.start(`Estimating gas...`)
-
-  const gasEstimatesArray = await getSphinxLeafGasEstimates(
-    scriptPath,
-    foundryToml,
-    sphinxPluginTypesInterface,
-    [{ actionInputs, deploymentInfo, forkUrl }],
-    targetContract,
-    spinner
-  )
-  if (gasEstimatesArray.length !== 1) {
-    throw new Error(
-      `Gas estimates array is an incorrect length. Should never happen.`
-    )
-  }
-  const gasEstimates = gasEstimatesArray[0]
-
-  spinner.succeed(`Estimated gas.`)
   spinner.start(`Building deployment...`)
 
   let signer: ethers.Wallet
@@ -276,19 +214,23 @@ export const deploy = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(actionInputs)
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    deploymentInfo.accountAccesses
+  )
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
   const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
-    actionInputs,
-    gasEstimates,
     isSystemDeployed,
     configArtifacts,
-    dryRunFile.libraries,
-    dryRunPath
+    [] // We don't currently support linked libraries.
   )
+
+  if (parsedConfig.actionInputs.length === 0) {
+    spinner.info(`Nothing to deploy. Exiting early.`)
+    return {}
+  }
 
   const deploymentData = makeDeploymentData([parsedConfig])
 
