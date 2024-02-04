@@ -93,6 +93,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     libraries: Array<string>
     forkUrl: string
   }> = []
+  const initial = Date.now()
   for (const networkName of networkNames) {
     const rpcUrl = foundryToml.rpcEndpoints[networkName]
     if (!rpcUrl) {
@@ -159,6 +160,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       forkUrl: rpcUrl,
     })
   }
+  console.log('collected', (Date.now() - initial) / 1000)
 
   spinner?.succeed(`Collected transactions.`)
 

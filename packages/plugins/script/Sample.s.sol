@@ -11,37 +11,121 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function setUp() public {
-        sphinxConfig.projectName = "test_project";
-        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
+        sphinxConfig.projectName = "test_projecddddt";
+        sphinxConfig.owners = [0x4856e043a1F2CAA8aCEfd076328b4981Aca91000];
         sphinxConfig.threshold = 1;
-        sphinxConfig.testnets = [Network.sepolia, Network.arbitrum_sepolia];
+        sphinxConfig.testnets = [
+            Network.sepolia
+            // Network.optimism_sepolia,
+            // Network.arbitrum_sepolia,
+            // Network.bnb_testnet,
+            // Network.gnosis_chiado,
+            // Network.linea_goerli,
+            // Network.polygon_zkevm_goerli,
+            // Network.fantom_testnet,
+            // Network.base_sepolia
+        ];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
-        sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
-        sphinxConfig.saltNonce = 0;
+        sphinxConfig.orgId = "clksrkg1v0001l00815670lu8";
+        sphinxConfig.saltNonce = 943049830843984;
     }
 
     function run() public sphinx {
-        new MyContract1{ salt: bytes32(uint(1)) }(
+        new MyContract1(
             -1,
             2,
             address(1),
             address(2)
         );
-        new MyContract1{ salt: bytes32(uint(2)) }(
+        new MyContract1(
             -1,
             2,
             address(1),
             address(2)
         );
-        new MyContract1{ salt: bytes32(uint(3)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
+        new MyContract1(-1,2,address(1),address(2));
 
-        bytes memory initCode =
-            abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        CREATE3.deploy(bytes32(0), initCode, 0);
+        // bytes memory initCode =
+        //     abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        // CREATE3.deploy(bytes32(0), initCode, 0);
     }
 }

@@ -140,6 +140,7 @@ abstract contract Sphinx {
         address _executor,
         string memory _systemContractsFilePath
     ) private returns (DeploymentInfo memory) {
+        // TODO(later): only read this once (not in a for-loop)
         SystemContractInfo[] memory systemContracts = abi.decode(
             vm.parseBytes(vm.readFile(_systemContractsFilePath)),
             (SystemContractInfo[])

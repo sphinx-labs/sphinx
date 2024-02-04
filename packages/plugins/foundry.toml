@@ -29,7 +29,6 @@ linea = "${LINEA_RPC_URL}"
 avalanche = "${AVALANCHE_RPC_URL}"
 fantom = "${FANTOM_RPC_URL}"
 base = "${BASE_RPC_URL}"
-
 sepolia = "${SEPOLIA_RPC_URL}"
 optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL}"
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
