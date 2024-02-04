@@ -12,7 +12,6 @@ import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
 contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
-
     function setUp() public {
         SystemContractInfo[] memory contracts = getSystemContractInfo();
         deploySphinxSystem(contracts);

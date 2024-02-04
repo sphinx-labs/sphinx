@@ -126,7 +126,6 @@ const makeMockParsedConfig = (): ParsedConfig => {
         contracts: [],
         index: '0',
         actionType: 'MockActionType',
-        contractName: 'MockContract',
         additionalContracts: [],
         decodedAction: {
           referenceName: 'MockReference',

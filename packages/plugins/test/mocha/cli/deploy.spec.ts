@@ -586,19 +586,19 @@ const expectValidDeployment = async (
           {
             referenceName: 'GnosisSafe',
             functionName: 'deploy',
-            variables: [],
+            variables: {},
             address: compilerConfig.safeAddress,
           },
           {
             referenceName: 'SphinxModule',
             functionName: 'deploy',
-            variables: [],
+            variables: {},
             address: compilerConfig.moduleAddress,
           },
           {
             referenceName: 'MyContract2',
             functionName: 'deploy',
-            variables: [],
+            variables: {},
             address: expectedMyContract2Address,
           },
           {

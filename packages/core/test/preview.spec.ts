@@ -40,7 +40,6 @@ const expectedCreate2: Create2ActionInput = {
   requireSuccess: false,
   txData: '',
   to: '',
-  contractName: '',
   contracts: [],
   gas: '0',
   additionalContracts: [],
@@ -63,7 +62,6 @@ const expectedFunctionCallOne: FunctionCallActionInput = {
   txData: '',
   to: '',
   contracts: [],
-  contractName: '',
   additionalContracts: [],
   gas: '0',
 }
@@ -84,7 +82,6 @@ const expectedCall: FunctionCallActionInput = {
   txData: '',
   to: '',
   contracts: [],
-  contractName: '',
   additionalContracts: [],
   gas: '0',
 }
