@@ -7,7 +7,6 @@ pragma solidity ^0.8.0;
 // forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
-import { console2 as console } from "../../lib/forge-std/src/console2.sol";
 
 import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";

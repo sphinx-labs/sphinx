@@ -389,5 +389,3 @@ export const makeFunctionCallDecodedAction = (
     }
   }
 }
-
-// TODO(end): make sure that you run the demo tests locally.
