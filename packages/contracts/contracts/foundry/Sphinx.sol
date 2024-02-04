@@ -7,7 +7,7 @@ pragma solidity ^0.8.0;
 // forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
-import { console2 as console } from '../../lib/forge-std/src/console2.sol';
+import { console2 as console } from "../../lib/forge-std/src/console2.sol";
 
 import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -21,8 +21,7 @@ import {
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
-    SystemContractInfo,
-    SphinxAccountAccess
+    SystemContractInfo
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -70,8 +69,6 @@ abstract contract Sphinx {
 
     SphinxUtils private sphinxUtils;
 
-    SphinxAccountAccess[] private accountAccesses;
-
     bool private sphinxModifierEnabled;
 
     constructor() {
@@ -98,7 +95,10 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(string memory _deploymentInfoPath, string memory _systemContractsFilePath) external {
+    function sphinxCollectProposal(
+        string memory _deploymentInfoPath,
+        string memory _systemContractsFilePath
+    ) external {
         sphinxUtils.validateProposal(sphinxConfig);
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(
@@ -128,7 +128,11 @@ abstract contract Sphinx {
             revert("Incorrect execution type.");
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(_executionMode, deployer, _systemContractsFilePath);
+        DeploymentInfo memory deploymentInfo = sphinxCollect(
+            _executionMode,
+            deployer,
+            _systemContractsFilePath
+        );
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
@@ -137,20 +141,15 @@ abstract contract Sphinx {
         address _executor,
         string memory _systemContractsFilePath
     ) private returns (DeploymentInfo memory) {
-        SystemContractInfo[] memory systemContracts = abi
-            .decode(
-                vm.parseBytes(vm.readFile(_systemContractsFilePath)),
-                (SystemContractInfo[])
-            );
-
-            // TODO(docs): explain why we deploy the gnosis safe before collecting. (it's so that
-            // its nonce behaves like a contract and not as an EOA). also, if users want to call
-            // functions on their gnosis safe in their script, it needs to be deployed.
+        SystemContractInfo[] memory systemContracts = abi.decode(
+            vm.parseBytes(vm.readFile(_systemContractsFilePath)),
+            (SystemContractInfo[])
+        );
 
         // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
         // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
-        // because we're going to call the Gnosis Safe to estimate the gas. Also, this is necessary
-        // because the system contracts may not already be deployed on the current network.
+        // because we're going to call the Gnosis Safe to estimate the gas. Also, deploying the
+        // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
         address safe = safeAddress();
@@ -193,8 +192,14 @@ abstract contract Sphinx {
             vm.stopPrank();
         }
 
+        // Take a snapshot of the current state. We'll revert to the snapshot after we run the
+        // user's script but before we execute the user's transactions via the Gnosis Safe to
+        // estimate the Merkle leaf gas fields. It's necessary to revert the snapshot because the
+        // gas estimation won't work if it runs against chain state where the user's transactions
+        // have already occurred.
         uint256 snapshotId = vm.snapshot();
 
+        vm.startStateDiffRecording();
         // Delegatecall the `run()` function on this contract to collect the transactions. This
         // pattern gives us flexibility to support function names other than `run()` in the future.
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("run()"));
@@ -202,15 +207,14 @@ abstract contract Sphinx {
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
-
-        deploymentInfo.accountAccesses = accountAccesses;
-
-        // TODO(docs): document how revertTo works for storage state variables vs memory state
-        // variables. mention that this is why we call `_sphinxEstimateMerkleLeafGas` with
-        // `deploymentInfo.accountAccesses` instead of the `accountAccesses` state variable.
+        deploymentInfo.accountAccesses = vm.stopAndReturnStateDiff();
 
         vm.revertTo(snapshotId);
-        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(deploymentInfo.accountAccesses, IGnosisSafe(safe), module);
+        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
+            deploymentInfo.accountAccesses,
+            IGnosisSafe(safe),
+            module
+        );
 
         return deploymentInfo;
     }
@@ -277,24 +281,8 @@ abstract contract Sphinx {
         // Prank the Gnosis Safe then execute the user's script. We prank the Gnosis
         // Safe to replicate the production environment.
         vm.startPrank(safeAddress());
-        // Start the state diff, which records the user's transactions. We start it immediately
-        // before calling the user's script so that there aren't any unnecessary elements in the
-        // state diff array.
-        vm.startStateDiffRecording();
         _;
-        Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
         vm.stopPrank();
-
-        for (uint256 i = 0; i < accesses.length; i++) {
-            Vm.AccountAccess memory access = accesses[i];
-            accountAccesses.push(SphinxAccountAccess({
-                kind: access.kind,
-                account: access.account,
-                accessor: access.accessor,
-                value: access.value,
-                data: access.data
-            }));
-        }
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
 
@@ -355,11 +343,14 @@ abstract contract Sphinx {
      *            there's a large gas refund.
      */
     function _sphinxEstimateMerkleLeafGas(
-        SphinxAccountAccess[] memory _accountAccesses,
+        Vm.AccountAccess[] memory _accountAccesses,
         IGnosisSafe _safe,
         address _moduleAddress
     ) private returns (uint256[] memory) {
-        GnosisSafeTransaction[] memory txnArray = sphinxUtils.makeGnosisSafeTransactions(address(_safe), _accountAccesses);
+        GnosisSafeTransaction[] memory txnArray = sphinxUtils.makeGnosisSafeTransactions(
+            address(_safe),
+            _accountAccesses
+        );
         uint256[] memory gasEstimates = new uint256[](txnArray.length);
 
         // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
@@ -392,7 +383,7 @@ abstract contract Sphinx {
             // We chose to multiply the gas by 1.3 because multiplying it by a higher number could
             // make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
             // doesn't impact small transactions very much, we add a constant amount of 20k too.
-            gasEstimates[i] = 20_000 + (startGas - finalGas) * 13 / 10;
+            gasEstimates[i] = 20_000 + ((startGas - finalGas) * 13) / 10;
         }
 
         vm.stopPrank();

@@ -87,7 +87,7 @@ struct DeploymentInfo {
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
-    SphinxAccountAccess[] accountAccesses;
+    Vm.AccountAccess[] accountAccesses;
     uint256[] gasEstimates;
 }
 
@@ -168,15 +168,6 @@ struct Version {
 struct SystemContractInfo {
     bytes initCodeWithArgs;
     address expectedAddress;
-}
-
-// TODO(docs): only the necessary stuff from Foundry's AccountAccess struct.
-struct SphinxAccountAccess {
-    VmSafe.AccountAccessKind kind;
-    address account;
-    address accessor;
-    uint256 value;
-    bytes data;
 }
 
 /**

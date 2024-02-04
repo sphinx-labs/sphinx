@@ -25,8 +25,7 @@ import {
     Wallet,
     ExecutionMode,
     SystemContractInfo,
-    GnosisSafeTransaction,
-    SphinxAccountAccess
+    GnosisSafeTransaction
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -660,7 +659,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
         );
-        address addr = vm.computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
+        address addr = vm.computeCreate2Address(
+            salt,
+            keccak256(deploymentData),
+            safeFactoryAddress
+        );
         return addr;
     }
 
@@ -883,16 +886,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function makeGnosisSafeTransactions(address _gnosisSafeAddress, SphinxAccountAccess[] memory _accountAccesses) external pure returns (GnosisSafeTransaction[] memory) {
+    function makeGnosisSafeTransactions(
+        address _gnosisSafeAddress,
+        Vm.AccountAccess[] memory _accountAccesses
+    ) external pure returns (GnosisSafeTransaction[] memory) {
         // First, we'll get the number of transactions that will be sent from the Gnosis Safe. We'll
         // need this value because Solidity requires that we define memory arrays with a set number
         // of elements.
         uint256 numTxns = 0;
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            SphinxAccountAccess memory accountAccess = _accountAccesses[i];
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
             bool isActionInput = accountAccess.accessor == _gnosisSafeAddress &&
                 (accountAccess.kind == VmSafe.AccountAccessKind.Call ||
-                accountAccess.kind == VmSafe.AccountAccessKind.Create);
+                    accountAccess.kind == VmSafe.AccountAccessKind.Create);
             if (isActionInput) {
                 numTxns += 1;
             }
@@ -901,12 +907,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
         uint256 txnIndex = 0;
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            SphinxAccountAccess memory accountAccess = _accountAccesses[i];
+            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
             if (accountAccess.accessor == _gnosisSafeAddress) {
                 if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
+                    // `Create` transactions are executed by delegatecalling the `CreateCall`
+                    // contract from the Gnosis Safe.
                     txns[txnIndex] = GnosisSafeTransaction({
                         operation: IEnum.GnosisSafeOperation.DelegateCall,
-                        value: 0, // TODO(docs): `value` is always unused for `DelegateCall` operations. Instead, value is transferred via `performCreate` below.
+                        // The `value` field is always unused for `DelegateCall` operations.
+                        // Instead, value is transferred via `performCreate` below.
+                        value: 0,
                         to: createCallAddress,
                         txData: abi.encodePacked(
                             ICreateCall.performCreate.selector,
@@ -929,6 +939,3 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return txns;
     }
 }
-
-// TODO(later): check that we have tests that make sure contracts deployed via `create` are at
-// the expected address. we may already do this in the tests that we wrote for the `create` opcode.

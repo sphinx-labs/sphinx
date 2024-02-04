@@ -155,7 +155,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
     collected.push({
       deploymentInfo,
-      libraries: [], // TODO(docs): no linked libraries rn
+      libraries: [], // We don't currently support linked libraries.
       forkUrl: rpcUrl,
     })
   }

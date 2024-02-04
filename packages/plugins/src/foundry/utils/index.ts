@@ -29,7 +29,7 @@ import {
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
-  SphinxAccountAccess,
+  AccountAccess,
   AccountAccessKind,
   ActionInput,
   ConfigArtifacts,
@@ -246,7 +246,7 @@ export const readContractArtifact = async (
  * Returns the init code of every contract deployment collected from a Forge script.
  */
 export const getInitCodeWithArgsArray = (
-  accountAccesses: Array<SphinxAccountAccess>
+  accountAccesses: Array<AccountAccess>
 ): Array<string> => {
   return accountAccesses
     .filter((accountAccess) => accountAccess.kind === AccountAccessKind.Create)
@@ -1097,7 +1097,7 @@ export const findFullyQualifiedNameForInitCode = (
  */
 export const findFullyQualifiedNameForAddress = (
   address: string,
-  accountAccesses: Array<SphinxAccountAccess>,
+  accountAccesses: Array<AccountAccess>,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
   const createAccountAccess = accountAccesses.find(
@@ -1114,8 +1114,13 @@ export const findFullyQualifiedNameForAddress = (
   }
 }
 
-// TODO(docs): resurrect the rationale of writing this to the file system. it was in
-// `sphinxEstimateMerkleLeafGas` in TypeScript.
+/**
+ * Write the ABI encoded Sphinx system contracts to the file system. This is useful when we need to
+ * pass the system contract info from TypeScript to a Forge script. We write it to the file system
+ * instead of passing it in as a parameter to the Forge script because it's possible to hit Node's
+ * `spawn` input size limit if the data is large. This is particularly a concern because the data
+ * contains contract init code.
+ */
 export const writeSystemContracts = (
   sphinxPluginTypesInterface: ethers.Interface,
   cachePath: string
@@ -1143,7 +1148,7 @@ export const writeSystemContracts = (
 }
 
 export const assertValidAccountAccesses = (
-  accountAccesses: Array<SphinxAccountAccess>,
+  accountAccesses: Array<AccountAccess>,
   safeAddress: string
 ): void => {
   for (const accountAccess of accountAccesses) {
@@ -1162,8 +1167,8 @@ export const assertValidAccountAccesses = (
 }
 
 export const isCreate2AccountAccess = (
-  accountAccess: SphinxAccountAccess,
-  nextAccountAccess?: SphinxAccountAccess
+  accountAccess: AccountAccess,
+  nextAccountAccess?: AccountAccess
 ): boolean => {
   const isCreate2Call =
     accountAccess.kind === AccountAccessKind.Call &&
@@ -1186,7 +1191,7 @@ export const isCreate2AccountAccess = (
 }
 
 export const parseNestedContractDeployments = (
-  nextAccountAccesses: Array<SphinxAccountAccess>,
+  nextAccountAccesses: Array<AccountAccess>,
   safeAddress: string,
   configArtifacts: ConfigArtifacts
 ): {

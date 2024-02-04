@@ -3,7 +3,7 @@ import { rm } from 'fs/promises'
 import {
   DeploymentArtifacts,
   ExecutionMode,
-  SphinxAccountAccess,
+  AccountAccess,
   fetchChainIdForNetwork,
   getConfigArtifactsRemote,
   writeDeploymentArtifacts,
@@ -125,7 +125,7 @@ const makeThenRunThenCheckDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<SphinxAccountAccess>
+    accountAccesses: Array<AccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },
@@ -177,7 +177,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<SphinxAccountAccess>
+    accountAccesses: Array<AccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },

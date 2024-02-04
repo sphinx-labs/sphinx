@@ -947,24 +947,32 @@ export const getSphinxWalletPrivateKey = (walletIndex: number): string => {
  */
 export const addSphinxWalletsToGnosisSafeOwners = async (
   safeAddress: string,
+  moduleAddress: string,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<Array<ethers.Wallet>> => {
-  // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
-  // necessary to prevent the calls from reverting.
-  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
+  // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
+  // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
+  // the Gnosis Safe itself. However, this would increment its nonce in the `addOwnerWithThreshold`
+  // calls that occur later in this function, which would mess up the addresses of contracts
+  // deployed via the Gnosis Safe. We can't reset the Gnosis Safe's nonce via `hardhat_setNonce`
+  // because Hardhat throws an error if we attempt to set a contract's nonce lower than its current
+  // nonce.
+  const moduleSigner = await getImpersonatedSigner(moduleAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    safeSigner
+    moduleSigner
   )
 
-  // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
-  const initialSafeBalance = await provider.getBalance(safeAddress)
+  // Get the initial Sphinx Module balance. We'll restore it at the end of this function. It's not
+  // strictly necessary to do this, but we do it anyways to ensure there aren't unintended side
+  // effects.
+  const initialModuleBalance = await provider.getBalance(moduleAddress)
 
-  // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
+  // Set the balance of the Sphinx Module. This ensures that it has enough funds to submit the
   // transactions.
-  await fundAccountMaxBalance(safeAddress, provider)
+  await fundAccountMaxBalance(moduleAddress, provider)
 
   const ownerThreshold: bigint = await safe.getThreshold()
 
@@ -978,22 +986,39 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   // owners so that the signature validation logic in the Gnosis Safe will iterate
   // over the same number of owners locally as in production. This is important for
   // gas estimation.
+  const iface = new ethers.Interface(GnosisSafeArtifact.abi)
   for (const wallet of sphinxWallets) {
     // The Gnosis Safe doesn't have an "addOwner" function, which is why we need to use
     // "addOwnerWithThreshold".
-    await safe.addOwnerWithThreshold(
+    const data = iface.encodeFunctionData('addOwnerWithThreshold', [
       wallet.address,
       ownerThreshold,
-      await getGasPriceOverrides(provider, safeSigner, executionMode)
+    ])
+
+    await safe.execTransactionFromModule(
+      safeAddress,
+      0,
+      data,
+      Operation.Call,
+      await getGasPriceOverrides(provider, moduleSigner, executionMode)
     )
+
+    // Sanity check that the owner has been added to the Gnosis Safe.
+    if (!(await safe.isOwner(wallet.address))) {
+      throw new Error(`Address is not owner. Should never happen.`)
+    }
   }
 
-  // Restore the initial balance of the Gnosis Safe.
-  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
+  // Restore the initial balance of the Sphinx Module.
+  await setBalance(
+    moduleAddress,
+    ethers.toBeHex(initialModuleBalance),
+    provider
+  )
 
-  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // Stop impersonating the Sphinx Module. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
-  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
+  await provider.send('hardhat_stopImpersonatingAccount', [moduleAddress])
 
   return sphinxWallets
 }
@@ -1005,50 +1030,97 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
 export const removeSphinxWalletsFromGnosisSafeOwners = async (
   sphinxWallets: Array<ethers.Wallet>,
   safeAddress: string,
+  moduleAddress: string,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
-  // The caller of the transactions on the Gnosis Safe will be the Gnosis Safe itself. This is
-  // necessary to prevent the calls from reverting.
-  const safeSigner = await getImpersonatedSigner(safeAddress, provider)
+  // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
+  // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
+  // the Gnosis Safe itself. However, this would increment its nonce in the `removeOwner` calls that
+  // occur later in this function, which would mess up the addresses of contracts deployed via the
+  // Gnosis Safe. We can't reset the Gnosis Safe's nonce via `hardhat_setNonce` because Hardhat
+  // throws an error if we attempt to set a contract's nonce lower than its current nonce.
+  const moduleSigner = await getImpersonatedSigner(moduleAddress, provider)
   const safe = new ethers.Contract(
     safeAddress,
     GnosisSafeArtifact.abi,
-    safeSigner
+    moduleSigner
   )
 
-  // Get the initial Gnosis Safe balance. We'll restore it at the end of this function.
-  const initialSafeBalance = await provider.getBalance(safeAddress)
+  // Get the initial Sphinx Module balance. We'll restore it at the end of this function. It's not
+  // strictly necessary to do this, but we do it anyways to ensure there aren't unintended side
+  // effects.
+  const initialModuleBalance = await provider.getBalance(moduleAddress)
 
-  // Set the balance of the Gnosis Safe. This ensures that it has enough funds to submit the
+  // Set the balance of the Sphinx Module. This ensures that it has enough funds to submit the
   // transactions.
-  await fundAccountMaxBalance(safeAddress, provider)
+  await fundAccountMaxBalance(moduleAddress, provider)
 
   const ownerThreshold = Number(await safe.getThreshold())
 
   // Remove the auto-generated wallets as owners of the Gnosis Safe. The logic for this is a little
   // bizarre because Gnosis Safe uses a linked list to store the owner addresses.
   for (let i = 0; i < ownerThreshold - 1; i++) {
-    await safe.removeOwner(
+    await removeGnosisSafeOwnerViaSphinxModule(
       sphinxWallets[i + 1].address,
       sphinxWallets[i].address,
       ownerThreshold,
-      await getGasPriceOverrides(provider, safeSigner, executionMode)
+      safe,
+      executionMode,
+      moduleSigner,
+      provider
     )
   }
-  await safe.removeOwner(
+  await removeGnosisSafeOwnerViaSphinxModule(
     '0x' + '00'.repeat(19) + '01', // This is `address(1)`. i.e. Gnosis Safe's `SENTINEL_OWNERS`.
     sphinxWallets[ownerThreshold - 1].address,
     ownerThreshold,
-    await getGasPriceOverrides(provider, safeSigner, executionMode)
+    safe,
+    executionMode,
+    moduleSigner,
+    provider
   )
 
-  // Restore the initial balance of the Gnosis Safe.
-  await setBalance(safeAddress, ethers.toBeHex(initialSafeBalance), provider)
+  // Restore the initial balance of the Sphinx Module.
+  await setBalance(
+    moduleAddress,
+    ethers.toBeHex(initialModuleBalance),
+    provider
+  )
 
-  // Stop impersonating the Gnosis Safe. This RPC method works for Anvil too because it's an alias
+  // Stop impersonating the Sphinx Module. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
-  await provider.send('hardhat_stopImpersonatingAccount', [safeAddress])
+  await provider.send('hardhat_stopImpersonatingAccount', [moduleAddress])
+}
+
+export const removeGnosisSafeOwnerViaSphinxModule = async (
+  prevOwner: string,
+  owner: string,
+  ownerThreshold: number,
+  safe: ethers.Contract,
+  executionMode: ExecutionMode,
+  moduleSigner: ethers.Signer,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<void> => {
+  const iface = new ethers.Interface(GnosisSafeArtifact.abi)
+
+  const data = iface.encodeFunctionData('removeOwner', [
+    prevOwner,
+    owner,
+    ownerThreshold,
+  ])
+
+  await safe.execTransactionFromModule(
+    safe.target,
+    0,
+    data,
+    Operation.Call,
+    await getGasPriceOverrides(provider, moduleSigner, executionMode)
+  )
+
+  if (await safe.isOwner(owner)) {
+    throw new Error(`Owner was not removed. Should never happen.`)
+  }
 }
 
 export const getApproveLeaf = (

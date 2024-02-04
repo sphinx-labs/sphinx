@@ -355,6 +355,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   // the actual Gnosis Safe owners.
   const sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
     safeAddress,
+    moduleAddress,
     executionMode,
     provider
   )
@@ -397,6 +398,7 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   await removeSphinxWalletsFromGnosisSafeOwners(
     sphinxWallets,
     safeAddress,
+    moduleAddress,
     executionMode,
     provider
   )

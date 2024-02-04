@@ -2,5 +2,8 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 interface ICreateCall {
-    function performCreate(uint256 value, bytes memory deploymentData) external returns (address newContract);
+    function performCreate(
+        uint256 value,
+        bytes memory deploymentData
+    ) external returns (address newContract);
 }

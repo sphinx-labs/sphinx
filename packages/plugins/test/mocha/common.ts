@@ -29,7 +29,7 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
   spawnAsync,
   fetchChainIdForNetwork,
-  SphinxAccountAccess,
+  AccountAccess,
   AccountAccessKind,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
@@ -67,6 +67,24 @@ import {
   getInitCodeWithArgsArray,
   readFoundrySingleChainBroadcast,
 } from '../../src/foundry/utils'
+
+const defaultAccountAccess: AccountAccess = {
+  chainInfo: {
+    forkId: '0',
+    chainId: '0',
+  },
+  kind: AccountAccessKind.Call,
+  account: ethers.ZeroAddress,
+  accessor: ethers.ZeroAddress,
+  initialized: false,
+  oldBalance: '0',
+  newBalance: '0',
+  deployedCode: '0x',
+  value: '0',
+  data: '0x',
+  reverted: false,
+  storageAccesses: [],
+}
 
 export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
@@ -315,7 +333,7 @@ export const makeDeployment = async (
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  accountAccesses: Array<SphinxAccountAccess>,
+  accountAccesses: Array<AccountAccess>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -434,7 +452,7 @@ export const makeRevertingDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<SphinxAccountAccess>
+  accountAccesses: Array<AccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -442,8 +460,9 @@ export const makeRevertingDeployment = (
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const accountAccesses: Array<SphinxAccountAccess> =
-    makeCreate2AccountAccesses(safeAddress, [
+  const accountAccesses: Array<AccountAccess> = makeCreate2AccountAccesses(
+    safeAddress,
+    [
       {
         salt,
         artifact: parseFoundryContractArtifact(MyContract2Artifact),
@@ -454,7 +473,8 @@ export const makeRevertingDeployment = (
         artifact: parseFoundryContractArtifact(Reverter),
         abiEncodedConstructorArgs: '0x',
       },
-    ])
+    ]
+  )
   const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = ['MyContract2.json']
 
@@ -543,8 +563,8 @@ const makeCreate2AccountAccesses = (
     artifact: ContractArtifact
     abiEncodedConstructorArgs: string
   }>
-): Array<SphinxAccountAccess> => {
-  const accountAccesses: Array<SphinxAccountAccess> = []
+): Array<AccountAccess> => {
+  const accountAccesses: Array<AccountAccess> = []
   for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
     const { bytecode } = artifact
 
@@ -561,6 +581,7 @@ const makeCreate2AccountAccesses = (
     )
 
     accountAccesses.push({
+      ...defaultAccountAccess,
       account: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
       accessor: safeAddress,
       value: '0',
@@ -568,6 +589,7 @@ const makeCreate2AccountAccesses = (
       kind: AccountAccessKind.Call,
     })
     accountAccesses.push({
+      ...defaultAccountAccess,
       account: create2Address,
       accessor: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
       value: '0',
@@ -585,7 +607,7 @@ export const makeStandardDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<SphinxAccountAccess>
+  accountAccesses: Array<AccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -805,7 +827,7 @@ export const runForgeScript = async (
 }
 
 const getNumActionInputs = (
-  accountAccesses: Array<SphinxAccountAccess>,
+  accountAccesses: Array<AccountAccess>,
   safeAddress: string
 ): number => {
   return accountAccesses.filter(

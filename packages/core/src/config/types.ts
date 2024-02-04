@@ -105,7 +105,7 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
-  accountAccesses: Array<SphinxAccountAccess>
+  accountAccesses: Array<AccountAccess>
   gasEstimates: Array<string>
 }
 
@@ -151,22 +151,16 @@ export enum ActionInputType {
   CALL,
 }
 
-export interface Create2ActionInput extends SphinxTransaction {
+export interface Create2ActionInput extends AbstractActionInput {
   actionType: ActionInputType.CREATE2
   create2Address: string
   initCodeWithArgs: string
-  contracts: Array<ParsedContractDeployment>
-  decodedAction: DecodedAction
-  index: string
 }
 
-export interface CreateActionInput extends SphinxTransaction {
+export interface CreateActionInput extends AbstractActionInput {
   actionType: ActionInputType.CREATE
   contractAddress: string
   initCodeWithArgs: string
-  contracts: Array<ParsedContractDeployment>
-  decodedAction: DecodedAction
-  index: string
 }
 
 export type DecodedAction = {
@@ -176,8 +170,17 @@ export type DecodedAction = {
   address: string
 }
 
-export interface FunctionCallActionInput extends SphinxTransaction {
+export interface FunctionCallActionInput extends AbstractActionInput {
   actionType: ActionInputType.CALL
+}
+
+/**
+ * @property contracts - The contracts deployed in this action that belong to a source file (i.e.
+ * they each correspond to a fully qualified name). We need to know which contracts are deployed in
+ * each action so that we can determine which transaction receipt corresponds to each contract
+ * deployment when writing the contract deployment artifacts.
+ */
+interface AbstractActionInput extends SphinxTransaction {
   contracts: Array<ParsedContractDeployment>
   decodedAction: DecodedAction
   index: string
@@ -288,10 +291,27 @@ export enum AccountAccessKind {
   Extcodecopy = '10',
 }
 
-export type SphinxAccountAccess = {
+export type AccountAccess = {
+  chainInfo: {
+    forkId: string
+    chainId: string
+  }
   kind: AccountAccessKind
   account: string
   accessor: string
+  initialized: boolean
+  oldBalance: string
+  newBalance: string
+  deployedCode: string
   value: string
   data: string
+  reverted: boolean
+  storageAccesses: Array<{
+    account: string
+    slot: string
+    isWrite: boolean
+    previousValue: string
+    newValue: string
+    reverted: boolean
+  }>
 }

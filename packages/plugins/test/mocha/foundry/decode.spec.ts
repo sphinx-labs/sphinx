@@ -74,7 +74,7 @@ describe('Decoded Actions', () => {
         create2Address,
         initCodeWithArgs,
         mockConfigArtifacts,
-        myContract1FullyQualifiedName
+        myContract2FullyQualifiedName
       )
       expect(result).to.deep.equal({
         referenceName: contractName,

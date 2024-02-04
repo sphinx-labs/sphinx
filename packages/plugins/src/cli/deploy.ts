@@ -176,24 +176,6 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  // TODO(gh): we had to remove the `FOUNDRY_SENDER` b/c of a bug where the `createProxyWithNonce`
-  // would fail b/c a deployed address can't be the sender. was happening on `createProxyWithNonce`,
-  // where we deploy the safe.
-
-  // TODO(end): add a ticket to detect and throw an error when the user is attempting to deploy a
-  // linked library. previously, we always threw an error b/c libraries are deployed via `create`,
-  // but now i have no idea how we handle linked library deployments.
-
-  // TODO(end): add to 'support linked libraries' ticket:
-  // previously, we added `FOUNDRY_SENDER: safeAddress` when collecting txns. do we need to do
-  // anything special to handle this edge case? "We use the `FOUNDRY_SENDER` environment variable to
-  // set the Gnosis Safe as the `msg.sender` to ensure that it's the caller for all transactions. We
-  // need to do this even though we also broadcast from the Safe's address in the script.
-  // Specifically, this is necessary if the user is deploying a contract via CREATE2 that uses a
-  // linked library. In this scenario, the caller that deploys the library would be Foundry's
-  // default sender if we don't set this environment variable. Note that `FOUNDRY_SENDER` has
-  // priority over the `--sender` flag and the `DAPP_SENDER` environment variable."
-
   // Collect the transactions.
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
@@ -242,7 +224,7 @@ export const deploy = async (
     deploymentInfo,
     isSystemDeployed,
     configArtifacts,
-    [] // TODO(docs): no linked libraries rn
+    [] // We don't currently support linked libraries.
   )
 
   if (parsedConfig.actionInputs.length === 0) {
@@ -359,15 +341,3 @@ export const deploy = async (
     configArtifacts,
   }
 }
-
-// todo(md): remove the 'we don't support create opcode' current limitation in main readme.
-// todo(md): include a current limitation about linked libraries in the main readme.
-
-// TODO(later):
-// // Deploy a contract, then call a function on it, then deploy another contract. it's
-// // important to keep the order of these three actions in order to test that the Gnosis
-// // Safe's nonce is incremented as a contract instead of an EOA. Contract nonces are not
-// // incremented for function calls, whereas EOA nonces are.
-// MyContract2 createContractOne = new MyContract2();
-// createContractOne.incrementMyContract2(3);
-// new MyContract2();

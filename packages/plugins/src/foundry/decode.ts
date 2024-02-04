@@ -154,9 +154,8 @@ export const makeParsedConfig = (
     )
     unlabeledContracts.push(...unlabeled)
 
-    // TODO(docs): update
-    // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
-    // means the `EXECUTE` leaves start with an index of 1.
+    // The index of `EXECUTE` Merkle leaves starts at 1 because the `APPROVE` leaf always has an
+    // index of 0.
     const executeActionIndex = actionInputIndex + 1
 
     if (accountAccess.kind === AccountAccessKind.Create) {
@@ -198,7 +197,9 @@ export const makeParsedConfig = (
         decodedAction,
         gas,
         requireSuccess,
-        value: '0', // TODO(docs): `value` is always unused for `DelegateCall` operations. Instead, value is transferred via `performCreate` below.
+        // The `value` field is always unused for `DelegateCall` operations. Instead, value is
+        // transferred via `performCreate` in the `txData` below.
+        value: '0',
         operation: Operation.DelegateCall,
         to: getCreateCallAddress(),
         txData: encodeCreateCall(accountAccess.value, initCodeWithArgs),
@@ -273,7 +274,7 @@ export const makeParsedConfig = (
     actionInputIndex += 1
   }
 
-  // TODO(docs): sanity check
+  // Sanity check that the number of gas estimates equals the number of actions.
   if (parsedActionInputs.length !== gasEstimates.length) {
     throw new Error(
       `Parsed action input array length (${parsedActionInputs.length}) does not equal gas\n` +
@@ -389,14 +390,4 @@ export const makeFunctionCallDecodedAction = (
   }
 }
 
-// TODO(end): did you remove contracti? if so, mark ticket as 'in review'.
-
-// TODO(docs): document somewhere why we have actionInput.contracts instead of
-// parsedConfig.contracts (i.e. answer "why do we need to know the contracts deployed in each
-// action?"). the answer is that we need to know this when we're creating the contract deployment
-// artifact, specifically so that we can know which txn receipt corresponds to the contract.
-
-// TODO(end): make a ticket to change the sample contract to use `create` instead of `create2`,
-// which allows us to get rid of the weird create2 salt thing.
-
-// TODO(later): make sure that you run the demo tests locally.
+// TODO(end): make sure that you run the demo tests locally.

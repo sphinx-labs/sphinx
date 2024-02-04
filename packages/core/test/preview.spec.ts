@@ -11,13 +11,13 @@ const expectedGnosisSafe = {
   address: '0x' + 'ff'.repeat(20),
   referenceName: 'GnosisSafe',
   functionName: 'deploy',
-  variables: [],
+  variables: {},
 }
 const expectedSphinxModule = {
   address: '0x' + 'ee'.repeat(20),
   referenceName: 'SphinxModule',
   functionName: 'deploy',
-  variables: [],
+  variables: {},
 }
 const expectedCreate2: Create2ActionInput = {
   actionType: ActionInputType.CREATE2,
