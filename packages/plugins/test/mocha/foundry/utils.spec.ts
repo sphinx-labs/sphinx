@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
+import sinon from 'sinon'
 import { ConstructorFragment, ethers } from 'ethers'
 import {
   ContractArtifact,
@@ -15,6 +16,7 @@ chai.use(chaiAsPromised)
 const expect = chai.expect
 
 import {
+  assertSphinxFoundryForkInstalled,
   convertLibraryFormat,
   isInitCodeMatch,
   messageArtifactNotFound,
@@ -763,6 +765,41 @@ describe('Utils', async () => {
       expect(
         isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
       ).to.equal(true)
+    })
+  })
+
+  describe('assertSphinxFoundryForkInstalled', () => {
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('throws an error if an incorrect Foundry version is installed', async () => {
+      const execAsyncStub = sinon.stub().returns(
+        Promise.resolve({
+          stdout: 'forge 0.2.0 (51ccfdb 2024-02-04T00:17:53.841350000Z)', // Incorrect commit hash
+          stderr: '',
+        })
+      )
+
+      let failed = false
+      try {
+        await assertSphinxFoundryForkInstalled(execAsyncStub)
+      } catch (error) {
+        failed = true
+        expect(error.message).to.include(
+          `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
+            `running the command:\n` +
+            `foundryup --repo sphinx-labs/foundry --branch prerelease-v0.0.1`
+        )
+      }
+      expect(failed).to.be.true
+
+      sinon.assert.calledWith(execAsyncStub, `forge --version`)
+    })
+
+    // This test will succeed if the machine executing the test is using the Sphinx fork.
+    it('succeeds if the correct Foundry version is installed', async () => {
+      await expect(assertSphinxFoundryForkInstalled()).to.be.fulfilled
     })
   })
 })

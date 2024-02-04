@@ -1191,3 +1191,25 @@ export const findFullyQualifiedNameForAddress = (
   //   ? findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
   //   : undefined
 }
+
+export const assertSphinxFoundryForkInstalled = async (
+  execAsyncCommand = execAsync
+): Promise<void> => {
+  const { stdout } = await execAsyncCommand(`forge --version`)
+
+  const match = stdout.match(/\((\w+)\s/)
+
+  if (match === null) {
+    throw new Error(`Foundry is not installed.`)
+  }
+
+  const foundryVersion = match[1]
+
+  if (foundryVersion !== 'fcb7c1e') {
+    throw new Error(
+      `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
+        `running the command:\n` +
+        `foundryup --repo sphinx-labs/foundry --branch prerelease-v0.0.1`
+    )
+  }
+}

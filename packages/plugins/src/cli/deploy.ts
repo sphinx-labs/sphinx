@@ -34,6 +34,7 @@ import { ethers } from 'ethers'
 import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
+  assertSphinxFoundryForkInstalled,
   compile,
   getFoundrySingleChainDryRunPath,
   getInitCodeWithArgsArray,
@@ -91,6 +92,8 @@ export const deploy = async (
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
+
+  await assertSphinxFoundryForkInstalled()
 
   const foundryToml = await getFoundryToml()
   const {
