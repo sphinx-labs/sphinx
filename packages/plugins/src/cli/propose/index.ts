@@ -36,6 +36,7 @@ import {
   readInterface,
   compile,
   getInitCodeWithArgsArray,
+  assertSphinxFoundryForkInstalled,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -225,6 +226,8 @@ export const propose = async (
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
+
+  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
 
   const foundryToml = await getFoundryToml()
 

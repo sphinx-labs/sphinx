@@ -1267,3 +1267,21 @@ export const parseNestedContractDeployments = (
 
   return { parsedContracts, unlabeled }
 }
+
+export const assertSphinxFoundryForkInstalled = async (
+  scriptPath: string,
+  targetContract?: string
+): Promise<void> => {
+  // Empirically check if our fork is functioning properly
+  const forkInstalled = await callForgeScriptFunction<{
+    forkInstalled: { value: string }
+  }>(scriptPath, 'sphinxCheckFork()', [], undefined, targetContract)
+
+  if (forkInstalled.returns.forkInstalled.value === 'false') {
+    throw new Error(
+      `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
+        `running the command:\n` +
+        `foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0`
+    )
+  }
+}

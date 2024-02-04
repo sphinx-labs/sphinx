@@ -262,7 +262,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
         address expectedModuleAddr = computeCreate2Address({
             salt: bytes32(0),
             initcodeHash: keccak256(type(SphinxModule).creationCode),
-            deployer: address(this)
+            deployer: DETERMINISTIC_DEPLOYMENT_PROXY
         });
         vm.expectEmit(address(expectedModuleAddr));
         emit Initialized(type(uint8).max);
