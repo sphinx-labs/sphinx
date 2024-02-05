@@ -95,15 +95,13 @@ abstract contract Sphinx {
     }
 
     function sphinxCollectProposal(
-        string memory _deploymentInfoPath,
-        string memory _systemContractsFilePath
+        string memory _deploymentInfoPath
     ) external {
         sphinxUtils.validateProposal(sphinxConfig);
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
-            constants.managedServiceAddress(),
-            _systemContractsFilePath
+            constants.managedServiceAddress()
         );
 
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
@@ -127,19 +125,6 @@ abstract contract Sphinx {
             revert("Incorrect execution type.");
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(
-            _executionMode,
-            deployer,
-            _systemContractsFilePath
-        );
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
-    }
-
-    function sphinxCollect(
-        ExecutionMode _executionMode,
-        address _executor,
-        string memory _systemContractsFilePath
-    ) private returns (DeploymentInfo memory) {
         SystemContractInfo[] memory systemContracts = abi.decode(
             vm.parseBytes(vm.readFile(_systemContractsFilePath)),
             (SystemContractInfo[])
@@ -151,6 +136,17 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
+        DeploymentInfo memory deploymentInfo = sphinxCollect(
+            _executionMode,
+            deployer
+        );
+        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+    }
+
+    function sphinxCollect(
+        ExecutionMode _executionMode,
+        address _executor
+    ) private returns (DeploymentInfo memory) {
         address safe = safeAddress();
         address module = sphinxModule();
 
@@ -183,12 +179,7 @@ abstract contract Sphinx {
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
         if (address(safe).code.length == 0) {
-            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
-            // Managed Service contract, but this replicates the prod environment for the DevOps
-            // Platform, so we do it anyways.
-            vm.startPrank(constants.managedServiceAddress());
             _sphinxDeployModuleAndGnosisSafe();
-            vm.stopPrank();
         }
 
         // Take a snapshot of the current state. We'll revert to the snapshot after we run the

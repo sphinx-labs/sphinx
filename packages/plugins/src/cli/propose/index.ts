@@ -36,7 +36,6 @@ import {
   readInterface,
   compile,
   getInitCodeWithArgsArray,
-  writeSystemContracts,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -78,11 +77,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     spinner
   )
 
-  const systemContractsFilePath = writeSystemContracts(
-    sphinxPluginTypesInterface,
-    foundryToml.cachePath
-  )
-
   const deploymentInfoPath = join(
     foundryToml.cachePath,
     'sphinx-deployment-info.txt'
@@ -116,9 +110,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(string,string)',
+      'sphinxCollectProposal(string)',
       deploymentInfoPath,
-      systemContractsFilePath,
     ]
 
     const provider = new SphinxJsonRpcProvider(rpcUrl)
