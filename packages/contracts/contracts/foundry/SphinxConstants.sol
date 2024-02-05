@@ -13,7 +13,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 41;
+  uint8 internal constant numSupportedNetworks = 37;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -239,30 +239,6 @@ contract SphinxConstants {
       chainId: 30,
       networkType: NetworkType.Mainnet
     });
-    all[37] = NetworkInfo({
-      network: Network.zora,
-      name: "zora",
-      chainId: 7777777,
-      networkType: NetworkType.Mainnet
-    });
-    all[38] = NetworkInfo({
-      network: Network.zora_sepolia,
-      name: "zora_sepolia",
-      chainId: 999999999,
-      networkType: NetworkType.Testnet
-    });
-    all[39] = NetworkInfo({
-      network: Network.rari,
-      name: "rari",
-      chainId: 1380012617,
-      networkType: NetworkType.Mainnet
-    });
-    all[40] = NetworkInfo({
-      network: Network.rari_sepolia,
-      name: "rari_sepolia",
-      chainId: 1918988905,
-      networkType: NetworkType.Testnet
-    });
     return all;
   }
 }
@@ -304,9 +280,5 @@ enum Network {
   oktc,
   scroll,
   scroll_sepolia,
-  rootstock,
-  zora,
-  zora_sepolia,
-  rari,
-  rari_sepolia
+  rootstock
 }
