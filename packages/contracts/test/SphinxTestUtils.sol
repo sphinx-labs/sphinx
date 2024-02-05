@@ -2,11 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Vm } from "../lib/forge-std/src/Vm.sol";
-import {
-    Network,
-    NetworkInfo,
-    SphinxConfig
-} from "../contracts/foundry/SphinxPluginTypes.sol";
+import { Network, NetworkInfo, SphinxConfig } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "../lib/forge-std/src/StdCheats.sol";
 
 import { SphinxConstants } from "../contracts/foundry/SphinxConstants.sol";
@@ -14,9 +10,7 @@ import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import {
     IGnosisSafeProxyFactory
 } from "../contracts/foundry/interfaces/IGnosisSafeProxyFactory.sol";
-import {
-    IGnosisSafeProxy
-} from "../contracts/foundry/interfaces/IGnosisSafeProxy.sol";
+import { IGnosisSafeProxy } from "../contracts/foundry/interfaces/IGnosisSafeProxy.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
 import { SphinxInitCode, SystemContractInfo } from "./SphinxInitCode.sol";
 

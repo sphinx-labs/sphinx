@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { Network } from "./SphinxConstants.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
+import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 
 struct HumanReadableAction {
     string reason;
@@ -15,13 +16,11 @@ struct SphinxMerkleTree {
     SphinxLeafWithProof[] leavesWithProofs;
 }
 
-struct SphinxTransaction {
+struct GnosisSafeTransaction {
     address to;
     uint256 value;
     bytes txData;
     IEnum.GnosisSafeOperation operation;
-    uint256 gas;
-    bool requireSuccess;
 }
 
 struct FoundryContractConfig {
@@ -88,6 +87,8 @@ struct DeploymentInfo {
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
+    Vm.AccountAccess[] accountAccesses;
+    uint256[] gasEstimates;
 }
 
 enum ExecutionMode {
@@ -205,10 +206,10 @@ contract SphinxPluginTypes {
 
     function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
 
-    function leafGasParams()
+    function systemContractInfoArrayType()
         external
         view
-        returns (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts)
+        returns (SystemContractInfo[] memory systemContracts)
     {}
 
     function sphinxLeafWithProofType()

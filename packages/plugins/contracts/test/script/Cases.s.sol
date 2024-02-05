@@ -7,6 +7,7 @@ import { Sphinx } from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 import { ConstructorDeploysContract } from "../../../contracts/test/ConstructorDeploysContract.sol";
 import { Fallback } from "../../../contracts/test/Fallback.sol";
+import { MyContract2 } from "../MyContracts.sol";
 
 contract Simple is Script, Sphinx {
     constructor() {
@@ -20,6 +21,13 @@ contract Simple is Script, Sphinx {
     }
 
     function run() public sphinx {
+        // Deploy a contract, then call a function on it, then deploy another contract. it's
+        // important to order the transactions this way to test that the Gnosis Safe's nonce is
+        // incremented as a contract instead of an EOA.
+        MyContract2 createContractOne = new MyContract2();
+        createContractOne.incrementMyContract2(1);
+        new MyContract2();
+
         // Deploy with Create2
         Fallback fallbackCreate2 = new Fallback{ salt: 0 }(-1);
         // Perform low level call to fallback function

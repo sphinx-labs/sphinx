@@ -29,9 +29,11 @@ export type LocalNetworkMetadata = {
   snapshots?: Record<string, unknown>
 }
 
-export const networkEnumToName = (networkEnum: bigint) => {
+export const networkEnumToName = (networkEnum: bigint | string) => {
+  const networkEnumBigInt = BigInt(networkEnum)
+
   const network = SPHINX_NETWORKS.find(
-    (_, index) => BigInt(index + 1) === networkEnum
+    (_, index) => BigInt(index + 1) === networkEnumBigInt
   )
 
   if (network) {

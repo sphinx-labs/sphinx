@@ -154,6 +154,10 @@ export const add0x = (str: string): string => {
  * @param types The types of the variables in the `Result`. This can be retrieved from an
  * `ethers.Interface` object.
  * @param values The `Result` to convert.
+ *
+ * @returns The converted result. The returned object/array will not contain strings instead of
+ * BigInt values to ensure that `JSON.stringify` and `JSON.parse` can be called on it without
+ * causing an error.
  */
 export const recursivelyConvertResult = (
   types: readonly ethers.ParamType[],
@@ -169,7 +173,8 @@ export const recursivelyConvertResult = (
 
   for (let i = 0; i < types.length; i++) {
     const paramType = types[i]
-    const value = values[i]
+    const value =
+      typeof values[i] === 'bigint' ? values[i].toString() : values[i]
     // Structs are represented as tuples.
     if (paramType.isTuple()) {
       const convertedTuple = recursivelyConvertResult(
@@ -200,7 +205,7 @@ export const recursivelyConvertResult = (
             elementResult
           )
         } else {
-          return e
+          return typeof e === 'bigint' ? e.toString() : e
         }
       })
       if (containsUnnamedValue) {

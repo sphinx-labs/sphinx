@@ -7,16 +7,6 @@ import { SphinxJsonRpcProvider } from '../provider'
 import { ExecutionMode } from '../constants'
 
 /**
- * Possible action types.
- */
-export const SphinxActionType = {
-  SET_STORAGE: BigInt(0),
-  DEPLOY_CONTRACT: BigInt(1),
-  CALL: BigInt(2),
-  CREATE: BigInt(3),
-}
-
-/**
  * The status of a Merkle root in a Sphinx Module.
  */
 export const MerkleRootStatus = {

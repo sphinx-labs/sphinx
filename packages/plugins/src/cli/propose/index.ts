@@ -22,7 +22,6 @@ import {
   DeploymentInfo,
   GetConfigArtifacts,
   ParsedConfig,
-  RawActionInput,
 } from '@sphinx-labs/core/dist/config/types'
 import {
   SphinxLeafType,
@@ -30,17 +29,10 @@ import {
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import {
-  makeParsedConfig,
-  decodeDeploymentInfo,
-  convertFoundryDryRunToActionInputs,
-} from '../../foundry/decode'
+import { makeParsedConfig, decodeDeploymentInfo } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
-  getSphinxLeafGasEstimates,
-  getFoundrySingleChainDryRunPath,
-  readFoundrySingleChainDryRun,
   readInterface,
   compile,
   getInitCodeWithArgsArray,
@@ -78,7 +70,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }> => {
-  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
+  const { testnets, mainnets } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
     targetContract,
@@ -92,7 +84,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
     deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
     libraries: Array<string>
     forkUrl: string
   }> = []
@@ -135,24 +126,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       forgeScriptCollectArgs.push('--target-contract', targetContract)
     }
 
-    // Collect the transactions for the current network. We use the `FOUNDRY_SENDER` environment
-    // variable to set the users Safe as the `msg.sender` to ensure that it's the caller for all
-    // transactions. We need to do this even though we also broadcast from the Safe's
-    // address in the script. Specifically, this is necessary if the user is deploying a contract
-    // via CREATE2 that uses a linked library. In this scenario, the caller that deploys the library
-    // would be Foundry's default sender if we don't set this environment variable. Note that
-    // `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER` environment
-    // variable. Also, passing the environment variable directly into the script overrides the
-    // user defining it in their `.env` file.
-    // It's worth mentioning that we can't run a single Forge script for all networks using
-    // cheatcodes like `vm.createSelectFork`. This is because we use the `FOUNDRY_SENDER`.
-    // Specifically, the state of the Safe on the first fork is persisted across all forks
-    // when using `FOUNDRY_SENDER`. This is problematic if the Safe doesn't have the same
-    // state across networks. This is a Foundry quirk; it may be a bug.
-    const dateBeforeForgeScript = new Date()
-    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
-      FOUNDRY_SENDER: safeAddress,
-    })
+    // Collect the transactions for the current network.
+    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
 
     if (spawnOutput.code !== 0) {
       spinner?.stop()
@@ -171,41 +146,35 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
     checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
-    const collectionDryRunPath = getFoundrySingleChainDryRunPath(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`
-    )
-    const collectionDryRun = readFoundrySingleChainDryRun(
-      foundryToml.broadcastFolder,
-      scriptPath,
-      deploymentInfo.chainId,
-      `sphinxCollectProposal`,
-      dateBeforeForgeScript
-    )
-
-    // Check if the dry run file exists. If it doesn't, this must mean that there weren't any
-    // transactions broadcasted in the user's script for this network. We return an empty array in
-    // this case.
-    const actionInputs = collectionDryRun
-      ? convertFoundryDryRunToActionInputs(
-          deploymentInfo,
-          collectionDryRun,
-          collectionDryRunPath
-        )
-      : []
-
-    const libraries = collectionDryRun ? collectionDryRun.libraries : []
-
-    collected.push({ deploymentInfo, actionInputs, libraries, forkUrl: rpcUrl })
+    collected.push({
+      deploymentInfo,
+      libraries: [], // We don't currently support linked libraries.
+      forkUrl: rpcUrl,
+    })
   }
 
   spinner?.succeed(`Collected transactions.`)
 
-  const isEmpty =
-    collected.length === 0 ||
-    collected.every(({ actionInputs }) => actionInputs.length === 0)
+  spinner?.start(`Building proposal...`)
+
+  const initCodeWithArgsArray = getInitCodeWithArgsArray(
+    collected.flatMap(({ deploymentInfo }) => deploymentInfo.accountAccesses)
+  )
+
+  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+
+  const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
+    makeParsedConfig(
+      deploymentInfo,
+      true, // System contracts are deployed.
+      configArtifacts,
+      libraries
+    )
+  )
+
+  const isEmpty = parsedConfigArray.every(
+    (parsedConfig) => parsedConfig.actionInputs.length === 0
+  )
   if (isEmpty) {
     return {
       isEmpty: true,
@@ -213,38 +182,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       configArtifacts: undefined,
     }
   }
-
-  spinner?.start(`Estimating gas...`)
-
-  const gasEstimatesArray = await getSphinxLeafGasEstimates(
-    scriptPath,
-    foundryToml,
-    sphinxPluginTypesInterface,
-    collected,
-    targetContract,
-    spinner
-  )
-
-  spinner?.succeed(`Estimated gas.`)
-  spinner?.start(`Building proposal...`)
-
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    collected.flatMap(({ actionInputs }) => actionInputs)
-  )
-
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
-
-  const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo, libraries }, i) =>
-      makeParsedConfig(
-        deploymentInfo,
-        actionInputs,
-        gasEstimatesArray[i],
-        true, // System contracts are deployed.
-        configArtifacts,
-        libraries
-      )
-  )
 
   return {
     parsedConfigArray,
