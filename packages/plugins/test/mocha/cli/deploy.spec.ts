@@ -99,6 +99,19 @@ const allChainIds = [fetchChainIdForNetwork('sepolia')]
 const deploymentArtifactDirPath = 'deployments'
 
 describe('Deploy CLI command', () => {
+  let originalEnv: NodeJS.ProcessEnv
+
+  before(() => {
+    // Store the original environment variables. We'll reset them after this test suite is finished.
+    originalEnv = { ...process.env }
+
+    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+  })
+
+  after(() => {
+    process.env = originalEnv
+  })
+
   beforeEach(async () => {
     // Make sure that the Anvil node isn't running.
     await killAnvilNodes(allChainIds)
@@ -351,6 +364,7 @@ describe('Deployment Cases', () => {
   let merkleTree: SphinxMerkleTree | undefined
   let receipts: Array<SphinxTransactionReceipt> | undefined
   let configArtifacts: ConfigArtifacts | undefined
+  let originalEnv: NodeJS.ProcessEnv
 
   const checkLabeled = (
     address: string,
@@ -375,6 +389,11 @@ describe('Deployment Cases', () => {
   }
 
   before(async () => {
+    // Store the original environment variables. We'll reset them after this test suite is finished.
+    originalEnv = { ...process.env }
+
+    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
     await startAnvilNodes(allChainIds)
@@ -402,6 +421,8 @@ describe('Deployment Cases', () => {
   })
 
   after(async () => {
+    process.env = originalEnv
+
     await killAnvilNodes(allChainIds)
 
     await rm(deploymentArtifactDirPath, { recursive: true, force: true })
