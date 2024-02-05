@@ -1,5 +1,6 @@
 export type SupportedNetwork = {
   name: string
+  displayName: string
   chainId: bigint
   rpcUrl: () => string
   etherscan: {
@@ -49,6 +50,7 @@ type RollupType = 'OP Stack' | 'Arbitrum'
 export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   {
     name: 'ethereum',
+    displayName: 'Ethereum',
     chainId: BigInt(1),
     rpcUrl: () =>
       `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -70,6 +72,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'sepolia',
+    displayName: 'Sepolia',
     chainId: BigInt(11155111),
     rpcUrl: () =>
       `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -91,6 +94,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'optimism',
+    displayName: 'Optimism',
     chainId: BigInt(10),
     rpcUrl: () =>
       `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -112,6 +116,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'optimism_sepolia',
+    displayName: 'Optimism Sepolia',
     chainId: BigInt(11155420),
     rpcUrl: () =>
       `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -133,6 +138,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'arbitrum',
+    displayName: 'Arbitrum',
     chainId: BigInt(42161),
     rpcUrl: () =>
       `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -154,6 +160,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'arbitrum_sepolia',
+    displayName: 'Arbitrum Sepolia',
     chainId: BigInt(421614),
     rpcUrl: () =>
       `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -175,6 +182,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'polygon',
+    displayName: 'Polygon',
     chainId: BigInt(137),
     rpcUrl: () =>
       `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -196,6 +204,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'polygon_mumbai',
+    displayName: 'Polygon Mumbai',
     chainId: BigInt(80001),
     rpcUrl: () =>
       `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -217,6 +226,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'bnb',
+    displayName: 'Binance Smart Chain',
     chainId: BigInt(56),
     rpcUrl: () => process.env.BNB_MAINNET_URL!,
     etherscan: {
@@ -237,6 +247,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'bnb_testnet',
+    displayName: 'Binance Smart Chain Testnet',
     chainId: BigInt(97),
     rpcUrl: () => process.env.BNB_TESTNET_URL!,
     etherscan: {
@@ -257,6 +268,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'gnosis',
+    displayName: 'Gnosis',
     chainId: BigInt(100),
     rpcUrl: () => process.env.GNOSIS_MAINNET_URL!,
     etherscan: {
@@ -277,6 +289,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'gnosis_chiado',
+    displayName: 'Gnosis Chiado',
     chainId: BigInt(10200),
     rpcUrl: () => process.env.CHIADO_RPC_URL!,
     etherscan: {
@@ -297,6 +310,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'linea',
+    displayName: 'Linea',
     chainId: BigInt(59144),
     rpcUrl: () =>
       `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -318,6 +332,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'linea_goerli',
+    displayName: 'Linea Goerli',
     chainId: BigInt(59140),
     rpcUrl: () =>
       `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -339,6 +354,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'polygon_zkevm',
+    displayName: 'Polygon zkEVM',
     chainId: BigInt(1101),
     rpcUrl: () => process.env.POLYGON_ZKEVM_MAINNET_URL!,
     etherscan: {
@@ -359,6 +375,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'polygon_zkevm_goerli',
+    displayName: 'Polygon zkEVM Goerli',
     chainId: BigInt(1442),
     rpcUrl: () => process.env.POLYGON_ZKEVM_TESTNET_URL!,
     etherscan: {
@@ -379,6 +396,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'avalanche',
+    displayName: 'Avalanche',
     chainId: BigInt(43114),
     rpcUrl: () =>
       `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -400,6 +418,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'avalanche_fuji',
+    displayName: 'Avalanche Fuji',
     chainId: BigInt(43113),
     rpcUrl: () =>
       `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -421,6 +440,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'fantom',
+    displayName: 'Fantom',
     chainId: BigInt(250),
     rpcUrl: () => process.env.FANTOM_MAINNET_RPC_URL!,
     etherscan: {
@@ -441,6 +461,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'fantom_testnet',
+    displayName: 'Fantom Testnet',
     chainId: BigInt(4002),
     rpcUrl: () => process.env.FANTOM_TESTNET_RPC_URL!,
     etherscan: {
@@ -461,6 +482,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'base',
+    displayName: 'Base',
     chainId: BigInt(8453),
     rpcUrl: () =>
       `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -482,6 +504,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'base_sepolia',
+    displayName: 'Base Sepolia',
     chainId: BigInt(84532),
     rpcUrl: () =>
       `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -503,6 +526,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'celo',
+    displayName: 'Celo',
     chainId: BigInt(42220),
     rpcUrl: () =>
       `https://celo-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -524,6 +548,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'celo_alfajores',
+    displayName: 'Celo Alfajores',
     chainId: BigInt(44787),
     rpcUrl: () =>
       `https://celo-alfajores.infura.io/v3/${process.env.INFURA_API_KEY}`,
@@ -545,6 +570,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'moonriver',
+    displayName: 'Moonriver',
     chainId: BigInt(1285),
     rpcUrl: () => process.env.MOONRIVER_RPC_URL!,
     etherscan: {
@@ -565,6 +591,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'moonbeam',
+    displayName: 'Moonbeam',
     chainId: BigInt(1284),
     rpcUrl: () => process.env.MOONBEAM_RPC_URL!,
     etherscan: {
@@ -585,6 +612,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'moonbase_alpha',
+    displayName: 'Moonbase Alpha',
     chainId: BigInt(1287),
     rpcUrl: () => process.env.MOONBASE_ALPHA_RPC_URL!,
     etherscan: {
@@ -605,6 +633,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'fuse',
+    displayName: 'Fuse',
     chainId: BigInt(122),
     rpcUrl: () => process.env.FUSE_RPC_URL!,
     etherscan: {
@@ -625,6 +654,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'evmos',
+    displayName: 'Evmos',
     chainId: BigInt(9001),
     rpcUrl: () => process.env.EVMOS_RPC_URL!,
     etherscan: {
@@ -646,6 +676,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'evmos_testnet',
+    displayName: 'Evmos Testnet',
     chainId: BigInt(9000),
     rpcUrl: () => process.env.EVMOS_TESTNET_RPC_URL!,
     etherscan: {
@@ -667,6 +698,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'kava',
+    displayName: 'Kava',
     chainId: BigInt(2222),
     rpcUrl: () => process.env.KAVA_RPC_URL!,
     etherscan: {
@@ -687,6 +719,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'kava_testnet',
+    displayName: 'Kava Testnet',
     chainId: BigInt(2221),
     rpcUrl: () => process.env.KAVA_TESTNET_RPC_URL!,
     etherscan: {
@@ -709,6 +742,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'oktc',
+    displayName: 'OKT Chain',
     chainId: BigInt(66),
     rpcUrl: () => process.env.OKTC_RPC_URL!,
     etherscan: {
@@ -729,6 +763,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'scroll',
+    displayName: 'Scroll',
     chainId: BigInt(534352),
     rpcUrl: () => process.env.SCROLL_RPC_URL!,
     etherscan: {
@@ -749,6 +784,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'scroll_sepolia',
+    displayName: 'Scroll Sepolia',
     chainId: BigInt(534351),
     rpcUrl: () => process.env.SCROLL_TESTNET_RPC_URL!,
     etherscan: {
@@ -769,6 +805,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'rootstock',
+    displayName: 'Rootstock',
     chainId: BigInt(30),
     rpcUrl: () => process.env.ROOTSTOCK_RPC_URL!,
     etherscan: {
@@ -789,6 +826,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'zora',
+    displayName: 'Zora',
     chainId: BigInt(7777777),
     rpcUrl: () => process.env.ZORA_RPC_URL!,
     etherscan: {
@@ -813,6 +851,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'zora_sepolia',
+    displayName: 'Zora Sepolia',
     chainId: BigInt(999999999),
     rpcUrl: () => process.env.ZORA_SEPOLIA_RPC_URL!,
     etherscan: {
@@ -837,6 +876,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'rari',
+    displayName: 'RARI',
     chainId: BigInt(1380012617),
     rpcUrl: () => process.env.RARI_RPC_URL!,
     etherscan: {
@@ -861,6 +901,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   },
   {
     name: 'rari_sepolia',
+    displayName: 'RARI Sepolia',
     chainId: BigInt(1918988905),
     rpcUrl: () => process.env.RARI_SEPOLIA_RPC_URL!,
     etherscan: {
