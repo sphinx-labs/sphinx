@@ -20,6 +20,7 @@ contract Simple1 is Script, Sphinx {
     function run() public sphinx {
         MyContract2 myContract;
         Network network = getSphinxNetwork(block.chainid);
+
         if (network == Network.ethereum || network == Network.sepolia) {
             myContract = new MyContract2{ salt: 0 }();
         } else if (network == Network.optimism) {
