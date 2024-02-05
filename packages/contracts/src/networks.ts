@@ -17,6 +17,10 @@ export type SupportedNetwork = {
   queryFilterBlockLimit: number
   legacyTx: boolean
   actionGasLimitBuffer: boolean
+  rollupStack?: {
+    provider: RollupProvider
+    type: RollupType
+  }
 }
 
 export type SupportedLocalNetwork = {
@@ -39,6 +43,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
 
 type BlockExplorer = 'Etherscan' | 'Blockscout' | 'Unsupported'
 type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
+type RollupProvider = 'Conduit' | 'Caldera'
+type RollupType = 'OP Stack' | 'Arbitrum'
 
 export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   {
@@ -592,7 +598,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     requiredEnvVariables: ['MOONBASE_ALPHA_RPC_URL'],
     queryFilterBlockLimit: 500,
     networkType: 'Testnet',
-    dripVersion: 1, // todo - redeploy this
+    dripVersion: 1,
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
@@ -714,7 +720,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'OKT',
     dripSize: '1',
     requiredEnvVariables: ['OKTC_RPC_URL'],
-    dripVersion: 1, // todo - redeploy this
+    dripVersion: 1,
     queryFilterBlockLimit: 500,
     networkType: 'Mainnet',
     legacyTx: true,
@@ -780,5 +786,101 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 8,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
+  },
+  {
+    name: 'zora',
+    chainId: BigInt(7777777),
+    rpcUrl: () => process.env.ZORA_RPC_URL!,
+    etherscan: {
+      apiURL: 'https://explorer.zora.energy/api',
+      browserURL: 'https://explorer.zora.energy/',
+      envKey: 'ZORA_ETHERSCAN_API_KEY',
+      blockExplorer: 'Blockscout',
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    requiredEnvVariables: ['ZORA_RPC_URL'],
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
+  },
+  {
+    name: 'zora_sepolia',
+    chainId: BigInt(999999999),
+    rpcUrl: () => process.env.ZORA_SEPOLIA_RPC_URL!,
+    etherscan: {
+      apiURL: 'https://sepolia.explorer.zora.energy/api',
+      browserURL: 'https://sepolia.explorer.zora.energy/',
+      envKey: 'ZORA_ETHERSCAN_API_KEY',
+      blockExplorer: 'Blockscout',
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    requiredEnvVariables: ['ZORA_SEPOLIA_RPC_URL'],
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
+  },
+  {
+    name: 'rari',
+    chainId: BigInt(1380012617),
+    rpcUrl: () => process.env.RARI_RPC_URL!,
+    etherscan: {
+      apiURL: 'https://mainnet.explorer.rarichain.org/api',
+      browserURL: 'https://mainnet.explorer.rarichain.org/',
+      envKey: 'RARI_ETHERSCAN_API_KEY',
+      blockExplorer: 'Blockscout',
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    requiredEnvVariables: ['RARI_RPC_URL'],
+    rollupStack: {
+      provider: 'Caldera',
+      type: 'Arbitrum',
+    },
+  },
+  {
+    name: 'rari_sepolia',
+    chainId: BigInt(1918988905),
+    rpcUrl: () => process.env.RARI_SEPOLIA_RPC_URL!,
+    etherscan: {
+      apiURL: 'https://explorer.rarichain.org/api',
+      browserURL: 'https://explorer.rarichain.org/',
+      envKey: 'RARI_ETHERSCAN_API_KEY',
+      blockExplorer: 'Blockscout',
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    requiredEnvVariables: ['RARI_SEPOLIA_RPC_URL'],
+    rollupStack: {
+      provider: 'Caldera',
+      type: 'Arbitrum',
+    },
   },
 ]

@@ -100,6 +100,8 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Fantom
 - Base
 - Scroll
+- Zora
+- RARI
 - Celo
 - Moonbeam
 - Moonriver
@@ -123,6 +125,8 @@ Test networks:
 - Fantom Testnet
 - Base Sepolia
 - Scroll Sepolia
+- Zora Sepolia
+- Rari Sepolia
 - Celo Alfajores
 - Moonbase Alpha
 - Evmos Testnet

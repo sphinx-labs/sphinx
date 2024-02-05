@@ -19,6 +19,11 @@ import {
   sleep,
 } from '../src'
 
+// We filter out app chains because we expect the mainnet test to cover them adequately
+const fetchNonRollupStackChains = () => {
+  return SPHINX_NETWORKS.filter((network) => network.rollupStack === undefined)
+}
+
 describe('Convert EthersJS Objects', () => {
   const anvilPrivateKey =
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -102,7 +107,7 @@ describe('Convert EthersJS Objects', () => {
 
   it('contains a hash for each live supported network', () => {
     expect(Object.values(transactionHashes).length).equals(
-      Object.values(SPHINX_NETWORKS).length
+      Object.values(fetchNonRollupStackChains()).length
     )
   })
 
