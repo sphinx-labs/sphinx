@@ -44,8 +44,24 @@ const sepoliaRpcUrl = `http://127.0.0.1:42111`
 const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
 
 describe('Propose CLI command', () => {
+  let originalEnv: NodeJS.ProcessEnv
+
   before(async () => {
+    // Store the original environment variables. We'll reset them after this test suite is finished.
+    originalEnv = { ...process.env }
+
     process.env['SPHINX_API_KEY'] = sphinxApiKey
+    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+    process.env['ETHEREUM_RPC_URL'] = getAnvilRpcUrl(
+      fetchChainIdForNetwork('ethereum')
+    )
+    process.env['OPTIMISM_RPC_URL'] = getAnvilRpcUrl(
+      fetchChainIdForNetwork('optimism')
+    )
+  })
+
+  after(() => {
+    process.env = originalEnv
   })
 
   beforeEach(async () => {
