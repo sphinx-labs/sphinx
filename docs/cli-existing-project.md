@@ -81,7 +81,7 @@ yarn sphinx install
 
 npm:
 ```
-npm sphinx install
+npx sphinx install
 ```
 
 pnpm:
