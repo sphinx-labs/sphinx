@@ -70,6 +70,11 @@ struct OptionalBytes32 {
     bool exists;
 }
 
+struct ParsedAccountAccess {
+    Vm.AccountAccess root;
+    Vm.AccountAccess[] nested;
+}
+
 /**
  * @notice Contains all of the information that's collected in a deployment on a single chain.
  */
@@ -87,7 +92,7 @@ struct DeploymentInfo {
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
-    Vm.AccountAccess[] accountAccesses;
+    ParsedAccountAccess[] accountAccesses;
     uint256[] gasEstimates;
 }
 

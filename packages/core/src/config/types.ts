@@ -91,6 +91,11 @@ export type ParsedConfig = {
   gitCommit: string | null
 }
 
+export type ParsedAccountAccess = {
+  root: AccountAccess
+  nested: Array<AccountAccess>
+}
+
 export type DeploymentInfo = {
   safeAddress: string
   moduleAddress: string
@@ -105,7 +110,7 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
-  accountAccesses: Array<AccountAccess>
+  accountAccesses: Array<ParsedAccountAccess>
   gasEstimates: Array<string>
 }
 

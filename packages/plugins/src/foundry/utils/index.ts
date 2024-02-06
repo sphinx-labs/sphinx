@@ -34,6 +34,7 @@ import {
   ActionInput,
   ConfigArtifacts,
   GetConfigArtifacts,
+  ParsedAccountAccess,
   ParsedConfig,
   ParsedVariable,
   SphinxConfigWithAddresses,
@@ -246,9 +247,14 @@ export const readContractArtifact = async (
  * Returns the init code of every contract deployment collected from a Forge script.
  */
 export const getInitCodeWithArgsArray = (
-  accountAccesses: Array<AccountAccess>
+  accountAccesses: Array<ParsedAccountAccess>
 ): Array<string> => {
-  return accountAccesses
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  return flat
     .filter((accountAccess) => accountAccess.kind === AccountAccessKind.Create)
     .map((accountAccess) => accountAccess.data)
 }
@@ -1097,10 +1103,15 @@ export const findFullyQualifiedNameForInitCode = (
  */
 export const findFullyQualifiedNameForAddress = (
   address: string,
-  accountAccesses: Array<AccountAccess>,
+  accountAccesses: Array<ParsedAccountAccess>,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
-  const createAccountAccess = accountAccesses.find(
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  const createAccountAccess = flat.find(
     (accountAccess) =>
       accountAccess.kind === AccountAccessKind.Create &&
       accountAccess.account === address
@@ -1148,10 +1159,15 @@ export const writeSystemContracts = (
 }
 
 export const assertValidAccountAccesses = (
-  accountAccesses: Array<AccountAccess>,
+  accountAccesses: Array<ParsedAccountAccess>,
   safeAddress: string
 ): void => {
-  for (const accountAccess of accountAccesses) {
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  for (const accountAccess of flat) {
     if (accountAccess.accessor === safeAddress) {
       if (BigInt(accountAccess.value) > BigInt(0)) {
         throw new Error(
@@ -1171,28 +1187,30 @@ export const assertValidAccountAccesses = (
  * through the Deterministic Deployment Proxy (i.e. Foundry's default `CREATE2` deployer).
  */
 export const isCreate2AccountAccess = (
-  accountAccess: AccountAccess,
-  nextAccountAccess?: AccountAccess
+  root: AccountAccess,
+  nested: Array<AccountAccess>
 ): boolean => {
+  if (nested.length === 0) {
+    return false
+  }
+  const nextAccountAccess = nested[0]
+
   // The first `AccountAccess` must be a `Call` to the Deterministic Deployment Proxy, and must have
   // data that's at least 32 bytes long, since the data is a 32-byte salt appended with the
   // contract's init code.
   const isCreate2Call =
-    accountAccess.kind === AccountAccessKind.Call &&
-    accountAccess.account === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
-    getBytesLength(accountAccess.data) >= 32
+    root.kind === AccountAccessKind.Call &&
+    root.account === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
+    getBytesLength(root.data) >= 32
   if (!isCreate2Call) {
     return false
   }
 
-  const { create2Address } = decodeDeterministicDeploymentProxyData(
-    accountAccess.data
-  )
+  const { create2Address } = decodeDeterministicDeploymentProxyData(root.data)
 
   // The next `AccountAccess` must be a `Create` kind, and must be sent from the Deterministic
   // Deployment Proxy to the expected `CREATE2` address.
   return (
-    nextAccountAccess !== undefined &&
     nextAccountAccess.kind === AccountAccessKind.Create &&
     nextAccountAccess.accessor === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
     nextAccountAccess.account === create2Address
@@ -1212,8 +1230,7 @@ export const isCreate2AccountAccess = (
  * qualified name).
  */
 export const parseNestedContractDeployments = (
-  nextAccountAccesses: Array<AccountAccess>,
-  safeAddress: string,
+  nested: Array<AccountAccess>,
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: ActionInput['contracts']
@@ -1223,14 +1240,7 @@ export const parseNestedContractDeployments = (
   const unlabeled: ParsedConfig['unlabeledContracts'] = []
 
   // Iterate through the `AccountAccess` elements.
-  for (const accountAccess of nextAccountAccesses) {
-    // Return if the accessor (i.e. the caller) is the Gnosis Safe. This indicates that the current
-    // `AccountAccess` is no longer nested. When Foundry merges the PR that adds a call depth field
-    // to the `AccountAccess`, this line will check the call depth instead.
-    if (accountAccess.accessor === safeAddress) {
-      return { parsedContracts, unlabeled }
-    }
-
+  for (const accountAccess of nested) {
     if (accountAccess.kind === AccountAccessKind.Create) {
       const initCodeWithArgs = accountAccess.data
       const address = accountAccess.account

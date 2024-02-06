@@ -20,7 +20,8 @@ import {
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -94,9 +95,7 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCollectProposal(
-        string memory _deploymentInfoPath
-    ) external {
+    function sphinxCollectProposal(string memory _deploymentInfoPath) external {
         sphinxUtils.validateProposal(sphinxConfig);
 
         DeploymentInfo memory deploymentInfo = sphinxCollect(
@@ -136,10 +135,7 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(
-            _executionMode,
-            deployer
-        );
+        DeploymentInfo memory deploymentInfo = sphinxCollect(_executionMode, deployer);
         vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
     }
 
@@ -197,7 +193,8 @@ abstract contract Sphinx {
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
-        deploymentInfo.accountAccesses = vm.stopAndReturnStateDiff();
+        Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+        deploymentInfo.accountAccesses = sphinxUtils.parseAccountAccesses(accesses, safe);
 
         vm.revertTo(snapshotId);
         deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
@@ -333,22 +330,19 @@ abstract contract Sphinx {
      *            there's a large gas refund.
      */
     function _sphinxEstimateMerkleLeafGas(
-        Vm.AccountAccess[] memory _accountAccesses,
+        ParsedAccountAccess[] memory _accountAccesses,
         IGnosisSafe _safe,
         address _moduleAddress
     ) private returns (uint256[] memory) {
-        GnosisSafeTransaction[] memory txnArray = sphinxUtils.makeGnosisSafeTransactions(
-            address(_safe),
-            _accountAccesses
-        );
-        uint256[] memory gasEstimates = new uint256[](txnArray.length);
+        uint256[] memory gasEstimates = new uint256[](_accountAccesses.length);
 
         // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
         // Module calls the Gnosis Safe.
         vm.startPrank(_moduleAddress);
 
-        for (uint256 i = 0; i < txnArray.length; i++) {
-            GnosisSafeTransaction memory txn = txnArray[i];
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            ParsedAccountAccess memory parsed = _accountAccesses[i];
+            GnosisSafeTransaction memory txn = sphinxUtils.makeGnosisSafeTransaction(parsed.root);
             uint256 startGas = gasleft();
             bool success = _safe.execTransactionFromModule(
                 txn.to,

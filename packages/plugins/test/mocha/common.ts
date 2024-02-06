@@ -31,6 +31,7 @@ import {
   fetchChainIdForNetwork,
   AccountAccess,
   AccountAccessKind,
+  ParsedAccountAccess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -333,7 +334,7 @@ export const makeDeployment = async (
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  accountAccesses: Array<AccountAccess>,
+  accountAccesses: Array<ParsedAccountAccess>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -372,7 +373,7 @@ export const makeDeployment = async (
     const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
     await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
 
-    const numActionInputs = getNumActionInputs(accountAccesses, safeAddress)
+    const numActionInputs = accountAccesses.length
 
     const deploymentInfo: DeploymentInfo = {
       safeAddress,
@@ -452,7 +453,7 @@ export const makeRevertingDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<AccountAccess>
+  accountAccesses: Array<ParsedAccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -460,9 +461,8 @@ export const makeRevertingDeployment = (
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const accountAccesses: Array<AccountAccess> = makeCreate2AccountAccesses(
-    safeAddress,
-    [
+  const accountAccesses: Array<ParsedAccountAccess> =
+    makeCreate2AccountAccesses(safeAddress, [
       {
         salt,
         artifact: parseFoundryContractArtifact(MyContract2Artifact),
@@ -473,8 +473,7 @@ export const makeRevertingDeployment = (
         artifact: parseFoundryContractArtifact(Reverter),
         abiEncodedConstructorArgs: '0x',
       },
-    ]
-  )
+    ])
   const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = ['MyContract2.json']
 
@@ -563,8 +562,8 @@ const makeCreate2AccountAccesses = (
     artifact: ContractArtifact
     abiEncodedConstructorArgs: string
   }>
-): Array<AccountAccess> => {
-  const accountAccesses: Array<AccountAccess> = []
+): Array<ParsedAccountAccess> => {
+  const accountAccesses: Array<ParsedAccountAccess> = []
   for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
     const { bytecode } = artifact
 
@@ -581,20 +580,24 @@ const makeCreate2AccountAccesses = (
     )
 
     accountAccesses.push({
-      ...blankAccountAccess,
-      account: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      accessor: safeAddress,
-      value: '0',
-      data,
-      kind: AccountAccessKind.Call,
-    })
-    accountAccesses.push({
-      ...blankAccountAccess,
-      account: create2Address,
-      accessor: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      value: '0',
-      data: initCodeWithArgs,
-      kind: AccountAccessKind.Create,
+      root: {
+        ...blankAccountAccess,
+        account: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        accessor: safeAddress,
+        value: '0',
+        data,
+        kind: AccountAccessKind.Call,
+      },
+      nested: [
+        {
+          ...blankAccountAccess,
+          account: create2Address,
+          accessor: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          value: '0',
+          data: initCodeWithArgs,
+          kind: AccountAccessKind.Create,
+        },
+      ],
     })
   }
   return accountAccesses
@@ -607,7 +610,7 @@ export const makeStandardDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<AccountAccess>
+  accountAccesses: Array<ParsedAccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -824,15 +827,4 @@ export const runForgeScript = async (
     throw new Error('Could not find broadcast file.')
   }
   return broadcast
-}
-
-const getNumActionInputs = (
-  accountAccesses: Array<AccountAccess>,
-  safeAddress: string
-): number => {
-  return accountAccesses.filter(
-    (a) =>
-      a.accessor === safeAddress &&
-      (a.kind === AccountAccessKind.Call || a.kind === AccountAccessKind.Create)
-  ).length
 }

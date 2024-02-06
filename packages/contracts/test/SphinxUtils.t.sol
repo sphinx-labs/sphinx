@@ -2,16 +2,20 @@
 pragma solidity ^0.8.0;
 
 import "../lib/forge-std/src/Test.sol";
+import { VmSafe } from "../lib/forge-std/src/Vm.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import {
     FoundryContractConfig,
     OptionalString,
     ContractKindEnum,
     ParsedCallAction,
-    Network
+    Network,
+    ParsedAccountAccess
 } from "../contracts/foundry/SphinxPluginTypes.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
+    address dummySafeAddress = address(0x1234);
+
     function setUp() public {}
 
     function test_getUniqueAddresses_success_allUnique() external {
@@ -120,5 +124,67 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         uint256[] memory uniqueValues = getUniqueUint256(values);
 
         assertEq(uniqueValues.length, 0, "The returned array should be empty");
+    }
+
+    function test_parseAccountAccesses_emptyInput() public {
+        Vm.AccountAccess[] memory accesses;
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        assertEq(parsed.length, 0);
+    }
+
+    function test_parseAccountAccesses_noRoots() public {
+        Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](3);
+        accesses[0] = makeAccountAccess({
+            _accessor: address(0x1),
+            _kind: VmSafe.AccountAccessKind.Call
+        });
+        accesses[1] = makeAccountAccess({
+            _accessor: address(0x2),
+            _kind: VmSafe.AccountAccessKind.Create
+        });
+        accesses[2] = makeAccountAccess({
+            _accessor: address(0x3),
+            _kind: VmSafe.AccountAccessKind.Extcodesize
+        });
+
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        assertEq(parsed.length, 0);
+    }
+
+    function test_parseAccountAccesses_noNested() public {
+        Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](2);
+        accesses[0] = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Call
+        });
+        accesses[1] = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Create
+        });
+
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        assertEq(parsed.length, 2);
+
+        assertEq(parsed[0].root.accessor, dummySafeAddress);
+        assertEq(parsed[0].root.kind, VmSafe.AccountAccessKind.Call);
+        assertEq(parsed[0].nested.length, 0);
+
+        assertEq(parsed[1].root.accessor, dummySafeAddress);
+        assertEq(parsed[1].root.kind, VmSafe.AccountAccessKind.Create);
+        assertEq(parsed[1].nested.length, 0);
+    }
+
+    function makeAccountAccess(
+        address _accessor,
+        Vm.AccountAccessKind _kind
+    ) private pure returns (Vm.AccountAccess memory) {
+        Vm.AccountAccess memory access;
+        access.kind = _kind;
+        access.accessor = _accessor;
+        return access;
+    }
+
+    function assertEq(VmSafe.AccountAccessKind _a, VmSafe.AccountAccessKind _b) private {
+        assertEq(uint8(_a), uint8(_b));
     }
 }
