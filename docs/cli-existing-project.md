@@ -13,7 +13,7 @@ In this guide, you'll propose the deployment on the command line and then approv
 ## Table of Contents
 
 1. [Prerequisites](#1-prerequisites)
-2. [Update Foundry](#2-update-foundry)
+2. [Install Sphinx Foundry Fork](#2-install-sphinx-foundry-fork)
 3. [Install Sphinx CLI](#3-install-sphinx-cli)
 4. [Install Sphinx Foundry library](#4-install-sphinx-foundry-library)
 5. [Update `.gitignore`](#5-update-gitignore)
@@ -42,12 +42,22 @@ In this guide, you'll propose the deployment on the command line and then approv
   * [Foundry](https://book.getfoundry.sh/getting-started/installation)
   * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
   * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
+  * [Rust Compiler](https://www.rust-lang.org/tools/install)
 
-## 2. Update Foundry
+## 2. Install Sphinx Foundry Fork
+For now, Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo.
 
+If you are using macOS, you will first need to install the Xcode Command Line Tools:
 ```
-foundryup
+xcode-select --install
 ```
+
+Then, install the Sphinx Foundry fork with the following command. The installation process may take several minutes to complete.
+```
+foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0
+```
+
+> If you run into problems installing our Foundry fork, [try steps in the troubleshooting guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/troubleshooting-guide.md#installing-sphinxs-foundry-fork). If you are still unable to resolve the issue, please reach out in the [Discord](https://discord.gg/7Gc3DK33Np). We're always happy to help.
 
 ## 3. Install Sphinx CLI
 
@@ -210,6 +220,7 @@ Update your `foundry.toml` file to include a few settings required by Sphinx. We
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
+always_use_create_2_factory = true
 ```
 
 ## 11. Run tests
