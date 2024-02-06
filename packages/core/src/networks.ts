@@ -107,11 +107,31 @@ export const fetchCurrencyForNetwork = (chainId: bigint) => {
   }
 }
 
+export const isLiveNetworkRpcApiKeyDefined = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+  if (!network) {
+    return false
+  }
+  for (const requiredEnvVariable of network.requiredEnvVariables) {
+    if (!process.env[requiredEnvVariable]) {
+      return false
+    }
+  }
+  return true
+}
+
 export const fetchURLForNetwork = (chainId: bigint) => {
   if (process.env.RUNNING_LOCALLY === 'true') {
     return `http://127.0.0.1:${Number(
       BigInt(42000) + (chainId % BigInt(1000))
     )}`
+  }
+
+  const CIRCLE_BRANCH = process.env.CIRCLE_BRANCH
+  if (typeof CIRCLE_BRANCH === 'string' && CIRCLE_BRANCH !== 'develop') {
+    throw new Error(
+      `You cannot use live network RPC endpoints in CI with a source branch that isn't 'develop'.`
+    )
   }
 
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
