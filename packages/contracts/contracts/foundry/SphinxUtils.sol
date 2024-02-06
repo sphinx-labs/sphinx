@@ -14,7 +14,7 @@ import {
 } from "../core/SphinxDataTypes.sol";
 import {
     SphinxMerkleTree,
-    DeploymentInfo,
+    FoundryDeploymentInfo,
     HumanReadableAction,
     NetworkInfo,
     NetworkType,
@@ -41,6 +41,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    // Object keys for the JSON serialization functions in this contract.
+    string internal initialStateKey = "Sphinx_Internal__InitialChainState";
+    string internal deploymentInfoKey = "Sphinx_Internal__FoundryDeploymentInfo";
+    string internal sphinxConfigKey = "Sphinx_Internal__SphinxConfig";
 
     function slice(
         bytes calldata _data,
@@ -927,6 +932,119 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             }
         }
         return count;
+    }
+
+    /**
+     * @notice Serializes the `FoundryDeploymentInfo` struct. The serialized string is the
+     *         same structure as the `FoundryDeploymentInfo` struct except all `uint` fields
+     *         are ABI encoded (see inline docs for details).
+     */
+    function serializeFoundryDeploymentInfo(
+        FoundryDeploymentInfo memory _deployment
+    ) public returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(deploymentInfoKey, "{}");
+
+        // Serialize simple fields
+        vm.serializeAddress(deploymentInfoKey, "safeAddress", _deployment.safeAddress);
+        vm.serializeAddress(deploymentInfoKey, "moduleAddress", _deployment.moduleAddress);
+        vm.serializeAddress(deploymentInfoKey, "executorAddress", _deployment.executorAddress);
+        vm.serializeBytes(deploymentInfoKey, "safeInitData", _deployment.safeInitData);
+        vm.serializeBool(deploymentInfoKey, "requireSuccess", _deployment.requireSuccess);
+        vm.serializeString(
+            deploymentInfoKey,
+            "sphinxLibraryVersion",
+            _deployment.sphinxLibraryVersion
+        );
+        vm.serializeBool(deploymentInfoKey, "arbitraryChain", _deployment.arbitraryChain);
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "encodedAccountAccesses",
+            _deployment.encodedAccountAccesses
+        );
+        // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
+        // numbers to prevent the possibility that they lose precision due JavaScript's relatively
+        // low integer size limit. We'll ABI decode these values in TypeScript. It'd be simpler to
+        // serialize the numbers as strings without ABI encoding them, but that strategy is blocked
+        // by a Foundry bug: https://github.com/foundry-rs/foundry/issues/6533
+        vm.serializeBytes(deploymentInfoKey, "nonce", abi.encode(_deployment.nonce));
+        vm.serializeBytes(deploymentInfoKey, "chainId", abi.encode(_deployment.chainId));
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "blockGasLimit",
+            abi.encode(_deployment.blockGasLimit)
+        );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "executionMode",
+            abi.encode(uint256(_deployment.executionMode))
+        );
+        // Serialize the gas estimates as an ABI encoded `uint256` array.
+        vm.serializeBytes(deploymentInfoKey, "gasEstimates", abi.encode(_deployment.gasEstimates));
+
+        // Serialize structs
+        vm.serializeString(
+            deploymentInfoKey,
+            "newConfig",
+            serializeSphinxConfig(_deployment.newConfig)
+        );
+        string memory finalJson = vm.serializeString(
+            deploymentInfoKey,
+            "initialState",
+            serializeInitialChainState(_deployment.initialState)
+        );
+
+        return finalJson;
+    }
+
+    function serializeSphinxConfig(SphinxConfig memory config) internal returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(sphinxConfigKey, "{}");
+
+        vm.serializeString(sphinxConfigKey, "projectName", config.projectName);
+        vm.serializeAddress(sphinxConfigKey, "owners", config.owners);
+        vm.serializeString(sphinxConfigKey, "mainnets", convertNetworksToStrings(config.mainnets));
+        vm.serializeString(sphinxConfigKey, "testnets", convertNetworksToStrings(config.testnets));
+        vm.serializeString(sphinxConfigKey, "orgId", config.orgId);
+        // Serialize the `uint` values as ABI encoded bytes.
+        vm.serializeBytes(sphinxConfigKey, "saltNonce", abi.encode(config.saltNonce));
+        string memory finalJson = vm.serializeBytes(
+            sphinxConfigKey,
+            "threshold",
+            abi.encode(config.threshold)
+        );
+
+        return finalJson;
+    }
+
+    function serializeInitialChainState(
+        InitialChainState memory _initialState
+    ) internal returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(initialStateKey, "{}");
+
+        vm.serializeBool(initialStateKey, "isSafeDeployed", _initialState.isSafeDeployed);
+        vm.serializeBool(initialStateKey, "isModuleDeployed", _initialState.isModuleDeployed);
+        string memory finalJson = vm.serializeBool(
+            initialStateKey,
+            "isExecuting",
+            _initialState.isExecuting
+        );
+
+        return finalJson;
+    }
+
+    function convertNetworksToStrings(
+        Network[] memory _networks
+    ) private pure returns (string[] memory) {
+        string[] memory converted = new string[](_networks.length);
+        for (uint256 i = 0; i < _networks.length; i++) {
+            converted[i] = vm.toString(uint256(_networks[i]));
+        }
+        return converted;
     }
 
     function parseAccountAccesses(

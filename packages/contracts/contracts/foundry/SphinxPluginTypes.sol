@@ -77,8 +77,20 @@ struct ParsedAccountAccess {
 
 /**
  * @notice Contains all of the information that's collected in a deployment on a single chain.
+ *         The only difference between this struct and the TypeScript `DeploymentInfo` object is
+ *         that the latter has an `accountAccesses` array of `ParsedAccountAccess` elements, whereas
+ *         this struct has an `encodedAccountAccesses` bytes array of `ParsedAccountAccess`
+ *         elements.
+ *
+ * @custom:field encodedAccountAccesses An array of ABI encoded `ParsedAccountAccess` structs. We
+ *                                      ABI encode each `ParsedAccountAccess` struct individually so
+ *                                      that we can decode them in TypeScript. Specifically, if we
+ *                                      ABI encode the entire array of `ParsedAccountAccess`
+ *                                      elements, the encoded bytes will be too large for EthersJS
+ *                                      to ABI decode, which causes an error. This occurs for large
+ *                                      deployments, i.e. greater than 50 contracts.
  */
-struct DeploymentInfo {
+struct FoundryDeploymentInfo {
     address safeAddress;
     address moduleAddress;
     address executorAddress;
@@ -92,7 +104,7 @@ struct DeploymentInfo {
     InitialChainState initialState;
     bool arbitraryChain;
     string sphinxLibraryVersion;
-    ParsedAccountAccess[] accountAccesses;
+    bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
 }
 
@@ -201,12 +213,22 @@ contract SphinxPluginTypes {
         )
     {}
 
-    function getDeploymentInfo() external view returns (DeploymentInfo memory deploymentInfo) {}
+    function parsedAccountAccessType()
+        external
+        view
+        returns (ParsedAccountAccess memory parsedAccountAccess)
+    {}
+
+    function getDeploymentInfo()
+        external
+        view
+        returns (FoundryDeploymentInfo memory deploymentInfo)
+    {}
 
     function getDeploymentInfoArray()
         external
         view
-        returns (DeploymentInfo[] memory deploymentInfoArray)
+        returns (FoundryDeploymentInfo[] memory deploymentInfoArray)
     {}
 
     function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}

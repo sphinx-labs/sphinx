@@ -37,41 +37,48 @@ import {
 } from './utils'
 
 export const decodeDeploymentInfo = (
-  abiEncodedDeploymentInfo: string,
+  serializedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface
 ): DeploymentInfo => {
-  const deploymentInfoFragment = findFunctionFragment(
+  const parsed = JSON.parse(serializedDeploymentInfo)
+
+  const parsedAccountAccessFragment = findFunctionFragment(
     sphinxPluginTypesInterface,
-    'getDeploymentInfo'
+    'parsedAccountAccessType'
   )
 
-  const deploymentInfoResult = AbiCoder.defaultAbiCoder().decode(
-    deploymentInfoFragment.outputs,
-    abiEncodedDeploymentInfo
-  )
-
-  const { deploymentInfo: deploymentInfoBigInt } = recursivelyConvertResult(
-    deploymentInfoFragment.outputs,
-    deploymentInfoResult
-  ) as any
+  const coder = AbiCoder.defaultAbiCoder()
 
   const {
     safeAddress,
     moduleAddress,
     executorAddress,
-    nonce,
-    chainId,
-    blockGasLimit,
     initialState,
-    executionMode,
-    newConfig,
     requireSuccess,
     safeInitData,
     arbitraryChain,
     sphinxLibraryVersion,
-    accountAccesses,
-    gasEstimates,
-  } = deploymentInfoBigInt
+  } = parsed
+
+  const blockGasLimit = abiDecodeUint256(parsed.blockGasLimit)
+  const chainId = abiDecodeUint256(parsed.chainId)
+  const executionMode = abiDecodeUint256(parsed.executionMode)
+  const nonce = abiDecodeUint256(parsed.nonce)
+
+  const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
+
+  // ABI decode each `ParsedAccountAccess` individually.
+  const accountAccesses = parsed.encodedAccountAccesses.map((encoded) => {
+    const decodedResult = coder.decode(
+      parsedAccountAccessFragment.outputs,
+      encoded
+    )
+    const { parsedAccountAccess } = recursivelyConvertResult(
+      parsedAccountAccessFragment.outputs,
+      decodedResult
+    ) as any
+    return parsedAccountAccess
+  })
 
   const deploymentInfo: DeploymentInfo = {
     safeAddress,
@@ -79,19 +86,21 @@ export const decodeDeploymentInfo = (
     safeInitData,
     executorAddress,
     requireSuccess,
-    nonce: nonce.toString(),
-    chainId: chainId.toString(),
-    blockGasLimit: blockGasLimit.toString(),
+    nonce,
+    chainId,
+    blockGasLimit,
     initialState: {
       ...initialState,
     },
     executionMode: Number(executionMode),
     newConfig: {
-      ...newConfig,
-      testnets: newConfig.testnets.map(networkEnumToName),
-      mainnets: newConfig.mainnets.map(networkEnumToName),
-      threshold: newConfig.threshold.toString(),
-      saltNonce: newConfig.saltNonce.toString(),
+      projectName: parsed.newConfig.projectName,
+      orgId: parsed.newConfig.orgId,
+      owners: parsed.newConfig.owners,
+      mainnets: parsed.newConfig.mainnets.map(networkEnumToName),
+      testnets: parsed.newConfig.testnets.map(networkEnumToName),
+      threshold: abiDecodeUint256(parsed.newConfig.threshold),
+      saltNonce: abiDecodeUint256(parsed.newConfig.saltNonce),
     },
     arbitraryChain,
     sphinxLibraryVersion,
@@ -385,4 +394,16 @@ export const makeFunctionCallDecodedAction = (
       address: '',
     }
   }
+}
+
+const abiDecodeUint256 = (encoded: string): string => {
+  const coder = AbiCoder.defaultAbiCoder()
+  const result = coder.decode(['uint256'], encoded)
+  return result.toString()
+}
+
+const abiDecodeUint256Array = (encoded: string): Array<string> => {
+  const coder = AbiCoder.defaultAbiCoder()
+  const [result] = coder.decode(['uint256[]'], encoded)
+  return result.map((r) => r.toString())
 }
