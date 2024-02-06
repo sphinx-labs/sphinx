@@ -25,7 +25,8 @@ import {
     Wallet,
     ExecutionMode,
     SystemContractInfo,
-    GnosisSafeTransaction
+    GnosisSafeTransaction,
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -886,65 +887,110 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    /**
-     * @notice Converts an array of `AccountAccess` structs to an array of transactions
-     *         that can be executed from a Gnosis Safe.
-     */
-    function makeGnosisSafeTransactions(
-        address _gnosisSafeAddress,
-        Vm.AccountAccess[] memory _accountAccesses
-    ) external pure returns (GnosisSafeTransaction[] memory) {
-        // First, we'll get the number of transactions that will be sent from the Gnosis Safe. We'll
-        // need this value because Solidity requires us to define memory arrays with an explicit
-        // number of elements.
-        uint256 numTxns = 0;
-        for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
+    function getNumRootAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        address _safeAddress
+    ) private pure returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _accesses.length; i++) {
+            Vm.AccountAccess memory access = _accesses[i];
 
-            // We'll add the `AccountAccess` struct if its sender (i.e. `accessor`) is the Gnosis
-            // Safe, and it's either a `Call` or `Create` kind.
-            bool isActionInput = accountAccess.accessor == _gnosisSafeAddress &&
-                (accountAccess.kind == VmSafe.AccountAccessKind.Call ||
-                    accountAccess.kind == VmSafe.AccountAccessKind.Create);
-
-            if (isActionInput) {
-                numTxns += 1;
+            if (isRootAccountAccess(access, _safeAddress)) {
+                count += 1;
             }
         }
+        return count;
+    }
 
-        GnosisSafeTransaction[] memory txns = new GnosisSafeTransaction[](numTxns);
-        uint256 txnIndex = 0;
-        // Create the Gnosis Safe transactions.
-        for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            Vm.AccountAccess memory accountAccess = _accountAccesses[i];
-            if (accountAccess.accessor == _gnosisSafeAddress) {
-                if (accountAccess.kind == VmSafe.AccountAccessKind.Create) {
-                    // `Create` transactions are executed by delegatecalling the `CreateCall`
-                    // contract from the Gnosis Safe.
-                    txns[txnIndex] = GnosisSafeTransaction({
-                        operation: IEnum.GnosisSafeOperation.DelegateCall,
-                        // The `value` field is always unused for `DelegateCall` operations.
-                        // Instead, value is transferred via `performCreate` below.
-                        value: 0,
-                        to: createCallAddress,
-                        txData: abi.encodePacked(
-                            ICreateCall.performCreate.selector,
-                            abi.encode(accountAccess.value, accountAccess.data)
-                        )
-                    });
-                    txnIndex += 1;
-                } else if (accountAccess.kind == VmSafe.AccountAccessKind.Call) {
-                    txns[txnIndex] = GnosisSafeTransaction({
-                        operation: IEnum.GnosisSafeOperation.Call,
-                        value: accountAccess.value,
-                        to: accountAccess.account,
-                        txData: accountAccess.data
-                    });
-                    txnIndex += 1;
+    function isRootAccountAccess(
+        Vm.AccountAccess memory _access,
+        address _safeAddress
+    ) private pure returns (bool) {
+        return
+            _access.accessor == _safeAddress &&
+            (_access.kind == VmSafe.AccountAccessKind.Call ||
+                _access.kind == VmSafe.AccountAccessKind.Create);
+    }
+
+    function getNumNestedAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        uint256 _rootIdx,
+        address _safeAddress
+    ) private pure returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
+            Vm.AccountAccess memory access = _accesses[i];
+            if (isRootAccountAccess(access, _safeAddress)) {
+                return count;
+            } else {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    function parseAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        address _safeAddress
+    ) public pure returns (ParsedAccountAccess[] memory) {
+        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
+
+        ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
+        uint256 rootCount = 0;
+        for (uint256 rootIdx = 0; rootIdx < _accesses.length; rootIdx++) {
+            Vm.AccountAccess memory access = _accesses[rootIdx];
+
+            if (isRootAccountAccess(access, _safeAddress)) {
+                uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress);
+                Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
+                for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
+                    // Calculate the index of the current nested `AccountAccess` in the `_accesses`
+                    // array. This index starts after the index of the root element (`rootIdx + 1`),
+                    // then adds the offset (`nestedIdx`) to iterate through subsequent nested
+                    // elements.
+                    uint256 accessesIndex = rootIdx + nestedIdx + 1;
+
+                    nested[nestedIdx] = _accesses[accessesIndex];
                 }
+                parsed[rootCount] = ParsedAccountAccess({ root: access, nested: nested });
+                rootCount += 1;
             }
         }
+        return parsed;
+    }
 
-        return txns;
+    /**
+     * @notice Converts an `AccountAccess` struct to a struct that can be executed from a Gnosis Safe
+     *         via `GnosisSafe.execTransactionFromModule`.
+     */
+    function makeGnosisSafeTransaction(
+        Vm.AccountAccess memory _access
+    ) external pure returns (GnosisSafeTransaction memory) {
+        if (_access.kind == VmSafe.AccountAccessKind.Create) {
+            // `Create` transactions are executed by delegatecalling the `CreateCall`
+            // contract from the Gnosis Safe.
+            return
+                GnosisSafeTransaction({
+                    operation: IEnum.GnosisSafeOperation.DelegateCall,
+                    // The `value` field is always unused for `DelegateCall` operations.
+                    // Instead, value is transferred via `performCreate` below.
+                    value: 0,
+                    to: createCallAddress,
+                    txData: abi.encodePacked(
+                        ICreateCall.performCreate.selector,
+                        abi.encode(_access.value, _access.data)
+                    )
+                });
+        } else if (_access.kind == VmSafe.AccountAccessKind.Call) {
+            return
+                GnosisSafeTransaction({
+                    operation: IEnum.GnosisSafeOperation.Call,
+                    value: _access.value,
+                    to: _access.account,
+                    txData: _access.data
+                });
+        } else {
+            revert("AccountAccess kind is incorrect. Should never happen.");
+        }
     }
 }

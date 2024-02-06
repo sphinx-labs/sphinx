@@ -138,19 +138,9 @@ export const makeParsedConfig = (
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
-  let actionInputIndex = 0
   for (let i = 0; i < accountAccesses.length; i++) {
-    const accountAccess = accountAccesses[i]
-
-    const isActionInput =
-      accountAccess.accessor === safeAddress &&
-      (accountAccess.kind === AccountAccessKind.Call ||
-        accountAccess.kind === AccountAccessKind.Create)
-    if (!isActionInput) {
-      continue
-    }
-
-    const gas = gasEstimates[actionInputIndex].toString()
+    const { root, nested } = accountAccesses[i]
+    const gas = gasEstimates[i].toString()
 
     if (BigInt(gas) > maxAllowedGasPerLeaf) {
       throw new Error(
@@ -158,24 +148,19 @@ export const makeParsedConfig = (
       )
     }
 
-    // Get an array of the `AccountAccess` objects after the current one. If the current object is
-    // the last element in the array, `slice` will return an empty array instead of reverting.
-    const nextAccountAccesses = accountAccesses.slice(i + 1)
-
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
-      nextAccountAccesses,
-      safeAddress,
+      nested,
       configArtifacts
     )
     unlabeledContracts.push(...unlabeled)
 
     // The index of `EXECUTE` Merkle leaves starts at 1 because the `APPROVE` leaf always has an
     // index of 0.
-    const executeActionIndex = actionInputIndex + 1
+    const executeActionIndex = i + 1
 
-    if (accountAccess.kind === AccountAccessKind.Create) {
-      const initCodeWithArgs = accountAccess.data
-      const address = accountAccess.account
+    if (root.kind === AccountAccessKind.Create) {
+      const initCodeWithArgs = root.data
+      const address = root.account
       const fullyQualifiedName = findFullyQualifiedNameForInitCode(
         initCodeWithArgs,
         configArtifacts
@@ -217,20 +202,12 @@ export const makeParsedConfig = (
         value: '0',
         operation: Operation.DelegateCall,
         to: getCreateCallAddress(),
-        txData: encodeCreateCall(accountAccess.value, initCodeWithArgs),
+        txData: encodeCreateCall(root.value, initCodeWithArgs),
       }
       parsedActionInputs.push(action)
-    } else if (
-      isCreate2AccountAccess(
-        accountAccess,
-        // Gets the next `AccountAccess` element. The `Array.at` method returns `undefined` if there
-        // is no element at the index, which will occur if the current element is the last element
-        // of the array.
-        accountAccesses.at(i + 1)
-      )
-    ) {
+    } else if (isCreate2AccountAccess(root, nested)) {
       const { create2Address, initCodeWithArgs } =
-        decodeDeterministicDeploymentProxyData(accountAccess.data)
+        decodeDeterministicDeploymentProxyData(root.data)
 
       const fullyQualifiedName = findFullyQualifiedNameForInitCode(
         initCodeWithArgs,
@@ -253,14 +230,14 @@ export const makeParsedConfig = (
         decodedAction,
         gas,
         requireSuccess,
-        value: accountAccess.value.toString(),
+        value: root.value.toString(),
         operation: Operation.Call,
         to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-        txData: accountAccess.data,
+        txData: root.data,
       }
       parsedActionInputs.push(action)
-    } else if (accountAccess.kind === AccountAccessKind.Call) {
-      const to = accountAccess.account
+    } else if (root.kind === AccountAccessKind.Call) {
+      const to = root.account
 
       // Find the fully qualified name that corresponds to the `to` address, if such a fully
       // qualified name exists. We'll use the fully qualified name to create the decoded action.
@@ -272,7 +249,7 @@ export const makeParsedConfig = (
 
       const decodedAction = makeFunctionCallDecodedAction(
         to,
-        accountAccess.data,
+        root.data,
         configArtifacts,
         fullyQualifiedName
       )
@@ -284,15 +261,14 @@ export const makeParsedConfig = (
         decodedAction,
         gas,
         requireSuccess,
-        value: accountAccess.value.toString(),
+        value: root.value.toString(),
         operation: Operation.Call,
         to,
-        txData: accountAccess.data,
+        txData: root.data,
       }
 
       parsedActionInputs.push(callInput)
     }
-    actionInputIndex += 1
   }
 
   // Sanity check that the number of gas estimates equals the number of actions.

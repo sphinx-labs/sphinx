@@ -3,10 +3,10 @@ import { rm } from 'fs/promises'
 import {
   DeploymentArtifacts,
   ExecutionMode,
-  AccountAccess,
   fetchChainIdForNetwork,
   getConfigArtifactsRemote,
   writeDeploymentArtifacts,
+  ParsedAccountAccess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -125,7 +125,7 @@ const makeThenRunThenCheckDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<AccountAccess>
+    accountAccesses: Array<ParsedAccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },
@@ -177,7 +177,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<AccountAccess>
+    accountAccesses: Array<ParsedAccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },

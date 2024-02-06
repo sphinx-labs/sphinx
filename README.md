@@ -74,7 +74,6 @@ A demo of the DevOps Platform is on the [website's landing page](https://sphinx.
 ## Current Limitations
 
 - You cannot deploy [libraries](https://docs.soliditylang.org/en/v0.8.24/contracts.html#libraries).
-- You cannot send ETH as part of a deployment.
 - You can only use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) on live networks if your Gnosis Safe has a single owner. (Deployments with the DevOps Platform support an arbitrary number of owners).
 
 ## Coming Soon
