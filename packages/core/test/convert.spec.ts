@@ -80,6 +80,23 @@ describe('Convert EthersJS Objects', () => {
     // Start an Anvil node.
     exec(`anvil --silent &`)
     await sleep(1000)
+
+    // Check that an RPC endpoint API key exists for every network.
+    const missingApiKey: Array<string> = []
+    for (const chainIdStr of Object.keys(transactionHashes)) {
+      const chainId = BigInt(chainIdStr)
+      if (!isSupportedChainId(chainId)) {
+        throw new Error(`Unsupported chain ID: ${chainId}`)
+      }
+
+      if (!isLiveNetworkRpcApiKeyDefined(BigInt(chainId))) {
+        missingApiKey.push(getNetworkNameForChainId(BigInt(chainId)))
+      }
+    }
+
+    if (missingApiKey.length > 0) {
+      throw new Error(`Missing API key for:\n` + missingApiKey.join('\n'))
+    }
   })
 
   after(async () => {
@@ -145,23 +162,6 @@ describe('Convert EthersJS Objects', () => {
       if (typeof CIRCLE_BRANCH === 'string' && CIRCLE_BRANCH !== 'develop') {
         console.log('Skipping tests since this is not the develop branch')
         this.skip()
-      }
-
-      // Check that an RPC endpoint API key exists for every network.
-      const missingApiKey: Array<string> = []
-      for (const chainIdStr of Object.keys(transactionHashes)) {
-        const chainId = BigInt(chainIdStr)
-        if (!isSupportedChainId(chainId)) {
-          throw new Error(`Unsupported chain ID: ${chainId}`)
-        }
-
-        if (!isLiveNetworkRpcApiKeyDefined(BigInt(chainId))) {
-          missingApiKey.push(getNetworkNameForChainId(BigInt(chainId)))
-        }
-      }
-
-      if (missingApiKey.length > 0) {
-        throw new Error(`Missing API key for:\n` + missingApiKey.join('\n'))
       }
     })
 
@@ -272,4 +272,3 @@ describe('Convert EthersJS Objects', () => {
     }
   })
 })
-
