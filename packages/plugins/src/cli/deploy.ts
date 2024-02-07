@@ -86,8 +86,6 @@ export const deploy = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
-  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
-
   const foundryToml = await getFoundryToml()
   const {
     artifactFolder,
@@ -96,6 +94,8 @@ export const deploy = async (
     rpcEndpoints,
     etherscan,
   } = foundryToml
+
+  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
 
   const forkUrl = rpcEndpoints[network]
   if (!forkUrl) {

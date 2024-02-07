@@ -227,9 +227,9 @@ export const propose = async (
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
 
-  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
-
   const foundryToml = await getFoundryToml()
+
+  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
 
   // We must load any ABIs after compiling the contracts to prevent a situation where the user
   // clears their artifacts then calls this task, in which case the artifact won't exist yet.
