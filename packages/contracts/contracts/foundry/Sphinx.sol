@@ -27,6 +27,7 @@ import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
+import { SphinxForkCheck } from "./SphinxForkCheck.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -93,6 +94,18 @@ abstract contract Sphinx {
         // calling `vm.createSelectFork`).
         vm.makePersistent(address(constants));
         vm.makePersistent(address(sphinxUtils));
+    }
+
+    function sphinxCheckFork() external returns (bool forkInstalled) {
+        vm.startStateDiffRecording();
+        new SphinxForkCheck{ salt: 0 }();
+        Vm.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
+        return
+            sphinxUtils.checkAccesses(
+                accountAccesses,
+                keccak256(type(SphinxForkCheck).creationCode),
+                keccak256(type(SphinxForkCheck).runtimeCode)
+            );
     }
 
     function sphinxCollectProposal(string memory _deploymentInfoPath) external {

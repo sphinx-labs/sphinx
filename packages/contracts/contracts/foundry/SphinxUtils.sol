@@ -55,6 +55,46 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return _data[_start:_end];
     }
 
+    function checkAccesses(
+        Vm.AccountAccess[] memory accountAccesses,
+        bytes32 creationCodeHash,
+        bytes32 runtimeCodeHash
+    ) public view returns (bool) {
+        // If there aren't two calls, (one to the deployment proxy, and another to deploy the contract)
+        // then return false.
+        if (accountAccesses.length < 2) {
+            return false;
+        }
+
+        // If the first access does not record calling deterministic deployment proxy, then return false.
+        if (accountAccesses[0].account != DETERMINISTIC_DEPLOYMENT_PROXY) {
+            return false;
+        }
+
+        address expectedAddress = vm.computeCreate2Address(
+            0,
+            creationCodeHash,
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+        if (accountAccesses[1].account != expectedAddress) {
+            return false;
+        }
+
+        // If the second access did not come from the deterministic deployment proxy, then return false
+        if (accountAccesses[1].accessor != DETERMINISTIC_DEPLOYMENT_PROXY) {
+            return false;
+        }
+
+        // If the deployed code at the calculated address is incorrect, then return false.
+        // This confirms the deterministic deployment proxy is in fact being used for the
+        // internal simulation.
+        if (keccak256(address(expectedAddress).code) != runtimeCodeHash) {
+            return false;
+        }
+
+        return true;
+    }
+
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
         // The EIP-1967 storage slot that holds the address of the owner.
         // bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
