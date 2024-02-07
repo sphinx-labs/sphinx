@@ -188,9 +188,9 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const abiEncodedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+  const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
   const deploymentInfo = decodeDeploymentInfo(
-    abiEncodedDeploymentInfo,
+    serializedDeploymentInfo,
     sphinxPluginTypesInterface
   )
 

@@ -10,6 +10,9 @@ import {
     ContractKindEnum,
     ParsedCallAction,
     Network,
+    InitialChainState,
+    FoundryDeploymentInfo,
+    SphinxConfig,
     ParsedAccountAccess
 } from "../contracts/foundry/SphinxPluginTypes.sol";
 
@@ -173,6 +176,65 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertEq(parsed[1].root.kind, VmSafe.AccountAccessKind.Create);
         assertEq(parsed[1].nested.length, 0);
     }
+
+    /**
+     * @notice Check that the serialization function starts with a fresh state for the object key.
+     *         This ensures existing items in the object key aren't included in the serialized JSON.
+     *         We enforce this by including `vm.serializeJson(objKey, "{}")` at the beginning of the
+     *         serialization function.
+     */
+    function test_serializeInitialChainState_success_clearsObjectKey() external {
+        InitialChainState memory initialState;
+        // Add an item to the object key, which is the same object key used in the serialization
+        // function.
+        string memory serialized = vm.serializeString(initialStateKey, "myKey", "myVal");
+        // Check that the item has been added.
+        assertTrue(vm.keyExists(serialized, ".myKey"));
+
+        serialized = serializeInitialChainState(initialState);
+        // Check that the item no longer exists in the JSON.
+        assertFalse(vm.keyExists(serialized, ".myKey"));
+    }
+
+    /**
+     * @notice Check that the serialization function starts with a fresh state for the object key.
+     *         This ensures existing items in the object key aren't included in the serialized JSON.
+     *         We enforce this by including `vm.serializeJson(objKey, "{}")` at the beginning of the
+     *         serialization function.
+     */
+    function test_serializeFoundryDeploymentInfo_success_clearsObjectKey() external {
+        FoundryDeploymentInfo memory deploymentInfo;
+        // Add an item to the object key, which is the same object key used in the serialization
+        // function.
+        string memory serialized = vm.serializeString(deploymentInfoKey, "myKey", "myVal");
+        // Check that the item has been added.
+        assertTrue(vm.keyExists(serialized, ".myKey"));
+
+        serialized = serializeFoundryDeploymentInfo(deploymentInfo);
+        // Check that the item no longer exists in the JSON.
+        assertFalse(vm.keyExists(serialized, ".myKey"));
+    }
+
+    /**
+     * @notice Check that the serialization function starts with a fresh state for the object key.
+     *         This ensures existing items in the object key aren't included in the serialized JSON.
+     *         We enforce this by including `vm.serializeJson(objKey, "{}")` at the beginning of the
+     *         serialization function.
+     */
+    function test_serializeSphinxConfig_success_clearsObjectKey() external {
+        SphinxConfig memory sphinxConfig;
+        // Add an item to the object key, which is the same object key used in the serialization
+        // function.
+        string memory serialized = vm.serializeString(sphinxConfigKey, "myKey", "myVal");
+        // Check that the item has been added.
+        assertTrue(vm.keyExists(serialized, ".myKey"));
+
+        serialized = serializeSphinxConfig(sphinxConfig);
+        // Check that the item no longer exists in the JSON.
+        assertFalse(vm.keyExists(serialized, ".myKey"));
+    }
+
+    /////////////////////////////////// Helpers //////////////////////////////////////
 
     function makeAccountAccess(
         address _accessor,

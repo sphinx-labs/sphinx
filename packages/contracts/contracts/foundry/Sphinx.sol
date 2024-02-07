@@ -15,7 +15,7 @@ import {
     HumanReadableAction,
     Network,
     SphinxConfig,
-    DeploymentInfo,
+    FoundryDeploymentInfo,
     NetworkInfo,
     Wallet,
     GnosisSafeTransaction,
@@ -98,12 +98,12 @@ abstract contract Sphinx {
     function sphinxCollectProposal(string memory _deploymentInfoPath) external {
         sphinxUtils.validateProposal(sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(
+        string memory serializedDeploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
             constants.managedServiceAddress()
         );
 
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollectDeployment(
@@ -135,18 +135,18 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(_executionMode, deployer);
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+        string memory serializedDeploymentInfo = sphinxCollect(_executionMode, deployer);
+        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollect(
         ExecutionMode _executionMode,
         address _executor
-    ) private returns (DeploymentInfo memory) {
+    ) private returns (string memory) {
         address safe = safeAddress();
         address module = sphinxModule();
 
-        DeploymentInfo memory deploymentInfo;
+        FoundryDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.safeAddress = safe;
@@ -194,16 +194,27 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
-        deploymentInfo.accountAccesses = sphinxUtils.parseAccountAccesses(accesses, safe);
+        ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
+            accesses,
+            safe
+        );
+        // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
+        // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
+        // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
+        // contracts.
+        deploymentInfo.encodedAccountAccesses = new bytes[](parsedAccesses.length);
+        for (uint256 i = 0; i < parsedAccesses.length; i++) {
+            deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
+        }
 
         vm.revertTo(snapshotId);
         deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
-            deploymentInfo.accountAccesses,
+            parsedAccesses,
             IGnosisSafe(safe),
             module
         );
 
-        return deploymentInfo;
+        return sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo);
     }
 
     /**
