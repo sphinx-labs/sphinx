@@ -1638,3 +1638,7 @@ export const isCreateActionInput = (
     typeof create.requireSuccess === 'boolean'
   )
 }
+
+export const isFile = (path: string): boolean => {
+  return fs.existsSync(path) && fs.statSync(path).isFile()
+}

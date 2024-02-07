@@ -5,6 +5,7 @@ import {
   displayDeploymentTable,
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
+  isFile,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -34,6 +35,7 @@ import { ethers } from 'ethers'
 import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
+  assertNoLinkedLibraries,
   assertSphinxFoundryForkInstalled,
   compile,
   getInitCodeWithArgsArray,
@@ -74,6 +76,13 @@ export const deploy = async (
     verify,
     targetContract,
   } = args
+
+  if (!isFile(scriptPath)) {
+    throw new Error(
+      `File does not exist at: ${scriptPath}\n` +
+        `Please make sure this is a valid file path.`
+    )
+  }
 
   const projectRoot = process.cwd()
 
@@ -221,6 +230,14 @@ export const deploy = async (
     deploymentInfo.accountAccesses
   )
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+
+  await assertNoLinkedLibraries(
+    scriptPath,
+    foundryToml.cachePath,
+    foundryToml.artifactFolder,
+    projectRoot,
+    targetContract
+  )
 
   const isSystemDeployed = await checkSystemDeployed(provider)
   const parsedConfig = makeParsedConfig(
