@@ -49,7 +49,6 @@ import {
   Create2ActionInput,
   ActionInputType,
   CreateActionInput,
-  COMPILER_CONFIG_VERSION,
 } from './config/types'
 import {
   ProposalRequest,
@@ -60,7 +59,7 @@ import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import { LocalNetworkMetadata } from './networks'
+import { COMPILER_CONFIG_VERSION, LocalNetworkMetadata } from './networks'
 import { RelayProposal, StoreCanonicalConfig } from './types'
 
 export const sphinxLog = (

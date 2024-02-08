@@ -1,13 +1,9 @@
 import * as dotenv from 'dotenv'
 import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
-import {
-  ConfigArtifacts,
-  CompilerConfig,
-  ParsedConfig,
-  COMPILER_CONFIG_VERSION,
-} from '../config/types'
+import { ConfigArtifacts, CompilerConfig, ParsedConfig } from '../config/types'
 import { CompilerInput, getMinimumCompilerInput } from '../languages'
+import { COMPILER_CONFIG_VERSION } from '../networks'
 
 // Load environment variables from .env
 dotenv.config()

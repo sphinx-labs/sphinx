@@ -191,8 +191,6 @@ interface AbstractActionInput extends SphinxTransaction {
   index: string
 }
 
-export const COMPILER_CONFIG_VERSION = '0.1.0'
-
 /**
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
