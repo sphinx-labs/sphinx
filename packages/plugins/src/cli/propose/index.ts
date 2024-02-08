@@ -13,6 +13,7 @@ import {
   getParsedConfigWithCompilerInputs,
   isLegacyTransactionsRequiredForNetwork,
   SphinxJsonRpcProvider,
+  isFile,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -37,6 +38,7 @@ import {
   compile,
   getInitCodeWithArgsArray,
   assertSphinxFoundryForkInstalled,
+  assertNoLinkedLibraries,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -63,6 +65,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
+  projectRoot: string,
   getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora
@@ -164,6 +167,14 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
+  await assertNoLinkedLibraries(
+    scriptPath,
+    foundryToml.cachePath,
+    foundryToml.artifactFolder,
+    projectRoot,
+    targetContract
+  )
+
   const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
     makeParsedConfig(
       deploymentInfo,
@@ -210,6 +221,13 @@ export const propose = async (
     targetContract,
   } = args
 
+  if (!isFile(scriptPath)) {
+    throw new Error(
+      `File does not exist at: ${scriptPath}\n` +
+        `Please make sure this is a valid file path.`
+    )
+  }
+
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
@@ -251,6 +269,7 @@ export const propose = async (
       isTestnet,
       sphinxPluginTypesInterface,
       foundryToml,
+      projectRoot,
       getConfigArtifacts,
       targetContract,
       spinner
