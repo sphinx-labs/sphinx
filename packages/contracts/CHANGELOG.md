@@ -1,5 +1,18 @@
 # @sphinx-labs/contracts
 
+## 0.18.0
+
+### Minor Changes
+
+- 0e3ecd8: Update library to support standard create
+
+### Patch Changes
+
+- c61b557: Bump forge-std and use Sphinx fork of Foundry
+- ce65752: Decode actions when creating parsed config
+- ce65752: Add support for `CREATE` opcode deployments
+- bca86ea: Add support for Zora and Rari
+
 ## 0.17.1
 
 ### Patch Changes

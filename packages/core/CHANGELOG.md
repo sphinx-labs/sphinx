@@ -1,5 +1,19 @@
 # @sphinx-labs/core
 
+## 0.21.4
+
+### Patch Changes
+
+- ce65752: Decode actions when creating parsed config
+- ce65752: Add support for `CREATE` opcode deployments
+- 1d7e5ac: Throw error if script contains linked library
+- Updated dependencies [c61b557]
+- Updated dependencies [ce65752]
+- Updated dependencies [0e3ecd8]
+- Updated dependencies [ce65752]
+- Updated dependencies [bca86ea]
+  - @sphinx-labs/contracts@0.18.0
+
 ## 0.21.3
 
 ### Patch Changes

@@ -1,5 +1,27 @@
 # @sphinx-labs/plugins
 
+## 0.28.0
+
+### Minor Changes
+
+- 64880c7: Throw error Sphinx Foundry fork is not installed
+- ce65752: Add support for `CREATE` opcode deployments
+
+### Patch Changes
+
+- ce65752: Decode actions when creating parsed config
+- ea33cd4: Handle absolute paths when asserting no linked libraries
+- 9c71c5e: Use local RPC endpoints in Deploy and Propose integration tests
+- 1d7e5ac: Throw error if script contains linked library
+- Updated dependencies [c61b557]
+- Updated dependencies [ce65752]
+- Updated dependencies [0e3ecd8]
+- Updated dependencies [ce65752]
+- Updated dependencies [bca86ea]
+- Updated dependencies [1d7e5ac]
+  - @sphinx-labs/contracts@0.18.0
+  - @sphinx-labs/core@0.21.4
+
 ## 0.27.3
 
 ### Patch Changes
