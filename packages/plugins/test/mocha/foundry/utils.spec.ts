@@ -832,5 +832,31 @@ describe('Utils', async () => {
         )
       ).to.eventually.be.fulfilled
     })
+
+    it('succeeds if sourceName is an absolute path and does not contain linked library', async () => {
+      const sourceName = resolve('contracts/test/SimpleStorage.sol')
+
+      await expect(
+        assertNoLinkedLibraries(
+          sourceName,
+          foundryToml.cachePath,
+          foundryToml.artifactFolder,
+          projectRoot
+        )
+      ).to.eventually.be.fulfilled
+    })
+
+    it('succeeds if sourceName starts with a period and does not contain linked library', async () => {
+      const sourceName = './contracts/test/SimpleStorage.sol'
+
+      await expect(
+        assertNoLinkedLibraries(
+          sourceName,
+          foundryToml.cachePath,
+          foundryToml.artifactFolder,
+          projectRoot
+        )
+      ).to.eventually.be.fulfilled
+    })
   })
 })

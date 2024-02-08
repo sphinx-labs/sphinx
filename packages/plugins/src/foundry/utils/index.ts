@@ -1,4 +1,4 @@
-import path, { basename, dirname, join } from 'path'
+import path, { basename, dirname, join, relative } from 'path'
 import { promisify } from 'util'
 import {
   createReadStream,
@@ -319,7 +319,7 @@ export const assertNoLinkedLibraries = async (
       // that there's a single fully qualified name in the array returned by
       // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
       // this function was called, which means there must only be a single contract.
-      findFullyQualifiedNames(scriptPath, cachePath)[0]
+      findFullyQualifiedNames(scriptPath, cachePath, projectRoot)[0]
   const artifact = await readContractArtifact(
     fullyQualifiedName,
     projectRoot,
@@ -344,10 +344,15 @@ export const assertNoLinkedLibraries = async (
  * qualified name in any of the cached build info files.
  */
 const findFullyQualifiedNames = (
-  sourceName: string,
-  cachePath: string
+  rawSourceName: string,
+  cachePath: string,
+  projectRoot: string
 ): Array<string> => {
   const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
+
+  // Normalize the source name so that it conforms to the format of the fully qualified names in the
+  // build info cache. The normalized format is "path/to/file.sol".
+  const sourceName = relative(projectRoot, rawSourceName)
 
   const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
     readFileSync(buildInfoCacheFilePath, 'utf8')
