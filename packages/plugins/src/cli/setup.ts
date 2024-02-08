@@ -135,11 +135,27 @@ export const makeCLI = (
     )
     .command(
       'install',
-      'Installs the required version of the Sphinx Solidity library contracts',
-      (y) => y.usage('Usage: sphinx install'),
-      async () => {
+      'Installs the required version of the Sphinx Solidity library contracts and Sphinx Foundry fork',
+      (y) =>
+        y
+          .usage('Usage: sphinx install')
+          .option('skip-library', {
+            describe:
+              'Skips installing the Sphinx library and only installs the Sphinx Foundry fork.',
+            boolean: true,
+            default: false,
+          })
+          .option(confirmOption, {
+            describe:
+              'Automatically confirm the Sphinx Foundry fork installation.',
+            boolean: true,
+            default: false,
+          }),
+      async (argv) => {
+        const { skipLibrary, confirm } = argv
+
         const spinner = ora()
-        await handleInstall(spinner)
+        await handleInstall(spinner, skipLibrary, confirm)
       }
     )
     .command(

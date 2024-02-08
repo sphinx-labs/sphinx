@@ -63,6 +63,9 @@ export type FoundryToml = {
   buildInfoFolder: string
   deploymentFolder: string
   cachePath: string
+  alwaysUseCreate2Factory: boolean | undefined
+  buildInfo: boolean
+  extraOutput: Array<string>
   rpcEndpoints: { [networkName: string]: string | undefined }
   remappings: Record<string, string>
   etherscan: {

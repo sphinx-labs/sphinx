@@ -4,6 +4,7 @@ import {
   getSphinxModuleProxyFactoryAddress,
   getGnosisSafeProxyFactoryAddress,
   getGnosisSafeSingletonAddress,
+  getCreateCallAddress,
   getCompatibilityFallbackHandlerAddress,
   getMultiSendAddress,
   getSphinxModuleImplAddress,
@@ -33,6 +34,10 @@ const writeConstants = async () => {
     multiSendAddress: {
       type: 'address',
       value: getMultiSendAddress(),
+    },
+    createCallAddress: {
+      type: 'address',
+      value: getCreateCallAddress(),
     },
     sphinxModuleProxyFactoryAddress: {
       type: 'address',

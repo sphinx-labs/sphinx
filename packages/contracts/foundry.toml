@@ -14,6 +14,7 @@ remappings = [
   '@gnosis.pm/safe-contracts-1.3.0/=node_modules/@gnosis.pm/safe-contracts/contracts/',
   '@gnosis.pm/safe-contracts-1.4.1/=node_modules/@gnosis.pm/safe-contracts-1.4.1/contracts/'
 ]
+always_use_create_2_factory = true
 libs = []
 
 [profile.core]

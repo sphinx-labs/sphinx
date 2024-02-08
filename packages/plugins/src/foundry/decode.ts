@@ -1,69 +1,84 @@
 import {
-  isRawCreate2ActionInput,
-  isRawFunctionCallActionInput,
-  isString,
   ActionInput,
   ConfigArtifacts,
   DeploymentInfo,
   FunctionCallActionInput,
   ParsedConfig,
-  RawActionInput,
-  RawCreate2ActionInput,
-  RawFunctionCallActionInput,
-  SphinxActionType,
   networkEnumToName,
   assertValidProjectName,
-  ParsedContractDeployment,
+  DecodedAction,
+  ParsedVariable,
+  getAbiEncodedConstructorArgs,
+  decodeCall,
+  AccountAccessKind,
+  CreateActionInput,
+  encodeCreateCall,
+  decodeDeterministicDeploymentProxyData,
+  Create2ActionInput,
+  ActionInputType,
 } from '@sphinx-labs/core'
-import { AbiCoder, ethers } from 'ethers'
+import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   Operation,
   recursivelyConvertResult,
   getCurrentGitCommitHash,
+  getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 
-import { FoundrySingleChainDryRun } from './types'
 import {
+  assertValidAccountAccesses,
   convertLibraryFormat,
-  findFullyQualifiedName,
+  findFullyQualifiedNameForAddress,
+  findFullyQualifiedNameForInitCode,
   findFunctionFragment,
+  isCreate2AccountAccess,
+  parseNestedContractDeployments,
 } from './utils'
 
 export const decodeDeploymentInfo = (
-  abiEncodedDeploymentInfo: string,
+  serializedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface
 ): DeploymentInfo => {
-  const deploymentInfoFragment = findFunctionFragment(
+  const parsed = JSON.parse(serializedDeploymentInfo)
+
+  const parsedAccountAccessFragment = findFunctionFragment(
     sphinxPluginTypesInterface,
-    'getDeploymentInfo'
+    'parsedAccountAccessType'
   )
 
-  const deploymentInfoResult = AbiCoder.defaultAbiCoder().decode(
-    deploymentInfoFragment.outputs,
-    abiEncodedDeploymentInfo
-  )
-
-  const { deploymentInfo: deploymentInfoBigInt } = recursivelyConvertResult(
-    deploymentInfoFragment.outputs,
-    deploymentInfoResult
-  ) as any
+  const coder = AbiCoder.defaultAbiCoder()
 
   const {
     safeAddress,
     moduleAddress,
     executorAddress,
-    nonce,
-    chainId,
-    blockGasLimit,
     initialState,
-    executionMode,
-    newConfig,
     requireSuccess,
     safeInitData,
     arbitraryChain,
     sphinxLibraryVersion,
-  } = deploymentInfoBigInt
+  } = parsed
+
+  const blockGasLimit = abiDecodeUint256(parsed.blockGasLimit)
+  const chainId = abiDecodeUint256(parsed.chainId)
+  const executionMode = abiDecodeUint256(parsed.executionMode)
+  const nonce = abiDecodeUint256(parsed.nonce)
+
+  const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
+
+  // ABI decode each `ParsedAccountAccess` individually.
+  const accountAccesses = parsed.encodedAccountAccesses.map((encoded) => {
+    const decodedResult = coder.decode(
+      parsedAccountAccessFragment.outputs,
+      encoded
+    )
+    const { parsedAccountAccess } = recursivelyConvertResult(
+      parsedAccountAccessFragment.outputs,
+      decodedResult
+    ) as any
+    return parsedAccountAccess
+  })
 
   const deploymentInfo: DeploymentInfo = {
     safeAddress,
@@ -71,172 +86,39 @@ export const decodeDeploymentInfo = (
     safeInitData,
     executorAddress,
     requireSuccess,
-    nonce: nonce.toString(),
-    chainId: chainId.toString(),
-    blockGasLimit: blockGasLimit.toString(),
+    nonce,
+    chainId,
+    blockGasLimit,
     initialState: {
       ...initialState,
     },
     executionMode: Number(executionMode),
     newConfig: {
-      ...newConfig,
-      testnets: newConfig.testnets.map(networkEnumToName),
-      mainnets: newConfig.mainnets.map(networkEnumToName),
-      threshold: newConfig.threshold.toString(),
-      saltNonce: newConfig.saltNonce.toString(),
+      projectName: parsed.newConfig.projectName,
+      orgId: parsed.newConfig.orgId,
+      owners: parsed.newConfig.owners,
+      mainnets: parsed.newConfig.mainnets.map(networkEnumToName),
+      testnets: parsed.newConfig.testnets.map(networkEnumToName),
+      threshold: abiDecodeUint256(parsed.newConfig.threshold),
+      saltNonce: abiDecodeUint256(parsed.newConfig.saltNonce),
     },
     arbitraryChain,
     sphinxLibraryVersion,
+    accountAccesses,
+    gasEstimates,
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)
+  assertValidAccountAccesses(
+    deploymentInfo.accountAccesses,
+    deploymentInfo.safeAddress
+  )
 
   return deploymentInfo
 }
 
-export const convertFoundryDryRunToActionInputs = (
-  deploymentInfo: DeploymentInfo,
-  dryRun: FoundrySingleChainDryRun,
-  dryRunPath: string
-): Array<RawActionInput> => {
-  const notFromGnosisSafe = dryRun.transactions
-    .map((t) => t.transaction.from)
-    .filter(isString)
-    .filter(
-      (from) =>
-        // Convert the 'from' field to a checksum address.
-        ethers.getAddress(from) !== deploymentInfo.safeAddress
-    )
-  if (notFromGnosisSafe.length > 0) {
-    // The user must broadcast/prank from the Gnosis Safe so that the msg.sender for function calls
-    // is the same as it would be in a production deployment.
-    throw new Error(
-      `Sphinx: Detected transaction(s) in the deployment that weren't sent by the user's Safe contracti.\n` +
-        `The 'run()' function must have the 'sphinx' modifier and cannot contain any pranks or broadcasts.\n`
-    )
-  }
-
-  const actionInputs: Array<RawActionInput> = []
-  for (const {
-    transaction,
-    contractName,
-    transactionType,
-    additionalContracts,
-    arguments: callArguments,
-    function: functionName,
-  } of dryRun.transactions) {
-    const contractNameWithoutPath = contractName?.includes(':')
-      ? contractName.split(':')[1]
-      : contractName
-
-    if (transaction.value !== undefined && transaction.value !== '0x0') {
-      console.error(
-        `Sphinx does not support sending ETH during deployments. Let us know if you want this feature!`
-      )
-      process.exit(1)
-    }
-
-    if (transactionType === 'CREATE') {
-      console.error(
-        `Sphinx does not support the 'CREATE' opcode, i.e. 'new MyContract(...)'. Please use CREATE2 or CREATE3 instead.`
-      )
-      process.exit(1)
-    } else {
-      if (!transaction.to) {
-        throw new Error(
-          `Transaction does not have the 'to' field. Should never happen.`
-        )
-      }
-
-      const to = ethers.getAddress(transaction.to)
-      if (transactionType === 'CREATE2') {
-        if (to !== DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS) {
-          console.error(
-            `Detected unsupported CREATE2 factory. Please use the standard factory at: 0x4e59b44847b379578588920cA78FbF26c0B4956C`
-          )
-          process.exit(1)
-        }
-
-        if (!transaction.data || !transaction.gas) {
-          throw new Error(
-            `CREATE2 transaction is missing field(s). Should never happen.`
-          )
-        }
-
-        const salt = ethers.dataSlice(transaction.data, 0, 32)
-        const initCodeWithArgs = ethers.dataSlice(transaction.data, 32)
-        const create2Address = ethers.getCreate2Address(
-          to,
-          salt,
-          ethers.keccak256(initCodeWithArgs)
-        )
-
-        const rawCreate2: RawCreate2ActionInput = {
-          to,
-          create2Address,
-          contractName,
-          value: transaction.value ?? '0x0',
-          operation: Operation.Call,
-          txData: transaction.data,
-          initCodeWithArgs,
-          actionType: SphinxActionType.CALL.toString(),
-          gas: transaction.gas,
-          additionalContracts,
-          requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName: contractNameWithoutPath ?? create2Address,
-            functionName: 'deploy',
-            variables: callArguments ?? [],
-            address: create2Address,
-          },
-        }
-        actionInputs.push(rawCreate2)
-      } else if (transactionType === 'CALL') {
-        if (!transaction.data || !transaction.gas) {
-          throw new Error(
-            `CALL transaction is missing field(s). Should never happen.`
-          )
-        }
-
-        const variables = callArguments ?? [
-          transaction.data.length > 1000
-            ? `Very large calldata. View it in Foundry's dry run file: ${dryRunPath}`
-            : transaction.data,
-        ]
-
-        const rawCall: RawFunctionCallActionInput = {
-          actionType: SphinxActionType.CALL.toString(),
-          to,
-          value: transaction.value ?? '0x0',
-          txData: transaction.data,
-          operation: Operation.Call,
-          gas: transaction.gas,
-          contractName,
-          additionalContracts,
-          requireSuccess: deploymentInfo.requireSuccess,
-          decodedAction: {
-            referenceName:
-              contractNameWithoutPath ?? ethers.getAddress(transaction.to),
-            functionName: functionName?.split('(')[0] ?? 'call',
-            variables,
-            address: contractNameWithoutPath !== null ? to : '',
-          },
-        }
-
-        actionInputs.push(rawCall)
-      } else {
-        throw new Error(`Unknown transaction type: ${transactionType}.`)
-      }
-    }
-  }
-
-  return actionInputs
-}
-
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
-  rawInputs: Array<RawActionInput>,
-  gasEstimates: Array<string>,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
   libraries: Array<string>
@@ -252,6 +134,9 @@ export const makeParsedConfig = (
     initialState,
     safeInitData,
     arbitraryChain,
+    requireSuccess,
+    accountAccesses,
+    gasEstimates,
   } = deploymentInfo
 
   // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
@@ -262,12 +147,9 @@ export const makeParsedConfig = (
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
-  // We start with an action index of 1 because the `APPROVE` leaf always has an index of 0, which
-  // means the `EXECUTE` leaves start with an index of 1.
-  let actionIndex = 1
-  for (let i = 0; i < rawInputs.length; i++) {
-    const input = rawInputs[i]
-    const gas = gasEstimates[i]
+  for (let i = 0; i < accountAccesses.length; i++) {
+    const { root, nested } = accountAccesses[i]
+    const gas = gasEstimates[i].toString()
 
     if (BigInt(gas) > maxAllowedGasPerLeaf) {
       throw new Error(
@@ -275,52 +157,135 @@ export const makeParsedConfig = (
       )
     }
 
-    const { parsedContracts, unlabeledAdditionalContracts } =
-      parseAdditionalContracts(input, configArtifacts)
-    unlabeledContracts.push(...unlabeledAdditionalContracts)
+    const { parsedContracts, unlabeled } = parseNestedContractDeployments(
+      nested,
+      configArtifacts
+    )
+    unlabeledContracts.push(...unlabeled)
 
-    if (isRawCreate2ActionInput(input)) {
-      const fullyQualifiedName = findFullyQualifiedName(
-        input.initCodeWithArgs,
+    // The index of `EXECUTE` Merkle leaves starts at 1 because the `APPROVE` leaf always has an
+    // index of 0.
+    const executeActionIndex = i + 1
+
+    if (root.kind === AccountAccessKind.Create) {
+      const initCodeWithArgs = root.data
+      const address = root.account
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
+        initCodeWithArgs,
         configArtifacts
       )
 
-      // If the fully qualified name exists, add the contract deployed via `CREATE2` to the list of
-      // parsed contracts.
+      const decodedAction = makeContractDecodedAction(
+        address,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+
+      // If the fully qualified name exists, add the contract deployed to the list of parsed
+      // contracts. Otherwise, mark it as unlabeled.
       if (fullyQualifiedName) {
         parsedContracts.push({
-          address: input.create2Address,
+          address,
           fullyQualifiedName,
-          initCodeWithArgs: input.initCodeWithArgs,
+          initCodeWithArgs,
         })
       } else {
-        // We couldn't find the fully qualified name, so the contract must not belong to a source
-        // file. We mark it as unlabeled.
         unlabeledContracts.push({
-          address: input.create2Address,
-          initCodeWithArgs: input.initCodeWithArgs,
+          address,
+          initCodeWithArgs,
         })
       }
 
-      parsedActionInputs.push({
+      const action: CreateActionInput = {
+        actionType: ActionInputType.CREATE,
+        contractAddress: address,
+        initCodeWithArgs,
         contracts: parsedContracts,
-        index: actionIndex.toString(),
-        ...input,
+        index: executeActionIndex.toString(),
+        decodedAction,
         gas,
-      })
-    } else if (isRawFunctionCallActionInput(input)) {
+        requireSuccess,
+        // The `value` field is always unused for `DelegateCall` operations. Instead, value is
+        // transferred via `performCreate` in the `txData` below.
+        value: '0',
+        operation: Operation.DelegateCall,
+        to: getCreateCallAddress(),
+        txData: encodeCreateCall(root.value, initCodeWithArgs),
+      }
+      parsedActionInputs.push(action)
+    } else if (isCreate2AccountAccess(root, nested)) {
+      const { create2Address, initCodeWithArgs } =
+        decodeDeterministicDeploymentProxyData(root.data)
+
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
+        initCodeWithArgs,
+        configArtifacts
+      )
+
+      const decodedAction = makeContractDecodedAction(
+        create2Address,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+
+      const action: Create2ActionInput = {
+        actionType: ActionInputType.CREATE2,
+        create2Address,
+        initCodeWithArgs,
+        contracts: parsedContracts,
+        index: executeActionIndex.toString(),
+        decodedAction,
+        gas,
+        requireSuccess,
+        value: root.value.toString(),
+        operation: Operation.Call,
+        to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        txData: root.data,
+      }
+      parsedActionInputs.push(action)
+    } else if (root.kind === AccountAccessKind.Call) {
+      const to = root.account
+
+      // Find the fully qualified name that corresponds to the `to` address, if such a fully
+      // qualified name exists. We'll use the fully qualified name to create the decoded action.
+      const fullyQualifiedName = findFullyQualifiedNameForAddress(
+        to,
+        accountAccesses,
+        configArtifacts
+      )
+
+      const decodedAction = makeFunctionCallDecodedAction(
+        to,
+        root.data,
+        configArtifacts,
+        fullyQualifiedName
+      )
+
       const callInput: FunctionCallActionInput = {
+        actionType: ActionInputType.CALL,
         contracts: parsedContracts,
-        index: actionIndex.toString(),
-        ...input,
+        index: executeActionIndex.toString(),
+        decodedAction,
         gas,
+        requireSuccess,
+        value: root.value.toString(),
+        operation: Operation.Call,
+        to,
+        txData: root.data,
       }
 
       parsedActionInputs.push(callInput)
-    } else {
-      throw new Error(`Unknown action input type. Should never happen.`)
     }
-    actionIndex += 1
+  }
+
+  // Sanity check that the number of gas estimates equals the number of actions.
+  if (parsedActionInputs.length !== gasEstimates.length) {
+    throw new Error(
+      `Parsed action input array length (${parsedActionInputs.length}) does not equal gas\n` +
+        `estimates array length (${gasEstimates.length}). Should never happen.`
+    )
   }
 
   const parsedConfig: ParsedConfig = {
@@ -345,40 +310,100 @@ export const makeParsedConfig = (
   return parsedConfig
 }
 
-/**
- * Parse the `additionalContracts` array of the Foundry broadcast, which contains all nested
- * contract deployments for the given action. For example, if a contract deploys another contract in
- * its constructor, the child contract's deployment info would exist in this array.
- */
-const parseAdditionalContracts = (
-  currentInput: RawActionInput,
-  configArtifacts: ConfigArtifacts
-): {
-  parsedContracts: Array<ParsedContractDeployment>
-  unlabeledAdditionalContracts: ParsedConfig['unlabeledContracts']
-} => {
-  const parsedContracts: Array<ParsedContractDeployment> = []
-  const unlabeled: ParsedConfig['unlabeledContracts'] = []
-  for (const additionalContract of currentInput.additionalContracts) {
-    const address = ethers.getAddress(additionalContract.address)
-
-    const fullyQualifiedName = findFullyQualifiedName(
-      additionalContract.initCode,
-      configArtifacts
+export const makeContractDecodedAction = (
+  contractAddress: string,
+  initCodeWithArgs: string,
+  configArtifacts: ConfigArtifacts,
+  fullyQualifiedName?: string
+): DecodedAction => {
+  if (fullyQualifiedName) {
+    const coder = ethers.AbiCoder.defaultAbiCoder()
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const contractName = fullyQualifiedName.split(':')[1]
+    const iface = new ethers.Interface(artifact.abi)
+    const constructorFragment = iface.fragments.find(
+      ConstructorFragment.isFragment
     )
-    if (fullyQualifiedName) {
-      parsedContracts.push({
-        address,
-        fullyQualifiedName,
-        initCodeWithArgs: additionalContract.initCode,
-      })
-    } else {
-      unlabeled.push({ address, initCodeWithArgs: additionalContract.initCode })
+
+    let variables: ParsedVariable = {}
+    if (constructorFragment) {
+      const encodedConstructorArgs = getAbiEncodedConstructorArgs(
+        initCodeWithArgs,
+        artifact.bytecode
+      )
+      const constructorArgsResult = coder.decode(
+        constructorFragment.inputs,
+        encodedConstructorArgs
+      )
+      variables = recursivelyConvertResult(
+        constructorFragment.inputs,
+        constructorArgsResult
+      ) as ParsedVariable
+    }
+
+    return {
+      referenceName: contractName,
+      functionName: 'deploy',
+      variables,
+      address: contractAddress,
+    }
+  } else {
+    return {
+      referenceName: contractAddress,
+      functionName: 'deploy',
+      variables: [],
+      address: contractAddress,
     }
   }
+}
 
-  return {
-    parsedContracts,
-    unlabeledAdditionalContracts: unlabeled,
+export const makeFunctionCallDecodedAction = (
+  to: string,
+  data: string,
+  configArtifacts: ConfigArtifacts,
+  fullyQualifiedName?: string
+): DecodedAction => {
+  if (fullyQualifiedName) {
+    const { artifact } = configArtifacts[fullyQualifiedName]
+    const contractName = fullyQualifiedName.split(':')[1]
+    const iface = new ethers.Interface(artifact.abi)
+
+    // Attempt to decode the call. This will return `undefined` if the call cannot be decoded, which
+    // will happen if the function does not exist on the contract. For example, this will return
+    // `undefined` if the contract's `fallback` function was called.
+    const decoded = decodeCall(iface, data)
+    const functionName = decoded ? decoded.functionName : 'call'
+    const variables = decoded
+      ? decoded.variables
+      : [data.length > 1000 ? `Calldata is too large to display.` : data]
+
+    return {
+      referenceName: contractName,
+      functionName,
+      variables,
+      address: to,
+    }
+  } else {
+    const variables = [
+      data.length > 1000 ? `Calldata is too large to display.` : data,
+    ]
+    return {
+      referenceName: to,
+      functionName: 'call',
+      variables,
+      address: '',
+    }
   }
+}
+
+const abiDecodeUint256 = (encoded: string): string => {
+  const coder = AbiCoder.defaultAbiCoder()
+  const result = coder.decode(['uint256'], encoded)
+  return result.toString()
+}
+
+const abiDecodeUint256Array = (encoded: string): Array<string> => {
+  const coder = AbiCoder.defaultAbiCoder()
+  const [result] = coder.decode(['uint256[]'], encoded)
+  return result.map((r) => r.toString())
 }

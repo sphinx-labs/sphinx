@@ -3,16 +3,17 @@ import { rm } from 'fs/promises'
 import {
   DeploymentArtifacts,
   ExecutionMode,
-  RawActionInput,
   fetchChainIdForNetwork,
   getConfigArtifactsRemote,
   writeDeploymentArtifacts,
+  ParsedAccountAccess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
 import {
   checkArtifacts,
   getAnvilRpcUrl,
+  getGnosisSafeProxyAddress,
   killAnvilNodes,
   makeDeployment,
   makeRevertingDeployment,
@@ -34,6 +35,11 @@ const owners = [
 ]
 const threshold = 1
 const networkNames = ['sepolia', 'optimism_sepolia']
+const safeAddress = getGnosisSafeProxyAddress(
+  owners.map((o) => o.address),
+  threshold,
+  0
+)
 
 // This test suite tests the deployment artifact logic. We deploy a contract with and without
 // constructor args to test that the contract deployment artifact logic properly decodes constructor
@@ -57,14 +63,14 @@ describe('Artifacts', () => {
 
   it('makes artifacts for the first deployment on local networks', async () => {
     await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(0, ExecutionMode.LocalNetworkCLI),
+      makeStandardDeployment(0, ExecutionMode.LocalNetworkCLI, safeAddress),
       {}
     )
   })
 
   it('makes artifacts for the first deployment on live networks', async () => {
     await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(0, ExecutionMode.Platform),
+      makeStandardDeployment(0, ExecutionMode.Platform, safeAddress),
       {}
     )
   })
@@ -73,11 +79,11 @@ describe('Artifacts', () => {
   // populated.
   it('makes artifacts for the second deployment on live networks', async () => {
     const firstArtifacts = await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(0, ExecutionMode.Platform),
+      makeStandardDeployment(0, ExecutionMode.Platform, safeAddress),
       {}
     )
     await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(1, ExecutionMode.Platform),
+      makeStandardDeployment(1, ExecutionMode.Platform, safeAddress),
       firstArtifacts.networks
     )
   })
@@ -87,29 +93,29 @@ describe('Artifacts', () => {
   // only have a single element if we execute just two deployments.
   it('makes artifacts for the third deployment on live networks', async () => {
     const firstArtifacts = await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(0, ExecutionMode.Platform),
+      makeStandardDeployment(0, ExecutionMode.Platform, safeAddress),
       {}
     )
     const secondArtifacts = await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(1, ExecutionMode.Platform),
+      makeStandardDeployment(1, ExecutionMode.Platform, safeAddress),
       firstArtifacts.networks
     )
     await makeThenRunThenCheckDeployment(
-      makeStandardDeployment(2, ExecutionMode.Platform),
+      makeStandardDeployment(2, ExecutionMode.Platform, safeAddress),
       secondArtifacts.networks
     )
   })
 
   it('makes artifacts for partially executed deployment', async () => {
     await makeThenRunThenCheckDeployment(
-      makeRevertingDeployment(0, ExecutionMode.Platform),
+      makeRevertingDeployment(0, ExecutionMode.Platform, safeAddress),
       {}
     )
   })
 
   it('makes artifacts for remotely compiled deployment', async () => {
     await makeThenRunThenCheckRemoteDeployment(
-      makeStandardDeployment(0, ExecutionMode.Platform),
+      makeStandardDeployment(0, ExecutionMode.Platform, safeAddress),
       {}
     )
   })
@@ -119,7 +125,7 @@ const makeThenRunThenCheckDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    actionInputs: Array<RawActionInput>
+    accountAccesses: Array<ParsedAccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },
@@ -127,7 +133,7 @@ const makeThenRunThenCheckDeployment = async (
 ): Promise<DeploymentArtifacts> => {
   const {
     merkleRootNonce,
-    actionInputs,
+    accountAccesses,
     expectedNumExecutionArtifacts,
     expectedContractFileNames,
     executionMode,
@@ -142,7 +148,7 @@ const makeThenRunThenCheckDeployment = async (
       owners,
       threshold,
       executionMode,
-      actionInputs,
+      accountAccesses,
       getAnvilRpcUrl
     )
 
@@ -171,7 +177,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    actionInputs: Array<RawActionInput>
+    accountAccesses: Array<ParsedAccountAccess>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },
@@ -179,7 +185,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
 ): Promise<DeploymentArtifacts> => {
   const {
     merkleRootNonce,
-    actionInputs,
+    accountAccesses,
     expectedNumExecutionArtifacts,
     expectedContractFileNames,
     executionMode,
@@ -193,7 +199,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
     owners,
     threshold,
     executionMode,
-    actionInputs,
+    accountAccesses,
     getAnvilRpcUrl
   )
 

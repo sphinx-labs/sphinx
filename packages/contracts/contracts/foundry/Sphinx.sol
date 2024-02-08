@@ -15,17 +15,19 @@ import {
     HumanReadableAction,
     Network,
     SphinxConfig,
-    DeploymentInfo,
+    FoundryDeploymentInfo,
     NetworkInfo,
     Wallet,
-    SphinxTransaction,
+    GnosisSafeTransaction,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
+import { SphinxForkCheck } from "./SphinxForkCheck.sol";
 
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
@@ -68,8 +70,6 @@ abstract contract Sphinx {
 
     SphinxUtils private sphinxUtils;
 
-    bool private isCollecting;
-
     bool private sphinxModifierEnabled;
 
     constructor() {
@@ -96,20 +96,33 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
+    function sphinxCheckFork() external returns (bool forkInstalled) {
+        vm.startStateDiffRecording();
+        new SphinxForkCheck{ salt: 0 }();
+        Vm.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
+        return
+            sphinxUtils.checkAccesses(
+                accountAccesses,
+                keccak256(type(SphinxForkCheck).creationCode),
+                keccak256(type(SphinxForkCheck).runtimeCode)
+            );
+    }
+
     function sphinxCollectProposal(string memory _deploymentInfoPath) external {
         sphinxUtils.validateProposal(sphinxConfig);
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(
+        string memory serializedDeploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
             constants.managedServiceAddress()
         );
 
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollectDeployment(
         ExecutionMode _executionMode,
-        string memory _deploymentInfoPath
+        string memory _deploymentInfoPath,
+        string memory _systemContractsFilePath
     ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
@@ -124,18 +137,29 @@ abstract contract Sphinx {
             revert("Incorrect execution type.");
         }
 
-        DeploymentInfo memory deploymentInfo = sphinxCollect(_executionMode, deployer);
-        vm.writeFile(_deploymentInfoPath, vm.toString(abi.encode(deploymentInfo)));
+        SystemContractInfo[] memory systemContracts = abi.decode(
+            vm.parseBytes(vm.readFile(_systemContractsFilePath)),
+            (SystemContractInfo[])
+        );
+
+        // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
+        // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
+        // because we're going to call the Gnosis Safe to estimate the gas. Also, deploying the
+        // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
+        sphinxUtils.deploySphinxSystem(systemContracts);
+
+        string memory serializedDeploymentInfo = sphinxCollect(_executionMode, deployer);
+        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollect(
         ExecutionMode _executionMode,
         address _executor
-    ) private returns (DeploymentInfo memory) {
+    ) private returns (string memory) {
         address safe = safeAddress();
         address module = sphinxModule();
 
-        DeploymentInfo memory deploymentInfo;
+        FoundryDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.safeAddress = safe;
@@ -161,8 +185,20 @@ abstract contract Sphinx {
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
 
-        isCollecting = true;
+        // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
+        // going to call the Gnosis Safe to estimate the gas.
+        if (address(safe).code.length == 0) {
+            _sphinxDeployModuleAndGnosisSafe();
+        }
 
+        // Take a snapshot of the current state. We'll revert to the snapshot after we run the
+        // user's script but before we execute the user's transactions via the Gnosis Safe to
+        // estimate the Merkle leaf gas fields. It's necessary to revert the snapshot because the
+        // gas estimation won't work if it runs against chain state where the user's transactions
+        // have already occurred.
+        uint256 snapshotId = vm.snapshot();
+
+        vm.startStateDiffRecording();
         // Delegatecall the `run()` function on this contract to collect the transactions. This
         // pattern gives us flexibility to support function names other than `run()` in the future.
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("run()"));
@@ -170,8 +206,28 @@ abstract contract Sphinx {
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
+        Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+        ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
+            accesses,
+            safe
+        );
+        // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
+        // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
+        // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
+        // contracts.
+        deploymentInfo.encodedAccountAccesses = new bytes[](parsedAccesses.length);
+        for (uint256 i = 0; i < parsedAccesses.length; i++) {
+            deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
+        }
 
-        return deploymentInfo;
+        vm.revertTo(snapshotId);
+        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
+            parsedAccesses,
+            IGnosisSafe(safe),
+            module
+        );
+
+        return sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo);
     }
 
     /**
@@ -215,7 +271,7 @@ abstract contract Sphinx {
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
-            callerMode != VmSafe.CallerMode.RecurrentBroadcast || isCollecting,
+            callerMode != VmSafe.CallerMode.RecurrentBroadcast,
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
         );
         require(
@@ -233,18 +289,11 @@ abstract contract Sphinx {
 
         sphinxUtils.validate(sphinxConfig);
 
-        if (isCollecting) {
-            // Execute the user's 'run()' function.
-            vm.startBroadcast(safeAddress());
-            _;
-            vm.stopBroadcast();
-        } else {
-            // Prank the Gnosis Safe then execute the user's `run()` function. We prank the Gnosis
-            // Safe to replicate the deployment process on live networks.
-            vm.startPrank(safeAddress());
-            _;
-            vm.stopPrank();
-        }
+        // Prank the Gnosis Safe then execute the user's script. We prank the Gnosis
+        // Safe to replicate the production environment.
+        vm.startPrank(safeAddress());
+        _;
+        vm.stopPrank();
 
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
 
@@ -303,63 +352,50 @@ abstract contract Sphinx {
      *            Merkle leaf's gas, resulting in a failed deployment on-chain. This situation uses
      *            contrived numbers, but the point is that using `gasleft` is accurate even if
      *            there's a large gas refund.
-     *
-     * @return abiEncodedGasArray The ABI encoded array of gas estimates. There's one element per
-     *                            `EXECUTE` Merkle leaf. We ABI encode the array because Foundry
-     *                            makes it difficult to reliably parse complex data types off-chain.
-     *                            Specifically, an array element looks like this in the returned
-     *                            JSON: `27222 [2.722e4]`.
      */
-    function sphinxEstimateMerkleLeafGas(
-        string memory _leafGasParamsFilePath
-    ) external returns (bytes memory abiEncodedGasArray) {
-        (SphinxTransaction[] memory txnArray, SystemContractInfo[] memory systemContracts) = abi
-            .decode(
-                vm.parseBytes(vm.readFile(_leafGasParamsFilePath)),
-                (SphinxTransaction[], SystemContractInfo[])
-            );
-
-        // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
-        // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
-        // because we're going to call the Gnosis Safe to estimate the gas. Also, this is necessary
-        // because the system contracts may not already be deployed on the current network.
-        sphinxUtils.deploySphinxSystem(systemContracts);
-
-        IGnosisSafe safe = IGnosisSafe(safeAddress());
-        address module = sphinxModule();
-        address managedServiceAddress = constants.managedServiceAddress();
-
-        uint256[] memory gasEstimates = new uint256[](txnArray.length);
-
-        // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
-        // going to call the Gnosis Safe to estimate the gas.
-        if (address(safe).code.length == 0) {
-            // Deploy the Gnosis Safe and Sphinx Module. It's not strictly necessary to prank the
-            // Managed Service contract, but this replicates the prod environment for the DevOps
-            // Platform, so we do it anyways.
-            vm.startPrank(managedServiceAddress);
-            _sphinxDeployModuleAndGnosisSafe();
-            vm.stopPrank();
-        }
+    function _sphinxEstimateMerkleLeafGas(
+        ParsedAccountAccess[] memory _accountAccesses,
+        IGnosisSafe _safe,
+        address _moduleAddress
+    ) private returns (uint256[] memory) {
+        uint256[] memory gasEstimates = new uint256[](_accountAccesses.length);
 
         // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
         // Module calls the Gnosis Safe.
-        vm.startPrank(module);
+        vm.startPrank(_moduleAddress);
 
-        for (uint256 i = 0; i < txnArray.length; i++) {
-            SphinxTransaction memory txn = txnArray[i];
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            ParsedAccountAccess memory parsed = _accountAccesses[i];
+            GnosisSafeTransaction memory txn = sphinxUtils.makeGnosisSafeTransaction(parsed.root);
             uint256 startGas = gasleft();
-            bool success = safe.execTransactionFromModule(
+            bool success = _safe.execTransactionFromModule(
                 txn.to,
                 txn.value,
                 txn.txData,
                 txn.operation
             );
-            gasEstimates[i] = startGas - gasleft();
+            uint256 finalGas = gasleft();
+
             require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
+
+            // Include a buffer to ensure the user's transaction doesn't fail on-chain due to
+            // variations between the simulation and the live execution environment. There are a
+            // couple areas in particular that could lead to variations:
+            // 1. The on-chain state could vary, which could impact the cost of execution. This is
+            //    inherently a source of variation because there's a delay between the simulation
+            //    and execution.
+            // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are
+            //    more likely to be "warm" (i.e. cheaper) than the production environment, where
+            //    transactions may be split between batches.
+            //
+            // We chose to multiply the gas by 1.3 because multiplying it by a higher number could
+            // make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
+            // doesn't impact small transactions very much, we add a constant amount of 20k too.
+            gasEstimates[i] = 20_000 + ((startGas - finalGas) * 13) / 10;
         }
+
         vm.stopPrank();
 
-        return abi.encode(gasEstimates);
+        return gasEstimates;
     }
 }

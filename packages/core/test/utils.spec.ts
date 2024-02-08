@@ -2,7 +2,14 @@ import { expect } from 'chai'
 import { ethers } from 'ethers'
 import { recursivelyConvertResult } from '@sphinx-labs/contracts'
 
-import { arraysEqual, equal, formatSolcLongVersion } from '../src/utils'
+import {
+  arraysEqual,
+  decodeCall,
+  equal,
+  formatSolcLongVersion,
+} from '../src/utils'
+import { ABI } from './common'
+import { getBytesLength } from '../dist'
 
 describe('Utils', () => {
   describe('equal', () => {
@@ -188,190 +195,8 @@ describe('Utils', () => {
   })
 
   describe('recursivelyConvertResult', () => {
-    // This is the ABI that was generated for a test contract.
-    const abi = [
-      {
-        inputs: [
-          {
-            internalType: 'uint256[]',
-            name: '_myArray',
-            type: 'uint256[]',
-          },
-          {
-            internalType: 'uint256[][]',
-            name: '_myNestedArray',
-            type: 'uint256[][]',
-          },
-        ],
-        name: 'myArrayFunction',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            internalType: 'string',
-            name: '',
-            type: 'string',
-          },
-          {
-            components: [
-              {
-                internalType: 'int256',
-                name: 'a',
-                type: 'int256',
-              },
-              {
-                internalType: 'bool',
-                name: 'b',
-                type: 'bool',
-              },
-              {
-                components: [
-                  {
-                    internalType: 'address',
-                    name: 'd',
-                    type: 'address',
-                  },
-                  {
-                    internalType: 'uint256[]',
-                    name: 'e',
-                    type: 'uint256[]',
-                  },
-                ],
-                internalType: 'struct HelloSphinx.MyNestedStruct',
-                name: 'c',
-                type: 'tuple',
-              },
-            ],
-            internalType: 'struct HelloSphinx.MyStruct',
-            name: '_myStruct',
-            type: 'tuple',
-          },
-          {
-            internalType: 'uint256',
-            name: '_myNumber',
-            type: 'uint256',
-          },
-          {
-            internalType: 'bool',
-            name: '',
-            type: 'bool',
-          },
-        ],
-        name: 'myFunctionWithUnnamedVars',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [],
-        name: 'myFunctionWithoutArgs',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            internalType: 'uint256',
-            name: '_myNumber',
-            type: 'uint256',
-          },
-        ],
-        name: 'mySingleArgFunction',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            components: [
-              {
-                internalType: 'int256',
-                name: 'a',
-                type: 'int256',
-              },
-              {
-                internalType: 'bool',
-                name: 'b',
-                type: 'bool',
-              },
-              {
-                components: [
-                  {
-                    internalType: 'address',
-                    name: 'd',
-                    type: 'address',
-                  },
-                  {
-                    internalType: 'uint256[]',
-                    name: 'e',
-                    type: 'uint256[]',
-                  },
-                ],
-                internalType: 'struct HelloSphinx.MyNestedStruct',
-                name: 'c',
-                type: 'tuple',
-              },
-            ],
-            internalType: 'struct HelloSphinx.MyStruct',
-            name: '_myStruct',
-            type: 'tuple',
-          },
-        ],
-        name: 'myStructFunction',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            components: [
-              {
-                internalType: 'int256',
-                name: 'a',
-                type: 'int256',
-              },
-              {
-                internalType: 'bool',
-                name: 'b',
-                type: 'bool',
-              },
-              {
-                components: [
-                  {
-                    internalType: 'address',
-                    name: 'd',
-                    type: 'address',
-                  },
-                  {
-                    internalType: 'uint256[]',
-                    name: 'e',
-                    type: 'uint256[]',
-                  },
-                ],
-                internalType: 'struct HelloSphinx.MyNestedStruct',
-                name: 'c',
-                type: 'tuple',
-              },
-            ],
-            internalType: 'struct HelloSphinx.MyStruct[]',
-            name: '_myStructArray',
-            type: 'tuple[]',
-          },
-        ],
-        name: 'myStructArrayFunction',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-    ]
     const coder = ethers.AbiCoder.defaultAbiCoder()
-    const iface = ethers.Interface.from(abi)
+    const iface = ethers.Interface.from(ABI)
     const functionFragments = iface.fragments.filter(ethers.Fragment.isFunction)
 
     it('converts empty result', () => {
@@ -487,6 +312,36 @@ describe('Utils', () => {
       })
     })
 
+    // BigInt values are converted to strings.
+    it('converts Result that contains BigInt values', () => {
+      const complexArgsParamTypes = functionFragments.find(
+        (f) => f.name === 'myStructFunction'
+      )!.inputs
+      const values = ethers.Result.fromItems([
+        [
+          BigInt(1),
+          true,
+          ['0x' + '11'.repeat(20), [BigInt(1), BigInt(2), BigInt(3)]],
+        ],
+      ])
+
+      // Check that the values are valid for the param types.
+      expect(() => coder.encode(complexArgsParamTypes, values)).to.not.throw()
+
+      expect(
+        recursivelyConvertResult(complexArgsParamTypes, values)
+      ).to.deep.equal({
+        _myStruct: {
+          a: '1',
+          b: true,
+          c: {
+            d: '0x' + '11'.repeat(20),
+            e: ['1', '2', '3'],
+          },
+        },
+      })
+    })
+
     it('converts Result that contains an array of structs', () => {
       const structArrayParamTypes = functionFragments.find(
         (f) => f.name === 'myStructArrayFunction'
@@ -537,6 +392,64 @@ describe('Utils', () => {
       const version = '0.8.23+commit.f704f362.Darwin.appleclang'
       const formattedVersion = formatSolcLongVersion(version)
       expect(formattedVersion).to.equal('0.8.23+commit.f704f362')
+    })
+  })
+
+  describe('decodeCall', () => {
+    const iface = new ethers.Interface(ABI)
+
+    it('should return undefined for empty data', () => {
+      const data = '0x'
+      const result = decodeCall(iface, data)
+      expect(result).to.be.undefined
+    })
+
+    it('should return undefined if data length is < 4 bytes', () => {
+      const data = '0x123456'
+      const result = decodeCall(iface, data)
+      expect(result).to.be.undefined
+    })
+
+    it('should return undefined if no matching fragment is found', () => {
+      const selector = '0xffffffff'
+      const data = selector + 'ffffffff'.repeat(10)
+
+      expect(iface.hasFunction(selector)).equals(false)
+      const result = decodeCall(iface, data)
+      expect(result).to.be.undefined
+    })
+
+    it('should decode data for a matching function with no arguments', () => {
+      const functionName = 'myFunctionWithoutArgs'
+      const data = iface.encodeFunctionData(functionName, [])
+
+      expect(getBytesLength(data)).equals(4)
+      const result = decodeCall(iface, data)
+      expect(result).to.deep.equal({
+        functionName,
+        variables: {},
+      })
+    })
+
+    it('should decode data for a matching function with arguments', () => {
+      const functionName = 'myStructFunction'
+      const variables = {
+        a: '123',
+        b: true,
+        c: {
+          d: '0x' + '11'.repeat(20),
+          e: ['1', '2', '3'],
+        },
+      }
+
+      const data = iface.encodeFunctionData(functionName, [variables])
+      const result = decodeCall(iface, data)
+      expect(result).to.deep.equal({
+        functionName,
+        variables: {
+          _myStruct: variables,
+        },
+      })
     })
   })
 })
