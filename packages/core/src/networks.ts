@@ -8,6 +8,8 @@ import {
 
 export type SupportedLocalNetworkName = 'anvil'
 
+export const COMPILER_CONFIG_VERSION = '0.1.0'
+
 /**
  * Data returned by the `anvil_metadata` and `hardhat_metadata` RPC methods.
  *
