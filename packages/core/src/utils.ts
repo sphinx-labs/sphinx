@@ -49,6 +49,7 @@ import {
   Create2ActionInput,
   ActionInputType,
   CreateActionInput,
+  COMPILER_CONFIG_VERSION,
 } from './config/types'
 import {
   ProposalRequest,
@@ -522,6 +523,7 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
       apiKey,
       orgId,
       configData,
+      version: COMPILER_CONFIG_VERSION,
     })
     .catch((err) => {
       if (err.response) {
