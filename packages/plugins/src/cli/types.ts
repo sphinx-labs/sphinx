@@ -53,6 +53,7 @@ export type BuildParsedConfigArray = (
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
+  projectRoot: string,
   getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora

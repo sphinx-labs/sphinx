@@ -3,6 +3,7 @@ import { DeploymentData, SphinxTransaction } from '@sphinx-labs/contracts'
 
 import { ConfigArtifacts, CompilerConfig, ParsedConfig } from '../config/types'
 import { CompilerInput, getMinimumCompilerInput } from '../languages'
+import { COMPILER_CONFIG_VERSION } from '../networks'
 
 // Load environment variables from .env
 dotenv.config()
@@ -58,6 +59,7 @@ export const getParsedConfigWithCompilerInputs = (
     const compilerConfig: CompilerConfig = {
       ...parsedConfig,
       inputs: sphinxInputs,
+      version: COMPILER_CONFIG_VERSION,
     }
 
     compilerConfigs.push(compilerConfig)

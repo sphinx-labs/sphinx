@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -14,7 +14,7 @@ import {
 } from "../core/SphinxDataTypes.sol";
 import {
     SphinxMerkleTree,
-    DeploymentInfo,
+    FoundryDeploymentInfo,
     HumanReadableAction,
     NetworkInfo,
     NetworkType,
@@ -24,9 +24,12 @@ import {
     OptionalAddress,
     Wallet,
     ExecutionMode,
-    SystemContractInfo
+    SystemContractInfo,
+    GnosisSafeTransaction,
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
+import { ICreateCall } from "./interfaces/ICreateCall.sol";
 import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
@@ -39,12 +42,57 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    // Object keys for the JSON serialization functions in this contract.
+    string internal initialStateKey = "Sphinx_Internal__InitialChainState";
+    string internal deploymentInfoKey = "Sphinx_Internal__FoundryDeploymentInfo";
+    string internal sphinxConfigKey = "Sphinx_Internal__SphinxConfig";
+
     function slice(
         bytes calldata _data,
         uint256 _start,
         uint256 _end
     ) external pure returns (bytes memory) {
         return _data[_start:_end];
+    }
+
+    function checkAccesses(
+        Vm.AccountAccess[] memory accountAccesses,
+        bytes32 creationCodeHash,
+        bytes32 runtimeCodeHash
+    ) public view returns (bool) {
+        // If there aren't two calls, (one to the deployment proxy, and another to deploy the contract)
+        // then return false.
+        if (accountAccesses.length < 2) {
+            return false;
+        }
+
+        // If the first access does not record calling deterministic deployment proxy, then return false.
+        if (accountAccesses[0].account != DETERMINISTIC_DEPLOYMENT_PROXY) {
+            return false;
+        }
+
+        address expectedAddress = vm.computeCreate2Address(
+            0,
+            creationCodeHash,
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+        if (accountAccesses[1].account != expectedAddress) {
+            return false;
+        }
+
+        // If the second access did not come from the deterministic deployment proxy, then return false
+        if (accountAccesses[1].accessor != DETERMINISTIC_DEPLOYMENT_PROXY) {
+            return false;
+        }
+
+        // If the deployed code at the calculated address is incorrect, then return false.
+        // This confirms the deterministic deployment proxy is in fact being used for the
+        // internal simulation.
+        if (keccak256(address(expectedAddress).code) != runtimeCodeHash) {
+            return false;
+        }
+
+        return true;
     }
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
@@ -389,7 +437,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // library for details.
         bytes memory proxyBytecode = hex"67363d3d37363d34f03d5260086018f3";
 
-        address proxy = computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
+        address proxy = vm.computeCreate2Address(_salt, keccak256(proxyBytecode), _deployer);
         return computeCreateAddress(proxy, 1);
     }
 
@@ -657,7 +705,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
         );
-        address addr = computeCreate2Address(salt, keccak256(deploymentData), safeFactoryAddress);
+        address addr = vm.computeCreate2Address(
+            salt,
+            keccak256(deploymentData),
+            safeFactoryAddress
+        );
         return addr;
     }
 
@@ -836,7 +888,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function create2Deploy(bytes memory _initCodeWithArgs) public returns (address) {
-        address addr = computeCreate2Address(
+        address addr = vm.computeCreate2Address(
             bytes32(0),
             keccak256(_initCodeWithArgs),
             DETERMINISTIC_DEPLOYMENT_PROXY
@@ -877,6 +929,226 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                     )
                 )
             );
+        }
+    }
+
+    function getNumRootAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        address _safeAddress
+    ) private pure returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _accesses.length; i++) {
+            Vm.AccountAccess memory access = _accesses[i];
+
+            if (isRootAccountAccess(access, _safeAddress)) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    function isRootAccountAccess(
+        Vm.AccountAccess memory _access,
+        address _safeAddress
+    ) private pure returns (bool) {
+        return
+            _access.accessor == _safeAddress &&
+            (_access.kind == VmSafe.AccountAccessKind.Call ||
+                _access.kind == VmSafe.AccountAccessKind.Create);
+    }
+
+    function getNumNestedAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        uint256 _rootIdx,
+        address _safeAddress
+    ) private pure returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
+            Vm.AccountAccess memory access = _accesses[i];
+            if (isRootAccountAccess(access, _safeAddress)) {
+                return count;
+            } else {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * @notice Serializes the `FoundryDeploymentInfo` struct. The serialized string is the
+     *         same structure as the `FoundryDeploymentInfo` struct except all `uint` fields
+     *         are ABI encoded (see inline docs for details).
+     */
+    function serializeFoundryDeploymentInfo(
+        FoundryDeploymentInfo memory _deployment
+    ) public returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(deploymentInfoKey, "{}");
+
+        // Serialize simple fields
+        vm.serializeAddress(deploymentInfoKey, "safeAddress", _deployment.safeAddress);
+        vm.serializeAddress(deploymentInfoKey, "moduleAddress", _deployment.moduleAddress);
+        vm.serializeAddress(deploymentInfoKey, "executorAddress", _deployment.executorAddress);
+        vm.serializeBytes(deploymentInfoKey, "safeInitData", _deployment.safeInitData);
+        vm.serializeBool(deploymentInfoKey, "requireSuccess", _deployment.requireSuccess);
+        vm.serializeString(
+            deploymentInfoKey,
+            "sphinxLibraryVersion",
+            _deployment.sphinxLibraryVersion
+        );
+        vm.serializeBool(deploymentInfoKey, "arbitraryChain", _deployment.arbitraryChain);
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "encodedAccountAccesses",
+            _deployment.encodedAccountAccesses
+        );
+        // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
+        // numbers to prevent the possibility that they lose precision due JavaScript's relatively
+        // low integer size limit. We'll ABI decode these values in TypeScript. It'd be simpler to
+        // serialize the numbers as strings without ABI encoding them, but that strategy is blocked
+        // by a Foundry bug: https://github.com/foundry-rs/foundry/issues/6533
+        vm.serializeBytes(deploymentInfoKey, "nonce", abi.encode(_deployment.nonce));
+        vm.serializeBytes(deploymentInfoKey, "chainId", abi.encode(_deployment.chainId));
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "blockGasLimit",
+            abi.encode(_deployment.blockGasLimit)
+        );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "executionMode",
+            abi.encode(uint256(_deployment.executionMode))
+        );
+        // Serialize the gas estimates as an ABI encoded `uint256` array.
+        vm.serializeBytes(deploymentInfoKey, "gasEstimates", abi.encode(_deployment.gasEstimates));
+
+        // Serialize structs
+        vm.serializeString(
+            deploymentInfoKey,
+            "newConfig",
+            serializeSphinxConfig(_deployment.newConfig)
+        );
+        string memory finalJson = vm.serializeString(
+            deploymentInfoKey,
+            "initialState",
+            serializeInitialChainState(_deployment.initialState)
+        );
+
+        return finalJson;
+    }
+
+    function serializeSphinxConfig(SphinxConfig memory config) internal returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(sphinxConfigKey, "{}");
+
+        vm.serializeString(sphinxConfigKey, "projectName", config.projectName);
+        vm.serializeAddress(sphinxConfigKey, "owners", config.owners);
+        vm.serializeString(sphinxConfigKey, "mainnets", convertNetworksToStrings(config.mainnets));
+        vm.serializeString(sphinxConfigKey, "testnets", convertNetworksToStrings(config.testnets));
+        vm.serializeString(sphinxConfigKey, "orgId", config.orgId);
+        // Serialize the `uint` values as ABI encoded bytes.
+        vm.serializeBytes(sphinxConfigKey, "saltNonce", abi.encode(config.saltNonce));
+        string memory finalJson = vm.serializeBytes(
+            sphinxConfigKey,
+            "threshold",
+            abi.encode(config.threshold)
+        );
+
+        return finalJson;
+    }
+
+    function serializeInitialChainState(
+        InitialChainState memory _initialState
+    ) internal returns (string memory) {
+        // Set the object key to an empty JSON, which ensures that there aren't any existing values
+        // stored in memory for the object key.
+        vm.serializeJson(initialStateKey, "{}");
+
+        vm.serializeBool(initialStateKey, "isSafeDeployed", _initialState.isSafeDeployed);
+        vm.serializeBool(initialStateKey, "isModuleDeployed", _initialState.isModuleDeployed);
+        string memory finalJson = vm.serializeBool(
+            initialStateKey,
+            "isExecuting",
+            _initialState.isExecuting
+        );
+
+        return finalJson;
+    }
+
+    function convertNetworksToStrings(
+        Network[] memory _networks
+    ) private pure returns (string[] memory) {
+        string[] memory converted = new string[](_networks.length);
+        for (uint256 i = 0; i < _networks.length; i++) {
+            converted[i] = vm.toString(uint256(_networks[i]));
+        }
+        return converted;
+    }
+
+    function parseAccountAccesses(
+        Vm.AccountAccess[] memory _accesses,
+        address _safeAddress
+    ) public pure returns (ParsedAccountAccess[] memory) {
+        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
+
+        ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
+        uint256 rootCount = 0;
+        for (uint256 rootIdx = 0; rootIdx < _accesses.length; rootIdx++) {
+            Vm.AccountAccess memory access = _accesses[rootIdx];
+
+            if (isRootAccountAccess(access, _safeAddress)) {
+                uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress);
+                Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
+                for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
+                    // Calculate the index of the current nested `AccountAccess` in the `_accesses`
+                    // array. This index starts after the index of the root element (`rootIdx + 1`),
+                    // then adds the offset (`nestedIdx`) to iterate through subsequent nested
+                    // elements.
+                    uint256 accessesIndex = rootIdx + nestedIdx + 1;
+
+                    nested[nestedIdx] = _accesses[accessesIndex];
+                }
+                parsed[rootCount] = ParsedAccountAccess({ root: access, nested: nested });
+                rootCount += 1;
+            }
+        }
+        return parsed;
+    }
+
+    /**
+     * @notice Converts an `AccountAccess` struct to a struct that can be executed from a Gnosis Safe
+     *         via `GnosisSafe.execTransactionFromModule`.
+     */
+    function makeGnosisSafeTransaction(
+        Vm.AccountAccess memory _access
+    ) external pure returns (GnosisSafeTransaction memory) {
+        if (_access.kind == VmSafe.AccountAccessKind.Create) {
+            // `Create` transactions are executed by delegatecalling the `CreateCall`
+            // contract from the Gnosis Safe.
+            return
+                GnosisSafeTransaction({
+                    operation: IEnum.GnosisSafeOperation.DelegateCall,
+                    // The `value` field is always unused for `DelegateCall` operations.
+                    // Instead, value is transferred via `performCreate` below.
+                    value: 0,
+                    to: createCallAddress,
+                    txData: abi.encodePacked(
+                        ICreateCall.performCreate.selector,
+                        abi.encode(_access.value, _access.data)
+                    )
+                });
+        } else if (_access.kind == VmSafe.AccountAccessKind.Call) {
+            return
+                GnosisSafeTransaction({
+                    operation: IEnum.GnosisSafeOperation.Call,
+                    value: _access.value,
+                    to: _access.account,
+                    txData: _access.data
+                });
+        } else {
+            revert("AccountAccess kind is incorrect. Should never happen.");
         }
     }
 }

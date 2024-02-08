@@ -23,6 +23,29 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
   }
 }
 
+export const checkRequiredTomlOptions = (toml: FoundryToml) => {
+  if (toml.alwaysUseCreate2Factory !== true) {
+    throw new Error(
+      'Missing required option in foundry.toml file:\nalways_use_create_2_factory = true\nPlease update your foundry.toml file and try again.'
+    )
+  }
+
+  if (toml.buildInfo !== true) {
+    throw new Error(
+      'Missing required option in foundry.toml file:\nbuild_info = true\nPlease update your foundry.toml file and try again.'
+    )
+  }
+
+  // Check if the user included the `storageLayout` option. Since foundry force recompiles after
+  // changing the foundry.toml file, we can assume that the contract artifacts will contain the
+  // necessary info as long as the config includes the expected options
+  if (!toml.extraOutput.includes('storageLayout')) {
+    throw new Error(
+      "Missing required extra_output option in foundry.toml file:\nextra_output = ['storageLayout']\nPlease update your foundry.toml file and try again."
+    )
+  }
+}
+
 /**
  * @notice Gets fields from the user's foundry.toml file.
  *
@@ -46,17 +69,6 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
 
   const parsed = replaceEnvVariables(raw)
 
-  // Check if the user included the `storageLayout` option. Since foundry force recompiles after
-  // changing the foundry.toml file, we can assume that the contract artifacts will contain the
-  // necessary info as long as the config includes the expected options
-  if (!parsed.extra_output.includes('storageLayout')) {
-    console.error(
-      `Please include the 'storageLayout' option in your foundry.toml:\n` +
-        `extra_output = ['storageLayout']`
-    )
-    process.exit(1)
-  }
-
   const remappings: Record<string, string> = {}
   for (const remapping of parsed.remappings) {
     const [from, to] = remapping.split('=')
@@ -72,6 +84,9 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     test,
     script,
     solc,
+    always_use_create_2_factory,
+    build_info,
+    extra_output,
   } = parsed
 
   const resolved: FoundryToml = {
@@ -85,7 +100,12 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     remappings,
     etherscan,
     broadcastFolder,
+    alwaysUseCreate2Factory: always_use_create_2_factory,
+    buildInfo: build_info,
+    extraOutput: extra_output,
   }
+
+  checkRequiredTomlOptions(resolved)
 
   return resolved
 }

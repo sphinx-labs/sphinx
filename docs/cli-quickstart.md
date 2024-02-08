@@ -32,6 +32,7 @@ In this guide, you'll create a sample project, propose it on the command line, a
   * [Foundry](https://book.getfoundry.sh/getting-started/installation)
   * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
   * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
+  * [Rust Compiler](https://www.rust-lang.org/tools/install)
 
 ## 2. Create a new directory
 
@@ -64,16 +65,18 @@ pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.
 
 Run one of the following commands on your command line, replacing the placeholders with your values. We've included a description of each command line argument below.
 
+> Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo, but for now, you'll have to use our fork to be able to use Sphinx. You'll be prompted to install our Foundry fork when you run the init command below.
+
 Using Yarn or npm:
 
 ```
-npx sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS> --foundryup
+npx sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS>
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS> --foundryup --pnpm
+pnpm sphinx init --org-id <SPHINX_ORG_ID> --sphinx-api-key <API_KEY> --alchemy-api-key <API_KEY> --owner <YOUR_ADDRESS> --pnpm
 ```
 
 Command line argument descriptions:
@@ -81,7 +84,6 @@ Command line argument descriptions:
 * `--sphinx-api-key <API_KEY>`: Your API key from the Sphinx UI (under "Options" -> "API Credentials").
 * `--alchemy-api-key <API_KEY>`: Your Alchemy API Key.
 * `--owner <YOUR_ADDRESS>`: The address of an account you own on live networks.
-* `--foundryup`: An optional flag that runs `foundryup` to update Foundry. We recommend using the latest Foundry version with Sphinx.
 * `--pnpm`: An optional flag that creates remappings for pnpm.
 
 After you run the command, you'll notice several new files:

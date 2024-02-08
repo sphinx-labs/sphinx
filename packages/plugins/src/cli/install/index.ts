@@ -1,10 +1,42 @@
 import { execSync } from 'child_process'
 
 import { CONTRACTS_LIBRARY_VERSION } from '@sphinx-labs/contracts'
-import { spawnAsync } from '@sphinx-labs/core'
+import { spawnAsync, userConfirmation } from '@sphinx-labs/core'
 import ora from 'ora'
 
-const installWithUpdate = async () => {
+import { sphinxUp } from './sphinxup'
+
+const installWithUpdate = async (
+  spinner: ora.Ora,
+  skipLibrary: boolean,
+  confirm: boolean
+) => {
+  if (!confirm) {
+    await userConfirmation(
+      'Would you like to install the Sphinx Foundry fork? This is required to use Sphinx and will replace your existing Foundry installation.\nConfirm? (y\\n):'
+    )
+  }
+
+  const foundryupStatus = await spawnAsync('/bin/sh', [
+    '-c',
+    'curl -L https://foundry.paradigm.xyz | bash',
+  ])
+  if (foundryupStatus.code !== 0) {
+    // The `stdout` contains the trace of the error.
+    console.log(foundryupStatus.stdout)
+    // The `stderr` contains the error message.
+    console.log(foundryupStatus.stderr)
+    process.exit(1)
+  }
+
+  execSync(sphinxUp, { stdio: 'inherit', shell: '/bin/bash' })
+
+  if (skipLibrary) {
+    return
+  }
+
+  spinner.start('Installing Sphinx Solidity library...')
+
   const args = [
     'install',
     `sphinx-labs/sphinx@${CONTRACTS_LIBRARY_VERSION}`,
@@ -69,10 +101,15 @@ const installWithUpdate = async () => {
   }
 }
 
-export const handleInstall = async (spinner: ora.Ora) => {
-  spinner.start('Installing Sphinx Solidity library...')
-
-  await installWithUpdate()
+export const handleInstall = async (
+  spinner: ora.Ora,
+  skipLibrary: boolean,
+  confirm: boolean
+) => {
+  await installWithUpdate(spinner, skipLibrary, confirm)
+  if (skipLibrary) {
+    return
+  }
 
   // Foundry doesn't consistently install our subdependency, so we make sure it's installed ourselves.
   // We should test this out later and remove if possible.

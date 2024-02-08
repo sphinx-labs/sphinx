@@ -6,6 +6,7 @@ This guide covers some common issues you might encounter using Sphinx. If your q
 
 - [Slow compilation speed](#slow-compilation-speed)
 - [Errors](#errors)
+  - [Installing Sphinx's Foundry fork](#installing-sphinxs-foundry-fork)
   - [`Ineffective mark-compacts near heap limit allocation failed`](#ineffective-mark-compacts-near-heap-limit-allocation-failed)
   - [`EvmError: MemoryLimitOOG`](#evmerror-memorylimitoog)
 

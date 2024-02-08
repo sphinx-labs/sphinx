@@ -99,15 +99,10 @@ export const makeCLI = (
       (y) =>
         y
           .usage(
-            'Usage: sphinx init [--pnpm] [--foundryup] --org-id <org-id> --sphinx-api-key <api-key> --alchemy-api-key <alchemy-key> --owner <owner-address>'
+            'Usage: sphinx init [--pnpm] --org-id <org-id> --sphinx-api-key <api-key> --alchemy-api-key <alchemy-key> --owner <owner-address>'
           )
           .option('pnpm', {
             describe: `Create remappings for pnpm.`,
-            boolean: true,
-            default: false,
-          })
-          .option('foundryup', {
-            describe: 'Update Foundry to the latest version.',
             boolean: true,
             default: false,
           })
@@ -133,18 +128,34 @@ export const makeCLI = (
           })
           .hide('version'),
       async (argv) => {
-        const { foundryup, orgId, sphinxApiKey, alchemyApiKey, owner } = argv
+        const { orgId, sphinxApiKey, alchemyApiKey, owner } = argv
 
-        await init(foundryup, orgId, sphinxApiKey, alchemyApiKey, owner)
+        await init(orgId, sphinxApiKey, alchemyApiKey, owner)
       }
     )
     .command(
       'install',
-      'Installs the required version of the Sphinx Solidity library contracts',
-      (y) => y.usage('Usage: sphinx install'),
-      async () => {
+      'Installs the required version of the Sphinx Solidity library contracts and Sphinx Foundry fork',
+      (y) =>
+        y
+          .usage('Usage: sphinx install')
+          .option('skip-library', {
+            describe:
+              'Skips installing the Sphinx library and only installs the Sphinx Foundry fork.',
+            boolean: true,
+            default: false,
+          })
+          .option(confirmOption, {
+            describe:
+              'Automatically confirm the Sphinx Foundry fork installation.',
+            boolean: true,
+            default: false,
+          }),
+      async (argv) => {
+        const { skipLibrary, confirm } = argv
+
         const spinner = ora()
-        await handleInstall(spinner)
+        await handleInstall(spinner, skipLibrary, confirm)
       }
     )
     .command(

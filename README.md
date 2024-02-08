@@ -73,8 +73,7 @@ A demo of the DevOps Platform is on the [website's landing page](https://sphinx.
 
 ## Current Limitations
 
-- Sphinx supports `CREATE2` and `CREATE3` but not the `CREATE` opcode, i.e. `new MyContract(...)`.
-- You cannot send ETH as part of a deployment.
+- You cannot deploy [libraries](https://docs.soliditylang.org/en/v0.8.24/contracts.html#libraries).
 - You can only use the [Deploy CLI Command](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-deploy.md) on live networks if your Gnosis Safe has a single owner. (Deployments with the DevOps Platform support an arbitrary number of owners).
 
 ## Coming Soon
@@ -100,6 +99,8 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Fantom
 - Base
 - Scroll
+- Zora
+- RARI
 - Celo
 - Moonbeam
 - Moonriver
@@ -123,6 +124,8 @@ Test networks:
 - Fantom Testnet
 - Base Sepolia
 - Scroll Sepolia
+- Zora Sepolia
+- Rari Sepolia
 - Celo Alfajores
 - Moonbase Alpha
 - Evmos Testnet

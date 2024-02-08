@@ -1,4 +1,4 @@
-import path, { basename, dirname, join } from 'path'
+import path, { basename, dirname, join, relative } from 'path'
 import { promisify } from 'util'
 import {
   createReadStream,
@@ -18,24 +18,25 @@ import {
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
+  decodeDeterministicDeploymentProxyData,
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
   getNetworkNameForChainId,
   isDefined,
-  isRawCreate2ActionInput,
   sortHexStrings,
   spawnAsync,
-  toSphinxTransaction,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
+  AccountAccess,
+  AccountAccessKind,
+  ActionInput,
   ConfigArtifacts,
-  DeploymentInfo,
   GetConfigArtifacts,
+  ParsedAccountAccess,
   ParsedConfig,
   ParsedVariable,
-  RawActionInput,
   SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -45,7 +46,11 @@ import { ignore } from 'stream-json/filters/Ignore'
 import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
-import { SphinxJsonRpcProvider, networkEnumToName } from '@sphinx-labs/core'
+import {
+  ParsedContractDeployment,
+  SphinxJsonRpcProvider,
+  networkEnumToName,
+} from '@sphinx-labs/core'
 import ora from 'ora'
 import {
   ContractArtifact,
@@ -54,6 +59,7 @@ import {
   parseFoundryContractArtifact,
   recursivelyConvertResult,
   getSystemContractInfo,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
@@ -241,15 +247,16 @@ export const readContractArtifact = async (
  * Returns the init code of every contract deployment collected from a Forge script.
  */
 export const getInitCodeWithArgsArray = (
-  rawActions: Array<RawActionInput>
+  accountAccesses: Array<ParsedAccountAccess>
 ): Array<string> => {
-  const create2Actions = rawActions.filter(isRawCreate2ActionInput)
-  const additionalContracts = rawActions.flatMap(
-    (action) => action.additionalContracts
-  )
-  return create2Actions
-    .map((action) => action.initCodeWithArgs)
-    .concat(additionalContracts.map((contract) => contract.initCode))
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  return flat
+    .filter((accountAccess) => accountAccess.kind === AccountAccessKind.Create)
+    .map((accountAccess) => accountAccess.data)
 }
 
 /**
@@ -283,6 +290,85 @@ export const compile = (silent: boolean, force: boolean): void => {
   if (compilationStatus !== 0) {
     process.exit(1)
   }
+}
+
+/**
+ * Throws an error if there are any linked libraries in `scriptPath`. If a `targetContract` is
+ * defined, this function simply builds fully qualified name, then uses it to load the script's
+ * artifact. If a `targetContract` isn't defined, this function searches the build info cache to
+ * find the most recent fully qualified name for the given `sourceName`. We use the build info cache
+ * because it's more reliable than searching Foundry's artifact file tree, which can be
+ * unpredictable due to the potentially nested structure of artifact file locations, and due to the
+ * fact that we don't know the fully qualified name in advance.
+ */
+export const assertNoLinkedLibraries = async (
+  scriptPath: string,
+  cachePath: string,
+  artifactFolder: string,
+  projectRoot: string,
+  targetContract?: string
+): Promise<void> => {
+  const fullyQualifiedName = targetContract
+    ? `${scriptPath}:${targetContract}`
+    : // Find the fully qualified name using its source name. We can safely assume
+      // that there's a single fully qualified name in the array returned by
+      // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
+      // this function was called, which means there must only be a single contract.
+      findFullyQualifiedNames(scriptPath, cachePath, projectRoot)[0]
+  const artifact = await readContractArtifact(
+    fullyQualifiedName,
+    projectRoot,
+    artifactFolder
+  )
+
+  const containsLibrary =
+    Object.keys(artifact.linkReferences).length > 0 ||
+    Object.keys(artifact.deployedLinkReferences).length > 0
+  if (containsLibrary) {
+    throw new Error(
+      `Detected linked library in: ${fullyQualifiedName}\n` +
+        `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
+    )
+  }
+}
+
+/**
+ * Returns an array of the most recent fully qualified names for the given `sourceName`. This
+ * function searches the build info cache for the most recent build info file that contains a fully
+ * qualified name starting with `sourceName`. Returns an empty array if there is no such fully
+ * qualified name in any of the cached build info files.
+ */
+const findFullyQualifiedNames = (
+  rawSourceName: string,
+  cachePath: string,
+  projectRoot: string
+): Array<string> => {
+  const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
+
+  // Normalize the source name so that it conforms to the format of the fully qualified names in the
+  // build info cache. The normalized format is "path/to/file.sol".
+  const sourceName = relative(projectRoot, rawSourceName)
+
+  const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
+    readFileSync(buildInfoCacheFilePath, 'utf8')
+  )
+
+  // Sort the build info files from most recent to least recent.
+  const sortedCachedFiles = Object.values(buildInfoCache).sort(
+    (a, b) => b.time - a.time
+  )
+
+  for (const { contracts } of sortedCachedFiles) {
+    const fullyQualifiedNames = contracts
+      .filter((contract) => contract.fullyQualifiedName.startsWith(sourceName))
+      .map((contract) => contract.fullyQualifiedName)
+
+    if (fullyQualifiedNames.length > 0) {
+      return fullyQualifiedNames
+    }
+  }
+
+  return []
 }
 
 /**
@@ -762,86 +848,6 @@ export const callForgeScriptFunction = async <T>(
   }
 }
 
-export const getSphinxLeafGasEstimates = async (
-  scriptPath: string,
-  foundryToml: FoundryToml,
-  sphinxPluginTypesInterface: ethers.Interface,
-  collected: Array<{
-    deploymentInfo: DeploymentInfo
-    actionInputs: Array<RawActionInput>
-    forkUrl: string
-  }>,
-  targetContract?: string,
-  spinner?: ora.Ora
-): Promise<Array<Array<string>>> => {
-  const leafGasParamsFragment = findFunctionFragment(
-    sphinxPluginTypesInterface,
-    'leafGasParams'
-  )
-
-  const coder = ethers.AbiCoder.defaultAbiCoder()
-  const leafGasInputsFilePath = join(
-    foundryToml.cachePath,
-    'sphinx-estimate-leaf-gas.txt'
-  )
-
-  const gasEstimatesArray: Array<Array<string>> = []
-  for (const { actionInputs, deploymentInfo, forkUrl } of collected) {
-    const txns = actionInputs.map(toSphinxTransaction)
-    const encodedTxnArray = coder.encode(leafGasParamsFragment.outputs, [
-      txns,
-      getSystemContractInfo(),
-    ])
-
-    // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
-    // instead of passing in the data as a parameter to the Forge script because it's possible to hit
-    // Node's `spawn` input size limit if the data is large. This is particularly a concern because
-    // the data contains contract init code.
-    writeFileSync(leafGasInputsFilePath, encodedTxnArray)
-
-    const json = await callForgeScriptFunction<{
-      abiEncodedGasArray: {
-        value: string
-      }
-    }>(
-      scriptPath,
-      'sphinxEstimateMerkleLeafGas(string)',
-      [leafGasInputsFilePath, deploymentInfo.chainId],
-      forkUrl,
-      targetContract,
-      spinner
-    )
-
-    const returned = json.returns.abiEncodedGasArray.value
-    // ABI decode the gas array.
-    const [decoded] = coder.decode(['uint256[]'], returned)
-    // Convert the BigInt elements to Numbers, then multiply by a buffer. This ensures the user's
-    // transaction doesn't fail on-chain due to variations in the chain state, which could occur
-    // between the time of the simulation and execution.
-    const returnedGasArrayWithBuffer = decoded
-      // Convert the BigInt elements to Numbers
-      .map(Number)
-      // Include a buffer to ensure the user's transaction doesn't fail on-chain due to variations
-      // between the simulation and the live execution environment. There are a couple areas in
-      // particular that could lead to variations:
-      // 1. The on-chain state could vary. For example, existing contracts could have different
-      //    state, which could impact the cost of execution. This is inherently a source of
-      //    variation because there's a delay between the simulation and execution.
-      // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are more
-      //    likely to be "warm" (i.e. cheaper) than the production environment, where transactions
-      //    may be split between batches. In practice, the execution process uses large batches, so
-      //    the variation shouldn't be significant.
-      // We chose to multiply the gas by 1.3 because multiplying it by a higher number
-      // could make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
-      // doesn't impact small transactions very much, we add a constant amount of 20k too.
-      .map((gas) => Math.round(gas * 1.3 + 20_000).toString())
-
-    gasEstimatesArray.push(returnedGasArrayWithBuffer)
-  }
-
-  return gasEstimatesArray
-}
-
 export const isFoundryMultiChainDryRun = (
   dryRun: FoundrySingleChainDryRun | FoundryMultiChainDryRun
 ): dryRun is FoundryMultiChainDryRun => {
@@ -1142,7 +1148,7 @@ export const replaceEnvVariables = (input: ParsedVariable): any => {
  * Returns `undefined` if the `initCodeWithArgs` does not exist in the `configArtifacts`, which
  * means that it does not belong to a source file.
  */
-export const findFullyQualifiedName = (
+export const findFullyQualifiedNameForInitCode = (
   initCodeWithArgs: string,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
@@ -1167,4 +1173,194 @@ export const findFullyQualifiedName = (
   }
   // If we make it to this point, we couldn't find a fully qualified name for this init code.
   return undefined
+}
+
+/**
+ * Returns the fully qualified name that corresponds to a given address. Returns `undefined` if no
+ * fully qualified name exists for the address. This function will only find a fully qualified name
+ * if it corresponds to a contract deployed in one of the actions.
+ */
+export const findFullyQualifiedNameForAddress = (
+  address: string,
+  accountAccesses: Array<ParsedAccountAccess>,
+  configArtifacts: ConfigArtifacts
+): string | undefined => {
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  const createAccountAccess = flat.find(
+    (accountAccess) =>
+      accountAccess.kind === AccountAccessKind.Create &&
+      accountAccess.account === address
+  )
+
+  if (createAccountAccess) {
+    const initCodeWithArgs = createAccountAccess.data
+    return findFullyQualifiedNameForInitCode(initCodeWithArgs, configArtifacts)
+  } else {
+    return undefined
+  }
+}
+
+/**
+ * Write the ABI encoded Sphinx system contracts to the file system. This is useful when we need to
+ * pass the system contract info from TypeScript to a Forge script. We write it to the file system
+ * instead of passing it in as a parameter to the Forge script because it's possible to hit Node's
+ * `spawn` input size limit if the data is large. This is particularly a concern because the data
+ * contains contract init code.
+ */
+export const writeSystemContracts = (
+  sphinxPluginTypesInterface: ethers.Interface,
+  cachePath: string
+): string => {
+  const systemContractsArrayFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'systemContractInfoArrayType'
+  )
+
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  const filePath = join(cachePath, 'sphinx-system-contracts.txt')
+
+  const encodedSystemContractArray = coder.encode(
+    systemContractsArrayFragment.outputs,
+    [getSystemContractInfo()]
+  )
+
+  // Write the ABI encoded data to the file system. We'll read it in the Forge script. We do this
+  // instead of passing in the data as a parameter to the Forge script because it's possible to hit
+  // Node's `spawn` input size limit if the data is large. This is particularly a concern because
+  // the data contains contract init code.
+  writeFileSync(filePath, encodedSystemContractArray)
+
+  return filePath
+}
+
+export const assertValidAccountAccesses = (
+  accountAccesses: Array<ParsedAccountAccess>,
+  safeAddress: string
+): void => {
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  for (const accountAccess of flat) {
+    if (accountAccess.accessor === safeAddress) {
+      if (BigInt(accountAccess.value) > BigInt(0)) {
+        throw new Error(
+          `Detected value transfer in script:\n` +
+            `To: ${accountAccess.account}\n` +
+            `Amount: ${ethers.parseEther(accountAccess.value.toString())}\n` +
+            `Sphinx does not support transferring native gas tokens during deployments.\n` +
+            `Let us know if you want this feature!`
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Checks if the `accountAccess` and the `nextAccountAccess` form a valid `CREATE2` deployment
+ * through the Deterministic Deployment Proxy (i.e. Foundry's default `CREATE2` deployer).
+ */
+export const isCreate2AccountAccess = (
+  root: AccountAccess,
+  nested: Array<AccountAccess>
+): boolean => {
+  if (nested.length === 0) {
+    return false
+  }
+  const nextAccountAccess = nested[0]
+
+  // The first `AccountAccess` must be a `Call` to the Deterministic Deployment Proxy, and must have
+  // data that's at least 32 bytes long, since the data is a 32-byte salt appended with the
+  // contract's init code.
+  const isCreate2Call =
+    root.kind === AccountAccessKind.Call &&
+    root.account === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
+    getBytesLength(root.data) >= 32
+  if (!isCreate2Call) {
+    return false
+  }
+
+  const { create2Address } = decodeDeterministicDeploymentProxyData(root.data)
+
+  // The next `AccountAccess` must be a `Create` kind, and must be sent from the Deterministic
+  // Deployment Proxy to the expected `CREATE2` address.
+  return (
+    nextAccountAccess.kind === AccountAccessKind.Create &&
+    nextAccountAccess.accessor === DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS &&
+    nextAccountAccess.account === create2Address
+  )
+}
+
+/**
+ * Returns an array containing all of the nested contract deployments in an `AccountAccess`. This
+ * function finds nested contract deployments by iterating through the `AccountAccess` objects that
+ * occur after the `AccountAccess`.
+ *
+ * @param nextAccountAccesses An array of all the `AccountAccess` objects that occur after the
+ * current `AccountAccess`. The current `AccountAccess` is not included in this array.
+ *
+ * @returns An object containing the parsed contract deployments (which each correspond to a fully
+ * qualified name) and the unlabeled contract deployments (which don't correspond to a fully
+ * qualified name).
+ */
+export const parseNestedContractDeployments = (
+  nested: Array<AccountAccess>,
+  configArtifacts: ConfigArtifacts
+): {
+  parsedContracts: ActionInput['contracts']
+  unlabeled: ParsedConfig['unlabeledContracts']
+} => {
+  const parsedContracts: Array<ParsedContractDeployment> = []
+  const unlabeled: ParsedConfig['unlabeledContracts'] = []
+
+  // Iterate through the `AccountAccess` elements.
+  for (const accountAccess of nested) {
+    if (accountAccess.kind === AccountAccessKind.Create) {
+      const initCodeWithArgs = accountAccess.data
+      const address = accountAccess.account
+
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
+        initCodeWithArgs,
+        configArtifacts
+      )
+
+      if (fullyQualifiedName) {
+        parsedContracts.push({
+          address,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        })
+      } else {
+        unlabeled.push({
+          address,
+          initCodeWithArgs,
+        })
+      }
+    }
+  }
+
+  return { parsedContracts, unlabeled }
+}
+
+export const assertSphinxFoundryForkInstalled = async (
+  scriptPath: string,
+  targetContract?: string
+): Promise<void> => {
+  // Empirically check if our fork is functioning properly
+  const forkInstalled = await callForgeScriptFunction<{
+    forkInstalled: { value: string }
+  }>(scriptPath, 'sphinxCheckFork()', [], undefined, targetContract)
+
+  if (forkInstalled.returns.forkInstalled.value === 'false') {
+    throw new Error(
+      `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
+        `running the command:\n` +
+        `foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0`
+    )
+  }
 }

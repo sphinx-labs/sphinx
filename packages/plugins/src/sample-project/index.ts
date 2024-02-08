@@ -2,7 +2,6 @@ export * from './sample-contracts'
 
 import * as fs from 'fs'
 import * as path from 'path'
-import { spawnSync } from 'child_process'
 
 import ora from 'ora'
 import { ethers } from 'ethers'
@@ -70,22 +69,11 @@ const handleCommit = async () => {
 }
 
 export const init = async (
-  foundryup: boolean,
   orgId: string,
   sphinxApiKey: string,
   alchemyApiKey: string,
   rawOwnerAddress: string
 ) => {
-  if (foundryup) {
-    const { status } = spawnSync(`foundryup`, [], {
-      stdio: 'inherit',
-    })
-    // Exit the process if compilation fails.
-    if (status !== 0) {
-      process.exit(1)
-    }
-  }
-
   const spinner = ora()
   spinner.start(`Initializing sample Sphinx project...`)
 
@@ -140,7 +128,7 @@ export const init = async (
 
   spinner.succeed('Initialized sample Sphinx project.')
 
-  await handleInstall(spinner)
+  await handleInstall(spinner, false, true)
 
   await handleCommit()
 }

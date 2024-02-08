@@ -82,6 +82,8 @@ jobs:
           version: nightly
       - name: Install Dependencies
         run: yarn --frozen-lockfile
+      - name: Install Sphinx Solidity Library
+        run: yarn sphinx install --confirm
       - name: Dry Run
         run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
 ```

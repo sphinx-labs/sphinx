@@ -208,7 +208,7 @@ export const getPreview = (
         executing.push({
           referenceName: 'GnosisSafe',
           functionName: 'deploy',
-          variables: [],
+          variables: {},
           address: parsedConfig.safeAddress,
         })
       }
@@ -216,7 +216,7 @@ export const getPreview = (
         executing.push({
           referenceName: 'SphinxModule',
           functionName: 'deploy',
-          variables: [],
+          variables: {},
           address: parsedConfig.moduleAddress,
         })
       }

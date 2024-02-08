@@ -10,7 +10,6 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   ExecutionMode,
-  RawActionInput,
   SphinxJsonRpcProvider,
   getParsedConfigWithCompilerInputs,
   makeDeploymentData,
@@ -20,7 +19,6 @@ import {
   getSphinxWalletPrivateKey,
   runEntireDeploymentProcess,
   makeDeploymentArtifacts,
-  SphinxActionType,
   isReceiptEarlier,
   isContractDeploymentArtifact,
   isContractDeploymentArtifactExceptHistory,
@@ -30,8 +28,10 @@ import {
   fetchURLForNetwork,
   ensureSphinxAndGnosisSafeDeployed,
   spawnAsync,
-  RawCreate2ActionInput,
   fetchChainIdForNetwork,
+  AccountAccess,
+  AccountAccessKind,
+  ParsedAccountAccess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -68,6 +68,24 @@ import {
   getInitCodeWithArgsArray,
   readFoundrySingleChainBroadcast,
 } from '../../src/foundry/utils'
+
+const blankAccountAccess: AccountAccess = {
+  chainInfo: {
+    forkId: '0',
+    chainId: '0',
+  },
+  kind: AccountAccessKind.Call,
+  account: ethers.ZeroAddress,
+  accessor: ethers.ZeroAddress,
+  initialized: false,
+  oldBalance: '0',
+  newBalance: '0',
+  deployedCode: '0x',
+  value: '0',
+  data: '0x',
+  reverted: false,
+  storageAccesses: [],
+}
 
 export const getAnvilRpcUrl = (chainId: bigint): string => {
   return `http://127.0.0.1:${getAnvilPort(chainId)}`
@@ -316,7 +334,7 @@ export const makeDeployment = async (
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  actions: Array<RawActionInput>,
+  accountAccesses: Array<ParsedAccountAccess>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -355,6 +373,8 @@ export const makeDeployment = async (
     const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
     await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
 
+    const numActionInputs = accountAccesses.length
+
     const deploymentInfo: DeploymentInfo = {
       safeAddress,
       moduleAddress,
@@ -381,15 +401,14 @@ export const makeDeployment = async (
       },
       arbitraryChain: false,
       sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+      accountAccesses,
+      gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
     }
 
-    return {
-      actionInputs: actions,
-      deploymentInfo,
-    }
+    return deploymentInfo
   })
 
-  const collected = await Promise.all(collectedPromises)
+  const deploymentInfoArray = await Promise.all(collectedPromises)
 
   const foundryToml = await getFoundryToml()
   const getConfigArtifacts = makeGetConfigArtifacts(
@@ -400,24 +419,21 @@ export const makeDeployment = async (
   )
 
   const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    collected.flatMap(({ actionInputs }) => actionInputs)
+    deploymentInfoArray.flatMap(
+      (deploymentInfo) => deploymentInfo.accountAccesses
+    )
   )
 
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
-  const parsedConfigArray = collected.map(
-    ({ actionInputs, deploymentInfo }) => {
-      const gasEstimatesArray = actionInputs.map(() => (5_000_000).toString())
-      return makeParsedConfig(
-        deploymentInfo,
-        actionInputs,
-        gasEstimatesArray,
-        true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
-        configArtifacts,
-        [] // No libraries
-      )
-    }
-  )
+  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo) => {
+    return makeParsedConfig(
+      deploymentInfo,
+      true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
+      configArtifacts,
+      [] // No libraries
+    )
+  })
 
   const deploymentData = makeDeploymentData(parsedConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
@@ -432,11 +448,12 @@ export const makeDeployment = async (
 
 export const makeRevertingDeployment = (
   merkleRootNonce: number,
-  executionMode: ExecutionMode
+  executionMode: ExecutionMode,
+  safeAddress: string
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  actionInputs: Array<RawActionInput>
+  accountAccesses: Array<ParsedAccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -444,21 +461,26 @@ export const makeRevertingDeployment = (
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const actionInputs: Array<RawActionInput> = [
-    makeRawCreate2Action(
-      salt,
-      parseFoundryContractArtifact(MyContract2Artifact),
-      '0x'
-    ),
-    makeRawCreate2Action(salt, parseFoundryContractArtifact(Reverter), '0x'),
-  ]
+  const accountAccesses: Array<ParsedAccountAccess> =
+    makeCreate2AccountAccesses(safeAddress, [
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(MyContract2Artifact),
+        abiEncodedConstructorArgs: '0x',
+      },
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(Reverter),
+        abiEncodedConstructorArgs: '0x',
+      },
+    ])
   const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = ['MyContract2.json']
 
   return {
     executionMode,
     merkleRootNonce,
-    actionInputs,
+    accountAccesses,
     expectedNumExecutionArtifacts,
     expectedContractFileNames,
   }
@@ -533,54 +555,62 @@ export const isSortedChronologically = (
   return true
 }
 
-const makeRawCreate2Action = (
-  salt: number,
-  artifact: ContractArtifact,
-  abiEncodedConstructorArgs: string
-): RawCreate2ActionInput => {
-  const { bytecode, contractName } = artifact
+const makeCreate2AccountAccesses = (
+  safeAddress: string,
+  inputs: Array<{
+    salt: number
+    artifact: ContractArtifact
+    abiEncodedConstructorArgs: string
+  }>
+): Array<ParsedAccountAccess> => {
+  const accountAccesses: Array<ParsedAccountAccess> = []
+  for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
+    const { bytecode } = artifact
 
-  const gas = (5_000_000).toString()
+    const saltPadded = ethers.zeroPadValue(ethers.toBeHex(salt), 32)
+    const initCodeWithArgs = ethers.concat([
+      bytecode,
+      abiEncodedConstructorArgs,
+    ])
+    const data = ethers.concat([saltPadded, initCodeWithArgs])
+    const create2Address = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      saltPadded,
+      ethers.keccak256(initCodeWithArgs)
+    )
 
-  const saltPadded = ethers.zeroPadValue(ethers.toBeHex(salt), 32)
-  const initCodeWithArgs = ethers.concat([bytecode, abiEncodedConstructorArgs])
-  const create2Address = ethers.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    saltPadded,
-    ethers.keccak256(initCodeWithArgs)
-  )
-
-  const txData = ethers.concat([saltPadded, initCodeWithArgs])
-
-  return {
-    to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    create2Address,
-    contractName,
-    value: '0x0',
-    operation: Operation.Call,
-    txData,
-    initCodeWithArgs,
-    actionType: SphinxActionType.CALL.toString(),
-    gas,
-    additionalContracts: [],
-    requireSuccess: true,
-    // Unused:
-    decodedAction: {
-      referenceName: contractName,
-      functionName: 'deploy',
-      variables: [],
-      address: create2Address,
-    },
+    accountAccesses.push({
+      root: {
+        ...blankAccountAccess,
+        account: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        accessor: safeAddress,
+        value: '0',
+        data,
+        kind: AccountAccessKind.Call,
+      },
+      nested: [
+        {
+          ...blankAccountAccess,
+          account: create2Address,
+          accessor: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          value: '0',
+          data: initCodeWithArgs,
+          kind: AccountAccessKind.Create,
+        },
+      ],
+    })
   }
+  return accountAccesses
 }
 
 export const makeStandardDeployment = (
   merkleRootNonce: number,
-  executionMode: ExecutionMode
+  executionMode: ExecutionMode,
+  safeAddress: string
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  actionInputs: Array<RawActionInput>
+  accountAccesses: Array<ParsedAccountAccess>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -590,37 +620,37 @@ export const makeStandardDeployment = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const actionInputs: Array<RawActionInput> = [
-    makeRawCreate2Action(
+  const accountAccesses = makeCreate2AccountAccesses(safeAddress, [
+    {
       salt,
-      parseFoundryContractArtifact(MyContract2Artifact),
-      '0x'
-    ),
-    makeRawCreate2Action(
+      artifact: parseFoundryContractArtifact(MyContract2Artifact),
+      abiEncodedConstructorArgs: '0x',
+    },
+    {
       salt,
-      parseFoundryContractArtifact(MyContract1Artifact),
-      coder.encode(
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
         ['int256', 'uint256', 'address', 'address'],
         [3, 3, makeAddress(3), makeAddress(3)]
-      )
-    ),
-    makeRawCreate2Action(
+      ),
+    },
+    {
       salt,
-      parseFoundryContractArtifact(MyContract1Artifact),
-      coder.encode(
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
         ['int256', 'uint256', 'address', 'address'],
         [4, 4, makeAddress(4), makeAddress(4)]
-      )
-    ),
-    makeRawCreate2Action(
+      ),
+    },
+    {
       salt,
-      parseFoundryContractArtifact(MyContract1Artifact),
-      coder.encode(
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
         ['int256', 'uint256', 'address', 'address'],
         [5, 5, makeAddress(5), makeAddress(5)]
-      )
-    ),
-  ]
+      ),
+    },
+  ])
   const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = [
     'MyContract2.json',
@@ -632,7 +662,7 @@ export const makeStandardDeployment = (
   return {
     executionMode,
     merkleRootNonce,
-    actionInputs,
+    accountAccesses,
     expectedNumExecutionArtifacts,
     expectedContractFileNames,
   }

@@ -8,6 +8,8 @@ import {
 
 export type SupportedLocalNetworkName = 'anvil'
 
+export const COMPILER_CONFIG_VERSION = '0.1.0'
+
 /**
  * Data returned by the `anvil_metadata` and `hardhat_metadata` RPC methods.
  *
@@ -29,9 +31,11 @@ export type LocalNetworkMetadata = {
   snapshots?: Record<string, unknown>
 }
 
-export const networkEnumToName = (networkEnum: bigint) => {
+export const networkEnumToName = (networkEnum: bigint | string) => {
+  const networkEnumBigInt = BigInt(networkEnum)
+
   const network = SPHINX_NETWORKS.find(
-    (_, index) => BigInt(index + 1) === networkEnum
+    (_, index) => BigInt(index + 1) === networkEnumBigInt
   )
 
   if (network) {

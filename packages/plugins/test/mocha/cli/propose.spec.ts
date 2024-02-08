@@ -44,8 +44,24 @@ const sepoliaRpcUrl = `http://127.0.0.1:42111`
 const allNetworkNames = ['ethereum', 'optimism', 'sepolia']
 
 describe('Propose CLI command', () => {
+  let originalEnv: NodeJS.ProcessEnv
+
   before(async () => {
+    // Store the original environment variables. We'll reset them after this test suite is finished.
+    originalEnv = { ...process.env }
+
     process.env['SPHINX_API_KEY'] = sphinxApiKey
+    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+    process.env['ETHEREUM_RPC_URL'] = getAnvilRpcUrl(
+      fetchChainIdForNetwork('ethereum')
+    )
+    process.env['OPTIMISM_RPC_URL'] = getAnvilRpcUrl(
+      fetchChainIdForNetwork('optimism')
+    )
+  })
+
+  after(() => {
+    process.env = originalEnv
   })
 
   beforeEach(async () => {
@@ -137,24 +153,24 @@ describe('Propose CLI command', () => {
               address: proposalRequest.safeAddress,
               functionName: 'deploy',
               referenceName: 'GnosisSafe',
-              variables: [],
+              variables: {},
             },
             {
               address: proposalRequest.moduleAddress,
               functionName: 'deploy',
               referenceName: 'SphinxModule',
-              variables: [],
+              variables: {},
             },
             {
               address: expectedContractAddress,
               functionName: 'deploy',
               referenceName: 'MyContract2',
-              variables: [],
+              variables: {},
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
-              variables: ['2'],
+              variables: { _num: '2' },
               address: expectedContractAddress,
             },
           ],
@@ -235,25 +251,25 @@ describe('Propose CLI command', () => {
             {
               referenceName: 'GnosisSafe',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.safeAddress,
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.moduleAddress,
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: expectedContractAddressEthereum,
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
-              variables: ['2'],
+              variables: { _num: '2' },
               address: expectedContractAddressEthereum,
             },
           ],
@@ -265,25 +281,25 @@ describe('Propose CLI command', () => {
             {
               referenceName: 'GnosisSafe',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.safeAddress,
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.moduleAddress,
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: expectedContractAddressOptimism,
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
-              variables: ['2'],
+              variables: { _num: '2' },
               address: expectedContractAddressOptimism,
             },
           ],
@@ -360,7 +376,7 @@ describe('Propose CLI command', () => {
       return {
         referenceName: 'MyLargeContract',
         functionName: 'deploy',
-        variables: [],
+        variables: {},
         address,
       }
     })
@@ -380,13 +396,13 @@ describe('Propose CLI command', () => {
             {
               referenceName: 'GnosisSafe',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.safeAddress,
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.moduleAddress,
             },
             ...previewElements,
@@ -481,7 +497,7 @@ describe('Propose CLI command', () => {
               address: expectedContractAddress,
               functionName: 'deploy',
               referenceName: 'MyContract2',
-              variables: [],
+              variables: {},
             },
           ],
           skipping: [],
@@ -580,19 +596,19 @@ describe('Propose CLI command', () => {
             {
               referenceName: 'GnosisSafe',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.safeAddress,
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: proposalRequest.moduleAddress,
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
-              variables: [],
+              variables: {},
               address: expectedContractAddress,
             },
           ],
