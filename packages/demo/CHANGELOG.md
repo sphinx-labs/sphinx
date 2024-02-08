@@ -1,5 +1,23 @@
 # @sphinx-labs/demo
 
+## 0.12.4
+
+### Patch Changes
+
+- ce65752: Add support for `CREATE` opcode deployments
+- Updated dependencies [64880c7]
+- Updated dependencies [c61b557]
+- Updated dependencies [ce65752]
+- Updated dependencies [0e3ecd8]
+- Updated dependencies [ce65752]
+- Updated dependencies [ea33cd4]
+- Updated dependencies [9c71c5e]
+- Updated dependencies [bca86ea]
+- Updated dependencies [1d7e5ac]
+  - @sphinx-labs/plugins@0.28.0
+  - @sphinx-labs/contracts@0.18.0
+  - @sphinx-labs/core@0.21.4
+
 ## 0.12.3
 
 ### Patch Changes
