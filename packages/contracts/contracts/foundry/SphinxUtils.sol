@@ -976,8 +976,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     /**
      * @notice Serializes the `FoundryDeploymentInfo` struct. The serialized string is the
-     *         same structure as the `FoundryDeploymentInfo` struct except all `uint` fields
-     *         are ABI encoded (see inline docs for details).
+     *         same structure as the `FoundryDeploymentInfo` struct except all `uint` and `string`
+     *         fields are ABI encoded (see inline docs for details).
      */
     function serializeFoundryDeploymentInfo(
         FoundryDeploymentInfo memory _deployment
@@ -992,11 +992,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.serializeAddress(deploymentInfoKey, "executorAddress", _deployment.executorAddress);
         vm.serializeBytes(deploymentInfoKey, "safeInitData", _deployment.safeInitData);
         vm.serializeBool(deploymentInfoKey, "requireSuccess", _deployment.requireSuccess);
-        vm.serializeString(
-            deploymentInfoKey,
-            "sphinxLibraryVersion",
-            _deployment.sphinxLibraryVersion
-        );
         vm.serializeBool(deploymentInfoKey, "arbitraryChain", _deployment.arbitraryChain);
         vm.serializeBytes(
             deploymentInfoKey,
@@ -1022,6 +1017,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
         // Serialize the gas estimates as an ABI encoded `uint256` array.
         vm.serializeBytes(deploymentInfoKey, "gasEstimates", abi.encode(_deployment.gasEstimates));
+        // Serialize the Sphinx library version as an ABI encoded string. We ABI encode it to ensure
+        // that Foundry doesn't serialize it as a number, which will happen if the
+        // `sphinxLibraryVersion` consists only of numbers. If Foundry serializes it as a number,
+        // it'll be prone to the same precision loss due to JavaScript's low integer size limit.
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "sphinxLibraryVersion",
+            abi.encode(_deployment.sphinxLibraryVersion)
+        );
 
         // Serialize structs
         vm.serializeString(
@@ -1043,11 +1047,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // stored in memory for the object key.
         vm.serializeJson(sphinxConfigKey, "{}");
 
-        vm.serializeString(sphinxConfigKey, "projectName", config.projectName);
         vm.serializeAddress(sphinxConfigKey, "owners", config.owners);
         vm.serializeString(sphinxConfigKey, "mainnets", convertNetworksToStrings(config.mainnets));
         vm.serializeString(sphinxConfigKey, "testnets", convertNetworksToStrings(config.testnets));
-        vm.serializeString(sphinxConfigKey, "orgId", config.orgId);
+        // Serialize the string values as ABI encoded strings.
+        vm.serializeBytes(sphinxConfigKey, "projectName", abi.encode(config.projectName));
+        vm.serializeBytes(sphinxConfigKey, "orgId", abi.encode(config.orgId));
         // Serialize the `uint` values as ABI encoded bytes.
         vm.serializeBytes(sphinxConfigKey, "saltNonce", abi.encode(config.saltNonce));
         string memory finalJson = vm.serializeBytes(
