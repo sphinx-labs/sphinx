@@ -41,7 +41,6 @@ In this guide, you'll propose the deployment on the command line and then approv
   * [Foundry](https://book.getfoundry.sh/getting-started/installation)
   * [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/), [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm), or [pnpm](https://pnpm.io/installation)
   * [Node Version >=16.16.0](https://nodejs.org/en/download). (Run `node -v` to see your current version).
-  * [Rust Compiler](https://www.rust-lang.org/tools/install)
 
 ## 2. Install Sphinx CLI
 
