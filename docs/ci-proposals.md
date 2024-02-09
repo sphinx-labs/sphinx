@@ -2,9 +2,7 @@
 
 It's a best practice to propose deployments from a CI process instead of using the command line. This ensures that your deployments are reproducible and don't depend on a single developer's machine, which can be a source of bugs.
 
-This guide will show you how to integrate proposals into your CI process. We'll create two workflows: one that dry runs the proposal when a pull request is opened or updated, and another that proposes the deployment when the pull request is merged.
-
-We'll use GitHub Actions as the CI platform in this guide. You can still follow this guide if you're using a different CI platform, but the exact configuration may be slightly different.
+This guide will show you how to integrate proposals into your GitHub Actions CI process. Currently, Sphinx only officially supports GitHub Actions. If you need support for an alternative CI platform, please let us know. In this guide, we'll create two workflows: one that dry runs the proposal when a pull request is opened or updated, and another that proposes the deployment when the pull request is merged.
 
 > Important: Sphinx will propose all transactions that are broadcasted by Foundry. By default, this is **not idempotent**. If you open a PR after completing a deployment, Sphinx will attempt to re-propose any transactions from your script that can be broadcasted again. In most cases, this is not desirable behavior. To resolve this, we highly recommend making your deployment script idempotent.
 
@@ -77,13 +75,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: sphinx-labs/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Install Sphinx Solidity Library
-        run: yarn sphinx install --confirm
+        run: yarn sphinx install --ci
       - name: Dry Run
         run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
 ```
@@ -118,11 +116,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: sphinx-labs/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
         run: yarn --frozen-lockfile
+      - name: Install Sphinx Solidity Library
+        run: yarn sphinx install --ci
       - name: Propose
         run: npx sphinx propose <path/to/your/script.s.sol> --confirm --networks testnets
 ```
