@@ -9,27 +9,26 @@ import { sphinxUp } from './sphinxup'
 const installWithUpdate = async (
   spinner: ora.Ora,
   skipLibrary: boolean,
-  confirm: boolean
+  ci: boolean
 ) => {
-  if (!confirm) {
+  if (!ci) {
     await userConfirmation(
       'Would you like to install the Sphinx Foundry fork? This is required to use Sphinx and will replace your existing Foundry installation.\nConfirm? (y\\n):'
     )
-  }
+    const foundryupStatus = await spawnAsync('/bin/bash', [
+      '-c',
+      'curl -L https://foundry.paradigm.xyz | bash',
+    ])
+    if (foundryupStatus.code !== 0) {
+      // The `stdout` contains the trace of the error.
+      console.log(foundryupStatus.stdout)
+      // The `stderr` contains the error message.
+      console.log(foundryupStatus.stderr)
+      process.exit(1)
+    }
 
-  const foundryupStatus = await spawnAsync('/bin/sh', [
-    '-c',
-    'curl -L https://foundry.paradigm.xyz | bash',
-  ])
-  if (foundryupStatus.code !== 0) {
-    // The `stdout` contains the trace of the error.
-    console.log(foundryupStatus.stdout)
-    // The `stderr` contains the error message.
-    console.log(foundryupStatus.stderr)
-    process.exit(1)
+    execSync(sphinxUp, { stdio: 'inherit', shell: '/bin/bash' })
   }
-
-  execSync(sphinxUp, { stdio: 'inherit', shell: '/bin/bash' })
 
   if (skipLibrary) {
     return

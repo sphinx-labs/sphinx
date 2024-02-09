@@ -145,17 +145,23 @@ export const makeCLI = (
             boolean: true,
             default: false,
           })
-          .option(confirmOption, {
+          .option('ci', {
             describe:
-              'Automatically confirm the Sphinx Foundry fork installation.',
+              'Continuous integration mode (skips installing the Sphinx Foundry fork)',
             boolean: true,
             default: false,
           }),
       async (argv) => {
-        const { skipLibrary, confirm } = argv
+        const { skipLibrary, ci } = argv
+
+        if (skipLibrary && ci) {
+          throw new Error(
+            'Cannot specify both `--skip-library` and `--ci` at the same time.'
+          )
+        }
 
         const spinner = ora()
-        await handleInstall(spinner, skipLibrary, confirm)
+        await handleInstall(spinner, skipLibrary, ci)
       }
     )
     .command(
