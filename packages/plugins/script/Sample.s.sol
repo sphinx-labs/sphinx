@@ -6,6 +6,7 @@ import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import {Network} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 import {MyContract1} from "../contracts/test/MyContracts.sol";
 import {CREATE3} from "solady/utils/CREATE3.sol";
+import { MyLargeContract } from "../contracts/test/MyContracts.sol";
 
 contract Sample is Sphinx {
     MyContract1 myContract;
@@ -21,27 +22,28 @@ contract Sample is Sphinx {
     }
 
     function run() public sphinx {
-        new MyContract1{ salt: bytes32(uint(1)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-        new MyContract1{ salt: bytes32(uint(2)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-        new MyContract1{ salt: bytes32(uint(3)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        new MyLargeContract();
+        // new MyContract1{ salt: bytes32(uint(1)) }(
+        //     -1,
+        //     2,
+        //     address(1),
+        //     address(2)
+        // );
+        // new MyContract1{ salt: bytes32(uint(2)) }(
+        //     -1,
+        //     2,
+        //     address(1),
+        //     address(2)
+        // );
+        // new MyContract1{ salt: bytes32(uint(3)) }(
+        //     -1,
+        //     2,
+        //     address(1),
+        //     address(2)
+        // );
 
-        bytes memory initCode =
-            abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        CREATE3.deploy(bytes32(0), initCode, 0);
+        // bytes memory initCode =
+        //     abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
+        // CREATE3.deploy(bytes32(0), initCode, 0);
     }
 }

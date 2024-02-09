@@ -90,6 +90,30 @@ export const fetchDripVersionForNetwork = (chainId: bigint) => {
   }
 }
 
+/**
+ * Get the maximum gas limit for a single transaction. This is mainly useful to determine the number
+ * of `EXECUTE` actions to fit into a single transaction. Approaching the maximum block gas limit can
+ * cause transactions to be executed slowly as a result of the algorithms that miners use to select
+ * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
+ * block gas limit.
+ */
+export const fetchMaxBatchGasLimit = (
+  blockGasLimit: bigint,
+  chainId: bigint
+) => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    if (network.maxBatchGasLimit) {
+      return network.maxBatchGasLimit
+    } else {
+      return blockGasLimit / BigInt(2)
+    }
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
 export const isVerificationSupportedForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 

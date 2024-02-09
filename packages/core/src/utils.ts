@@ -1430,17 +1430,6 @@ export const getCreate3Salt = (
 }
 
 /**
- * Get the maximum gas limit for a single transaction. This is mainly useful to determine the number
- * of `EXECUTE` actions to fit into a single transaction. Approaching the maximum block gas limit can
- * cause transactions to be executed slowly as a result of the algorithms that miners use to select
- * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
- * block gas limit.
- */
-export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
-  return blockGasLimit / BigInt(2)
-}
-
-/**
  * Format the solcLongVersion to be in the format '0.8.23+commit.f704f362'. The unparsed string may
  * be in the format '0.8.23+commit.f704f362.Darwin.appleclang' (note the appended info). We format
  * the string because the unparsed type cannot be verified on Etherscan.

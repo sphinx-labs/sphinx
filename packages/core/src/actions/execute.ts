@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs'
+
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
@@ -29,7 +31,6 @@ import {
   findLeafWithProof,
   fundAccountMaxBalance,
   getGasPriceOverrides,
-  getMaxGasLimit,
   getReadableActions,
   removeSphinxWalletsFromGnosisSafeOwners,
   setManagedServiceRelayer,
@@ -44,7 +45,10 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
 } from '../languages'
 import { ParsedConfig } from '../config'
-import { shouldBufferExecuteActionsGasLimit } from '../networks'
+import {
+  fetchMaxBatchGasLimit,
+  shouldBufferExecuteActionsGasLimit,
+} from '../networks'
 
 export const executeDeployment = async (
   module: ethers.Contract,
@@ -144,6 +148,7 @@ const findMaxBatchSize = (
   leaves: SphinxLeafWithProof[],
   maxGasLimit: bigint,
   moduleAddress: string,
+  chainId: bigint,
   estimateGas: EstimateGas
 ): number => {
   if (leaves.length === 0) {
@@ -160,7 +165,13 @@ const findMaxBatchSize = (
     ) {
       // If the first batch itself is not executable, throw an error.
       if (i === 1) {
-        throw new Error(`Could not find a valid batch size.`)
+        if (chainId === BigInt(30)) {
+          throw new Error(
+            `Deployment size exceeded safe limit on Rootstock. This can occur if you're deploying a contract that is close to the maximum size limit. Please reduce the size of your contract and try again. If you need assistance please reach out to the Sphinx team.`
+          )
+        } else {
+          throw new Error(`Could not find a valid batch size.`)
+        }
       } else {
         // For larger batches, return the size of the previous batch as the maximum executable batch
         // size.
@@ -207,7 +218,7 @@ export const executeBatchActions = async (
   const executionReceipts: ethers.TransactionReceipt[] = []
   const batches: SphinxLeafWithProof[][] = []
 
-  const maxGasLimit = getMaxGasLimit(blockGasLimit)
+  const maxGasLimit = fetchMaxBatchGasLimit(blockGasLimit, chainId)
 
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await sphinxModule.activeMerkleRoot()
@@ -244,6 +255,7 @@ export const executeBatchActions = async (
       filtered.slice(executed),
       maxGasLimit,
       moduleAddress,
+      chainId,
       estimateGas
     )
 
@@ -444,7 +456,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     })
 
     let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+    const maxGasLimit = fetchMaxBatchGasLimit(blockGasLimit, chainId)
     if (limit > maxGasLimit) {
       limit = maxGasLimit
     }

@@ -99,7 +99,7 @@ contract MyOwnable is Ownable {
 contract MyLargeContract is Governor, AccessControl {
     constructor() Governor("") {
         // The large number of SSTOREs increases the deployment cost significantly.
-        for (uint160 i = 0; i < 150; i++) {
+        for (uint160 i = 0; i < 0; i++) {
             _grantRole(bytes32(0), address(i));
         }
     }

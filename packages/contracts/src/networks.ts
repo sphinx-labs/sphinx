@@ -18,6 +18,7 @@ export type SupportedNetwork = {
   queryFilterBlockLimit: number
   legacyTx: boolean
   actionGasLimitBuffer: boolean
+  maxBatchGasLimit?: bigint
   rollupStack?: {
     provider: RollupProvider
     type: RollupType
@@ -802,6 +803,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    maxBatchGasLimit: BigInt(6_000_000),
   },
   {
     name: 'rootstock',
@@ -823,6 +825,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 8,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
+    maxBatchGasLimit: BigInt(6_000_000),
   },
   {
     name: 'zora',
