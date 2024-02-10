@@ -14,6 +14,7 @@ import {
   isLegacyTransactionsRequiredForNetwork,
   SphinxJsonRpcProvider,
   isFile,
+  MAX_UINT64,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -131,7 +132,13 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     }
 
     // Collect the transactions for the current network.
-    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs)
+    const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
+      // Set the block gas limit to the max amount allowed by Foundry. This overrides lower block
+      // gas limits specified in the user's `foundry.toml`, which can cause the script to run out of
+      // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
+      // priority than `DAPP_BLOCK_GAS_LIMIT`.
+      FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+    })
 
     if (spawnOutput.code !== 0) {
       spinner?.stop()
