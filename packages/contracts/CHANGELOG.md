@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.18.1
+
+### Patch Changes
+
+- 437e2d3: Prevent Foundry from serializing strings as numbers
+
 ## 0.18.0
 
 ### Minor Changes
