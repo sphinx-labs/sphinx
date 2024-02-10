@@ -1643,3 +1643,10 @@ export const isCreateActionInput = (
 export const isFile = (path: string): boolean => {
   return fs.existsSync(path) && fs.statSync(path).isFile()
 }
+
+/**
+ * Returns `true` if the given address is a hex-prefixed, checksummed address.
+ */
+export const isNormalizedAddress = (addr: string): boolean => {
+  return ethers.getAddress(addr) === addr
+}
