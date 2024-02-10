@@ -1,8 +1,6 @@
 import { join } from 'path'
 
 import {
-  ParsedConfig,
-  runEntireDeploymentProcess,
   spawnAsync,
   getSphinxWalletPrivateKey,
   toSphinxLeafWithProofArray,
@@ -16,6 +14,20 @@ import {
   isFork,
   stripLeadingZero,
   isLiveNetwork,
+  fundAccountMaxBalance,
+  setManagedServiceRelayer,
+  signMerkleRoot,
+  removeSphinxWalletsFromGnosisSafeOwners,
+  compileAndExecuteDeployment,
+  Deployment,
+  CompilerConfig,
+  fetchNameForNetwork,
+  DeploymentContext,
+  ConfigArtifacts,
+  HumanReadableAction,
+  executeTransactionViaSigner,
+  getSphinxWalletsSortedByAddress,
+  injectRoles,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -34,7 +46,7 @@ import {
  * Merkle root in both the simulation and the production environment.
  */
 export type simulateDeploymentSubtaskArgs = {
-  parsedConfigArray: Array<ParsedConfig>
+  compilerConfigArray: Array<CompilerConfig>
   chainId: string
 }
 
@@ -60,7 +72,7 @@ export type simulateDeploymentSubtaskArgs = {
  * contract is near the maximum size limit).
  */
 export const simulate = async (
-  parsedConfigArray: Array<ParsedConfig>,
+  compilerConfigArray: Array<CompilerConfig>,
   chainId: string,
   rpcUrl: string
 ): Promise<{
@@ -88,7 +100,7 @@ export const simulate = async (
   }
 
   const taskParams: simulateDeploymentSubtaskArgs = {
-    parsedConfigArray,
+    compilerConfigArray,
     chainId,
   }
 
@@ -207,16 +219,16 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<SphinxTransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const { parsedConfigArray, chainId } = taskArgs
+  const { compilerConfigArray, chainId } = taskArgs
 
-  const parsedConfig = parsedConfigArray.find((e) => e.chainId === chainId)
-  if (!parsedConfig) {
+  const compilerConfig = compilerConfigArray.find((e) => e.chainId === chainId)
+  if (!compilerConfig) {
     throw new Error(
       `Could not find the parsed config for chain ID: ${chainId}. Should never happen.`
     )
   }
 
-  const { executionMode } = parsedConfig
+  const { executionMode } = compilerConfig
 
   // This provider is connected to the forked in-process Hardhat node.
   const provider = hre.ethers.provider
@@ -237,11 +249,93 @@ export const simulateDeploymentSubtask = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const deploymentData = makeDeploymentData(parsedConfigArray)
+  const deploymentData = makeDeploymentData(compilerConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  const { receipts, batches, finalStatus, failureAction } =
-    await runEntireDeploymentProcess(parsedConfig, merkleTree, provider, signer)
+  await fundAccountMaxBalance(signer.address, provider)
+  await setManagedServiceRelayer(signer.address, provider)
+
+  // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
+  const sphinxWallets = getSphinxWalletsSortedByAddress(
+    BigInt(compilerConfig.newConfig.threshold),
+    provider
+  )
+  const treeSigners = await Promise.all(
+    sphinxWallets.map(async (wallet) => {
+      return {
+        signer: await wallet.getAddress(),
+        signature: await signMerkleRoot(merkleTree.root, wallet),
+      }
+    })
+  )
+
+  const deployment: Deployment = {
+    id: 'only required on website',
+    multichainDeploymentId: 'only required on website',
+    projectId: 'only required on website',
+    chainId: compilerConfig.chainId,
+    status: 'approved',
+    moduleAddress: compilerConfig.moduleAddress,
+    safeAddress: compilerConfig.safeAddress,
+    compilerConfigs: compilerConfigArray,
+    networkName: fetchNameForNetwork(BigInt(compilerConfig.chainId)),
+    treeSigners,
+  }
+  const simulationContext: DeploymentContext = {
+    throwError: (message: string) => {
+      throw new Error(message)
+    },
+    handleError: (e) => {
+      throw e
+    },
+    handleAlreadyExecutedDeployment: () => {
+      throw new Error(
+        'Deployment has already been executed. This is a bug. Please report it to the developers.'
+      )
+    },
+    handleExecutionFailure: (
+      _deploymentContext: DeploymentContext,
+      _networkName: string,
+      _targetNetworkConfig: CompilerConfig,
+      _configArtifacts: ConfigArtifacts,
+      failureReason: HumanReadableAction
+    ) => {
+      throw new Error(
+        `The following action reverted during the simulation:\n${failureReason.reason}`
+      )
+    },
+    verify: async () => {
+      return
+    },
+    handleSuccess: async () => {
+      return
+    },
+    executeTransaction: executeTransactionViaSigner,
+    deployment,
+    provider,
+    injectRoles,
+    wallet: signer,
+  }
+  const result = await compileAndExecuteDeployment(simulationContext)
+
+  if (!result) {
+    throw new Error(
+      'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+    )
+  }
+
+  const { finalStatus, failureAction, receipts, batches } = result
+
+  // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
+  // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
+  // production environment.
+  await removeSphinxWalletsFromGnosisSafeOwners(
+    sphinxWallets,
+    compilerConfig.safeAddress,
+    compilerConfig.moduleAddress,
+    executionMode,
+    provider
+  )
 
   if (finalStatus === MerkleRootStatus.FAILED) {
     if (failureAction) {

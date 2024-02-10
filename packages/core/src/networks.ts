@@ -57,6 +57,18 @@ export const fetchChainIdForNetwork = (networkName: string) => {
   }
 }
 
+export const fetchNameForNetwork = (chainId: bigint) => {
+  const network = [...SPHINX_NETWORKS, ...SPHINX_LOCAL_NETWORKS].find(
+    (n) => n.chainId === chainId
+  )
+
+  if (network) {
+    return network.name
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
 // Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchDripSizeForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)

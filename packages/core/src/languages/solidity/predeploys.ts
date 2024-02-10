@@ -12,8 +12,8 @@ import {
   getOwnerAddress,
   getSphinxConstants,
 } from '@sphinx-labs/contracts'
-import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import ora from 'ora'
 
 import {
   isContractDeployed,
@@ -34,8 +34,9 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   wallet: ethers.Wallet,
   executionMode: ExecutionMode,
+  includeManagedServiceRoles: boolean,
   relayers: string[] = [],
-  logger?: Logger
+  spinner?: ora.Ora
 ) => {
   if (
     executionMode === ExecutionMode.LocalNetworkCLI ||
@@ -45,7 +46,14 @@ export const ensureSphinxAndGnosisSafeDeployed = async (
     await fundAccountMaxBalance(wallet.address, provider)
   }
 
-  await deploySphinxSystem(provider, wallet, relayers, executionMode, logger)
+  await deploySphinxSystem(
+    provider,
+    wallet,
+    relayers,
+    executionMode,
+    includeManagedServiceRoles,
+    spinner
+  )
 }
 
 export const cancelPreviousDripVersions = async (
@@ -55,7 +63,7 @@ export const cancelPreviousDripVersions = async (
   executionMode: ExecutionMode,
   dripName: string,
   currentDripVersion: number,
-  logger?: Logger
+  spinner?: ora.Ora
 ) => {
   if (currentDripVersion === 0) {
     return
@@ -67,7 +75,7 @@ export const cancelPreviousDripVersions = async (
       // Cancel drip if not archived
       const [status] = await Drippie.drips(previousDripName)
       if (status !== BigInt(3) && status !== BigInt(0)) {
-        logger?.info(`[Sphinx]: Archiving outdated drip: ${previousDripName}`)
+        spinner?.start(`Archiving outdated drip: ${previousDripName}...`)
         if (status !== BigInt(1)) {
           await (
             await Drippie.status(
@@ -85,6 +93,8 @@ export const cancelPreviousDripVersions = async (
             await getGasPriceOverrides(provider, wallet, executionMode)
           )
         ).wait()
+
+        spinner?.start(`Finished archiving outdated drip: ${previousDripName}`)
       }
     }
   }
@@ -107,47 +117,13 @@ export const checkSystemDeployed = async (
   return codes.every((code) => code !== '0x')
 }
 
-export const deploySphinxSystem = async (
+export const assignManagedServiceRoles = async (
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   relayers: string[],
   executionMode: ExecutionMode,
-  logger?: Logger
-): Promise<void> => {
-  const block = await provider.getBlock('latest')
-  if (!block) {
-    throw new Error('Failed to get latest block.')
-  }
-
-  for (const {
-    artifact,
-    constructorArgs,
-    expectedAddress,
-  } of getSphinxConstants()) {
-    const { abi, bytecode, contractName } = artifact
-
-    logger?.info(`[Sphinx]: deploying ${contractName}...`)
-
-    const contract = await doDeterministicDeploy(provider, executionMode, {
-      signer,
-      contract: {
-        abi,
-        bytecode,
-      },
-      args: constructorArgs,
-      salt: ethers.ZeroHash,
-    })
-
-    const addr = await contract.getAddress()
-    assert(addr === expectedAddress, `address mismatch for ${contractName}`)
-
-    logger?.info(
-      `[Sphinx]: deployed ${contractName}, ${await contract.getAddress()}`
-    )
-  }
-
-  logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
-
+  spinner?: ora.Ora
+) => {
   // Next, we get the owner address, which differs depending on the situation:
   // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
   // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
@@ -197,7 +173,7 @@ export const deploySphinxSystem = async (
     owner
   )
 
-  logger?.info('[Sphinx]: assigning relayers roles...')
+  spinner?.start('Assigning relayers roles...')
   for (const relayer of relayers) {
     if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
       await (
@@ -209,7 +185,7 @@ export const deploySphinxSystem = async (
       ).wait()
     }
   }
-  logger?.info('[Sphinx]: finished assigning relayers roles')
+  spinner?.succeed('Finished assigning relayers roles')
 
   const Drippie = new ethers.Contract(
     getDrippieAddress(),
@@ -217,7 +193,7 @@ export const deploySphinxSystem = async (
     owner
   )
 
-  logger?.info('[Sphinx]: creating relayer drips...')
+  spinner?.start('Creating relayer drips...')
   for (const relayer of relayers) {
     const chainId = (await provider.getNetwork()).chainId
 
@@ -234,7 +210,7 @@ export const deploySphinxSystem = async (
       executionMode,
       baseDripName,
       currentDripVersion,
-      logger
+      spinner
     )
 
     const reentrant = false
@@ -257,9 +233,9 @@ export const deploySphinxSystem = async (
 
     const [status] = await Drippie.drips(dripName)
     if (status === BigInt(2)) {
-      logger?.info(`[Sphinx]: Drip ${dripName} already exists`)
+      spinner?.info(`Drip ${dripName} already exists`)
     } else if (status === BigInt(0)) {
-      logger?.info(`[Sphinx]: Creating drip ${dripName}...`)
+      spinner?.start(`Creating drip ${dripName}...`)
       await (
         await Drippie.create(
           dripName,
@@ -281,7 +257,7 @@ export const deploySphinxSystem = async (
         )
       ).wait()
     } else if (status === BigInt(1)) {
-      logger?.info(`[Sphinx]: Setting status for drip ${dripName}...`)
+      spinner?.start(`Setting status for drip ${dripName}...`)
       await (
         await Drippie.status(
           dripName,
@@ -289,11 +265,63 @@ export const deploySphinxSystem = async (
           await getGasPriceOverrides(provider, owner, executionMode)
         )
       ).wait()
+      spinner?.succeed(`Finished setting status for drip ${dripName}`)
     } else {
       throw new Error(`Drip ${dripName} has archived status`)
     }
   }
-  logger?.info('[Sphinx]: finished creating relayer drips')
+  spinner?.succeed('Finished creating relayer drips')
+}
+
+export const deploySphinxSystem = async (
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
+  signer: ethers.Signer,
+  relayers: string[],
+  executionMode: ExecutionMode,
+  includeManagedServiceRoles: boolean,
+  spinner?: ora.Ora
+): Promise<void> => {
+  const block = await provider.getBlock('latest')
+  if (!block) {
+    throw new Error('Failed to get latest block.')
+  }
+
+  for (const {
+    artifact,
+    constructorArgs,
+    expectedAddress,
+  } of getSphinxConstants()) {
+    const { abi, bytecode, contractName } = artifact
+
+    spinner?.start(`Deploying ${contractName}...`)
+
+    const contract = await doDeterministicDeploy(provider, executionMode, {
+      signer,
+      contract: {
+        abi,
+        bytecode,
+      },
+      args: constructorArgs,
+      salt: ethers.ZeroHash,
+    })
+
+    const addr = await contract.getAddress()
+    assert(addr === expectedAddress, `address mismatch for ${contractName}`)
+
+    spinner?.succeed(`Deployed ${contractName}, ${await contract.getAddress()}`)
+  }
+
+  spinner?.succeed(`Finished deploying Sphinx contracts`)
+
+  if (includeManagedServiceRoles) {
+    await assignManagedServiceRoles(
+      provider,
+      signer,
+      relayers,
+      executionMode,
+      spinner
+    )
+  }
 }
 
 export const getDeterministicFactoryAddress = async (

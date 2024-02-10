@@ -304,6 +304,7 @@ export const propose = async (
     .map((parsedConfig) =>
       sphinxContext.getNetworkGasEstimate(
         parsedConfigArray,
+        configArtifacts,
         parsedConfig.chainId,
         foundryToml
       )

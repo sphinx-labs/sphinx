@@ -54,6 +54,7 @@ import {
   ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
+  getParsedConfigWithCompilerInputs,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -1083,6 +1084,7 @@ export const getEstimatedGas = async (
 
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   parsedConfigArray: Array<ParsedConfig>,
+  configArtifacts: ConfigArtifacts,
   chainId: string,
   foundryToml: FoundryToml
 ): Promise<{
@@ -1101,7 +1103,12 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     process.exit(1)
   }
 
-  const { receipts } = await simulate(parsedConfigArray, chainId, rpcUrl)
+  const compilerConfigs = getParsedConfigWithCompilerInputs(
+    parsedConfigArray,
+    configArtifacts
+  )
+
+  const { receipts } = await simulate(compilerConfigs, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
   const estimatedGas = await getEstimatedGas(receipts, provider)

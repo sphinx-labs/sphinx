@@ -951,7 +951,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   moduleAddress: string,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<Array<ethers.Wallet>> => {
+): Promise<void> => {
   // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
   // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
   // the Gnosis Safe itself. However, this would increment its nonce in the `addOwnerWithThreshold`
@@ -1020,8 +1020,6 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   // Stop impersonating the Sphinx Module. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
   await provider.send('hardhat_stopImpersonatingAccount', [moduleAddress])
-
-  return sphinxWallets
 }
 
 /**

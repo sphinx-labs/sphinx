@@ -1,4 +1,3 @@
-import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
@@ -14,122 +13,274 @@ import {
   decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 import ora from 'ora'
+import { TransactionReceipt, ethers } from 'ethers'
 
 import {
-  MerkleRootState,
-  MerkleRootStatus,
-  HumanReadableAction,
-  HumanReadableActions,
+  CompilerConfig,
+  ConfigArtifacts,
+  ParsedConfig,
+  buildDeploymentWithCompilerConfigs,
+} from '../config'
+import {
+  ApproveDeployment,
   EstimateGas,
   ExecuteActions,
-  ApproveDeployment,
+  HumanReadableAction,
+  HumanReadableActions,
+  MerkleRootState,
+  MerkleRootStatus,
 } from './types'
+import { ExecutionMode } from '../constants'
+import { SphinxJsonRpcProvider } from '../provider'
 import {
   addSphinxWalletsToGnosisSafeOwners,
   findLeafWithProof,
-  fundAccountMaxBalance,
   getGasPriceOverrides,
   getMaxGasLimit,
   getReadableActions,
-  removeSphinxWalletsFromGnosisSafeOwners,
   setManagedServiceRelayer,
-  signMerkleRoot,
-  stringifyMerkleRootStatus,
 } from '../utils'
-import { SphinxJsonRpcProvider } from '../provider'
-import { ExecutionMode } from '../constants'
-import { convertEthersTransactionReceipt } from '../artifacts'
+import { shouldBufferExecuteActionsGasLimit } from '../networks'
 import {
   SphinxTransactionReceipt,
   ensureSphinxAndGnosisSafeDeployed,
 } from '../languages'
-import { ParsedConfig } from '../config'
-import { shouldBufferExecuteActionsGasLimit } from '../networks'
+import { convertEthersTransactionReceipt } from '../artifacts'
 
-export const executeDeployment = async (
+export type TreeSigner = {
+  signer: string
+  signature: string
+}
+
+export type Deployment = {
+  id: string
+  multichainDeploymentId: string
+  projectId: string
+  chainId: string
+  status:
+    | 'approved'
+    | 'cancelled'
+    | 'executed'
+    | 'verified'
+    | 'verification_unsupported'
+    | 'failed'
+  safeAddress: string
+  moduleAddress: string
+  compilerConfigs: CompilerConfig[] | undefined
+  networkName: string
+  treeSigners: Array<TreeSigner>
+}
+
+export type HandleError = (
+  e: any,
+  deployment: Deployment,
+  networkName: string,
+  deploymentTransactionReceipts: ethers.TransactionReceipt[],
+  wallet?: ethers.Wallet
+) => Promise<void>
+
+export type ThrowError = (
+  message: string,
+  deploymentId: string,
+  networkName: string
+) => Promise<void>
+
+export type HandleAlreadyExecutedDeployment = (
+  deploymentContext: DeploymentContext,
+  targetNetworkConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
+  networkName: string
+) => Promise<void>
+
+export type HandleExecutionFailure = (
+  deploymentContext: DeploymentContext,
+  networkName: string,
+  targetNetworkConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
+  failureAction: HumanReadableAction | undefined,
+  deploymentTransactionReceipts?: ethers.TransactionReceipt[]
+) => Promise<void>
+
+export type Verify = (
+  deploymentContext: DeploymentContext,
+  compilerConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
+  projectName: string,
+  deploymentId: string,
+  networkName: string
+) => Promise<void>
+
+export type HandleSuccess = (
+  deploymentContext: DeploymentContext,
+  deploymentTransactionReceipts: ethers.TransactionReceipt[],
+  targetNetworkConfig: CompilerConfig,
   module: ethers.Contract,
-  merkleTree: SphinxMerkleTree,
-  signatures: string[],
-  humanReadableActions: HumanReadableActions,
-  blockGasLimit: bigint,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Signer,
-  logger?: Logger | undefined
-): Promise<{
-  success: boolean
-  receipts: ethers.TransactionReceipt[]
-  failureAction?: HumanReadableAction
-}> => {
-  logger?.info(`[Sphinx]: preparing to execute the project...`)
+  deployment: Deployment
+) => Promise<void>
 
-  const receipts: ethers.TransactionReceipt[] = []
+export type MinimumTransaction = {
+  to: string
+  chainId: string
+  data: string
+  gasLimit?: string
+}
 
-  const chainId = await provider.getNetwork().then((n) => n.chainId)
-  // filter for leaves on the target network
-  const networkLeaves = merkleTree.leavesWithProofs.filter(
-    (leaf) => leaf.leaf.chainId === chainId
-  )
+export type ExecuteTransaction = (
+  deploymentContext: DeploymentContext,
+  transaction: MinimumTransaction,
+  executionMode: ExecutionMode,
+  signer?: ethers.Signer
+) => Promise<TransactionReceipt>
 
-  // Encode the `APPROVE` leaf.
-  const approvalLeaf = networkLeaves[0]
-  const packedSignatures = ethers.solidityPacked(
-    signatures.map(() => 'bytes'),
-    signatures
-  )
-  const managedService = new ethers.Contract(
-    getManagedServiceAddress(),
-    ManagedServiceABI,
-    signer
-  )
-  const approvalData = module.interface.encodeFunctionData('approve', [
-    merkleTree.root,
-    approvalLeaf,
-    packedSignatures,
-  ])
+export type InjectRoles = (
+  deploymentContext: DeploymentContext,
+  executionMode: ExecutionMode
+) => Promise<void>
 
-  const state: MerkleRootState = await module.merkleRootStates(merkleTree.root)
+/**
+ * Before calling the `compileAndExecuteDeployment` function, we have to construct a DeploymentContext
+ * which implements a number of functions that vary depending on the specific context in which the function
+ * is executed. This allows us to share the `compileAndExecuteDeployment` function between the proposal
+ * simulation, deploy cli command simulation/execution, and the website execution flow.
+ *
+ * Using a single function for all of these related flows improves maintainability and also reduces the
+ * chance that a deployment will be proposed successfully and then later fail due to a bug that only exists
+ * in the execution logic on the website.
+ *
+ * So to acheive those benefits, we aim to share as much logic between these different execution cases by
+ * limiting the amount of logic that is implemented within the `DeploymentContext` object. We should *only*
+ * use the `DeploymentContext` object to store logic which absolutely cannot be used within all three flows.
+ *
+ */
+export type DeploymentContext = {
+  /**
+   * Used when we need to throw an error ourselves.
+   *
+   * We use the `DeploymentContext` for this because the website needs to log errors to sentry
+   * while the propose and deploy commands should simply throw an error.
+   */
+  throwError: ThrowError
 
-  if (state.status === MerkleRootStatus.EMPTY) {
-    // Execute the `APPROVE` leaf.
-    receipts.push(
-      await (
-        await managedService.exec(
-          await module.getAddress(),
-          approvalData,
-          await getGasPriceOverrides(provider, signer, ExecutionMode.Platform)
-        )
-      ).wait()
-    )
-  }
+  /**
+   * Used when catching an error throw by some dependency or function call.
+   *
+   * We use the `DeploymentContext` for this because the website needs to log errors to sentry
+   * while the propose and deploy commands should simply throw an error.
+   */
+  handleError: HandleError
 
-  // Execute the `EXECUTE` leaves of the Merkle tree.
-  logger?.info(`[Sphinx]: executing actions...`)
-  const { status, failureAction, executionReceipts } =
-    await executeBatchActions(
-      networkLeaves,
-      chainId,
-      module,
-      blockGasLimit,
-      humanReadableActions,
-      ExecutionMode.Platform,
-      signer,
-      provider,
-      executeActionsViaManagedService,
-      estimateGasViaManagedService,
-      logger
-    )
+  /**
+   * Handles if the deployment has already been executed.
+   *
+   * We use the `DeploymentContext` for this because the website implements retry logic, as a result
+   * there are some cases where the deployment may be partially or fully executed already when we call
+   * the `compileAndExecuteDeployment` function. For the propose/deploy commands, this should never happen
+   * so we just error.
+   *
+   * It's worth noting that if we wanted to implement retry logic in the deploy cli command to make it more
+   * reliable, we would want to do that by implementing this function and then repeatedly calling the
+   * `compileAndExecuteDeployment` function. This is how the website currently works.
+   */
+  handleAlreadyExecutedDeployment: HandleAlreadyExecutedDeployment
 
-  receipts.push(...executionReceipts)
+  /**
+   * Handles if the deployment failed midway due to some on chain revert that is not our fault.
+   *
+   * We use the `DeploymentContext` for this because the website needs to record information about
+   * partial executions in the database.
+   */
+  handleExecutionFailure: HandleExecutionFailure
 
-  if (status === MerkleRootStatus.FAILED) {
-    return { success: false, receipts, failureAction }
-  } else {
-    logger?.info(`[Sphinx]: executed actions`)
-  }
+  /**
+   * Handles verifying contracts
+   *
+   * We use the `DeploymentContext` for this because the websites implementation of etherscan verification is
+   * currently quite different from the deploy command.
+   *
+   * This is one area where we definitely could improve this execution logic so that more of it is shared. We could
+   * do that by refactoring the way that the website and deploy command handle etherscan verification so that more
+   * logic could be shared between them.
+   *
+   * Ideally, we would also include some of the etherscan verification logic in the simulation (by mocking etherscan).
+   * We haven't done that since our etherscan verification logic is quite ossified and hasn't been a signficiant
+   * source of bugs.
+   */
+  verify: Verify
 
-  // We're done!
-  logger?.info(`[Sphinx]: successfully deployed project`)
-  return { success: true, receipts }
+  /**
+   * Handles post execution cleanup after successful execution.
+   *
+   * We use the `DeploymentContext` for this because like deployment failures, the website need to record information
+   * about successes in the database.
+   */
+  handleSuccess: HandleSuccess
+
+  /**
+   * Handles executing a transaction.
+   *
+   * We use the `DeploymentContext` for this because the website sends transactions using the relayer service rather
+   * than an ethers signer like the deploy/propose commands.
+   *
+   * There are cases within the `compileAndExecuteDeployment` where we can just use a signer to send transactions
+   * without breaking the website (any time we send a transaction that will *never* get send on the website). However,
+   * we bias towards always using this function even if it's not strictly necessary. It's generally easier to reason
+   * about always using this function than it is to reason about if it's necessary in specific cases or not.
+   */
+  executeTransaction: ExecuteTransaction
+
+  /**
+   * Handles injecting roles that are necessary for successful execution in the simulation and on local networks. For
+   * example, we set new Gnosis Safe owners when deploying on local nodes so that the user does not have to have access
+   * to all of their owner wallet keys.
+   *
+   * We use `DeploymentContext` for this because injecting roles will not work and is not necessary when executing
+   * against a live network.
+   */
+  injectRoles: InjectRoles
+
+  /**
+   * We also include some additional objects which are just convenient to store in the `DeploymentContext` object
+   * since it's already being passed around everywhere. These fields are not strictly necessary to be included here.
+   */
+
+  /**
+   * Stores the deployment metadata for easy access.
+   *
+   * Provides us with a common interface for information about the deployment. In the website this is is a real object
+   * in the DB. We use a minimal type here to make it easy to work with in the deploy and propose command logic.
+   */
+  deployment: Deployment
+
+  /**
+   * Stores the rpc provider we should use throughout the deployment.
+   *
+   * Allows us to generate and supply the rpc provider in whatever way we would like.
+   */
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+
+  /**
+   * An optional wallet.
+   *
+   * This wallet will be available in the `executeTransaction` function and can be used to send transactions in cases
+   * where an ethers signer is desirable. It will not be available when the `compileAndExecuteDeployment` function is
+   * invoked in the website backend. It's up to the `executeTransaction` function to ensure the field exists if it's
+   * required.
+   */
+  wallet?: ethers.Wallet
+
+  /**
+   * An optional logger.
+   *
+   * This is used to log errors or traces by in the website.
+   */
+  logger?: Logger
+
+  /**
+   * An optional spinner.
+   *
+   * This is used to provide feedback to the user.
+   */
+  spinner?: ora.Ora
 }
 
 /**
@@ -193,10 +344,10 @@ export const executeBatchActions = async (
   blockGasLimit: bigint,
   humanReadableActions: HumanReadableActions,
   executionMode: ExecutionMode,
-  signer: ethers.Signer,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   executeActions: ExecuteActions,
   estimateGas: EstimateGas,
+  deploymentContext: DeploymentContext,
   logger?: Logger | undefined
 ): Promise<{
   status: bigint
@@ -261,10 +412,10 @@ export const executeBatchActions = async (
       moduleAddress,
       batch,
       executionMode,
-      signer,
       provider,
       blockGasLimit,
-      chainId
+      chainId,
+      deploymentContext
     )
 
     if (!receipt) {
@@ -321,24 +472,90 @@ export const approveDeploymentViaSigner: ApproveDeployment = async (
   approvalLeafWithProof,
   executionMode,
   provider,
-  signer
+  ownerSignatures,
+  deploymentContext
 ) => {
-  const ownerSignature = await signMerkleRoot(merkleRoot, signer)
+  const sphinxModule = new ethers.Contract(moduleAddress, SphinxModuleABI)
 
-  const sphinxModule = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI,
-    signer
+  const packedOwnerSignatures = ethers.solidityPacked(
+    new Array(ownerSignatures.length).fill('bytes'),
+    ownerSignatures
   )
+  const approvalData = sphinxModule.interface.encodeFunctionData('approve', [
+    merkleRoot,
+    approvalLeafWithProof,
+    packedOwnerSignatures,
+  ])
 
-  return (
-    await sphinxModule.approve(
-      merkleRoot,
-      approvalLeafWithProof,
-      ownerSignature,
-      await getGasPriceOverrides(provider, signer, executionMode)
+  return deploymentContext.executeTransaction(
+    deploymentContext,
+    {
+      to: moduleAddress,
+      data: approvalData,
+      chainId: (await provider.getNetwork()).chainId.toString(),
+    },
+    executionMode
+  )
+}
+
+export const executeTransactionViaSigner: ExecuteTransaction = async (
+  deploymentContext: DeploymentContext,
+  transaction: MinimumTransaction,
+  executionMode: ExecutionMode
+): Promise<ethers.TransactionReceipt> => {
+  const { wallet } = deploymentContext
+
+  if (!wallet) {
+    throw new Error(
+      'No signer passed to executeTransaction. This is a bug, please report it to the developers.'
+    )
+  }
+
+  const txReceipt = await (
+    await wallet.sendTransaction(
+      await getGasPriceOverrides(
+        deploymentContext.provider,
+        wallet,
+        executionMode,
+        transaction
+      )
     )
   ).wait()
+
+  if (txReceipt === null) {
+    throw new Error(
+      'No transaction receipt returned by ethers. This is a bug, please report it to the developers.'
+    )
+  }
+
+  return txReceipt
+}
+
+export const injectRoles: InjectRoles = async (
+  deploymentContext: DeploymentContext,
+  executionMode: ExecutionMode
+) => {
+  const { wallet } = deploymentContext
+
+  if (!wallet) {
+    throw new Error(
+      'No wallet provided when injecting roles. This is a bug, please report it to the developers.'
+    )
+  }
+
+  // Before we can execute the deployment, we must assign the relayer role to the signer so they
+  // will be able to execute transactions via the managed service contract.
+  await setManagedServiceRelayer(wallet.address, deploymentContext.provider)
+
+  // Before we can approve the deployment, we must add a set of auto-generated wallets as owners of
+  // the Gnosis Safe. This allows us to approve the deployment without knowing the private keys of
+  // the actual Gnosis Safe owners.
+  await addSphinxWalletsToGnosisSafeOwners(
+    deploymentContext.deployment.safeAddress,
+    deploymentContext.deployment.moduleAddress,
+    executionMode,
+    deploymentContext.provider
+  )
 }
 
 export const approveDeploymentViaManagedService: ApproveDeployment = async (
@@ -348,77 +565,54 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   approvalLeafWithProof,
   executionMode,
   provider,
-  signer
+  ownerSignatures,
+  deploymentContext
 ) => {
-  // Before we can approve the deployment, we must add a set of auto-generated wallets as owners of
-  // the Gnosis Safe. This allows us to approve the deployment without knowing the private keys of
-  // the actual Gnosis Safe owners.
-  const sphinxWallets = await addSphinxWalletsToGnosisSafeOwners(
-    safeAddress,
-    moduleAddress,
-    executionMode,
-    provider
-  )
-
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
-    ManagedServiceABI,
-    signer
-  )
-  const ownerSignatures = await Promise.all(
-    sphinxWallets.map((wallet) => signMerkleRoot(merkleRoot, wallet))
+    ManagedServiceABI
   )
   const packedOwnerSignatures = ethers.solidityPacked(
     new Array(ownerSignatures.length).fill('bytes'),
     ownerSignatures
   )
 
-  const sphinxModule = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI,
-    signer
-  )
+  const sphinxModule = new ethers.Contract(moduleAddress, SphinxModuleABI)
 
   const approvalData = sphinxModule.interface.encodeFunctionData('approve', [
     merkleRoot,
     approvalLeafWithProof,
     packedOwnerSignatures,
   ])
-  const approvalReceipt = await (
-    await managedService.exec(
-      moduleAddress,
-      approvalData,
-      await getGasPriceOverrides(provider, signer, executionMode)
-    )
-  ).wait()
 
-  // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
-  // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
-  // production environment.
-  await removeSphinxWalletsFromGnosisSafeOwners(
-    sphinxWallets,
-    safeAddress,
+  const execData = managedService.interface.encodeFunctionData('exec', [
     moduleAddress,
-    executionMode,
-    provider
-  )
+    approvalData,
+  ])
 
-  return approvalReceipt
+  return deploymentContext.executeTransaction(
+    deploymentContext,
+    {
+      to: getManagedServiceAddress(),
+      data: execData,
+      chainId: (await provider.getNetwork()).chainId.toString(),
+    },
+    executionMode
+  )
 }
 
 export const executeActionsViaManagedService: ExecuteActions = async (
   moduleAddress,
   batch,
   executionMode,
-  signer,
   provider,
   blockGasLimit,
-  chainId
+  chainId,
+  deploymentContext
 ) => {
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
-    ManagedServiceABI,
-    signer
+    ManagedServiceABI
   )
 
   const sphinxModule = new ethers.Contract(
@@ -438,7 +632,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   const overrides: ethers.TransactionRequest = {}
   if (shouldBufferExecuteActionsGasLimit(chainId)) {
     const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
-    const gasEstimate = await signer.estimateGas({
+    const gasEstimate = await provider.estimateGas({
       to: getManagedServiceAddress(),
       data: managedServiceExecData,
     })
@@ -452,23 +646,26 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     overrides.gasLimit = limit
   }
 
-  return (
-    await managedService.exec(
-      moduleAddress,
-      executionData,
-      await getGasPriceOverrides(provider, signer, executionMode, overrides)
-    )
-  ).wait()
+  return deploymentContext.executeTransaction(
+    deploymentContext,
+    {
+      to: getManagedServiceAddress(),
+      data: managedServiceExecData,
+      gasLimit: overrides.gasLimit?.toString(),
+      chainId: (await provider.getNetwork()).chainId.toString(),
+    },
+    executionMode
+  )
 }
 
 export const executeActionsViaSigner: ExecuteActions = async (
   moduleAddress,
   batch,
   executionMode,
-  signer,
   provider,
   blockGasLimit,
-  chainId
+  chainId,
+  deploymentContext
 ) => {
   const sphinxModule = new ethers.Contract(
     moduleAddress,
@@ -483,7 +680,7 @@ export const executeActionsViaSigner: ExecuteActions = async (
   const minimumActionGas = estimateGasViaSigner(moduleAddress, batch)
   const overrides: ethers.TransactionRequest = {}
   if (shouldBufferExecuteActionsGasLimit(chainId)) {
-    const gasEstimate = await signer.estimateGas({
+    const gasEstimate = await provider.estimateGas({
       to: moduleAddress,
       data: executionData,
     })
@@ -496,19 +693,16 @@ export const executeActionsViaSigner: ExecuteActions = async (
     overrides.gasLimit = limit
   }
 
-  const txn = await getGasPriceOverrides(provider, signer, executionMode, {
-    to: moduleAddress,
-    data: executionData,
-    ...overrides,
-  })
-  const receipt = await (await signer.sendTransaction(txn)).wait()
-
-  // Narrow the TypeScript type.
-  if (!receipt) {
-    throw new Error(`Receipt is null. Should never happen.`)
-  }
-
-  return receipt
+  return deploymentContext.executeTransaction(
+    deploymentContext,
+    {
+      to: moduleAddress,
+      data: executionData,
+      gasLimit: overrides.gasLimit?.toString(),
+      chainId: (await provider.getNetwork()).chainId.toString(),
+    },
+    executionMode
+  )
 }
 
 /**
@@ -625,27 +819,48 @@ const estimateModuleExecutionGas = (
   return 30_000 + loopGas
 }
 
-export const runEntireDeploymentProcess = async (
+export const handleStatus = (
+  status: bigint,
+  batches: SphinxLeafWithProof[][],
+  receipts: ethers.TransactionReceipt[],
+  failureAction: HumanReadableAction | undefined,
+  spinner?: ora.Ora
+) => {
+  if (status === MerkleRootStatus.FAILED) {
+    spinner?.fail(`Deployment failed.`)
+    return { receipts, batches, finalStatus: status, failureAction }
+  } else if (status === MerkleRootStatus.CANCELED) {
+    spinner?.fail(`Deployment cancelled by user.`)
+    return { receipts, batches, finalStatus: status }
+  } else if (status === MerkleRootStatus.COMPLETED) {
+    spinner?.succeed(`Deployment succeeded.`)
+    return { receipts, batches, finalStatus: status }
+  } else {
+    throw new Error(`Unknown status: ${status}`)
+  }
+}
+
+/**
+ * We do not recommend using this function directly. We prefer to us the `compileAndExecuteDeployment` function
+ * below which is shared between the deploy command, propose command, simulation, and website backend.
+ */
+export const executeDeployment = async (
   parsedConfig: ParsedConfig,
   merkleTree: SphinxMerkleTree,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Wallet,
-  spinner: ora.Ora = ora({ isSilent: true })
+  ownerSignatures: Array<string>,
+  deploymentContext: DeploymentContext
 ): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
+  receipts: Array<ethers.TransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
   finalStatus: MerkleRootState['status']
   failureAction?: HumanReadableAction
 }> => {
-  const { chainId, executionMode, actionInputs, isSystemDeployed } =
-    parsedConfig
+  const { chainId, executionMode, actionInputs } = parsedConfig
+  const { spinner } = deploymentContext
 
   const humanReadableActions = {
     [chainId]: getReadableActions(actionInputs),
-  }
-
-  if (!isSystemDeployed) {
-    await ensureSphinxAndGnosisSafeDeployed(provider, signer, executionMode)
   }
 
   let estimateGas: EstimateGas
@@ -655,9 +870,6 @@ export const runEntireDeploymentProcess = async (
     executionMode === ExecutionMode.LocalNetworkCLI ||
     executionMode === ExecutionMode.Platform
   ) {
-    await fundAccountMaxBalance(signer.address, provider)
-    await setManagedServiceRelayer(signer.address, provider)
-
     estimateGas = estimateGasViaManagedService
     approveDeployment = approveDeploymentViaManagedService
     executeActions = executeActionsViaManagedService
@@ -669,34 +881,74 @@ export const runEntireDeploymentProcess = async (
     throw new Error(`Unknown execution mode.`)
   }
 
+  /**
+   * Currently, this would fail if executed by the website backend. However, since we only support a specific
+   * set of network on the website this cannot occur.
+   *
+   * If/when we add support for deployments on arbitrary app rollups, we'll probably want to refactor this
+   * so that it could be executed by the website. That way we could automatically deploy all the system contracts
+   * on a new network as part of the first deployment on that network.
+   *
+   * Relevant ticket:
+   * https://linear.app/chugsplash/issue/CHU-527/support-deploying-system-contracts-on-new-networks-from-the-website
+   */
+  if (!parsedConfig.isSystemDeployed) {
+    await ensureSphinxAndGnosisSafeDeployed(
+      provider,
+      deploymentContext.wallet!,
+      executionMode,
+      false,
+      [],
+      // We only include the spinner here if executing on a live network since the output is verbose and unnecessary
+      // when deploying on local nodes.
+      executionMode === ExecutionMode.LiveNetworkCLI ? spinner : undefined
+    )
+  }
+
   const sphinxModule = new ethers.Contract(
     parsedConfig.moduleAddress,
     SphinxModuleABI,
-    signer
+    deploymentContext.provider
   )
 
   const ethersReceipts: Array<ethers.TransactionReceipt> = []
 
   if (!parsedConfig.initialState.isSafeDeployed) {
-    spinner.start(`Deploying Gnosis Safe and Sphinx Module...`)
+    if ((await provider.getCode(parsedConfig.safeAddress)) === '0x') {
+      spinner?.start(`Deploying Gnosis Safe and Sphinx Module...`)
 
-    const gnosisSafeProxyFactory = new ethers.Contract(
-      getGnosisSafeProxyFactoryAddress(),
-      GnosisSafeProxyFactoryArtifact.abi,
-      signer
-    )
-    const gnosisSafeDeploymentReceipt = await (
-      await gnosisSafeProxyFactory.createProxyWithNonce(
-        getGnosisSafeSingletonAddress(),
-        parsedConfig.safeInitData,
-        parsedConfig.newConfig.saltNonce,
-        await getGasPriceOverrides(provider, signer, executionMode)
+      const gnosisSafeProxyFactory = new ethers.Contract(
+        getGnosisSafeProxyFactoryAddress(),
+        GnosisSafeProxyFactoryArtifact.abi
       )
-    ).wait()
-    ethersReceipts.push(gnosisSafeDeploymentReceipt)
 
-    spinner.succeed(`Deployed Gnosis Safe and Sphinx Module.`)
+      const gnosisSafeDeploymentData =
+        gnosisSafeProxyFactory.interface.encodeFunctionData(
+          'createProxyWithNonce',
+          [
+            getGnosisSafeSingletonAddress(),
+            parsedConfig.safeInitData,
+            parsedConfig.newConfig.saltNonce,
+          ]
+        )
+
+      const gnosisSafeDeploymentReceipt =
+        await deploymentContext.executeTransaction(
+          deploymentContext,
+          {
+            to: getGnosisSafeProxyFactoryAddress(),
+            data: gnosisSafeDeploymentData,
+            chainId: (await provider.getNetwork()).chainId.toString(),
+          },
+          executionMode
+        )
+      ethersReceipts.push(gnosisSafeDeploymentReceipt)
+
+      spinner?.succeed(`Deployed Gnosis Safe and Sphinx Module.`)
+    }
   }
+
+  await deploymentContext.injectRoles(deploymentContext, executionMode)
 
   const approvalLeafWithProof = findLeafWithProof(
     merkleTree,
@@ -704,15 +956,15 @@ export const runEntireDeploymentProcess = async (
     BigInt(parsedConfig.chainId)
   )
 
-  spinner.start(`Checking deployment status...`)
+  spinner?.start(`Checking deployment status...`)
 
   const merkleRootState: MerkleRootState = await sphinxModule.merkleRootStates(
     merkleTree.root
   )
 
   if (merkleRootState.status === MerkleRootStatus.EMPTY) {
-    spinner.succeed(`Deployment is new.`)
-    spinner.start(`Approving deployment...`)
+    spinner?.succeed(`Deployment is new.`)
+    spinner?.start(`Approving deployment...`)
 
     const approvalReceipt = await approveDeployment(
       parsedConfig.safeAddress,
@@ -721,23 +973,27 @@ export const runEntireDeploymentProcess = async (
       approvalLeafWithProof,
       executionMode,
       provider,
-      signer
+      ownerSignatures,
+      deploymentContext
     )
     ethersReceipts.push(approvalReceipt)
 
-    spinner.succeed(`Approved deployment.`)
+    spinner?.succeed(`Approved deployment.`)
   } else if (merkleRootState.status !== MerkleRootStatus.APPROVED) {
-    spinner.clear()
-    throw new Error(
-      `Deployment's status: ${stringifyMerkleRootStatus(
-        merkleRootState.status
-      )}`
+    return handleStatus(
+      merkleRootState.status,
+      [],
+      ethersReceipts,
+      humanReadableActions[chainId.toString()][
+        Number(merkleRootState.leavesExecuted) - 2
+      ],
+      spinner
     )
   } else {
-    spinner.succeed(`Deployment is already approved.`)
+    spinner?.succeed(`Deployment is already approved.`)
   }
 
-  spinner.start(`Executing deployment...`)
+  spinner?.start(`Executing deployment...`)
 
   const networkLeaves = merkleTree.leavesWithProofs.filter(
     (leaf) => leaf.leaf.chainId === BigInt(parsedConfig.chainId)
@@ -750,28 +1006,241 @@ export const runEntireDeploymentProcess = async (
       BigInt(parsedConfig.blockGasLimit),
       humanReadableActions,
       executionMode,
-      signer,
       provider,
       executeActions,
-      estimateGas
+      estimateGas,
+      deploymentContext
     )
 
-  spinner.succeed(`Executed deployment.`)
-  spinner.start(`Checking final deployment status...`)
+  spinner?.succeed(`Executed deployment.`)
+  spinner?.start(`Checking final deployment status...`)
 
   ethersReceipts.push(...executionReceipts)
-  const receipts = ethersReceipts.map(convertEthersTransactionReceipt)
 
-  if (status === MerkleRootStatus.FAILED) {
-    spinner.fail(`Deployment failed.`)
-    return { receipts, batches, finalStatus: status, failureAction }
-  } else if (status === MerkleRootStatus.CANCELED) {
-    spinner.fail(`Deployment cancelled by user.`)
-    return { receipts, batches, finalStatus: status }
-  } else if (status === MerkleRootStatus.COMPLETED) {
-    spinner.succeed(`Deployment succeeded.`)
-    return { receipts, batches, finalStatus: status }
-  } else {
-    throw new Error(`Unknown status: ${status}`)
+  return handleStatus(status, batches, ethersReceipts, failureAction, spinner)
+}
+
+/**
+ * @notice Sorts an array of hex strings in ascending order. This function mutates the array.
+ */
+export const sortSigners = (arr: Array<TreeSigner>): void => {
+  arr.sort((a, b) => {
+    const aBigInt = BigInt(a.signer)
+    const bBigInt = BigInt(b.signer)
+
+    if (aBigInt < bBigInt) {
+      return -1
+    } else if (aBigInt > bBigInt) {
+      return 1
+    } else {
+      return 0
+    }
+  })
+}
+
+/**
+ * This is the primary function used for executing deployments in the deploy command, propose command simulation,
+ * and website backend. There is some logic in this function that may not be strictly necessary in all situations.
+ *
+ * We chose to reuse it in all situations because it is easier to maintain a single interface and because we want
+ * to improve the chance that bugs will get caught during the initial proposal simulation step rather than occuring
+ * when a deployment is actually happening on the website.
+ *
+ * The allow for this function to be reused in all three situations this function accepts a `deploymentContext` object
+ * which implements all the logic that needs to be different in each of the three situations.
+ *
+ * We aim to *only* use the `deploymentContext` for logic which absolutely cannot be shared. For example, logic for
+ * writing information about a deployment to the website backend is implemented in the `deploymentContext`.
+ *
+ * See documentation on the `DeploymentContext` type at the top of this file for more information of the specific fields
+ * and justification for why the logic implemented in them cannot be shared.
+ */
+export const compileAndExecuteDeployment = async (
+  deploymentContext: DeploymentContext
+): Promise<
+  | {
+      receipts: SphinxTransactionReceipt[]
+      batches: SphinxLeafWithProof[][]
+      finalStatus: BigInt
+      failureAction: HumanReadableAction | undefined
+    }
+  | undefined
+> => {
+  const { deployment } = deploymentContext
+  const networkName = deployment.networkName
+  const deploymentId = deployment.id
+  const rawCompilerConfigs = deployment.compilerConfigs
+  const { logger } = deploymentContext
+
+  if (!rawCompilerConfigs) {
+    deploymentContext.throwError(
+      `[Executor ${networkName}]: No compiler config stored for this deployment, should never happen`,
+      deployment.id,
+      networkName
+    )
+  }
+
+  logger?.info(`[Executor ${networkName}]: retrieving the deployment...`)
+  // Compile the bundle using either the provided localDeploymentId (when running the in-process
+  // executor), or using the Config URI
+  let merkleTree: SphinxMerkleTree
+  let compilerConfigs: Array<CompilerConfig>
+  let configArtifacts: ConfigArtifacts
+
+  // Handle if the config cannot be fetched
+  try {
+    ;({ merkleTree, compilerConfigs, configArtifacts } =
+      await buildDeploymentWithCompilerConfigs(rawCompilerConfigs!))
+  } catch (e: any) {
+    await deploymentContext.handleError(e, deployment, networkName, [])
+
+    return
+  }
+
+  const targetNetworkConfig = compilerConfigs.find(
+    (config) => config.chainId === deployment.chainId.toString()
+  )
+  if (!targetNetworkConfig) {
+    await deploymentContext.throwError(
+      `[Executor ${networkName}]: Error could not find target network config. This should never happen please report it to the developers.`,
+      deploymentId,
+      networkName
+    )
+    return
+  }
+
+  const { projectName } = targetNetworkConfig.newConfig
+
+  // get active deployment ID for this project
+  const moduleAddress = deployment.moduleAddress
+  const module = new ethers.Contract(
+    moduleAddress,
+    SphinxModuleABI,
+    deploymentContext.provider
+  )
+
+  if ((await deploymentContext.provider.getCode(moduleAddress)) !== '0x') {
+    const activeRoot = await module.activeMerkleRoot()
+    const deploymentStatus = await module.merkleRootStates(merkleTree.root)
+
+    if (
+      activeRoot === ethers.ZeroHash &&
+      deploymentStatus.numLeaves !== BigInt(0) &&
+      deploymentStatus.numLeaves === deploymentStatus.leavesExecuted
+    ) {
+      await deploymentContext.handleAlreadyExecutedDeployment(
+        deploymentContext,
+        targetNetworkConfig,
+        configArtifacts,
+        networkName
+      )
+
+      return
+    }
+  }
+
+  if (deployment.status === 'approved') {
+    logger?.info(
+      `[Executor ${networkName}]: compiled ${projectName} on: ${networkName}.`
+    )
+
+    const deploymentTransactionReceipts: ethers.TransactionReceipt[] = []
+
+    let receipts: ethers.TransactionReceipt[] = []
+    let batches: SphinxLeafWithProof[][] = []
+    let finalStatus: bigint
+    let failureAction: HumanReadableAction | undefined
+    // execute deployment
+    try {
+      const signers = deployment.treeSigners
+      sortSigners(signers)
+      const signatures: string[] = signers
+        .map((signer) => signer.signature)
+        .filter((signature) => signature !== null) as any
+
+      ;({ receipts, batches, finalStatus, failureAction } =
+        await executeDeployment(
+          targetNetworkConfig,
+          merkleTree,
+          deploymentContext.provider,
+          signatures,
+          deploymentContext
+        ))
+
+      deploymentTransactionReceipts.push(...receipts)
+
+      if (finalStatus !== MerkleRootStatus.COMPLETED) {
+        await deploymentContext.handleExecutionFailure(
+          deploymentContext,
+          networkName,
+          targetNetworkConfig,
+          configArtifacts,
+          failureAction,
+          deploymentTransactionReceipts
+        )
+        const merkleRootState: MerkleRootState = await module.merkleRootStates(
+          merkleTree.root
+        )
+        return {
+          receipts: deploymentTransactionReceipts.map(
+            convertEthersTransactionReceipt
+          ),
+          batches,
+          finalStatus: merkleRootState.status,
+          failureAction,
+        }
+      }
+    } catch (e: any) {
+      await deploymentContext.handleError(
+        e,
+        deployment,
+        networkName,
+        deploymentTransactionReceipts
+      )
+      return
+    }
+
+    await deploymentContext.handleSuccess(
+      deploymentContext,
+      deploymentTransactionReceipts,
+      targetNetworkConfig,
+      module,
+      deployment
+    )
+
+    // verify on etherscan
+    await deploymentContext.verify(
+      deploymentContext,
+      targetNetworkConfig,
+      configArtifacts,
+      projectName,
+      deploymentId,
+      networkName
+    )
+
+    // If we make it to this point, we know that the executor has executed the deployment (or that it
+    // has been cancelled by the owner).
+    logger?.info(`[Executor ${networkName}]: execution successful`, {
+      deploymentId,
+    })
+
+    return {
+      receipts: deploymentTransactionReceipts.map(
+        convertEthersTransactionReceipt
+      ),
+      batches,
+      finalStatus,
+      failureAction,
+    }
+  } else if (deployment.status === 'executed') {
+    // verify on etherscan
+    await deploymentContext.verify(
+      deploymentContext,
+      targetNetworkConfig,
+      configArtifacts,
+      projectName,
+      deploymentId,
+      networkName
+    )
   }
 }

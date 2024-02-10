@@ -1,8 +1,8 @@
 import chai, { expect } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  CompilerConfig,
   ExecutionMode,
-  ParsedConfig,
   SphinxJsonRpcProvider,
   fetchURLForNetwork,
   getNetworkNameForChainId,
@@ -25,7 +25,7 @@ import { simulate } from '../../src/hardhat/simulate'
 chai.use(chaiAsPromised)
 
 describe('Simulate', () => {
-  let parsedConfigArray: Array<ParsedConfig>
+  let parsedConfigArray: Array<CompilerConfig>
 
   before(async function () {
     // Skip the tests if the environment variable `CIRCLE_BRANCH` is defined and does not equal

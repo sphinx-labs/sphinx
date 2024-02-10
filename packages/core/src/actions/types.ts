@@ -5,6 +5,7 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 import { SphinxPreview } from '../preview'
 import { SphinxJsonRpcProvider } from '../provider'
 import { ExecutionMode } from '../constants'
+import { DeploymentContext } from './execute'
 
 /**
  * The status of a Merkle root in a Sphinx Module.
@@ -158,10 +159,10 @@ export type ExecuteActions = (
   moduleAddress: string,
   batch: SphinxLeafWithProof[],
   executionMode: ExecutionMode,
-  signer: ethers.Signer,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   blockGasLimit: bigint,
-  chainId: bigint
+  chainId: bigint,
+  deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt | null>
 
 export type ApproveDeployment = (
@@ -171,5 +172,6 @@ export type ApproveDeployment = (
   approvalLeafWithProof: SphinxLeafWithProof,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Signer
+  ownerSignatures: Array<string>,
+  deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt>

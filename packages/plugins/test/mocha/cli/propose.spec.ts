@@ -10,18 +10,15 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   fetchChainIdForNetwork,
+  fetchNameForNetwork,
   getSphinxWalletPrivateKey,
-  runEntireDeploymentProcess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  SphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
-import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
+import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
 import { deploy } from '../../../src/cli/deploy'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
@@ -31,6 +28,7 @@ import {
   getSphinxModuleAddressFromScript,
   getAnvilRpcUrl,
 } from '../common'
+import { SphinxContext } from '../../../src/cli/context'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -85,7 +83,8 @@ describe('Propose CLI command', () => {
       await ensureSphinxAndGnosisSafeDeployed(
         provider,
         wallet,
-        ExecutionMode.Platform
+        ExecutionMode.Platform,
+        true
       )
     })
   })
@@ -187,9 +186,11 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      parsedConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -319,9 +320,11 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddressOptimism)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      parsedConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -422,9 +425,11 @@ describe('Propose CLI command', () => {
     }
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      parsedConfigArray,
+      scriptPath,
+      undefined,
+      context
     )
   })
 
@@ -513,9 +518,11 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      parsedConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -632,9 +639,11 @@ describe('Propose CLI command', () => {
     expect(optimismConfig.actionInputs.length).equals(0)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      parsedConfigArray,
+      scriptPath,
+      undefined,
+      context
     )
   })
 
@@ -662,7 +671,7 @@ describe('Propose CLI command', () => {
     )
 
     const { context } = makeMockSphinxContextForIntegrationTests([
-      `${scriptPath}:RevertDuringSimulation`,
+      `contracts/test/RevertDuringSimulation.sol:RevertDuringSimulation`,
     ])
 
     let errorThrown = false
@@ -694,9 +703,11 @@ describe('Propose CLI command', () => {
  * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (
-  merkleTree: SphinxMerkleTree,
   networkGasEstimates: ProposalRequest['gasEstimates'],
-  parsedConfigArray: Array<ParsedConfig>
+  parsedConfigArray: Array<ParsedConfig>,
+  scriptPath: string,
+  targetContract: string | undefined,
+  context: SphinxContext
 ) => {
   // Check that the number of gas estimates matches the number of ParsedConfig objects with at least
   // one action.
@@ -718,21 +729,19 @@ const assertValidGasEstimates = async (
       )
     }
 
-    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
-    const provider = new SphinxJsonRpcProvider(rpcUrl)
-    const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    const { receipts } = await deploy({
+      scriptPath,
+      network: fetchNameForNetwork(BigInt(parsedConfig.chainId)),
+      skipPreview: false,
+      silent: true,
+      sphinxContext: context,
+      verify: false,
+      targetContract,
+    })
 
-    // Change the executor's address from the `ManagedService` contract to an auto-generated Sphinx
-    // private key. This is necessary because we need a private key to broadcast the deployment on
-    // Anvil.
-    parsedConfig.executorAddress = signer.address
-
-    const { receipts } = await runEntireDeploymentProcess(
-      parsedConfig,
-      merkleTree,
-      provider,
-      signer
-    )
+    if (!receipts) {
+      throw new Error('deployment failed for an unexpected reason')
+    }
 
     // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
     // user's deployment because multiple actions may be batched into a single call to the Sphinx
