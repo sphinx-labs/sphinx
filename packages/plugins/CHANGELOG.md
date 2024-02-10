@@ -1,5 +1,17 @@
 # @sphinx-labs/plugins
 
+## 0.28.1
+
+### Patch Changes
+
+- 437e2d3: Prevent Foundry from serializing strings as numbers
+- e1445ae: Set max block gas limit in Forge script during collection
+- 9d0c02c: Recommend using github action in CI
+- Updated dependencies [437e2d3]
+- Updated dependencies [e1445ae]
+  - @sphinx-labs/contracts@0.18.1
+  - @sphinx-labs/core@0.21.5
+
 ## 0.28.0
 
 ### Minor Changes
