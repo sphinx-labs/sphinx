@@ -111,11 +111,38 @@ export const fetchCurrencyForNetwork = (chainId: bigint) => {
   }
 }
 
+/**
+ * Returns `true` if a live network RPC endpoint can be generated from the given `chainId` using the
+ * available environment variables.
+ */
+export const isLiveNetworkRpcApiKeyDefined = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+  if (!network) {
+    return false
+  }
+  for (const requiredEnvVariable of network.requiredEnvVariables) {
+    if (!process.env[requiredEnvVariable]) {
+      return false
+    }
+  }
+  return true
+}
+
 export const fetchURLForNetwork = (chainId: bigint) => {
   if (process.env.RUNNING_LOCALLY === 'true') {
     return `http://127.0.0.1:${Number(
       BigInt(42000) + (chainId % BigInt(1000))
     )}`
+  }
+
+  // Enforce that live network tests only run if they're executed from a CI process with 'develop'
+  // as the source branch, or if they're executed from a local machine. This ensures that we don't
+  // accidentally run live network tests on feature branches in CI.
+  const CIRCLE_BRANCH = process.env.CIRCLE_BRANCH
+  if (typeof CIRCLE_BRANCH === 'string' && CIRCLE_BRANCH !== 'develop') {
+    throw new Error(
+      `You cannot use live network RPC endpoints in CI with a source branch that isn't 'develop'.`
+    )
   }
 
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)

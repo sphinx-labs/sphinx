@@ -26,9 +26,10 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
-  ensureSphinxAndGnosisSafeDeployed,
   spawnAsync,
   fetchChainIdForNetwork,
+  checkSystemDeployed,
+  ensureSphinxAndGnosisSafeDeployed,
   AccountAccess,
   AccountAccessKind,
   ParsedAccountAccess,
@@ -357,55 +358,66 @@ export const makeDeployment = async (
   const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
-    const chainId = fetchChainIdForNetwork(networkName)
-    const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
-    const safeAddress = getGnosisSafeProxyAddress(
-      ownerAddresses,
-      threshold,
-      saltNonce
-    )
-    const moduleAddress = getSphinxModuleAddress(
-      ownerAddresses,
-      threshold,
-      saltNonce
-    )
+    try {
+      const chainId = fetchChainIdForNetwork(networkName)
+      const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
+      const safeAddress = getGnosisSafeProxyAddress(
+        ownerAddresses,
+        threshold,
+        saltNonce
+      )
+      const moduleAddress = getSphinxModuleAddress(
+        ownerAddresses,
+        threshold,
+        saltNonce
+      )
 
-    const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
-    await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
+      if (!(await checkSystemDeployed(provider))) {
+        const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+        await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
+      }
 
-    const numActionInputs = accountAccesses.length
+      const block = await provider.getBlock('latest')
+      if (!block) {
+        throw new Error(`Could not find block for ${chainId}`)
+      }
 
-    const deploymentInfo: DeploymentInfo = {
-      safeAddress,
-      moduleAddress,
-      safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
-      executorAddress,
-      requireSuccess: true,
-      nonce: merkleRootNonce.toString(),
-      chainId: chainId.toString(),
-      blockGasLimit: '30000000',
-      initialState: {
-        isSafeDeployed: (await provider.getCode(safeAddress)) !== '0x',
-        isModuleDeployed: (await provider.getCode(moduleAddress)) !== '0x',
-        isExecuting: false,
-      },
-      executionMode,
-      newConfig: {
-        projectName,
-        owners: ownerAddresses,
-        threshold: threshold.toString(),
-        orgId: 'test-org-id',
-        mainnets,
-        testnets,
-        saltNonce: saltNonce.toString(),
-      },
-      arbitraryChain: false,
-      sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
-      accountAccesses,
-      gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
+      const numActionInputs = accountAccesses.length
+
+      const deploymentInfo: DeploymentInfo = {
+        safeAddress,
+        moduleAddress,
+        safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
+        executorAddress,
+        requireSuccess: true,
+        nonce: merkleRootNonce.toString(),
+        chainId: chainId.toString(),
+        blockGasLimit: block.gasLimit.toString(),
+        initialState: {
+          isSafeDeployed: (await provider.getCode(safeAddress)) !== '0x',
+          isModuleDeployed: (await provider.getCode(moduleAddress)) !== '0x',
+          isExecuting: false,
+        },
+        executionMode,
+        newConfig: {
+          projectName,
+          owners: ownerAddresses,
+          threshold: threshold.toString(),
+          orgId: 'test-org-id',
+          mainnets,
+          testnets,
+          saltNonce: saltNonce.toString(),
+        },
+        arbitraryChain: false,
+        accountAccesses,
+        gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
+        sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+      }
+
+      return deploymentInfo
+    } catch (error) {
+      throw new Error(`Error in network ${networkName}: ${error}`)
     }
-
-    return deploymentInfo
   })
 
   const deploymentInfoArray = await Promise.all(collectedPromises)
@@ -614,9 +626,11 @@ export const makeStandardDeployment = (
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
-  // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
-  // contract at the same address in successive deployments.
-  const salt = merkleRootNonce
+  // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
+  // deploy a contract at the same address in successive deployments. We add a constant number
+  // because at least one of these contracts has already been deployed to Sepolia at the `CREATE2`
+  // address determined by a salt of `0`.
+  const salt = merkleRootNonce + 100
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
