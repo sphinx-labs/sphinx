@@ -96,16 +96,28 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
-    function sphinxCheckFork() external returns (bool forkInstalled) {
+    /**
+     * @notice Validates the user's Sphinx dependencies. Must be backwards compatible with previous
+     *         versions of the Sphinx plugin package and the Sphinx contracts library. Specifically:
+     *         - The function name must stay the same.
+     *         - There must be no input parameters.
+     *         - The returned values must not be removed or changed. However, new return values can
+     *           be added.
+     */
+    function sphinxValidate() external returns (string memory libraryVersion, bool forkInstalled) {
+        libraryVersion = sphinxUtils.sphinxLibraryVersion();
+
+        // Check that the Sphinx Foundry fork is installed.
         vm.startStateDiffRecording();
         new SphinxForkCheck{ salt: 0 }();
         Vm.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
-        return
-            sphinxUtils.checkAccesses(
-                accountAccesses,
-                keccak256(type(SphinxForkCheck).creationCode),
-                keccak256(type(SphinxForkCheck).runtimeCode)
-            );
+        forkInstalled = sphinxUtils.checkAccesses(
+            accountAccesses,
+            keccak256(type(SphinxForkCheck).creationCode),
+            keccak256(type(SphinxForkCheck).runtimeCode)
+        );
+
+        return (libraryVersion, forkInstalled);
     }
 
     function sphinxCollectProposal(string memory _deploymentInfoPath) external {
