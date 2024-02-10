@@ -15,6 +15,7 @@ import {
   execAsync,
   fetchURLForNetwork,
   getNetworkNameForChainId,
+  isLiveNetworkRpcApiKeyDefined,
   isSupportedChainId,
   sleep,
 } from '../src'
@@ -88,9 +89,7 @@ describe('Convert EthersJS Objects', () => {
         throw new Error(`Unsupported chain ID: ${chainId}`)
       }
 
-      try {
-        fetchURLForNetwork(BigInt(chainId))
-      } catch {
+      if (!isLiveNetworkRpcApiKeyDefined(BigInt(chainId))) {
         missingApiKey.push(getNetworkNameForChainId(BigInt(chainId)))
       }
     }
@@ -111,8 +110,8 @@ describe('Convert EthersJS Objects', () => {
     )
   })
 
-  describe('convertEthersTransactionReceipt', () => {
-    it('succeeds on anvil', async () => {
+  describe('succeeds on anvil', () => {
+    it('convertEthersTransactionReceipt', async () => {
       const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
       const wallet = new ethers.Wallet(anvilPrivateKey, provider)
       const receipt = await (
@@ -131,10 +130,45 @@ describe('Convert EthersJS Objects', () => {
       expect(isSphinxTransactionReceipt(converted)).equals(true)
     })
 
+    it('convertEthersTransactionResponse', async () => {
+      const receipt = await (
+        await anvilWallet.sendTransaction({
+          to: ethers.ZeroAddress,
+          data: '0x11111111',
+        })
+      ).wait()
+
+      // Narrow the TypeScript type.
+      if (!receipt) {
+        throw new Error(`No EthersJS receipt found for transaction hash.`)
+      }
+
+      // Get the transaction response. We fetch this from the receipt so that the `blockNumber` and
+      // `blockHash` fields are populated in the response.
+      const response = await anvilProvider.getTransaction(receipt.hash)
+
+      const converted = convertEthersTransactionResponse(response, '31337')
+      expect(isSphinxTransactionResponse(converted)).equals(true)
+    })
+  })
+
+  describe('succeeds on live networks', () => {
+    before(function () {
+      // Skip the tests if the environment variable `CIRCLE_BRANCH` is defined and does not equal
+      // 'develop', which enforces that these tests only run in CI when the source branch is
+      // 'develop'. These tests will also run on local machines because the `CIRCLE_BRANCH`
+      // environment variable isn't defined.
+      const CIRCLE_BRANCH = process.env.CIRCLE_BRANCH
+      if (typeof CIRCLE_BRANCH === 'string' && CIRCLE_BRANCH !== 'develop') {
+        console.log('Skipping tests since this is not the develop branch')
+        this.skip()
+      }
+    })
+
     for (const [chainIdStr, hash] of Object.entries(transactionHashes)) {
       const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
 
-      it(`succeeds on ${networkName}`, async () => {
+      it(`convertEthersTransactionReceipt on ${networkName}`, async () => {
         const chainId = BigInt(chainIdStr)
 
         // Narrow the TypeScript type.
@@ -145,9 +179,11 @@ describe('Convert EthersJS Objects', () => {
         const rpcUrl = fetchURLForNetwork(chainId)
         const provider = new SphinxJsonRpcProvider(rpcUrl)
 
+        let timeoutId: NodeJS.Timeout
+
         // Create a promise that resolves after 30 seconds.
         const timeoutPromise = new Promise((resolve, reject) => {
-          setTimeout(
+          timeoutId = setTimeout(
             () =>
               reject(
                 new Error(
@@ -177,36 +213,15 @@ describe('Convert EthersJS Objects', () => {
 
         const converted = convertEthersTransactionReceipt(receipt)
         expect(isSphinxTransactionReceipt(converted)).equals(true)
+
+        clearTimeout(timeoutId!)
       })
     }
-  })
-
-  describe('convertEthersTransactionResponse', () => {
-    it('succeeds on anvil', async () => {
-      const receipt = await (
-        await anvilWallet.sendTransaction({
-          to: ethers.ZeroAddress,
-          data: '0x11111111',
-        })
-      ).wait()
-
-      // Narrow the TypeScript type.
-      if (!receipt) {
-        throw new Error(`No EthersJS receipt found for transaction hash.`)
-      }
-
-      // Get the transaction response. We fetch this from the receipt so that the `blockNumber` and
-      // `blockHash` fields are populated in the response.
-      const response = await anvilProvider.getTransaction(receipt.hash)
-
-      const converted = convertEthersTransactionResponse(response, '31337')
-      expect(isSphinxTransactionResponse(converted)).equals(true)
-    })
 
     for (const [chainIdStr, hash] of Object.entries(transactionHashes)) {
       const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
 
-      it(`succeeds on ${networkName}`, async () => {
+      it(`convertEthersTransactionResponse on ${networkName}`, async () => {
         const chainId = BigInt(chainIdStr)
 
         // Narrow the TypeScript type.
@@ -217,9 +232,11 @@ describe('Convert EthersJS Objects', () => {
         const rpcUrl = fetchURLForNetwork(chainId)
         const provider = new SphinxJsonRpcProvider(rpcUrl)
 
+        let timeoutId: NodeJS.Timeout
+
         // Create a promise that resolves after 30 seconds.
         const timeoutPromise = new Promise((resolve, reject) => {
-          setTimeout(
+          timeoutId = setTimeout(
             () =>
               reject(
                 new Error(
@@ -249,6 +266,8 @@ describe('Convert EthersJS Objects', () => {
 
         const converted = convertEthersTransactionResponse(response, chainIdStr)
         expect(isSphinxTransactionResponse(converted)).equals(true)
+
+        clearTimeout(timeoutId!)
       })
     }
   })
