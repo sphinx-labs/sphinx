@@ -24,6 +24,7 @@ import {
   getBytesLength,
   getNetworkNameForChainId,
   isDefined,
+  isNormalizedAddress,
   sortHexStrings,
   spawnAsync,
   zeroOutLibraryReferences,
@@ -33,10 +34,13 @@ import {
   AccountAccessKind,
   ActionInput,
   ConfigArtifacts,
+  DeploymentInfo,
   GetConfigArtifacts,
+  InitialChainState,
   ParsedAccountAccess,
   ParsedConfig,
   ParsedVariable,
+  SphinxConfig,
   SphinxConfigWithAddresses,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -47,6 +51,7 @@ import { pick } from 'stream-json/filters/Pick'
 import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
+  ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
   networkEnumToName,
@@ -1363,4 +1368,107 @@ export const assertSphinxFoundryForkInstalled = async (
         `foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0`
     )
   }
+}
+
+export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    isNormalizedAddress(obj.safeAddress) &&
+    isNormalizedAddress(obj.moduleAddress) &&
+    typeof obj.requireSuccess === 'boolean' &&
+    isNormalizedAddress(obj.executorAddress) &&
+    typeof obj.nonce === 'string' &&
+    typeof obj.chainId === 'string' &&
+    typeof obj.blockGasLimit === 'string' &&
+    typeof obj.safeInitData === 'string' &&
+    isSphinxConfig(obj.newConfig) &&
+    isExecutionMode(obj.executionMode) &&
+    isInitialChainState(obj.initialState) &&
+    typeof obj.arbitraryChain === 'boolean' &&
+    typeof obj.sphinxLibraryVersion === 'string' &&
+    Array.isArray(obj.accountAccesses) &&
+    obj.accountAccesses.every(isParsedAccountAccess) &&
+    Array.isArray(obj.gasEstimates) &&
+    obj.gasEstimates.every((e) => typeof e === 'string')
+  )
+}
+
+const isSphinxConfig = (obj: any): obj is SphinxConfig => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.projectName === 'string' &&
+    typeof obj.orgId === 'string' &&
+    Array.isArray(obj.owners) &&
+    obj.owners.every((o) => isNormalizedAddress(o)) &&
+    Array.isArray(obj.mainnets) &&
+    obj.mainnets.every((m) => typeof m === 'string') &&
+    Array.isArray(obj.testnets) &&
+    obj.testnets.every((t) => typeof t === 'string') &&
+    typeof obj.threshold === 'string' &&
+    typeof obj.saltNonce === 'string'
+  )
+}
+
+const isExecutionMode = (obj: any): obj is ExecutionMode => {
+  return Object.values(ExecutionMode).includes(obj)
+}
+
+const isInitialChainState = (obj: any): obj is InitialChainState => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.isSafeDeployed === 'boolean' &&
+    typeof obj.isModuleDeployed === 'boolean' &&
+    typeof obj.isExecuting === 'boolean'
+  )
+}
+
+const isParsedAccountAccess = (obj: any): obj is ParsedAccountAccess => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    isAccountAccess(obj.root) &&
+    Array.isArray(obj.nested) &&
+    obj.nested.every(isAccountAccess)
+  )
+}
+
+const isAccountAccess = (obj: any): obj is AccountAccess => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.chainInfo === 'object' &&
+    obj.chainInfo !== null &&
+    typeof obj.chainInfo.forkId === 'string' &&
+    typeof obj.chainInfo.chainId === 'string' &&
+    Object.values(AccountAccessKind).includes(obj.kind) &&
+    typeof obj.account === 'string' &&
+    typeof obj.accessor === 'string' &&
+    typeof obj.initialized === 'boolean' &&
+    typeof obj.oldBalance === 'string' &&
+    typeof obj.newBalance === 'string' &&
+    typeof obj.deployedCode === 'string' &&
+    typeof obj.value === 'string' &&
+    typeof obj.data === 'string' &&
+    typeof obj.reverted === 'boolean' &&
+    Array.isArray(obj.storageAccesses) &&
+    obj.storageAccesses.every(isStorageAccess)
+  )
+}
+
+const isStorageAccess = (
+  obj: any
+): obj is AccountAccess['storageAccesses'][number] => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.account === 'string' &&
+    typeof obj.slot === 'string' &&
+    typeof obj.isWrite === 'boolean' &&
+    typeof obj.previousValue === 'string' &&
+    typeof obj.newValue === 'string' &&
+    typeof obj.reverted === 'boolean'
+  )
 }

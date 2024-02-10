@@ -33,6 +33,7 @@ import {
   findFullyQualifiedNameForInitCode,
   findFunctionFragment,
   isCreate2AccountAccess,
+  isDeploymentInfo,
   parseNestedContractDeployments,
 } from './utils'
 
@@ -73,6 +74,7 @@ export const decodeDeploymentInfo = (
       parsedAccountAccessFragment.outputs,
       encoded
     )
+    // Convert the `AccountAccess` to its proper type.
     const { parsedAccountAccess } = recursivelyConvertResult(
       parsedAccountAccessFragment.outputs,
       decodedResult
@@ -94,8 +96,8 @@ export const decodeDeploymentInfo = (
     },
     executionMode: Number(executionMode),
     newConfig: {
-      projectName: parsed.newConfig.projectName,
-      orgId: parsed.newConfig.orgId,
+      projectName: abiDecodeString(parsed.newConfig.projectName),
+      orgId: abiDecodeString(parsed.newConfig.orgId),
       owners: parsed.newConfig.owners,
       mainnets: parsed.newConfig.mainnets.map(networkEnumToName),
       testnets: parsed.newConfig.testnets.map(networkEnumToName),
@@ -103,9 +105,13 @@ export const decodeDeploymentInfo = (
       saltNonce: abiDecodeUint256(parsed.newConfig.saltNonce),
     },
     arbitraryChain,
-    sphinxLibraryVersion,
+    sphinxLibraryVersion: abiDecodeString(sphinxLibraryVersion),
     accountAccesses,
     gasEstimates,
+  }
+
+  if (!isDeploymentInfo(deploymentInfo)) {
+    throw new Error(`Invalid DeploymentInfo object. Should never happen.`)
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)
@@ -406,4 +412,10 @@ const abiDecodeUint256Array = (encoded: string): Array<string> => {
   const coder = AbiCoder.defaultAbiCoder()
   const [result] = coder.decode(['uint256[]'], encoded)
   return result.map((r) => r.toString())
+}
+
+const abiDecodeString = (encoded: string): string => {
+  const coder = AbiCoder.defaultAbiCoder()
+  const result = coder.decode(['string'], encoded)
+  return result.toString()
 }

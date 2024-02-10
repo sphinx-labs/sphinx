@@ -27,3 +27,5 @@ export enum ExecutionMode {
   LiveNetworkCLI,
   Platform,
 }
+
+export const MAX_UINT64 = BigInt(2) ** BigInt(64) - BigInt(1)
