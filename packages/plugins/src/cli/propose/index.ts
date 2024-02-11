@@ -39,7 +39,6 @@ import {
   compile,
   getInitCodeWithArgsArray,
   assertSphinxFoundryForkInstalled,
-  assertNoLinkedLibraries,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -173,14 +172,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   )
 
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
-
-  await assertNoLinkedLibraries(
-    scriptPath,
-    foundryToml.cachePath,
-    foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
-  )
 
   const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
     makeParsedConfig(

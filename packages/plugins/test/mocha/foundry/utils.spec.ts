@@ -35,7 +35,7 @@ import {
   startAnvilNodes,
 } from '../common'
 import { FoundryToml } from '../../../src/foundry/types'
-import { assertNoLinkedLibraries, makeGetConfigArtifacts } from '../../../dist'
+import { makeGetConfigArtifacts } from '../../../dist'
 
 describe('Utils', async () => {
   let foundryToml: FoundryToml
@@ -763,100 +763,6 @@ describe('Utils', async () => {
       expect(
         isInitCodeMatch(initCodeWithArgs, makeArtifactParam(artifact))
       ).to.equal(true)
-    })
-  })
-
-  describe('assertNoLinkedLibraries', () => {
-    const projectRoot = process.cwd()
-
-    it('throws error if sourceName without targetContract contains linked library', async () => {
-      const sourceName = 'contracts/test/MyLinkedLibraryContract.sol'
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.be.rejectedWith(
-        `Detected linked library in: ${sourceName}:MyLinkedLibraryContract\n` +
-          `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
-      )
-    })
-
-    it('throws error if sourceName with targetContract contains linked library', async () => {
-      const sourceName = 'contracts/test/MyContracts.sol'
-      const targetContract = 'MyContractWithLibraries'
-
-      const fullyQualifiedName = `${sourceName}:${targetContract}`
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot,
-          targetContract
-        )
-      ).to.be.rejectedWith(
-        `Detected linked library in: ${fullyQualifiedName}\n` +
-          `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
-      )
-    })
-
-    it('succeeds if sourceName without targetContract does not contain linked library', async () => {
-      const sourceName = 'contracts/test/SimpleStorage.sol'
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.eventually.be.fulfilled
-    })
-
-    it('succeeds if sourceName with targetContract does not contain linked library', async () => {
-      const sourceName = 'contracts/test/MyContracts.sol'
-      const targetContract = 'MyContract1'
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot,
-          targetContract
-        )
-      ).to.eventually.be.fulfilled
-    })
-
-    it('succeeds if sourceName is an absolute path and does not contain linked library', async () => {
-      const sourceName = resolve('contracts/test/SimpleStorage.sol')
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.eventually.be.fulfilled
-    })
-
-    it('succeeds if sourceName starts with a period and does not contain linked library', async () => {
-      const sourceName = './contracts/test/SimpleStorage.sol'
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.eventually.be.fulfilled
     })
   })
 })

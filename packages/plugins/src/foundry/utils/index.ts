@@ -298,52 +298,12 @@ export const compile = (silent: boolean, force: boolean): void => {
 }
 
 /**
- * Throws an error if there are any linked libraries in `scriptPath`. If a `targetContract` is
- * defined, this function simply builds fully qualified name, then uses it to load the script's
- * artifact. If a `targetContract` isn't defined, this function searches the build info cache to
- * find the most recent fully qualified name for the given `sourceName`. We use the build info cache
- * because it's more reliable than searching Foundry's artifact file tree, which can be
- * unpredictable due to the potentially nested structure of artifact file locations, and due to the
- * fact that we don't know the fully qualified name in advance.
- */
-export const assertNoLinkedLibraries = async (
-  scriptPath: string,
-  cachePath: string,
-  artifactFolder: string,
-  projectRoot: string,
-  targetContract?: string
-): Promise<void> => {
-  const fullyQualifiedName = targetContract
-    ? `${scriptPath}:${targetContract}`
-    : // Find the fully qualified name using its source name. We can safely assume
-      // that there's a single fully qualified name in the array returned by
-      // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
-      // this function was called, which means there must only be a single contract.
-      findFullyQualifiedNames(scriptPath, cachePath, projectRoot)[0]
-  const artifact = await readContractArtifact(
-    fullyQualifiedName,
-    projectRoot,
-    artifactFolder
-  )
-
-  const containsLibrary =
-    Object.keys(artifact.linkReferences).length > 0 ||
-    Object.keys(artifact.deployedLinkReferences).length > 0
-  if (containsLibrary) {
-    throw new Error(
-      `Detected linked library in: ${fullyQualifiedName}\n` +
-        `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
-    )
-  }
-}
-
-/**
  * Returns an array of the most recent fully qualified names for the given `sourceName`. This
  * function searches the build info cache for the most recent build info file that contains a fully
  * qualified name starting with `sourceName`. Returns an empty array if there is no such fully
  * qualified name in any of the cached build info files.
  */
-const findFullyQualifiedNames = (
+export const findFullyQualifiedNames = (
   rawSourceName: string,
   cachePath: string,
   projectRoot: string
