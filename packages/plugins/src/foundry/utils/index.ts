@@ -1432,3 +1432,22 @@ const isStorageAccess = (
     typeof obj.reverted === 'boolean'
   )
 }
+
+// TODO(later-later): check if `--libraries` overrides the `libraries` field in the foundry.toml. if
+// it does override it, consider merging the libraries that you pass in.
+
+// TODO(end): gh: Users can specify pre-linked libraries in their foundry.toml, so I didn't add "we
+// don't support pre-linked libraries" to the Current Limitations section in the main README.
+
+// TODO(later): remove the "Current limitation" in the foundry.toml.
+
+// TODO(later): filter out libraries if there's code at their `CREATE2` address. it's fine to do
+// this because it indicates that the exact library has already been deployed. libraries can't have
+// mutable state variables.
+
+// TODO(later-later): checkboxes in linear ticket.
+
+// TODO(docs): we don't deploy the libraries via `CREATE` because the same nonce would likely be
+// used for `CREATE` deployments in the user's script.
+
+// TODO(later-later): add library to preview.spec.ts.
