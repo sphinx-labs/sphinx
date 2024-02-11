@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, relative } from 'path'
 import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
 
 import {
@@ -69,7 +69,6 @@ export const deploy = async (
   configArtifacts?: ConfigArtifacts
 }> => {
   const {
-    scriptPath,
     network,
     skipPreview,
     silent,
@@ -78,14 +77,18 @@ export const deploy = async (
     targetContract,
   } = args
 
+  const projectRoot = process.cwd()
+
+  // Normalize the script path to be in the format "path/to/file.sol". This isn't strictly
+  // necessary, but we're less likely to introduce a bug if it's always in the same format.
+  const scriptPath = relative(projectRoot, args.scriptPath)
+
   if (!isFile(scriptPath)) {
     throw new Error(
       `File does not exist at: ${scriptPath}\n` +
         `Please make sure this is a valid file path.`
     )
   }
-
-  const projectRoot = process.cwd()
 
   // Run the compiler. It's necessary to do this before we read any contract interfaces.
   compile(

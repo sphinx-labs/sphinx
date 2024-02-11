@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, relative } from 'path'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 import {
@@ -223,10 +223,15 @@ export const propose = async (
     isTestnet,
     isDryRun,
     silent,
-    scriptPath,
     sphinxContext,
     targetContract,
   } = args
+
+  const projectRoot = process.cwd()
+
+  // Normalize the script path to be in the format "path/to/file.sol". This isn't strictly
+  // necessary, but we're less likely to introduce a bug if it's always in the same format.
+  const scriptPath = relative(projectRoot, args.scriptPath)
 
   if (!isFile(scriptPath)) {
     throw new Error(
@@ -240,8 +245,6 @@ export const propose = async (
     console.error("You must specify a 'SPHINX_API_KEY' environment variable.")
     process.exit(1)
   }
-
-  const projectRoot = process.cwd()
 
   // Run the compiler. It's necessary to do this before we read any contract interfaces.
   compile(
