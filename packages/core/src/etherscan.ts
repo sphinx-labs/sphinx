@@ -21,6 +21,7 @@ import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import {
   formatSolcLongVersion,
+  getBytesLength,
   getNetworkNameForChainId,
   isLiveNetwork,
   sleep,
@@ -80,7 +81,7 @@ export const verifySphinxConfig = async (
       // real values.
       const encodedConstructorArgs = ethers.dataSlice(
         initCodeWithArgs,
-        ethers.dataLength(artifact.bytecode)
+        getBytesLength(artifact.bytecode)
       )
 
       const result = await attemptVerification(
@@ -136,7 +137,7 @@ export const verifyDeploymentWithRetries = async (
         // real values.
         const encodedConstructorArgs = ethers.dataSlice(
           initCodeWithArgs,
-          ethers.dataLength(artifact.bytecode)
+          getBytesLength(artifact.bytecode)
         )
 
         const result = await attemptVerification(

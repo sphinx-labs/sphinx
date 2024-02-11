@@ -1526,7 +1526,7 @@ export const getAbiEncodedConstructorArgs = (
   initCodeWithArgs: string,
   artifactBytecode: string
 ): string => {
-  return ethers.dataSlice(initCodeWithArgs, ethers.dataLength(artifactBytecode))
+  return ethers.dataSlice(initCodeWithArgs, getBytesLength(artifactBytecode))
 }
 
 /**
