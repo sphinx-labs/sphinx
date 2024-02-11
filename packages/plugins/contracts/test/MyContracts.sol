@@ -77,22 +77,22 @@ contract MyContract2 {
     }
 }
 
-contract MyOwnable is Ownable {
-    uint256 public value;
+// contract MyOwnable is Ownable {
+//     uint256 public value;
 
-    constructor(address _safe, uint256 _initialValue) {
-        value = _initialValue;
-        _transferOwnership(_safe);
-    }
+//     constructor(address _safe, uint256 _initialValue) {
+//         value = _initialValue;
+//         _transferOwnership(_safe);
+//     }
 
-    function increment() external {
-        value += 1;
-    }
+//     function increment() external {
+//         value += 1;
+//     }
 
-    function set(uint256 _value) external onlyOwner {
-        value = _value;
-    }
-}
+//     function set(uint256 _value) external onlyOwner {
+//         value = _value;
+//     }
+// }
 
 // This contract's size is ~22500 bytes, which is near the contract size limit of 24576 bytes. The
 // contract's deployment cost is very close to the maximum batch size limit on vanilla Anvil nodes.

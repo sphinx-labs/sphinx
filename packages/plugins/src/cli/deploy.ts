@@ -362,3 +362,33 @@ export const deploy = async (
     configArtifacts,
   }
 }
+
+// TODO(later): see the description in this PR: https://github.com/foundry-rs/foundry/pull/586
+
+// TODO(later): throw error if:
+// - scriptPath doesn't exist in solidity-files-cache
+// - there's more than one key in the 'artifact' object for the scriptPath _and_ no `targetContract` was specified.
+// - there are no keys in the `artifact` object for the scriptPath
+
+// TODO(later): should we pre-link the libraries then re-compile so that the metadata hashes are
+// updated? regarding the warning in the solidity docs.
+
+// TODO(later): can we verify a contract on sourcify if we manually link its libraries? regarding
+// the warning in the solidity docs.
+
+// TODO(end): gh: we can't support a circular dependency like the one below using create2.
+// ```
+// library MyLibraryOne { function one() external returns (uint) { return MyLibraryTwo.two();
+//   }
+// }
+// library MyLibraryTwo { function two() external returns (uint) { return MyLibraryOne.one();
+//   }
+// }
+// ```
+// I think this is acceptable because foundry doesn't currently support circular library
+// dependencies either ([source](https://github.com/foundry-rs/foundry/issues/5014)), which probably
+// means it doesn't impact many of their users. however, there is an [open
+// PR](https://github.com/foundry-rs/foundry/issues/5014) to fix that issue in foundry, so this'll
+// just be our limitation soon. we can resolve it in the future by using `create` to resolve
+// circular dependencies, then incrementing the gnosis safe's nonce accordingly before collecting
+// the user's transactions.
