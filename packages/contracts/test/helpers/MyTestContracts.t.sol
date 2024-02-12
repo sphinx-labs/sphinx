@@ -52,6 +52,14 @@ contract MyDelegateCallContract {
     }
 }
 
+contract MySimpleContract {
+    uint256 public number;
+
+    constructor(uint256 _num) {
+        number = _num;
+    }
+}
+
 contract GnosisSafeSingletonInvalidVersion {
     string public VERSION = "1.2.0";
 }

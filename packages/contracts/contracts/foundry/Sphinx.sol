@@ -188,7 +188,11 @@ abstract contract Sphinx {
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
         if (address(safe).code.length == 0) {
-            _sphinxDeployModuleAndGnosisSafe();
+            sphinxUtils.deployModuleAndGnosisSafe(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                safe
+            );
         }
 
         // Take a snapshot of the current state. We'll revert to the snapshot after we run the
@@ -228,34 +232,6 @@ abstract contract Sphinx {
         );
 
         return sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo);
-    }
-
-    /**
-     * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
-     *         and enables the Sphinx Module in the Gnosis Safe
-     *
-     * @dev    We refer to this function in Sphinx's documentation. Make sure to update the
-     *         documentation if you change the name of this function or change its file
-     *         location.
-     */
-    function _sphinxDeployModuleAndGnosisSafe() private {
-        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(
-            constants.safeFactoryAddress()
-        );
-        address singletonAddress = constants.safeSingletonAddress();
-
-        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
-            sphinxConfig.owners,
-            sphinxConfig.threshold
-        );
-
-        // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
-        // and enables the Sphinx Module in the Gnosis Safe.
-        safeProxyFactory.createProxyWithNonce(
-            singletonAddress,
-            safeInitializerData,
-            sphinxConfig.saltNonce
-        );
     }
 
     /**

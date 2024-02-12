@@ -17,4 +17,4 @@ If any of these input parameters change, the Gnosis Safe's address will also cha
 
 We use `CREATE2` to allow anybody to permissionlessly submit this transaction on behalf of the Safe owners without requiring their signatures. If the Safe owners are confident that their Safe has been deployed correctly at a given address on one chain, then they can be confident that a Safe at the **same address** on any other chain has also been deployed correctly.
 
-If you'd like to see exactly how this process works, see the `_sphinxDeployModuleAndGnosisSafe` function in [`Sphinx.sol`](https://github.com/sphinx-labs/sphinx/blob/main/packages/plugins/contracts/foundry/Sphinx.sol).
+If you'd like to know exactly how this process works, see the `initializeGnosisSafeWithModule` function in the [`SphinxModuleProxy` unit test file](https://github.com/sphinx-labs/sphinx/blob/develop/packages/contracts/test/SphinxModuleProxy.t.sol).

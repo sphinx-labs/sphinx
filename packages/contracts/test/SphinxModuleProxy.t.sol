@@ -2330,7 +2330,7 @@ abstract contract AbstractSphinxModuleProxy_Test is IEnum, TestUtils, SphinxModu
      *        1. `deploySphinxModuleProxyFromSafe`
      *        2. `enableSphinxModuleProxyFromSafe`
      *
-     * @dev    We refer to this function in Sphinx's specs. Make sure to update the
+     * @dev    We refer to this function in Sphinx's specs and docs. Make sure to update the
      *         documentation if you change the name of this function or change its file
      *         location.
      */
