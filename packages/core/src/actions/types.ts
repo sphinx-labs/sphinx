@@ -1,9 +1,7 @@
 import { ethers } from 'ethers'
 import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import { SphinxPreview } from '../preview'
-import { SphinxJsonRpcProvider } from '../provider'
 import { ExecutionMode } from '../constants'
 import { DeploymentContext } from './execute'
 
@@ -156,22 +154,16 @@ export type EstimateGas = (
 ) => number
 
 export type ExecuteActions = (
-  moduleAddress: string,
   batch: SphinxLeafWithProof[],
   executionMode: ExecutionMode,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   blockGasLimit: bigint,
-  chainId: bigint,
   deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt | null>
 
 export type ApproveDeployment = (
-  safeAddress: string,
-  moduleAddress: string,
   merkleRoot: string,
   approvalLeafWithProof: SphinxLeafWithProof,
   executionMode: ExecutionMode,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   ownerSignatures: Array<string>,
   deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt>

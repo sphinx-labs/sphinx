@@ -11,8 +11,8 @@ contract Sample is Sphinx {
     MyContract1 myContract;
 
     function setUp() public {
-        sphinxConfig.projectName = "test_project_2";
-        sphinxConfig.owners = [0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51];
+        sphinxConfig.projectName = "test_project";
+        sphinxConfig.owners = [0x226F14C3e19788934Ff37C653Cf5e24caD198341];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [
             Network.sepolia,
@@ -36,7 +36,7 @@ contract Sample is Sphinx {
         ];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
-        sphinxConfig.saltNonce = 211242;
+        sphinxConfig.saltNonce = 0;
     }
 
     function run() public sphinx {

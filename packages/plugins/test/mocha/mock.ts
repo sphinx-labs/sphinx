@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'fs'
 
 import {
   ActionInputType,
+  BuildInfo,
   ConfigArtifacts,
   ExecutionMode,
   GetConfigArtifacts,
@@ -16,11 +17,7 @@ import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
 import { readContractArtifact } from '../../dist'
 
-const file = readdirSync(`./out/artifacts/build-info/`).at(0)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const buildInfo = JSON.parse(
-  readFileSync(`./out/artifacts/build-info/${file}`, 'utf8')
-)
+let buildInfos: BuildInfo[]
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -72,7 +69,31 @@ export const makeMockSphinxContext = (
       _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
+      const files = readdirSync(`./out/artifacts/build-info/`)
+      if (!buildInfos) {
+        buildInfos = await Promise.all(
+          files.map((file) =>
+            JSON.parse(
+              readFileSync(`./out/artifacts/build-info/${file}`, 'utf8')
+            )
+          )
+        )
+      }
+
       for (const name of mockedFullyQualifiedNames) {
+        const [file, contract] = name.split(':')
+
+        const buildInfo = buildInfos.find(
+          (info) =>
+            info.output.contracts[file] && info.output.contracts[file][contract]
+        )
+
+        if (!buildInfo) {
+          throw new Error(
+            'Could not find build info for test contract, this should never happen but is just a bug in the integration test mock'
+          )
+        }
+
         const artifact = await readContractArtifact(
           name,
           projectRoot,

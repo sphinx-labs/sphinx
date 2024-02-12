@@ -22,7 +22,6 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
-  getNetworkNameForChainId,
   isDefined,
   isNormalizedAddress,
   sortHexStrings,
@@ -54,6 +53,7 @@ import {
   ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
+  fetchNameForNetwork,
   getParsedConfigWithCompilerInputs,
   networkEnumToName,
 } from '@sphinx-labs/core'
@@ -1091,7 +1091,7 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   chainId: number
   estimatedGas: string
 }> => {
-  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const networkName = fetchNameForNetwork(BigInt(chainId))
   const rpcUrl = foundryToml.rpcEndpoints[networkName]
 
   if (!rpcUrl) {

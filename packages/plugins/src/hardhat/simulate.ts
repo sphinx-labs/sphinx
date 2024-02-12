@@ -9,25 +9,23 @@ import {
   ExecutionMode,
   MerkleRootStatus,
   SphinxJsonRpcProvider,
-  getNetworkNameForChainId,
+  fetchNameForNetwork,
   getLargestPossibleReorg,
   isFork,
   stripLeadingZero,
   isLiveNetwork,
   fundAccountMaxBalance,
-  setManagedServiceRelayer,
   signMerkleRoot,
-  removeSphinxWalletsFromGnosisSafeOwners,
   compileAndExecuteDeployment,
   Deployment,
   CompilerConfig,
-  fetchNameForNetwork,
   DeploymentContext,
   ConfigArtifacts,
   HumanReadableAction,
   executeTransactionViaSigner,
   getSphinxWalletsSortedByAddress,
   injectRoles,
+  removeRoles,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -173,7 +171,7 @@ export const simulate = async (
   )
 
   if (code !== 0) {
-    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    const networkName = fetchNameForNetwork(BigInt(chainId))
     let errorMessage: string = `Simulation failed for ${networkName} at block number ${block.number}.`
     try {
       // Attempt to decode the error message. This try-statement could theoretically throw an error
@@ -245,15 +243,13 @@ export const simulateDeploymentSubtask = async (
     executionMode === ExecutionMode.Platform
   ) {
     signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await fundAccountMaxBalance(signer.address, provider)
   } else {
     throw new Error(`Unknown execution mode.`)
   }
 
   const deploymentData = makeDeploymentData(compilerConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
-
-  await fundAccountMaxBalance(signer.address, provider)
-  await setManagedServiceRelayer(signer.address, provider)
 
   // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
   const sphinxWallets = getSphinxWalletsSortedByAddress(
@@ -295,7 +291,6 @@ export const simulateDeploymentSubtask = async (
     },
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
-      _networkName: string,
       _targetNetworkConfig: CompilerConfig,
       _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
@@ -314,6 +309,7 @@ export const simulateDeploymentSubtask = async (
     deployment,
     provider,
     injectRoles,
+    removeRoles,
     wallet: signer,
   }
   const result = await compileAndExecuteDeployment(simulationContext)
@@ -325,17 +321,6 @@ export const simulateDeploymentSubtask = async (
   }
 
   const { finalStatus, failureAction, receipts, batches } = result
-
-  // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
-  // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
-  // production environment.
-  await removeSphinxWalletsFromGnosisSafeOwners(
-    sphinxWallets,
-    compilerConfig.safeAddress,
-    compilerConfig.moduleAddress,
-    executionMode,
-    provider
-  )
 
   if (finalStatus === MerkleRootStatus.FAILED) {
     if (failureAction) {

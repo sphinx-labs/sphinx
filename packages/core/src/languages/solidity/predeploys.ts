@@ -94,7 +94,9 @@ export const cancelPreviousDripVersions = async (
           )
         ).wait()
 
-        spinner?.start(`Finished archiving outdated drip: ${previousDripName}`)
+        spinner?.succeed(
+          `Finished archiving outdated drip: ${previousDripName}`
+        )
       }
     }
   }
@@ -201,17 +203,6 @@ export const assignManagedServiceRoles = async (
     const baseDripName = `sphinx_fund_${relayer}`
     const dripName =
       baseDripName + (currentDripVersion > 0 ? `_${currentDripVersion}` : '')
-
-    // Cancel any out of date drips
-    await cancelPreviousDripVersions(
-      Drippie,
-      provider,
-      owner,
-      executionMode,
-      baseDripName,
-      currentDripVersion,
-      spinner
-    )
 
     const reentrant = false
     const interval = 30

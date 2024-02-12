@@ -7,7 +7,6 @@ import {
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
   isFile,
-  removeSphinxWalletsFromGnosisSafeOwners,
   signMerkleRoot,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
@@ -38,8 +37,9 @@ import {
   HumanReadableAction,
   executeTransactionViaSigner,
   InjectRoles,
+  RemoveRoles,
   injectRoles,
-  HandleSuccess,
+  removeRoles,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -228,7 +228,7 @@ export const deploy = async (
 
   let signer: ethers.Wallet
   let inject: InjectRoles
-  let handleSuccess: HandleSuccess
+  let remove: RemoveRoles
   if (executionMode === ExecutionMode.LiveNetworkCLI) {
     const privateKey = process.env.PRIVATE_KEY
     // Check if the private key exists. It should always exist because we checked that it's defined
@@ -242,8 +242,7 @@ export const deploy = async (
     inject = async () => {
       return
     }
-    // We don't need to do anything on success when deploying on a live network
-    handleSuccess = async () => {
+    remove = async () => {
       return
     }
   } else if (executionMode === ExecutionMode.LocalNetworkCLI) {
@@ -254,22 +253,7 @@ export const deploy = async (
     // work even without the need for keys for all Safe signers
     inject = injectRoles
     // We need to remove the injected owners after successfully deploying on a local node
-    handleSuccess = async (
-      _deploymentContext: DeploymentContext,
-      _deploymentTransactionReceipts: ethers.TransactionReceipt[],
-      targetNetworkConfig: CompilerConfig
-    ) => {
-      // Remove the auto-generated wallets that are currently Gnosis Safe owners. This isn't
-      // strictly necessary, but it ensures that the Gnosis Safe owners and threshold match the
-      // production environment.
-      await removeSphinxWalletsFromGnosisSafeOwners(
-        [signer],
-        targetNetworkConfig.safeAddress,
-        targetNetworkConfig.moduleAddress,
-        executionMode,
-        deploymentContext.provider
-      )
-    }
+    remove = removeRoles
   } else {
     throw new Error(`Unknown execution mode.`)
   }
@@ -324,7 +308,7 @@ export const deploy = async (
   }
 
   const treeSigner = {
-    signer: await signer.getAddress(),
+    signer: signer.address,
     signature: await signMerkleRoot(merkleTree.root, signer),
   }
   const deployment: Deployment = {
@@ -353,7 +337,6 @@ export const deploy = async (
     },
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
-      _networkName: string,
       _targetNetworkConfig: CompilerConfig,
       _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
@@ -365,9 +348,12 @@ export const deploy = async (
     verify: async () => {
       return
     },
-    handleSuccess,
+    handleSuccess: async () => {
+      return
+    },
     executeTransaction: executeTransactionViaSigner,
     injectRoles: inject,
+    removeRoles: remove,
     deployment,
     wallet: signer,
     provider,

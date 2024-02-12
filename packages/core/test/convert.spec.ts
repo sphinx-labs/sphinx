@@ -14,7 +14,7 @@ import {
   SphinxJsonRpcProvider,
   execAsync,
   fetchURLForNetwork,
-  getNetworkNameForChainId,
+  fetchNameForNetwork,
   isLiveNetworkRpcApiKeyDefined,
   isSupportedChainId,
   sleep,
@@ -90,7 +90,7 @@ describe('Convert EthersJS Objects', () => {
       }
 
       if (!isLiveNetworkRpcApiKeyDefined(BigInt(chainId))) {
-        missingApiKey.push(getNetworkNameForChainId(BigInt(chainId)))
+        missingApiKey.push(fetchNameForNetwork(BigInt(chainId)))
       }
     }
 
@@ -166,7 +166,7 @@ describe('Convert EthersJS Objects', () => {
     })
 
     for (const [chainIdStr, hash] of Object.entries(transactionHashes)) {
-      const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
+      const networkName = fetchNameForNetwork(BigInt(chainIdStr))
 
       it(`convertEthersTransactionReceipt on ${networkName}`, async () => {
         const chainId = BigInt(chainIdStr)
@@ -219,7 +219,7 @@ describe('Convert EthersJS Objects', () => {
     }
 
     for (const [chainIdStr, hash] of Object.entries(transactionHashes)) {
-      const networkName = getNetworkNameForChainId(BigInt(chainIdStr))
+      const networkName = fetchNameForNetwork(BigInt(chainIdStr))
 
       it(`convertEthersTransactionResponse on ${networkName}`, async () => {
         const chainId = BigInt(chainIdStr)

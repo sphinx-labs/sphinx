@@ -5,7 +5,7 @@ import {
   ExecutionMode,
   SphinxJsonRpcProvider,
   fetchURLForNetwork,
-  getNetworkNameForChainId,
+  fetchNameForNetwork,
   isFork,
   isLiveNetwork,
 } from '@sphinx-labs/core'
@@ -97,7 +97,7 @@ describe('Simulate', () => {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         const chainId = parsedConfigArray[index].chainId
-        const networkName = getNetworkNameForChainId(BigInt(chainId))
+        const networkName = fetchNameForNetwork(BigInt(chainId))
         console.error(`Error on network ${networkName}:`, result.reason)
       }
     })

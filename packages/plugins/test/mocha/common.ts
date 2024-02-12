@@ -39,6 +39,7 @@ import {
   DeploymentContext,
   executeTransactionViaSigner,
   injectRoles,
+  removeRoles,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -576,6 +577,7 @@ export const runDeployment = async (
       },
       executeTransaction: executeTransactionViaSigner,
       injectRoles,
+      removeRoles,
       deployment,
       provider,
       wallet: signer,
