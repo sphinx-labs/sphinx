@@ -207,7 +207,7 @@ export const executeBatchActions = async (
   const executionReceipts: ethers.TransactionReceipt[] = []
   const batches: SphinxLeafWithProof[][] = []
 
-  const maxGasLimit = getMaxGasLimit(blockGasLimit)
+  const maxGasLimit = getMaxGasLimit(blockGasLimit, chainId)
 
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await sphinxModule.activeMerkleRoot()
@@ -532,7 +532,7 @@ export const executeActionsViaSigner: ExecuteActions = async (
  * Here are the data points in the format (<CALLDATA_LENGTH>, <GAS_ESTIMATE>):
  * (0,10202),(1000,10592),(100000,67166),(500000,676492),(1000000,2296456).
  *
- * After summing these values, we multiply by 1.1 to ensure that the heuristic overestimates the
+ * After summing these values, we include a buffer to ensure that the heuristic overestimates the
  * amount of gas. This ensures we don't underestimate the gas, which would otherwise be a concern
  * because we don't incorporate the cost of executing the `DELEGATECALL` on the `SphinxModuleProxy`,
  * or the cost of potentially returning data from the `exec` function on the `ManagedService`. This
@@ -566,7 +566,7 @@ export const estimateGasViaManagedService: EstimateGas = (
   const estimate =
     21_000 + callDataGas + estimateModuleExecutionGas(batch) + managedServiceGas
 
-  return Math.round(estimate * 1.1)
+  return Math.round(estimate * 1.05 + 50_000) // Include a buffer
 }
 
 /**
@@ -580,7 +580,7 @@ export const estimateGasViaManagedService: EstimateGas = (
  * zero-byte of calldata.
  * 3. The estimated cost of executing the logic in the `SphinxModule`.
  *
- * After summing these values, we multiply by 1.1 to ensure that the heuristic overestimates the
+ * After summing these values, we include a buffer to ensure that the heuristic overestimates the
  * amount of gas. This ensures we don't underestimate the gas, which would otherwise be a concern
  * because we don't incorporate the cost of executing the `DELEGATECALL` on the `SphinxModuleProxy`.
  * This buffer also makes our estimate closer to the value that would be returned by the
@@ -597,7 +597,7 @@ export const estimateGasViaSigner: EstimateGas = (moduleAddress, batch) => {
 
   const estimate = 21_000 + callDataGas + estimateModuleExecutionGas(batch)
 
-  return Math.round(estimate * 1.1)
+  return Math.round(estimate * 1.05 + 50_000) // Include a buffer
 }
 
 /**

@@ -410,7 +410,12 @@ export const makeDeployment = async (
         },
         arbitraryChain: false,
         accountAccesses,
-        gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
+        // We set the Merkle leaf gas fields to 6 million to ensure that a very large contract
+        // deployment can fit in a batch. This is important to check on networks like Scroll which
+        // have low block gas limits. (Scroll's block gas limit is 10 million). A Merkle leaf gas
+        // field of 6 million corresponds to a contract at the max size limit with a couple dozen
+        // SSTOREs in its constructor.
+        gasEstimates: new Array(numActionInputs).fill(BigInt(6_000_000)),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
       }
 
