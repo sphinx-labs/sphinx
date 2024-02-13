@@ -980,6 +980,17 @@ export const readInterface = (
   return new ethers.Interface(abi)
 }
 
+export const convertLibraries = (libraries: Libraries): Array<string> => {
+  const converted: Array<string> = []
+  for (const sourceName of Object.keys(libraries)) {
+    for (const libraryName of Object.keys(libraries[sourceName])) {
+      const address = libraries[sourceName][libraryName]
+      converted.push(`${sourceName}:${libraryName}=${address}`)
+    }
+  }
+  return converted
+}
+
 export const findFunctionFragment = (
   iface: ethers.Interface,
   fragmentName: string
@@ -993,20 +1004,6 @@ export const findFunctionFragment = (
   return functionFragment
 }
 
-export const convertLibraryFormat = (
-  librariesArray: Array<string>
-): Array<string> => {
-  return librariesArray.map((libraryString) => {
-    // Splitting by both ':' and '='
-    const parts = libraryString.split(/[:=]/)
-    if (parts.length !== 3) {
-      throw new Error('Invalid library string format.')
-    }
-
-    const [filePath, contractName, address] = parts
-    return `${filePath}:${contractName}=${ethers.getAddress(address)}`
-  })
-}
 /**
  * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
  * for variations between the local simulation and the production environment. Also adjusts the

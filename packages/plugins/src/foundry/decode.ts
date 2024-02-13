@@ -40,9 +40,11 @@ import {
 import {
   assertValidAccountAccesses,
   assertValidLinkedLibraries,
+  convertLibraries,
   convertLibraryFormat,
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
+  findFullyQualifiedNames,
   findFunctionFragment,
   isCreate2AccountAccess,
   isParsedDeploymentInfo,
@@ -50,10 +52,14 @@ import {
   readContractArtifact,
   toParsedAccountAccessHierarchy,
 } from './utils'
+import { FoundryToml } from './types'
 
 export const decodeDeploymentInfo = (
   serializedDeploymentInfo: string,
-  sphinxPluginTypesInterface: ethers.Interface
+  sphinxPluginTypesInterface: ethers.Interface,
+  libraries: Libraries,
+  libraryAccountAccesses: Array<ParsedAccountAccess>,
+  libraryGasEstimates: Array<string>
 ): ParsedDeploymentInfo => {
   const parsed = JSON.parse(serializedDeploymentInfo)
 
@@ -80,10 +86,12 @@ export const decodeDeploymentInfo = (
   const executionMode = abiDecodeUint256(parsed.executionMode)
   const nonce = abiDecodeUint256(parsed.nonce)
 
-  const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
+  const gasEstimates = libraryGasEstimates.concat(
+    abiDecodeUint256Array(parsed.gasEstimates)
+  )
 
   // ABI decode each `RawAccountAccessHierarchy` individually.
-  const accountAccesses = parsed.encodedAccountAccesses
+  const scriptAccountAccesses = parsed.encodedAccountAccesses
     .map((encoded) => {
       const decodedResult = coder.decode(
         rawAccountAccessHierarchyFragment.outputs,
@@ -98,6 +106,8 @@ export const decodeDeploymentInfo = (
     })
     // Parse the account access hierarchies.
     .map(toParsedAccountAccessHierarchy)
+
+  const accountAccesses = libraryAccountAccesses.concat(scriptAccountAccesses)
 
   const deploymentInfo: ParsedDeploymentInfo = {
     safeAddress,
@@ -125,6 +135,7 @@ export const decodeDeploymentInfo = (
     sphinxLibraryVersion: abiDecodeString(sphinxLibraryVersion),
     accountAccesses,
     gasEstimates,
+    libraries,
   }
 
   if (!isParsedDeploymentInfo(deploymentInfo)) {
@@ -326,7 +337,7 @@ export const makeParsedConfig = (
     unlabeledContracts,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
-    libraries,
+    libraries: convertLibraries(libraries),
     gitCommit: getCurrentGitCommitHash(),
   }
 
@@ -438,11 +449,10 @@ const abiDecodeString = (encoded: string): string => {
 }
 
 export const inferLinkedLibraries = async (
-  actualScriptDeployedCode: string,
+  serializedDeploymentInfo: string,
   scriptPath: string,
   initialGnosisSafeNonce: number,
-  artifactFolder: string,
-  cachePath: string,
+  foundryToml: FoundryToml,
   projectRoot: string,
   provider: SphinxJsonRpcProvider,
   targetContract?: string
@@ -451,11 +461,35 @@ export const inferLinkedLibraries = async (
   libraryAccountAccesses: Array<ParsedAccountAccess>
   libraryGasEstimates: Array<string>
 }> => {
-
-
-  const scriptArtifact = parseFoundryContractArtifact(
-    JSON.parse(readFileSync(scriptArtifactFilePath, 'utf8'))
+  const { scriptDeployedCode, safeAddress } = JSON.parse(
+    serializedDeploymentInfo
   )
+
+  const { artifactFolder, cachePath, buildInfoFolder } = foundryToml
+
+  let fullyQualifiedName: string
+  if (targetContract) {
+    fullyQualifiedName = `${scriptPath}:${targetContract}`
+  } else {
+    // Find the script's fully qualified name using its source name (i.e. the script path).
+    const fullyQualifiedNames = await findFullyQualifiedNames(
+      scriptPath,
+      cachePath,
+      projectRoot,
+      buildInfoFolder
+    )
+    // We can safely assume that there's a single fully qualified name in the array returned by
+    // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
+    // this function was called, which means there must only be a single contract.
+    fullyQualifiedName = fullyQualifiedNames[0]
+  }
+
+  const scriptArtifact = await readContractArtifact(
+    fullyQualifiedName,
+    projectRoot,
+    artifactFolder
+  )
+
   const { linkReferences, deployedLinkReferences } = scriptArtifact
 
   assertValidLinkedLibraries(linkReferences, deployedLinkReferences)
@@ -471,7 +505,7 @@ export const inferLinkedLibraries = async (
       if (references.length > 0) {
         const ref = references[0]
         const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
-        const rawLibraryAddress = actualScriptDeployedCode.substring(
+        const rawLibraryAddress = scriptDeployedCode.substring(
           start,
           start + ref.length * 2
         )

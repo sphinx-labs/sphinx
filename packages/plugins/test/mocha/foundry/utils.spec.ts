@@ -15,7 +15,6 @@ chai.use(chaiAsPromised)
 const expect = chai.expect
 
 import {
-  convertLibraryFormat,
   isInitCodeMatch,
   messageArtifactNotFound,
   readContractArtifact,
@@ -168,55 +167,6 @@ describe('Utils', async () => {
       expect(
         artifactFive.abi.some((e) => e.name === 'duplicateContractFive')
       ).equals(true)
-    })
-  })
-
-  describe('convertLibraryFormat', () => {
-    it('should handle an empty array', () => {
-      const librariesArray: string[] = []
-
-      const expectedOutput: string[] = []
-
-      const result = convertLibraryFormat(librariesArray)
-      expect(result).to.deep.equal(expectedOutput)
-    })
-
-    it('should correctly convert library formats', () => {
-      const librariesArray = [
-        'script/Counter.s.sol:MyLibrary:0x5FbDB2315678afecb367f032d93F642f64180aa3',
-        'file.sol:Math=0x1234567890123456789012345678901234567890',
-      ]
-
-      const expectedOutput = [
-        'script/Counter.s.sol:MyLibrary=0x5FbDB2315678afecb367f032d93F642f64180aa3',
-        'file.sol:Math=0x1234567890123456789012345678901234567890',
-      ]
-
-      const result = convertLibraryFormat(librariesArray)
-      expect(result).to.deep.equal(expectedOutput)
-    })
-
-    it('should normalize Ethereum addresses', () => {
-      // This address is lowercase (not in checksum format).
-      const librariesArray = [
-        'script/Counter.s.sol:MyLibrary:0x8ba1f109551bd432803012645ac136ddd64dba72',
-      ]
-
-      // This uses a checksum address.
-      const expectedOutput = [
-        'script/Counter.s.sol:MyLibrary=0x8ba1f109551bD432803012645Ac136ddd64DBA72',
-      ]
-
-      const result = convertLibraryFormat(librariesArray)
-      expect(result).to.deep.equal(expectedOutput)
-    })
-
-    it('should throw an error for invalid formats', () => {
-      const librariesArray = ['invalidformat']
-
-      expect(() => convertLibraryFormat(librariesArray)).to.throw(
-        'Invalid library string format.'
-      )
     })
   })
 

@@ -118,6 +118,7 @@ export type ParsedDeploymentInfo = {
   sphinxLibraryVersion: string
   accountAccesses: Array<ParsedAccountAccessHierarchy>
   gasEstimates: Array<string>
+  libraries: Libraries
 }
 
 export type InitialChainState = {

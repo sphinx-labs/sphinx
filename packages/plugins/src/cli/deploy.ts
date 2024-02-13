@@ -39,6 +39,7 @@ import {
   assertSphinxFoundryForkInstalled,
   compile,
   getInitCodeWithArgsArray,
+  getSphinxConfigFromScript,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
@@ -170,6 +171,15 @@ export const deploy = async (
     foundryToml.cachePath
   )
 
+  const { safeAddress } = await getSphinxConfigFromScript(
+    scriptPath,
+    sphinxPluginTypesInterface,
+    targetContract,
+    spinner
+  )
+
+  const initialGnosisSafeNonce = await provider.getTransactionCount(safeAddress)
+
   const executionMode = isLiveNetwork
     ? ExecutionMode.LiveNetworkCLI
     : ExecutionMode.LocalNetworkCLI
@@ -202,6 +212,7 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+    FOUNDRY_SENDER: safeAddress,
   })
 
   if (spawnOutput.code !== 0) {
@@ -214,9 +225,22 @@ export const deploy = async (
   }
 
   const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+  const { libraries, libraryAccountAccesses, libraryGasEstimates } =
+    await inferLinkedLibraries(
+      serializedDeploymentInfo,
+      scriptPath,
+      initialGnosisSafeNonce,
+      foundryToml,
+      projectRoot,
+      provider,
+      targetContract
+    )
   const deploymentInfo = decodeDeploymentInfo(
     serializedDeploymentInfo,
-    sphinxPluginTypesInterface
+    sphinxPluginTypesInterface,
+    libraries,
+    libraryAccountAccesses,
+    libraryGasEstimates
   )
 
   checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
