@@ -49,6 +49,7 @@ import {
   Create2ActionInput,
   ActionInputType,
   CreateActionInput,
+  Libraries,
 } from './config/types'
 import {
   ProposalRequest,
@@ -1649,4 +1650,31 @@ export const isFile = (path: string): boolean => {
  */
 export const isNormalizedAddress = (addr: string): boolean => {
   return ethers.getAddress(addr) === addr
+}
+
+// TODO(docs): throws an error if it can't resolve all library placeholders in the bytecode.
+export const resolveAllLibraryPlaceholders = (
+  artifactBytecode: string,
+  linkReferences: LinkReferences,
+  libraries: Libraries
+): string => {
+  for (const sourceName of Object.keys(linkReferences)) {
+    for (const libraryName of Object.keys(linkReferences[sourceName])) {
+      // TODO(later-later): test that this throws an error when the sourceName exists in `libraries` but the `libraryName` doesn't. also test that this throws an error when neither exist in `libraries`.
+      const libraryAddress = libraries[sourceName][libraryName] // TODO(later-later): probably use optional chaining operator so that this doesn't throw an error
+      if (!libraryAddress) {
+        throw new Error(`TODO(docs)`)
+      }
+
+      const fullyQualifiedName = `${sourceName}:${libraryName}`
+      const hashed = ethers.keccak256(fullyQualifiedName)
+      const placeholder = ethers.dataSlice(hashed, 0, 34)
+      const padded = `__$${placeholder}$__`
+      artifactBytecode = artifactBytecode.replace(
+        new RegExp(padded, 'g'),
+        remove0x(libraryAddress)
+      )
+    }
+  }
+  return artifactBytecode
 }

@@ -367,8 +367,6 @@ export const deploy = async (
   }
 }
 
-// TODO(later): see the description in this PR: https://github.com/foundry-rs/foundry/pull/586
-
 // TODO(later): throw error if:
 // - scriptPath doesn't exist in solidity-files-cache
 // - there's more than one key in the 'artifact' object for the scriptPath _and_ no `targetContract` was specified.

@@ -31,6 +31,7 @@ import {
   getCreateCallAddress,
   parseFoundryContractArtifact,
   add0x,
+  LinkReferences,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -428,17 +429,17 @@ const abiDecodeString = (encoded: string): string => {
   return result.toString()
 }
 
-export const inferLinkedLibraries = (
+export const inferLinkedLibraries = async (
   actualScriptDeployedCode: string,
   scriptPath: string,
   cachePath: string,
   solcVersion: string,
   targetContract?: string
-): {
+): Promise<{
   libraries: Libraries
   libraryAccountAccesses: Array<ParsedAccountAccess>
   libraryGasEstimates: Array<string>
-} => {
+}> => {
   const foundryCache = readFoundryArtifactCache(cachePath)
 
   // TODO(later): normalize the script path
@@ -447,6 +448,10 @@ export const inferLinkedLibraries = (
   if (!scriptArtifactCache) {
     throw new Error(`TODO(docs). Should never happen.`)
   }
+
+  // TODO(later): is it the right approach to use the foundry cache for the script artifact? keep in
+  // mind the cache only contains the cached contracts, and not necessarily every contract in the
+  // repo. if it's okay to use it, document why.
 
   const scriptArtifactFilePath = getArtifactPathFromFoundryCache(
     scriptArtifactCache,
@@ -479,25 +484,48 @@ export const inferLinkedLibraries = (
     }
   }
 
-  const libraryAccountAccesses: Array<ParsedAccountAccess> = []
+  // TODO(docs): we put this in a separate for-loop because we need the entire `libraries` object in
+  // order to resolve the libraries' init code. this is b/c the libraries may reference other
+  // libraries.
+
+  const accountAccessesWithNonce: Array<{
+    accountAccess: ParsedAccountAccess
+    nonce: number
+  }> = []
   for (const sourceName of Object.keys(libraries)) {
     for (const [libraryName, libraryAddress] of Object.entries(
       libraries[sourceName]
     )) {
-      const accountAccess: AccountAccess = {
+      const libraryArtifact = await readContractArtifact(
+        `${sourceName}:${libraryName}`,
+        projectRoot,
+        artifactFolder
+      )
+
+      const libraryInitCode = resolveAllLibraryPlaceholders(
+        libraryArtifact.bytecode,
+        libraryArtifact.linkReferences,
+        libraries
+      )
+
+      const rootAccountAccess: AccountAccess = {
         kind: AccountAccessKind.Create,
         account: libraryAddress,
         accessor: safeAddress,
-        value: string
-        data: string
-        reverted: boolean
+        value: '0', // TODO(docs)
+        data: libraryInitCode,
       }
-      libraryAccountAccesses.push({
-        root: accountAccess,
-        nested: [],
+      accountAccessesWithNonce.push({
+        accountAccess: {
+          root: rootAccountAccess,
+          nested: [],
+        },
+        nonce,
       })
     }
   }
+
+  // TODO(later): sort the account accesses according to the corresponding nonce.
 
   return libraries
 }
@@ -519,3 +547,7 @@ export const inferLinkedLibraries = (
 // different address in the script and on-chain, which will impact the contract that uses LibraryB.
 
 // TODO(later): check that you use the library initcode in the input param to `getConfigArtifacts`.
+
+// TODO(end): say this somewhere: to support libraries in the constructor of the script, we need to
+// account for the fact that the constructor libraries may not exist inside of the contract `Create`
+// actions, in which case this strategy won't work.

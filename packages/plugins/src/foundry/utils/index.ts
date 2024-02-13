@@ -297,7 +297,6 @@ export const compile = (silent: boolean, force: boolean): void => {
   }
 }
 
-// TODO(later): remove.
 /**
  * Returns an array of the most recent fully qualified names for the given `sourceName`. This
  * function searches the build info cache for the most recent build info file that contains a fully
@@ -1442,13 +1441,9 @@ const isStorageAccess = (
 
 // TODO(later): remove the "Current limitation" in the foundry.toml.
 
-// TODO(later): filter out libraries if there's code at their `CREATE2` address. it's fine to do
-// this because it indicates that the exact library has already been deployed. libraries can't have
-// mutable state variables.
-
 // TODO(later-later): checkboxes in linear ticket.
 
-// TODO(docs): we don't deploy the libraries via `CREATE` because the same nonce would likely be
-// used for `CREATE` deployments in the user's script.
-
 // TODO(later-later): add library to preview.spec.ts.
+
+// TODO(later): remove assertValidAccountAccesses in a separate pr. not sure how this made it
+// through.
