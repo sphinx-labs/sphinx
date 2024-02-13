@@ -555,5 +555,3 @@ export const inferLinkedLibraries = async (
 // TODO(end): say this somewhere: to support libraries in the constructor of the script, we need to
 // account for the fact that the constructor libraries may not exist inside of the contract `Create`
 // actions, in which case this strategy won't work.
-
-// TODO(later): AccountAccess -> MinimalAccountAccess
