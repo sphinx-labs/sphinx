@@ -442,16 +442,10 @@ export const inferLinkedLibraries = async (
 }> => {
   const foundryCache = readFoundryArtifactCache(cachePath)
 
-  // TODO(later): normalize the script path
-
   const scriptArtifactCache = foundryCache.files[scriptPath]
   if (!scriptArtifactCache) {
     throw new Error(`TODO(docs). Should never happen.`)
   }
-
-  // TODO(later): is it the right approach to use the foundry cache for the script artifact? keep in
-  // mind the cache only contains the cached contracts, and not necessarily every contract in the
-  // repo. if it's okay to use it, document why.
 
   const scriptArtifactFilePath = getArtifactPathFromFoundryCache(
     scriptArtifactCache,
@@ -465,12 +459,15 @@ export const inferLinkedLibraries = async (
   const { linkReferences, deployedLinkReferences } = scriptArtifact
 
   const libraries: Libraries = {}
-  let numLibraries = 0
   for (const sourceName of Object.keys(deployedLinkReferences)) {
     for (const [libraryName, references] of Object.entries(
       deployedLinkReferences[sourceName]
     )) {
-      for (const ref of references) {
+      // TODO(docs): we only use the first element b/c each element corresponds to the same address.
+      // there shouldn't be any situation where the array's length is 0, but we check this here just
+      // to be safe.
+      if (references.length > 0) {
+        const ref = references[0]
         const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
         const rawLibraryAddress = actualScriptDeployedCode.substring(
           start,
@@ -479,10 +476,14 @@ export const inferLinkedLibraries = async (
         const libraryAddress = ethers.getAddress(add0x(rawLibraryAddress))
 
         libraries[sourceName][libraryName] = libraryAddress
-        numLibraries += 1
       }
     }
   }
+
+  const numLibraries = Object.values(libraries).reduce(
+    (acc, current) => acc + Object.keys(current).length,
+    0
+  )
 
   // TODO(docs): we put this in a separate for-loop because we need the entire `libraries` object in
   // order to resolve the libraries' init code. this is b/c the libraries may reference other
@@ -530,15 +531,16 @@ export const inferLinkedLibraries = async (
   return libraries
 }
 
-// TODO(later): probably put pre-linked libraries from foundry.toml in the parsedconfig and deployment
-// artifacts.
+// TODO(later-later): probably put pre-linked libraries from foundry.toml in the parsedconfig and
+// deployment artifacts.
 
-// TODO(later): do you need to bring back `assertValidLinkedLibraries`? (it checked that the
-// linkReferences and deployedLinkReferences contain the same libraries). if you bring it back,
-// mention that it's important to check this b/c we need to deploy every library that foundry
-// deploys in order to maintain the correct library addresses. e.g. say LibraryA uses Gnosis Safe
-// nonce 1 and is in the artifact init code, and LibraryB uses nonce 2 and is in the deployed code.
-// we can't deploy LibB on-chain without also deploying LibA.
+// TODO(later): bring back `assertValidLinkedLibraries`.
+
+// TODO(docs): assertValidLinkedLibraries: check that the linkReferences and deployedLinkReferences
+// contain the same libraries. it's important to check this b/c we need to deploy every library that
+// foundry deploys in order to maintain the correct library addresses. e.g. say LibraryA uses Gnosis
+// Safe nonce 1 and is in the artifact init code, and LibraryB uses nonce 2 and is in the deployed
+// code. we can't deploy LibB on-chain without also deploying LibA.
 
 // TODO(end): ticket: deploy only the necessary libraries. blocked by foundry's issue b/c we need to
 // maintain the same library addresses that foundry uses, otherwise the addresses of everything
@@ -546,8 +548,11 @@ export const inferLinkedLibraries = async (
 // it since it's not used by a prod contract. if LibraryB uses nonce 2 in the script, it'll have a
 // different address in the script and on-chain, which will impact the contract that uses LibraryB.
 
-// TODO(later): check that you use the library initcode in the input param to `getConfigArtifacts`.
-
 // TODO(end): say this somewhere: to support libraries in the constructor of the script, we need to
 // account for the fact that the constructor libraries may not exist inside of the contract `Create`
 // actions, in which case this strategy won't work.
+
+// TODO(later): figure out how to refactor makeGetConfigArtifacts so that you can update it in
+// `findFullyQualifiedNames`.
+
+// TODO(later): AccountAccess -> MinimalAccountAccess

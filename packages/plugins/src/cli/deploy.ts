@@ -367,26 +367,15 @@ export const deploy = async (
   }
 }
 
-// TODO(later): throw error if:
-// - scriptPath doesn't exist in solidity-files-cache
-// - there's more than one key in the 'artifact' object for the scriptPath _and_ no `targetContract` was specified.
-// - there are no keys in the `artifact` object for the scriptPath
-
 // TODO(end): gh: i manually checked that foundry automatically sets the correct initial nonce for
 // the gnosis safe's nonce after deploying the libraries.
 
-// TODO(later): throw an error if there are any libraries in the `linkReferences` but not in
+// TODO(end): linear: currently, we throw an error if there are any libraries in the `linkReferences` but not in
 // `deployedLinkReferences`. we don't support this rn because there isn't a straightforward
 // way to get the script's init code with the resolved library references, which means we can't
 // infer the addresses of the libraries used only in the constructor, which means we can't
 // create actions for them, which means `ContractWithManyLibraries` deployed below won't have
-// deployed linked libraries, which is hazardous. make a ticket to add support for this. we can
-// support it in the future by getting all `accountAccesses` that are `Create`, then getting each
-// of their artifacts, then using the artifacts to get all of the linked libraries w/ their addresses
-// instead of using the script's artifact.deployedLinkReferences`. this'd be non-trivial with our
-// current parsing logic because we'd need the contract artifacts in `decodeDeploymentInfo`,
-// but they aren't available until we call `getConfigArtifacts`, which happens after
-//  `decodeDeploymentInfo`.
+// deployed linked libraries, which is hazardous.
 //
 // contract CounterScript is Script {
 //   bytes public b;
