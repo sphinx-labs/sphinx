@@ -16,6 +16,7 @@ import {
     SphinxConfig,
     ParsedAccountAccess
 } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { MySimpleContract } from "./helpers/MyTestContracts.t.sol";
 
 contract SphinxUtils_Test is Test, SphinxUtils {
     address dummySafeAddress = address(0x1234);
@@ -412,6 +413,19 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         serialized = serializeSphinxConfig(sphinxConfig);
         // Check that the item no longer exists in the JSON.
         assertFalse(vm.keyExists(serialized, ".myKey"));
+    }
+
+    function test_deployContractTo_succeeds() external {
+        address where = address(0x1234);
+        uint256 constructorArg = 255;
+        deployContractTo({
+            _initCode: type(MySimpleContract).creationCode,
+            _abiEncodedConstructorArgs: abi.encode(constructorArg),
+            _where: where
+        });
+        assertEq(MySimpleContract(where).number(), constructorArg);
+        // Check that the contract's nonce is 1, which is the initial value for contract nonces.
+        assertEq(vm.getNonce(where), 1);
     }
 
     /////////////////////////////////// Helpers //////////////////////////////////////

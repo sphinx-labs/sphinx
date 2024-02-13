@@ -21,27 +21,11 @@ contract Sample is Sphinx {
     }
 
     function run() public sphinx {
-        new MyContract1{ salt: bytes32(uint(1)) }(
+        new MyContract1(
             -1,
             2,
             address(1),
             address(2)
         );
-        new MyContract1{ salt: bytes32(uint(2)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-        new MyContract1{ salt: bytes32(uint(3)) }(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-
-        bytes memory initCode =
-            abi.encodePacked(type(MyContract1).creationCode, abi.encode(1, 2, address(1), address(2)));
-        CREATE3.deploy(bytes32(0), initCode, 0);
     }
 }
