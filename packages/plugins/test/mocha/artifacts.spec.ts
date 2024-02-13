@@ -6,7 +6,7 @@ import {
   fetchChainIdForNetwork,
   getConfigArtifactsRemote,
   writeDeploymentArtifacts,
-  ParsedAccountAccess,
+  ParsedAccountAccessHierarchy,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 
@@ -125,7 +125,7 @@ const makeThenRunThenCheckDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<ParsedAccountAccess>
+    accountAccesses: Array<ParsedAccountAccessHierarchy>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },
@@ -177,7 +177,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
   deployment: {
     merkleRootNonce: number
     executionMode: ExecutionMode
-    accountAccesses: Array<ParsedAccountAccess>
+    accountAccesses: Array<ParsedAccountAccessHierarchy>
     expectedNumExecutionArtifacts: number
     expectedContractFileNames: Array<string>
   },

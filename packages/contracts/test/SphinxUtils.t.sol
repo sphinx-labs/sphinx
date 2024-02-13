@@ -12,9 +12,9 @@ import {
     ParsedCallAction,
     Network,
     InitialChainState,
-    FoundryDeploymentInfo,
+    RawDeploymentInfo,
     SphinxConfig,
-    ParsedAccountAccess
+    RawAccountAccessHierarchy
 } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { MySimpleContract } from "./helpers/MyTestContracts.t.sol";
 
@@ -310,13 +310,16 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertEq(uniqueValues.length, 0, "The returned array should be empty");
     }
 
-    function test_parseAccountAccesses_emptyInput() public {
+    function test_makeRawAccountAccessHierarchy_emptyInput() public {
         Vm.AccountAccess[] memory accesses;
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
-        assertEq(parsed.length, 0);
+        RawAccountAccessHierarchy[] memory hierarchy = makeRawAccountAccessHierarchy(
+            accesses,
+            dummySafeAddress
+        );
+        assertEq(hierarchy.length, 0);
     }
 
-    function test_parseAccountAccesses_noRoots() public {
+    function test_makeRawAccountAccessHierarchy_noRoots() public {
         Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](3);
         accesses[0] = makeAccountAccess({
             _accessor: address(0x1),
@@ -331,11 +334,14 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             _kind: VmSafe.AccountAccessKind.Extcodesize
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
-        assertEq(parsed.length, 0);
+        RawAccountAccessHierarchy[] memory hierarchy = makeRawAccountAccessHierarchy(
+            accesses,
+            dummySafeAddress
+        );
+        assertEq(hierarchy.length, 0);
     }
 
-    function test_parseAccountAccesses_noNested() public {
+    function test_makeRawAccountAccessHierarchy_noNested() public {
         Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](2);
         accesses[0] = makeAccountAccess({
             _accessor: dummySafeAddress,
@@ -346,16 +352,19 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             _kind: VmSafe.AccountAccessKind.Create
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
-        assertEq(parsed.length, 2);
+        RawAccountAccessHierarchy[] memory hierarchy = makeRawAccountAccessHierarchy(
+            accesses,
+            dummySafeAddress
+        );
+        assertEq(hierarchy.length, 2);
 
-        assertEq(parsed[0].root.accessor, dummySafeAddress);
-        assertEq(parsed[0].root.kind, VmSafe.AccountAccessKind.Call);
-        assertEq(parsed[0].nested.length, 0);
+        assertEq(hierarchy[0].root.accessor, dummySafeAddress);
+        assertEq(hierarchy[0].root.kind, VmSafe.AccountAccessKind.Call);
+        assertEq(hierarchy[0].nested.length, 0);
 
-        assertEq(parsed[1].root.accessor, dummySafeAddress);
-        assertEq(parsed[1].root.kind, VmSafe.AccountAccessKind.Create);
-        assertEq(parsed[1].nested.length, 0);
+        assertEq(hierarchy[1].root.accessor, dummySafeAddress);
+        assertEq(hierarchy[1].root.kind, VmSafe.AccountAccessKind.Create);
+        assertEq(hierarchy[1].nested.length, 0);
     }
 
     /**
@@ -383,15 +392,15 @@ contract SphinxUtils_Test is Test, SphinxUtils {
      *         We enforce this by including `vm.serializeJson(objKey, "{}")` at the beginning of the
      *         serialization function.
      */
-    function test_serializeFoundryDeploymentInfo_success_clearsObjectKey() external {
-        FoundryDeploymentInfo memory deploymentInfo;
+    function test_serializeRawDeploymentInfo_success_clearsObjectKey() external {
+        RawDeploymentInfo memory deploymentInfo;
         // Add an item to the object key, which is the same object key used in the serialization
         // function.
         string memory serialized = vm.serializeString(deploymentInfoKey, "myKey", "myVal");
         // Check that the item has been added.
         assertTrue(vm.keyExists(serialized, ".myKey"));
 
-        serialized = serializeFoundryDeploymentInfo(deploymentInfo);
+        serialized = serializeRawDeploymentInfo(deploymentInfo);
         // Check that the item no longer exists in the JSON.
         assertFalse(vm.keyExists(serialized, ".myKey"));
     }

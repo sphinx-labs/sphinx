@@ -15,13 +15,13 @@ import {
     HumanReadableAction,
     Network,
     SphinxConfig,
-    FoundryDeploymentInfo,
+    RawDeploymentInfo,
     NetworkInfo,
     Wallet,
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess
+    RawAccountAccessHierarchy
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -159,7 +159,7 @@ abstract contract Sphinx {
         address safe = safeAddress();
         address module = sphinxModule();
 
-        FoundryDeploymentInfo memory deploymentInfo;
+        RawDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
         deploymentInfo.safeAddress = safe;
@@ -211,27 +211,27 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
-        ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
+        RawAccountAccessHierarchy[] memory hierarchy = sphinxUtils.makeRawAccountAccessHierarchy(
             accesses,
             safe
         );
-        // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
+        // ABI encode each `RawAccountAccessHierarchy` element individually. If, instead, we ABI encode
         // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
         // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
         // contracts.
-        deploymentInfo.encodedAccountAccesses = new bytes[](parsedAccesses.length);
-        for (uint256 i = 0; i < parsedAccesses.length; i++) {
-            deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
+        deploymentInfo.encodedAccountAccesses = new bytes[](hierarchy.length);
+        for (uint256 i = 0; i < hierarchy.length; i++) {
+            deploymentInfo.encodedAccountAccesses[i] = abi.encode(hierarchy[i]);
         }
 
         vm.revertTo(snapshotId);
         deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
-            parsedAccesses,
+            hierarchy,
             IGnosisSafe(safe),
             module
         );
 
-        return sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo);
+        return sphinxUtils.serializeRawDeploymentInfo(deploymentInfo);
     }
 
     /**
@@ -330,7 +330,7 @@ abstract contract Sphinx {
      *            there's a large gas refund.
      */
     function _sphinxEstimateMerkleLeafGas(
-        ParsedAccountAccess[] memory _accountAccesses,
+        RawAccountAccessHierarchy[] memory _accountAccesses,
         IGnosisSafe _safe,
         address _moduleAddress
     ) private returns (uint256[] memory) {
@@ -341,8 +341,10 @@ abstract contract Sphinx {
         vm.startPrank(_moduleAddress);
 
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            ParsedAccountAccess memory parsed = _accountAccesses[i];
-            GnosisSafeTransaction memory txn = sphinxUtils.makeGnosisSafeTransaction(parsed.root);
+            RawAccountAccessHierarchy memory hierarchy = _accountAccesses[i];
+            GnosisSafeTransaction memory txn = sphinxUtils.makeGnosisSafeTransaction(
+                hierarchy.root
+            );
             uint256 startGas = gasleft();
             bool success = _safe.execTransactionFromModule(
                 txn.to,

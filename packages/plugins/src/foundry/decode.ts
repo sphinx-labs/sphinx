@@ -3,7 +3,7 @@ import { readFileSync } from 'fs'
 import {
   ActionInput,
   ConfigArtifacts,
-  DeploymentInfo,
+  ParsedDeploymentInfo,
   FunctionCallActionInput,
   ParsedConfig,
   networkEnumToName,
@@ -41,20 +41,21 @@ import {
   findFullyQualifiedNameForInitCode,
   findFunctionFragment,
   isCreate2AccountAccess,
-  isDeploymentInfo,
+  isParsedDeploymentInfo,
   parseNestedContractDeployments,
   readContractArtifact,
+  toParsedAccountAccessHierarchy,
 } from './utils'
 
 export const decodeDeploymentInfo = (
   serializedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface
-): DeploymentInfo => {
+): ParsedDeploymentInfo => {
   const parsed = JSON.parse(serializedDeploymentInfo)
 
-  const parsedAccountAccessFragment = findFunctionFragment(
+  const rawAccountAccessHierarchyFragment = findFunctionFragment(
     sphinxPluginTypesInterface,
-    'parsedAccountAccessType'
+    'rawAccountAccessHierarchyType'
   )
 
   const coder = AbiCoder.defaultAbiCoder()
@@ -77,21 +78,24 @@ export const decodeDeploymentInfo = (
 
   const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
 
-  // ABI decode each `ParsedAccountAccess` individually.
-  const accountAccesses = parsed.encodedAccountAccesses.map((encoded) => {
-    const decodedResult = coder.decode(
-      parsedAccountAccessFragment.outputs,
-      encoded
-    )
-    // Convert the `AccountAccess` to its proper type.
-    const { parsedAccountAccess } = recursivelyConvertResult(
-      parsedAccountAccessFragment.outputs,
-      decodedResult
-    ) as any
-    return parsedAccountAccess
-  })
+  // ABI decode each `RawAccountAccessHierarchy` individually.
+  const accountAccesses = parsed.encodedAccountAccesses
+    .map((encoded) => {
+      const decodedResult = coder.decode(
+        rawAccountAccessHierarchyFragment.outputs,
+        encoded
+      )
+      // Convert the `RawAccountAccessHierarchy` to its proper type.
+      const { rawAccountAccessHierarchy } = recursivelyConvertResult(
+        rawAccountAccessHierarchyFragment.outputs,
+        decodedResult
+      ) as any
+      return rawAccountAccessHierarchy
+    })
+    // Parse the account access hierarchies.
+    .map(toParsedAccountAccessHierarchy)
 
-  const deploymentInfo: DeploymentInfo = {
+  const deploymentInfo: ParsedDeploymentInfo = {
     safeAddress,
     moduleAddress,
     safeInitData,
@@ -119,7 +123,7 @@ export const decodeDeploymentInfo = (
     gasEstimates,
   }
 
-  if (!isDeploymentInfo(deploymentInfo)) {
+  if (!isParsedDeploymentInfo(deploymentInfo)) {
     throw new Error(`Invalid DeploymentInfo object. Should never happen.`)
   }
 
@@ -133,7 +137,7 @@ export const decodeDeploymentInfo = (
 }
 
 export const makeParsedConfig = (
-  deploymentInfo: DeploymentInfo,
+  deploymentInfo: ParsedDeploymentInfo,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
