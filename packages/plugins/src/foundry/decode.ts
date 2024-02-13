@@ -552,7 +552,4 @@ export const inferLinkedLibraries = async (
 // account for the fact that the constructor libraries may not exist inside of the contract `Create`
 // actions, in which case this strategy won't work.
 
-// TODO(later): figure out how to refactor makeGetConfigArtifacts so that you can update it in
-// `findFullyQualifiedNames`.
-
 // TODO(later): AccountAccess -> MinimalAccountAccess
