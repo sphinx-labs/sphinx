@@ -297,6 +297,7 @@ export const compile = (silent: boolean, force: boolean): void => {
   }
 }
 
+// TODO(later): remove.
 /**
  * Returns an array of the most recent fully qualified names for the given `sourceName`. This
  * function searches the build info cache for the most recent build info file that contains a fully

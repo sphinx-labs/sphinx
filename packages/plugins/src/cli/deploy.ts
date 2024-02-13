@@ -43,7 +43,11 @@ import {
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
-import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
+import {
+  decodeDeploymentInfo,
+  inferLinkedLibraries,
+  makeParsedConfig,
+} from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 import { checkLibraryVersion } from './utils'
@@ -245,7 +249,7 @@ export const deploy = async (
     deploymentInfo,
     isSystemDeployed,
     configArtifacts,
-    [] // We don't currently support linked libraries.
+    libraries
   )
 
   if (parsedConfig.actionInputs.length === 0) {
@@ -370,25 +374,55 @@ export const deploy = async (
 // - there's more than one key in the 'artifact' object for the scriptPath _and_ no `targetContract` was specified.
 // - there are no keys in the `artifact` object for the scriptPath
 
-// TODO(later): should we pre-link the libraries then re-compile so that the metadata hashes are
-// updated? regarding the warning in the solidity docs.
+// TODO(end): gh: i manually checked that foundry automatically sets the correct initial nonce for
+// the gnosis safe's nonce after deploying the libraries.
 
-// TODO(later): can we verify a contract on sourcify if we manually link its libraries? regarding
-// the warning in the solidity docs.
-
-// TODO(end): gh: we can't support a circular dependency like the one below using create2.
-// ```
-// library MyLibraryOne { function one() external returns (uint) { return MyLibraryTwo.two();
+// TODO(later): throw an error if there are any libraries in the `linkReferences` but not in
+// `deployedLinkReferences`. we don't support this rn because there isn't a straightforward
+// way to get the script's init code with the resolved library references, which means we can't
+// infer the addresses of the libraries used only in the constructor, which means we can't
+// create actions for them, which means `ContractWithManyLibraries` deployed below won't have
+// deployed linked libraries, which is hazardous. make a ticket to add support for this. we can
+// support it in the future by getting all `accountAccesses` that are `Create`, then getting each
+// of their artifacts, then using the artifacts to get all of the linked libraries w/ their addresses
+// instead of using the script's artifact.deployedLinkReferences`. this'd be non-trivial with our
+// current parsing logic because we'd need the contract artifacts in `decodeDeploymentInfo`,
+// but they aren't available until we call `getConfigArtifacts`, which happens after
+//  `decodeDeploymentInfo`.
+//
+// contract CounterScript is Script {
+//   bytes public b;
+//   constructor() {
+//       b = type(ContractWithManyLibraries).creationCode;
+//   }
+//   function run() public {
+//       address sender = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+//       vm.startPrank(sender);
+//       bytes memory c = b; // Using a memory variable simplifies the assembly block
+//       address addr;
+//       assembly {
+//           addr := create(0, add(c, 0x20), mload(c))
+//       }
 //   }
 // }
-// library MyLibraryTwo { function two() external returns (uint) { return MyLibraryOne.one();
-//   }
-// }
-// ```
-// I think this is acceptable because foundry doesn't currently support circular library
-// dependencies either ([source](https://github.com/foundry-rs/foundry/issues/5014)), which probably
-// means it doesn't impact many of their users. however, there is an [open
-// PR](https://github.com/foundry-rs/foundry/issues/5014) to fix that issue in foundry, so this'll
-// just be our limitation soon. we can resolve it in the future by using `create` to resolve
-// circular dependencies, then incrementing the gnosis safe's nonce accordingly before collecting
-// the user's transactions.
+
+// TODO(end): are any of the previous PRs unnecessary?
+
+// TODO(later-later): manually check that verification succeeds when the deployment includes a
+// dynamically linked _and_ a pre-linked library. in the latter case, it's fine if we don't very the
+// pre-linked library (since it's already deployed), but verification shouldn't randomly fail due to
+// its presence.
+
+// TODO(end): do we already have a ticket for removing unused libraries? if not, add one: currently,
+// this is a limitation in foundry too
+// ([source](https://github.com/foundry-rs/foundry/issues/3295)). notes: make sure you don't mess up
+// the gnosis safe's nonce. e.g. if nonce 3 corresponds to an unused library, all subsequent nonces
+// must change, which impacts the user's transactions.
+
+// TODO(end): make a note somewhere that deploying libraries via `CREATE` will add complexity to the
+// code that optimizes the proposal collection process by forking within the script. specifically,
+// we can't always fork every chain in a single script because we can't assume that the gnosis safe
+// has the same nonce across every chain. so, we must batch chains that have the same gnosis safe
+// nonce.
+
+// TODO(end): set the "fix dead link in faq" ticket to "in review".

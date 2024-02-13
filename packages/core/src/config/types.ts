@@ -91,6 +91,12 @@ export type ParsedConfig = {
   gitCommit: string | null
 }
 
+export type Libraries = {
+  [sourceName: string]: {
+    [libraryName: string]: string
+  }
+}
+
 export type ParsedAccountAccess = {
   root: AccountAccess
   nested: Array<AccountAccess>

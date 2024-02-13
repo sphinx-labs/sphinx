@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs'
+
 import {
   ActionInput,
   ConfigArtifacts,
@@ -16,6 +18,9 @@ import {
   decodeDeterministicDeploymentProxyData,
   Create2ActionInput,
   ActionInputType,
+  Libraries,
+  AccountAccess,
+  ParsedAccountAccess,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -24,6 +29,8 @@ import {
   recursivelyConvertResult,
   getCurrentGitCommitHash,
   getCreateCallAddress,
+  parseFoundryContractArtifact,
+  add0x,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -35,6 +42,7 @@ import {
   isCreate2AccountAccess,
   isDeploymentInfo,
   parseNestedContractDeployments,
+  readContractArtifact,
 } from './utils'
 
 export const decodeDeploymentInfo = (
@@ -126,8 +134,7 @@ export const decodeDeploymentInfo = (
 export const makeParsedConfig = (
   deploymentInfo: DeploymentInfo,
   isSystemDeployed: boolean,
-  configArtifacts: ConfigArtifacts,
-  libraries: Array<string>
+  configArtifacts: ConfigArtifacts
 ): ParsedConfig => {
   const {
     safeAddress,
@@ -143,6 +150,7 @@ export const makeParsedConfig = (
     requireSuccess,
     accountAccesses,
     gasEstimates,
+    libraries,
   } = deploymentInfo
 
   // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
@@ -309,7 +317,7 @@ export const makeParsedConfig = (
     unlabeledContracts,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
-    libraries: convertLibraryFormat(libraries),
+    libraries, // TODO(later): remove `convertLibraryFormat`
     gitCommit: getCurrentGitCommitHash(),
   }
 
@@ -419,3 +427,95 @@ const abiDecodeString = (encoded: string): string => {
   const result = coder.decode(['string'], encoded)
   return result.toString()
 }
+
+export const inferLinkedLibraries = (
+  actualScriptDeployedCode: string,
+  scriptPath: string,
+  cachePath: string,
+  solcVersion: string,
+  targetContract?: string
+): {
+  libraries: Libraries
+  libraryAccountAccesses: Array<ParsedAccountAccess>
+  libraryGasEstimates: Array<string>
+} => {
+  const foundryCache = readFoundryArtifactCache(cachePath)
+
+  // TODO(later): normalize the script path
+
+  const scriptArtifactCache = foundryCache.files[scriptPath]
+  if (!scriptArtifactCache) {
+    throw new Error(`TODO(docs). Should never happen.`)
+  }
+
+  const scriptArtifactFilePath = getArtifactPathFromFoundryCache(
+    scriptArtifactCache,
+    solcVersion,
+    targetContract
+  )
+
+  const scriptArtifact = parseFoundryContractArtifact(
+    JSON.parse(readFileSync(scriptArtifactFilePath, 'utf8'))
+  )
+  const { linkReferences, deployedLinkReferences } = scriptArtifact
+
+  const libraries: Libraries = {}
+  let numLibraries = 0
+  for (const sourceName of Object.keys(deployedLinkReferences)) {
+    for (const [libraryName, references] of Object.entries(
+      deployedLinkReferences[sourceName]
+    )) {
+      for (const ref of references) {
+        const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
+        const rawLibraryAddress = actualScriptDeployedCode.substring(
+          start,
+          start + ref.length * 2
+        )
+        const libraryAddress = ethers.getAddress(add0x(rawLibraryAddress))
+
+        libraries[sourceName][libraryName] = libraryAddress
+        numLibraries += 1
+      }
+    }
+  }
+
+  const libraryAccountAccesses: Array<ParsedAccountAccess> = []
+  for (const sourceName of Object.keys(libraries)) {
+    for (const [libraryName, libraryAddress] of Object.entries(
+      libraries[sourceName]
+    )) {
+      const accountAccess: AccountAccess = {
+        kind: AccountAccessKind.Create,
+        account: libraryAddress,
+        accessor: safeAddress,
+        value: string
+        data: string
+        reverted: boolean
+      }
+      libraryAccountAccesses.push({
+        root: accountAccess,
+        nested: [],
+      })
+    }
+  }
+
+  return libraries
+}
+
+// TODO(later): probably put pre-linked libraries from foundry.toml in the parsedconfig and deployment
+// artifacts.
+
+// TODO(later): do you need to bring back `assertValidLinkedLibraries`? (it checked that the
+// linkReferences and deployedLinkReferences contain the same libraries). if you bring it back,
+// mention that it's important to check this b/c we need to deploy every library that foundry
+// deploys in order to maintain the correct library addresses. e.g. say LibraryA uses Gnosis Safe
+// nonce 1 and is in the artifact init code, and LibraryB uses nonce 2 and is in the deployed code.
+// we can't deploy LibB on-chain without also deploying LibA.
+
+// TODO(end): ticket: deploy only the necessary libraries. blocked by foundry's issue b/c we need to
+// maintain the same library addresses that foundry uses, otherwise the addresses of everything
+// deployed via `CREATE` will be messed up. e.g. say LibraryA uses Gnosis Safe nonce 1 and we remove
+// it since it's not used by a prod contract. if LibraryB uses nonce 2 in the script, it'll have a
+// different address in the script and on-chain, which will impact the contract that uses LibraryB.
+
+// TODO(later): check that you use the library initcode in the input param to `getConfigArtifacts`.

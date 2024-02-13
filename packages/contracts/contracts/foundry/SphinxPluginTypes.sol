@@ -76,6 +76,7 @@ struct ParsedAccountAccess {
 }
 
 /**
+ * TODO(docs): i don't think this is true anymore:
  * @notice Contains all of the information that's collected in a deployment on a single chain.
  *         The only difference between this struct and the TypeScript `DeploymentInfo` object is
  *         that the latter has an `accountAccesses` array of `ParsedAccountAccess` elements, whereas
