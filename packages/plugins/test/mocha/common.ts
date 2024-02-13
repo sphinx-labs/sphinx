@@ -8,7 +8,7 @@ import {
   sortHexStrings,
   CompilerConfig,
   ConfigArtifacts,
-  DeploymentInfo,
+  ParsedDeploymentInfo,
   ExecutionMode,
   SphinxJsonRpcProvider,
   getParsedConfigWithCompilerInputs,
@@ -30,9 +30,9 @@ import {
   fetchChainIdForNetwork,
   checkSystemDeployed,
   ensureSphinxAndGnosisSafeDeployed,
-  AccountAccess,
+  MinimalAccountAccess,
   AccountAccessKind,
-  ParsedAccountAccess,
+  ParsedAccountAccessHierarchy,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -70,22 +70,12 @@ import {
   readFoundrySingleChainBroadcast,
 } from '../../src/foundry/utils'
 
-const blankAccountAccess: AccountAccess = {
-  chainInfo: {
-    forkId: '0',
-    chainId: '0',
-  },
+const blankAccountAccess: MinimalAccountAccess = {
   kind: AccountAccessKind.Call,
   account: ethers.ZeroAddress,
   accessor: ethers.ZeroAddress,
-  initialized: false,
-  oldBalance: '0',
-  newBalance: '0',
-  deployedCode: '0x',
   value: '0',
   data: '0x',
-  reverted: false,
-  storageAccesses: [],
 }
 
 export const getAnvilRpcUrl = (chainId: bigint): string => {
@@ -335,7 +325,7 @@ export const makeDeployment = async (
   owners: Array<ethers.Wallet>,
   threshold: number,
   executionMode: ExecutionMode,
-  accountAccesses: Array<ParsedAccountAccess>,
+  accountAccesses: Array<ParsedAccountAccessHierarchy>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -384,7 +374,7 @@ export const makeDeployment = async (
 
       const numActionInputs = accountAccesses.length
 
-      const deploymentInfo: DeploymentInfo = {
+      const deploymentInfo: ParsedDeploymentInfo = {
         safeAddress,
         moduleAddress,
         safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
@@ -465,7 +455,7 @@ export const makeRevertingDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<ParsedAccountAccess>
+  accountAccesses: Array<ParsedAccountAccessHierarchy>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
@@ -473,7 +463,7 @@ export const makeRevertingDeployment = (
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const accountAccesses: Array<ParsedAccountAccess> =
+  const accountAccesses: Array<ParsedAccountAccessHierarchy> =
     makeCreate2AccountAccesses(safeAddress, [
       {
         salt,
@@ -574,8 +564,8 @@ const makeCreate2AccountAccesses = (
     artifact: ContractArtifact
     abiEncodedConstructorArgs: string
   }>
-): Array<ParsedAccountAccess> => {
-  const accountAccesses: Array<ParsedAccountAccess> = []
+): Array<ParsedAccountAccessHierarchy> => {
+  const accountAccesses: Array<ParsedAccountAccessHierarchy> = []
   for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
     const { bytecode } = artifact
 
@@ -622,7 +612,7 @@ export const makeStandardDeployment = (
 ): {
   executionMode: ExecutionMode
   merkleRootNonce: number
-  accountAccesses: Array<ParsedAccountAccess>
+  accountAccesses: Array<ParsedAccountAccessHierarchy>
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {

@@ -30,14 +30,14 @@ import {
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
-  AccountAccess,
   AccountAccessKind,
   ActionInput,
   ConfigArtifacts,
-  DeploymentInfo,
+  ParsedDeploymentInfo,
   GetConfigArtifacts,
   InitialChainState,
-  ParsedAccountAccess,
+  MinimalAccountAccess,
+  ParsedAccountAccessHierarchy,
   ParsedConfig,
   ParsedVariable,
   SphinxConfig,
@@ -252,7 +252,7 @@ export const readContractArtifact = async (
  * Returns the init code of every contract deployment collected from a Forge script.
  */
 export const getInitCodeWithArgsArray = (
-  accountAccesses: Array<ParsedAccountAccess>
+  accountAccesses: Array<ParsedAccountAccessHierarchy>
 ): Array<string> => {
   const flat = accountAccesses.flatMap((access) => [
     access.root,
@@ -1157,7 +1157,7 @@ export const findFullyQualifiedNameForInitCode = (
  */
 export const findFullyQualifiedNameForAddress = (
   address: string,
-  accountAccesses: Array<ParsedAccountAccess>,
+  accountAccesses: Array<ParsedAccountAccessHierarchy>,
   configArtifacts: ConfigArtifacts
 ): string | undefined => {
   const flat = accountAccesses.flatMap((access) => [
@@ -1213,7 +1213,7 @@ export const writeSystemContracts = (
 }
 
 export const assertValidAccountAccesses = (
-  accountAccesses: Array<ParsedAccountAccess>,
+  accountAccesses: Array<ParsedAccountAccessHierarchy>,
   safeAddress: string
 ): void => {
   const flat = accountAccesses.flatMap((access) => [
@@ -1241,8 +1241,8 @@ export const assertValidAccountAccesses = (
  * through the Deterministic Deployment Proxy (i.e. Foundry's default `CREATE2` deployer).
  */
 export const isCreate2AccountAccess = (
-  root: AccountAccess,
-  nested: Array<AccountAccess>
+  root: MinimalAccountAccess,
+  nested: Array<MinimalAccountAccess>
 ): boolean => {
   if (nested.length === 0) {
     return false
@@ -1284,7 +1284,7 @@ export const isCreate2AccountAccess = (
  * qualified name).
  */
 export const parseNestedContractDeployments = (
-  nested: Array<AccountAccess>,
+  nested: Array<MinimalAccountAccess>,
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: ActionInput['contracts']
@@ -1340,7 +1340,9 @@ export const assertSphinxFoundryForkInstalled = async (
   }
 }
 
-export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
+export const isParsedDeploymentInfo = (
+  obj: any
+): obj is ParsedDeploymentInfo => {
   return (
     typeof obj === 'object' &&
     obj !== null &&
@@ -1358,7 +1360,7 @@ export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
     typeof obj.arbitraryChain === 'boolean' &&
     typeof obj.sphinxLibraryVersion === 'string' &&
     Array.isArray(obj.accountAccesses) &&
-    obj.accountAccesses.every(isParsedAccountAccess) &&
+    obj.accountAccesses.every(isParsedAccountAccessHierarchy) &&
     Array.isArray(obj.gasEstimates) &&
     obj.gasEstimates.every((e) => typeof e === 'string')
   )
@@ -1395,50 +1397,55 @@ const isInitialChainState = (obj: any): obj is InitialChainState => {
   )
 }
 
-const isParsedAccountAccess = (obj: any): obj is ParsedAccountAccess => {
+const isParsedAccountAccessHierarchy = (
+  obj: any
+): obj is ParsedAccountAccessHierarchy => {
   return (
     typeof obj === 'object' &&
     obj !== null &&
-    isAccountAccess(obj.root) &&
+    isMinimalAccountAccess(obj.root) &&
     Array.isArray(obj.nested) &&
-    obj.nested.every(isAccountAccess)
+    obj.nested.every(isMinimalAccountAccess)
   )
 }
 
-const isAccountAccess = (obj: any): obj is AccountAccess => {
+const isMinimalAccountAccess = (obj: any): obj is MinimalAccountAccess => {
   return (
     typeof obj === 'object' &&
     obj !== null &&
-    typeof obj.chainInfo === 'object' &&
-    obj.chainInfo !== null &&
-    typeof obj.chainInfo.forkId === 'string' &&
-    typeof obj.chainInfo.chainId === 'string' &&
     Object.values(AccountAccessKind).includes(obj.kind) &&
     typeof obj.account === 'string' &&
     typeof obj.accessor === 'string' &&
-    typeof obj.initialized === 'boolean' &&
-    typeof obj.oldBalance === 'string' &&
-    typeof obj.newBalance === 'string' &&
-    typeof obj.deployedCode === 'string' &&
     typeof obj.value === 'string' &&
-    typeof obj.data === 'string' &&
-    typeof obj.reverted === 'boolean' &&
-    Array.isArray(obj.storageAccesses) &&
-    obj.storageAccesses.every(isStorageAccess)
+    typeof obj.data === 'string'
   )
 }
 
-const isStorageAccess = (
+const toMinimalAccountAccess = (obj: any): MinimalAccountAccess => {
+  const { kind, account, accessor, value, data } = obj
+
+  return {
+    kind,
+    account,
+    accessor,
+    value,
+    data,
+  }
+}
+
+export const toParsedAccountAccessHierarchy = (
   obj: any
-): obj is AccountAccess['storageAccesses'][number] => {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    typeof obj.account === 'string' &&
-    typeof obj.slot === 'string' &&
-    typeof obj.isWrite === 'boolean' &&
-    typeof obj.previousValue === 'string' &&
-    typeof obj.newValue === 'string' &&
-    typeof obj.reverted === 'boolean'
-  )
+): ParsedAccountAccessHierarchy => {
+  const parsed: ParsedAccountAccessHierarchy = {
+    root: toMinimalAccountAccess(obj.root),
+    nested: obj.nested.map(toMinimalAccountAccess),
+  }
+
+  if (!isParsedAccountAccessHierarchy(parsed)) {
+    throw new Error(
+      `Failed to parse account access hierarchy.. Should never happen.`
+    )
+  }
+
+  return parsed
 }

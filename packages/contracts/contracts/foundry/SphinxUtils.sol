@@ -14,7 +14,7 @@ import {
 } from "../core/SphinxDataTypes.sol";
 import {
     SphinxMerkleTree,
-    FoundryDeploymentInfo,
+    RawDeploymentInfo,
     HumanReadableAction,
     NetworkInfo,
     NetworkType,
@@ -26,7 +26,7 @@ import {
     ExecutionMode,
     SystemContractInfo,
     GnosisSafeTransaction,
-    ParsedAccountAccess
+    RawAccountAccessHierarchy
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -44,7 +44,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     // Object keys for the JSON serialization functions in this contract.
     string internal initialStateKey = "Sphinx_Internal__InitialChainState";
-    string internal deploymentInfoKey = "Sphinx_Internal__FoundryDeploymentInfo";
+    string internal deploymentInfoKey = "Sphinx_Internal__RawDeploymentInfo";
     string internal sphinxConfigKey = "Sphinx_Internal__SphinxConfig";
 
     function slice(
@@ -985,12 +985,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Serializes the `FoundryDeploymentInfo` struct. The serialized string is the
-     *         same structure as the `FoundryDeploymentInfo` struct except all `uint` and `string`
+     * @notice Serializes the `RawDeploymentInfo` struct. The serialized string is the
+     *         same structure as the `RawDeploymentInfo` struct except all `uint` and `string`
      *         fields are ABI encoded (see inline docs for details).
      */
-    function serializeFoundryDeploymentInfo(
-        FoundryDeploymentInfo memory _deployment
+    function serializeRawDeploymentInfo(
+        RawDeploymentInfo memory _deployment
     ) public returns (string memory) {
         // Set the object key to an empty JSON, which ensures that there aren't any existing values
         // stored in memory for the object key.
@@ -1102,13 +1102,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return converted;
     }
 
-    function parseAccountAccesses(
+    function makeRawAccountAccessHierarchy(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) public pure returns (ParsedAccountAccess[] memory) {
+    ) public pure returns (RawAccountAccessHierarchy[] memory) {
         uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
 
-        ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
+        RawAccountAccessHierarchy[] memory hierarchy = new RawAccountAccessHierarchy[](numRoots);
         uint256 rootCount = 0;
         for (uint256 rootIdx = 0; rootIdx < _accesses.length; rootIdx++) {
             Vm.AccountAccess memory access = _accesses[rootIdx];
@@ -1125,11 +1125,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
                     nested[nestedIdx] = _accesses[accessesIndex];
                 }
-                parsed[rootCount] = ParsedAccountAccess({ root: access, nested: nested });
+                hierarchy[rootCount] = RawAccountAccessHierarchy({ root: access, nested: nested });
                 rootCount += 1;
             }
         }
-        return parsed;
+        return hierarchy;
     }
 
     /**

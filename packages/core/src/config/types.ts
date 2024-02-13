@@ -91,12 +91,12 @@ export type ParsedConfig = {
   gitCommit: string | null
 }
 
-export type ParsedAccountAccess = {
-  root: AccountAccess
-  nested: Array<AccountAccess>
+export type ParsedAccountAccessHierarchy = {
+  root: MinimalAccountAccess
+  nested: Array<MinimalAccountAccess>
 }
 
-export type DeploymentInfo = {
+export type ParsedDeploymentInfo = {
   safeAddress: string
   moduleAddress: string
   requireSuccess: boolean
@@ -110,7 +110,7 @@ export type DeploymentInfo = {
   initialState: InitialChainState
   arbitraryChain: boolean
   sphinxLibraryVersion: string
-  accountAccesses: Array<ParsedAccountAccess>
+  accountAccesses: Array<ParsedAccountAccessHierarchy>
   gasEstimates: Array<string>
 }
 
@@ -297,27 +297,15 @@ export enum AccountAccessKind {
   Extcodecopy = '10',
 }
 
-export type AccountAccess = {
-  chainInfo: {
-    forkId: string
-    chainId: string
-  }
+/**
+ * A subset of Foundry's `AccountAccess` data structure that only includes the fields that Sphinx
+ * uses. We use a minimal data structure to make it easy for us to manually create account accesses
+ * for linked libraries, which is necessary because Foundry doesn't provide them.
+ */
+export type MinimalAccountAccess = {
   kind: AccountAccessKind
   account: string
   accessor: string
-  initialized: boolean
-  oldBalance: string
-  newBalance: string
-  deployedCode: string
   value: string
   data: string
-  reverted: boolean
-  storageAccesses: Array<{
-    account: string
-    slot: string
-    isWrite: boolean
-    previousValue: string
-    newValue: string
-    reverted: boolean
-  }>
 }

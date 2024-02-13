@@ -21,7 +21,7 @@ import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
   ConfigArtifacts,
-  DeploymentInfo,
+  ParsedDeploymentInfo,
   GetConfigArtifacts,
   ParsedConfig,
 } from '@sphinx-labs/core/dist/config/types'
@@ -87,7 +87,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   )
   const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
-    deploymentInfo: DeploymentInfo
+    deploymentInfo: ParsedDeploymentInfo
     libraries: Array<string>
     forkUrl: string
   }> = []
