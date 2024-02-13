@@ -38,13 +38,12 @@ import {
   readInterface,
   compile,
   getInitCodeWithArgsArray,
-  assertSphinxFoundryForkInstalled,
+  assertValidVersions,
   assertNoLinkedLibraries,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
 import { BuildParsedConfigArray } from '../types'
-import { checkLibraryVersion } from '../utils'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -155,8 +154,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       sphinxPluginTypesInterface
     )
 
-    checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
-
     collected.push({
       deploymentInfo,
       libraries: [], // We don't currently support linked libraries.
@@ -254,7 +251,7 @@ export const propose = async (
 
   const foundryToml = await getFoundryToml()
 
-  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
+  await assertValidVersions(scriptPath, targetContract)
 
   // We must load any ABIs after compiling the contracts to prevent a situation where the user
   // clears their artifacts then calls this task, in which case the artifact won't exist yet.

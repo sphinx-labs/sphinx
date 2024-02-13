@@ -65,6 +65,7 @@ import {
   recursivelyConvertResult,
   getSystemContractInfo,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CONTRACTS_LIBRARY_VERSION,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
@@ -1352,16 +1353,31 @@ export const parseNestedContractDeployments = (
   return { parsedContracts, unlabeled }
 }
 
-export const assertSphinxFoundryForkInstalled = async (
+export const assertValidVersions = async (
   scriptPath: string,
   targetContract?: string
 ): Promise<void> => {
-  // Empirically check if our fork is functioning properly
-  const forkInstalled = await callForgeScriptFunction<{
+  // Validate the user's Sphinx dependencies. Specifically, we retrieve the Sphinx contracts library
+  // version and empirically check that our Foundry fork is functioning properly.
+  const output = await callForgeScriptFunction<{
+    libraryVersion: { value: string }
     forkInstalled: { value: string }
-  }>(scriptPath, 'sphinxCheckFork()', [], undefined, targetContract)
+  }>(scriptPath, 'sphinxValidate()', [], undefined, targetContract)
 
-  if (forkInstalled.returns.forkInstalled.value === 'false') {
+  const libraryVersion = output.returns.libraryVersion.value
+    // The raw string is wrapped in two sets of quotes, so we remove the outer quotes here.
+    .slice(1, -1)
+  const forkInstalled = output.returns.forkInstalled.value
+
+  if (libraryVersion !== CONTRACTS_LIBRARY_VERSION) {
+    throw Error(
+      `The version of the Sphinx library contracts does not match the Sphinx plugin version. Please\n` +
+        `update the library contracts by running the command:\n` +
+        `npx sphinx install`
+    )
+  }
+
+  if (forkInstalled === 'false') {
     throw new Error(
       `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
         `running the command:\n` +

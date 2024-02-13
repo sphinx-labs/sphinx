@@ -37,7 +37,7 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
-  assertSphinxFoundryForkInstalled,
+  assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
   readInterface,
@@ -47,7 +47,6 @@ import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
-import { checkLibraryVersion } from './utils'
 
 export interface DeployArgs {
   scriptPath: string
@@ -105,7 +104,7 @@ export const deploy = async (
     etherscan,
   } = foundryToml
 
-  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
+  await assertValidVersions(scriptPath, targetContract)
 
   const forkUrl = rpcEndpoints[network]
   if (!forkUrl) {
@@ -212,8 +211,6 @@ export const deploy = async (
     serializedDeploymentInfo,
     sphinxPluginTypesInterface
   )
-
-  checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
 
   spinner.succeed(`Collected transactions.`)
   spinner.start(`Building deployment...`)
