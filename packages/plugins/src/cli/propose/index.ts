@@ -88,7 +88,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
     deploymentInfo: ParsedDeploymentInfo
-    libraries: Array<string>
     forkUrl: string
   }> = []
   for (const networkName of networkNames) {
@@ -158,7 +157,6 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
     collected.push({
       deploymentInfo,
-      libraries: [], // We don't currently support linked libraries. TODO(later)
       forkUrl: rpcUrl,
     })
   }
@@ -173,12 +171,11 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
 
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
-  const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
+  const parsedConfigArray = collected.map(({ deploymentInfo }) =>
     makeParsedConfig(
       deploymentInfo,
       true, // System contracts are deployed.
-      configArtifacts,
-      libraries
+      configArtifacts
     )
   )
 

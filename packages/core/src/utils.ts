@@ -1678,3 +1678,25 @@ export const resolveAllLibraryPlaceholders = (
   }
   return artifactBytecode
 }
+
+export const inferDeployerNonce = (
+  deployer: string,
+  deployed: string,
+  initialNonce: number,
+  finalNonce: number
+): number => {
+  for (let nonce = initialNonce; nonce < finalNonce; nonce++) {
+    if (
+      ethers.getCreateAddress({
+        from: deployer,
+        nonce,
+      }) === deployed
+    ) {
+      return nonce
+    }
+  }
+
+  throw new Error(
+    `Could not infer the nonce of ${deployer} to\n` + `deploy ${deployed}`
+  )
+}

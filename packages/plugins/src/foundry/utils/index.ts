@@ -42,6 +42,7 @@ import {
   ParsedVariable,
   SphinxConfig,
   SphinxConfigWithAddresses,
+  Libraries,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -1448,6 +1449,28 @@ export const toParsedAccountAccessHierarchy = (
   }
 
   return parsed
+}
+
+export const assertValidLinkedLibraries = (
+  linkReferences: LinkReferences,
+  deployedLinkReferences: LinkReferences
+): void => {
+  for (const sourceName of Object.keys(linkReferences)) {
+    for (const [libraryName, references] of Object.entries(
+      linkReferences[sourceName]
+    )) {
+      // TODO(docs): there shouldn't be any situation where the array's length is 0, but we check
+      // this here just to be safe.
+      if (references.length > 0) {
+        const deployedReference =
+          deployedLinkReferences[sourceName][libraryName]
+
+        if (!deployedReference || deployedReference.length === 0) {
+          throw new Error(`TODO(docs)`)
+        }
+      }
+    }
+  }
 }
 
 // TODO(later-later): check if `--libraries` overrides the `libraries` field in the foundry.toml. if

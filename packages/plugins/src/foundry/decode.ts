@@ -21,6 +21,9 @@ import {
   Libraries,
   AccountAccess,
   ParsedAccountAccess,
+  inferDeployerNonce,
+  resolveAllLibraryPlaceholders,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -36,6 +39,7 @@ import {
 
 import {
   assertValidAccountAccesses,
+  assertValidLinkedLibraries,
   convertLibraryFormat,
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
@@ -322,7 +326,7 @@ export const makeParsedConfig = (
     unlabeledContracts,
     arbitraryChain,
     executorAddress: deploymentInfo.executorAddress,
-    libraries, // TODO(later): remove `convertLibraryFormat`
+    libraries,
     gitCommit: getCurrentGitCommitHash(),
   }
 
@@ -436,31 +440,25 @@ const abiDecodeString = (encoded: string): string => {
 export const inferLinkedLibraries = async (
   actualScriptDeployedCode: string,
   scriptPath: string,
+  initialGnosisSafeNonce: number,
+  artifactFolder: string,
   cachePath: string,
-  solcVersion: string,
+  projectRoot: string,
+  provider: SphinxJsonRpcProvider,
   targetContract?: string
 ): Promise<{
   libraries: Libraries
   libraryAccountAccesses: Array<ParsedAccountAccess>
   libraryGasEstimates: Array<string>
 }> => {
-  const foundryCache = readFoundryArtifactCache(cachePath)
 
-  const scriptArtifactCache = foundryCache.files[scriptPath]
-  if (!scriptArtifactCache) {
-    throw new Error(`TODO(docs). Should never happen.`)
-  }
-
-  const scriptArtifactFilePath = getArtifactPathFromFoundryCache(
-    scriptArtifactCache,
-    solcVersion,
-    targetContract
-  )
 
   const scriptArtifact = parseFoundryContractArtifact(
     JSON.parse(readFileSync(scriptArtifactFilePath, 'utf8'))
   )
   const { linkReferences, deployedLinkReferences } = scriptArtifact
+
+  assertValidLinkedLibraries(linkReferences, deployedLinkReferences)
 
   const libraries: Libraries = {}
   for (const sourceName of Object.keys(deployedLinkReferences)) {
@@ -488,6 +486,7 @@ export const inferLinkedLibraries = async (
     (acc, current) => acc + Object.keys(current).length,
     0
   )
+  const gnosisSafeNonceAfterLibraries = initialGnosisSafeNonce + numLibraries
 
   // TODO(docs): we put this in a separate for-loop because we need the entire `libraries` object in
   // order to resolve the libraries' init code. this is b/c the libraries may reference other
@@ -513,6 +512,13 @@ export const inferLinkedLibraries = async (
         libraries
       )
 
+      const nonce = inferDeployerNonce(
+        safeAddress,
+        libraryAddress,
+        initialGnosisSafeNonce,
+        gnosisSafeNonceAfterLibraries
+      )
+
       const rootAccountAccess: AccountAccess = {
         kind: AccountAccessKind.Create,
         account: libraryAddress,
@@ -530,15 +536,29 @@ export const inferLinkedLibraries = async (
     }
   }
 
-  // TODO(later): sort the account accesses according to the corresponding nonce.
+  const libraryAccountAccesses = accountAccessesWithNonce
+    // TODO(docs): sort in ascending order according to the nonce
+    .sort((a, b) => a.nonce - b.nonce)
+    .map(({ accountAccess }) => accountAccess)
 
-  return libraries
+  // TODO(docs): mention that it doesn't matter who the sender is b/c libraries can't have
+  // constructors or non-constant state variables.
+  const gasEstimatesBigInt = await Promise.all(
+    libraryAccountAccesses.map((accountAccess) =>
+      provider.estimateGas({
+        data: accountAccess.data,
+      })
+    )
+  )
+  const libraryGasEstimates = gasEstimatesBigInt.map((estimate) =>
+    estimate.toString()
+  )
+
+  return { libraries, libraryAccountAccesses, libraryGasEstimates }
 }
 
 // TODO(later-later): probably put pre-linked libraries from foundry.toml in the parsedconfig and
 // deployment artifacts.
-
-// TODO(later): bring back `assertValidLinkedLibraries`.
 
 // TODO(docs): assertValidLinkedLibraries: check that the linkReferences and deployedLinkReferences
 // contain the same libraries. it's important to check this b/c we need to deploy every library that
