@@ -1461,6 +1461,3 @@ export const toParsedAccountAccessHierarchy = (
 // TODO(later-later): checkboxes in linear ticket.
 
 // TODO(later-later): add library to preview.spec.ts.
-
-// TODO(later): remove assertValidAccountAccesses in a separate pr. not sure how this made it
-// through.
