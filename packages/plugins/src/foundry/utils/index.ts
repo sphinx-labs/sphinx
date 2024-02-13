@@ -303,25 +303,20 @@ export const compile = (silent: boolean, force: boolean): void => {
  * qualified name starting with `sourceName`. Returns an empty array if there is no such fully
  * qualified name in any of the cached build info files.
  */
-export const findFullyQualifiedNames = (
+export const findFullyQualifiedNames = async (
   rawSourceName: string,
   cachePath: string,
-  projectRoot: string
-): Array<string> => {
-  const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
+  projectRoot: string,
+  buildInfoFolder: string
+): Promise<Array<string>> => {
+  const sortedCachedFiles = await updateBuildInfoCache(
+    cachePath,
+    buildInfoFolder
+  )
 
   // Normalize the source name so that it conforms to the format of the fully qualified names in the
   // build info cache. The normalized format is "path/to/file.sol".
   const sourceName = relative(projectRoot, rawSourceName)
-
-  const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
-    readFileSync(buildInfoCacheFilePath, 'utf8')
-  )
-
-  // Sort the build info files from most recent to least recent.
-  const sortedCachedFiles = Object.values(buildInfoCache).sort(
-    (a, b) => b.time - a.time
-  )
 
   for (const { contracts } of sortedCachedFiles) {
     const fullyQualifiedNames = contracts
@@ -357,78 +352,12 @@ export const makeGetConfigArtifacts = (
       new Set(initCodeWithArgsIncludingDuplicates)
     )
 
-    // Check if the cache directory exists, and create it if not
-    if (!existsSync(cachePath)) {
-      mkdirSync(cachePath, { recursive: true })
-    }
+    const sortedCachedFiles = await updateBuildInfoCache(
+      cachePath,
+      buildInfoFolder
+    )
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
-    // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
-    // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-    let buildInfoCache: Record<string, BuildInfoCacheEntry> = existsSync(
-      buildInfoCacheFilePath
-    )
-      ? JSON.parse(readFileSync(buildInfoCacheFilePath, 'utf8'))
-      : {}
-
-    const buildInfoPath = join(buildInfoFolder)
-
-    // Find all the build info files and their last modified time
-    const buildInfoFileNames = readdirSync(buildInfoPath).filter((fileName) => {
-      return fileName.endsWith('.json')
-    })
-
-    const cachedNames = Object.keys(buildInfoCache)
-    // If there is only one build info file and it is not in the cache,
-    // then clear the cache b/c the user must have force recompiled
-    if (
-      buildInfoFileNames.length === 1 &&
-      !cachedNames.includes(buildInfoFileNames[0])
-    ) {
-      buildInfoCache = {}
-    }
-
-    // Remove any files in the cache that no longer exist
-    for (const cachedName of cachedNames) {
-      if (!buildInfoFileNames.includes(cachedName)) {
-        delete buildInfoCache[cachedName]
-      }
-    }
-
-    const buildInfoFileNamesWithTime = buildInfoFileNames
-      .map((fileName) => ({
-        name: fileName,
-        time: statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
-      }))
-      .sort((a, b) => b.time - a.time)
-
-    // Read all of the new/modified files and update the cache to reflect the changes
-    // We intentionally do not cache the files we read here because we do not know if they
-    // will be used or not and storing all of them can result in memory issues if there are
-    // a lot of large build info files which can happen in large projects.
-    for (const file of buildInfoFileNamesWithTime) {
-      // If the file exists in the cache and the time has changed, then we just update the time
-      if (
-        buildInfoCache[file.name]?.time &&
-        buildInfoCache[file.name]?.time !== file.time
-      ) {
-        buildInfoCache[file.name].time = file.time
-      } else if (!buildInfoCache[file.name]) {
-        // Update the build info file dictionary in the cache
-        buildInfoCache[file.name] = {
-          name: file.name,
-          time: file.time,
-          contracts: await streamBuildInfoCacheContracts(
-            join(buildInfoFolder, file.name)
-          ),
-        }
-      }
-    }
-
-    // Just make sure the files are sorted by time
-    const sortedCachedFiles = Object.values(buildInfoCache).sort(
-      (a, b) => b.time - a.time
-    )
 
     // Look through the cache, read all the contract artifacts, and find all of the required build
     // info files names. We get the artifacts for every action, even if it'll be skipped, because the
@@ -481,7 +410,7 @@ export const makeGetConfigArtifacts = (
     )
 
     // Read any build info files that we didn't already have in memory. This sometimes means we read
-    // files twice (above, and then again here) which is not ideal, but reduces the memory footprint
+    // files twice (in `updateBuildInfoCache`, and then again here) which is not ideal, but reduces the memory footprint
     // of this function significantly in large projects.
     await Promise.all(
       toReadFiles.map(async (file) => {
@@ -508,12 +437,6 @@ export const makeGetConfigArtifacts = (
       }
     })
 
-    // Write the updated build info cache
-    writeFileSync(
-      buildInfoCacheFilePath,
-      JSON.stringify(buildInfoCache, null, 2)
-    )
-
     const configArtifacts: ConfigArtifacts = {}
 
     for (const {
@@ -533,6 +456,93 @@ export const makeGetConfigArtifacts = (
 
     return configArtifacts
   }
+}
+
+const updateBuildInfoCache = async (
+  cachePath: string,
+  buildInfoFolder: string
+): Promise<Array<BuildInfoCacheEntry>> => {
+  // Check if the cache directory exists, and create it if not
+  if (!existsSync(cachePath)) {
+    mkdirSync(cachePath, { recursive: true })
+  }
+
+  const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
+
+  // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
+  // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
+  let buildInfoCache: Record<string, BuildInfoCacheEntry> = existsSync(
+    buildInfoCacheFilePath
+  )
+    ? JSON.parse(readFileSync(buildInfoCacheFilePath, 'utf8'))
+    : {}
+
+  const buildInfoPath = join(buildInfoFolder)
+
+  // Find all the build info files and their last modified time
+  const buildInfoFileNames = readdirSync(buildInfoPath).filter((fileName) => {
+    return fileName.endsWith('.json')
+  })
+
+  const cachedNames = Object.keys(buildInfoCache)
+  // If there is only one build info file and it is not in the cache,
+  // then clear the cache b/c the user must have force recompiled
+  if (
+    buildInfoFileNames.length === 1 &&
+    !cachedNames.includes(buildInfoFileNames[0])
+  ) {
+    buildInfoCache = {}
+  }
+
+  // Remove any files in the cache that no longer exist
+  for (const cachedName of cachedNames) {
+    if (!buildInfoFileNames.includes(cachedName)) {
+      delete buildInfoCache[cachedName]
+    }
+  }
+
+  const buildInfoFileNamesWithTime = buildInfoFileNames
+    .map((fileName) => ({
+      name: fileName,
+      time: statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
+    }))
+    .sort((a, b) => b.time - a.time)
+
+  // Read all of the new/modified files and update the cache to reflect the changes
+  // We intentionally do not cache the files we read here because we do not know if they
+  // will be used or not and storing all of them can result in memory issues if there are
+  // a lot of large build info files which can happen in large projects.
+  for (const file of buildInfoFileNamesWithTime) {
+    // If the file exists in the cache and the time has changed, then we just update the time
+    if (
+      buildInfoCache[file.name]?.time &&
+      buildInfoCache[file.name]?.time !== file.time
+    ) {
+      buildInfoCache[file.name].time = file.time
+    } else if (!buildInfoCache[file.name]) {
+      // Update the build info file dictionary in the cache
+      buildInfoCache[file.name] = {
+        name: file.name,
+        time: file.time,
+        contracts: await streamBuildInfoCacheContracts(
+          join(buildInfoFolder, file.name)
+        ),
+      }
+    }
+  }
+
+  // Just make sure the files are sorted by time
+  const sortedCachedFiles = Object.values(buildInfoCache).sort(
+    (a, b) => b.time - a.time
+  )
+
+  // Write the updated build info cache
+  writeFileSync(
+    buildInfoCacheFilePath,
+    JSON.stringify(sortedCachedFiles, null, 2)
+  )
+
+  return sortedCachedFiles
 }
 
 /**
