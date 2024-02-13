@@ -28,7 +28,6 @@ import {
 } from '@sphinx-labs/contracts'
 
 import {
-  assertValidAccountAccesses,
   convertLibraryFormat,
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
@@ -116,10 +115,6 @@ export const decodeDeploymentInfo = (
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)
-  assertValidAccountAccesses(
-    deploymentInfo.accountAccesses,
-    deploymentInfo.safeAddress
-  )
 
   return deploymentInfo
 }
