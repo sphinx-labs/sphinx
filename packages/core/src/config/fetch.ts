@@ -1,7 +1,6 @@
 import { makeSphinxMerkleTree, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
-import { HumanReadableAction, HumanReadableActions } from '../actions/types'
-import { getConfigArtifactsRemote, getReadableActions } from '../utils'
+import { getConfigArtifactsRemote } from '../utils'
 import { CompilerConfig, ConfigArtifacts } from './types'
 import { makeDeploymentData } from '../tasks'
 
@@ -17,20 +16,8 @@ export const buildDeploymentWithCompilerConfigs = async (
   merkleTree: SphinxMerkleTree
   compilerConfigs: Array<CompilerConfig>
   configArtifacts: ConfigArtifacts
-  humanReadableActions: HumanReadableActions
 }> => {
   const configArtifacts = await getConfigArtifactsRemote(compilerConfigs)
-
-  const humanReadableActions: {
-    [chainId: number]: Array<HumanReadableAction>
-  } = {}
-
-  for (const compilerConfig of compilerConfigs) {
-    humanReadableActions[compilerConfig.chainId] = getReadableActions(
-      compilerConfig.actionInputs
-    )
-  }
-
   const deploymentData = makeDeploymentData(compilerConfigs)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
@@ -38,6 +25,5 @@ export const buildDeploymentWithCompilerConfigs = async (
     merkleTree,
     compilerConfigs,
     configArtifacts,
-    humanReadableActions,
   }
 }

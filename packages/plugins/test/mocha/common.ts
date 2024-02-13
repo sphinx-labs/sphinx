@@ -17,7 +17,6 @@ import {
   SphinxTransactionReceipt,
   ContractDeploymentArtifact,
   getSphinxWalletPrivateKey,
-  runEntireDeploymentProcess,
   makeDeploymentArtifacts,
   isReceiptEarlier,
   isContractDeploymentArtifact,
@@ -33,6 +32,14 @@ import {
   AccountAccess,
   AccountAccessKind,
   ParsedAccountAccess,
+  compileAndExecuteDeployment,
+  signMerkleRoot,
+  Deployment,
+  fetchNameForNetwork,
+  DeploymentContext,
+  executeTransactionViaSigner,
+  injectRoles,
+  removeRoles,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -374,7 +381,12 @@ export const makeDeployment = async (
 
       if (!(await checkSystemDeployed(provider))) {
         const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
-        await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
+        await ensureSphinxAndGnosisSafeDeployed(
+          provider,
+          wallet,
+          executionMode,
+          true
+        )
       }
 
       const block = await provider.getBlock('latest')
@@ -526,12 +538,57 @@ export const runDeployment = async (
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
 
-    const { receipts: sortedReceipts } = await runEntireDeploymentProcess(
-      compilerConfig,
-      merkleTree,
+    const treeSigner = {
+      signer: await signer.getAddress(),
+      signature: await signMerkleRoot(merkleTree.root, signer),
+    }
+    const deployment: Deployment = {
+      id: 'only required on website',
+      multichainDeploymentId: 'only required on website',
+      projectId: 'only required on website',
+      chainId: compilerConfig.chainId,
+      status: 'approved',
+      moduleAddress: compilerConfig.moduleAddress,
+      safeAddress: compilerConfig.safeAddress,
+      compilerConfigs: compilerConfigArray,
+      networkName: fetchNameForNetwork(BigInt(compilerConfig.chainId)),
+      treeSigners: [treeSigner],
+    }
+    const deploymentContext: DeploymentContext = {
+      throwError: (message: string) => {
+        throw new Error(message)
+      },
+      handleError: (e) => {
+        throw e
+      },
+      handleAlreadyExecutedDeployment: () => {
+        throw new Error(
+          'Deployment has already been executed. This is a bug. Please report it to the developers.'
+        )
+      },
+      handleExecutionFailure: async () => {
+        return
+      },
+      verify: async () => {
+        return
+      },
+      handleSuccess: async () => {
+        return
+      },
+      executeTransaction: executeTransactionViaSigner,
+      injectRoles,
+      removeRoles,
+      deployment,
       provider,
-      signer
-    )
+      wallet: signer,
+    }
+    const result = await compileAndExecuteDeployment(deploymentContext)
+
+    if (!result) {
+      throw new Error('deployment failed for an unexpected reason')
+    }
+
+    const { receipts: sortedReceipts } = result
 
     // Flip the order of the first and last receipt so that the receipts aren't in ascending order.
     // Later, we'll test that the artifact generation logic sorts the arrays back into ascending

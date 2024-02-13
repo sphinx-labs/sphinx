@@ -11,6 +11,7 @@ import {
 import { Logger } from '@eth-optimism/common-ts'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 import { Wallet } from 'ethers'
+import ora from 'ora'
 
 import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
@@ -82,6 +83,7 @@ task('deploy-system')
       const systemConfig: SphinxSystemConfig =
         require(args.systemConfig).default
 
+      const spinner = ora()
       const logger = new Logger({
         name: 'Logger',
       })
@@ -91,7 +93,8 @@ task('deploy-system')
         signer,
         systemConfig.relayers,
         ExecutionMode.LiveNetworkCLI,
-        logger
+        true,
+        spinner
       )
 
       if (
@@ -99,7 +102,7 @@ task('deploy-system')
       ) {
         await etherscanVerifySphinxSystem(provider, logger)
       } else {
-        logger.info('[Sphinx]: Verification unsupported on this network')
+        spinner.info('Verification unsupported on this network')
       }
     }
   )

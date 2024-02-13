@@ -19,14 +19,12 @@ import { customChains } from './constants'
 import { ConfigArtifacts, ParsedConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import {
-  formatSolcLongVersion,
-  getNetworkNameForChainId,
-  isLiveNetwork,
-  sleep,
-} from './utils'
+import { formatSolcLongVersion, isLiveNetwork, sleep } from './utils'
 import { BuildInfo } from './languages'
-import { isVerificationSupportedForNetwork } from './networks'
+import {
+  fetchNameForNetwork,
+  isVerificationSupportedForNetwork,
+} from './networks'
 
 // Load environment variables from .env
 dotenv.config()
@@ -226,7 +224,7 @@ export const attemptVerification = async (
     return { success: false, message: err.message }
   }
 
-  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const networkName = fetchNameForNetwork(BigInt(chainId))
   console.log(
     `Successfully submitted source code for contract ${contractName}\n` +
       `at ${address} on ${networkName} for verification on Etherscan.\n` +

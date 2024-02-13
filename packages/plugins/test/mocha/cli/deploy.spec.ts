@@ -28,7 +28,7 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
-import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
+import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
@@ -333,7 +333,7 @@ describe('Deploy CLI command', () => {
       )
 
       const { context } = makeMockSphinxContextForIntegrationTests([
-        `${scriptPath}:RevertDuringSimulation`,
+        `contracts/test/RevertDuringSimulation.sol:RevertDuringSimulation`,
       ])
 
       let errorThrown = false

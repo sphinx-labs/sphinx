@@ -304,6 +304,7 @@ export const propose = async (
     .map((parsedConfig) =>
       sphinxContext.getNetworkGasEstimate(
         parsedConfigArray,
+        configArtifacts,
         parsedConfig.chainId,
         foundryToml
       )
@@ -409,7 +410,7 @@ export const propose = async (
     const compilerConfigId = await sphinxContext.storeCanonicalConfig(
       apiKey,
       newConfig.orgId,
-      [canonicalConfigData]
+      canonicalConfigData
     )
     proposalRequest.compilerConfigId = compilerConfigId
 
