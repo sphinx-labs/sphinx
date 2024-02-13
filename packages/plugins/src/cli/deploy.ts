@@ -393,8 +393,6 @@ export const deploy = async (
 //   }
 // }
 
-// TODO(end): are any of the previous PRs unnecessary?
-
 // TODO(later-later): manually check that verification succeeds when the deployment includes a
 // dynamically linked _and_ a pre-linked library. in the latter case, it's fine if we don't very the
 // pre-linked library (since it's already deployed), but verification shouldn't randomly fail due to
