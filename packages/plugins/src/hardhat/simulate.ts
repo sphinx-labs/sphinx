@@ -4,7 +4,6 @@ import {
   spawnAsync,
   getSphinxWalletPrivateKey,
   toSphinxLeafWithProofArray,
-  makeDeploymentData,
   SphinxTransactionReceipt,
   ExecutionMode,
   MerkleRootStatus,
@@ -18,7 +17,7 @@ import {
   signMerkleRoot,
   compileAndExecuteDeployment,
   Deployment,
-  CompilerConfig,
+  DeploymentConfig,
   DeploymentContext,
   ConfigArtifacts,
   HumanReadableAction,
@@ -26,12 +25,11 @@ import {
   getSphinxWalletsSortedByAddress,
   injectRoles,
   removeRoles,
+  fetchNetworkConfigFromDeploymentConfig,
+  NetworkConfig,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  SphinxLeafWithProof,
-  makeSphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -39,12 +37,12 @@ import {
  * shouldn't be any fields that contain BigInts because we call `JSON.parse` to decode the data
  * returned by the subtask. (`JSON.parse` converts BigInts to strings).
  *
- * @property {Array<ParsedConfig>} parsedConfigArray The ParsedConfig on all networks. This is
+ * @property {Array<NetworkConfig>} networkConfigArray The NetworkConfig on all networks. This is
  * necessary to create the entire Merkle tree in the simulation, which ensures we use the same
  * Merkle root in both the simulation and the production environment.
  */
 export type simulateDeploymentSubtaskArgs = {
-  compilerConfigArray: Array<CompilerConfig>
+  deploymentConfig: DeploymentConfig
   chainId: string
 }
 
@@ -70,7 +68,7 @@ export type simulateDeploymentSubtaskArgs = {
  * contract is near the maximum size limit).
  */
 export const simulate = async (
-  compilerConfigArray: Array<CompilerConfig>,
+  deploymentConfig: DeploymentConfig,
   chainId: string,
   rpcUrl: string
 ): Promise<{
@@ -98,7 +96,7 @@ export const simulate = async (
   }
 
   const taskParams: simulateDeploymentSubtaskArgs = {
-    compilerConfigArray,
+    deploymentConfig,
     chainId,
   }
 
@@ -217,16 +215,15 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<SphinxTransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const { compilerConfigArray, chainId } = taskArgs
+  const { deploymentConfig, chainId } = taskArgs
+  const { merkleTree } = deploymentConfig
 
-  const compilerConfig = compilerConfigArray.find((e) => e.chainId === chainId)
-  if (!compilerConfig) {
-    throw new Error(
-      `Could not find the parsed config for chain ID: ${chainId}. Should never happen.`
-    )
-  }
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
+  )
 
-  const { executionMode } = compilerConfig
+  const { executionMode } = networkConfig
 
   // This provider is connected to the forked in-process Hardhat node.
   const provider = hre.ethers.provider
@@ -248,12 +245,9 @@ export const simulateDeploymentSubtask = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const deploymentData = makeDeploymentData(compilerConfigArray)
-  const merkleTree = makeSphinxMerkleTree(deploymentData)
-
   // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
   const sphinxWallets = getSphinxWalletsSortedByAddress(
-    BigInt(compilerConfig.newConfig.threshold),
+    BigInt(networkConfig.newConfig.threshold),
     provider
   )
   const treeSigners = await Promise.all(
@@ -269,12 +263,12 @@ export const simulateDeploymentSubtask = async (
     id: 'only required on website',
     multichainDeploymentId: 'only required on website',
     projectId: 'only required on website',
-    chainId: compilerConfig.chainId,
+    chainId: networkConfig.chainId,
     status: 'approved',
-    moduleAddress: compilerConfig.moduleAddress,
-    safeAddress: compilerConfig.safeAddress,
-    compilerConfigs: compilerConfigArray,
-    networkName: fetchNameForNetwork(BigInt(compilerConfig.chainId)),
+    moduleAddress: networkConfig.moduleAddress,
+    safeAddress: networkConfig.safeAddress,
+    deploymentConfig,
+    networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
     treeSigners,
   }
   const simulationContext: DeploymentContext = {
@@ -291,7 +285,7 @@ export const simulateDeploymentSubtask = async (
     },
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
-      _targetNetworkConfig: CompilerConfig,
+      _networkConfig: NetworkConfig,
       _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {

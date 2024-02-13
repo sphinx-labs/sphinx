@@ -1,57 +1,5 @@
-import { CompilerInput, SolcBuild } from 'hardhat/types'
-import { getCompilersDir } from 'hardhat/internal/util/global-dir'
-import {
-  CompilerDownloader,
-  CompilerPlatform,
-} from 'hardhat/internal/solidity/compiler/downloader'
+import { CompilerInput } from 'hardhat/types'
 import { CompilerOutputMetadata } from '@sphinx-labs/contracts'
-
-// Credit: NomicFoundation
-// https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
-export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
-  const compilersCache = await getCompilersDir()
-
-  const compilerPlatform = CompilerDownloader.getCompilerPlatform()
-  const downloader = CompilerDownloader.getConcurrencySafeDownloader(
-    compilerPlatform,
-    compilersCache
-  )
-
-  const isCompilerDownloaded = await downloader.isCompilerDownloaded(
-    solcVersion
-  )
-
-  if (!isCompilerDownloaded) {
-    await downloader.downloadCompiler(solcVersion)
-  }
-
-  const compiler = await downloader.getCompiler(solcVersion)
-
-  if (compiler !== undefined) {
-    return compiler
-  }
-
-  const wasmDownloader = CompilerDownloader.getConcurrencySafeDownloader(
-    CompilerPlatform.WASM,
-    compilersCache
-  )
-
-  const isWasmCompilerDownloader = await wasmDownloader.isCompilerDownloaded(
-    solcVersion
-  )
-
-  if (!isWasmCompilerDownloader) {
-    await wasmDownloader.downloadCompiler(solcVersion)
-  }
-
-  const wasmCompiler = await wasmDownloader.getCompiler(solcVersion)
-
-  if (wasmCompiler === undefined) {
-    throw new Error(`Could not get WASM compiler.`)
-  }
-
-  return wasmCompiler
-}
 
 /**
  * Returns the minimum compiler input necessary to compile a given source name. All contracts that

@@ -14,6 +14,7 @@ import {
 import { spawnSync } from 'child_process'
 
 import {
+  BuildInfo,
   CompilerOutputContracts,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
@@ -32,12 +33,13 @@ import {
   AccountAccess,
   AccountAccessKind,
   ActionInput,
+  DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
   InitialChainState,
   ParsedAccountAccess,
-  ParsedConfig,
+  NetworkConfig,
   ParsedVariable,
   SphinxConfig,
   SphinxConfigWithAddresses,
@@ -54,7 +56,6 @@ import {
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
   fetchNameForNetwork,
-  getParsedConfigWithCompilerInputs,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -79,6 +80,7 @@ import {
 } from '../types'
 import { simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
+import { BuildInfoTemplate, trimObjectToType } from './trim'
 
 const readFileAsync = promisify(readFile)
 
@@ -546,7 +548,10 @@ export const makeGetConfigArtifacts = (
     const completeArtifacts = resolved.map((artifactInfo) => {
       return {
         ...artifactInfo,
-        buildInfo: localBuildInfoCache[artifactInfo.buildInfoName],
+        buildInfo: trimObjectToType<BuildInfo>(
+          localBuildInfoCache[artifactInfo.buildInfoName],
+          BuildInfoTemplate
+        ),
       }
     })
 
@@ -1083,8 +1088,7 @@ export const getEstimatedGas = async (
 }
 
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
-  parsedConfigArray: Array<ParsedConfig>,
-  configArtifacts: ConfigArtifacts,
+  deploymentConfig: DeploymentConfig,
   chainId: string,
   foundryToml: FoundryToml
 ): Promise<{
@@ -1103,12 +1107,7 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     process.exit(1)
   }
 
-  const compilerConfigs = getParsedConfigWithCompilerInputs(
-    parsedConfigArray,
-    configArtifacts
-  )
-
-  const { receipts } = await simulate(compilerConfigs, chainId, rpcUrl)
+  const { receipts } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
   const estimatedGas = await getEstimatedGas(receipts, provider)
@@ -1326,10 +1325,10 @@ export const parseNestedContractDeployments = (
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: ActionInput['contracts']
-  unlabeled: ParsedConfig['unlabeledContracts']
+  unlabeled: NetworkConfig['unlabeledContracts']
 } => {
   const parsedContracts: Array<ParsedContractDeployment> = []
-  const unlabeled: ParsedConfig['unlabeledContracts'] = []
+  const unlabeled: NetworkConfig['unlabeledContracts'] = []
 
   // Iterate through the `AccountAccess` elements.
   for (const accountAccess of nested) {

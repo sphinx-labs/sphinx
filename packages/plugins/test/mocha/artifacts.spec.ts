@@ -4,7 +4,6 @@ import {
   DeploymentArtifacts,
   ExecutionMode,
   fetchChainIdForNetwork,
-  getConfigArtifactsRemote,
   writeDeploymentArtifacts,
   ParsedAccountAccess,
 } from '@sphinx-labs/core'
@@ -139,31 +138,25 @@ const makeThenRunThenCheckDeployment = async (
     executionMode,
   } = deployment
 
-  const { configArtifacts, compilerConfigArray, merkleTree } =
-    await makeDeployment(
-      merkleRootNonce,
-      [],
-      networkNames,
-      projectName,
-      owners,
-      threshold,
-      executionMode,
-      accountAccesses,
-      getAnvilRpcUrl
-    )
-
-  const artifacts = await runDeployment(
-    compilerConfigArray,
-    merkleTree,
-    configArtifacts,
-    previousArtifacts
+  const { deploymentConfig } = await makeDeployment(
+    merkleRootNonce,
+    [],
+    networkNames,
+    projectName,
+    owners,
+    threshold,
+    executionMode,
+    accountAccesses,
+    getAnvilRpcUrl
   )
+
+  const artifacts = await runDeployment(deploymentConfig, previousArtifacts)
 
   writeDeploymentArtifacts(projectName, executionMode, artifacts)
 
   checkArtifacts(
     projectName,
-    compilerConfigArray,
+    deploymentConfig,
     artifacts,
     executionMode,
     expectedNumExecutionArtifacts,
@@ -191,7 +184,7 @@ const makeThenRunThenCheckRemoteDeployment = async (
     executionMode,
   } = deployment
 
-  const { compilerConfigArray, merkleTree } = await makeDeployment(
+  const { deploymentConfig } = await makeDeployment(
     merkleRootNonce,
     [],
     networkNames,
@@ -203,20 +196,13 @@ const makeThenRunThenCheckRemoteDeployment = async (
     getAnvilRpcUrl
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(compilerConfigArray)
-
-  const artifacts = await runDeployment(
-    compilerConfigArray,
-    merkleTree,
-    configArtifacts,
-    previousArtifacts
-  )
+  const artifacts = await runDeployment(deploymentConfig, previousArtifacts)
 
   writeDeploymentArtifacts(projectName, executionMode, artifacts)
 
   checkArtifacts(
     projectName,
-    compilerConfigArray,
+    deploymentConfig,
     artifacts,
     executionMode,
     expectedNumExecutionArtifacts,

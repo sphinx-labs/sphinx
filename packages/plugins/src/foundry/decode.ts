@@ -3,7 +3,7 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   FunctionCallActionInput,
-  ParsedConfig,
+  NetworkConfig,
   networkEnumToName,
   assertValidProjectName,
   DecodedAction,
@@ -124,12 +124,12 @@ export const decodeDeploymentInfo = (
   return deploymentInfo
 }
 
-export const makeParsedConfig = (
+export const makeNetworkConfig = (
   deploymentInfo: DeploymentInfo,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
   libraries: Array<string>
-): ParsedConfig => {
+): NetworkConfig => {
   const {
     safeAddress,
     moduleAddress,
@@ -153,7 +153,7 @@ export const makeParsedConfig = (
   const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
-  const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
+  const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
   for (let i = 0; i < accountAccesses.length; i++) {
     const { root, nested } = accountAccesses[i]
     const gas = gasEstimates[i].toString()
@@ -296,7 +296,7 @@ export const makeParsedConfig = (
     )
   }
 
-  const parsedConfig: ParsedConfig = {
+  const networkConfig: NetworkConfig = {
     safeAddress,
     moduleAddress,
     safeInitData,
@@ -315,7 +315,7 @@ export const makeParsedConfig = (
     gitCommit: getCurrentGitCommitHash(),
   }
 
-  return parsedConfig
+  return networkConfig
 }
 
 export const makeContractDecodedAction = (

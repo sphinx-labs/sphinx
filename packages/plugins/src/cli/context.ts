@@ -1,27 +1,27 @@
 import {
-  CompilerConfig,
+  DeploymentConfig,
   ConfigArtifacts,
   GetConfigArtifacts,
-  ParsedConfig,
+  NetworkConfig,
   ProposalRequest,
   RelayProposal,
   SphinxJsonRpcProvider,
   SphinxTransactionReceipt,
-  StoreCanonicalConfig,
+  StoreDeploymentConfig,
   getPreview,
   isLiveNetwork,
   relayProposal,
-  storeCanonicalConfig,
+  storeDeploymentConfig,
   userConfirmation,
 } from '@sphinx-labs/core'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import { getNetworkGasEstimate, makeGetConfigArtifacts } from '../foundry/utils'
-import { ProposeArgs, buildParsedConfigArray, propose } from './propose'
+import { ProposeArgs, buildNetworkConfigArray, propose } from './propose'
 import { DeployArgs, deploy } from './deploy'
 import {
-  BuildParsedConfigArray,
+  BuildNetworkConfigArray,
   FetchRemoteArtifacts,
   GetNetworkGasEstimate,
 } from './types'
@@ -40,21 +40,21 @@ export type SphinxContext = {
   ) => Promise<boolean>
   propose: (args: ProposeArgs) => Promise<{
     proposalRequest?: ProposalRequest
-    canonicalConfigData?: string
+    deploymentConfigData?: string
     configArtifacts?: ConfigArtifacts
-    parsedConfigArray?: Array<ParsedConfig>
+    networkConfigArray?: Array<NetworkConfig>
     merkleTree?: SphinxMerkleTree
   }>
   deploy: (args: DeployArgs) => Promise<{
-    compilerConfig?: CompilerConfig
+    deploymentConfig?: DeploymentConfig
     merkleTree?: SphinxMerkleTree
     preview?: ReturnType<typeof getPreview>
     receipts?: Array<SphinxTransactionReceipt>
     configArtifacts?: ConfigArtifacts
   }>
   getNetworkGasEstimate: GetNetworkGasEstimate
-  buildParsedConfigArray: BuildParsedConfigArray
-  storeCanonicalConfig: StoreCanonicalConfig
+  buildNetworkConfigArray: BuildNetworkConfigArray
+  storeDeploymentConfig: StoreDeploymentConfig
   relayProposal: RelayProposal
   fetchRemoteArtifacts: FetchRemoteArtifacts
 }
@@ -67,8 +67,8 @@ export const makeSphinxContext = (): SphinxContext => {
     propose,
     deploy,
     getNetworkGasEstimate,
-    buildParsedConfigArray,
-    storeCanonicalConfig,
+    buildNetworkConfigArray,
+    storeDeploymentConfig,
     relayProposal,
     fetchRemoteArtifacts,
   }

@@ -13,7 +13,6 @@ import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 import { Wallet } from 'ethers'
 import ora from 'ora'
 
-import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
 import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
 import { etherscanVerifySphinxSystem } from './src/etherscan'
@@ -72,7 +71,7 @@ task('deploy-system')
     ) => {
       // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
       // defined for this network.
-      if (!isHttpNetworkConfig(hre.network.config)) {
+      if (!('url' in hre.network.config)) {
         throw new Error(
           `Cannot deploy Sphinx on the Hardhat network using this task.`
         )
