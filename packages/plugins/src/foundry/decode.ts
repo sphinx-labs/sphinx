@@ -16,6 +16,7 @@ import {
   decodeDeterministicDeploymentProxyData,
   Create2ActionInput,
   ActionInputType,
+  getNetworkNameForChainId,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -158,8 +159,9 @@ export const makeParsedConfig = (
     const gas = gasEstimates[i].toString()
 
     if (BigInt(gas) > maxAllowedGasPerLeaf) {
+      const networkName = getNetworkNameForChainId(BigInt(chainId))
       throw new Error(
-        `Estimated gas for a transaction is too close to the block gas limit.`
+        `Estimated gas for a transaction is too close to the block gas limit on ${networkName}.`
       )
     }
 

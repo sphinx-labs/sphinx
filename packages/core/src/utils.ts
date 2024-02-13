@@ -1436,7 +1436,19 @@ export const getCreate3Salt = (
  * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
  * block gas limit.
  */
-export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
+export const getMaxGasLimit = (
+  blockGasLimit: bigint,
+  chainId: bigint
+): bigint => {
+  // On Scroll and Scroll Sepolia, set the max gas limit to be 80% of the block gas limit. We set a
+  // higher value for these networks because their block gas limit is low (10 million), which means
+  // a lower max gas limit could cause large contract deployments to be unexecutable. Transactions
+  // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
+  // meaningfully impact execution speed.
+  if (chainId === BigInt(534351) || chainId === BigInt(534352)) {
+    return (blockGasLimit * BigInt(8)) / BigInt(10)
+  }
+
   return blockGasLimit / BigInt(2)
 }
 

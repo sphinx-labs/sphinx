@@ -400,10 +400,14 @@ abstract contract Sphinx {
             //    more likely to be "warm" (i.e. cheaper) than the production environment, where
             //    transactions may be split between batches.
             //
-            // We chose to multiply the gas by 1.3 because multiplying it by a higher number could
-            // make a very large transaction unexecutable on-chain. Since the 1.3x multiplier
-            // doesn't impact small transactions very much, we add a constant amount of 20k too.
-            gasEstimates[i] = 20_000 + ((startGas - finalGas) * 13) / 10;
+            // Collecting the user's transactions in the same process as this function does not
+            // impact the Merkle leaf gas fields because we use `vm.snapshot`/`vm.revertTo`. Also,
+            // state changes on one fork do not impact the gas cost on other forks.
+            //
+            // We chose to multiply the gas by 1.1 because multiplying it by a higher number could
+            // make a very large transaction unexecutable on-chain. Since the 1.1x multiplier
+            // doesn't impact small transactions very much, we add a constant amount of 60k too.
+            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 11) / 10;
         }
 
         vm.stopPrank();
