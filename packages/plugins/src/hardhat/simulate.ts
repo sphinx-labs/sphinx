@@ -82,16 +82,19 @@ export const simulate = async (
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-  const block = await provider.getBlock('latest')
+  const compilerConfig = compilerConfigArray.find(
+    (config) => config.chainId === chainId
+  )
+
   // Narrow the TypeScript type.
-  if (!block) {
-    throw new Error(`Could not find block. Should never happen.`)
+  if (!compilerConfig) {
+    throw new Error(`Could not find ParsedConfig. Should never happen.`)
   }
 
   const envVars = {
     SPHINX_INTERNAL__FORK_URL: rpcUrl,
     SPHINX_INTERNAL__CHAIN_ID: chainId,
-    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: block.gasLimit.toString(),
+    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: compilerConfig.blockGasLimit,
     // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
     // Hardhat config when we import the HRE in the child process.
     HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
@@ -103,12 +106,10 @@ export const simulate = async (
   }
 
   if ((await isLiveNetwork(provider)) || (await isFork(provider))) {
-    // Hardcode the block number in the Hardhat config so that the simulation uses the latest block
-    // number. If we don't hardcode it, Hardhat uses a block number that's numerous confirmations
-    // behind the latest block number, which protects against chain reorgs. We choose to use the
-    // latest block number because it's aligned with Anvil's behavior and it ensures that any
-    // recently executed transactions submitted by the caller are included in the simulation.
-    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = block.number.toString()
+    // Use the same block number as the Forge script that collected the user's transactions. This
+    // reduces the chance that the simulation throws an error or stalls, which can occur when using
+    // the most recent block number.
+    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = compilerConfig.blockNumber
   } else {
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
@@ -172,7 +173,7 @@ export const simulate = async (
 
   if (code !== 0) {
     const networkName = fetchNameForNetwork(BigInt(chainId))
-    let errorMessage: string = `Simulation failed for ${networkName} at block number ${block.number}.`
+    let errorMessage: string = `Simulation failed for ${networkName} at block number ${compilerConfig.blockNumber}.`
     try {
       // Attempt to decode the error message. This try-statement could theoretically throw an error
       // if `stdout` isn't a valid JSON string.

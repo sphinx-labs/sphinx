@@ -113,6 +113,7 @@ const originalParsedConfig: ParsedConfig = {
   nonce: '0',
   arbitraryChain: false,
   blockGasLimit: '0',
+  blockNumber: '0',
   newConfig: {
     mainnets: [],
     projectName: '',

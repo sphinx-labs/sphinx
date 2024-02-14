@@ -77,6 +77,7 @@ export type ParsedConfig = {
   nonce: string
   chainId: string
   blockGasLimit: string
+  blockNumber: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig
   executionMode: ExecutionMode
@@ -104,6 +105,7 @@ export type DeploymentInfo = {
   nonce: string
   chainId: string
   blockGasLimit: string
+  blockNumber: string
   safeInitData: string
   newConfig: SphinxConfig
   executionMode: ExecutionMode

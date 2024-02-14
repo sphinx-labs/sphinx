@@ -405,6 +405,7 @@ export const makeDeployment = async (
         nonce: merkleRootNonce.toString(),
         chainId: chainId.toString(),
         blockGasLimit: block.gasLimit.toString(),
+        blockNumber: block.number.toString(),
         initialState: {
           isSafeDeployed: (await provider.getCode(safeAddress)) !== '0x',
           isModuleDeployed: (await provider.getCode(moduleAddress)) !== '0x',

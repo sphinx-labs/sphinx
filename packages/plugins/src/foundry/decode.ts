@@ -62,6 +62,7 @@ export const decodeDeploymentInfo = (
   } = parsed
 
   const blockGasLimit = abiDecodeUint256(parsed.blockGasLimit)
+  const blockNumber = abiDecodeUint256(parsed.blockNumber)
   const chainId = abiDecodeUint256(parsed.chainId)
   const executionMode = abiDecodeUint256(parsed.executionMode)
   const nonce = abiDecodeUint256(parsed.nonce)
@@ -91,6 +92,7 @@ export const decodeDeploymentInfo = (
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     initialState: {
       ...initialState,
     },
@@ -131,6 +133,7 @@ export const makeParsedConfig = (
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     newConfig,
     executionMode,
     initialState,
@@ -298,6 +301,7 @@ export const makeParsedConfig = (
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     newConfig,
     executionMode,
     initialState,

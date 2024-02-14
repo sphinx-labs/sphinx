@@ -178,6 +178,7 @@ abstract contract Sphinx {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
+        deploymentInfo.blockNumber = block.number;
         deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(
             sphinxConfig.owners,
             sphinxConfig.threshold
