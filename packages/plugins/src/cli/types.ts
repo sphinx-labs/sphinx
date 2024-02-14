@@ -41,6 +41,7 @@ export interface ArtifactsCommandArgs {
 
 export type GetNetworkGasEstimate = (
   parsedConfigArray: Array<ParsedConfig>,
+  configArtifacts: ConfigArtifacts,
   chainId: string,
   foundryToml: FoundryToml
 ) => Promise<{

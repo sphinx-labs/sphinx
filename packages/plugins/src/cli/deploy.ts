@@ -3,9 +3,11 @@ import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
 
 import {
   displayDeploymentTable,
+  fundAccountMaxBalance,
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
   isFile,
+  signMerkleRoot,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -22,13 +24,22 @@ import {
   verifyDeploymentWithRetries,
   SphinxTransactionReceipt,
   ExecutionMode,
-  runEntireDeploymentProcess,
   ConfigArtifacts,
   checkSystemDeployed,
   fetchChainIdForNetwork,
   writeDeploymentArtifacts,
   isLegacyTransactionsRequiredForNetwork,
   MAX_UINT64,
+  compileAndExecuteDeployment,
+  Deployment,
+  fetchNameForNetwork,
+  DeploymentContext,
+  HumanReadableAction,
+  executeTransactionViaSigner,
+  InjectRoles,
+  RemoveRoles,
+  injectRoles,
+  removeRoles,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -216,6 +227,8 @@ export const deploy = async (
   spinner.start(`Building deployment...`)
 
   let signer: ethers.Wallet
+  let inject: InjectRoles
+  let remove: RemoveRoles
   if (executionMode === ExecutionMode.LiveNetworkCLI) {
     const privateKey = process.env.PRIVATE_KEY
     // Check if the private key exists. It should always exist because we checked that it's defined
@@ -224,8 +237,23 @@ export const deploy = async (
       throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
     }
     signer = new ethers.Wallet(privateKey, provider)
+
+    // We use no role injection when deploying on the live network since that obviously would not work
+    inject = async () => {
+      return
+    }
+    remove = async () => {
+      return
+    }
   } else if (executionMode === ExecutionMode.LocalNetworkCLI) {
     signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await fundAccountMaxBalance(signer.address, provider)
+
+    // We use the same role injection as the simulation for local network deployments so that they
+    // work even without the need for keys for all Safe signers
+    inject = injectRoles
+    // We need to remove the injected owners after successfully deploying on a local node
+    remove = removeRoles
   } else {
     throw new Error(`Unknown execution mode.`)
   }
@@ -260,7 +288,12 @@ export const deploy = async (
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  await simulate([parsedConfig], chainId.toString(), forkUrl)
+  const compilerConfigs = getParsedConfigWithCompilerInputs(
+    [parsedConfig],
+    configArtifacts
+  )
+
+  await simulate(compilerConfigs, chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 
@@ -274,13 +307,67 @@ export const deploy = async (
     await sphinxContext.prompt(previewString)
   }
 
-  const { receipts } = await runEntireDeploymentProcess(
-    parsedConfig,
-    merkleTree,
+  const treeSigner = {
+    signer: signer.address,
+    signature: await signMerkleRoot(merkleTree.root, signer),
+  }
+  const deployment: Deployment = {
+    id: 'only required on website',
+    multichainDeploymentId: 'only required on website',
+    projectId: 'only required on website',
+    chainId: parsedConfig.chainId,
+    status: 'approved',
+    moduleAddress: parsedConfig.moduleAddress,
+    safeAddress: parsedConfig.safeAddress,
+    compilerConfigs,
+    networkName: fetchNameForNetwork(BigInt(parsedConfig.chainId)),
+    treeSigners: [treeSigner],
+  }
+  const deploymentContext: DeploymentContext = {
+    throwError: (message: string) => {
+      throw new Error(message)
+    },
+    handleError: (e) => {
+      throw e
+    },
+    handleAlreadyExecutedDeployment: () => {
+      throw new Error(
+        'Deployment has already been executed. This is a bug. Please report it to the developers.'
+      )
+    },
+    handleExecutionFailure: (
+      _deploymentContext: DeploymentContext,
+      _targetNetworkConfig: CompilerConfig,
+      _configArtifacts: ConfigArtifacts,
+      failureReason: HumanReadableAction
+    ) => {
+      throw new Error(
+        `The following action reverted during the execution:\n${failureReason.reason}`
+      )
+    },
+    verify: async () => {
+      return
+    },
+    handleSuccess: async () => {
+      return
+    },
+    executeTransaction: executeTransactionViaSigner,
+    injectRoles: inject,
+    removeRoles: remove,
+    deployment,
+    wallet: signer,
     provider,
-    signer,
-    spinner
-  )
+    spinner,
+  }
+  const result = await compileAndExecuteDeployment(deploymentContext)
+
+  if (!result) {
+    throw new Error(
+      'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+    )
+  }
+
+  const { receipts } = result
 
   spinner.start(`Building deployment artifacts...`)
 

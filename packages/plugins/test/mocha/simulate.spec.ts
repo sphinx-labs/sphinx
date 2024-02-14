@@ -1,11 +1,11 @@
 import chai, { expect } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
+  CompilerConfig,
   ExecutionMode,
-  ParsedConfig,
   SphinxJsonRpcProvider,
   fetchURLForNetwork,
-  getNetworkNameForChainId,
+  fetchNameForNetwork,
   isFork,
   isLiveNetwork,
 } from '@sphinx-labs/core'
@@ -25,7 +25,7 @@ import { simulate } from '../../src/hardhat/simulate'
 chai.use(chaiAsPromised)
 
 describe('Simulate', () => {
-  let parsedConfigArray: Array<ParsedConfig>
+  let parsedConfigArray: Array<CompilerConfig>
 
   before(async function () {
     // Skip the tests if the environment variable `CIRCLE_BRANCH` is defined and does not equal
@@ -97,7 +97,7 @@ describe('Simulate', () => {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         const chainId = parsedConfigArray[index].chainId
-        const networkName = getNetworkNameForChainId(BigInt(chainId))
+        const networkName = fetchNameForNetwork(BigInt(chainId))
         console.error(`Error on network ${networkName}:`, result.reason)
       }
     })

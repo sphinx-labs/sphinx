@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from 'fs'
+
 import {
   ActionInputType,
   BuildInfo,
@@ -10,10 +12,12 @@ import {
 import sinon from 'sinon'
 import { Operation } from '@sphinx-labs/contracts'
 
-import { readContractArtifact } from '../../src/foundry/utils'
 import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
+import { readContractArtifact } from '../../dist'
+
+let buildInfos: BuildInfo[]
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -21,6 +25,7 @@ import { makeSphinxContext } from '../../src/cli/context'
  * `makeMockSphinxContextForIntegrationTests` function instead.
  */
 export const makeMockSphinxContext = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mockedFullyQualifiedNames: Array<string>
 ) => {
   const sphinxContext = makeSphinxContext()
@@ -64,33 +69,36 @@ export const makeMockSphinxContext = (
       _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
+      const files = readdirSync(`./out/artifacts/build-info/`)
+      if (!buildInfos) {
+        buildInfos = await Promise.all(
+          files.map((file) =>
+            JSON.parse(
+              readFileSync(`./out/artifacts/build-info/${file}`, 'utf8')
+            )
+          )
+        )
+      }
+
       for (const name of mockedFullyQualifiedNames) {
+        const [file, contract] = name.split(':')
+
+        const buildInfo = buildInfos.find(
+          (info) =>
+            info.output.contracts[file] && info.output.contracts[file][contract]
+        )
+
+        if (!buildInfo) {
+          throw new Error(
+            'Could not find build info for test contract, this should never happen but is just a bug in the integration test mock'
+          )
+        }
+
         const artifact = await readContractArtifact(
           name,
           projectRoot,
           artifactFolder
         )
-        const buildInfo: BuildInfo = {
-          id: '0',
-          solcVersion: '0.8.0',
-          solcLongVersion: '0.8.21+commit.d9974bed',
-          input: {
-            language: 'Solidity',
-            settings: {
-              optimizer: {
-                runs: undefined,
-                enabled: undefined,
-                details: undefined,
-              },
-              outputSelection: {},
-            },
-            sources: {},
-          },
-          output: {
-            sources: {},
-            contracts: {},
-          },
-        }
         configArtifacts[name] = {
           buildInfo,
           artifact,
@@ -172,10 +180,10 @@ export const makeMockSphinxContextForIntegrationTests = (
   fullyQualifiedNames: Array<string>
 ) => {
   const {
-    makeGetConfigArtifacts,
     prompt,
     relayProposal,
     storeCanonicalConfig,
+    makeGetConfigArtifacts,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
   context.makeGetConfigArtifacts = makeGetConfigArtifacts

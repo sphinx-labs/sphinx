@@ -4,11 +4,11 @@ import { CREATE3_PROXY_INITCODE } from '@sphinx-labs/contracts'
 import { DecodedAction, ParsedConfig } from './config/types'
 import {
   arraysEqual,
-  getNetworkNameForChainId,
   getNetworkTag,
   prettyFunctionCall,
   prettyRawFunctionCall,
 } from './utils'
+import { fetchNameForNetwork } from './networks'
 
 type SystemDeploymentElement = {
   type: 'SystemDeployment'
@@ -187,7 +187,7 @@ export const getPreview = (
       )
       .map((contract) => contract.address)
 
-    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    const networkName = fetchNameForNetwork(BigInt(chainId))
     const networkTag = getNetworkTag(
       networkName,
       executionMode,

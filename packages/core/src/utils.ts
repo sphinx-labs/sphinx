@@ -10,6 +10,7 @@ import {
   Provider,
   JsonRpcSigner,
   FunctionFragment,
+  keccak256,
 } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
@@ -59,7 +60,11 @@ import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
 import { BuildInfo, CompilerOutput } from './languages/solidity/types'
 import { getSolcBuild } from './languages'
-import { COMPILER_CONFIG_VERSION, LocalNetworkMetadata } from './networks'
+import {
+  COMPILER_CONFIG_VERSION,
+  LocalNetworkMetadata,
+  fetchNameForNetwork,
+} from './networks'
 import { RelayProposal, StoreCanonicalConfig } from './types'
 
 export const sphinxLog = (
@@ -512,16 +517,19 @@ export const relayProposal: RelayProposal = async (
 export const storeCanonicalConfig: StoreCanonicalConfig = async (
   apiKey: string,
   orgId: string,
-  configData: Array<string>
+  configData: string
 ): Promise<string> => {
   const response: {
     status: number
-    data: string[]
+    data: {
+      configId: string
+      uploadUrl: string
+    }
   } = await axios
-    .post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+    .post(`${fetchSphinxManagedBaseUrl()}/api/getConfigUploadUrl`, {
       apiKey,
       orgId,
-      configData,
+      hash: keccak256(ethers.toUtf8Bytes(configData.toString())),
       version: COMPILER_CONFIG_VERSION,
     })
     .catch((err) => {
@@ -544,7 +552,13 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
       }
     })
 
-  return response.data[0]
+  await axios.put(response.data.uploadUrl, configData, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  return response.data.configId
 }
 
 export const arraysEqual = (
@@ -587,7 +601,7 @@ export const getNetworkNameDirectory = (
   chainId: string,
   executionMode: ExecutionMode
 ): string => {
-  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const networkName = fetchNameForNetwork(BigInt(chainId))
   if (
     executionMode === ExecutionMode.LiveNetworkCLI ||
     executionMode === ExecutionMode.Platform
@@ -633,16 +647,6 @@ export const getNetworkTag = (
   } else {
     return `local (chain ID: ${chainId})`
   }
-}
-
-export const getNetworkNameForChainId = (chainId: bigint): string => {
-  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
-
-  if (!network) {
-    return 'unknown'
-  }
-
-  return network.name
 }
 
 export const isEventLog = (
@@ -951,7 +955,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   moduleAddress: string,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<Array<ethers.Wallet>> => {
+): Promise<void> => {
   // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
   // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
   // the Gnosis Safe itself. However, this would increment its nonce in the `addOwnerWithThreshold`
@@ -1020,8 +1024,6 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   // Stop impersonating the Sphinx Module. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
   await provider.send('hardhat_stopImpersonatingAccount', [moduleAddress])
-
-  return sphinxWallets
 }
 
 /**
