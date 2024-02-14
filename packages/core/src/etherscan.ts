@@ -16,7 +16,7 @@ import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
 import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
 import { customChains } from './constants'
-import { ConfigArtifacts, ParsedConfig } from './config/types'
+import { ConfigArtifacts, NetworkConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { formatSolcLongVersion, isLiveNetwork, sleep } from './utils'
@@ -52,13 +52,13 @@ export const getChainConfig = (chainId: number): ChainConfig => {
  * Verify a deployment on Etherscan. Meant to be used by the DevOps Platform.
  */
 export const verifySphinxConfig = async (
-  parsedConfig: ParsedConfig,
+  networkConfig: NetworkConfig,
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   networkName: string,
   apiKey: string
 ): Promise<void> => {
-  for (const actionInput of parsedConfig.actionInputs) {
+  for (const actionInput of networkConfig.actionInputs) {
     for (const {
       address,
       fullyQualifiedName,
@@ -88,7 +88,7 @@ export const verifySphinxConfig = async (
         buildInfo.solcLongVersion,
         minimumCompilerInput,
         provider,
-        parsedConfig.chainId,
+        networkConfig.chainId,
         apiKey
       )
 
@@ -103,14 +103,14 @@ export const verifySphinxConfig = async (
  * Verify a deployment on Etherscan with five retries per contract. Meant to be called by the Sphinx Foundry plugin.
  */
 export const verifyDeploymentWithRetries = async (
-  parsedConfig: ParsedConfig,
+  networkConfig: NetworkConfig,
   configArtifacts: ConfigArtifacts,
   provider: ethers.Provider,
   apiKey: string
 ): Promise<void> => {
   const maxAttempts = 10
 
-  for (const actionInput of parsedConfig.actionInputs) {
+  for (const actionInput of networkConfig.actionInputs) {
     for (const {
       address,
       fullyQualifiedName,
@@ -144,7 +144,7 @@ export const verifyDeploymentWithRetries = async (
           buildInfo.solcLongVersion,
           minimumCompilerInput,
           provider,
-          parsedConfig.chainId,
+          networkConfig.chainId,
           apiKey
         )
 

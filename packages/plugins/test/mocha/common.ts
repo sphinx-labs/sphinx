@@ -6,12 +6,11 @@ import {
   execAsync,
   sleep,
   sortHexStrings,
-  CompilerConfig,
+  DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   ExecutionMode,
   SphinxJsonRpcProvider,
-  getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
   SphinxTransactionReceipt,
@@ -40,6 +39,7 @@ import {
   executeTransactionViaSigner,
   injectRoles,
   removeRoles,
+  makeDeploymentConfig,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -70,7 +70,7 @@ import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyCont
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
 import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
-import { makeParsedConfig } from '../../src/foundry/decode'
+import { makeNetworkConfig } from '../../src/foundry/decode'
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
 import {
   getInitCodeWithArgsArray,
@@ -346,7 +346,7 @@ export const makeDeployment = async (
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
-  compilerConfigArray: Array<CompilerConfig>
+  deploymentConfig: DeploymentConfig
   configArtifacts: ConfigArtifacts
 }> => {
   const saltNonce = 0
@@ -456,8 +456,8 @@ export const makeDeployment = async (
 
   const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
 
-  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo) => {
-    return makeParsedConfig(
+  const networkConfigArray = deploymentInfoArray.map((deploymentInfo) => {
+    return makeNetworkConfig(
       deploymentInfo,
       true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
       configArtifacts,
@@ -465,15 +465,16 @@ export const makeDeployment = async (
     )
   })
 
-  const deploymentData = makeDeploymentData(parsedConfigArray)
+  const deploymentData = makeDeploymentData(networkConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  const compilerConfigArray = getParsedConfigWithCompilerInputs(
-    parsedConfigArray,
-    configArtifacts
+  const deploymentConfig = makeDeploymentConfig(
+    networkConfigArray,
+    configArtifacts,
+    merkleTree
   )
 
-  return { compilerConfigArray, configArtifacts, merkleTree }
+  return { deploymentConfig, configArtifacts, merkleTree }
 }
 
 export const makeRevertingDeployment = (
@@ -517,14 +518,12 @@ export const makeRevertingDeployment = (
 }
 
 export const runDeployment = async (
-  compilerConfigArray: Array<CompilerConfig>,
-  merkleTree: SphinxMerkleTree,
-  configArtifacts: ConfigArtifacts,
+  deploymentConfig: DeploymentConfig,
   previousArtifacts: DeploymentArtifacts['networks']
 ): Promise<DeploymentArtifacts> => {
   const artifactInputs: {
     [chainId: string]: {
-      compilerConfig: CompilerConfig
+      deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
       previousContractArtifacts: {
@@ -533,8 +532,10 @@ export const runDeployment = async (
     }
   } = {}
 
-  for (const compilerConfig of compilerConfigArray) {
-    const { chainId } = compilerConfig
+  const { merkleTree, configArtifacts } = deploymentConfig
+
+  for (const networkConfig of deploymentConfig.networkConfigs) {
+    const { chainId } = networkConfig
     const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
@@ -547,12 +548,12 @@ export const runDeployment = async (
       id: 'only required on website',
       multichainDeploymentId: 'only required on website',
       projectId: 'only required on website',
-      chainId: compilerConfig.chainId,
+      chainId: networkConfig.chainId,
       status: 'approved',
-      moduleAddress: compilerConfig.moduleAddress,
-      safeAddress: compilerConfig.safeAddress,
-      compilerConfigs: compilerConfigArray,
-      networkName: fetchNameForNetwork(BigInt(compilerConfig.chainId)),
+      moduleAddress: networkConfig.moduleAddress,
+      safeAddress: networkConfig.safeAddress,
+      deploymentConfig,
+      networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
       treeSigners: [treeSigner],
     }
     const deploymentContext: DeploymentContext = {
@@ -602,8 +603,8 @@ export const runDeployment = async (
     const previousContractArtifacts =
       previousArtifacts.networks?.[chainId]?.contractDeploymentArtifacts ?? {}
 
-    artifactInputs[compilerConfig.chainId] = {
-      compilerConfig,
+    artifactInputs[networkConfig.chainId] = {
+      deploymentConfig,
       receipts,
       provider,
       previousContractArtifacts,
@@ -747,7 +748,7 @@ export const makeStandardDeployment = (
 
 export const checkArtifacts = (
   projectName: string,
-  compilerConfigArray: Array<CompilerConfig>,
+  deploymentConfig: DeploymentConfig,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
   expectedNumExecutionArtifacts: number,
@@ -836,8 +837,7 @@ export const checkArtifacts = (
     }
   }
 
-  const allCompilerInputs = compilerConfigArray.flatMap(({ inputs }) => inputs)
-  for (const compilerInput of allCompilerInputs) {
+  for (const compilerInput of deploymentConfig.inputs) {
     const compilerInputFilePath = join(
       `deployments`,
       getCompilerInputDirName(executionMode),

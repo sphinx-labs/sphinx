@@ -107,7 +107,7 @@ export type ContractInfo = {
 }
 
 /**
- * @param canonicalConfig Deprecated field.
+ * @param compilerConfigId Deprecated field.
  * @param gasEstimates The estimated amount of gas required to the entire deployment tree on each
  * chain, including a buffer.
  */
@@ -127,6 +127,7 @@ export type ProposalRequest = {
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   diff: SphinxPreview
   compilerConfigId: string | undefined
+  deploymentConfigId: string | undefined
   tree: {
     root: string
     chainStatus: Array<{

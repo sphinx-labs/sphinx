@@ -22,12 +22,12 @@ contract Sample is Sphinx {
             Network.polygon_mumbai,
             Network.fantom_testnet,
             Network.bnb_testnet,
-            Network.gnosis_chiado,
+            // Network.gnosis_chiado,
             Network.linea_goerli,
             Network.polygon_zkevm_goerli,
             Network.base_sepolia,
             Network.celo_alfajores,
-            Network.moonbase_alpha,
+            // Network.moonbase_alpha,
             Network.evmos_testnet,
             Network.kava_testnet,
             Network.scroll_sepolia,
@@ -36,7 +36,7 @@ contract Sample is Sphinx {
         ];
         sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
-        sphinxConfig.saltNonce = 0;
+        sphinxConfig.saltNonce = 2132412;
     }
 
     function run() public sphinx {

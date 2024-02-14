@@ -1,6 +1,6 @@
 import { ProposalRequest } from './actions/types'
 
-export type StoreCanonicalConfig = (
+export type StoreDeploymentConfig = (
   apiKey: string,
   orgId: string,
   configData: string

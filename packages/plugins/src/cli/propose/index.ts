@@ -10,11 +10,11 @@ import {
   getPreviewString,
   makeDeploymentData,
   spawnAsync,
-  getParsedConfigWithCompilerInputs,
   isLegacyTransactionsRequiredForNetwork,
   SphinxJsonRpcProvider,
   isFile,
   MAX_UINT64,
+  makeDeploymentConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue, red } from 'chalk'
@@ -23,7 +23,7 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
-  ParsedConfig,
+  NetworkConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import {
   SphinxLeafType,
@@ -31,7 +31,7 @@ import {
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import { makeParsedConfig, decodeDeploymentInfo } from '../../foundry/decode'
+import { makeNetworkConfig, decodeDeploymentInfo } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
@@ -43,7 +43,7 @@ import {
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
-import { BuildParsedConfigArray } from '../types'
+import { BuildNetworkConfigArray } from '../types'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -60,7 +60,7 @@ export interface ProposeArgs {
   targetContract?: string
 }
 
-export const buildParsedConfigArray: BuildParsedConfigArray = async (
+export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
@@ -70,7 +70,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
-  parsedConfigArray?: Array<ParsedConfig>
+  networkConfigArray?: Array<NetworkConfig>
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }> => {
@@ -179,8 +179,8 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     targetContract
   )
 
-  const parsedConfigArray = collected.map(({ deploymentInfo, libraries }) =>
-    makeParsedConfig(
+  const networkConfigArray = collected.map(({ deploymentInfo, libraries }) =>
+    makeNetworkConfig(
       deploymentInfo,
       true, // System contracts are deployed.
       configArtifacts,
@@ -188,19 +188,19 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     )
   )
 
-  const isEmpty = parsedConfigArray.every(
-    (parsedConfig) => parsedConfig.actionInputs.length === 0
+  const isEmpty = networkConfigArray.every(
+    (networkConfig) => networkConfig.actionInputs.length === 0
   )
   if (isEmpty) {
     return {
       isEmpty: true,
-      parsedConfigArray: undefined,
+      networkConfigArray: undefined,
       configArtifacts: undefined,
     }
   }
 
   return {
-    parsedConfigArray,
+    networkConfigArray,
     configArtifacts,
     isEmpty: false,
   }
@@ -210,9 +210,9 @@ export const propose = async (
   args: ProposeArgs
 ): Promise<{
   proposalRequest?: ProposalRequest
-  canonicalConfigData?: string
+  deploymentConfigData?: string
   configArtifacts?: ConfigArtifacts
-  parsedConfigArray?: Array<ParsedConfig>
+  networkConfigArray?: Array<NetworkConfig>
   merkleTree?: SphinxMerkleTree
 }> => {
   const {
@@ -270,8 +270,8 @@ export const propose = async (
     foundryToml.cachePath
   )
 
-  const { parsedConfigArray, configArtifacts, isEmpty } =
-    await sphinxContext.buildParsedConfigArray(
+  const { networkConfigArray, configArtifacts, isEmpty } =
+    await sphinxContext.buildNetworkConfigArray(
       scriptPath,
       isTestnet,
       sphinxPluginTypesInterface,
@@ -289,33 +289,38 @@ export const propose = async (
     return {}
   }
 
-  // Narrow the TypeScript type of the ParsedConfig and ConfigArtifacts.
-  if (!parsedConfigArray || !configArtifacts) {
+  // Narrow the TypeScript type of the NetworkConfig and ConfigArtifacts.
+  if (!networkConfigArray || !configArtifacts) {
     throw new Error(
-      `ParsedConfig or ConfigArtifacts not defined. Should never happen.`
+      `NetworkConfig or ConfigArtifacts not defined. Should never happen.`
     )
   }
 
-  const deploymentData = makeDeploymentData(parsedConfigArray)
+  const deploymentData = makeDeploymentData(networkConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
   spinner.succeed(`Built proposal.`)
   spinner.start(`Running simulation...`)
 
-  const gasEstimatesPromises = parsedConfigArray
-    .filter((parsedConfig) => parsedConfig.actionInputs.length > 0)
-    .map((parsedConfig) =>
+  const deploymentConfig = makeDeploymentConfig(
+    networkConfigArray,
+    configArtifacts,
+    merkleTree
+  )
+
+  const gasEstimatesPromises = networkConfigArray
+    .filter((networkConfig) => networkConfig.actionInputs.length > 0)
+    .map((networkConfig) =>
       sphinxContext.getNetworkGasEstimate(
-        parsedConfigArray,
-        configArtifacts,
-        parsedConfig.chainId,
+        deploymentConfig,
+        networkConfig.chainId,
         foundryToml
       )
     )
   const gasEstimates = await Promise.all(gasEstimatesPromises)
 
   spinner.succeed(`Simulation succeeded.`)
-  const preview = getPreview(parsedConfigArray)
+  const preview = getPreview(networkConfigArray)
   if (confirm || isDryRun) {
     if (!silent) {
       const previewString = getPreviewString(preview, false)
@@ -330,12 +335,12 @@ export const propose = async (
     ? spinner.start('Finishing dry run...')
     : spinner.start(`Proposing...`)
 
-  const shouldBeEqual = parsedConfigArray.map((parsedConfig) => {
+  const shouldBeEqual = networkConfigArray.map((networkConfig) => {
     return {
-      newConfig: parsedConfig.newConfig,
-      safeAddress: parsedConfig.safeAddress,
-      moduleAddress: parsedConfig.moduleAddress,
-      safeInitData: parsedConfig.safeInitData,
+      newConfig: networkConfig.newConfig,
+      safeAddress: networkConfig.safeAddress,
+      moduleAddress: networkConfig.moduleAddress,
+      safeInitData: networkConfig.safeInitData,
     }
   })
   if (!elementsEqual(shouldBeEqual)) {
@@ -348,7 +353,7 @@ export const propose = async (
   // Since we know that the following fields are the same for each network, we get their values
   // here.
   const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    parsedConfigArray[0]
+    networkConfigArray[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   const chainStatus: Array<{
@@ -356,27 +361,27 @@ export const propose = async (
     numLeaves: number
   }> = []
   const chainIds: Array<number> = []
-  for (const parsedConfig of parsedConfigArray) {
+  for (const networkConfig of networkConfigArray) {
     // We skip chains that don't have any transactions to execute to simplify Sphinx's backend
     // logic. From the perspective of the backend, these networks don't serve any purpose in the
     // `ProposalRequest`.
-    if (parsedConfig.actionInputs.length === 0) {
+    if (networkConfig.actionInputs.length === 0) {
       continue
     }
 
     const projectDeployment = getProjectDeploymentForChain(
       merkleTree,
-      parsedConfig
+      networkConfig
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
     }
 
     chainStatus.push({
-      chainId: Number(parsedConfig.chainId),
-      numLeaves: parsedConfig.actionInputs.length + 1,
+      chainId: Number(networkConfig.chainId),
+      numLeaves: networkConfig.actionInputs.length + 1,
     })
-    chainIds.push(Number(parsedConfig.chainId))
+    chainIds.push(Number(networkConfig.chainId))
   }
 
   const proposalRequest: ProposalRequest = {
@@ -395,27 +400,25 @@ export const propose = async (
     gasEstimates,
     diff: preview,
     compilerConfigId: undefined,
+    deploymentConfigId: undefined,
     tree: {
       root: merkleTree.root,
       chainStatus,
     },
   }
 
-  const compilerConfigs = getParsedConfigWithCompilerInputs(
-    parsedConfigArray,
-    configArtifacts
-  )
-  const canonicalConfigData = JSON.stringify(compilerConfigs, null, 2)
+  const deploymentConfigData = JSON.stringify(deploymentConfig, null, 2)
 
   if (isDryRun) {
     spinner.succeed(`Proposal dry run succeeded.`)
   } else {
-    const compilerConfigId = await sphinxContext.storeCanonicalConfig(
+    const deploymentConfigId = await sphinxContext.storeDeploymentConfig(
       apiKey,
       newConfig.orgId,
-      canonicalConfigData
+      deploymentConfigData
     )
-    proposalRequest.compilerConfigId = compilerConfigId
+    proposalRequest.deploymentConfigId = deploymentConfigId
+    proposalRequest.compilerConfigId = deploymentConfigId
 
     await sphinxContext.relayProposal(proposalRequest)
     spinner.succeed(
@@ -426,18 +429,18 @@ export const propose = async (
   }
   return {
     proposalRequest,
-    canonicalConfigData,
+    deploymentConfigData,
     configArtifacts,
-    parsedConfigArray,
+    networkConfigArray,
     merkleTree,
   }
 }
 
 const getProjectDeploymentForChain = (
   merkleTree: SphinxMerkleTree,
-  parsedConfig: ParsedConfig
+  networkConfig: NetworkConfig
 ): ProjectDeployment | undefined => {
-  const { newConfig, initialState, chainId } = parsedConfig
+  const { newConfig, initialState, chainId } = networkConfig
 
   const approvalLeaves = merkleTree.leavesWithProofs.filter(
     (l) =>

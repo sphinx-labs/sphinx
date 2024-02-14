@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { ethers } from 'ethers'
 import { CREATE3_PROXY_INITCODE, Operation } from '@sphinx-labs/contracts'
 
-import { Create2ActionInput, ParsedConfig } from '../src/config/types'
+import { Create2ActionInput, NetworkConfig } from '../src/config/types'
 import { getPreview } from '../src/preview'
 import { ActionInputType, FunctionCallActionInput } from '../dist'
 import { ExecutionMode } from '../src/constants'
@@ -84,7 +84,7 @@ const expectedCall: FunctionCallActionInput = {
 
 const unlabeledAddressOne = '0x' + '55'.repeat(20)
 const unlabeledAddressTwo = '0x' + '66'.repeat(20)
-const originalParsedConfig: ParsedConfig = {
+const originalNetworkConfig: NetworkConfig = {
   chainId: '10',
   executionMode: ExecutionMode.Platform,
   actionInputs: [expectedCreate2, expectedFunctionCallOne, expectedCall],
@@ -136,7 +136,7 @@ describe('Preview', () => {
   describe('getPreview', () => {
     it('returns preview for single network that is executing everything, including Gnosis Safe and Sphinx Module', () => {
       const { networks, unlabeledAddresses } = getPreview([
-        originalParsedConfig,
+        originalNetworkConfig,
       ])
 
       expect(networks.length).to.equal(1)
@@ -154,11 +154,11 @@ describe('Preview', () => {
     })
 
     it('returns preview for single network that is executing everything, except Gnosis Safe and Sphinx Module', () => {
-      const parsedConfig = structuredClone(originalParsedConfig)
-      parsedConfig.initialState.isSafeDeployed = true
-      parsedConfig.initialState.isModuleDeployed = true
+      const networkConfig = structuredClone(originalNetworkConfig)
+      networkConfig.initialState.isSafeDeployed = true
+      networkConfig.initialState.isModuleDeployed = true
 
-      const { networks, unlabeledAddresses } = getPreview([parsedConfig])
+      const { networks, unlabeledAddresses } = getPreview([networkConfig])
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -175,8 +175,8 @@ describe('Preview', () => {
     // If a function call or constructor has at least one unnamed argument, then the arguments will be
     // displayed as an array of values instead of an object.
     it('returns preview for unnamed constructor and function calls', () => {
-      const parsedConfig = structuredClone(originalParsedConfig)
-      parsedConfig.actionInputs = parsedConfig.actionInputs.map((action) => {
+      const networkConfig = structuredClone(originalNetworkConfig)
+      networkConfig.actionInputs = networkConfig.actionInputs.map((action) => {
         return {
           ...action,
           decodedAction: {
@@ -186,7 +186,7 @@ describe('Preview', () => {
         }
       })
 
-      const { networks, unlabeledAddresses } = getPreview([parsedConfig])
+      const { networks, unlabeledAddresses } = getPreview([networkConfig])
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -211,15 +211,15 @@ describe('Preview', () => {
     })
 
     it('returns merged preview for networks that are the same', () => {
-      const parsedConfigArbitrum = structuredClone(originalParsedConfig)
-      const parsedConfigPolygon = structuredClone(originalParsedConfig)
-      parsedConfigArbitrum.chainId = '42161'
-      parsedConfigPolygon.chainId = '137'
+      const networkConfigArbitrum = structuredClone(originalNetworkConfig)
+      const networkConfigPolygon = structuredClone(originalNetworkConfig)
+      networkConfigArbitrum.chainId = '42161'
+      networkConfigPolygon.chainId = '137'
 
       const { networks, unlabeledAddresses } = getPreview([
-        originalParsedConfig,
-        parsedConfigArbitrum,
-        parsedConfigPolygon,
+        originalNetworkConfig,
+        networkConfigArbitrum,
+        networkConfigPolygon,
       ])
 
       expect(networks.length).to.equal(1)
@@ -245,26 +245,26 @@ describe('Preview', () => {
     })
 
     it('returns preview for networks that are different', () => {
-      const parsedConfigArbitrum = structuredClone(originalParsedConfig)
-      const parsedConfigPolygon = structuredClone(originalParsedConfig)
-      parsedConfigArbitrum.chainId = '42161'
-      parsedConfigPolygon.chainId = '137'
+      const networkConfigArbitrum = structuredClone(originalNetworkConfig)
+      const networkConfigPolygon = structuredClone(originalNetworkConfig)
+      networkConfigArbitrum.chainId = '42161'
+      networkConfigPolygon.chainId = '137'
 
       // Skip the Gnosis Safe on Polygon
-      parsedConfigPolygon.initialState.isSafeDeployed = true
+      networkConfigPolygon.initialState.isSafeDeployed = true
 
       // Use different variables for the first action on Arbitrum
       const variablesArbitrum = {
         myVar: 'myArbitrumVal',
         myOtherVar: 'myOtherArbitrumVal',
       }
-      const firstAction = parsedConfigArbitrum.actionInputs[0]
+      const firstAction = networkConfigArbitrum.actionInputs[0]
       firstAction.decodedAction.variables = variablesArbitrum
 
       const { networks, unlabeledAddresses } = getPreview([
-        originalParsedConfig,
-        parsedConfigArbitrum,
-        parsedConfigPolygon,
+        originalNetworkConfig,
+        networkConfigArbitrum,
+        networkConfigPolygon,
       ])
 
       expect(networks.length).to.equal(3)
@@ -340,12 +340,13 @@ describe('Preview', () => {
     })
 
     it('returns preview when `isSystemDeployed` is `false`', () => {
-      const parsedConfigWithSystemNotDeployed =
-        structuredClone(originalParsedConfig)
-      parsedConfigWithSystemNotDeployed.isSystemDeployed = false
+      const networkConfigWithSystemNotDeployed = structuredClone(
+        originalNetworkConfig
+      )
+      networkConfigWithSystemNotDeployed.isSystemDeployed = false
 
       const { networks, unlabeledAddresses } = getPreview([
-        parsedConfigWithSystemNotDeployed,
+        networkConfigWithSystemNotDeployed,
       ])
 
       expect(networks.length).to.equal(1)

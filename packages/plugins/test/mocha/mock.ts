@@ -1,12 +1,10 @@
-import { readFileSync, readdirSync } from 'fs'
-
 import {
   ActionInputType,
   BuildInfo,
   ConfigArtifacts,
   ExecutionMode,
   GetConfigArtifacts,
-  ParsedConfig,
+  NetworkConfig,
   isLiveNetwork,
 } from '@sphinx-labs/core'
 import sinon from 'sinon'
@@ -16,8 +14,6 @@ import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
 import { readContractArtifact } from '../../dist'
-
-let buildInfos: BuildInfo[]
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -42,17 +38,17 @@ export const makeMockSphinxContext = (
     .stub(sphinxContext, 'relayProposal')
     .returns(Promise.resolve())
   const prompt = sinon.stub().returns(Promise.resolve())
-  const buildParsedConfigArray = sinon
-    .stub(sphinxContext, 'buildParsedConfigArray')
+  const buildNetworkConfigArray = sinon
+    .stub(sphinxContext, 'buildNetworkConfigArray')
     .returns(
       Promise.resolve({
-        parsedConfigArray: [makeMockParsedConfig()],
+        networkConfigArray: [makeMockNetworkConfig()],
         configArtifacts: {},
         isEmpty: false,
       })
     )
-  const storeCanonicalConfig = sinon
-    .stub(sphinxContext, 'storeCanonicalConfig')
+  const storeDeploymentConfig = sinon
+    .stub(sphinxContext, 'storeDeploymentConfig')
     .returns(Promise.resolve('mock-canonical-config-id'))
 
   const makeGetConfigArtifacts = (
@@ -69,36 +65,32 @@ export const makeMockSphinxContext = (
       _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
-      const files = readdirSync(`./out/artifacts/build-info/`)
-      if (!buildInfos) {
-        buildInfos = await Promise.all(
-          files.map((file) =>
-            JSON.parse(
-              readFileSync(`./out/artifacts/build-info/${file}`, 'utf8')
-            )
-          )
-        )
-      }
-
       for (const name of mockedFullyQualifiedNames) {
-        const [file, contract] = name.split(':')
-
-        const buildInfo = buildInfos.find(
-          (info) =>
-            info.output.contracts[file] && info.output.contracts[file][contract]
-        )
-
-        if (!buildInfo) {
-          throw new Error(
-            'Could not find build info for test contract, this should never happen but is just a bug in the integration test mock'
-          )
-        }
-
         const artifact = await readContractArtifact(
           name,
           projectRoot,
           artifactFolder
         )
+        const buildInfo: BuildInfo = {
+          id: '0',
+          solcVersion: '0.8.0',
+          solcLongVersion: '0.8.21+commit.d9974bed',
+          input: {
+            language: 'Solidity',
+            settings: {
+              optimizer: {
+                runs: undefined,
+                enabled: undefined,
+                details: undefined,
+              },
+              outputSelection: {},
+            },
+            sources: {},
+          },
+          output: {
+            contracts: {},
+          },
+        }
         configArtifacts[name] = {
           buildInfo,
           artifact,
@@ -112,16 +104,16 @@ export const makeMockSphinxContext = (
     isLiveNetwork,
     propose,
     deploy,
-    buildParsedConfigArray,
+    buildNetworkConfigArray,
     getNetworkGasEstimate,
-    storeCanonicalConfig,
+    storeDeploymentConfig,
     relayProposal,
     prompt,
     makeGetConfigArtifacts,
   }
 }
 
-const makeMockParsedConfig = (): ParsedConfig => {
+const makeMockNetworkConfig = (): NetworkConfig => {
   return {
     safeAddress: '0x' + '11'.repeat(20),
     moduleAddress: '0x' + '22'.repeat(20),
@@ -183,14 +175,14 @@ export const makeMockSphinxContextForIntegrationTests = (
   const {
     prompt,
     relayProposal,
-    storeCanonicalConfig,
+    storeDeploymentConfig,
     makeGetConfigArtifacts,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
   context.makeGetConfigArtifacts = makeGetConfigArtifacts
   context.prompt = prompt
   context.relayProposal = relayProposal
-  context.storeCanonicalConfig = storeCanonicalConfig
+  context.storeDeploymentConfig = storeDeploymentConfig
 
   return { context, prompt }
 }

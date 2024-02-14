@@ -19,8 +19,8 @@ import {
   makeDeploymentArtifacts,
   ContractDeploymentArtifact,
   isContractDeploymentArtifact,
-  CompilerConfig,
-  getParsedConfigWithCompilerInputs,
+  DeploymentConfig,
+  makeDeploymentConfig,
   verifyDeploymentWithRetries,
   SphinxTransactionReceipt,
   ExecutionMode,
@@ -40,6 +40,7 @@ import {
   RemoveRoles,
   injectRoles,
   removeRoles,
+  NetworkConfig,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -55,7 +56,7 @@ import {
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
-import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
+import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
 
@@ -72,7 +73,7 @@ export interface DeployArgs {
 export const deploy = async (
   args: DeployArgs
 ): Promise<{
-  compilerConfig?: CompilerConfig
+  deploymentConfig?: DeploymentConfig
   merkleTree?: SphinxMerkleTree
   preview?: ReturnType<typeof getPreview>
   receipts?: Array<SphinxTransactionReceipt>
@@ -275,28 +276,29 @@ export const deploy = async (
   )
 
   const isSystemDeployed = await checkSystemDeployed(provider)
-  const parsedConfig = makeParsedConfig(
+  const networkConfig = makeNetworkConfig(
     deploymentInfo,
     isSystemDeployed,
     configArtifacts,
     [] // We don't currently support linked libraries.
   )
 
-  if (parsedConfig.actionInputs.length === 0) {
+  if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
 
-  const deploymentData = makeDeploymentData([parsedConfig])
+  const deploymentData = makeDeploymentData([networkConfig])
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  const compilerConfigs = getParsedConfigWithCompilerInputs(
-    [parsedConfig],
-    configArtifacts
+  const deploymentConfig = makeDeploymentConfig(
+    [networkConfig],
+    configArtifacts,
+    merkleTree
   )
 
-  await simulate(compilerConfigs, chainId.toString(), forkUrl)
+  await simulate(deploymentConfig, chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 
@@ -304,7 +306,7 @@ export const deploy = async (
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    preview = getPreview([parsedConfig])
+    preview = getPreview([networkConfig])
     spinner.stop()
     const previewString = getPreviewString(preview, true)
     await sphinxContext.prompt(previewString)
@@ -318,12 +320,12 @@ export const deploy = async (
     id: 'only required on website',
     multichainDeploymentId: 'only required on website',
     projectId: 'only required on website',
-    chainId: parsedConfig.chainId,
+    chainId: networkConfig.chainId,
     status: 'approved',
-    moduleAddress: parsedConfig.moduleAddress,
-    safeAddress: parsedConfig.safeAddress,
-    compilerConfigs,
-    networkName: fetchNameForNetwork(BigInt(parsedConfig.chainId)),
+    moduleAddress: networkConfig.moduleAddress,
+    safeAddress: networkConfig.safeAddress,
+    deploymentConfig,
+    networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
     treeSigners: [treeSigner],
   }
   const deploymentContext: DeploymentContext = {
@@ -340,7 +342,7 @@ export const deploy = async (
     },
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
-      _targetNetworkConfig: CompilerConfig,
+      _networkConfig: NetworkConfig,
       _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {
@@ -374,13 +376,13 @@ export const deploy = async (
 
   spinner.start(`Building deployment artifacts...`)
 
-  const { projectName } = parsedConfig.newConfig
+  const { projectName } = networkConfig.newConfig
 
   // Get the existing contract deployment artifacts
   const contractArtifactDirPath = join(
     `deployments`,
     projectName,
-    getNetworkNameDirectory(chainId.toString(), parsedConfig.executionMode)
+    getNetworkNameDirectory(chainId.toString(), networkConfig.executionMode)
   )
   const artifactFileNames = existsSync(contractArtifactDirPath)
     ? readdirSync(contractArtifactDirPath)
@@ -399,16 +401,11 @@ export const deploy = async (
     }
   }
 
-  const [compilerConfig] = getParsedConfigWithCompilerInputs(
-    [parsedConfig],
-    configArtifacts
-  )
-
   const deploymentArtifacts = await makeDeploymentArtifacts(
     {
       [chainId.toString()]: {
         provider,
-        compilerConfig,
+        deploymentConfig,
         receipts,
         previousContractArtifacts,
       },
@@ -422,7 +419,7 @@ export const deploy = async (
 
   writeDeploymentArtifacts(
     projectName,
-    parsedConfig.executionMode,
+    networkConfig.executionMode,
     deploymentArtifacts
   )
 
@@ -431,16 +428,16 @@ export const deploy = async (
   spinner.succeed(`Wrote deployment artifacts.`)
 
   if (!silent) {
-    displayDeploymentTable(parsedConfig)
+    displayDeploymentTable(networkConfig)
   }
 
-  if (parsedConfig.executionMode === ExecutionMode.LiveNetworkCLI && verify) {
+  if (networkConfig.executionMode === ExecutionMode.LiveNetworkCLI && verify) {
     spinner.info(`Verifying contracts on Etherscan.`)
 
     const etherscanApiKey = etherscan[network].key
 
     await verifyDeploymentWithRetries(
-      parsedConfig,
+      networkConfig,
       configArtifacts,
       provider,
       etherscanApiKey
@@ -448,7 +445,7 @@ export const deploy = async (
   }
 
   return {
-    compilerConfig,
+    deploymentConfig,
     merkleTree,
     preview,
     receipts,

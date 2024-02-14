@@ -8,6 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   ContractArtifact,
+  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
@@ -69,7 +70,7 @@ export type ActionInput =
   | Create2ActionInput
   | CreateActionInput
 
-export type ParsedConfig = {
+export type NetworkConfig = {
   safeAddress: string
   moduleAddress: string
   executorAddress: string
@@ -197,7 +198,10 @@ interface AbstractActionInput extends SphinxTransaction {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CompilerConfig extends ParsedConfig {
+export interface DeploymentConfig {
+  networkConfigs: Array<NetworkConfig>
+  merkleTree: SphinxMerkleTree
+  configArtifacts: ConfigArtifacts
   inputs: Array<CompilerInput>
   version: string
 }

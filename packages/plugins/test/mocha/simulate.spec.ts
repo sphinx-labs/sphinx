@@ -1,13 +1,14 @@
 import chai, { expect } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  CompilerConfig,
+  DeploymentConfig,
   ExecutionMode,
   SphinxJsonRpcProvider,
   fetchURLForNetwork,
   fetchNameForNetwork,
   isFork,
   isLiveNetwork,
+  NetworkConfig,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
@@ -25,7 +26,8 @@ import { simulate } from '../../src/hardhat/simulate'
 chai.use(chaiAsPromised)
 
 describe('Simulate', () => {
-  let parsedConfigArray: Array<CompilerConfig>
+  let networkConfigArray: Array<NetworkConfig>
+  let deploymentConfig: DeploymentConfig
 
   before(async function () {
     // Skip the tests if the environment variable `CIRCLE_BRANCH` is defined and does not equal
@@ -75,7 +77,8 @@ describe('Simulate', () => {
       accountAccesses,
       fetchURLForNetwork
     )
-    parsedConfigArray = deployment.compilerConfigArray
+    networkConfigArray = deployment.deploymentConfig.networkConfigs
+    deploymentConfig = deployment.deploymentConfig
   })
 
   // The main purpose of this test is to check that there aren't conditions on live networks that
@@ -85,18 +88,18 @@ describe('Simulate', () => {
   // logic.
   it('succeeds on every live supported network', async () => {
     const results = await Promise.allSettled(
-      parsedConfigArray.map((parsedConfig) =>
+      networkConfigArray.map((networkConfig) =>
         simulate(
-          parsedConfigArray,
-          parsedConfig.chainId,
-          fetchURLForNetwork(BigInt(parsedConfig.chainId))
+          deploymentConfig,
+          networkConfig.chainId,
+          fetchURLForNetwork(BigInt(networkConfig.chainId))
         )
       )
     )
 
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
-        const chainId = parsedConfigArray[index].chainId
+        const chainId = networkConfigArray[index].chainId
         const networkName = fetchNameForNetwork(BigInt(chainId))
         console.error(`Error on network ${networkName}:`, result.reason)
       }
@@ -115,11 +118,11 @@ describe('Simulate', () => {
     const ethereumChainId = BigInt(1)
     await startForkedAnvilNodes([ethereumChainId])
 
-    const parsedConfig = parsedConfigArray.find(
+    const networkConfig = networkConfigArray.find(
       ({ chainId }) => chainId === ethereumChainId.toString()
     )
-    if (!parsedConfig) {
-      throw new Error(`Could not find Ethereum ParsedConfig.`)
+    if (!networkConfig) {
+      throw new Error(`Could not find Ethereum NetworkConfig.`)
     }
 
     // Get the Anvil RPC url, which is running the Ethereum fork.
@@ -133,8 +136,8 @@ describe('Simulate', () => {
     // Run the simulation. If an error is thrown, the test will fail. We don't use `chaiAsPromised`
     // here because it truncates the error message if an error occurs.
     await simulate(
-      [parsedConfig],
-      parsedConfig.chainId,
+      deploymentConfig,
+      networkConfig.chainId,
       getAnvilRpcUrl(ethereumChainId)
     )
 
