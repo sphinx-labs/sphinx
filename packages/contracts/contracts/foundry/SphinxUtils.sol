@@ -1010,6 +1010,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "blockGasLimit",
             abi.encode(_deployment.blockGasLimit)
         );
+        vm.serializeBytes(deploymentInfoKey, "blockNumber", abi.encode(_deployment.blockNumber));
         vm.serializeBytes(
             deploymentInfoKey,
             "executionMode",

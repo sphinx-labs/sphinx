@@ -97,6 +97,7 @@ struct FoundryDeploymentInfo {
     uint256 nonce;
     uint256 chainId;
     uint256 blockGasLimit;
+    uint256 blockNumber;
     bytes safeInitData;
     bool requireSuccess;
     SphinxConfig newConfig;

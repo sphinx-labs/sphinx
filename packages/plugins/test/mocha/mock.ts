@@ -130,6 +130,7 @@ const makeMockParsedConfig = (): ParsedConfig => {
     nonce: '0',
     chainId: '1',
     blockGasLimit: '0',
+    blockNumber: '0',
     actionInputs: [
       {
         contracts: [],
