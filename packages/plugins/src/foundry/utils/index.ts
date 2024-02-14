@@ -1250,30 +1250,6 @@ export const writeSystemContracts = (
   return filePath
 }
 
-export const assertValidAccountAccesses = (
-  accountAccesses: Array<ParsedAccountAccess>,
-  safeAddress: string
-): void => {
-  const flat = accountAccesses.flatMap((access) => [
-    access.root,
-    ...access.nested,
-  ])
-
-  for (const accountAccess of flat) {
-    if (accountAccess.accessor === safeAddress) {
-      if (BigInt(accountAccess.value) > BigInt(0)) {
-        throw new Error(
-          `Detected value transfer in script:\n` +
-            `To: ${accountAccess.account}\n` +
-            `Amount: ${ethers.parseEther(accountAccess.value.toString())}\n` +
-            `Sphinx does not support transferring native gas tokens during deployments.\n` +
-            `Let us know if you want this feature!`
-        )
-      }
-    }
-  }
-}
-
 /**
  * Checks if the `accountAccess` and the `nextAccountAccess` form a valid `CREATE2` deployment
  * through the Deterministic Deployment Proxy (i.e. Foundry's default `CREATE2` deployer).
