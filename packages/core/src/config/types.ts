@@ -194,6 +194,10 @@ interface AbstractActionInput extends SphinxTransaction {
   index: string
 }
 
+export interface BuildInfos {
+  [id: string]: BuildInfo
+}
+
 /**
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
@@ -202,20 +206,14 @@ export interface DeploymentConfig {
   networkConfigs: Array<NetworkConfig>
   merkleTree: SphinxMerkleTree
   configArtifacts: ConfigArtifacts
+  buildInfos: BuildInfos
   inputs: Array<CompilerInput>
   version: string
 }
 
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
-    buildInfo: BuildInfo
-    artifact: ContractArtifact
-  }
-}
-
-export type ConfigArtifactsRemote = {
-  [fullyQualifiedName: string]: {
-    buildInfo: BuildInfo
+    buildInfoId: string
     artifact: ContractArtifact
   }
 }
@@ -239,7 +237,7 @@ export type FoundryContractConfig = {
 
 export type GetConfigArtifacts = (
   initCodeWithArgsArray: Array<string>
-) => Promise<ConfigArtifacts>
+) => Promise<{ configArtifacts: ConfigArtifacts; buildInfos: BuildInfos }>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 

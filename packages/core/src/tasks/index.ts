@@ -6,6 +6,7 @@ import {
 } from '@sphinx-labs/contracts'
 
 import {
+  BuildInfos,
   ConfigArtifacts,
   DeploymentConfig,
   NetworkConfig,
@@ -19,6 +20,7 @@ dotenv.config()
 export const makeDeploymentConfig = (
   networkConfigs: Array<NetworkConfig>,
   configArtifacts: ConfigArtifacts,
+  buildInfos: BuildInfos,
   merkleTree: SphinxMerkleTree
 ): DeploymentConfig => {
   const sphinxInputs: Array<CompilerInput> = []
@@ -26,8 +28,9 @@ export const makeDeploymentConfig = (
   for (const networkConfig of networkConfigs) {
     for (const actionInput of networkConfig.actionInputs) {
       for (const { fullyQualifiedName } of actionInput.contracts) {
-        const { buildInfo, artifact } = configArtifacts[fullyQualifiedName]
-        if (!buildInfo || !artifact) {
+        const { buildInfoId, artifact } = configArtifacts[fullyQualifiedName]
+        const buildInfo = buildInfos[buildInfoId]
+        if (!buildInfos[buildInfoId] || !artifact) {
           throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
         }
 
@@ -67,6 +70,7 @@ export const makeDeploymentConfig = (
 
   return {
     networkConfigs,
+    buildInfos,
     inputs: sphinxInputs,
     version: COMPILER_CONFIG_VERSION,
     merkleTree,

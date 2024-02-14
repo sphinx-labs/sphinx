@@ -1,6 +1,7 @@
 import {
   ActionInputType,
   BuildInfo,
+  BuildInfos,
   ConfigArtifacts,
   ExecutionMode,
   GetConfigArtifacts,
@@ -65,6 +66,7 @@ export const makeMockSphinxContext = (
       _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
+      const buildInfos: BuildInfos = {}
       for (const name of mockedFullyQualifiedNames) {
         const artifact = await readContractArtifact(
           name,
@@ -91,12 +93,16 @@ export const makeMockSphinxContext = (
             contracts: {},
           },
         }
+        buildInfos[buildInfo.id] = buildInfo
         configArtifacts[name] = {
-          buildInfo,
+          buildInfoId: buildInfo.id,
           artifact,
         }
       }
-      return configArtifacts
+      return {
+        configArtifacts,
+        buildInfos,
+      }
     }
   }
 

@@ -276,6 +276,7 @@ export const convertEthersTransactionReceipt = (
 const makeContractDeploymentArtifacts = async (
   merkleRoot: string,
   networkConfig: NetworkConfig,
+  deploymentConfig: DeploymentConfig,
   receipts: Array<SphinxTransactionReceipt>,
   configArtifacts: ConfigArtifacts,
   previousArtifacts: {
@@ -301,8 +302,9 @@ const makeContractDeploymentArtifacts = async (
   for (const action of networkConfig.actionInputs) {
     for (const contract of action.contracts) {
       const { fullyQualifiedName, initCodeWithArgs, address } = contract
-      const { artifact: compilerArtifact, buildInfo } =
+      const { artifact: compilerArtifact, buildInfoId } =
         configArtifacts[fullyQualifiedName]
+      const buildInfo = deploymentConfig.buildInfos[buildInfoId]
 
       if (!compilerArtifact || !buildInfo) {
         throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
@@ -569,6 +571,7 @@ export const makeDeploymentArtifacts = async (
     const contractArtifacts = await makeContractDeploymentArtifacts(
       merkleRoot,
       networkConfig,
+      deploymentConfig,
       receipts,
       configArtifacts,
       previousContractArtifacts,

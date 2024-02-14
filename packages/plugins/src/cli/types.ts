@@ -5,6 +5,7 @@ import {
   ConfigArtifacts,
   GetConfigArtifacts,
   NetworkConfig,
+  BuildInfos,
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
@@ -61,6 +62,7 @@ export type BuildNetworkConfigArray = (
 ) => Promise<{
   networkConfigArray?: Array<NetworkConfig>
   configArtifacts?: ConfigArtifacts
+  buildInfos?: BuildInfos
   isEmpty: boolean
 }>
 

@@ -1157,8 +1157,6 @@ export const compileAndExecuteDeployment = async (
     return
   }
 
-  const { projectName } = targetNetworkNetworkConfig.newConfig
-
   // get active deployment ID for this project
   const moduleAddress = deployment.moduleAddress
   const sphinxModuleReadOnly = new ethers.Contract(
@@ -1190,10 +1188,6 @@ export const compileAndExecuteDeployment = async (
   deploymentContext.spinner?.start('Execution ready')
 
   if (deployment.status === 'approved') {
-    logger?.info(
-      `[Executor ${networkName}]: compiled ${projectName} on: ${networkName}.`
-    )
-
     let receipts: ethers.TransactionReceipt[] = []
     let batches: SphinxLeafWithProof[][] = []
     let finalStatus: bigint

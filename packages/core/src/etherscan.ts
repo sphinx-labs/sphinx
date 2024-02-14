@@ -16,10 +16,15 @@ import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
 import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
 import { customChains } from './constants'
-import { ConfigArtifacts, NetworkConfig } from './config/types'
+import { DeploymentConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { formatSolcLongVersion, isLiveNetwork, sleep } from './utils'
+import {
+  fetchNetworkConfigFromDeploymentConfig,
+  formatSolcLongVersion,
+  isLiveNetwork,
+  sleep,
+} from './utils'
 import { BuildInfo } from './languages'
 import {
   fetchNameForNetwork,
@@ -52,19 +57,24 @@ export const getChainConfig = (chainId: number): ChainConfig => {
  * Verify a deployment on Etherscan. Meant to be used by the DevOps Platform.
  */
 export const verifySphinxConfig = async (
-  networkConfig: NetworkConfig,
-  configArtifacts: ConfigArtifacts,
+  deploymentConfig: DeploymentConfig,
   provider: ethers.Provider,
-  networkName: string,
   apiKey: string
 ): Promise<void> => {
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    (await provider.getNetwork()).chainId,
+    deploymentConfig
+  )
+
   for (const actionInput of networkConfig.actionInputs) {
     for (const {
       address,
       fullyQualifiedName,
       initCodeWithArgs,
     } of actionInput.contracts) {
-      const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+      const { artifact, buildInfoId } =
+        deploymentConfig.configArtifacts[fullyQualifiedName]
+      const buildInfo = deploymentConfig.buildInfos[buildInfoId]
 
       const minimumCompilerInput = getMinimumCompilerInput(
         buildInfo.input,
@@ -103,12 +113,15 @@ export const verifySphinxConfig = async (
  * Verify a deployment on Etherscan with five retries per contract. Meant to be called by the Sphinx Foundry plugin.
  */
 export const verifyDeploymentWithRetries = async (
-  networkConfig: NetworkConfig,
-  configArtifacts: ConfigArtifacts,
+  deploymentConfig: DeploymentConfig,
   provider: ethers.Provider,
   apiKey: string
 ): Promise<void> => {
   const maxAttempts = 10
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    (await provider.getNetwork()).chainId,
+    deploymentConfig
+  )
 
   for (const actionInput of networkConfig.actionInputs) {
     for (const {
@@ -120,7 +133,9 @@ export const verifyDeploymentWithRetries = async (
 
       const contractName = fullyQualifiedName.split(':')[1]
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const { artifact, buildInfo } = configArtifacts[fullyQualifiedName]
+        const { artifact, buildInfoId } =
+          deploymentConfig.configArtifacts[fullyQualifiedName]
+        const buildInfo = deploymentConfig.buildInfos[buildInfoId]
 
         const minimumCompilerInput = getMinimumCompilerInput(
           buildInfo.input,
