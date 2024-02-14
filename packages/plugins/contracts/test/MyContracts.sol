@@ -36,7 +36,7 @@ contract MyContract1 {
     }
 
     function incrementUint() external {
-        uintArg += 1;
+        uintArg += MyLibraryOne.myFirstLibraryFunction();
     }
 
     function set(int256 _int) external {

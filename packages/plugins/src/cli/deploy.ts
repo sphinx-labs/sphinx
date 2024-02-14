@@ -212,6 +212,10 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+    // Set the Gnosis Safe as the sender so that it deploys any linked libraries in the script. This
+    // is necessary to ensure that the libraries have the same addresses when they're deployed on a
+    // live network. `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER`
+    // environment variable.
     FOUNDRY_SENDER: safeAddress,
   })
 
@@ -272,8 +276,7 @@ export const deploy = async (
   const parsedConfig = makeParsedConfig(
     deploymentInfo,
     isSystemDeployed,
-    configArtifacts,
-    libraries
+    configArtifacts
   )
 
   if (parsedConfig.actionInputs.length === 0) {
@@ -417,7 +420,7 @@ export const deploy = async (
 //   }
 // }
 
-// TODO(later-later): manually check that verification succeeds when the deployment includes a
+// TODO(later): manually check that verification succeeds when the deployment includes a
 // dynamically linked _and_ a pre-linked library. in the latter case, it's fine if we don't very the
 // pre-linked library (since it's already deployed), but verification shouldn't randomly fail due to
 // its presence.

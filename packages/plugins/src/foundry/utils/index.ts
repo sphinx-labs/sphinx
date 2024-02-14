@@ -1470,14 +1470,9 @@ export const assertValidLinkedLibraries = (
   }
 }
 
-// TODO(later-later): check if `--libraries` overrides the `libraries` field in the foundry.toml. if
-// it does override it, consider merging the libraries that you pass in.
-
 // TODO(end): gh: Users can specify pre-linked libraries in their foundry.toml, so I didn't add "we
 // don't support pre-linked libraries" to the Current Limitations section in the main README.
 
-// TODO(later-later): remove the "Current limitation" in the foundry.toml.
+// TODO(later): remove the "Current limitation" in the foundry.toml.
 
-// TODO(later-later): checkboxes in linear ticket.
-
-// TODO(later-later): add library to preview.spec.ts.
+// TODO(later): checkboxes in linear ticket.

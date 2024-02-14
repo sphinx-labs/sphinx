@@ -7,6 +7,7 @@ pragma solidity ^0.8.0;
 // forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
+import { console2 as console } from "../../lib/forge-std/src/console2.sol"; // TODO(end): rm;
 
 import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -159,6 +160,9 @@ abstract contract Sphinx {
         address safe = safeAddress();
         address module = sphinxModule();
 
+        console.log('0 TODO', 0xA8f1076250735C817C7c49399C0f044601E4D97f.code.length);
+        console.log('1 TODO', 0x2d1Ad6Ec1975968af27FaA0dc430E9E87F63fdC2.code.length);
+
         RawDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
@@ -184,9 +188,11 @@ abstract contract Sphinx {
         deploymentInfo.sphinxLibraryVersion = sphinxUtils.getSphinxLibraryVersion();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
+        deploymentInfo.scriptDeployedCode = address(this).code;
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
-        // going to call the Gnosis Safe to estimate the gas.
+        // going to call the Gnosis Safe to estimate the gas. TODO(docs): also necessary to
+        // ensure that the safe's nonce is incremented as a contract instead of an EOA.
         if (address(safe).code.length == 0) {
             sphinxUtils.deployModuleAndGnosisSafe(
                 sphinxConfig.owners,

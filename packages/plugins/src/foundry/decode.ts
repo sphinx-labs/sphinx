@@ -1,5 +1,3 @@
-import { readFileSync } from 'fs'
-
 import {
   ActionInput,
   ConfigArtifacts,
@@ -19,8 +17,8 @@ import {
   Create2ActionInput,
   ActionInputType,
   Libraries,
-  AccountAccess,
-  ParsedAccountAccess,
+  MinimalAccountAccess,
+  ParsedAccountAccessHierarchy,
   inferDeployerNonce,
   resolveAllLibraryPlaceholders,
   SphinxJsonRpcProvider,
@@ -32,16 +30,13 @@ import {
   recursivelyConvertResult,
   getCurrentGitCommitHash,
   getCreateCallAddress,
-  parseFoundryContractArtifact,
   add0x,
-  LinkReferences,
 } from '@sphinx-labs/contracts'
 
 import {
   assertValidAccountAccesses,
   assertValidLinkedLibraries,
   convertLibraries,
-  convertLibraryFormat,
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
   findFullyQualifiedNames,
@@ -58,7 +53,7 @@ export const decodeDeploymentInfo = (
   serializedDeploymentInfo: string,
   sphinxPluginTypesInterface: ethers.Interface,
   libraries: Libraries,
-  libraryAccountAccesses: Array<ParsedAccountAccess>,
+  libraryAccountAccesses: Array<ParsedAccountAccessHierarchy>,
   libraryGasEstimates: Array<string>
 ): ParsedDeploymentInfo => {
   const parsed = JSON.parse(serializedDeploymentInfo)
@@ -458,7 +453,7 @@ export const inferLinkedLibraries = async (
   targetContract?: string
 ): Promise<{
   libraries: Libraries
-  libraryAccountAccesses: Array<ParsedAccountAccess>
+  libraryAccountAccesses: Array<ParsedAccountAccessHierarchy>
   libraryGasEstimates: Array<string>
 }> => {
   const { scriptDeployedCode, safeAddress } = JSON.parse(
@@ -527,7 +522,7 @@ export const inferLinkedLibraries = async (
   // libraries.
 
   const accountAccessesWithNonce: Array<{
-    accountAccess: ParsedAccountAccess
+    accountAccess: ParsedAccountAccessHierarchy
     nonce: number
   }> = []
   for (const sourceName of Object.keys(libraries)) {
@@ -553,7 +548,7 @@ export const inferLinkedLibraries = async (
         gnosisSafeNonceAfterLibraries
       )
 
-      const rootAccountAccess: AccountAccess = {
+      const rootAccountAccess: MinimalAccountAccess = {
         kind: AccountAccessKind.Create,
         account: libraryAddress,
         accessor: safeAddress,
@@ -580,7 +575,7 @@ export const inferLinkedLibraries = async (
   const gasEstimatesBigInt = await Promise.all(
     libraryAccountAccesses.map((accountAccess) =>
       provider.estimateGas({
-        data: accountAccess.data,
+        data: accountAccess.root.data,
       })
     )
   )
@@ -591,8 +586,11 @@ export const inferLinkedLibraries = async (
   return { libraries, libraryAccountAccesses, libraryGasEstimates }
 }
 
-// TODO(later-later): probably put pre-linked libraries from foundry.toml in the parsedconfig and
+// TODO(later): probably put pre-linked libraries from foundry.toml in the parsedconfig and
 // deployment artifacts.
+
+// TODO(later): do we need to bring back `convertLibraryFormat` to support pre-linked
+// libraries from foundry.toml?
 
 // TODO(docs): assertValidLinkedLibraries: check that the linkReferences and deployedLinkReferences
 // contain the same libraries. it's important to check this b/c we need to deploy every library that

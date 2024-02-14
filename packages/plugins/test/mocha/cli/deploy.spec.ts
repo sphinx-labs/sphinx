@@ -136,7 +136,7 @@ describe('Deploy CLI command', () => {
       // `deploy` function, which will fail if the function hasn't compiled the contracts yet. By
       // running `forge clean` here, we're testing that this compilation occurs in the `deploy`
       // function.
-      await execAsync(`forge clean`)
+      // await execAsync(`forge clean`) TODO(end): undo
 
       const executionMode = ExecutionMode.LocalNetworkCLI
 

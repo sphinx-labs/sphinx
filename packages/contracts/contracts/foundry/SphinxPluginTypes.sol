@@ -103,6 +103,7 @@ struct RawDeploymentInfo {
     string sphinxLibraryVersion;
     bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
+    bytes scriptDeployedCode;
 }
 
 enum ExecutionMode {

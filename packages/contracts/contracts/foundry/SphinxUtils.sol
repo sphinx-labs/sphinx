@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
 
+import { console2 as console } from '../../lib/forge-std/src/console2.sol'; // TODO(end): rm
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";
 import {
@@ -1223,7 +1224,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         (bool success, bytes memory runtimeBytecode) = _where.call("");
         require(success, "SphinxUtils: failed to create runtime bytecode");
         vm.etch(_where, runtimeBytecode);
-        // Set the nonce to be 1, which is the initial nonce for contracts.
-        vm.setNonce(_where, 1);
+        if (vm.getNonce(_where) == 0) {
+            // Set the nonce to be 1, which is the initial nonce for contracts.
+            vm.setNonce(_where, 1);
+        }
     }
 }

@@ -31,7 +31,11 @@ import {
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import { makeParsedConfig, decodeDeploymentInfo } from '../../foundry/decode'
+import {
+  makeParsedConfig,
+  decodeDeploymentInfo,
+  inferLinkedLibraries,
+} from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
@@ -74,7 +78,7 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
   configArtifacts?: ConfigArtifacts
   isEmpty: boolean
 }> => {
-  const { testnets, mainnets } = await getSphinxConfigFromScript(
+  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
     targetContract,
@@ -118,6 +122,9 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     ]
 
     const provider = new SphinxJsonRpcProvider(rpcUrl)
+    const initialGnosisSafeNonce = await provider.getTransactionCount(
+      safeAddress
+    )
     if (
       isLegacyTransactionsRequiredForNetwork(
         (await provider.getNetwork()).chainId
@@ -136,6 +143,11 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
       // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+      // Set the Gnosis Safe as the sender so that it deploys any linked libraries in the script. This
+      // is necessary to ensure that the libraries have the same addresses when they're deployed on a
+      // live network. `FOUNDRY_SENDER` has priority over the `--sender` flag and the `DAPP_SENDER`
+      // environment variable.
+      FOUNDRY_SENDER: safeAddress,
     })
 
     if (spawnOutput.code !== 0) {
@@ -148,9 +160,22 @@ export const buildParsedConfigArray: BuildParsedConfigArray = async (
     }
 
     const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+    const { libraries, libraryAccountAccesses, libraryGasEstimates } =
+      await inferLinkedLibraries(
+        serializedDeploymentInfo,
+        scriptPath,
+        initialGnosisSafeNonce,
+        foundryToml,
+        projectRoot,
+        provider,
+        targetContract
+      )
     const deploymentInfo = decodeDeploymentInfo(
       serializedDeploymentInfo,
-      sphinxPluginTypesInterface
+      sphinxPluginTypesInterface,
+      libraries,
+      libraryAccountAccesses,
+      libraryGasEstimates
     )
 
     checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)

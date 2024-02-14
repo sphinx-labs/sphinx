@@ -402,6 +402,7 @@ export const makeDeployment = async (
         accountAccesses,
         gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+        libraries: {},
       }
 
       return deploymentInfo
@@ -432,8 +433,7 @@ export const makeDeployment = async (
     return makeParsedConfig(
       deploymentInfo,
       true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
-      configArtifacts,
-      [] // No libraries
+      configArtifacts
     )
   })
 
