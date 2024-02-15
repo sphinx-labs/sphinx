@@ -128,7 +128,7 @@ export const init = async (
 
   spinner.succeed('Initialized sample Sphinx project.')
 
-  await handleInstall(spinner, false, true)
+  await handleInstall(spinner, false, false)
 
   await handleCommit()
 }
