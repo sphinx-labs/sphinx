@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.29.2
+
+### Patch Changes
+
+- 6c521cb: Prompt to install Foundry fork during init
+
 ## 0.29.1
 
 ### Patch Changes
