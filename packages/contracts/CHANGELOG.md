@@ -1,5 +1,17 @@
 # @sphinx-labs/contracts
 
+## 0.19.0
+
+### Minor Changes
+
+- cbab29e: Only compile locally
+- f5fac9c: Check mismatch between plugins package and contracts library early
+
+### Patch Changes
+
+- 373c3fa: Adjust gas heuristics to support large contracts on Scroll
+- 151b2e2: Make simulation more reliable by using less recent block number
+
 ## 0.18.1
 
 ### Patch Changes

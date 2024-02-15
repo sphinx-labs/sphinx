@@ -1,5 +1,24 @@
 # @sphinx-labs/core
 
+## 0.22.0
+
+### Minor Changes
+
+- cbab29e: Only compile locally
+
+### Patch Changes
+
+- 373c3fa: Adjust gas heuristics to support large contracts on Scroll
+- 151b2e2: Make simulation more reliable by using less recent block number
+- 83b4974: Use full execution logic in simulation
+- 83b4974: Upload compiler config to s3
+- 2406ced: Re-enable tests that use live network RPC URLs
+- Updated dependencies [373c3fa]
+- Updated dependencies [151b2e2]
+- Updated dependencies [cbab29e]
+- Updated dependencies [f5fac9c]
+  - @sphinx-labs/contracts@0.19.0
+
 ## 0.21.5
 
 ### Patch Changes
