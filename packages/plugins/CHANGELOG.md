@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.29.3
+
+### Patch Changes
+
+- 71ec0a6: Bump hardhat version
+
 ## 0.29.2
 
 ### Patch Changes
