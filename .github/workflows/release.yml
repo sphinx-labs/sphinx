@@ -1,6 +1,7 @@
 name: Release packages (prod)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
