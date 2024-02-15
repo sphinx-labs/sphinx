@@ -131,10 +131,6 @@ type ContractDeploymentArtifact = {
   gitCommit: string | null
   devdoc?: any
   userdoc?: any
-  storageLayout?: SolidityStorageLayout
-  methodIdentifiers?: {
-    [methodSignature: string]: string
-  }
 }
 ```
 
@@ -159,9 +155,6 @@ type ContractDeploymentArtifact = {
 * **history**: The history of the contract. Each element in the array is a previous contract deployment artifact with the `history` field omitted to avoid nesting. The elements are sorted chronologically from earliest to latest. Sphinx organizes the history according to the `contractName`. For example, if a project deploys a contract named "MyContract" in three separate deployments, then the first element in the `history` array will be the first deployment, the second element in the array will be the second deployment, and the top-level artifact will be the most recent deployment.
 * **devdoc** (optional): The developer documentation of the contract as returned by the Solidity compiler (optional).
 * **userdoc** (optional): The user documentation of the contract as returned by the Solidity compiler (optional).
-* **storageLayout** (optional): The storage layout of the contract as returned by the Solidity compiler (optional).
-* **methodIdentifiers** (optional): The method identifiers of the contract as returned by the Solidity compiler (optional).
-
 ### Example
 
 ```json
@@ -227,9 +220,6 @@ type ContractDeploymentArtifact = {
   "chainId": "11155111",
   "linkReferences": {},
   "deployedLinkReferences": {},
-  "methodIdentifiers": {
-    "intArg()": "3be07c13"
-  },
   "history": [],
   "devdoc": {
     "kind": "dev",
@@ -241,25 +231,6 @@ type ContractDeploymentArtifact = {
     "methods": {},
     "version": 1
   },
-  "storageLayout": {
-    "storage": [
-      {
-        "astId": 46960,
-        "contract": "contracts/test/MyContracts.sol:MyContract1",
-        "label": "intArg",
-        "offset": 0,
-        "slot": "0",
-        "type": "t_int256"
-      }
-    ],
-    "types": {
-      "t_int256": {
-        "encoding": "inplace",
-        "label": "int256",
-        "numberOfBytes": "32"
-      }
-    }
-  }
 }
 ```
 

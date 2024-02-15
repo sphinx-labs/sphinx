@@ -1,10 +1,8 @@
 import {
   CompilerOutputMetadata,
   LinkReferences,
-  SolidityStorageLayout,
   SphinxTransaction,
 } from '@sphinx-labs/contracts'
-import { SourceUnit } from 'solidity-ast'
 
 import { ExecutionMode } from '../../constants'
 
@@ -186,10 +184,6 @@ export type ContractDeploymentArtifact = {
   gitCommit: string | null
   devdoc?: any
   userdoc?: any
-  storageLayout?: SolidityStorageLayout
-  methodIdentifiers?: {
-    [methodSignature: string]: string
-  }
 }
 
 /**
@@ -318,13 +312,9 @@ export interface SolcInput {
 
 export interface CompilerOutputContract {
   abi: Array<any>
-  storageLayout?: SolidityStorageLayout
   evm: {
     bytecode: CompilerOutputBytecode
     deployedBytecode: CompilerOutputBytecode
-    methodIdentifiers: {
-      [methodSignature: string]: string
-    }
   }
   metadata: string | CompilerOutputMetadata
 }
@@ -336,24 +326,11 @@ export interface CompilerOutputContracts {
 }
 
 export interface CompilerOutput {
-  sources: CompilerOutputSources
   contracts: CompilerOutputContracts
-  errors?: any[]
-}
-
-export interface CompilerOutputSource {
-  id: number
-  ast: SourceUnit
-}
-
-export interface CompilerOutputSources {
-  [sourceName: string]: CompilerOutputSource
 }
 
 export interface CompilerOutputBytecode {
   object: string
-  opcodes: string
-  sourceMap: string
   linkReferences: {
     [sourceName: string]: {
       [libraryName: string]: Array<{ start: number; length: 20 }>

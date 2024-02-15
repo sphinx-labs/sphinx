@@ -1,9 +1,11 @@
 import ora from 'ora'
 import { ethers } from 'ethers'
 import {
+  DeploymentConfig,
   ConfigArtifacts,
   GetConfigArtifacts,
-  ParsedConfig,
+  NetworkConfig,
+  BuildInfos,
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
@@ -40,7 +42,7 @@ export interface ArtifactsCommandArgs {
 }
 
 export type GetNetworkGasEstimate = (
-  parsedConfigArray: Array<ParsedConfig>,
+  deploymentConfig: DeploymentConfig,
   chainId: string,
   foundryToml: FoundryToml
 ) => Promise<{
@@ -48,7 +50,7 @@ export type GetNetworkGasEstimate = (
   estimatedGas: string
 }>
 
-export type BuildParsedConfigArray = (
+export type BuildNetworkConfigArray = (
   scriptPath: string,
   isTestnet: boolean,
   sphinxPluginTypesInterface: ethers.Interface,
@@ -58,8 +60,9 @@ export type BuildParsedConfigArray = (
   targetContract?: string,
   spinner?: ora.Ora
 ) => Promise<{
-  parsedConfigArray?: Array<ParsedConfig>
+  networkConfigArray?: Array<NetworkConfig>
   configArtifacts?: ConfigArtifacts
+  buildInfos?: BuildInfos
   isEmpty: boolean
 }>
 

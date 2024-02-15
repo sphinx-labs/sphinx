@@ -1,11 +1,13 @@
-import { join } from 'path'
+import { join, relative } from 'path'
 import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
 
 import {
   displayDeploymentTable,
+  fundAccountMaxBalance,
   getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
   isFile,
+  signMerkleRoot,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
@@ -17,18 +19,28 @@ import {
   makeDeploymentArtifacts,
   ContractDeploymentArtifact,
   isContractDeploymentArtifact,
-  CompilerConfig,
-  getParsedConfigWithCompilerInputs,
+  DeploymentConfig,
+  makeDeploymentConfig,
   verifyDeploymentWithRetries,
   SphinxTransactionReceipt,
   ExecutionMode,
-  runEntireDeploymentProcess,
   ConfigArtifacts,
   checkSystemDeployed,
   fetchChainIdForNetwork,
   writeDeploymentArtifacts,
   isLegacyTransactionsRequiredForNetwork,
   MAX_UINT64,
+  compileAndExecuteDeployment,
+  Deployment,
+  fetchNameForNetwork,
+  DeploymentContext,
+  HumanReadableAction,
+  executeTransactionViaSigner,
+  InjectRoles,
+  RemoveRoles,
+  injectRoles,
+  removeRoles,
+  NetworkConfig,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -37,17 +49,16 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
-  assertSphinxFoundryForkInstalled,
+  assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
-import { decodeDeploymentInfo, makeParsedConfig } from '../foundry/decode'
+import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
-import { checkLibraryVersion } from './utils'
 
 export interface DeployArgs {
   scriptPath: string
@@ -62,14 +73,13 @@ export interface DeployArgs {
 export const deploy = async (
   args: DeployArgs
 ): Promise<{
-  compilerConfig?: CompilerConfig
+  deploymentConfig?: DeploymentConfig
   merkleTree?: SphinxMerkleTree
   preview?: ReturnType<typeof getPreview>
   receipts?: Array<SphinxTransactionReceipt>
   configArtifacts?: ConfigArtifacts
 }> => {
   const {
-    scriptPath,
     network,
     skipPreview,
     silent,
@@ -78,14 +88,18 @@ export const deploy = async (
     targetContract,
   } = args
 
+  const projectRoot = process.cwd()
+
+  // Normalize the script path to be in the format "path/to/file.sol". This isn't strictly
+  // necessary, but we're less likely to introduce a bug if it's always in the same format.
+  const scriptPath = relative(projectRoot, args.scriptPath)
+
   if (!isFile(scriptPath)) {
     throw new Error(
       `File does not exist at: ${scriptPath}\n` +
         `Please make sure this is a valid file path.`
     )
   }
-
-  const projectRoot = process.cwd()
 
   // Run the compiler. It's necessary to do this before we read any contract interfaces.
   compile(
@@ -105,7 +119,7 @@ export const deploy = async (
     etherscan,
   } = foundryToml
 
-  await assertSphinxFoundryForkInstalled(scriptPath, targetContract)
+  await assertValidVersions(scriptPath, targetContract)
 
   const forkUrl = rpcEndpoints[network]
   if (!forkUrl) {
@@ -213,12 +227,12 @@ export const deploy = async (
     sphinxPluginTypesInterface
   )
 
-  checkLibraryVersion(deploymentInfo.sphinxLibraryVersion)
-
   spinner.succeed(`Collected transactions.`)
   spinner.start(`Building deployment...`)
 
   let signer: ethers.Wallet
+  let inject: InjectRoles
+  let remove: RemoveRoles
   if (executionMode === ExecutionMode.LiveNetworkCLI) {
     const privateKey = process.env.PRIVATE_KEY
     // Check if the private key exists. It should always exist because we checked that it's defined
@@ -227,8 +241,23 @@ export const deploy = async (
       throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
     }
     signer = new ethers.Wallet(privateKey, provider)
+
+    // We use no role injection when deploying on the live network since that obviously would not work
+    inject = async () => {
+      return
+    }
+    remove = async () => {
+      return
+    }
   } else if (executionMode === ExecutionMode.LocalNetworkCLI) {
     signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await fundAccountMaxBalance(signer.address, provider)
+
+    // We use the same role injection as the simulation for local network deployments so that they
+    // work even without the need for keys for all Safe signers
+    inject = injectRoles
+    // We need to remove the injected owners after successfully deploying on a local node
+    remove = removeRoles
   } else {
     throw new Error(`Unknown execution mode.`)
   }
@@ -236,7 +265,9 @@ export const deploy = async (
   const initCodeWithArgsArray = getInitCodeWithArgsArray(
     deploymentInfo.accountAccesses
   )
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+  const { configArtifacts, buildInfos } = await getConfigArtifacts(
+    initCodeWithArgsArray
+  )
 
   await assertNoLinkedLibraries(
     scriptPath,
@@ -247,23 +278,30 @@ export const deploy = async (
   )
 
   const isSystemDeployed = await checkSystemDeployed(provider)
-  const parsedConfig = makeParsedConfig(
+  const networkConfig = makeNetworkConfig(
     deploymentInfo,
     isSystemDeployed,
     configArtifacts,
     [] // We don't currently support linked libraries.
   )
 
-  if (parsedConfig.actionInputs.length === 0) {
+  if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
 
-  const deploymentData = makeDeploymentData([parsedConfig])
+  const deploymentData = makeDeploymentData([networkConfig])
 
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  await simulate([parsedConfig], chainId.toString(), forkUrl)
+  const deploymentConfig = makeDeploymentConfig(
+    [networkConfig],
+    configArtifacts,
+    buildInfos,
+    merkleTree
+  )
+
+  await simulate(deploymentConfig, chainId.toString(), forkUrl)
 
   spinner.succeed(`Built deployment.`)
 
@@ -271,29 +309,83 @@ export const deploy = async (
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    preview = getPreview([parsedConfig])
+    preview = getPreview([networkConfig])
     spinner.stop()
     const previewString = getPreviewString(preview, true)
     await sphinxContext.prompt(previewString)
   }
 
-  const { receipts } = await runEntireDeploymentProcess(
-    parsedConfig,
-    merkleTree,
+  const treeSigner = {
+    signer: signer.address,
+    signature: await signMerkleRoot(merkleTree.root, signer),
+  }
+  const deployment: Deployment = {
+    id: 'only required on website',
+    multichainDeploymentId: 'only required on website',
+    projectId: 'only required on website',
+    chainId: networkConfig.chainId,
+    status: 'approved',
+    moduleAddress: networkConfig.moduleAddress,
+    safeAddress: networkConfig.safeAddress,
+    deploymentConfig,
+    networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+    treeSigners: [treeSigner],
+  }
+  const deploymentContext: DeploymentContext = {
+    throwError: (message: string) => {
+      throw new Error(message)
+    },
+    handleError: (e) => {
+      throw e
+    },
+    handleAlreadyExecutedDeployment: () => {
+      throw new Error(
+        'Deployment has already been executed. This is a bug. Please report it to the developers.'
+      )
+    },
+    handleExecutionFailure: (
+      _deploymentContext: DeploymentContext,
+      _networkConfig: NetworkConfig,
+      _configArtifacts: ConfigArtifacts,
+      failureReason: HumanReadableAction
+    ) => {
+      throw new Error(
+        `The following action reverted during the execution:\n${failureReason.reason}`
+      )
+    },
+    verify: async () => {
+      return
+    },
+    handleSuccess: async () => {
+      return
+    },
+    executeTransaction: executeTransactionViaSigner,
+    injectRoles: inject,
+    removeRoles: remove,
+    deployment,
+    wallet: signer,
     provider,
-    signer,
-    spinner
-  )
+    spinner,
+  }
+  const result = await compileAndExecuteDeployment(deploymentContext)
+
+  if (!result) {
+    throw new Error(
+      'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+    )
+  }
+
+  const { receipts } = result
 
   spinner.start(`Building deployment artifacts...`)
 
-  const { projectName } = parsedConfig.newConfig
+  const { projectName } = networkConfig.newConfig
 
   // Get the existing contract deployment artifacts
   const contractArtifactDirPath = join(
     `deployments`,
     projectName,
-    getNetworkNameDirectory(chainId.toString(), parsedConfig.executionMode)
+    getNetworkNameDirectory(chainId.toString(), networkConfig.executionMode)
   )
   const artifactFileNames = existsSync(contractArtifactDirPath)
     ? readdirSync(contractArtifactDirPath)
@@ -312,16 +404,11 @@ export const deploy = async (
     }
   }
 
-  const [compilerConfig] = getParsedConfigWithCompilerInputs(
-    [parsedConfig],
-    configArtifacts
-  )
-
   const deploymentArtifacts = await makeDeploymentArtifacts(
     {
       [chainId.toString()]: {
         provider,
-        compilerConfig,
+        deploymentConfig,
         receipts,
         previousContractArtifacts,
       },
@@ -335,7 +422,7 @@ export const deploy = async (
 
   writeDeploymentArtifacts(
     projectName,
-    parsedConfig.executionMode,
+    networkConfig.executionMode,
     deploymentArtifacts
   )
 
@@ -344,24 +431,23 @@ export const deploy = async (
   spinner.succeed(`Wrote deployment artifacts.`)
 
   if (!silent) {
-    displayDeploymentTable(parsedConfig)
+    displayDeploymentTable(networkConfig)
   }
 
-  if (parsedConfig.executionMode === ExecutionMode.LiveNetworkCLI && verify) {
+  if (networkConfig.executionMode === ExecutionMode.LiveNetworkCLI && verify) {
     spinner.info(`Verifying contracts on Etherscan.`)
 
     const etherscanApiKey = etherscan[network].key
 
     await verifyDeploymentWithRetries(
-      parsedConfig,
-      configArtifacts,
+      deploymentConfig,
       provider,
       etherscanApiKey
     )
   }
 
   return {
-    compilerConfig,
+    deploymentConfig,
     merkleTree,
     preview,
     receipts,

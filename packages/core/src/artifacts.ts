@@ -18,8 +18,13 @@ import {
   ExecutionArtifact,
 } from './languages/solidity/types'
 import { SphinxJsonRpcProvider } from './provider'
-import { CompilerConfig, ConfigArtifacts } from './config/types'
 import {
+  DeploymentConfig,
+  ConfigArtifacts,
+  NetworkConfig,
+} from './config/types'
+import {
+  fetchNetworkConfigFromDeploymentConfig,
   fetchSphinxManagedBaseUrl,
   getNetworkNameDirectory,
   isSphinxTransaction,
@@ -270,7 +275,8 @@ export const convertEthersTransactionReceipt = (
  */
 const makeContractDeploymentArtifacts = async (
   merkleRoot: string,
-  compilerConfig: CompilerConfig,
+  networkConfig: NetworkConfig,
+  deploymentConfig: DeploymentConfig,
   receipts: Array<SphinxTransactionReceipt>,
   configArtifacts: ConfigArtifacts,
   previousArtifacts: {
@@ -290,14 +296,15 @@ const makeContractDeploymentArtifacts = async (
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const moduleInterface = new ethers.Interface(SphinxModuleABI)
 
-  const { gitCommit, chainId } = compilerConfig
+  const { gitCommit, chainId } = networkConfig
   const artifacts: { [fileName: string]: ContractDeploymentArtifact } = {}
   const numDeployments: { [fileName: string]: number | undefined } = {}
-  for (const action of compilerConfig.actionInputs) {
+  for (const action of networkConfig.actionInputs) {
     for (const contract of action.contracts) {
       const { fullyQualifiedName, initCodeWithArgs, address } = contract
-      const { artifact: compilerArtifact, buildInfo } =
+      const { artifact: compilerArtifact, buildInfoId } =
         configArtifacts[fullyQualifiedName]
+      const buildInfo = deploymentConfig.buildInfos[buildInfoId]
 
       if (!compilerArtifact || !buildInfo) {
         throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
@@ -307,12 +314,10 @@ const makeContractDeploymentArtifacts = async (
         bytecode,
         abi,
         metadata,
-        storageLayout,
         contractName,
         sourceName,
         linkReferences,
         deployedLinkReferences,
-        methodIdentifiers,
       } = compilerArtifact
 
       const { devdoc, userdoc } = metadata.output
@@ -327,7 +332,7 @@ const makeContractDeploymentArtifacts = async (
 
       const receipt = receipts.find((rcpt) =>
         rcpt.logs
-          .filter((log) => log.address === compilerConfig.moduleAddress)
+          .filter((log) => log.address === networkConfig.moduleAddress)
           .some((log) => {
             const parsedLog = moduleInterface.parseLog(log)
             return (
@@ -374,13 +379,11 @@ const makeContractDeploymentArtifacts = async (
         deployedBytecode,
         devdoc,
         userdoc,
-        storageLayout,
         gitCommit,
         sourceName,
         chainId,
         linkReferences,
         deployedLinkReferences,
-        methodIdentifiers,
         history: [],
       }
 
@@ -506,11 +509,7 @@ export const isContractDeploymentArtifactExceptHistory = (
     typeof item.metadata === 'string' &&
     (typeof item.gitCommit === 'string' || item.gitCommit === null) &&
     (typeof item.devdoc === 'object' || item.devdoc === undefined) &&
-    (typeof item.userdoc === 'object' || item.userdoc === undefined) &&
-    (typeof item.storageLayout === 'object' ||
-      item.storageLayout === undefined) &&
-    (typeof item.methodIdentifiers === 'object' ||
-      item.methodIdentifiers === undefined)
+    (typeof item.userdoc === 'object' || item.userdoc === undefined)
   )
 }
 
@@ -541,7 +540,7 @@ export const isContractDeploymentArtifact = (
 export const makeDeploymentArtifacts = async (
   deployments: {
     [chainId: string]: {
-      compilerConfig: CompilerConfig
+      deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
       previousContractArtifacts: {
@@ -555,7 +554,7 @@ export const makeDeploymentArtifacts = async (
   const allNetworkArtifacts: DeploymentArtifacts['networks'] = {}
   const compilerInputArtifacts: DeploymentArtifacts['compilerInputs'] = {}
   for (const chainId of Object.keys(deployments)) {
-    const { provider, compilerConfig, receipts, previousContractArtifacts } =
+    const { provider, deploymentConfig, receipts, previousContractArtifacts } =
       deployments[chainId]
 
     const networkArtifacts: NetworkArtifacts = {
@@ -563,10 +562,16 @@ export const makeDeploymentArtifacts = async (
       executionArtifacts: {},
     }
 
+    const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+      BigInt(chainId),
+      deploymentConfig
+    )
+
     // Make the contract artifacts.
     const contractArtifacts = await makeContractDeploymentArtifacts(
       merkleRoot,
-      compilerConfig,
+      networkConfig,
+      deploymentConfig,
       receipts,
       configArtifacts,
       previousContractArtifacts,
@@ -577,7 +582,8 @@ export const makeDeploymentArtifacts = async (
     // Make the execution artifact.
     const executionArtifact = await makeExecutionArtifact(
       receipts,
-      compilerConfig,
+      deploymentConfig,
+      networkConfig,
       merkleRoot,
       provider
     )
@@ -587,7 +593,7 @@ export const makeDeploymentArtifacts = async (
     allNetworkArtifacts[chainId] = networkArtifacts
 
     // Make the compiler input artifacts.
-    for (const compilerInput of compilerConfig.inputs) {
+    for (const compilerInput of deploymentConfig.inputs) {
       compilerInputArtifacts[`${compilerInput.id}.json`] = compilerInput
     }
   }
@@ -600,7 +606,8 @@ export const makeDeploymentArtifacts = async (
 
 const makeExecutionArtifact = async (
   receipts: Array<SphinxTransactionReceipt>,
-  compilerConfig: CompilerConfig,
+  deploymentConfig: DeploymentConfig,
+  networkConfig: NetworkConfig,
   merkleRoot: string,
   provider: SphinxJsonRpcProvider
 ): Promise<ExecutionArtifact> => {
@@ -609,7 +616,7 @@ const makeExecutionArtifact = async (
   )
 
   const responses = ethersResponses.map((ethersResponse) =>
-    convertEthersTransactionResponse(ethersResponse, compilerConfig.chainId)
+    convertEthersTransactionResponse(ethersResponse, networkConfig.chainId)
   )
 
   const transactions = responses.map((response, i) => {
@@ -625,7 +632,7 @@ const makeExecutionArtifact = async (
     return 0
   })
 
-  const solcInputHashes = compilerConfig.inputs.map((input) => input.id)
+  const solcInputHashes = deploymentConfig.inputs.map((input) => input.id)
 
   const {
     safeAddress,
@@ -639,7 +646,7 @@ const makeExecutionArtifact = async (
     arbitraryChain,
     libraries,
     gitCommit,
-  } = compilerConfig
+  } = networkConfig
   const {
     owners,
     threshold,
@@ -648,15 +655,15 @@ const makeExecutionArtifact = async (
     orgId,
     mainnets,
     testnets,
-  } = compilerConfig.newConfig
+  } = networkConfig.newConfig
   const { isExecuting, isModuleDeployed, isSafeDeployed } =
-    compilerConfig.initialState
+    networkConfig.initialState
 
   const actions = actionInputs.map(toSphinxTransaction)
 
-  const safeInitData = compilerConfig.initialState.isSafeDeployed
+  const safeInitData = networkConfig.initialState.isSafeDeployed
     ? null
-    : compilerConfig.safeInitData
+    : networkConfig.safeInitData
 
   const executionArtifact: ExecutionArtifact = {
     _format: 'sphinx-sol-execution-artifact-1',

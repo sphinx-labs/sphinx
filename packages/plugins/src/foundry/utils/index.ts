@@ -14,6 +14,7 @@ import {
 import { spawnSync } from 'child_process'
 
 import {
+  BuildInfo,
   CompilerOutputContracts,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
@@ -22,7 +23,6 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
-  getNetworkNameForChainId,
   isDefined,
   isNormalizedAddress,
   sortHexStrings,
@@ -33,15 +33,17 @@ import {
   AccountAccess,
   AccountAccessKind,
   ActionInput,
+  DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
   InitialChainState,
   ParsedAccountAccess,
-  ParsedConfig,
+  NetworkConfig,
   ParsedVariable,
   SphinxConfig,
   SphinxConfigWithAddresses,
+  BuildInfos,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -54,6 +56,7 @@ import {
   ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
+  fetchNameForNetwork,
   networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
@@ -65,6 +68,7 @@ import {
   recursivelyConvertResult,
   getSystemContractInfo,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CONTRACTS_LIBRARY_VERSION,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 import { red } from 'chalk'
@@ -77,6 +81,7 @@ import {
 } from '../types'
 import { simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
+import { BuildInfoTemplate, trimObjectToType } from './trim'
 
 const readFileAsync = promisify(readFile)
 
@@ -544,7 +549,10 @@ export const makeGetConfigArtifacts = (
     const completeArtifacts = resolved.map((artifactInfo) => {
       return {
         ...artifactInfo,
-        buildInfo: localBuildInfoCache[artifactInfo.buildInfoName],
+        buildInfo: trimObjectToType<BuildInfo>(
+          localBuildInfoCache[artifactInfo.buildInfoName],
+          BuildInfoTemplate
+        ),
       }
     })
 
@@ -555,6 +563,7 @@ export const makeGetConfigArtifacts = (
     )
 
     const configArtifacts: ConfigArtifacts = {}
+    const buildInfos: BuildInfos = {}
 
     for (const {
       fullyQualifiedName,
@@ -565,13 +574,15 @@ export const makeGetConfigArtifacts = (
         buildInfo.solcLongVersion
       )
 
+      buildInfos[buildInfo.id] = buildInfo
+
       configArtifacts[fullyQualifiedName] = {
         artifact,
-        buildInfo,
+        buildInfoId: buildInfo.id,
       }
     }
 
-    return configArtifacts
+    return { configArtifacts, buildInfos }
   }
 }
 
@@ -1081,14 +1092,14 @@ export const getEstimatedGas = async (
 }
 
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
-  parsedConfigArray: Array<ParsedConfig>,
+  deploymentConfig: DeploymentConfig,
   chainId: string,
   foundryToml: FoundryToml
 ): Promise<{
   chainId: number
   estimatedGas: string
 }> => {
-  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const networkName = fetchNameForNetwork(BigInt(chainId))
   const rpcUrl = foundryToml.rpcEndpoints[networkName]
 
   if (!rpcUrl) {
@@ -1100,7 +1111,7 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     process.exit(1)
   }
 
-  const { receipts } = await simulate(parsedConfigArray, chainId, rpcUrl)
+  const { receipts } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
   const estimatedGas = await getEstimatedGas(receipts, provider)
@@ -1242,30 +1253,6 @@ export const writeSystemContracts = (
   return filePath
 }
 
-export const assertValidAccountAccesses = (
-  accountAccesses: Array<ParsedAccountAccess>,
-  safeAddress: string
-): void => {
-  const flat = accountAccesses.flatMap((access) => [
-    access.root,
-    ...access.nested,
-  ])
-
-  for (const accountAccess of flat) {
-    if (accountAccess.accessor === safeAddress) {
-      if (BigInt(accountAccess.value) > BigInt(0)) {
-        throw new Error(
-          `Detected value transfer in script:\n` +
-            `To: ${accountAccess.account}\n` +
-            `Amount: ${ethers.parseEther(accountAccess.value.toString())}\n` +
-            `Sphinx does not support transferring native gas tokens during deployments.\n` +
-            `Let us know if you want this feature!`
-        )
-      }
-    }
-  }
-}
-
 /**
  * Checks if the `accountAccess` and the `nextAccountAccess` form a valid `CREATE2` deployment
  * through the Deterministic Deployment Proxy (i.e. Foundry's default `CREATE2` deployer).
@@ -1318,10 +1305,10 @@ export const parseNestedContractDeployments = (
   configArtifacts: ConfigArtifacts
 ): {
   parsedContracts: ActionInput['contracts']
-  unlabeled: ParsedConfig['unlabeledContracts']
+  unlabeled: NetworkConfig['unlabeledContracts']
 } => {
   const parsedContracts: Array<ParsedContractDeployment> = []
-  const unlabeled: ParsedConfig['unlabeledContracts'] = []
+  const unlabeled: NetworkConfig['unlabeledContracts'] = []
 
   // Iterate through the `AccountAccess` elements.
   for (const accountAccess of nested) {
@@ -1352,16 +1339,31 @@ export const parseNestedContractDeployments = (
   return { parsedContracts, unlabeled }
 }
 
-export const assertSphinxFoundryForkInstalled = async (
+export const assertValidVersions = async (
   scriptPath: string,
   targetContract?: string
 ): Promise<void> => {
-  // Empirically check if our fork is functioning properly
-  const forkInstalled = await callForgeScriptFunction<{
+  // Validate the user's Sphinx dependencies. Specifically, we retrieve the Sphinx contracts library
+  // version and empirically check that our Foundry fork is functioning properly.
+  const output = await callForgeScriptFunction<{
+    libraryVersion: { value: string }
     forkInstalled: { value: string }
-  }>(scriptPath, 'sphinxCheckFork()', [], undefined, targetContract)
+  }>(scriptPath, 'sphinxValidate()', [], undefined, targetContract)
 
-  if (forkInstalled.returns.forkInstalled.value === 'false') {
+  const libraryVersion = output.returns.libraryVersion.value
+    // The raw string is wrapped in two sets of quotes, so we remove the outer quotes here.
+    .slice(1, -1)
+  const forkInstalled = output.returns.forkInstalled.value
+
+  if (libraryVersion !== CONTRACTS_LIBRARY_VERSION) {
+    throw Error(
+      `The version of the Sphinx library contracts does not match the Sphinx plugin version. Please\n` +
+        `update the library contracts by running the command:\n` +
+        `npx sphinx install`
+    )
+  }
+
+  if (forkInstalled === 'false') {
     throw new Error(
       `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
         `running the command:\n` +

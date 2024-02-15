@@ -4,11 +4,12 @@ import { rm } from 'fs/promises'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
-  CompilerConfig,
+  DeploymentConfig,
   ConfigArtifacts,
   Create2ActionInput,
   DeploymentArtifacts,
   ExecutionMode,
+  NetworkConfig,
   SphinxJsonRpcProvider,
   SphinxPreview,
   SphinxTransactionReceipt,
@@ -28,7 +29,7 @@ import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
-import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
+import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
 import * as ConstructorDeploysContractChildArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/DeployedInConstructor.json'
 import { deploy } from '../../../src/cli/deploy'
@@ -150,34 +151,42 @@ describe('Deploy CLI command', () => {
       ])
 
       const targetContract = 'Simple1'
-      const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
-        await deploy({
-          scriptPath: forgeScriptPath,
-          network: 'sepolia',
-          skipPreview: false,
-          silent: true,
-          sphinxContext: context,
-          verify: false,
-          targetContract,
-        })
+      const {
+        deploymentConfig,
+        preview,
+        merkleTree,
+        receipts,
+        configArtifacts,
+      } = await deploy({
+        scriptPath: forgeScriptPath,
+        network: 'sepolia',
+        skipPreview: false,
+        silent: true,
+        sphinxContext: context,
+        verify: false,
+        targetContract,
+      })
+
+      const networkConfig = deploymentConfig?.networkConfigs.at(0)
 
       // Narrow the TypeScript types.
       if (
-        !compilerConfig ||
+        !deploymentConfig ||
         !preview ||
         !merkleTree ||
         !receipts ||
-        !configArtifacts
+        !configArtifacts ||
+        !networkConfig
       ) {
         throw new Error(`Object(s) undefined.`)
       }
 
-      expect(compilerConfig.executionMode).equals(executionMode)
+      expect(networkConfig.executionMode).equals(executionMode)
 
       const artifacts = await makeDeploymentArtifacts(
         {
-          [compilerConfig.chainId]: {
-            compilerConfig,
+          [networkConfig.chainId]: {
+            deploymentConfig,
             receipts,
             provider,
             previousContractArtifacts: {},
@@ -188,7 +197,7 @@ describe('Deploy CLI command', () => {
       )
 
       await expectValidDeployment(
-        compilerConfig,
+        deploymentConfig,
         preview,
         'sepolia (local)',
         projectName,
@@ -236,34 +245,42 @@ describe('Deploy CLI command', () => {
       }
 
       const targetContract = 'Simple1'
-      const { compilerConfig, preview, merkleTree, receipts, configArtifacts } =
-        await deploy({
-          scriptPath: forgeScriptPath,
-          network: 'sepolia',
-          skipPreview: false,
-          silent: true,
-          sphinxContext: context,
-          verify: false,
-          targetContract,
-        })
+      const {
+        deploymentConfig,
+        preview,
+        merkleTree,
+        receipts,
+        configArtifacts,
+      } = await deploy({
+        scriptPath: forgeScriptPath,
+        network: 'sepolia',
+        skipPreview: false,
+        silent: true,
+        sphinxContext: context,
+        verify: false,
+        targetContract,
+      })
+
+      const networkConfig = deploymentConfig?.networkConfigs.at(0)
 
       // Narrow the TypeScript types.
       if (
-        !compilerConfig ||
+        !deploymentConfig ||
         !preview ||
         !merkleTree ||
         !receipts ||
-        !configArtifacts
+        !configArtifacts ||
+        !networkConfig
       ) {
         throw new Error(`Object(s) undefined.`)
       }
 
-      expect(compilerConfig.executionMode).equals(executionMode)
+      expect(networkConfig.executionMode).equals(executionMode)
 
       const artifacts = await makeDeploymentArtifacts(
         {
-          [compilerConfig.chainId]: {
-            compilerConfig,
+          [networkConfig.chainId]: {
+            deploymentConfig,
             receipts,
             provider,
             previousContractArtifacts: {},
@@ -274,7 +291,7 @@ describe('Deploy CLI command', () => {
       )
 
       await expectValidDeployment(
-        compilerConfig,
+        deploymentConfig,
         preview,
         'sepolia',
         projectName,
@@ -333,7 +350,7 @@ describe('Deploy CLI command', () => {
       )
 
       const { context } = makeMockSphinxContextForIntegrationTests([
-        `${scriptPath}:RevertDuringSimulation`,
+        `contracts/test/RevertDuringSimulation.sol:RevertDuringSimulation`,
       ])
 
       let errorThrown = false
@@ -360,7 +377,8 @@ describe('Deploy CLI command', () => {
 
 describe('Deployment Cases', () => {
   let preview: SphinxPreview | undefined
-  let compilerConfig: CompilerConfig | undefined
+  let deploymentConfig: DeploymentConfig | undefined
+  let networkConfig: NetworkConfig | undefined
   let merkleTree: SphinxMerkleTree | undefined
   let receipts: Array<SphinxTransactionReceipt> | undefined
   let configArtifacts: ConfigArtifacts | undefined
@@ -373,7 +391,7 @@ describe('Deployment Cases', () => {
     expectedFullyQualifiedName: string
   ) => {
     let fullyQualifiedName: string | undefined
-    for (const actionInput of compilerConfig!.actionInputs) {
+    for (const actionInput of networkConfig!.actionInputs) {
       for (const contract of actionInput.contracts) {
         if (contract.address === address) {
           fullyQualifiedName = contract.fullyQualifiedName
@@ -384,7 +402,7 @@ describe('Deployment Cases', () => {
   }
 
   const checkNotLabeled = (address: string) => {
-    const isAddressUnlabeled = compilerConfig!.unlabeledContracts.some(
+    const isAddressUnlabeled = networkConfig!.unlabeledContracts.some(
       (contract) => contract.address === address
     )
     expect(isAddressUnlabeled).to.eq(true)
@@ -404,7 +422,7 @@ describe('Deployment Cases', () => {
       await rm(deploymentArtifactDirPath, { recursive: true, force: true })
     }
 
-    ;({ compilerConfig, preview, receipts, merkleTree, configArtifacts } =
+    ;({ deploymentConfig, preview, receipts, merkleTree, configArtifacts } =
       await deploy({
         scriptPath: deploymentCasesScriptPath,
         network: 'sepolia',
@@ -419,17 +437,19 @@ describe('Deployment Cases', () => {
         verify: false,
       }))
 
-    expect(compilerConfig).to.not.be.undefined
+    networkConfig = deploymentConfig?.networkConfigs.at(0)
+
+    expect(deploymentConfig).to.not.be.undefined
     expect(preview).to.not.be.undefined
 
     createAddressOne = ethers.getCreateAddress({
-      from: compilerConfig!.safeAddress,
+      from: networkConfig!.safeAddress,
       // The nonce is one because contract nonces start at 1, whereas EOA nonces start at
       // 0.
       nonce: 1,
     })
     createAddressTwo = ethers.getCreateAddress({
-      from: compilerConfig!.safeAddress,
+      from: networkConfig!.safeAddress,
       nonce: 2,
     })
   })
@@ -583,14 +603,20 @@ describe('Deployment Cases', () => {
 
   it('Writes deployment artifacts correctly', async () => {
     // Narrow the TypeScript types.
-    if (!compilerConfig || !merkleTree || !receipts || !configArtifacts) {
+    if (
+      !deploymentConfig ||
+      !networkConfig ||
+      !merkleTree ||
+      !receipts ||
+      !configArtifacts
+    ) {
       throw new Error(`Object(s) undefined.`)
     }
 
     const artifacts = await makeDeploymentArtifacts(
       {
-        [compilerConfig.chainId]: {
-          compilerConfig,
+        [networkConfig.chainId]: {
+          deploymentConfig,
           receipts,
           provider,
           previousContractArtifacts: {},
@@ -602,7 +628,7 @@ describe('Deployment Cases', () => {
 
     checkArtifacts(
       'Deployment_Cases_Project',
-      [compilerConfig],
+      deploymentConfig,
       artifacts,
       ExecutionMode.LocalNetworkCLI,
       1,
@@ -626,7 +652,7 @@ const getContract = (address: string, artifact: any): ethers.Contract => {
 }
 
 const expectValidDeployment = async (
-  compilerConfig: CompilerConfig,
+  deploymentConfig: DeploymentConfig,
   preview: SphinxPreview,
   expectedNetworkTag: string,
   projectName: string,
@@ -635,8 +661,14 @@ const expectValidDeployment = async (
   expectedNumExecutionArtifacts: number,
   expectedContractFileNames: Array<string>
 ) => {
+  const networkConfig = deploymentConfig.networkConfigs.at(0)
+
+  if (!networkConfig) {
+    throw new Error(`Object(s) undefined.`)
+  }
+
   expect(
-    (compilerConfig.actionInputs[0] as Create2ActionInput).create2Address
+    (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
   ).to.equal(expectedMyContract2Address)
   const contract = new ethers.Contract(
     expectedMyContract2Address,
@@ -658,13 +690,13 @@ const expectValidDeployment = async (
             referenceName: 'GnosisSafe',
             functionName: 'deploy',
             variables: {},
-            address: compilerConfig.safeAddress,
+            address: networkConfig.safeAddress,
           },
           {
             referenceName: 'SphinxModule',
             functionName: 'deploy',
             variables: {},
-            address: compilerConfig.moduleAddress,
+            address: networkConfig.moduleAddress,
           },
           {
             referenceName: 'MyContract2',
@@ -687,7 +719,7 @@ const expectValidDeployment = async (
 
   checkArtifacts(
     projectName,
-    [compilerConfig],
+    deploymentConfig,
     artifacts,
     executionMode,
     expectedNumExecutionArtifacts,

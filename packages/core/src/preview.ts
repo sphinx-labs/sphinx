@@ -1,14 +1,14 @@
 import { yellow, green, bold } from 'chalk'
 import { CREATE3_PROXY_INITCODE } from '@sphinx-labs/contracts'
 
-import { DecodedAction, ParsedConfig } from './config/types'
+import { DecodedAction, NetworkConfig } from './config/types'
 import {
   arraysEqual,
-  getNetworkNameForChainId,
   getNetworkTag,
   prettyFunctionCall,
   prettyRawFunctionCall,
 } from './utils'
+import { fetchNameForNetwork } from './networks'
 
 type SystemDeploymentElement = {
   type: 'SystemDeployment'
@@ -157,7 +157,7 @@ export const getPreviewString = (
 }
 
 export const getPreview = (
-  parsedConfigs: Array<ParsedConfig>
+  networkConfigs: Array<NetworkConfig>
 ): SphinxPreview => {
   const networks: {
     [networkTag: string]: {
@@ -167,7 +167,7 @@ export const getPreview = (
     }
   } = {}
 
-  for (const parsedConfig of parsedConfigs) {
+  for (const networkConfig of networkConfigs) {
     const executing: Array<PreviewElement> = []
     const skipping: Array<PreviewElement> = []
 
@@ -178,7 +178,7 @@ export const getPreview = (
       executionMode,
       unlabeledContracts,
       isSystemDeployed,
-    } = parsedConfig
+    } = networkConfig
 
     const unlabeledAddresses = unlabeledContracts
       // Remove the `CREATE3` proxies.
@@ -187,7 +187,7 @@ export const getPreview = (
       )
       .map((contract) => contract.address)
 
-    const networkName = getNetworkNameForChainId(BigInt(chainId))
+    const networkName = fetchNameForNetwork(BigInt(chainId))
     const networkTag = getNetworkTag(
       networkName,
       executionMode,
@@ -209,7 +209,7 @@ export const getPreview = (
           referenceName: 'GnosisSafe',
           functionName: 'deploy',
           variables: {},
-          address: parsedConfig.safeAddress,
+          address: networkConfig.safeAddress,
         })
       }
       if (!initialState.isModuleDeployed) {
@@ -217,7 +217,7 @@ export const getPreview = (
           referenceName: 'SphinxModule',
           functionName: 'deploy',
           variables: {},
-          address: parsedConfig.moduleAddress,
+          address: networkConfig.moduleAddress,
         })
       }
 

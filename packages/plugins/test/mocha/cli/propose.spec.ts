@@ -3,25 +3,22 @@ import chaiAsPromised from 'chai-as-promised'
 import {
   Create2ActionInput,
   ExecutionMode,
-  ParsedConfig,
+  NetworkConfig,
   ProposalRequest,
   SphinxJsonRpcProvider,
   SphinxPreview,
   ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   fetchChainIdForNetwork,
+  fetchNameForNetwork,
   getSphinxWalletPrivateKey,
-  runEntireDeploymentProcess,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  SphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
-import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
+import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
 import { propose } from '../../../src/cli/propose'
 import { deploy } from '../../../src/cli/deploy'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
@@ -31,6 +28,7 @@ import {
   getSphinxModuleAddressFromScript,
   getAnvilRpcUrl,
 } from '../common'
+import { SphinxContext } from '../../../src/cli/context'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -85,7 +83,8 @@ describe('Propose CLI command', () => {
       await ensureSphinxAndGnosisSafeDeployed(
         provider,
         wallet,
-        ExecutionMode.Platform
+        ExecutionMode.Platform,
+        true
       )
     })
   })
@@ -111,7 +110,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
+    const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Run preview
         isTestnet,
@@ -124,7 +123,7 @@ describe('Propose CLI command', () => {
 
     // This prevents a TypeScript type error.
     if (
-      !parsedConfigArray ||
+      !networkConfigArray ||
       !proposalRequest ||
       !configArtifacts ||
       !merkleTree
@@ -179,17 +178,19 @@ describe('Propose CLI command', () => {
       ]
     )
 
-    // Check that the CompilerConfig array contains a contract with the correct address.
-    expect(parsedConfigArray.length).to.equal(1)
-    const parsedConfig = parsedConfigArray[0]
+    // Check that the DeploymentConfig array contains a contract with the correct address.
+    expect(networkConfigArray.length).to.equal(1)
+    const networkConfig = networkConfigArray[0]
     expect(
-      (parsedConfig.actionInputs[0] as Create2ActionInput).create2Address
+      (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      networkConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -201,7 +202,7 @@ describe('Propose CLI command', () => {
       'contracts/test/MyContracts.sol:MyContract2',
     ])
 
-    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
+    const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
@@ -217,7 +218,7 @@ describe('Propose CLI command', () => {
 
     // This prevents a TypeScript type error.
     if (
-      !parsedConfigArray ||
+      !networkConfigArray ||
       !proposalRequest ||
       !configArtifacts ||
       !merkleTree
@@ -308,9 +309,9 @@ describe('Propose CLI command', () => {
       ]
     )
 
-    // Check that the CompilerConfig array contains contracts with the correct addresses.
-    expect(parsedConfigArray.length).to.equal(2)
-    const [ethereumConfig, optimismConfig] = parsedConfigArray
+    // Check that the DeploymentConfig array contains contracts with the correct addresses.
+    expect(networkConfigArray.length).to.equal(2)
+    const [ethereumConfig, optimismConfig] = networkConfigArray
     expect(
       (ethereumConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddressEthereum)
@@ -319,9 +320,11 @@ describe('Propose CLI command', () => {
     ).equals(expectedContractAddressOptimism)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      networkConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -333,7 +336,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
+    const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
         isTestnet,
@@ -349,7 +352,7 @@ describe('Propose CLI command', () => {
 
     // This prevents a TypeScript type error.
     if (
-      !parsedConfigArray ||
+      !networkConfigArray ||
       !proposalRequest ||
       !configArtifacts ||
       !merkleTree
@@ -412,19 +415,21 @@ describe('Propose CLI command', () => {
       ]
     )
 
-    // Check that the CompilerConfig array contains contracts with the correct addresses.
-    expect(parsedConfigArray.length).to.equal(1)
-    const parsedConfig = parsedConfigArray[0]
+    // Check that the DeploymentConfig array contains contracts with the correct addresses.
+    expect(networkConfigArray.length).to.equal(1)
+    const networkConfig = networkConfigArray[0]
     for (let i = 0; i < 50; i++) {
       expect(
-        (parsedConfig.actionInputs[i] as Create2ActionInput).create2Address
+        (networkConfig.actionInputs[i] as Create2ActionInput).create2Address
       ).equals(expectedContractAddresses[i])
     }
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      networkConfigArray,
+      scriptPath,
+      undefined,
+      context
     )
   })
 
@@ -433,7 +438,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { compilerConfig: firstCompilerConfig } = await deploy({
+    const { deploymentConfig } = await deploy({
       scriptPath,
       network: 'sepolia',
       skipPreview: true,
@@ -443,13 +448,18 @@ describe('Propose CLI command', () => {
       targetContract: 'Simple1',
     })
 
-    if (!firstCompilerConfig) {
-      throw new Error(`The ParsedConfig is not defined.`)
+    if (!deploymentConfig) {
+      throw new Error(`The DeploymentConfig is not defined.`)
+    }
+
+    const firstNetworkConfig = deploymentConfig.networkConfigs.at(0)
+    if (!firstNetworkConfig) {
+      throw new Error(`The NetworkConfig is not defined.`)
     }
 
     const targetContract = 'Simple2'
     const isTestnet = true
-    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
+    const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false,
         isTestnet,
@@ -462,7 +472,7 @@ describe('Propose CLI command', () => {
 
     // This prevents a TypeScript type error.
     if (
-      !parsedConfigArray ||
+      !networkConfigArray ||
       !proposalRequest ||
       !configArtifacts ||
       !merkleTree
@@ -473,9 +483,9 @@ describe('Propose CLI command', () => {
     expect(prompt.called).to.be.false
 
     // Check that the same Gnosis Safe and Sphinx Module are used for both deployments.
-    expect(proposalRequest.safeAddress).equals(firstCompilerConfig.safeAddress)
+    expect(proposalRequest.safeAddress).equals(firstNetworkConfig.safeAddress)
     expect(proposalRequest.moduleAddress).equals(
-      firstCompilerConfig.moduleAddress
+      firstNetworkConfig.moduleAddress
     )
 
     const expectedContractAddress = ethers.getCreate2Address(
@@ -505,17 +515,19 @@ describe('Propose CLI command', () => {
       ]
     )
 
-    // Check that the CompilerConfig array contains a contract with the correct address.
-    expect(parsedConfigArray.length).to.equal(1)
-    const parsedConfig = parsedConfigArray[0]
+    // Check that the DeploymentConfig array contains a contract with the correct address.
+    expect(networkConfigArray.length).to.equal(1)
+    const networkConfig = networkConfigArray[0]
     expect(
-      (parsedConfig.actionInputs[0] as Create2ActionInput).create2Address
+      (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddress)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      networkConfigArray,
+      scriptPath,
+      targetContract,
+      context
     )
   })
 
@@ -524,7 +536,7 @@ describe('Propose CLI command', () => {
   // Module.
   it('Exits early if there is nothing to execute on any network', async () => {
     const { context } = makeMockSphinxContextForIntegrationTests([])
-    const { proposalRequest, parsedConfigArray } = await propose({
+    const { proposalRequest, networkConfigArray } = await propose({
       confirm: false, // Show preview
       isTestnet: false,
       isDryRun: true,
@@ -538,7 +550,7 @@ describe('Propose CLI command', () => {
     })
 
     expect(proposalRequest).to.be.undefined
-    expect(parsedConfigArray).to.be.undefined
+    expect(networkConfigArray).to.be.undefined
   })
 
   // In this test case, there is a deployment to execute on one chain and nothing to execute on
@@ -551,7 +563,7 @@ describe('Propose CLI command', () => {
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
-    const { proposalRequest, parsedConfigArray, configArtifacts, merkleTree } =
+    const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Show preview
         isTestnet,
@@ -567,7 +579,7 @@ describe('Propose CLI command', () => {
 
     // This prevents a TypeScript type error.
     if (
-      !parsedConfigArray ||
+      !networkConfigArray ||
       !proposalRequest ||
       !configArtifacts ||
       !merkleTree
@@ -622,19 +634,21 @@ describe('Propose CLI command', () => {
       ]
     )
 
-    // Check that the CompilerConfig array contains a contract with the correct address.
-    expect(parsedConfigArray.length).to.equal(2)
-    const ethereumConfig = parsedConfigArray[0]
+    // Check that the DeploymentConfig array contains a contract with the correct address.
+    expect(networkConfigArray.length).to.equal(2)
+    const ethereumConfig = networkConfigArray[0]
     expect(
       (ethereumConfig.actionInputs[0] as Create2ActionInput).create2Address
     ).equals(expectedContractAddress)
-    const optimismConfig = parsedConfigArray[1]
+    const optimismConfig = networkConfigArray[1]
     expect(optimismConfig.actionInputs.length).equals(0)
 
     await assertValidGasEstimates(
-      merkleTree,
       proposalRequest.gasEstimates,
-      parsedConfigArray
+      networkConfigArray,
+      scriptPath,
+      undefined,
+      context
     )
   })
 
@@ -662,7 +676,7 @@ describe('Propose CLI command', () => {
     )
 
     const { context } = makeMockSphinxContextForIntegrationTests([
-      `${scriptPath}:RevertDuringSimulation`,
+      `contracts/test/RevertDuringSimulation.sol:RevertDuringSimulation`,
     ])
 
     let errorThrown = false
@@ -694,47 +708,47 @@ describe('Propose CLI command', () => {
  * estimated gas is 30% greater than the actual gas used in the deployment.
  */
 const assertValidGasEstimates = async (
-  merkleTree: SphinxMerkleTree,
   networkGasEstimates: ProposalRequest['gasEstimates'],
-  parsedConfigArray: Array<ParsedConfig>
+  networkConfigArray: Array<NetworkConfig>,
+  scriptPath: string,
+  targetContract: string | undefined,
+  context: SphinxContext
 ) => {
-  // Check that the number of gas estimates matches the number of ParsedConfig objects with at least
+  // Check that the number of gas estimates matches the number of NetworkConfig objects with at least
   // one action.
   expect(networkGasEstimates.length).equals(
-    parsedConfigArray.filter(
-      (parsedConfig) => parsedConfig.actionInputs.length > 0
+    networkConfigArray.filter(
+      (networkConfig) => networkConfig.actionInputs.length > 0
     ).length
   )
 
   // Iterate over each network
   for (const { chainId, estimatedGas } of networkGasEstimates) {
-    const parsedConfig = parsedConfigArray.find(
+    const networkConfig = networkConfigArray.find(
       (config) => config.chainId === chainId.toString()
     )
 
-    if (!parsedConfig) {
+    if (!networkConfig) {
       throw new Error(
-        `Could not find the ParsedConfig for the current network.`
+        `Could not find the NetworkConfig for the current network.`
       )
     }
 
-    const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
-    const provider = new SphinxJsonRpcProvider(rpcUrl)
-    const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    const { receipts } = await deploy({
+      scriptPath,
+      network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+      skipPreview: false,
+      silent: true,
+      sphinxContext: context,
+      verify: false,
+      targetContract,
+    })
 
-    // Change the executor's address from the `ManagedService` contract to an auto-generated Sphinx
-    // private key. This is necessary because we need a private key to broadcast the deployment on
-    // Anvil.
-    parsedConfig.executorAddress = signer.address
+    if (!receipts) {
+      throw new Error('deployment failed for an unexpected reason')
+    }
 
-    const { receipts } = await runEntireDeploymentProcess(
-      parsedConfig,
-      merkleTree,
-      provider,
-      signer
-    )
-
-    // We don't compare the number of actions in the ParsedConfig to the number of receipts in the
+    // We don't compare the number of actions in the NetworkConfig to the number of receipts in the
     // user's deployment because multiple actions may be batched into a single call to the Sphinx
     // Module's `execute` function.
 

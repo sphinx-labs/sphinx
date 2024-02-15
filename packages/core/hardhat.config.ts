@@ -11,8 +11,8 @@ import {
 import { Logger } from '@eth-optimism/common-ts'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 import { Wallet } from 'ethers'
+import ora from 'ora'
 
-import { isHttpNetworkConfig } from './src/utils'
 import { SphinxJsonRpcProvider } from './src/provider'
 import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
 import { etherscanVerifySphinxSystem } from './src/etherscan'
@@ -71,7 +71,7 @@ task('deploy-system')
     ) => {
       // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
       // defined for this network.
-      if (!isHttpNetworkConfig(hre.network.config)) {
+      if (!('url' in hre.network.config)) {
         throw new Error(
           `Cannot deploy Sphinx on the Hardhat network using this task.`
         )
@@ -82,6 +82,7 @@ task('deploy-system')
       const systemConfig: SphinxSystemConfig =
         require(args.systemConfig).default
 
+      const spinner = ora()
       const logger = new Logger({
         name: 'Logger',
       })
@@ -91,7 +92,8 @@ task('deploy-system')
         signer,
         systemConfig.relayers,
         ExecutionMode.LiveNetworkCLI,
-        logger
+        true,
+        spinner
       )
 
       if (
@@ -99,7 +101,7 @@ task('deploy-system')
       ) {
         await etherscanVerifySphinxSystem(provider, logger)
       } else {
-        logger.info('[Sphinx]: Verification unsupported on this network')
+        spinner.info('Verification unsupported on this network')
       }
     }
   )

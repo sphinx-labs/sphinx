@@ -1,27 +1,35 @@
 import { join } from 'path'
 
 import {
-  ParsedConfig,
-  runEntireDeploymentProcess,
   spawnAsync,
   getSphinxWalletPrivateKey,
   toSphinxLeafWithProofArray,
-  makeDeploymentData,
   SphinxTransactionReceipt,
   ExecutionMode,
   MerkleRootStatus,
   SphinxJsonRpcProvider,
-  getNetworkNameForChainId,
+  fetchNameForNetwork,
   getLargestPossibleReorg,
   isFork,
   stripLeadingZero,
   isLiveNetwork,
+  fundAccountMaxBalance,
+  signMerkleRoot,
+  compileAndExecuteDeployment,
+  Deployment,
+  DeploymentConfig,
+  DeploymentContext,
+  ConfigArtifacts,
+  HumanReadableAction,
+  executeTransactionViaSigner,
+  getSphinxWalletsSortedByAddress,
+  injectRoles,
+  removeRoles,
+  fetchNetworkConfigFromDeploymentConfig,
+  NetworkConfig,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import {
-  SphinxLeafWithProof,
-  makeSphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -29,12 +37,12 @@ import {
  * shouldn't be any fields that contain BigInts because we call `JSON.parse` to decode the data
  * returned by the subtask. (`JSON.parse` converts BigInts to strings).
  *
- * @property {Array<ParsedConfig>} parsedConfigArray The ParsedConfig on all networks. This is
+ * @property {Array<NetworkConfig>} networkConfigArray The NetworkConfig on all networks. This is
  * necessary to create the entire Merkle tree in the simulation, which ensures we use the same
  * Merkle root in both the simulation and the production environment.
  */
 export type simulateDeploymentSubtaskArgs = {
-  parsedConfigArray: Array<ParsedConfig>
+  deploymentConfig: DeploymentConfig
   chainId: string
 }
 
@@ -60,7 +68,7 @@ export type simulateDeploymentSubtaskArgs = {
  * contract is near the maximum size limit).
  */
 export const simulate = async (
-  parsedConfigArray: Array<ParsedConfig>,
+  deploymentConfig: DeploymentConfig,
   chainId: string,
   rpcUrl: string
 ): Promise<{
@@ -72,33 +80,30 @@ export const simulate = async (
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-  const block = await provider.getBlock('latest')
-  // Narrow the TypeScript type.
-  if (!block) {
-    throw new Error(`Could not find block. Should never happen.`)
-  }
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
+  )
 
   const envVars = {
     SPHINX_INTERNAL__FORK_URL: rpcUrl,
     SPHINX_INTERNAL__CHAIN_ID: chainId,
-    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: block.gasLimit.toString(),
+    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: networkConfig.blockGasLimit,
     // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
     // Hardhat config when we import the HRE in the child process.
     HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
   }
 
   const taskParams: simulateDeploymentSubtaskArgs = {
-    parsedConfigArray,
+    deploymentConfig,
     chainId,
   }
 
   if ((await isLiveNetwork(provider)) || (await isFork(provider))) {
-    // Hardcode the block number in the Hardhat config so that the simulation uses the latest block
-    // number. If we don't hardcode it, Hardhat uses a block number that's numerous confirmations
-    // behind the latest block number, which protects against chain reorgs. We choose to use the
-    // latest block number because it's aligned with Anvil's behavior and it ensures that any
-    // recently executed transactions submitted by the caller are included in the simulation.
-    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = block.number.toString()
+    // Use the same block number as the Forge script that collected the user's transactions. This
+    // reduces the chance that the simulation throws an error or stalls, which can occur when using
+    // the most recent block number.
+    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = networkConfig.blockNumber
   } else {
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
@@ -161,8 +166,8 @@ export const simulate = async (
   )
 
   if (code !== 0) {
-    const networkName = getNetworkNameForChainId(BigInt(chainId))
-    let errorMessage: string = `Simulation failed for ${networkName} at block number ${block.number}.`
+    const networkName = fetchNameForNetwork(BigInt(chainId))
+    let errorMessage: string = `Simulation failed for ${networkName} at block number ${networkConfig.blockNumber}.`
     try {
       // Attempt to decode the error message. This try-statement could theoretically throw an error
       // if `stdout` isn't a valid JSON string.
@@ -207,16 +212,15 @@ export const simulateDeploymentSubtask = async (
   receipts: Array<SphinxTransactionReceipt>
   batches: Array<Array<SphinxLeafWithProof>>
 }> => {
-  const { parsedConfigArray, chainId } = taskArgs
+  const { deploymentConfig, chainId } = taskArgs
+  const { merkleTree } = deploymentConfig
 
-  const parsedConfig = parsedConfigArray.find((e) => e.chainId === chainId)
-  if (!parsedConfig) {
-    throw new Error(
-      `Could not find the parsed config for chain ID: ${chainId}. Should never happen.`
-    )
-  }
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
+  )
 
-  const { executionMode } = parsedConfig
+  const { executionMode } = networkConfig
 
   // This provider is connected to the forked in-process Hardhat node.
   const provider = hre.ethers.provider
@@ -233,15 +237,81 @@ export const simulateDeploymentSubtask = async (
     executionMode === ExecutionMode.Platform
   ) {
     signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await fundAccountMaxBalance(signer.address, provider)
   } else {
     throw new Error(`Unknown execution mode.`)
   }
 
-  const deploymentData = makeDeploymentData(parsedConfigArray)
-  const merkleTree = makeSphinxMerkleTree(deploymentData)
+  // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
+  const sphinxWallets = getSphinxWalletsSortedByAddress(
+    BigInt(networkConfig.newConfig.threshold),
+    provider
+  )
+  const treeSigners = await Promise.all(
+    sphinxWallets.map(async (wallet) => {
+      return {
+        signer: await wallet.getAddress(),
+        signature: await signMerkleRoot(merkleTree.root, wallet),
+      }
+    })
+  )
 
-  const { receipts, batches, finalStatus, failureAction } =
-    await runEntireDeploymentProcess(parsedConfig, merkleTree, provider, signer)
+  const deployment: Deployment = {
+    id: 'only required on website',
+    multichainDeploymentId: 'only required on website',
+    projectId: 'only required on website',
+    chainId: networkConfig.chainId,
+    status: 'approved',
+    moduleAddress: networkConfig.moduleAddress,
+    safeAddress: networkConfig.safeAddress,
+    deploymentConfig,
+    networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+    treeSigners,
+  }
+  const simulationContext: DeploymentContext = {
+    throwError: (message: string) => {
+      throw new Error(message)
+    },
+    handleError: (e) => {
+      throw e
+    },
+    handleAlreadyExecutedDeployment: () => {
+      throw new Error(
+        'Deployment has already been executed. This is a bug. Please report it to the developers.'
+      )
+    },
+    handleExecutionFailure: (
+      _deploymentContext: DeploymentContext,
+      _networkConfig: NetworkConfig,
+      _configArtifacts: ConfigArtifacts,
+      failureReason: HumanReadableAction
+    ) => {
+      throw new Error(
+        `The following action reverted during the simulation:\n${failureReason.reason}`
+      )
+    },
+    verify: async () => {
+      return
+    },
+    handleSuccess: async () => {
+      return
+    },
+    executeTransaction: executeTransactionViaSigner,
+    deployment,
+    provider,
+    injectRoles,
+    removeRoles,
+    wallet: signer,
+  }
+  const result = await compileAndExecuteDeployment(simulationContext)
+
+  if (!result) {
+    throw new Error(
+      'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+    )
+  }
+
+  const { finalStatus, failureAction, receipts, batches } = result
 
   if (finalStatus === MerkleRootStatus.FAILED) {
     if (failureAction) {

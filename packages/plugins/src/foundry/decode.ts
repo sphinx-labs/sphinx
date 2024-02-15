@@ -3,7 +3,7 @@ import {
   ConfigArtifacts,
   DeploymentInfo,
   FunctionCallActionInput,
-  ParsedConfig,
+  NetworkConfig,
   networkEnumToName,
   assertValidProjectName,
   DecodedAction,
@@ -16,6 +16,7 @@ import {
   decodeDeterministicDeploymentProxyData,
   Create2ActionInput,
   ActionInputType,
+  fetchNameForNetwork,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -27,7 +28,6 @@ import {
 } from '@sphinx-labs/contracts'
 
 import {
-  assertValidAccountAccesses,
   convertLibraryFormat,
   findFullyQualifiedNameForAddress,
   findFullyQualifiedNameForInitCode,
@@ -62,6 +62,7 @@ export const decodeDeploymentInfo = (
   } = parsed
 
   const blockGasLimit = abiDecodeUint256(parsed.blockGasLimit)
+  const blockNumber = abiDecodeUint256(parsed.blockNumber)
   const chainId = abiDecodeUint256(parsed.chainId)
   const executionMode = abiDecodeUint256(parsed.executionMode)
   const nonce = abiDecodeUint256(parsed.nonce)
@@ -91,6 +92,7 @@ export const decodeDeploymentInfo = (
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     initialState: {
       ...initialState,
     },
@@ -115,26 +117,23 @@ export const decodeDeploymentInfo = (
   }
 
   assertValidProjectName(deploymentInfo.newConfig.projectName)
-  assertValidAccountAccesses(
-    deploymentInfo.accountAccesses,
-    deploymentInfo.safeAddress
-  )
 
   return deploymentInfo
 }
 
-export const makeParsedConfig = (
+export const makeNetworkConfig = (
   deploymentInfo: DeploymentInfo,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
   libraries: Array<string>
-): ParsedConfig => {
+): NetworkConfig => {
   const {
     safeAddress,
     moduleAddress,
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     newConfig,
     executionMode,
     initialState,
@@ -152,14 +151,15 @@ export const makeParsedConfig = (
   const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
 
   const parsedActionInputs: Array<ActionInput> = []
-  const unlabeledContracts: ParsedConfig['unlabeledContracts'] = []
+  const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
   for (let i = 0; i < accountAccesses.length; i++) {
     const { root, nested } = accountAccesses[i]
     const gas = gasEstimates[i].toString()
 
     if (BigInt(gas) > maxAllowedGasPerLeaf) {
+      const networkName = fetchNameForNetwork(BigInt(chainId))
       throw new Error(
-        `Estimated gas for a transaction is too close to the block gas limit.`
+        `Estimated gas for a transaction is too close to the block gas limit on ${networkName}.`
       )
     }
 
@@ -294,13 +294,14 @@ export const makeParsedConfig = (
     )
   }
 
-  const parsedConfig: ParsedConfig = {
+  const networkConfig: NetworkConfig = {
     safeAddress,
     moduleAddress,
     safeInitData,
     nonce,
     chainId,
     blockGasLimit,
+    blockNumber,
     newConfig,
     executionMode,
     initialState,
@@ -313,7 +314,7 @@ export const makeParsedConfig = (
     gitCommit: getCurrentGitCommitHash(),
   }
 
-  return parsedConfig
+  return networkConfig
 }
 
 export const makeContractDecodedAction = (

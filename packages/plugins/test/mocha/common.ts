@@ -6,18 +6,16 @@ import {
   execAsync,
   sleep,
   sortHexStrings,
-  CompilerConfig,
+  DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   ExecutionMode,
   SphinxJsonRpcProvider,
-  getParsedConfigWithCompilerInputs,
   makeDeploymentData,
   DeploymentArtifacts,
   SphinxTransactionReceipt,
   ContractDeploymentArtifact,
   getSphinxWalletPrivateKey,
-  runEntireDeploymentProcess,
   makeDeploymentArtifacts,
   isReceiptEarlier,
   isContractDeploymentArtifact,
@@ -26,12 +24,22 @@ import {
   getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
-  ensureSphinxAndGnosisSafeDeployed,
   spawnAsync,
   fetchChainIdForNetwork,
+  checkSystemDeployed,
+  ensureSphinxAndGnosisSafeDeployed,
   AccountAccess,
   AccountAccessKind,
   ParsedAccountAccess,
+  compileAndExecuteDeployment,
+  signMerkleRoot,
+  Deployment,
+  fetchNameForNetwork,
+  DeploymentContext,
+  executeTransactionViaSigner,
+  injectRoles,
+  removeRoles,
+  makeDeploymentConfig,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -62,7 +70,7 @@ import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyCont
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
 import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
-import { makeParsedConfig } from '../../src/foundry/decode'
+import { makeNetworkConfig } from '../../src/foundry/decode'
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
 import {
   getInitCodeWithArgsArray,
@@ -338,7 +346,7 @@ export const makeDeployment = async (
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
-  compilerConfigArray: Array<CompilerConfig>
+  deploymentConfig: DeploymentConfig
   configArtifacts: ConfigArtifacts
 }> => {
   const saltNonce = 0
@@ -357,55 +365,77 @@ export const makeDeployment = async (
   const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
-    const chainId = fetchChainIdForNetwork(networkName)
-    const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
-    const safeAddress = getGnosisSafeProxyAddress(
-      ownerAddresses,
-      threshold,
-      saltNonce
-    )
-    const moduleAddress = getSphinxModuleAddress(
-      ownerAddresses,
-      threshold,
-      saltNonce
-    )
+    try {
+      const chainId = fetchChainIdForNetwork(networkName)
+      const provider = new SphinxJsonRpcProvider(getRpcUrl(chainId))
+      const safeAddress = getGnosisSafeProxyAddress(
+        ownerAddresses,
+        threshold,
+        saltNonce
+      )
+      const moduleAddress = getSphinxModuleAddress(
+        ownerAddresses,
+        threshold,
+        saltNonce
+      )
 
-    const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
-    await ensureSphinxAndGnosisSafeDeployed(provider, wallet, executionMode)
+      if (!(await checkSystemDeployed(provider))) {
+        const wallet = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+        await ensureSphinxAndGnosisSafeDeployed(
+          provider,
+          wallet,
+          executionMode,
+          true
+        )
+      }
 
-    const numActionInputs = accountAccesses.length
+      const block = await provider.getBlock('latest')
+      if (!block) {
+        throw new Error(`Could not find block for ${chainId}`)
+      }
 
-    const deploymentInfo: DeploymentInfo = {
-      safeAddress,
-      moduleAddress,
-      safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
-      executorAddress,
-      requireSuccess: true,
-      nonce: merkleRootNonce.toString(),
-      chainId: chainId.toString(),
-      blockGasLimit: '30000000',
-      initialState: {
-        isSafeDeployed: (await provider.getCode(safeAddress)) !== '0x',
-        isModuleDeployed: (await provider.getCode(moduleAddress)) !== '0x',
-        isExecuting: false,
-      },
-      executionMode,
-      newConfig: {
-        projectName,
-        owners: ownerAddresses,
-        threshold: threshold.toString(),
-        orgId: 'test-org-id',
-        mainnets,
-        testnets,
-        saltNonce: saltNonce.toString(),
-      },
-      arbitraryChain: false,
-      sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
-      accountAccesses,
-      gasEstimates: new Array(numActionInputs).fill(BigInt(5_000_000)),
+      const numActionInputs = accountAccesses.length
+
+      const deploymentInfo: DeploymentInfo = {
+        safeAddress,
+        moduleAddress,
+        safeInitData: getGnosisSafeInitializerData(ownerAddresses, threshold),
+        executorAddress,
+        requireSuccess: true,
+        nonce: merkleRootNonce.toString(),
+        chainId: chainId.toString(),
+        blockGasLimit: block.gasLimit.toString(),
+        blockNumber: block.number.toString(),
+        initialState: {
+          isSafeDeployed: (await provider.getCode(safeAddress)) !== '0x',
+          isModuleDeployed: (await provider.getCode(moduleAddress)) !== '0x',
+          isExecuting: false,
+        },
+        executionMode,
+        newConfig: {
+          projectName,
+          owners: ownerAddresses,
+          threshold: threshold.toString(),
+          orgId: 'test-org-id',
+          mainnets,
+          testnets,
+          saltNonce: saltNonce.toString(),
+        },
+        arbitraryChain: false,
+        accountAccesses,
+        // We set the Merkle leaf gas fields to 6 million to ensure that a very large contract
+        // deployment can fit in a batch. This is important to check on networks like Scroll which
+        // have low block gas limits. (Scroll's block gas limit is 10 million). A Merkle leaf gas
+        // field of 6 million corresponds to a contract at the max size limit with a couple dozen
+        // SSTOREs in its constructor.
+        gasEstimates: new Array(numActionInputs).fill(BigInt(6_000_000)),
+        sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+      }
+
+      return deploymentInfo
+    } catch (error) {
+      throw new Error(`Error in network ${networkName}: ${error}`)
     }
-
-    return deploymentInfo
   })
 
   const deploymentInfoArray = await Promise.all(collectedPromises)
@@ -424,10 +454,12 @@ export const makeDeployment = async (
     )
   )
 
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+  const { configArtifacts, buildInfos } = await getConfigArtifacts(
+    initCodeWithArgsArray
+  )
 
-  const parsedConfigArray = deploymentInfoArray.map((deploymentInfo) => {
-    return makeParsedConfig(
+  const networkConfigArray = deploymentInfoArray.map((deploymentInfo) => {
+    return makeNetworkConfig(
       deploymentInfo,
       true, // System contracts were already deployed in `ensureSphinxAndGnosisSafeDeployed` above.
       configArtifacts,
@@ -435,15 +467,17 @@ export const makeDeployment = async (
     )
   })
 
-  const deploymentData = makeDeploymentData(parsedConfigArray)
+  const deploymentData = makeDeploymentData(networkConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
-  const compilerConfigArray = getParsedConfigWithCompilerInputs(
-    parsedConfigArray,
-    configArtifacts
+  const deploymentConfig = makeDeploymentConfig(
+    networkConfigArray,
+    configArtifacts,
+    buildInfos,
+    merkleTree
   )
 
-  return { compilerConfigArray, configArtifacts, merkleTree }
+  return { deploymentConfig, configArtifacts, merkleTree }
 }
 
 export const makeRevertingDeployment = (
@@ -487,14 +521,12 @@ export const makeRevertingDeployment = (
 }
 
 export const runDeployment = async (
-  compilerConfigArray: Array<CompilerConfig>,
-  merkleTree: SphinxMerkleTree,
-  configArtifacts: ConfigArtifacts,
+  deploymentConfig: DeploymentConfig,
   previousArtifacts: DeploymentArtifacts['networks']
 ): Promise<DeploymentArtifacts> => {
   const artifactInputs: {
     [chainId: string]: {
-      compilerConfig: CompilerConfig
+      deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
       previousContractArtifacts: {
@@ -503,18 +535,65 @@ export const runDeployment = async (
     }
   } = {}
 
-  for (const compilerConfig of compilerConfigArray) {
-    const { chainId } = compilerConfig
+  const { merkleTree, configArtifacts } = deploymentConfig
+
+  for (const networkConfig of deploymentConfig.networkConfigs) {
+    const { chainId } = networkConfig
     const rpcUrl = getAnvilRpcUrl(BigInt(chainId))
     const provider = new SphinxJsonRpcProvider(rpcUrl)
     const signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
 
-    const { receipts: sortedReceipts } = await runEntireDeploymentProcess(
-      compilerConfig,
-      merkleTree,
+    const treeSigner = {
+      signer: await signer.getAddress(),
+      signature: await signMerkleRoot(merkleTree.root, signer),
+    }
+    const deployment: Deployment = {
+      id: 'only required on website',
+      multichainDeploymentId: 'only required on website',
+      projectId: 'only required on website',
+      chainId: networkConfig.chainId,
+      status: 'approved',
+      moduleAddress: networkConfig.moduleAddress,
+      safeAddress: networkConfig.safeAddress,
+      deploymentConfig,
+      networkName: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+      treeSigners: [treeSigner],
+    }
+    const deploymentContext: DeploymentContext = {
+      throwError: (message: string) => {
+        throw new Error(message)
+      },
+      handleError: (e) => {
+        throw e
+      },
+      handleAlreadyExecutedDeployment: () => {
+        throw new Error(
+          'Deployment has already been executed. This is a bug. Please report it to the developers.'
+        )
+      },
+      handleExecutionFailure: async () => {
+        return
+      },
+      verify: async () => {
+        return
+      },
+      handleSuccess: async () => {
+        return
+      },
+      executeTransaction: executeTransactionViaSigner,
+      injectRoles,
+      removeRoles,
+      deployment,
       provider,
-      signer
-    )
+      wallet: signer,
+    }
+    const result = await compileAndExecuteDeployment(deploymentContext)
+
+    if (!result) {
+      throw new Error('deployment failed for an unexpected reason')
+    }
+
+    const { receipts: sortedReceipts } = result
 
     // Flip the order of the first and last receipt so that the receipts aren't in ascending order.
     // Later, we'll test that the artifact generation logic sorts the arrays back into ascending
@@ -527,8 +606,8 @@ export const runDeployment = async (
     const previousContractArtifacts =
       previousArtifacts.networks?.[chainId]?.contractDeploymentArtifacts ?? {}
 
-    artifactInputs[compilerConfig.chainId] = {
-      compilerConfig,
+    artifactInputs[networkConfig.chainId] = {
+      deploymentConfig,
       receipts,
       provider,
       previousContractArtifacts,
@@ -614,9 +693,11 @@ export const makeStandardDeployment = (
   expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
-  // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
-  // contract at the same address in successive deployments.
-  const salt = merkleRootNonce
+  // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
+  // deploy a contract at the same address in successive deployments. We add a constant number
+  // because at least one of these contracts has already been deployed to Sepolia at the `CREATE2`
+  // address determined by a salt of `0`.
+  const salt = merkleRootNonce + 100
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
@@ -670,7 +751,7 @@ export const makeStandardDeployment = (
 
 export const checkArtifacts = (
   projectName: string,
-  compilerConfigArray: Array<CompilerConfig>,
+  deploymentConfig: DeploymentConfig,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
   expectedNumExecutionArtifacts: number,
@@ -759,8 +840,7 @@ export const checkArtifacts = (
     }
   }
 
-  const allCompilerInputs = compilerConfigArray.flatMap(({ inputs }) => inputs)
-  for (const compilerInput of allCompilerInputs) {
+  for (const compilerInput of deploymentConfig.inputs) {
     const compilerInputFilePath = join(
       `deployments`,
       getCompilerInputDirName(executionMode),

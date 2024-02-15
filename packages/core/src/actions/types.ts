@@ -1,10 +1,9 @@
 import { ethers } from 'ethers'
 import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import { SphinxPreview } from '../preview'
-import { SphinxJsonRpcProvider } from '../provider'
 import { ExecutionMode } from '../constants'
+import { DeploymentContext } from './execute'
 
 /**
  * The status of a Merkle root in a Sphinx Module.
@@ -108,7 +107,7 @@ export type ContractInfo = {
 }
 
 /**
- * @param canonicalConfig Deprecated field.
+ * @param compilerConfigId Deprecated field.
  * @param gasEstimates The estimated amount of gas required to the entire deployment tree on each
  * chain, including a buffer.
  */
@@ -128,6 +127,7 @@ export type ProposalRequest = {
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   diff: SphinxPreview
   compilerConfigId: string | undefined
+  deploymentConfigId: string | undefined
   tree: {
     root: string
     chainStatus: Array<{
@@ -155,21 +155,16 @@ export type EstimateGas = (
 ) => number
 
 export type ExecuteActions = (
-  moduleAddress: string,
   batch: SphinxLeafWithProof[],
   executionMode: ExecutionMode,
-  signer: ethers.Signer,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   blockGasLimit: bigint,
-  chainId: bigint
+  deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt | null>
 
 export type ApproveDeployment = (
-  safeAddress: string,
-  moduleAddress: string,
   merkleRoot: string,
   approvalLeafWithProof: SphinxLeafWithProof,
   executionMode: ExecutionMode,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  signer: ethers.Signer
+  ownerSignatures: Array<string>,
+  deploymentContext: DeploymentContext
 ) => Promise<ethers.TransactionReceipt>

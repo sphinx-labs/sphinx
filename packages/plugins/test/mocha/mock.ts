@@ -1,19 +1,20 @@
 import {
   ActionInputType,
   BuildInfo,
+  BuildInfos,
   ConfigArtifacts,
   ExecutionMode,
   GetConfigArtifacts,
-  ParsedConfig,
+  NetworkConfig,
   isLiveNetwork,
 } from '@sphinx-labs/core'
 import sinon from 'sinon'
 import { Operation } from '@sphinx-labs/contracts'
 
-import { readContractArtifact } from '../../src/foundry/utils'
 import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
+import { readContractArtifact } from '../../dist'
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -21,6 +22,7 @@ import { makeSphinxContext } from '../../src/cli/context'
  * `makeMockSphinxContextForIntegrationTests` function instead.
  */
 export const makeMockSphinxContext = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mockedFullyQualifiedNames: Array<string>
 ) => {
   const sphinxContext = makeSphinxContext()
@@ -37,17 +39,17 @@ export const makeMockSphinxContext = (
     .stub(sphinxContext, 'relayProposal')
     .returns(Promise.resolve())
   const prompt = sinon.stub().returns(Promise.resolve())
-  const buildParsedConfigArray = sinon
-    .stub(sphinxContext, 'buildParsedConfigArray')
+  const buildNetworkConfigArray = sinon
+    .stub(sphinxContext, 'buildNetworkConfigArray')
     .returns(
       Promise.resolve({
-        parsedConfigArray: [makeMockParsedConfig()],
+        networkConfigArray: [makeMockNetworkConfig()],
         configArtifacts: {},
         isEmpty: false,
       })
     )
-  const storeCanonicalConfig = sinon
-    .stub(sphinxContext, 'storeCanonicalConfig')
+  const storeDeploymentConfig = sinon
+    .stub(sphinxContext, 'storeDeploymentConfig')
     .returns(Promise.resolve('mock-canonical-config-id'))
 
   const makeGetConfigArtifacts = (
@@ -64,6 +66,7 @@ export const makeMockSphinxContext = (
       _initCodeWithArgsArray: Array<string>
     ) => {
       const configArtifacts: ConfigArtifacts = {}
+      const buildInfos: BuildInfos = {}
       for (const name of mockedFullyQualifiedNames) {
         const artifact = await readContractArtifact(
           name,
@@ -87,16 +90,19 @@ export const makeMockSphinxContext = (
             sources: {},
           },
           output: {
-            sources: {},
             contracts: {},
           },
         }
+        buildInfos[buildInfo.id] = buildInfo
         configArtifacts[name] = {
-          buildInfo,
+          buildInfoId: buildInfo.id,
           artifact,
         }
       }
-      return configArtifacts
+      return {
+        configArtifacts,
+        buildInfos,
+      }
     }
   }
 
@@ -104,16 +110,16 @@ export const makeMockSphinxContext = (
     isLiveNetwork,
     propose,
     deploy,
-    buildParsedConfigArray,
+    buildNetworkConfigArray,
     getNetworkGasEstimate,
-    storeCanonicalConfig,
+    storeDeploymentConfig,
     relayProposal,
     prompt,
     makeGetConfigArtifacts,
   }
 }
 
-const makeMockParsedConfig = (): ParsedConfig => {
+const makeMockNetworkConfig = (): NetworkConfig => {
   return {
     safeAddress: '0x' + '11'.repeat(20),
     moduleAddress: '0x' + '22'.repeat(20),
@@ -122,6 +128,7 @@ const makeMockParsedConfig = (): ParsedConfig => {
     nonce: '0',
     chainId: '1',
     blockGasLimit: '0',
+    blockNumber: '0',
     actionInputs: [
       {
         contracts: [],
@@ -172,16 +179,16 @@ export const makeMockSphinxContextForIntegrationTests = (
   fullyQualifiedNames: Array<string>
 ) => {
   const {
-    makeGetConfigArtifacts,
     prompt,
     relayProposal,
-    storeCanonicalConfig,
+    storeDeploymentConfig,
+    makeGetConfigArtifacts,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
   context.makeGetConfigArtifacts = makeGetConfigArtifacts
   context.prompt = prompt
   context.relayProposal = relayProposal
-  context.storeCanonicalConfig = storeCanonicalConfig
+  context.storeDeploymentConfig = storeDeploymentConfig
 
   return { context, prompt }
 }

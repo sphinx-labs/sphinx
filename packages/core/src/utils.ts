@@ -10,24 +10,20 @@ import {
   Provider,
   JsonRpcSigner,
   FunctionFragment,
+  keccak256,
 } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
-import { HttpNetworkConfig, NetworkConfig, SolcBuild } from 'hardhat/types'
-import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import {
   GnosisSafeArtifact,
   SphinxLeaf,
   SphinxMerkleTree,
   SphinxTransaction,
-  add0x,
   SphinxLeafWithProof,
   SphinxLeafType,
   getManagedServiceAddress,
   ManagedServiceArtifact,
   Operation,
-  ContractArtifact,
-  isContractArtifact,
   SolidityStorageLayout,
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
@@ -39,13 +35,12 @@ import {
 } from '@sphinx-labs/contracts'
 
 import {
-  CompilerConfig,
+  DeploymentConfig,
   UserContractKind,
   userContractKinds,
   ParsedVariable,
-  ConfigArtifactsRemote,
   ActionInput,
-  ParsedConfig,
+  NetworkConfig,
   Create2ActionInput,
   ActionInputType,
   CreateActionInput,
@@ -57,10 +52,13 @@ import {
 } from './actions/types'
 import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import { BuildInfo, CompilerOutput } from './languages/solidity/types'
-import { getSolcBuild } from './languages'
-import { COMPILER_CONFIG_VERSION, LocalNetworkMetadata } from './networks'
-import { RelayProposal, StoreCanonicalConfig } from './types'
+import { BuildInfo } from './languages/solidity/types'
+import {
+  COMPILER_CONFIG_VERSION,
+  LocalNetworkMetadata,
+  fetchNameForNetwork,
+} from './networks'
+import { RelayProposal, StoreDeploymentConfig } from './types'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -289,108 +287,6 @@ export const callWithTimeout = async <T>(
   })
 }
 
-export const getConfigArtifactsRemote = async (
-  compilerConfigs: Array<CompilerConfig>
-): Promise<ConfigArtifactsRemote> => {
-  const solcArray: BuildInfo[] = []
-  const artifacts: ConfigArtifactsRemote = {}
-  // Get the compiler output for each compiler input.
-  for (const compilerConfig of compilerConfigs) {
-    for (const sphinxInput of compilerConfig.inputs) {
-      const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
-      let compilerOutput: CompilerOutput
-      if (solcBuild.isSolcJs) {
-        const compiler = new Compiler(solcBuild.compilerPath)
-        compilerOutput = await compiler.compile(sphinxInput.input)
-      } else {
-        const compiler = new NativeCompiler(solcBuild.compilerPath)
-        compilerOutput = await compiler.compile(sphinxInput.input)
-      }
-
-      if (compilerOutput.errors) {
-        const formattedErrorMessages: string[] = []
-        compilerOutput.errors.forEach((error) => {
-          // Ignore warnings thrown by the compiler.
-          if (error.type.toLowerCase() !== 'warning') {
-            formattedErrorMessages.push(error.formattedMessage)
-          }
-        })
-
-        if (formattedErrorMessages.length > 0) {
-          throw new Error(
-            `Failed to compile. Please report this error to Sphinx.\n` +
-              `${formattedErrorMessages}`
-          )
-        }
-      }
-
-      const formattedSolcLongVersion = formatSolcLongVersion(
-        sphinxInput.solcLongVersion
-      )
-
-      solcArray.push({
-        input: sphinxInput.input,
-        output: compilerOutput,
-        id: sphinxInput.id,
-        solcLongVersion: formattedSolcLongVersion,
-        solcVersion: sphinxInput.solcVersion,
-      })
-    }
-
-    for (const actionInput of compilerConfig.actionInputs) {
-      for (const { fullyQualifiedName } of actionInput.contracts) {
-        // Split the contract's fully qualified name into its source name and contract name.
-        const [sourceName, contractName] = fullyQualifiedName.split(':')
-
-        const buildInfo = solcArray.find(
-          // We use the optional chaining operator so that this line doesn't throw an error if
-          // `contracts[sourceName]` is undefined.
-          (e) => e.output.contracts[sourceName]?.[contractName]
-        )
-        if (!buildInfo) {
-          throw new Error(
-            `Could not find artifact for: ${fullyQualifiedName}. Should never happen.`
-          )
-        }
-        const contractOutput =
-          buildInfo.output.contracts[sourceName][contractName]
-
-        const metadata =
-          typeof contractOutput.metadata === 'string'
-            ? JSON.parse(contractOutput.metadata)
-            : contractOutput.metadata
-
-        const artifact: ContractArtifact = {
-          abi: contractOutput.abi,
-          sourceName,
-          contractName,
-          bytecode: add0x(contractOutput.evm.bytecode.object),
-          deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
-          methodIdentifiers: contractOutput.evm.methodIdentifiers,
-          linkReferences: contractOutput.evm.bytecode.linkReferences,
-          deployedLinkReferences:
-            contractOutput.evm.deployedBytecode.linkReferences,
-          metadata,
-          storageLayout: contractOutput.storageLayout,
-        }
-
-        if (!isContractArtifact(artifact)) {
-          throw new Error(
-            `Invalid artifact for: ${fullyQualifiedName}. Should never happen.`
-          )
-        }
-
-        artifacts[fullyQualifiedName] = {
-          buildInfo,
-          artifact,
-        }
-      }
-    }
-  }
-
-  return artifacts
-}
-
 /**
  * Returns true and only if the variable is a valid ethers DataHexString:
  * https://docs.ethers.org/v5/api/utils/bytes/#DataHexString
@@ -509,19 +405,22 @@ export const relayProposal: RelayProposal = async (
   }
 }
 
-export const storeCanonicalConfig: StoreCanonicalConfig = async (
+export const storeDeploymentConfig: StoreDeploymentConfig = async (
   apiKey: string,
   orgId: string,
-  configData: Array<string>
+  configData: string
 ): Promise<string> => {
   const response: {
     status: number
-    data: string[]
+    data: {
+      configId: string
+      uploadUrl: string
+    }
   } = await axios
-    .post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+    .post(`${fetchSphinxManagedBaseUrl()}/api/getConfigUploadUrl`, {
       apiKey,
       orgId,
-      configData,
+      hash: keccak256(ethers.toUtf8Bytes(configData.toString())),
       version: COMPILER_CONFIG_VERSION,
     })
     .catch((err) => {
@@ -544,7 +443,13 @@ export const storeCanonicalConfig: StoreCanonicalConfig = async (
       }
     })
 
-  return response.data[0]
+  await axios.put(response.data.uploadUrl, configData, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  return response.data.configId
 }
 
 export const arraysEqual = (
@@ -587,7 +492,7 @@ export const getNetworkNameDirectory = (
   chainId: string,
   executionMode: ExecutionMode
 ): string => {
-  const networkName = getNetworkNameForChainId(BigInt(chainId))
+  const networkName = fetchNameForNetwork(BigInt(chainId))
   if (
     executionMode === ExecutionMode.LiveNetworkCLI ||
     executionMode === ExecutionMode.Platform
@@ -633,16 +538,6 @@ export const getNetworkTag = (
   } else {
     return `local (chain ID: ${chainId})`
   }
-}
-
-export const getNetworkNameForChainId = (chainId: bigint): string => {
-  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
-
-  if (!network) {
-    return 'unknown'
-  }
-
-  return network.name
 }
 
 export const isEventLog = (
@@ -716,13 +611,6 @@ export const sleep = async (ms: number): Promise<void> => {
       resolve()
     }, ms)
   })
-}
-
-// From: https://github.com/NomicFoundation/hardhat/blob/f92e3233acc3180686e99b3c1b31a0e469f2ff1a/packages/hardhat-core/src/internal/core/config/config-resolution.ts#L112-L116
-export const isHttpNetworkConfig = (
-  config: NetworkConfig
-): config is HttpNetworkConfig => {
-  return 'url' in config
 }
 
 export const isSupportedChainId = (chainId: bigint): boolean => {
@@ -830,10 +718,10 @@ export const elementsEqual = (ary: Array<ParsedVariable>): boolean => {
   return ary.every((e) => equal(e, ary[0]))
 }
 
-export const displayDeploymentTable = (parsedConfig: ParsedConfig) => {
+export const displayDeploymentTable = (networkConfig: NetworkConfig) => {
   const deployments = {}
   let idx = 0
-  for (const input of parsedConfig.actionInputs) {
+  for (const input of networkConfig.actionInputs) {
     for (const { address, fullyQualifiedName } of input.contracts) {
       const contractName = fullyQualifiedName.split(':')[1]
       deployments[idx + 1] = {
@@ -951,7 +839,7 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   moduleAddress: string,
   executionMode: ExecutionMode,
   provider: SphinxJsonRpcProvider | HardhatEthersProvider
-): Promise<Array<ethers.Wallet>> => {
+): Promise<void> => {
   // The caller of the transactions on the Gnosis Safe will be the Sphinx Module. This is necessary
   // to prevent the calls from reverting. An alternative approach is to call the Gnosis Safe from
   // the Gnosis Safe itself. However, this would increment its nonce in the `addOwnerWithThreshold`
@@ -1020,8 +908,6 @@ export const addSphinxWalletsToGnosisSafeOwners = async (
   // Stop impersonating the Sphinx Module. This RPC method works for Anvil too because it's an alias
   // for 'anvil_stopImpersonatingAccount'.
   await provider.send('hardhat_stopImpersonatingAccount', [moduleAddress])
-
-  return sphinxWallets
 }
 
 /**
@@ -1152,7 +1038,9 @@ export const findLeafWithProof = (
   chainId: bigint
 ): SphinxLeafWithProof => {
   const leafWithProof = merkleTree.leavesWithProofs.find(
-    ({ leaf }) => leaf.chainId === chainId && leaf.leafType === leafType
+    ({ leaf }) =>
+      BigInt(leaf.chainId) === BigInt(chainId) &&
+      BigInt(leaf.leafType) === BigInt(leafType)
   )
   if (!leafWithProof) {
     throw new Error(
@@ -1399,8 +1287,8 @@ export const getCreate3Address = (deployer: string, salt: string): string => {
 export const toSphinxLeafWithProofArray = (
   input: Array<{
     leaf: {
-      chainId: string
-      index: string
+      chainId: string | bigint
+      index: string | bigint
       leafType: SphinxLeafType
       data: string
     }
@@ -1436,7 +1324,19 @@ export const getCreate3Salt = (
  * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
  * block gas limit.
  */
-export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
+export const getMaxGasLimit = (
+  blockGasLimit: bigint,
+  chainId: bigint
+): bigint => {
+  // On Scroll and Scroll Sepolia, set the max gas limit to be 80% of the block gas limit. We set a
+  // higher value for these networks because their block gas limit is low (10 million), which means
+  // a lower max gas limit could cause large contract deployments to be unexecutable. Transactions
+  // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
+  // meaningfully impact execution speed.
+  if (chainId === BigInt(534351) || chainId === BigInt(534352)) {
+    return (blockGasLimit * BigInt(8)) / BigInt(10)
+  }
+
   return blockGasLimit / BigInt(2)
 }
 
@@ -1649,4 +1549,21 @@ export const isFile = (path: string): boolean => {
  */
 export const isNormalizedAddress = (addr: string): boolean => {
   return ethers.getAddress(addr) === addr
+}
+
+export const fetchNetworkConfigFromDeploymentConfig = (
+  chainId: bigint,
+  deploymentConfig: DeploymentConfig
+): NetworkConfig => {
+  const networkConfig = deploymentConfig.networkConfigs.find(
+    (config) => BigInt(config.chainId) === chainId
+  )
+
+  if (!networkConfig) {
+    throw new Error(
+      'Failed to find parsed config for target network. This is a bug, please report it to the developers.'
+    )
+  }
+
+  return networkConfig
 }

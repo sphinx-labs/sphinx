@@ -8,6 +8,7 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   SphinxTransaction,
   ContractArtifact,
+  SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
@@ -69,7 +70,7 @@ export type ActionInput =
   | Create2ActionInput
   | CreateActionInput
 
-export type ParsedConfig = {
+export type NetworkConfig = {
   safeAddress: string
   moduleAddress: string
   executorAddress: string
@@ -77,6 +78,7 @@ export type ParsedConfig = {
   nonce: string
   chainId: string
   blockGasLimit: string
+  blockNumber: string
   actionInputs: Array<ActionInput>
   newConfig: SphinxConfig
   executionMode: ExecutionMode
@@ -104,6 +106,7 @@ export type DeploymentInfo = {
   nonce: string
   chainId: string
   blockGasLimit: string
+  blockNumber: string
   safeInitData: string
   newConfig: SphinxConfig
   executionMode: ExecutionMode
@@ -191,25 +194,26 @@ interface AbstractActionInput extends SphinxTransaction {
   index: string
 }
 
+export interface BuildInfos {
+  [id: string]: BuildInfo
+}
+
 /**
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CompilerConfig extends ParsedConfig {
+export interface DeploymentConfig {
+  networkConfigs: Array<NetworkConfig>
+  merkleTree: SphinxMerkleTree
+  configArtifacts: ConfigArtifacts
+  buildInfos: BuildInfos
   inputs: Array<CompilerInput>
   version: string
 }
 
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
-    buildInfo: BuildInfo
-    artifact: ContractArtifact
-  }
-}
-
-export type ConfigArtifactsRemote = {
-  [fullyQualifiedName: string]: {
-    buildInfo: BuildInfo
+    buildInfoId: string
     artifact: ContractArtifact
   }
 }
@@ -233,7 +237,7 @@ export type FoundryContractConfig = {
 
 export type GetConfigArtifacts = (
   initCodeWithArgsArray: Array<string>
-) => Promise<ConfigArtifacts>
+) => Promise<{ configArtifacts: ConfigArtifacts; buildInfos: BuildInfos }>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 
