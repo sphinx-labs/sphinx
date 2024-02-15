@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.29.1
+
+### Patch Changes
+
+- 16e3ef9: Bump compiler config version
+- Updated dependencies [16e3ef9]
+  - @sphinx-labs/core@0.22.1
+
 ## 0.29.0
 
 ### Minor Changes
