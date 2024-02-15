@@ -20,6 +20,7 @@ import ora from 'ora'
 import { blue, red } from 'chalk'
 import { ethers } from 'ethers'
 import {
+  BuildInfos,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
@@ -72,6 +73,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
 ): Promise<{
   networkConfigArray?: Array<NetworkConfig>
   configArtifacts?: ConfigArtifacts
+  buildInfos?: BuildInfos
   isEmpty: boolean
 }> => {
   const { testnets, mainnets } = await getSphinxConfigFromScript(
@@ -169,7 +171,9 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     collected.flatMap(({ deploymentInfo }) => deploymentInfo.accountAccesses)
   )
 
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+  const { configArtifacts, buildInfos } = await getConfigArtifacts(
+    initCodeWithArgsArray
+  )
 
   await assertNoLinkedLibraries(
     scriptPath,
@@ -202,6 +206,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   return {
     networkConfigArray,
     configArtifacts,
+    buildInfos,
     isEmpty: false,
   }
 }
@@ -270,7 +275,7 @@ export const propose = async (
     foundryToml.cachePath
   )
 
-  const { networkConfigArray, configArtifacts, isEmpty } =
+  const { networkConfigArray, configArtifacts, isEmpty, buildInfos } =
     await sphinxContext.buildNetworkConfigArray(
       scriptPath,
       isTestnet,
@@ -290,9 +295,9 @@ export const propose = async (
   }
 
   // Narrow the TypeScript type of the NetworkConfig and ConfigArtifacts.
-  if (!networkConfigArray || !configArtifacts) {
+  if (!networkConfigArray || !configArtifacts || !buildInfos) {
     throw new Error(
-      `NetworkConfig or ConfigArtifacts not defined. Should never happen.`
+      `NetworkConfig, ConfigArtifacts, or BuildInfos not defined. Should never happen.`
     )
   }
 
@@ -305,6 +310,7 @@ export const propose = async (
   const deploymentConfig = makeDeploymentConfig(
     networkConfigArray,
     configArtifacts,
+    buildInfos,
     merkleTree
   )
 

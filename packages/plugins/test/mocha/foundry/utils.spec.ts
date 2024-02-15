@@ -605,7 +605,10 @@ describe('Utils', async () => {
       const artifacts = await getConfigArtifacts([
         '0x67363d3d37363d34f03d5260086018f3', // `CREATE3` proxy initcode
       ])
-      expect(artifacts).deep.equals({})
+      expect(artifacts).deep.equals({
+        buildInfos: {},
+        configArtifacts: {},
+      })
     })
   })
 

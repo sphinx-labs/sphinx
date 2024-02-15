@@ -454,7 +454,9 @@ export const makeDeployment = async (
     )
   )
 
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+  const { configArtifacts, buildInfos } = await getConfigArtifacts(
+    initCodeWithArgsArray
+  )
 
   const networkConfigArray = deploymentInfoArray.map((deploymentInfo) => {
     return makeNetworkConfig(
@@ -471,6 +473,7 @@ export const makeDeployment = async (
   const deploymentConfig = makeDeploymentConfig(
     networkConfigArray,
     configArtifacts,
+    buildInfos,
     merkleTree
   )
 

@@ -43,6 +43,7 @@ import {
   ParsedVariable,
   SphinxConfig,
   SphinxConfigWithAddresses,
+  BuildInfos,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -562,6 +563,7 @@ export const makeGetConfigArtifacts = (
     )
 
     const configArtifacts: ConfigArtifacts = {}
+    const buildInfos: BuildInfos = {}
 
     for (const {
       fullyQualifiedName,
@@ -572,13 +574,15 @@ export const makeGetConfigArtifacts = (
         buildInfo.solcLongVersion
       )
 
+      buildInfos[buildInfo.id] = buildInfo
+
       configArtifacts[fullyQualifiedName] = {
         artifact,
-        buildInfo,
+        buildInfoId: buildInfo.id,
       }
     }
 
-    return configArtifacts
+    return { configArtifacts, buildInfos }
   }
 }
 

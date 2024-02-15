@@ -265,7 +265,9 @@ export const deploy = async (
   const initCodeWithArgsArray = getInitCodeWithArgsArray(
     deploymentInfo.accountAccesses
   )
-  const configArtifacts = await getConfigArtifacts(initCodeWithArgsArray)
+  const { configArtifacts, buildInfos } = await getConfigArtifacts(
+    initCodeWithArgsArray
+  )
 
   await assertNoLinkedLibraries(
     scriptPath,
@@ -295,6 +297,7 @@ export const deploy = async (
   const deploymentConfig = makeDeploymentConfig(
     [networkConfig],
     configArtifacts,
+    buildInfos,
     merkleTree
   )
 
@@ -437,8 +440,7 @@ export const deploy = async (
     const etherscanApiKey = etherscan[network].key
 
     await verifyDeploymentWithRetries(
-      networkConfig,
-      configArtifacts,
+      deploymentConfig,
       provider,
       etherscanApiKey
     )

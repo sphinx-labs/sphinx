@@ -26,11 +26,11 @@ describe('Decoded Actions', () => {
   const mockConfigArtifacts: ConfigArtifacts = {
     [myContract1FullyQualifiedName]: {
       artifact: MyContract1Artifact,
-      buildInfo: {} as any, // Unused
+      buildInfoId: '', // Unused
     },
     [myContract2FullyQualifiedName]: {
       artifact: MyContract2Artifact,
-      buildInfo: {} as any, // Unused
+      buildInfoId: '', // Unused
     },
   }
 

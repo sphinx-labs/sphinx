@@ -80,19 +80,15 @@ export const simulate = async (
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
 
-  const compilerConfig = compilerConfigArray.find(
-    (config) => config.chainId === chainId
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
   )
-
-  // Narrow the TypeScript type.
-  if (!compilerConfig) {
-    throw new Error(`Could not find ParsedConfig. Should never happen.`)
-  }
 
   const envVars = {
     SPHINX_INTERNAL__FORK_URL: rpcUrl,
     SPHINX_INTERNAL__CHAIN_ID: chainId,
-    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: compilerConfig.blockGasLimit,
+    SPHINX_INTERNAL__BLOCK_GAS_LIMIT: networkConfig.blockGasLimit,
     // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
     // Hardhat config when we import the HRE in the child process.
     HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
@@ -107,7 +103,7 @@ export const simulate = async (
     // Use the same block number as the Forge script that collected the user's transactions. This
     // reduces the chance that the simulation throws an error or stalls, which can occur when using
     // the most recent block number.
-    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = compilerConfig.blockNumber
+    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = networkConfig.blockNumber
   } else {
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
@@ -171,7 +167,7 @@ export const simulate = async (
 
   if (code !== 0) {
     const networkName = fetchNameForNetwork(BigInt(chainId))
-    let errorMessage: string = `Simulation failed for ${networkName} at block number ${compilerConfig.blockNumber}.`
+    let errorMessage: string = `Simulation failed for ${networkName} at block number ${networkConfig.blockNumber}.`
     try {
       // Attempt to decode the error message. This try-statement could theoretically throw an error
       // if `stdout` isn't a valid JSON string.
