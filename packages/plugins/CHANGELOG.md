@@ -1,5 +1,44 @@
 # @sphinx-labs/plugins
 
+## 0.29.2
+
+### Patch Changes
+
+- 6c521cb: Prompt to install Foundry fork during init
+
+## 0.29.1
+
+### Patch Changes
+
+- 16e3ef9: Bump compiler config version
+- Updated dependencies [16e3ef9]
+  - @sphinx-labs/core@0.22.1
+
+## 0.29.0
+
+### Minor Changes
+
+- cbab29e: Only compile locally
+- f5fac9c: Check mismatch between plugins package and contracts library early
+
+### Patch Changes
+
+- 054f745: Normalize script path
+- 373c3fa: Adjust gas heuristics to support large contracts on Scroll
+- 151b2e2: Make simulation more reliable by using less recent block number
+- 83b4974: Use full execution logic in simulation
+- 83b4974: Upload compiler config to s3
+- 2406ced: Re-enable tests that use live network RPC URLs
+- Updated dependencies [373c3fa]
+- Updated dependencies [151b2e2]
+- Updated dependencies [83b4974]
+- Updated dependencies [cbab29e]
+- Updated dependencies [83b4974]
+- Updated dependencies [2406ced]
+- Updated dependencies [f5fac9c]
+  - @sphinx-labs/contracts@0.19.0
+  - @sphinx-labs/core@0.22.0
+
 ## 0.28.1
 
 ### Patch Changes
