@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.22.2
+
+### Patch Changes
+
+- 70826a6: Bump hardhat version
+
 ## 0.22.1
 
 ### Patch Changes
