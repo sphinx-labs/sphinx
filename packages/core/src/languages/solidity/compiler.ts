@@ -1,5 +1,6 @@
-import { CompilerInput } from 'hardhat/types'
 import { CompilerOutputMetadata } from '@sphinx-labs/contracts'
+
+import { SolcInput } from './types'
 
 /**
  * Returns the minimum compiler input necessary to compile a given source name. All contracts that
@@ -11,16 +12,16 @@ import { CompilerOutputMetadata } from '@sphinx-labs/contracts'
  * @returns Minimum compiler input necessary to compile the source name.
  */
 export const getMinimumCompilerInput = (
-  fullCompilerInput: CompilerInput,
+  fullCompilerInput: SolcInput,
   metadata: CompilerOutputMetadata
-): CompilerInput => {
-  const minimumSources: CompilerInput['sources'] = {}
+): SolcInput => {
+  const minimumSources: SolcInput['sources'] = {}
   for (const newSourceName of Object.keys(metadata.sources)) {
     minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
   }
 
   const { language, settings } = fullCompilerInput
-  const minimumCompilerInput: CompilerInput = {
+  const minimumCompilerInput: SolcInput = {
     language,
     settings,
     sources: minimumSources,
