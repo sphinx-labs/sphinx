@@ -96,6 +96,8 @@ export const BuildInfoTemplate: BuildInfo = {
       },
       metadata: {
         useLiteralContent: false,
+        bytecodeHash: '',
+        appendCBOR: true,
       },
       outputSelection: {
         sphinx_all_keys: {

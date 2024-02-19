@@ -24,7 +24,7 @@ export const sampleScriptFileName = 'HelloSphinx.s.sol'
 export const sampleTestFileName = 'HelloSphinx.t.sol'
 
 const handleGitInit = async () => {
-  if (process.env.SPHINX_INTERNAL_TEST__SKIP_GIT === 'true') {
+  if (process.env.SPHINX_INTERNAL_TEST__DEMO_TEST === 'true') {
     return
   }
 
@@ -40,7 +40,7 @@ const handleGitInit = async () => {
 }
 
 const handleCommit = async () => {
-  if (process.env.SPHINX_INTERNAL_TEST__SKIP_GIT === 'true') {
+  if (process.env.SPHINX_INTERNAL_TEST__DEMO_TEST === 'true') {
     return
   }
 

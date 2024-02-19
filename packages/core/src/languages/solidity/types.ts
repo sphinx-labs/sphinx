@@ -294,7 +294,11 @@ export interface SolcInput {
         }
       }
     }
-    metadata?: { useLiteralContent: boolean }
+    metadata?: {
+      useLiteralContent: boolean
+      bytecodeHash: string
+      appendCBOR: boolean
+    }
     outputSelection: {
       [sourceName: string]: {
         [contractName: string]: string[]

@@ -1,6 +1,5 @@
 import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
-import { CompilerInput } from 'hardhat/types'
 import {
   CompilerOutputMetadata,
   SystemContractType,
@@ -25,7 +24,7 @@ import {
   isLiveNetwork,
   sleep,
 } from './utils'
-import { BuildInfo } from './languages'
+import { BuildInfo, SolcInput } from './languages'
 import {
   fetchNameForNetwork,
   isVerificationSupportedForNetwork,
@@ -192,7 +191,7 @@ export const attemptVerification = async (
   encodedConstructorArgs: string,
   fullyQualifiedName: string,
   solcLongVersion: string,
-  minimumCompilerInput: CompilerInput,
+  minimumCompilerInput: SolcInput,
   provider: ethers.Provider,
   chainId: string,
   etherscanApiKey: string
