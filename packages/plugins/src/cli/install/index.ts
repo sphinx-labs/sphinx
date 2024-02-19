@@ -12,9 +12,11 @@ const installWithUpdate = async (
   ci: boolean
 ) => {
   if (!ci) {
-    await userConfirmation(
-      'Would you like to install the Sphinx Foundry fork? This is required to use Sphinx and will replace your existing Foundry installation.\nConfirm? (y\\n):'
-    )
+    if (process.env.SPHINX_INTERNAL_TEST__DEMO_TEST !== 'true') {
+      await userConfirmation(
+        'Would you like to install the Sphinx Foundry fork? This is required to use Sphinx and will replace your existing Foundry installation.\nConfirm? (y\\n):'
+      )
+    }
     const foundryupStatus = await spawnAsync('/bin/bash', [
       '-c',
       'curl -L https://foundry.paradigm.xyz | bash',
@@ -103,9 +105,9 @@ const installWithUpdate = async (
 export const handleInstall = async (
   spinner: ora.Ora,
   skipLibrary: boolean,
-  confirm: boolean
+  ci: boolean
 ) => {
-  await installWithUpdate(spinner, skipLibrary, confirm)
+  await installWithUpdate(spinner, skipLibrary, ci)
   if (skipLibrary) {
     return
   }

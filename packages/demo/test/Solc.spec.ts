@@ -47,7 +47,7 @@ describe('Solidity Compiler', () => {
         '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       ],
       {
-        SPHINX_INTERNAL_TEST__SKIP_GIT: 'true',
+        SPHINX_INTERNAL_TEST__DEMO_TEST: 'true',
       }
     )
     if (code !== 0) {
