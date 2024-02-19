@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.19.1
+
+### Patch Changes
+
+- 38249c2: Resolve block.number bug on Arbitrum
+
 ## 0.19.0
 
 ### Minor Changes

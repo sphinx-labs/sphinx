@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.29.5
+
+### Patch Changes
+
+- 38249c2: Resolve block.number bug on Arbitrum
+- Updated dependencies [38249c2]
+  - @sphinx-labs/contracts@0.19.1
+
 ## 0.29.4
 
 ### Patch Changes
