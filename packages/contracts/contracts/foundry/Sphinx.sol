@@ -178,7 +178,6 @@ abstract contract Sphinx {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.blockNumber = block.number;
         deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(
             sphinxConfig.owners,
             sphinxConfig.threshold
@@ -197,6 +196,12 @@ abstract contract Sphinx {
         deploymentInfo.sphinxLibraryVersion = sphinxUtils.getSphinxLibraryVersion();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
+
+        // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
+        // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`
+        // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead of Arbitrum.
+        // This could cause the simulation to use an invalid block number and fail.
+        deploymentInfo.blockNumber = 0;
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.

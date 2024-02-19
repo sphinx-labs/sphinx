@@ -178,6 +178,13 @@ export const deploy = async (
     foundryToml.cachePath
   )
 
+  // We fetch the block number ahead of time and store it in the deploymentInfo, so that we can use the
+  // exact same block number during the simulation phase. We have to do this using a call to the provider
+  // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`
+  // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead of Arbitrum.
+  // This could cause the simulation to use an invalid block number and fail.
+  const blockNumber = await provider.getBlockNumber()
+
   const executionMode = isLiveNetwork
     ? ExecutionMode.LiveNetworkCLI
     : ExecutionMode.LocalNetworkCLI
@@ -224,7 +231,8 @@ export const deploy = async (
   const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
   const deploymentInfo = decodeDeploymentInfo(
     serializedDeploymentInfo,
-    sphinxPluginTypesInterface
+    sphinxPluginTypesInterface,
+    blockNumber
   )
 
   spinner.succeed(`Collected transactions.`)
