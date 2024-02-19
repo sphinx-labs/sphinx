@@ -110,6 +110,9 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       unlinkSync(deploymentInfoPath)
     }
 
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    const blockNumber = await provider.getBlockNumber()
+
     const forgeScriptCollectArgs = [
       'script',
       scriptPath,
@@ -120,7 +123,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       deploymentInfoPath,
     ]
 
-    const provider = new SphinxJsonRpcProvider(rpcUrl)
     if (
       isLegacyTransactionsRequiredForNetwork(
         (await provider.getNetwork()).chainId
@@ -153,7 +155,8 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
     const deploymentInfo = decodeDeploymentInfo(
       serializedDeploymentInfo,
-      sphinxPluginTypesInterface
+      sphinxPluginTypesInterface,
+      blockNumber
     )
 
     collected.push({
