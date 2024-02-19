@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.22.3
+
+### Patch Changes
+
+- f980cc2: Handle bytecodeHash=none during etherscan verification
+
 ## 0.22.2
 
 ### Patch Changes
