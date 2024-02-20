@@ -57,6 +57,7 @@ import {
   COMPILER_CONFIG_VERSION,
   LocalNetworkMetadata,
   fetchNameForNetwork,
+  shouldUseHigherMaxGasLimit,
 } from './networks'
 import { RelayProposal, StoreDeploymentConfig } from './types'
 
@@ -1333,8 +1334,8 @@ export const getMaxGasLimit = (
   // a lower max gas limit could cause large contract deployments to be unexecutable. Transactions
   // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
   // meaningfully impact execution speed.
-  if (chainId === BigInt(534351) || chainId === BigInt(534352)) {
-    return (blockGasLimit * BigInt(8)) / BigInt(10)
+  if (shouldUseHigherMaxGasLimit(chainId)) {
+    return (blockGasLimit * BigInt(100)) / BigInt(100)
   }
 
   return blockGasLimit / BigInt(2)

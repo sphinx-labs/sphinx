@@ -18,6 +18,7 @@ export type SupportedNetwork = {
   queryFilterBlockLimit: number
   legacyTx: boolean
   actionGasLimitBuffer: boolean
+  useHigherMaxGasLimit: boolean
   rollupStack?: {
     provider: RollupProvider
     type: RollupType
@@ -30,6 +31,7 @@ export type SupportedLocalNetwork = {
   networkType: NetworkType
   legacyTx: false
   actionGasLimitBuffer: false
+  useHigherMaxGasLimit: false
 }
 
 export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
@@ -39,6 +41,7 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
     networkType: 'Local',
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
 ]
 
@@ -69,6 +72,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'sepolia',
@@ -91,6 +95,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'optimism',
@@ -113,6 +118,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'optimism_sepolia',
@@ -135,6 +141,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'arbitrum',
@@ -157,6 +164,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'arbitrum_sepolia',
@@ -179,6 +187,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'polygon',
@@ -201,6 +210,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'polygon_mumbai',
@@ -223,6 +233,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'bnb',
@@ -244,6 +255,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'bnb_testnet',
@@ -265,6 +277,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'gnosis',
@@ -286,6 +299,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'gnosis_chiado',
@@ -307,6 +321,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'linea',
@@ -329,6 +344,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'linea_goerli',
@@ -351,6 +367,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'polygon_zkevm',
@@ -372,6 +389,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'polygon_zkevm_goerli',
@@ -393,6 +411,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'avalanche',
@@ -415,6 +434,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'avalanche_fuji',
@@ -437,6 +457,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'fantom',
@@ -458,6 +479,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'fantom_testnet',
@@ -479,6 +501,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'base',
@@ -501,6 +524,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'base_sepolia',
@@ -523,6 +547,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'celo',
@@ -545,6 +570,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'celo_alfajores',
@@ -567,6 +593,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'moonriver',
@@ -588,6 +615,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'moonbeam',
@@ -609,6 +637,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'moonbase_alpha',
@@ -630,6 +659,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'fuse',
@@ -651,6 +681,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'evmos',
@@ -673,6 +704,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'evmos_testnet',
@@ -695,6 +727,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'kava',
@@ -716,6 +749,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'kava_testnet',
@@ -739,6 +773,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
   },
   {
     name: 'oktc',
@@ -760,6 +795,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: true,
     decimals: 18,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: true,
   },
   {
     name: 'scroll',
@@ -781,6 +817,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: true,
   },
   {
     name: 'scroll_sepolia',
@@ -802,6 +839,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: true,
   },
   {
     name: 'rootstock',
@@ -823,6 +861,29 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 8,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
+    useHigherMaxGasLimit: true,
+  },
+  {
+    name: 'rootstock_testnet',
+    displayName: 'Rootstock Testnet',
+    chainId: BigInt(31),
+    rpcUrl: () => process.env.ROOTSTOCK_TESTNET_RPC_URL!,
+    etherscan: {
+      apiURL: 'https://rootstock.blockscout.com/api',
+      browserURL: 'https://rootstock.blockscout.com/',
+      envKey: 'ROOTSTOCK_ETHERSCAN_API_KEY',
+      blockExplorer: 'Blockscout',
+    },
+    currency: 'RBTC',
+    dripSize: '0.001',
+    requiredEnvVariables: ['ROOTSTOCK_RPC_URL'],
+    dripVersion: 2,
+    networkType: 'Testnet',
+    legacyTx: true,
+    decimals: 8,
+    queryFilterBlockLimit: 2000,
+    actionGasLimitBuffer: true,
+    useHigherMaxGasLimit: true,
   },
   {
     name: 'zora',
@@ -843,6 +904,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
     requiredEnvVariables: ['ZORA_RPC_URL'],
     rollupStack: {
       provider: 'Conduit',
@@ -868,6 +930,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
     requiredEnvVariables: ['ZORA_SEPOLIA_RPC_URL'],
     rollupStack: {
       provider: 'Conduit',
@@ -893,6 +956,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
     requiredEnvVariables: ['RARI_RPC_URL'],
     rollupStack: {
       provider: 'Caldera',
@@ -918,6 +982,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
     requiredEnvVariables: ['RARI_SEPOLIA_RPC_URL'],
     rollupStack: {
       provider: 'Caldera',
