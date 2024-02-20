@@ -195,6 +195,18 @@ export const shouldBufferExecuteActionsGasLimit = (chainId: bigint) => {
   }
 }
 
+export const shouldUseHigherMaxGasLimit = (chainId: bigint) => {
+  const network = [...SPHINX_NETWORKS, ...SPHINX_LOCAL_NETWORKS].find(
+    (n) => n.chainId === chainId
+  )
+
+  if (network) {
+    return network.useHigherMaxGasLimit ?? false
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
 /**
  * The number of blocks that Hardhat rewinds when forking the given network. Rewinding the block
  * number protects against chain reorgs. Copied from Hardhat:

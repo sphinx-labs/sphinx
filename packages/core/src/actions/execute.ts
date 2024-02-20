@@ -660,7 +660,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   blockGasLimit,
   deploymentContext
 ) => {
-  const { provider } = deploymentContext
+  const { provider, wallet } = deploymentContext
   const { moduleAddress, chainId } = deploymentContext.deployment
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
@@ -682,29 +682,35 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     [moduleAddress, executionData]
   )
 
-  const overrides: ethers.TransactionRequest = {}
-  if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
-    const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
-    const gasEstimate = await provider.estimateGas({
-      to: getManagedServiceAddress(),
-      data: managedServiceExecData,
-    })
+  // if (!wallet) {
+  //   throw new Error(
+  //     'No signer passed to executeActionsViaSigner. This is a bug, please report it to the developers.'
+  //   )
+  // }
 
-    let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
-    if (limit > maxGasLimit) {
-      limit = maxGasLimit
-    }
+  // const overrides: ethers.TransactionRequest = {}
+  // if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
+  //   const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
+  //   const gasEstimate = await wallet.estimateGas({
+  //     to: getManagedServiceAddress(),
+  //     data: managedServiceExecData,
+  //   })
 
-    overrides.gasLimit = limit
-  }
+  //   let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
+  //   const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+  //   if (limit > maxGasLimit) {
+  //     limit = maxGasLimit
+  //   }
+
+  //   overrides.gasLimit = limit
+  // }
 
   return deploymentContext.executeTransaction(
     deploymentContext,
     {
       to: getManagedServiceAddress(),
       data: managedServiceExecData,
-      gasLimit: overrides.gasLimit?.toString(),
+      // gasLimit: getMaxGasLimit(blockGasLimit, BigInt(chainId)).toString(),
       chainId: deploymentContext.deployment.chainId,
     },
     executionMode

@@ -148,7 +148,8 @@ export const makeNetworkConfig = (
   // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
   // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
   // leaf. The 80% was chosen arbitrarily.
-  const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
+  const maxAllowedGasPerLeaf =
+    (BigInt(80) * BigInt(blockGasLimit)) / BigInt(100)
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
