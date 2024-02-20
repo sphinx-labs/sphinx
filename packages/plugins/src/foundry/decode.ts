@@ -17,6 +17,8 @@ import {
   Create2ActionInput,
   ActionInputType,
   fetchNameForNetwork,
+  getMaxGasLimit,
+  prettyFunctionCall,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -144,24 +146,11 @@ export const makeNetworkConfig = (
     gasEstimates,
   } = deploymentInfo
 
-  // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
-  // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
-  // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
-  // leaf. The 80% was chosen arbitrarily.
-  const maxAllowedGasPerLeaf = (BigInt(8) * BigInt(blockGasLimit)) / BigInt(10)
-
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
   for (let i = 0; i < accountAccesses.length; i++) {
     const { root, nested } = accountAccesses[i]
     const gas = gasEstimates[i].toString()
-
-    if (BigInt(gas) > maxAllowedGasPerLeaf) {
-      const networkName = fetchNameForNetwork(BigInt(chainId))
-      throw new Error(
-        `Estimated gas for a transaction is too close to the block gas limit on ${networkName}.`
-      )
-    }
 
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
       nested,
@@ -173,6 +162,7 @@ export const makeNetworkConfig = (
     // index of 0.
     const executeActionIndex = i + 1
 
+    let actionInput: ActionInput
     if (root.kind === AccountAccessKind.Create) {
       const initCodeWithArgs = root.data
       const address = root.account
@@ -219,7 +209,7 @@ export const makeNetworkConfig = (
         to: getCreateCallAddress(),
         txData: encodeCreateCall(root.value, initCodeWithArgs),
       }
-      parsedActionInputs.push(action)
+      actionInput = action
     } else if (isCreate2AccountAccess(root, nested)) {
       const { create2Address, initCodeWithArgs } =
         decodeDeterministicDeploymentProxyData(root.data)
@@ -250,7 +240,7 @@ export const makeNetworkConfig = (
         to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
         txData: root.data,
       }
-      parsedActionInputs.push(action)
+      actionInput = action
     } else if (root.kind === AccountAccessKind.Call) {
       const to = root.account
 
@@ -281,8 +271,34 @@ export const makeNetworkConfig = (
         to,
         txData: root.data,
       }
+      actionInput = callInput
+    } else {
+      throw new Error(`Invalid action input. Should never happen.`)
+    }
 
-      parsedActionInputs.push(callInput)
+    parsedActionInputs.push(actionInput)
+
+    // Check if the estimated gas exceeds the max batch gas limit. It's not necessary to check this
+    // here because the simulation will throw an error if it can't find a valid batch size. However,
+    // we check this here anyways so that we can display an error to the user earlier in the
+    // process. If the estimated gas is less than the max batch gas limit but it can't fit into a
+    // batch, the simulation will throw an error.
+    const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
+    if (BigInt(gas) > maxGasLimit) {
+      const networkName = fetchNameForNetwork(BigInt(chainId))
+      const { referenceName, address, functionName, variables } =
+        actionInput.decodedAction
+      throw new Error(
+        `Estimated gas for the following transaction is too high to be executed by Sphinx on ${networkName}:\n` +
+          prettyFunctionCall(
+            referenceName,
+            address,
+            functionName,
+            variables,
+            5,
+            3
+          )
+      )
     }
   }
 
