@@ -82,6 +82,7 @@ import {
 import { simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
+import { assertValidNodeVersion } from '../../cli/utils'
 
 const readFileAsync = promisify(readFile)
 
@@ -1343,6 +1344,9 @@ export const assertValidVersions = async (
   scriptPath: string,
   targetContract?: string
 ): Promise<void> => {
+  // Validate that the user has a compatible NodeJS version installed
+  assertValidNodeVersion()
+
   // Validate the user's Sphinx dependencies. Specifically, we retrieve the Sphinx contracts library
   // version and empirically check that our Foundry fork is functioning properly.
   const output = await callForgeScriptFunction<{
