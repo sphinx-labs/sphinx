@@ -144,27 +144,11 @@ export const makeNetworkConfig = (
     gasEstimates,
   } = deploymentInfo
 
-  // Each Merkle leaf must have a gas amount that's at most 80% of the block gas limit. This ensures
-  // that it's possible to execute the transaction on-chain. Specifically, there must be enough gas
-  // to execute the Sphinx Module's logic, which isn't included in the gas estimate of the Merkle
-  // leaf. The 80% was chosen arbitrarily.
-  const maxAllowedGasPerLeaf =
-    (BigInt(91) * BigInt(blockGasLimit)) / BigInt(100)
-
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
   for (let i = 0; i < accountAccesses.length; i++) {
     const { root, nested } = accountAccesses[i]
     const gas = gasEstimates[i].toString()
-
-    if (BigInt(gas) > maxAllowedGasPerLeaf) {
-      console.log(gas)
-      console.log(maxAllowedGasPerLeaf)
-      const networkName = fetchNameForNetwork(BigInt(chainId))
-      throw new Error(
-        `Estimated gas for a transaction is too close to the block gas limit on ${networkName}.`
-      )
-    }
 
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
       nested,

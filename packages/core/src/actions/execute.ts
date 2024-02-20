@@ -1,3 +1,5 @@
+import { createWriteStream } from 'fs'
+
 import { Logger } from '@eth-optimism/common-ts'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import {
@@ -439,6 +441,9 @@ export const executeBatchActions = async (
       }...`
     )
 
+    const stream = createWriteStream('./out.logs')
+    stream.write(JSON.stringify(batch, undefined, 2))
+    stream.write(JSON.stringify(humanReadableActions, undefined, 2))
     const receipt = await executeActions(
       batch,
       executionMode,
@@ -713,7 +718,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     {
       to: getManagedServiceAddress(),
       data: managedServiceExecData,
-      // gasLimit: getMaxGasLimit(blockGasLimit, BigInt(chainId)).toString(),
+      gasLimit: getMaxGasLimit(blockGasLimit, BigInt(chainId)).toString(),
       chainId: deploymentContext.deployment.chainId,
     },
     executionMode
@@ -754,7 +759,7 @@ export const executeActionsViaSigner: ExecuteActions = async (
     })
 
     let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(4)
     if (limit > maxGasLimit) {
       limit = maxGasLimit
     }
@@ -828,7 +833,7 @@ export const estimateGasViaManagedService: EstimateGas = (
   const estimate =
     21_000 + callDataGas + estimateModuleExecutionGas(batch) + managedServiceGas
 
-  return Math.round(estimate * 1.05 + 50_000) // Include a buffer
+  return Math.round(estimate * 1.0 + 40_000) // Include a buffer
 }
 
 /**

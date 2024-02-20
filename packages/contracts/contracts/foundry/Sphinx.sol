@@ -413,7 +413,7 @@ abstract contract Sphinx {
             // We chose to multiply the gas by 1.1 because multiplying it by a higher number could
             // make a very large transaction unexecutable on-chain. Since the 1.1x multiplier
             // doesn't impact small transactions very much, we add a constant amount of 60k too.
-            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 103) / 100;
+            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 101) / 100;
         }
 
         vm.stopPrank();

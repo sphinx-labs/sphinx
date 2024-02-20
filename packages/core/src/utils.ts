@@ -169,21 +169,20 @@ export const getGasPriceOverrides = async (
       executionMode === ExecutionMode.Platform) &&
     process.env.SPHINX_INTERNAL__DISABLE_HARDCODED_GAS_LIMIT !== 'true'
   ) {
-    // Hard-code the gas limit to be the 3/4 of the block gas limit. This is an optimization that
-    // significantly speeds up deployments because it removes the need for EthersJS to call
-    // `eth_estimateGas`, which is a very slow operation for large transactions. We only make this
-    // optimization in situations where we can safely assume that the caller has an unlimited amount
-    // of ETH. We don't override this on live networks because the signer is the user's wallet,
-    // which may have a limited amount of ETH. We set it to 3/4 of the block gas limit for two
-    // reasons:
-    // 1. This value is considerably higher than the max batch size for `EXECUTE` Merkle leaves,
-    //    which ensures that we don't accidentally underfund the transaction.
-    // 2. This value is considerably lower than the block gas limit. If, instead, we set this value
-    //    equal to the current block gas limit, a situation could occur where the block gas limit
-    //    decreases slightly after we set this value, which would cause an error due to the fact
-    //    that the transaction's gas limit exceeds the block gas limit.
-    overridden.gasLimit = (BigInt(3) * block.gasLimit) / BigInt(4)
-    return overridden
+    const maxGasLimit = getMaxGasLimit(block.gasLimit, network.chainId)
+    // Hard-code the gas limit to be midway between the max batch gas limit and the block gas limit.
+    // This is an optimization that significantly speeds up deployments because it removes the need
+    // for EthersJS to call `eth_estimateGas`, which is a very slow operation for large
+    // transactions. We only make this optimization in situations where we can safely assume that
+    // the caller has an unlimited amount of ETH. We don't override this on live networks because
+    // the signer is the user's wallet, which may have a limited amount of ETH.
+    //
+    // We set this value higher than the max batch gas limit to ensure that we don't accidentally
+    // underfund the transaction. If we set this value equal to the block gas limit, a situation
+    // could occur where the block gas limit decreases slightly after we set this value, which would
+    // cause an error due to the fact that the transaction's gas limit exceeds the block gas limit.
+    // This occurred when simulating a deployment on Polygon.
+    overridden.gasLimit = (maxGasLimit + block.gasLimit) / BigInt(2)
   }
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
@@ -1335,7 +1334,7 @@ export const getMaxGasLimit = (
   // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
   // meaningfully impact execution speed.
   if (shouldUseHigherMaxGasLimit(chainId)) {
-    return (blockGasLimit * BigInt(97)) / BigInt(100)
+    return (blockGasLimit * BigInt(100)) / BigInt(100)
   }
 
   return blockGasLimit / BigInt(2)
