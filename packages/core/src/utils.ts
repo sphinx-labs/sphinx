@@ -1335,7 +1335,7 @@ export const getMaxGasLimit = (
   // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
   // meaningfully impact execution speed.
   if (shouldUseHigherMaxGasLimit(chainId)) {
-    return (blockGasLimit * BigInt(100)) / BigInt(100)
+    return (blockGasLimit * BigInt(97)) / BigInt(100)
   }
 
   return blockGasLimit / BigInt(2)
