@@ -141,7 +141,8 @@ export type ExecuteTransaction = (
   deploymentContext: DeploymentContext,
   transaction: MinimumTransaction,
   executionMode: ExecutionMode,
-  signer?: ethers.Signer
+  signer?: ethers.Signer,
+  minimumActionsGasLimit?: number
 ) => Promise<TransactionReceipt>
 
 export type InjectRoles = (
@@ -660,7 +661,7 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   blockGasLimit,
   deploymentContext
 ) => {
-  const { provider, wallet } = deploymentContext
+  const { provider } = deploymentContext
   const { moduleAddress, chainId } = deploymentContext.deployment
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
@@ -682,38 +683,21 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     [moduleAddress, executionData]
   )
 
-  // if (!wallet) {
-  //   throw new Error(
-  //     'No signer passed to executeActionsViaSigner. This is a bug, please report it to the developers.'
-  //   )
-  // }
-
-  // const overrides: ethers.TransactionRequest = {}
-  // if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
-  //   const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
-  //   const gasEstimate = await wallet.estimateGas({
-  //     to: getManagedServiceAddress(),
-  //     data: managedServiceExecData,
-  //   })
-
-  //   let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-  //   const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
-  //   if (limit > maxGasLimit) {
-  //     limit = maxGasLimit
-  //   }
-
-  //   overrides.gasLimit = limit
-  // }
+  let minimumActionsGasLimit: number | undefined
+  if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
+    minimumActionsGasLimit = estimateGasViaManagedService(moduleAddress, batch)
+  }
 
   return deploymentContext.executeTransaction(
     deploymentContext,
     {
       to: getManagedServiceAddress(),
       data: managedServiceExecData,
-      // gasLimit: getMaxGasLimit(blockGasLimit, BigInt(chainId)).toString(),
       chainId: deploymentContext.deployment.chainId,
     },
-    executionMode
+    executionMode,
+    undefined,
+    minimumActionsGasLimit
   )
 }
 
