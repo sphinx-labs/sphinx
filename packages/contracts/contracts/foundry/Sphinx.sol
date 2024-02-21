@@ -178,10 +178,7 @@ abstract contract Sphinx {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(
-            sphinxConfig.owners,
-            sphinxConfig.threshold
-        );
+        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(sphinxConfig);
         deploymentInfo.newConfig = SphinxConfig({
             projectName: sphinxConfig.projectName,
             owners: sphinxConfig.owners,
@@ -262,10 +259,7 @@ abstract contract Sphinx {
         );
         address singletonAddress = constants.safeSingletonAddress();
 
-        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(
-            sphinxConfig.owners,
-            sphinxConfig.threshold
-        );
+        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(sphinxConfig);
 
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
@@ -351,7 +345,8 @@ abstract contract Sphinx {
      *         off-chain. We ABI encode the config because it's difficult to decode complex
      *         data types that are returned by invoking Forge scripts.
      */
-    function sphinxConfigABIEncoded() external view returns (bytes memory) {
+    function sphinxConfigABIEncoded() public view returns (bytes memory) {
+        sphinxUtils.validate(sphinxConfig);
         return abi.encode(sphinxConfig, safeAddress(), sphinxModule());
     }
 

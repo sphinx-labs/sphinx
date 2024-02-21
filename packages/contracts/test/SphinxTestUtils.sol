@@ -205,10 +205,7 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
     ) public returns (IGnosisSafe) {
         IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(safeFactoryAddress);
 
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(
-            _config.owners,
-            _config.threshold
-        );
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
 
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
