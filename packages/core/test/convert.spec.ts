@@ -74,6 +74,7 @@ describe('Convert EthersJS Objects', () => {
     534351:
       '0x0f5e4aeae66a13cde040d9c4603c5e57be8731907755bfcee519b9eb3716158d',
     30: '0x48e3c765b4d066c06e92706d5b91f8daa7f8182a58cba52d8a52bdb5a43fc5dd',
+    31: '0xdb0400ba3f56f653cab12b521d2bf0a61098865c7aeecd39d42711514feaacfa',
   }
 
   before(async () => {
