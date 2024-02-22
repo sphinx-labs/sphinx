@@ -9,8 +9,11 @@ import {
 } from '@sphinx-labs/plugins'
 import { SemVer, coerce, gt, lte } from 'semver'
 import { spawnAsync } from '@sphinx-labs/core'
+import pLimit from 'p-limit'
 
 import { deleteForgeProject } from './common'
+
+const limit = pLimit(5)
 
 const srcDir = 'src'
 const scriptDir = 'script'
@@ -96,21 +99,23 @@ describe('Solidity Compiler', () => {
     const cacheDirs = versions.map((version) => `cache-${version}`)
 
     const buildPromises = versions.map((version, index) => {
-      return spawnAsync(`forge`, [
-        'build',
-        '--use',
-        version,
-        '--via-ir',
-        '--optimize',
-        '--optimizer-runs',
-        '200',
-        '--force',
-        '--out',
-        outputDirs[index],
-        '--cache-path',
-        cacheDirs[index],
-      ]).then(({ stdout, stderr, code }) => {
-        return { version, stdout, stderr, code }
+      return limit(async () => {
+        return spawnAsync(`forge`, [
+          'build',
+          '--use',
+          version,
+          '--via-ir',
+          '--optimize',
+          '--optimizer-runs',
+          '200',
+          '--force',
+          '--out',
+          outputDirs[index],
+          '--cache-path',
+          cacheDirs[index],
+        ]).then(({ stdout, stderr, code }) => {
+          return { version, stdout, stderr, code }
+        })
       })
     })
 
@@ -162,24 +167,26 @@ describe('Solidity Compiler', () => {
     const cacheDirs = versions.map((version) => `cache-${version}`)
 
     const buildPromises = versions.map((version, index) => {
-      return spawnAsync(
-        `forge`,
-        [
-          'build',
-          '--use',
-          version,
-          '--via-ir',
-          '--force',
-          '--out',
-          outputDirs[index],
-          '--cache-path',
-          cacheDirs[index],
-        ],
-        {
-          FOUNDRY_PROFILE: 'no_optimizer',
-        }
-      ).then(({ stdout, stderr, code }) => {
-        return { version, stdout, stderr, code }
+      return limit(async () => {
+        return spawnAsync(
+          `forge`,
+          [
+            'build',
+            '--use',
+            version,
+            '--via-ir',
+            '--force',
+            '--out',
+            outputDirs[index],
+            '--cache-path',
+            cacheDirs[index],
+          ],
+          {
+            FOUNDRY_PROFILE: 'no_optimizer',
+          }
+        ).then(({ stdout, stderr, code }) => {
+          return { version, stdout, stderr, code }
+        })
       })
     })
 
@@ -237,7 +244,5 @@ const generateSemverRange = (
     }
   }
 
-  // We intentionally filter out `0.8.24` since foundry does not appear to support it in the latest version.
-  // See CHU-436 for more information.
-  return versions.filter((version) => version !== '0.8.24')
+  return versions
 }
