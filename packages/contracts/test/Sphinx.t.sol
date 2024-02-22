@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 // relied on a remapping in the wrong file.
 import "../lib/forge-std/src/Test.sol";
 
-import { Sphinx } from "../contracts/foundry/Sphinx.sol";
+import { Sphinx, Network } from "../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
 import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";

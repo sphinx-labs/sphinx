@@ -526,7 +526,21 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
      *         proposals, broadcasting, etc).
      */
-    function validate(SphinxConfig memory _config) external pure {
+    function validate(SphinxConfig memory _config) public pure {
+        if (
+            _config.owners.length == 0 &&
+            _config.threshold == 0 &&
+            bytes(_config.projectName).length == 0 &&
+            _config.mainnets.length == 0 &&
+            _config.testnets.length == 0 &&
+            _config.saltNonce == 0 &&
+            bytes(_config.orgId).length == 0
+        ) {
+            revert(
+                "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+            );
+        }
+
         require(
             _config.owners.length > 0,
             "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
@@ -691,11 +705,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
-        address[] memory owners = _config.owners;
-        uint256 threshold = _config.threshold;
-
-        address[] memory sortedOwners = sortAddresses(owners);
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(sortedOwners, threshold);
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
@@ -778,21 +788,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         location.
      */
     function getGnosisSafeInitializerData(
-        address[] memory _owners,
-        uint _threshold
+        SphinxConfig memory _config
     ) public pure returns (bytes memory safeInitializerData) {
-        require(
-            _owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array."
-        );
-        require(
-            _threshold > 0,
-            "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0."
-        );
+        validate(_config);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
-        address[] memory sortedOwners = sortAddresses(_owners);
+        address[] memory sortedOwners = sortAddresses(_config.owners);
 
         ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
             sphinxModuleProxyFactoryAddress
@@ -846,7 +848,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             IGnosisSafe.setup.selector,
             abi.encode(
                 sortedOwners,
-                _threshold,
+                _config.threshold,
                 multiSendAddress,
                 multiSendData,
                 // This is the default fallback handler used by Gnosis Safe during their

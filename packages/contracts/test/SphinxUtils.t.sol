@@ -414,6 +414,14 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         assertFalse(vm.keyExists(serialized, ".myKey"));
     }
 
+    function test_validate_revert_empty_config() external {
+        SphinxConfig memory sphinxConfig;
+        vm.expectRevert(
+            "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+        );
+        validate(sphinxConfig);
+    }
+
     /////////////////////////////////// Helpers //////////////////////////////////////
 
     function makeAccountAccess(
