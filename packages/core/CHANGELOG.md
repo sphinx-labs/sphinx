@@ -1,5 +1,16 @@
 # @sphinx-labs/core
 
+## 0.22.4
+
+### Patch Changes
+
+- 51087d6: Improve support for Rootstock
+- a77d5a2: Increase overridden gas limit on local and forked networks
+- Updated dependencies [51087d6]
+- Updated dependencies [650a858]
+- Updated dependencies [94c4ecc]
+  - @sphinx-labs/contracts@0.19.2
+
 ## 0.22.3
 
 ### Patch Changes
