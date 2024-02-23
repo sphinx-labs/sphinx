@@ -38,7 +38,10 @@ import {
   setManagedServiceRelayer,
   toSphinxLeafWithProofArray,
 } from '../utils'
-import { shouldBufferExecuteActionsGasLimit } from '../networks'
+import {
+  implementsEIP2028,
+  shouldBufferExecuteActionsGasLimit,
+} from '../networks'
 import {
   SphinxTransactionReceipt,
   ensureSphinxAndGnosisSafeDeployed,
@@ -141,7 +144,8 @@ export type ExecuteTransaction = (
   deploymentContext: DeploymentContext,
   transaction: MinimumTransaction,
   executionMode: ExecutionMode,
-  signer?: ethers.Signer
+  signer?: ethers.Signer,
+  minimumActionsGasLimit?: number
 ) => Promise<TransactionReceipt>
 
 export type InjectRoles = (
@@ -321,7 +325,8 @@ const findMaxBatchSize = (
   leaves: SphinxLeafWithProof[],
   maxGasLimit: bigint,
   moduleAddress: string,
-  estimateGas: EstimateGas
+  estimateGas: EstimateGas,
+  chainId: bigint
 ): number => {
   if (leaves.length === 0) {
     throw new Error(`Must enter at least one Merkle leaf.`)
@@ -333,7 +338,13 @@ const findMaxBatchSize = (
   // data.
   for (let i = 1; i <= leaves.length; i++) {
     if (
-      !isExecutable(leaves.slice(0, i), maxGasLimit, moduleAddress, estimateGas)
+      !isExecutable(
+        leaves.slice(0, i),
+        maxGasLimit,
+        moduleAddress,
+        estimateGas,
+        chainId
+      )
     ) {
       // If the first batch itself is not executable, throw an error.
       if (i === 1) {
@@ -423,7 +434,8 @@ export const executeBatchActions = async (
       filtered.slice(executed),
       maxGasLimit,
       moduleAddress,
-      estimateGas
+      estimateGas,
+      BigInt(chainId)
     )
 
     // Pull out the next batch of actions.
@@ -485,9 +497,10 @@ export const isExecutable = (
   selected: SphinxLeafWithProof[],
   maxGasLimit: bigint,
   moduleAddress: string,
-  estimateGas: EstimateGas
+  estimateGas: EstimateGas,
+  chainid: bigint
 ): boolean => {
-  return maxGasLimit > estimateGas(moduleAddress, selected)
+  return maxGasLimit > estimateGas(moduleAddress, selected, chainid)
 }
 
 export const approveDeploymentViaSigner: ApproveDeployment = async (
@@ -682,21 +695,13 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     [moduleAddress, executionData]
   )
 
-  const overrides: ethers.TransactionRequest = {}
+  let minimumActionsGasLimit: number | undefined
   if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
-    const minimumActionGas = estimateGasViaManagedService(moduleAddress, batch)
-    const gasEstimate = await provider.estimateGas({
-      to: getManagedServiceAddress(),
-      data: managedServiceExecData,
-    })
-
-    let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
-    if (limit > maxGasLimit) {
-      limit = maxGasLimit
-    }
-
-    overrides.gasLimit = limit
+    minimumActionsGasLimit = estimateGasViaManagedService(
+      moduleAddress,
+      batch,
+      BigInt(deploymentContext.deployment.chainId)
+    )
   }
 
   return deploymentContext.executeTransaction(
@@ -704,10 +709,11 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     {
       to: getManagedServiceAddress(),
       data: managedServiceExecData,
-      gasLimit: overrides.gasLimit?.toString(),
       chainId: deploymentContext.deployment.chainId,
     },
-    executionMode
+    executionMode,
+    undefined,
+    minimumActionsGasLimit
   )
 }
 
@@ -736,7 +742,11 @@ export const executeActionsViaSigner: ExecuteActions = async (
     )
   }
 
-  const minimumActionGas = estimateGasViaSigner(moduleAddress, batch)
+  const minimumActionGas = estimateGasViaSigner(
+    moduleAddress,
+    batch,
+    BigInt(deploymentContext.deployment.chainId)
+  )
   const overrides: ethers.TransactionRequest = {}
   if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
     const gasEstimate = await wallet.estimateGas({
@@ -745,7 +755,7 @@ export const executeActionsViaSigner: ExecuteActions = async (
     })
 
     let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = (blockGasLimit / BigInt(4)) * BigInt(3)
+    const maxGasLimit = getMaxGasLimit(blockGasLimit, BigInt(chainId))
     if (limit > maxGasLimit) {
       limit = maxGasLimit
     }
@@ -765,6 +775,24 @@ export const executeActionsViaSigner: ExecuteActions = async (
 }
 
 /**
+ * Some networks may have a different gas cost per byte of gas if they do not implement EIP-2028.
+ * For example, Rootstock is like this. So we use this function to properly calculate the gas
+ * cost per call data for both networks that implement EIP-2028 and those that do not.
+ */
+const getGasPerCalldata = (byte: number, chainId: bigint) => {
+  // If the byte is 0, then the cost is 4 no matter what
+  if (byte === 0) {
+    return 4
+  } else if (implementsEIP2028(chainId)) {
+    // If the byte is not 0 and EIP-2028 is implemented, then the cost is 16
+    return 16
+  } else {
+    // If the byte is not 0 and EIP-2028 is not implemented, then the cost is 68
+    return 68
+  }
+}
+
+/**
  * Estimate the amount of gas that will be used by executing a batch of `EXECUTE` Merkle leaves
  * through the `ManagedService` contract. We use heuristics instead of the `eth_estimateGas` RPC
  * method, which is unacceptably slow for large deployments on local networks. The heuristic is the
@@ -772,7 +800,8 @@ export const executeActionsViaSigner: ExecuteActions = async (
  *
  * 1. 21k, which is the cost of initiating a transaction on Ethereum.
  * 2. The transaction calldata, which is 16 gas per non-zero byte of calldata and 4 bytes per
- * zero-byte of calldata.
+ * zero-byte of calldata. There are some networks what the cost per non-zero byte is 68 because
+ * they do not implement EIP-2028. We use the `getGasPerCalldata` function to handle this.
  * 3. The estimated cost of executing the logic in the `SphinxModule`.
  * 4. The estimated cost of executing the logic in the `ManagedService` contract. This scales in
  * relation to the amount of calldata passed to the destination contract (i.e. the
@@ -794,7 +823,8 @@ export const executeActionsViaSigner: ExecuteActions = async (
  */
 export const estimateGasViaManagedService: EstimateGas = (
   moduleAddress,
-  batch
+  batch,
+  chainId
 ) => {
   const managedServiceIface = new ethers.Interface(ManagedServiceABI)
   const sphinxModuleIface = new ethers.Interface(SphinxModuleABI)
@@ -808,7 +838,7 @@ export const estimateGasViaManagedService: EstimateGas = (
   ])
   const callDataGas = ethers
     .getBytes(callDataHex)
-    .map((e) => (e === 0 ? 4 : 16))
+    .map((e) => getGasPerCalldata(e, chainId))
     .reduce((a, b) => a + b, 0)
 
   const managedServiceGas =
@@ -830,7 +860,8 @@ export const estimateGasViaManagedService: EstimateGas = (
  *
  * 1. 21k, which is the cost of initiating a transaction on Ethereum.
  * 2. The transaction calldata, which is 16 gas per non-zero byte of calldata and 4 bytes per
- * zero-byte of calldata.
+ * zero-byte of calldata. There are some networks what the cost per non-zero byte is 68 because
+ * they do not implement EIP-2028. We use the `getGasPerCalldata` function to handle this.
  * 3. The estimated cost of executing the logic in the `SphinxModule`.
  *
  * After summing these values, we include a buffer to ensure that the heuristic overestimates the
@@ -839,13 +870,17 @@ export const estimateGasViaManagedService: EstimateGas = (
  * This buffer also makes our estimate closer to the value that would be returned by the
  * `eth_estimateGas` RPC method, which tends to overestimate the amount of gas.
  */
-export const estimateGasViaSigner: EstimateGas = (moduleAddress, batch) => {
+export const estimateGasViaSigner: EstimateGas = (
+  moduleAddress,
+  batch,
+  chainId
+) => {
   const sphinxModuleIface = new ethers.Interface(SphinxModuleABI)
 
   const callDataHex = sphinxModuleIface.encodeFunctionData('execute', [batch])
   const callDataGas = ethers
     .getBytes(callDataHex)
-    .map((e) => (e === 0 ? 4 : 16))
+    .map((e) => getGasPerCalldata(e, chainId))
     .reduce((a, b) => a + b, 0)
 
   const estimate = 21_000 + callDataGas + estimateModuleExecutionGas(batch)

@@ -209,7 +209,10 @@ export const assignManagedServiceRoles = async (
     const dripcheck = getCheckBalanceLowAddress()
     const checkparams = AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
-      [relayer, ethers.parseEther(fetchDripSizeForNetwork(chainId)) * BigInt(5)]
+      [
+        relayer,
+        ethers.parseEther(fetchDripSizeForNetwork(chainId)) * BigInt(10),
+      ]
     )
     const actions = [
       {

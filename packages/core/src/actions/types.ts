@@ -151,7 +151,8 @@ export type ProjectDeployment = {
 
 export type EstimateGas = (
   moduleAddress: string,
-  batch: Array<SphinxLeafWithProof>
+  batch: Array<SphinxLeafWithProof>,
+  chainId: bigint
 ) => number
 
 export type ExecuteActions = (

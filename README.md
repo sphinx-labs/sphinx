@@ -130,6 +130,7 @@ Test networks:
 - Moonbase Alpha
 - Evmos Testnet
 - Kava Testnet
+- Rootstock Testnet
 
 More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 

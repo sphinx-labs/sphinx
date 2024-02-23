@@ -1,3 +1,5 @@
+import semver from 'semver'
+
 export const BothNetworksSpecifiedError = `You must specify either 'testnets' or 'mainnets', but not both.`
 
 export const ConfirmAndDryRunError =
@@ -26,4 +28,16 @@ export const coerceNetworks = (
 
   // If none of the above conditions are met, throw a general error.
   throw new Error(getInvalidNetworksArgumentError(arg))
+}
+
+export const assertValidNodeVersion = () => {
+  const requiredVersion = '16.16.0'
+  const currentVersion = process.version
+
+  // Compares if the current version is >= requiredVersion
+  if (!semver.gte(currentVersion, requiredVersion)) {
+    throw new Error(
+      `Current Node.js version ${currentVersion} is not sufficient. Sphinx requires >=${requiredVersion}`
+    )
+  }
 }
