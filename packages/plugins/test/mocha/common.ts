@@ -40,6 +40,7 @@ import {
   injectRoles,
   removeRoles,
   makeDeploymentConfig,
+  getMaxGasLimit,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -396,6 +397,15 @@ export const makeDeployment = async (
 
       const numActionInputs = accountAccesses.length
 
+      // We set the Merkle leaf gas fields to a high value based on the max batch size we allow on the network
+      // to ensure that a very large contract deployment can fit in a batch. This is important to check on
+      // networks like Scroll and Rootstock which have low block gas limits. (Scroll's block gas limit is 10
+      // million, Rootstocks is 6.8 million). For example, A Merkle leaf gas field of 75% of the match batch size
+      // on Scroll is 6 million gas and corresponds to a contract at the max size limit with a couple dozen SSTORES
+      // in its constructor.
+      const maxGasLimit = getMaxGasLimit(block.gasLimit, chainId)
+      const gasEstimateSize = (maxGasLimit * BigInt(75)) / BigInt(100)
+
       const deploymentInfo: DeploymentInfo = {
         safeAddress,
         moduleAddress,
@@ -423,12 +433,7 @@ export const makeDeployment = async (
         },
         arbitraryChain: false,
         accountAccesses,
-        // We set the Merkle leaf gas fields to 6 million to ensure that a very large contract
-        // deployment can fit in a batch. This is important to check on networks like Scroll which
-        // have low block gas limits. (Scroll's block gas limit is 10 million). A Merkle leaf gas
-        // field of 6 million corresponds to a contract at the max size limit with a couple dozen
-        // SSTOREs in its constructor.
-        gasEstimates: new Array(numActionInputs).fill(BigInt(6_000_000)),
+        gasEstimates: new Array(numActionInputs).fill(gasEstimateSize),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
       }
 
