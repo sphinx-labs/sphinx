@@ -1,5 +1,13 @@
 # @sphinx-labs/contracts
 
+## 0.19.2
+
+### Patch Changes
+
+- 51087d6: Improve support for Rootstock
+- 650a858: Improve error message when config is not defined
+- 94c4ecc: Increase Drippie drip limits
+
 ## 0.19.1
 
 ### Patch Changes
