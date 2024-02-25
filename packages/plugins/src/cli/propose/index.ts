@@ -40,7 +40,6 @@ import {
   compile,
   getInitCodeWithArgsArray,
   assertValidVersions,
-  assertNoLinkedLibraries,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -176,14 +175,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
 
   const { configArtifacts, buildInfos } = await getConfigArtifacts(
     initCodeWithArgsArray
-  )
-
-  await assertNoLinkedLibraries(
-    scriptPath,
-    foundryToml.cachePath,
-    foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
   )
 
   const networkConfigArray = collected.map(({ deploymentInfo, libraries }) =>
