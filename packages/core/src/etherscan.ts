@@ -21,6 +21,7 @@ import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import {
   fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
+  getBytesLength,
   isLiveNetwork,
   sleep,
 } from './utils'
@@ -87,7 +88,7 @@ export const verifySphinxConfig = async (
       // real values.
       const encodedConstructorArgs = ethers.dataSlice(
         initCodeWithArgs,
-        ethers.dataLength(artifact.bytecode)
+        getBytesLength(artifact.bytecode)
       )
 
       const result = await attemptVerification(
@@ -148,7 +149,7 @@ export const verifyDeploymentWithRetries = async (
         // real values.
         const encodedConstructorArgs = ethers.dataSlice(
           initCodeWithArgs,
-          ethers.dataLength(artifact.bytecode)
+          getBytesLength(artifact.bytecode)
         )
 
         const result = await attemptVerification(

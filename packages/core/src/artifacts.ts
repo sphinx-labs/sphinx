@@ -26,6 +26,7 @@ import {
 import {
   fetchNetworkConfigFromDeploymentConfig,
   fetchSphinxManagedBaseUrl,
+  getBytesLength,
   getNetworkNameDirectory,
   isSphinxTransaction,
   toSphinxTransaction,
@@ -353,7 +354,7 @@ const makeContractDeploymentArtifacts = async (
       // or immutable variable placeholders, which are always the same length as the real values.
       const encodedConstructorArgs = ethers.dataSlice(
         initCodeWithArgs,
-        ethers.dataLength(bytecode)
+        getBytesLength(bytecode)
       )
 
       const constructorFragment = iface.fragments.find(
