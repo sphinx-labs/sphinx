@@ -162,23 +162,19 @@ library MyLibraryTwo {
     }
 }
 
+library MyLibraryThree {
+    function myThirdLibraryFunction() external pure returns (uint256) {
+        return 3;
+    }
+}
+
 // A contract that contains calls to libraries. We call two distinct libraries, and make two calls
 // to the same library, to ensure that our TypeScript logic can handle contracts with a somewhat
 // complex `linkReferences` field in its artifact.
 contract MyContractWithLibraries {
-    uint256 public myValue;
-
-    function doubleValue() external {
-        myValue = 2 * MyLibraryOne.myFirstLibraryFunction();
-    }
-
-    function tripleValue() external {
-        myValue = 3 * MyLibraryOne.myFirstLibraryFunction();
-    }
-
-    function newValue() external {
-        myValue = MyLibraryTwo.mySecondLibraryFunction();
-    }
+    address public myLibraryOne = address(MyLibraryOne);
+    address public myLibraryTwo = address(MyLibraryTwo);
+    address public prelinkedLibrary = address(MyLibraryThree);
 }
 
 contract MyImmutableContract {

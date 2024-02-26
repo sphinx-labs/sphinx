@@ -12,7 +12,6 @@ import {
   SphinxJsonRpcProvider,
   SphinxPreview,
   SphinxTransactionReceipt,
-  execAsync,
   fetchChainIdForNetwork,
   getCreate3Address,
   makeDeploymentArtifacts,
@@ -27,6 +26,9 @@ import {
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
+import * as MyContractWithLibrariesArtifact from '../../../out/artifacts/MyContracts.sol/MyContractWithLibraries.json'
+import * as MyLibraryOneArtifact from '../../../out/artifacts/MyContracts.sol/MyLibraryOne.json'
+import * as MyLibraryTwoArtifact from '../../../out/artifacts/MyContracts.sol/MyLibraryTwo.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.s.sol/RevertDuringSimulation.json'
 import * as ConstructorDeploysContractParentArtifact from '../../../out/artifacts/ConstructorDeploysContract.sol/ConstructorDeploysContract.json'
@@ -364,9 +366,14 @@ describe('Deployment Cases', () => {
   let merkleTree: SphinxMerkleTree | undefined
   let receipts: Array<SphinxTransactionReceipt> | undefined
   let configArtifacts: ConfigArtifacts | undefined
+  let contractWithLibraries: ethers.Contract
+  let libraryOneAddress: string
+  let libraryTwoAddress: string
   let createAddressOne: string
   let createAddressTwo: string
   let originalEnv: NodeJS.ProcessEnv
+
+  const prelinkedLibraryAddress = '0x' + '88'.repeat(20)
 
   const checkLabeled = (
     address: string,
@@ -395,6 +402,10 @@ describe('Deployment Cases', () => {
     originalEnv = { ...process.env }
 
     process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+    // TODO(docs): define a pre-linked library. this library doesn't need to be deployed because...
+    process.env[
+      'FOUNDRY_LIBRARIES'
+    ] = `contracts/test/MyContracts.sol:MyLibraryThree:${prelinkedLibraryAddress}`
 
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
@@ -422,15 +433,33 @@ describe('Deployment Cases', () => {
     expect(compilerConfig).to.not.be.undefined
     expect(preview).to.not.be.undefined
 
-    createAddressOne = ethers.getCreateAddress({
+    contractWithLibraries = new ethers.Contract(
+      ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        ethers.ZeroHash,
+        ethers.keccak256(MyContractWithLibrariesArtifact.bytecode.object)
+      ),
+      MyContractWithLibrariesArtifact.abi,
+      provider
+    )
+
+    libraryOneAddress = ethers.getCreateAddress({
       from: compilerConfig!.safeAddress,
       // The nonce is one because contract nonces start at 1, whereas EOA nonces start at
       // 0.
       nonce: 1,
     })
-    createAddressTwo = ethers.getCreateAddress({
+    libraryTwoAddress = ethers.getCreateAddress({
       from: compilerConfig!.safeAddress,
       nonce: 2,
+    })
+    createAddressOne = ethers.getCreateAddress({
+      from: compilerConfig!.safeAddress,
+      nonce: 3,
+    })
+    createAddressTwo = ethers.getCreateAddress({
+      from: compilerConfig!.safeAddress,
+      nonce: 4,
     })
   })
 
@@ -474,6 +503,33 @@ describe('Deployment Cases', () => {
       provider
     )
     expect(await contract.number()).to.equal(BigInt(0))
+  })
+
+  it('Can deploy linked libraries', async () => {
+    const libraryOne = new ethers.Contract(
+      libraryOneAddress,
+      MyLibraryOneArtifact.abi,
+      provider
+    )
+    const libraryTwo = new ethers.Contract(
+      libraryTwoAddress,
+      MyLibraryTwoArtifact.abi,
+      provider
+    )
+
+    expect(await provider.getCode(libraryOneAddress)).does.not.equal('0x')
+    expect(await libraryOne.myFirstLibraryFunction()).equals(42)
+    expect(await contractWithLibraries.myLibraryOne()).equals(libraryOneAddress)
+
+    expect(await provider.getCode(libraryTwoAddress)).does.not.equal('0x')
+    expect(await libraryTwo.mySecondLibraryFunction()).equals(123)
+    expect(await contractWithLibraries.myLibraryTwo()).equals(libraryTwoAddress)
+  })
+
+  it('Can inject pre-linked library into contract', async () => {
+    expect(await contractWithLibraries.myLibraryThree()).equals(
+      prelinkedLibraryAddress
+    )
   })
 
   it('Can call fallback function on contract', async () => {
@@ -579,6 +635,17 @@ describe('Deployment Cases', () => {
         checkNotLabeled(create3ProxyAddress)
       })
     })
+  })
+
+  it('Network config contains correct library addresses', () => {
+    const libraryOne = `contracts/test/MyContracts.sol:MyLibraryOne=${libraryOneAddress}`
+    const libraryTwo = `contracts/test/MyContracts.sol:MyLibraryTwo=${libraryTwoAddress}`
+    const prelinkedLibrary = `contracts/test/MyContracts.sol:MyLibraryThree=${prelinkedLibraryAddress}`
+    expect(compilerConfig!.libraries).deep.equals([
+      libraryOne,
+      libraryTwo,
+      prelinkedLibrary,
+    ])
   })
 
   it('Writes deployment artifacts correctly', async () => {

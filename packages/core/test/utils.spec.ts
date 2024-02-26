@@ -1,15 +1,20 @@
 import { expect } from 'chai'
 import { ethers } from 'ethers'
-import { recursivelyConvertResult } from '@sphinx-labs/contracts'
+import {
+  LinkReferences,
+  recursivelyConvertResult,
+} from '@sphinx-labs/contracts'
 
 import {
   arraysEqual,
   decodeCall,
   equal,
   formatSolcLongVersion,
+  resolveAllLibraryPlaceholders,
 } from '../src/utils'
 import { ABI } from './common'
 import { getBytesLength } from '../dist'
+import { Libraries } from '../src/config/types'
 
 describe('Utils', () => {
   describe('equal', () => {
@@ -451,5 +456,59 @@ describe('Utils', () => {
         },
       })
     })
+  })
+
+  describe('resolveAllLibraryPlaceholders', () => {
+    it('throws error when neither sourceName nor libraryName exist in libraries', () => {
+      const artifactBytecode = 'dummyBytecode'
+      const linkReferences: LinkReferences = {
+        mySourceName: {
+          MyLibrary: [
+            {
+              length: 20,
+              start: 0,
+            },
+          ],
+        },
+      }
+      const libraries: Libraries = {}
+
+      expect(() =>
+        resolveAllLibraryPlaceholders(
+          artifactBytecode,
+          linkReferences,
+          libraries
+        )
+      ).to.throw(
+        Error,
+        `Could not find address for library: mySourceName:MyLibrary`
+      )
+    })
+  })
+
+  it('throws when libraryName does not exist in libraries, but sourceName does', () => {
+    const artifactBytecode = 'dummyBytecode'
+    const linkReferences: LinkReferences = {
+      mySourceName: {
+        MyLibrary: [
+          {
+            length: 20,
+            start: 0,
+          },
+        ],
+      },
+    }
+    const libraries: Libraries = {
+      mySourceName: {
+        MyOtherLibrary: '0x' + '11'.repeat(20),
+      },
+    }
+
+    expect(() =>
+      resolveAllLibraryPlaceholders(artifactBytecode, linkReferences, libraries)
+    ).to.throw(
+      Error,
+      `Could not find address for library: mySourceName:MyLibrary`
+    )
   })
 })

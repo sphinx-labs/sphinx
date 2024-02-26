@@ -1660,10 +1660,11 @@ export const resolveAllLibraryPlaceholders = (
 ): string => {
   for (const sourceName of Object.keys(linkReferences)) {
     for (const libraryName of Object.keys(linkReferences[sourceName])) {
-      // TODO(later): test that this throws an error when the sourceName exists in `libraries` but the `libraryName` doesn't. also test that this throws an error when neither exist in `libraries`.
-      const libraryAddress = libraries[sourceName][libraryName] // TODO(later): probably use optional chaining operator so that this doesn't throw an error
+      const libraryAddress = libraries[sourceName]?.[libraryName]
       if (!libraryAddress) {
-        throw new Error(`TODO(docs)`)
+        throw new Error(
+          `Could not find address for library: ${sourceName}:${libraryName}`
+        )
       }
 
       const fullyQualifiedName = `${sourceName}:${libraryName}`

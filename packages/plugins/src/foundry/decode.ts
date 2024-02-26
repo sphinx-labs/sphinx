@@ -586,11 +586,8 @@ export const inferLinkedLibraries = async (
   return { libraries, libraryAccountAccesses, libraryGasEstimates }
 }
 
-// TODO(later): probably put pre-linked libraries from foundry.toml in the parsedconfig and
-// deployment artifacts.
-
-// TODO(later): do we need to bring back `convertLibraryFormat` to support pre-linked
-// libraries from foundry.toml?
+// TODO(later): we need to bring back `convertLibraryFormat` to support pre-linked
+// libraries from foundry.toml.
 
 // TODO(docs): assertValidLinkedLibraries: check that the linkReferences and deployedLinkReferences
 // contain the same libraries. it's important to check this b/c we need to deploy every library that

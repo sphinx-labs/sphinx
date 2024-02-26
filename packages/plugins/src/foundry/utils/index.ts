@@ -1474,5 +1474,3 @@ export const assertValidLinkedLibraries = (
 // don't support pre-linked libraries" to the Current Limitations section in the main README.
 
 // TODO(later): remove the "Current limitation" in the foundry.toml.
-
-// TODO(later): checkboxes in linear ticket.

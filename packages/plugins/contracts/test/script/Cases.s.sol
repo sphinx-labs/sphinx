@@ -7,7 +7,7 @@ import { Sphinx } from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import { CREATE3 } from "solady/utils/CREATE3.sol";
 import { ConstructorDeploysContract } from "../../../contracts/test/ConstructorDeploysContract.sol";
 import { Fallback } from "../../../contracts/test/Fallback.sol";
-import { MyContract2 } from "../MyContracts.sol";
+import { MyContract2, MyContractWithLibraries } from "../MyContracts.sol";
 
 contract Simple is Script, Sphinx {
     constructor() {
@@ -27,6 +27,9 @@ contract Simple is Script, Sphinx {
         MyContract2 createContractOne = new MyContract2();
         createContractOne.incrementMyContract2(1);
         new MyContract2();
+
+        // Deploy a contract with a few linked libraries
+        new MyContractWithLibraries{ salt: 0 }();
 
         // Deploy with Create2
         Fallback fallbackCreate2 = new Fallback{ salt: 0 }(-1);

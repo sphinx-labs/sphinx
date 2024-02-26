@@ -420,10 +420,31 @@ export const deploy = async (
 //   }
 // }
 
-// TODO(later): manually check that verification succeeds when the deployment includes a
-// dynamically linked _and_ a pre-linked library. in the latter case, it's fine if we don't very the
-// pre-linked library (since it's already deployed), but verification shouldn't randomly fail due to
-// its presence.
+// TODO(later): left off: testing the bullet point in the next TODO by making `FOUNDRY_SENDERS` an
+// array. it should be in the format: "['src/...:0x...','src/...:0x...']"
+
+// TODO(later): use deploy.spec.ts from:
+// https://github.com/sphinx-labs/sphinx/pull/1256/files#diff-29ec0295f49b2c26d9459864907f712e8833c8c91a4e95fd85bd2c3c0a2f81ff
+// in the same script, test:
+// - Test that the resulting `parsedConfig.libraries` contains the three libraries. Also, check that
+//   it does not contain a pre-linked library that isn't linked to the script. Probably specify this
+//   library's address via a Foundry environment variable.
+
+// TODO(later-later): consider testing that the deployment process works when the gnosis safe is
+// already deployed. i'm not sure if it's worth the effort to test this.
+
+// TODO(later-later): manually check that verification succeeds when the deployment includes a
+// dynamically linked, _and_ a pre-linked library. in the latter case, it's fine if we don't verify
+// the pre-linked library (since it's already deployed), but the deployment process shouldn't
+// randomly fail due to its presence. there are two aspects to check for the dynamically linked
+// library: the library should be verified, and the corresponding contract's verification page
+// should contain the linked library.
+
+// TODO(later-later): manually check what happens when you deploy a library that's just used in the
+// contract's constructor. etherscan verification may fail due to this hardhat limitation:
+// https://hardhat.org/hardhat-runner/plugins/nomicfoundation-hardhat-verify#libraries-with-undetectable-addresses
+
+// TODO(later-later): etherscan's docs say that it supports a max of 10 linked libraries.
 
 // TODO(end): do we already have a ticket for removing unused libraries? if not, add one: currently,
 // this is a limitation in foundry too
