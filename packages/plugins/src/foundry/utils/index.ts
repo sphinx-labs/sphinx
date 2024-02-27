@@ -1352,7 +1352,13 @@ export const assertValidVersions = async (
   const output = await callForgeScriptFunction<{
     libraryVersion: { value: string }
     forkInstalled: { value: string }
-  }>(scriptPath, 'sphinxValidate()', [], undefined, targetContract)
+  }>(
+    scriptPath,
+    'sphinxValidate()',
+    ['--always-use-create-2-factory'],
+    undefined,
+    targetContract
+  )
 
   const libraryVersion = output.returns.libraryVersion.value
     // The raw string is wrapped in two sets of quotes, so we remove the outer quotes here.
@@ -1369,9 +1375,9 @@ export const assertValidVersions = async (
 
   if (forkInstalled === 'false') {
     throw new Error(
-      `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
+      `Detected invalid Foundry version. Please install Sphinx's fork of Foundry by\n` +
         `running the command:\n` +
-        `foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0`
+        `npx sphinx install`
     )
   }
 }

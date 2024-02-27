@@ -24,12 +24,6 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
 }
 
 export const checkRequiredTomlOptions = (toml: FoundryToml) => {
-  if (toml.alwaysUseCreate2Factory !== true) {
-    throw new Error(
-      'Missing required option in foundry.toml file:\nalways_use_create_2_factory = true\nPlease update your foundry.toml file and try again.'
-    )
-  }
-
   if (toml.buildInfo !== true) {
     throw new Error(
       'Missing required option in foundry.toml file:\nbuild_info = true\nPlease update your foundry.toml file and try again.'

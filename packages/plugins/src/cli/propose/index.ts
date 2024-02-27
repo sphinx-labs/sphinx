@@ -76,7 +76,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   buildInfos?: BuildInfos
   isEmpty: boolean
 }> => {
-  const { testnets, mainnets } = await getSphinxConfigFromScript(
+  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
     targetContract,
@@ -121,6 +121,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       '--sig',
       'sphinxCollectProposal(string)',
       deploymentInfoPath,
+      '--always-use-create-2-factory',
     ]
 
     if (
@@ -141,6 +142,8 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+      FOUNDRY_SENDER: safeAddress,
+      ETH_FROM: safeAddress,
     })
 
     if (spawnOutput.code !== 0) {

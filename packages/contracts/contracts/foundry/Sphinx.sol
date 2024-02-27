@@ -202,8 +202,13 @@ abstract contract Sphinx {
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
+        // This also also ensures that the safe's nonce is incremented as a contract instead of an EOA.
         if (address(safe).code.length == 0) {
-            _sphinxDeployModuleAndGnosisSafe();
+            sphinxUtils.deployModuleAndGnosisSafe(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                safe
+            );
         }
 
         // Take a snapshot of the current state. We'll revert to the snapshot after we run the
