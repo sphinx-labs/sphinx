@@ -35,6 +35,20 @@ import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
 
+interface ISphinxScript {
+    // function sphinxConfig() external view returns (
+    //     string memory projectName,
+    //     address[] memory owners,
+    //     uint256 threshold,
+    //     string memory orgId,
+    //     Network[] memory mainnets,
+    //     Network[] memory testnets,
+    //     uint256 saltNonce
+    // );
+    function sphinxFetchLegacyConfig() external view returns (SphinxConfig memory);
+    function configureSphinx() external pure returns (SphinxConfig memory);
+}
+
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -521,12 +535,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    /**
-     * @notice Performs validation on the user's deployment. This mainly checks that the user's
-     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
-     *         proposals, broadcasting, etc).
-     */
-    function validate(SphinxConfig memory _config) public pure {
+    function isConfigObjectEmpty(SphinxConfig memory _config) internal pure returns (bool) {
         if (
             _config.owners.length == 0 &&
             _config.threshold == 0 &&
@@ -536,8 +545,55 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.saltNonce == 0 &&
             bytes(_config.orgId).length == 0
         ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function fetchSphinxConfig(address _script) public view returns (SphinxConfig memory) {
+        try ISphinxScript(_script).configureSphinx() returns (SphinxConfig memory _config) {
+            // The function exists and was called successfully
+            return _config;
+        } catch {
+            // If the function call failed (e.g., function does not exist)
+            // then fall back to fetching the config from the state variable
+            // (
+            //     string memory projectName,
+            //     address[] memory owners,
+            //     uint256 threshold,
+            //     string memory orgId,
+            //     Network[] memory mainnets,
+            //     Network[] memory testnets,
+            //     uint256 saltNonce
+            // ) = ISphinxScript(_script).sphinxConfig();
+            // return SphinxConfig({
+            //     projectName: projectName,
+            //     owners: owners,
+            //     threshold: threshold,
+            //     orgId: orgId,
+            //     mainnets: mainnets,
+            //     testnets: testnets,
+            //     saltNonce: saltNonce
+            // });
+
+            return ISphinxScript(_script).sphinxFetchLegacyConfig();
+        }
+    }
+
+    /**
+     * @notice Performs validation on the user's deployment. This mainly checks that the user's
+     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
+     *         proposals, broadcasting, etc).
+     */
+    function validate(address _script) public view returns (SphinxConfig memory) {
+        SphinxConfig memory _config = fetchSphinxConfig(_script);
+
+        // We still explicitly check if the config is empty b/c you could define the sphinxConfig
+        // function, but not actually configure any options in it.
+        if (isConfigObjectEmpty(_config)) {
             revert(
-                "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+                "Sphinx: Detected missing Sphinx config. Did you forget to implement the `configureSphinx` function? See the existing project integration guide for more information."
             );
         }
 
@@ -609,6 +665,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 )
             )
         );
+
+        return _config;
     }
 
     /**
@@ -704,8 +762,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
-    function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
+    function getGnosisSafeProxyAddress(address _script) public view returns (address) {
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_script);
+        SphinxConfig memory _config = fetchSphinxConfig(_script);
+
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
@@ -745,8 +805,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
-        address safeProxyAddress = getGnosisSafeProxyAddress(_config);
+    function getSphinxModuleAddress(address _script) public view returns (address) {
+        address safeProxyAddress = getGnosisSafeProxyAddress(_script);
         bytes32 salt = keccak256(
             abi.encode(
                 safeProxyAddress,
@@ -788,9 +848,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         location.
      */
     function getGnosisSafeInitializerData(
-        SphinxConfig memory _config
-    ) public pure returns (bytes memory safeInitializerData) {
-        validate(_config);
+        address _script
+    ) public view returns (bytes memory safeInitializerData) {
+        SphinxConfig memory _config = validate(_script);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
