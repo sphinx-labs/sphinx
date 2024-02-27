@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.19.3
+
+### Patch Changes
+
+- 0eb32bf: Add Rootstock testnet
+
 ## 0.19.2
 
 ### Patch Changes
