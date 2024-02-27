@@ -13,7 +13,7 @@ import {
   decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 import ora from 'ora'
-import { TransactionReceipt, ethers } from 'ethers'
+import { Contract, TransactionReceipt, ethers } from 'ethers'
 
 import { DeploymentConfig, ConfigArtifacts, NetworkConfig } from '../config'
 import {
@@ -1135,6 +1135,64 @@ export const sortSigners = (arr: Array<TreeSigner>): void => {
       return 0
     }
   })
+}
+
+/**
+ * This is a utility function that is helpful for recovering from a deployment that has timed out. It fetches
+ * all the transaction receipts related to a deployment using the expected events and returns them. If this
+ * function is used when some of the transaction receipts are already tracked, they can be passed in and this
+ * function will return an array of all of the unique transactions.
+ *
+ * This function modifies the passed in `receipts` array.
+ *
+ * This function returns standard ethers.TransactionReceipt objects instead of our SphinxTransactionReceipt
+ * type because that is more flexible and generally useful.
+ */
+export const fetchExecutionTransactionReceipts = async (
+  receipts: ethers.TransactionReceipt[],
+  moduleAddress: string,
+  merkleRoot: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+) => {
+  const module = new ethers.Contract(moduleAddress, SphinxModuleABI, provider)
+
+  const SphinxMerkleRootApprovedFilter =
+    module.filters.SphinxMerkleRootApproved(merkleRoot)
+  const SphinxMerkleRootCanceledFilter =
+    module.filters.SphinxMerkleRootCanceled(merkleRoot)
+  const SphinxMerkleRootFailedFilter =
+    module.filters.SphinxMerkleRootFailed(merkleRoot)
+  const SphinxActionSucceededFilter =
+    module.filters.SphinxActionSucceeded(merkleRoot)
+  const SphinxActionFailedFilter = module.filters.SphinxActionFailed(merkleRoot)
+
+  const filters = [
+    SphinxMerkleRootApprovedFilter,
+    SphinxMerkleRootCanceledFilter,
+    SphinxMerkleRootFailedFilter,
+    SphinxActionSucceededFilter,
+    SphinxActionFailedFilter,
+  ]
+
+  const txHashes = receipts.map((r) => r.hash)
+
+  const latestBlock = await provider.getBlockNumber()
+  for (const filter of filters) {
+    const startingBlock = latestBlock - 1999 > 0 ? latestBlock - 1999 : 0
+    const events = await module.queryFilter(filter, startingBlock, latestBlock)
+
+    for (const event of events) {
+      const receipt = await provider.getTransactionReceipt(
+        event.transactionHash
+      )
+      if (receipt && !txHashes.includes(receipt.hash)) {
+        txHashes.push(receipt.hash)
+        receipts.push(receipt)
+      }
+    }
+  }
+
+  return receipts
 }
 
 /**
