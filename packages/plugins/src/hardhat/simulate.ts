@@ -3,7 +3,6 @@ import { join } from 'path'
 import {
   spawnAsync,
   getSphinxWalletPrivateKey,
-  toSphinxLeafWithProofArray,
   SphinxTransactionReceipt,
   ExecutionMode,
   MerkleRootStatus,
@@ -27,9 +26,11 @@ import {
   removeRoles,
   fetchNetworkConfigFromDeploymentConfig,
   NetworkConfig,
+  callWithTimeout,
+  fetchExecutionTransactionReceipts,
+  convertEthersTransactionReceipt,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -73,7 +74,6 @@ export const simulate = async (
   rpcUrl: string
 ): Promise<{
   receipts: Array<SphinxTransactionReceipt>
-  batches: Array<Array<SphinxLeafWithProof>>
 }> => {
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
@@ -158,7 +158,7 @@ export const simulate = async (
   // (although unlikely) that this same situation could happen in a user's test suite. We resolve
   // this by creating the Hardhat node in a child process via `spawnAsync`. This child process exits
   // when `spawnAsync` returns.
-  const { stdout, code } = await spawnAsync(
+  const { stdout, stderr, code } = await spawnAsync(
     'node',
     [hardhatRunnerPath],
     envVars,
@@ -192,10 +192,19 @@ export const simulate = async (
     throw new Error(errorMessage)
   }
 
-  const receipts = JSON.parse(stdout).receipts
-  const batches = JSON.parse(stdout).batches.map(toSphinxLeafWithProofArray)
-
-  return { receipts, batches }
+  /**
+   * Occasionally an unexpected error can cause stdout to not conform to JSON format. This should never
+   * happen, but if it does we will error when attempting to parse stdout. So we use a try catch here
+   * and exit with the real value of stdout if an error occurs.
+   */
+  try {
+    const receipts = JSON.parse(stdout).receipts
+    return { receipts }
+  } catch (e) {
+    console.log(stdout)
+    console.error(stderr)
+    process.exit(1)
+  }
 }
 
 /**
@@ -210,7 +219,6 @@ export const simulateDeploymentSubtask = async (
   hre: any
 ): Promise<{
   receipts: Array<SphinxTransactionReceipt>
-  batches: Array<Array<SphinxLeafWithProof>>
 }> => {
   const { deploymentConfig, chainId } = taskArgs
   const { merkleTree } = deploymentConfig
@@ -256,6 +264,8 @@ export const simulateDeploymentSubtask = async (
     })
   )
 
+  let executionCompleted = false
+  let receipts: Array<SphinxTransactionReceipt> | undefined
   const deployment: Deployment = {
     id: 'only required on website',
     multichainDeploymentId: 'only required on website',
@@ -275,10 +285,16 @@ export const simulateDeploymentSubtask = async (
     handleError: (e) => {
       throw e
     },
-    handleAlreadyExecutedDeployment: () => {
-      throw new Error(
-        'Deployment has already been executed. This is a bug. Please report it to the developers.'
-      )
+    handleAlreadyExecutedDeployment: async (deploymentContext) => {
+      executionCompleted = true
+      receipts = (
+        await fetchExecutionTransactionReceipts(
+          [],
+          deploymentContext.deployment.moduleAddress,
+          deploymentContext.deployment.deploymentConfig.merkleTree.root,
+          deploymentContext.provider
+        )
+      ).map(convertEthersTransactionReceipt)
     },
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
@@ -303,25 +319,61 @@ export const simulateDeploymentSubtask = async (
     removeRoles,
     wallet: signer,
   }
-  const result = await compileAndExecuteDeployment(simulationContext)
 
-  if (!result) {
+  let attempts = 0
+  while (executionCompleted === false) {
+    try {
+      const result = await callWithTimeout(
+        compileAndExecuteDeployment(simulationContext),
+        90000,
+        'timed out executing deployment'
+      )
+
+      if (!result) {
+        throw new Error(
+          'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+        )
+      }
+
+      const { finalStatus, failureAction } = result
+      receipts = result.receipts
+
+      if (finalStatus === MerkleRootStatus.FAILED) {
+        if (failureAction) {
+          throw new Error(
+            `The following action reverted during the simulation:\n${failureAction.reason}`
+          )
+        } else {
+          throw new Error(`An action reverted during the simulation.`)
+        }
+      }
+
+      return { receipts }
+    } catch (e) {
+      // This handles a very common response message if the user is using an RPC provider that is rate limiting them.
+      // We handle it specifically and immediate error since we want to make sure the user gets an accurate message
+      // indicating they may need to switch to a paid rpc provider for the network where this error occurred.
+      if (e.message.toLowerCase().includes('too many requests')) {
+        throw new Error(
+          `Simulation failed due to rate limiting on RPC provider for ${fetchNameForNetwork(
+            BigInt(deployment.chainId)
+          )}. You may need to switch to an RPC provider that supports higher request volume for this network.`
+        )
+      }
+
+      if (attempts < 5) {
+        attempts += 1
+      } else {
+        throw e
+      }
+    }
+  }
+
+  if (!receipts) {
     throw new Error(
       'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
     )
   }
 
-  const { finalStatus, failureAction, receipts, batches } = result
-
-  if (finalStatus === MerkleRootStatus.FAILED) {
-    if (failureAction) {
-      throw new Error(
-        `The following action reverted during the simulation:\n${failureAction.reason}`
-      )
-    } else {
-      throw new Error(`An action reverted during the simulation.`)
-    }
-  }
-
-  return { receipts, batches }
+  return { receipts }
 }
