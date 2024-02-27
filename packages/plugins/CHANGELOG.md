@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.29.6
+
+### Patch Changes
+
+- b84b7d0: Add timeout and retry logic to simulation
+
 ## 0.29.5
 
 ### Patch Changes

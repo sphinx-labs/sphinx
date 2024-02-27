@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/plugins",
-  "version": "0.29.5",
+  "version": "0.29.6",
   "description": "Sphinx plugins",
   "main": "dist/index",
   "types": "dist/index",
