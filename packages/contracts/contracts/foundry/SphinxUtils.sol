@@ -35,6 +35,11 @@ import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
 
+interface ISphinxScript {
+    function sphinxFetchConfig() external view returns (SphinxConfig memory);
+    function configureSphinx() external;
+}
+
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -521,12 +526,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    /**
-     * @notice Performs validation on the user's deployment. This mainly checks that the user's
-     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
-     *         proposals, broadcasting, etc).
-     */
-    function validate(SphinxConfig memory _config) public pure {
+    function isConfigObjectEmpty(SphinxConfig memory _config) internal pure returns (bool) {
         if (
             _config.owners.length == 0 &&
             _config.threshold == 0 &&
@@ -536,8 +536,30 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.saltNonce == 0 &&
             bytes(_config.orgId).length == 0
         ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function fetchAndValidateConfig(address _script) public returns (SphinxConfig memory) {
+        ISphinxScript(_script).configureSphinx();
+        SphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
+        validate(config);
+        return config;
+    }
+
+    /**
+     * @notice Performs validation on the user's deployment. This mainly checks that the user's
+     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
+     *         proposals, broadcasting, etc).
+     */
+    function validate(SphinxConfig memory _config) public pure {
+        // We still explicitly check if the config is empty b/c you could define the sphinxConfig
+        // function, but not actually configure any options in it.
+        if (isConfigObjectEmpty(_config)) {
             revert(
-                "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+                "Sphinx: Detected missing Sphinx config. Are you sure you implemented the `configureSphinx` function correctly?\nSee the configuration options reference for more information:\nhttps://github.com/sphinx-labs/sphinx/blob/master/docs/writing-scripts.md#configuration-options"
             );
         }
 
@@ -697,9 +719,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return a == 0 ? 0 : (a - 1) / b + 1;
     }
 
-    function validateProposal(SphinxConfig memory _config) external pure {
+    function validateProposal(address _script) external {
+        SphinxConfig memory config = fetchAndValidateConfig(_script);
         require(
-            bytes(_config.orgId).length > 0,
+            bytes(config.orgId).length > 0,
             "Sphinx: Your 'sphinxConfig.orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
     }
@@ -709,8 +732,10 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
     }
 
-    function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
+    function getGnosisSafeProxyAddress(address _script) public returns (address) {
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_script);
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
+
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
@@ -749,8 +774,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
-        address safeProxyAddress = getGnosisSafeProxyAddress(_config);
+    function getSphinxModuleAddress(address _script) public returns (address) {
+        address safeProxyAddress = getGnosisSafeProxyAddress(_script);
         bytes32 salt = keccak256(
             abi.encode(
                 safeProxyAddress,
@@ -792,9 +817,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         location.
      */
     function getGnosisSafeInitializerData(
-        SphinxConfig memory _config
-    ) public pure returns (bytes memory safeInitializerData) {
-        validate(_config);
+        address _script
+    ) public returns (bytes memory safeInitializerData) {
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.

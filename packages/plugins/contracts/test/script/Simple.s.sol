@@ -7,7 +7,7 @@ import { Sphinx } from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import { Network } from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 
 contract Simple1 is Script, Sphinx {
-    constructor() {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "Simple_Project_1";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
@@ -30,7 +30,7 @@ contract Simple1 is Script, Sphinx {
 }
 
 contract Simple2 is Script, Sphinx {
-    constructor() {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "Simple_Project_2";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;

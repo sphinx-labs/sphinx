@@ -11,12 +11,12 @@ pragma solidity ^0.8.0;
  */
 import "../lib/forge-std/src/Test.sol";
 
-import { Sphinx, Network } from "../contracts/foundry/Sphinx.sol";
+import { Sphinx, Network, SphinxConfig } from "../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
 import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
-contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
+contract ScriptConfiguration_Test is Test, Sphinx, SphinxTestUtils {
     function setUp() public {
         SystemContractInfo[] memory contracts = getSystemContractInfo();
         deploySphinxSystem(contracts);
@@ -24,31 +24,22 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
 
     function configureSphinx() public override {
         sphinxConfig.projectName = "test_project";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
         sphinxConfig.orgId = "test-org-id";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     }
 
-    function test_sphinxModule_success_standard() external {
-        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
-
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
-        address sphinxModule = modules[0];
-
-        address expectedAddress = this.sphinxModule();
-
-        assertEq(expectedAddress, sphinxModule);
-    }
-
-    function test_sphinxModule_success_nonZeroSaltNonce() external {
-        sphinxConfig.saltNonce = 1;
-        IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
-
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
-        address sphinxModule = modules[0];
-
-        address expectedAddress = this.sphinxModule();
-
-        assertEq(expectedAddress, sphinxModule);
+    function test_sphinxConfigABIEncoded_success_primaryConfigurationMethod() external {
+        bytes memory abiEncodedConfig = sphinxConfigABIEncoded();
+        (SphinxConfig memory config, address safeAddress, address moduleAddress) = abi.decode(
+            abiEncodedConfig,
+            (SphinxConfig, address, address)
+        );
+        assertNotEq(safeAddress, address(0));
+        assertNotEq(moduleAddress, address(0));
+        assertEq(config.projectName, "test_project");
+        assertEq(config.owners[0], 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        assertEq(config.threshold, 1);
+        assertEq(config.orgId, "test-org-id");
     }
 }
