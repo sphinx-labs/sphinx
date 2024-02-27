@@ -958,7 +958,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address _safeAddress
     ) private pure returns (bool) {
         return
-            _access.accessor == _safeAddress &&
+            _access.accessor == _safeAddress && _access.depth == 0 &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }

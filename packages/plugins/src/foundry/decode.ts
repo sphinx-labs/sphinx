@@ -278,6 +278,32 @@ export const makeNetworkConfig = (
 
     parsedActionInputs.push(actionInput)
 
+    const networkName = fetchNameForNetwork(BigInt(chainId))
+    const {
+      referenceName,
+      address: decodedAddress,
+      functionName,
+      variables,
+    } = actionInput.decodedAction
+    if (root.accessor !== safeAddress) {
+      throw new Error(
+        `Detected the following transaction was sent on ${networkName} from an address that is not your Gnosis Safe:\n` +
+          `${prettyFunctionCall(
+            referenceName,
+            decodedAddress,
+            functionName,
+            variables,
+            5,
+            3
+          )}\n` +
+          `This happens if you are starting a prank or broadcast within your script from an address that is not\n` +
+          `your Gnosis Safe. For example, this can occur if you are using a hardcoded address to start a prank or if\n` +
+          `you are broadcasting from a private key. To resolve this issue you'll need to find the broadcast or prank\n` +
+          `that is causing the problem and either remove it or use the safeAddress() function to ensure the broadcast or\n` +
+          `prank is started with your safe address.`
+      )
+    }
+
     // Check if the estimated gas exceeds the max batch gas limit. It's not necessary to check this
     // here because the simulation will throw an error if it can't find a valid batch size. However,
     // we check this here anyways so that we can display an error to the user earlier in the
@@ -285,14 +311,11 @@ export const makeNetworkConfig = (
     // batch, the simulation will throw an error.
     const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
     if (BigInt(gas) > maxGasLimit) {
-      const networkName = fetchNameForNetwork(BigInt(chainId))
-      const { referenceName, address, functionName, variables } =
-        actionInput.decodedAction
       throw new Error(
         `Estimated gas for the following transaction is too high to be executed by Sphinx on ${networkName}:\n` +
           prettyFunctionCall(
             referenceName,
-            address,
+            decodedAddress,
             functionName,
             variables,
             5,
