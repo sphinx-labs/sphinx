@@ -953,12 +953,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return count;
     }
 
+    /**
+     * This function checks if a given AccountAccess struct is a "root" access meaning that it
+     * is a transaction in the users script that originates from their Safe.
+     *
+     * We consider an AccountAccess struct to be a root access if fits these conditions:
+     * - The accessor is the safe address, meaning the transaction originated from the safe.
+     * - The AccountAccessKind is either Call or Create. These types are the only ones that
+     * represent real transactions. However, if Foundry added support for deploying with the
+     * CREATE2 opcode instead of the default CREATE2 factory, then Create2 would probably be
+     * added as a kind here.
+     * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
+     * at 1 and because we initiate the collection process by doing a delegatecall to the run()
+     * function so the depth is 2 by the time any transactions get sent in the users script.
+     */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
         address _safeAddress
     ) private pure returns (bool) {
         return
             _access.accessor == _safeAddress &&
+            _access.depth == 2 &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }
