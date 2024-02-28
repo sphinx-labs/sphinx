@@ -1,6 +1,8 @@
 import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
+import { join } from 'path'
+import { existsSync } from 'fs'
 
 import yesno from 'yesno'
 import axios from 'axios'
@@ -60,6 +62,11 @@ import {
   shouldUseHigherMaxGasLimit,
 } from './networks'
 import { RelayProposal, StoreDeploymentConfig } from './types'
+import {
+  NetworkArtifacts,
+  isContractDeploymentArtifact,
+  isExecutionArtifact,
+} from './artifacts'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -1568,4 +1575,59 @@ export const fetchNetworkConfigFromDeploymentConfig = (
   }
 
   return networkConfig
+}
+
+const isDirectory = (path: string): boolean =>
+  existsSync(path) && fs.statSync(path).isDirectory()
+
+export const readDeploymentArtifactsForNetwork = (
+  projectName: string,
+  chainId: BigInt,
+  executionMode: ExecutionMode
+): NetworkArtifacts => {
+  const networkArtifacts: NetworkArtifacts = {
+    contractDeploymentArtifacts: {},
+    executionArtifacts: {},
+  }
+
+  const networkArtifactDirPath = join(
+    `deployments`,
+    projectName,
+    getNetworkNameDirectory(chainId.toString(), executionMode)
+  )
+
+  if (!isDirectory(networkArtifactDirPath)) {
+    return networkArtifacts
+  }
+
+  const contractArtifactFileNames = fs
+    .readdirSync(networkArtifactDirPath)
+    .filter((fileName) => fileName.endsWith('.json'))
+  for (const fileName of contractArtifactFileNames) {
+    const filePath = join(networkArtifactDirPath, fileName)
+    const artifact = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    if (isContractDeploymentArtifact(artifact)) {
+      networkArtifacts.contractDeploymentArtifacts[fileName] = artifact
+    }
+  }
+
+  const executionArtifactFilePath = join(networkArtifactDirPath, `execution`)
+
+  if (!isDirectory(executionArtifactFilePath)) {
+    return networkArtifacts
+  }
+
+  const executionArtifactFileNames = fs
+    .readdirSync(executionArtifactFilePath)
+    .filter((fileName) => fileName.endsWith('.json'))
+
+  for (const fileName of executionArtifactFileNames) {
+    const filePath = join(executionArtifactFilePath, fileName)
+    const artifact = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    if (isExecutionArtifact(artifact)) {
+      networkArtifacts.executionArtifacts[fileName] = artifact
+    }
+  }
+
+  return networkArtifacts
 }

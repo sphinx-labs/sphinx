@@ -38,6 +38,7 @@ import {
   killAnvilNodes,
   startAnvilNodes,
   getSphinxModuleAddressFromScript,
+  getEmptyDeploymentArtifacts,
 } from '../common'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
 
@@ -183,17 +184,21 @@ describe('Deploy CLI command', () => {
 
       expect(networkConfig.executionMode).equals(executionMode)
 
-      const artifacts = await makeDeploymentArtifacts(
+      const artifacts: DeploymentArtifacts = {
+        networks: {},
+        compilerInputs: {},
+      }
+      await makeDeploymentArtifacts(
         {
           [networkConfig.chainId]: {
             deploymentConfig,
             receipts,
             provider,
-            previousContractArtifacts: {},
           },
         },
         merkleTree.root,
-        configArtifacts
+        configArtifacts,
+        artifacts
       )
 
       await expectValidDeployment(
@@ -203,7 +208,6 @@ describe('Deploy CLI command', () => {
         projectName,
         artifacts,
         executionMode,
-        1,
         ['MyContract2.json']
       )
     })
@@ -277,17 +281,21 @@ describe('Deploy CLI command', () => {
 
       expect(networkConfig.executionMode).equals(executionMode)
 
-      const artifacts = await makeDeploymentArtifacts(
+      const artifacts: DeploymentArtifacts = {
+        networks: {},
+        compilerInputs: {},
+      }
+      await makeDeploymentArtifacts(
         {
           [networkConfig.chainId]: {
             deploymentConfig,
             receipts,
             provider,
-            previousContractArtifacts: {},
           },
         },
         merkleTree.root,
-        configArtifacts
+        configArtifacts,
+        artifacts
       )
 
       await expectValidDeployment(
@@ -297,7 +305,6 @@ describe('Deploy CLI command', () => {
         projectName,
         artifacts,
         executionMode,
-        1,
         ['MyContract2.json']
       )
     })
@@ -613,25 +620,29 @@ describe('Deployment Cases', () => {
       throw new Error(`Object(s) undefined.`)
     }
 
-    const artifacts = await makeDeploymentArtifacts(
+    const artifacts: DeploymentArtifacts = {
+      networks: {},
+      compilerInputs: {},
+    }
+    await makeDeploymentArtifacts(
       {
         [networkConfig.chainId]: {
           deploymentConfig,
           receipts,
           provider,
-          previousContractArtifacts: {},
         },
       },
       merkleTree.root,
-      configArtifacts
+      configArtifacts,
+      artifacts
     )
 
     checkArtifacts(
       'Deployment_Cases_Project',
       deploymentConfig,
+      getEmptyDeploymentArtifacts(),
       artifacts,
       ExecutionMode.LocalNetworkCLI,
-      1,
       [
         'MyContract2.json',
         'MyContract2_1.json',
@@ -658,7 +669,6 @@ const expectValidDeployment = async (
   projectName: string,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
-  expectedNumExecutionArtifacts: number,
   expectedContractFileNames: Array<string>
 ) => {
   const networkConfig = deploymentConfig.networkConfigs.at(0)
@@ -720,9 +730,9 @@ const expectValidDeployment = async (
   checkArtifacts(
     projectName,
     deploymentConfig,
+    getEmptyDeploymentArtifacts(),
     artifacts,
     executionMode,
-    expectedNumExecutionArtifacts,
     expectedContractFileNames
   )
 }
