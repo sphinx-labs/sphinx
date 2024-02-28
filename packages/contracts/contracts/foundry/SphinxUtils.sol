@@ -704,13 +704,17 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
     }
 
+    function getGnosisSafeProxyInitCode() public pure returns (bytes memory) {
+        return
+            hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+    }
+
     function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
         bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
-        bytes
-            memory safeProxyInitCode = hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+        bytes memory safeProxyInitCode = getGnosisSafeProxyInitCode();
         bytes memory deploymentData = abi.encodePacked(
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
@@ -1157,6 +1161,118 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 });
         } else {
             revert("AccountAccess kind is incorrect. Should never happen.");
+        }
+    }
+
+    function getModuleInitializerMultiSendData() private pure returns (bytes memory) {
+        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
+            sphinxModuleProxyFactoryAddress
+        );
+
+        // Encode the data that will deploy the Sphinx Module.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory deployModuleMultiSendData = abi.encodePacked(
+            // We use `Call` so that the Gnosis Safe calls the `SphinxModuleProxyFactory` to deploy
+            // the Sphinx Module. This makes it easier for off-chain tooling to calculate the
+            // deployed Sphinx Module address because the `SphinxModuleProxyFactory`'s address is a
+            // global constant.
+            uint8(IEnum.GnosisSafeOperation.Call),
+            moduleProxyFactory,
+            uint256(0),
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+
+        // Encode the data that will enable the Sphinx Module in the Gnosis Safe.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            // We can only enable the module by delegatecalling the `SphinxModuleProxyFactory`
+            // from the Gnosis Safe.
+            uint8(IEnum.GnosisSafeOperation.DelegateCall),
+            moduleProxyFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+
+        // Encode the entire `MultiSend` data.
+        bytes memory multiSendData = abi.encodeWithSelector(
+            IMultiSend.multiSend.selector,
+            abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
+        );
+
+        return multiSendData;
+    }
+
+    /**
+     * @notice Deploys a Gnosis Safe, deploys a Sphinx Module,
+     *         and enables the Sphinx Module in the Gnosis Safe
+     */
+    function deployModuleAndGnosisSafe(
+        address[] memory _owners,
+        uint256 _threshold,
+        address _safeAddress
+    ) external {
+        // Get the encoded data that'll be sent to the `MultiSend` contract to deploy and enable the
+        // Sphinx Module in the Gnosis Safe.
+        bytes memory multiSendData = getModuleInitializerMultiSendData();
+
+        // Deploy the Gnosis Safe Proxy to its expected address. We use cheatcodes to deploy the
+        // Gnosis Safe instead of the standard deployment process to avoid a bug in Foundry.
+        // Specifically, Foundry throws an error if we attempt to deploy a contract at the same
+        // address as the `FOUNDRY_SENDER`. We must set the Gnosis Safe as the `FOUNDRY_SENDER` so
+        // that deployed linked library addresses match the production environment. If we deploy the
+        // Gnosis Safe without using cheatcodes, Foundry would throw an error here.
+        deployContractTo(
+            getGnosisSafeProxyInitCode(),
+            abi.encode(safeSingletonAddress),
+            _safeAddress
+        );
+
+        // Initialize the Gnosis Safe proxy.
+        IGnosisSafe(_safeAddress).setup(
+            sortAddresses(_owners),
+            _threshold,
+            multiSendAddress,
+            multiSendData,
+            // This is the default fallback handler used by Gnosis Safe during their
+            // standard deployments.
+            compatibilityFallbackHandlerAddress,
+            // The following fields are for specifying an optional payment as part of the
+            // deployment. We don't use them.
+            address(0),
+            0,
+            payable(address(0))
+        );
+    }
+
+    /**
+     * @notice Deploy a contract to the given address. Slightly modified from
+     *         `StdCheats.sol:deployCodeTo`.
+     */
+    function deployContractTo(
+        bytes memory _initCode,
+        bytes memory _abiEncodedConstructorArgs,
+        address _where
+    ) public {
+        require(_where.code.length == 0, "SphinxUtils: contract already exists");
+        vm.etch(_where, abi.encodePacked(_initCode, _abiEncodedConstructorArgs));
+        (bool success, bytes memory runtimeBytecode) = _where.call("");
+        require(success, "SphinxUtils: failed to create runtime bytecode");
+        vm.etch(_where, runtimeBytecode);
+        if (vm.getNonce(_where) == 0) {
+            // Set the nonce to be 1, which is the initial nonce for contracts.
+            vm.setNonce(_where, 1);
         }
     }
 }

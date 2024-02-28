@@ -9,6 +9,7 @@ This guide covers the essential information for writing deployment scripts with 
 - [Configuration options](#configuration-options)
 - [Deployment failures](#deployment-failures)
 - [Silent transaction failures](#silent-transaction-failures)
+- [Script Environment](#script-environment)
 
 ## Your Gnosis Safe
 
@@ -67,3 +68,8 @@ As any Solidity developer knows, smart contracts generally revert upon failure. 
 With Sphinx, a deployment will only fail if a transaction reverts. This means that if a transaction returns a success condition instead of reverting, the deployment will _not_ fail, and the executor will continue to submit transactions for the deployment.
 
 If you want to avoid this behavior, we recommend designing your smart contracts so that they revert upon failure. For example, OpenZeppelin prevents the silent failure described above with their [`SafeERC20`](https://docs.openzeppelin.com/contracts/5.x/api/token/erc20#SafeERC20) contract, which reverts if an operation fails.
+
+## Script Environment
+When deploying with Sphinx via either the `propose` or `deploy` CLI commands, Sphinx will invoke your Forge script on your behalf. When the script runs, we configure a few options and environment variables by default.
+
+Sphinx sets the `FOUNDRY_SENDER` and `ETH_FROM` environment variables to the address of your Gnosis Safe. Sphinx also uses the `--always_use_create_2_factory` CLI flag, which causes CREATE2 deployments to occur via the default CREATE2 factory.

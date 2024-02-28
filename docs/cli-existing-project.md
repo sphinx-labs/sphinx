@@ -206,7 +206,6 @@ Update your `foundry.toml` file to include a few settings required by Sphinx. We
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
-always_use_create_2_factory = true
 ```
 
 ## 10. Run tests

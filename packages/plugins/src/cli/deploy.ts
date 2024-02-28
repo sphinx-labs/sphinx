@@ -52,6 +52,7 @@ import {
   assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
+  getSphinxConfigFromScript,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
@@ -198,6 +199,7 @@ export const deploy = async (
     systemContractsFilePath,
     '--rpc-url',
     forkUrl,
+    '--always-use-create-2-factory',
   ]
   if (
     isLegacyTransactionsRequiredForNetwork(
@@ -210,6 +212,13 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
+  const { safeAddress } = await getSphinxConfigFromScript(
+    scriptPath,
+    sphinxPluginTypesInterface,
+    targetContract,
+    spinner
+  )
+
   // Collect the transactions.
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
     // Set the block gas limit to the max amount allowed by Foundry. This overrides lower block
@@ -217,6 +226,8 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+    FOUNDRY_SENDER: safeAddress,
+    ETH_FROM: safeAddress,
   })
 
   if (spawnOutput.code !== 0) {
