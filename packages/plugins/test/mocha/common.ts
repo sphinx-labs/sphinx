@@ -885,7 +885,8 @@ export const getSphinxModuleAddressFromScript = async (
 export const runForgeScript = async (
   scriptPath: string,
   broadcastFolder: string,
-  rpcUrl: string
+  rpcUrl: string,
+  targetContract?: string
 ): Promise<FoundrySingleChainBroadcast> => {
   const initialTime = new Date()
   const forgeScriptArgs = [
@@ -895,6 +896,10 @@ export const runForgeScript = async (
     rpcUrl,
     '--broadcast',
   ]
+  if (targetContract) {
+    forgeScriptArgs.push('--tc')
+    forgeScriptArgs.push(targetContract)
+  }
   const { code, stdout, stderr } = await spawnAsync(`forge`, forgeScriptArgs)
   if (code !== 0) {
     throw new Error(`${stdout}\n${stderr}`)

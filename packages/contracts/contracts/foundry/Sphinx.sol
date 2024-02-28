@@ -107,7 +107,8 @@ abstract contract Sphinx {
     function sphinxValidate() external returns (string memory libraryVersion, bool forkInstalled) {
         libraryVersion = sphinxUtils.sphinxLibraryVersion();
 
-        // Check that the Sphinx Foundry fork is installed.
+        // Check that the user has a version of Foundry that records the state diff correctly
+        // We don't assume this because our fixes were merged only recently (Feb 2024)
         vm.startStateDiffRecording();
         new SphinxForkCheck{ salt: 0 }();
         Vm.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
