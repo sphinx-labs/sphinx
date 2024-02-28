@@ -81,7 +81,7 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Install Sphinx Solidity Library
-        run: yarn sphinx install --ci
+        run: yarn sphinx install
       - name: Dry Run
         run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
 ```
@@ -122,7 +122,7 @@ jobs:
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Install Sphinx Solidity Library
-        run: yarn sphinx install --ci
+        run: yarn sphinx install
       - name: Propose
         run: npx sphinx propose <path/to/your/script.s.sol> --confirm --networks testnets
 ```

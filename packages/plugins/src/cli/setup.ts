@@ -136,32 +136,18 @@ export const makeCLI = (
     .command(
       'install',
       'Installs the required version of the Sphinx Solidity library contracts and Sphinx Foundry fork',
-      (y) =>
-        y
-          .usage('Usage: sphinx install')
-          .option('skip-library', {
-            describe:
-              'Skips installing the Sphinx library and only installs the Sphinx Foundry fork.',
-            boolean: true,
-            default: false,
-          })
-          .option('ci', {
-            describe:
-              'Continuous integration mode (skips installing the Sphinx Foundry fork)',
-            boolean: true,
-            default: false,
-          }),
+      (y) => y.usage('Usage: sphinx install'),
       async (argv) => {
-        const { skipLibrary, ci } = argv
+        const { ci } = argv
 
-        if (skipLibrary && ci) {
-          throw new Error(
-            'Cannot specify both `--skip-library` and `--ci` at the same time.'
+        if (ci) {
+          console.warn(
+            'The `--ci` flag is no longer necessary and has been deprecated.'
           )
         }
 
         const spinner = ora()
-        await handleInstall(spinner, skipLibrary, ci)
+        await handleInstall(spinner)
       }
     )
     .command(

@@ -733,7 +733,8 @@ describe('Utils', async () => {
       const broadcast = await runForgeScript(
         'contracts/test/script/Libraries.s.sol',
         foundryToml.broadcastFolder,
-        getAnvilRpcUrl(chainId)
+        getAnvilRpcUrl(chainId),
+        'MyContractWithLibraries_Script'
       )
       await killAnvilNodes([chainId])
 

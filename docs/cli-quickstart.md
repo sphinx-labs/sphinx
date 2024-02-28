@@ -64,8 +64,6 @@ pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.
 
 Run one of the following commands on your command line, replacing the placeholders with your values. We've included a description of each command line argument below.
 
-> Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo, but for now, you'll have to use our fork to be able to use Sphinx. You'll be prompted to install our Foundry fork when you run the init command below.
-
 Using Yarn or npm:
 
 ```

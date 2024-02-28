@@ -1340,6 +1340,12 @@ export const parseNestedContractDeployments = (
   return { parsedContracts, unlabeled }
 }
 
+/**
+ * Checks that our dependencies are installed with the correct versions including:
+ * NodeJS >= v16.16
+ * Foundry (some commit that includes all our changes to the state diff)
+ * Sphinx Library Contracts (whatever version required by CONTRACTS_LIBRARY_VERSION)
+ */
 export const assertValidVersions = async (
   scriptPath: string,
   targetContract?: string
@@ -1348,7 +1354,8 @@ export const assertValidVersions = async (
   assertValidNodeVersion()
 
   // Validate the user's Sphinx dependencies. Specifically, we retrieve the Sphinx contracts library
-  // version and empirically check that our Foundry fork is functioning properly.
+  // version and empirically check that our changes to Foundry are included in the version they have
+  // installed (using create2 factory in scripts, recording the call to the create2 factory, etc).
   const output = await callForgeScriptFunction<{
     libraryVersion: { value: string }
     forkInstalled: { value: string }
@@ -1375,9 +1382,8 @@ export const assertValidVersions = async (
 
   if (forkInstalled === 'false') {
     throw new Error(
-      `Detected invalid Foundry version. Please install Sphinx's fork of Foundry by\n` +
-        `running the command:\n` +
-        `npx sphinx install`
+      `Detected invalid Foundry version. Please update to the latest version of Foundry by running:\n` +
+        `foundryup`
     )
   }
 }

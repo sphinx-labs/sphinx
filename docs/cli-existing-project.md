@@ -14,7 +14,7 @@ In this guide, you'll propose the deployment on the command line and then approv
 
 1. [Prerequisites](#1-prerequisites)
 2. [Install Sphinx CLI](#2-install-sphinx-cli)
-3. [Install Sphinx Foundry library and fork](#3-install-sphinx-foundry-library-and-fork)
+3. [Install Sphinx Foundry library](#3-install-sphinx-foundry-library)
 4. [Update `.gitignore`](#4-update-gitignore)
 5. [Add remapping](#5-add-remapping)
 6. [Update your deployment script](#6-update-your-deployment-script)\
@@ -64,11 +64,9 @@ pnpm add -D @sphinx-labs/plugins
 ```
 
 
-## 3. Install Sphinx Foundry Library and Fork
+## 3. Install Sphinx Foundry Library
 
-Use the `sphinx install` command to install the Sphinx Foundry library and Foundry fork.
-
-> Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo, but for now, you'll have to use our fork to be able to use Sphinx. You'll be prompted to install our Foundry fork when you run the install command below.
+Use the `sphinx install` command to install the Sphinx Foundry library.
 
 Yarn:
 ```
