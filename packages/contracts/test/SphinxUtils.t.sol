@@ -61,7 +61,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -76,7 +76,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 1
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -108,7 +108,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -127,7 +127,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 1
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -153,7 +153,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -171,7 +171,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 1
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -197,7 +197,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
+            depth: 2
         });
 
         bool passedCheck = checkAccesses(
