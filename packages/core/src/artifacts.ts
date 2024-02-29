@@ -22,6 +22,7 @@ import {
   DeploymentConfig,
   ConfigArtifacts,
   NetworkConfig,
+  BuildInfos,
 } from './config/types'
 import {
   fetchNetworkConfigFromDeploymentConfig,
@@ -32,7 +33,7 @@ import {
 } from './utils'
 import { ExecutionMode } from './constants'
 
-type NetworkArtifacts = {
+export type NetworkArtifacts = {
   executionArtifacts: {
     [txArtifactFileName: string]: ExecutionArtifact
   }
@@ -268,23 +269,24 @@ export const convertEthersTransactionReceipt = (
 }
 
 /**
- * Makes contract deployment artifacts on a single network for a single deployment.
+ * Makes contract deployment artifacts on a single network for a single deployment. Mutates the
+ * input `artifacts` object.
  *
- * @param previousArtifacts An object containing all previous contract deployment artifacts on the
- * network for the project.
+ * @param artifacts An object containing all previous contract deployment artifacts on the network
+ * for the project.
  */
-const makeContractDeploymentArtifacts = async (
+export const makeContractDeploymentArtifacts = async (
   merkleRoot: string,
   networkConfig: NetworkConfig,
-  deploymentConfig: DeploymentConfig,
+  buildInfos: BuildInfos,
   receipts: Array<SphinxTransactionReceipt>,
   configArtifacts: ConfigArtifacts,
-  previousArtifacts: {
+  artifacts: {
     [fileName: string]: ContractDeploymentArtifact | undefined
   },
   provider: SphinxJsonRpcProvider
-): Promise<{ [fileName: string]: ContractDeploymentArtifact }> => {
-  const isSuffixed = Object.keys(previousArtifacts).every((fileName) =>
+): Promise<void> => {
+  const isSuffixed = Object.keys(artifacts).every((fileName) =>
     fileName.endsWith('.json')
   )
   if (!isSuffixed) {
@@ -297,14 +299,13 @@ const makeContractDeploymentArtifacts = async (
   const moduleInterface = new ethers.Interface(SphinxModuleABI)
 
   const { gitCommit, chainId } = networkConfig
-  const artifacts: { [fileName: string]: ContractDeploymentArtifact } = {}
   const numDeployments: { [fileName: string]: number | undefined } = {}
   for (const action of networkConfig.actionInputs) {
     for (const contract of action.contracts) {
       const { fullyQualifiedName, initCodeWithArgs, address } = contract
       const { artifact: compilerArtifact, buildInfoId } =
         configArtifacts[fullyQualifiedName]
-      const buildInfo = deploymentConfig.buildInfos[buildInfoId]
+      const buildInfo = buildInfos[buildInfoId]
 
       if (!compilerArtifact || !buildInfo) {
         throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
@@ -393,7 +394,7 @@ const makeContractDeploymentArtifacts = async (
           ? `${contractName}_${previousNumDeployments}.json`
           : `${contractName}.json`
 
-      const previousArtifact = previousArtifacts[fileName]
+      const previousArtifact = artifacts[fileName]
       if (previousArtifact) {
         // Separate the previous artifact into two components: its `history` array and the other
         // fields.
@@ -416,8 +417,6 @@ const makeContractDeploymentArtifacts = async (
       numDeployments[contractName] = previousNumDeployments + 1
     }
   }
-
-  return artifacts
 }
 
 export const writeDeploymentArtifacts = (
@@ -528,12 +527,11 @@ export const isContractDeploymentArtifact = (
 }
 
 /**
- * Make deployment artifacts for the most recent deployment in a project.
+ * Make deployment artifacts for the most recent deployment in a project. Mutates the input
+ * `artifacts` object.
  *
  * @param deployments An object containing deployment information for each network where the most
- * recent deployment was executed. The `previousContractArtifacts` field contains all previous
- * contract deployment artifacts on the network for the project. Note that the `fileName` keys of
- * the `previousContractArtifacts` object must be suffixed with `.json`.
+ * recent deployment was executed.
  *
  * @returns {DeploymentArtifacts} The artifacts for the most recent deployment.
  */
@@ -543,23 +541,28 @@ export const makeDeploymentArtifacts = async (
       deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
-      previousContractArtifacts: {
-        [fileName: string]: ContractDeploymentArtifact
-      }
     }
   },
   merkleRoot: string,
-  configArtifacts: ConfigArtifacts
-): Promise<DeploymentArtifacts> => {
-  const allNetworkArtifacts: DeploymentArtifacts['networks'] = {}
-  const compilerInputArtifacts: DeploymentArtifacts['compilerInputs'] = {}
-  for (const chainId of Object.keys(deployments)) {
-    const { provider, deploymentConfig, receipts, previousContractArtifacts } =
-      deployments[chainId]
+  configArtifacts: ConfigArtifacts,
+  artifacts: DeploymentArtifacts
+): Promise<void> => {
+  // We'll mutate these variables to update the existing artifacts.
+  const {
+    networks: allNetworkArtifacts,
+    compilerInputs: compilerInputArtifacts,
+  } = artifacts
 
-    const networkArtifacts: NetworkArtifacts = {
-      contractDeploymentArtifacts: {},
-      executionArtifacts: {},
+  for (const chainId of Object.keys(deployments)) {
+    const { provider, deploymentConfig, receipts } = deployments[chainId]
+
+    // Define the network artifacts if it doesn't exist. Otherwise, we'll attempt to operate on an
+    // object that doesn't exist, leading to an error.
+    if (allNetworkArtifacts[chainId] === undefined) {
+      allNetworkArtifacts[chainId] = {
+        contractDeploymentArtifacts: {},
+        executionArtifacts: {},
+      }
     }
 
     const networkConfig = fetchNetworkConfigFromDeploymentConfig(
@@ -568,16 +571,15 @@ export const makeDeploymentArtifacts = async (
     )
 
     // Make the contract artifacts.
-    const contractArtifacts = await makeContractDeploymentArtifacts(
+    await makeContractDeploymentArtifacts(
       merkleRoot,
       networkConfig,
-      deploymentConfig,
+      deploymentConfig.buildInfos,
       receipts,
       configArtifacts,
-      previousContractArtifacts,
+      allNetworkArtifacts[chainId].contractDeploymentArtifacts,
       provider
     )
-    networkArtifacts.contractDeploymentArtifacts = contractArtifacts
 
     // Make the execution artifact.
     const executionArtifact = await makeExecutionArtifact(
@@ -587,20 +589,14 @@ export const makeDeploymentArtifacts = async (
       merkleRoot,
       provider
     )
-    networkArtifacts.executionArtifacts[`${remove0x(merkleRoot)}.json`] =
-      executionArtifact
-
-    allNetworkArtifacts[chainId] = networkArtifacts
+    allNetworkArtifacts[chainId].executionArtifacts[
+      `${remove0x(merkleRoot)}.json`
+    ] = executionArtifact
 
     // Make the compiler input artifacts.
     for (const compilerInput of deploymentConfig.inputs) {
       compilerInputArtifacts[`${compilerInput.id}.json`] = compilerInput
     }
-  }
-
-  return {
-    networks: allNetworkArtifacts,
-    compilerInputs: compilerInputArtifacts,
   }
 }
 

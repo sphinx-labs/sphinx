@@ -14,7 +14,6 @@ import {
   makeDeploymentData,
   DeploymentArtifacts,
   SphinxTransactionReceipt,
-  ContractDeploymentArtifact,
   getSphinxWalletPrivateKey,
   makeDeploymentArtifacts,
   isReceiptEarlier,
@@ -493,7 +492,6 @@ export const makeRevertingDeployment = (
   executionMode: ExecutionMode
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
-  expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
   // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
@@ -513,30 +511,25 @@ export const makeRevertingDeployment = (
         abiEncodedConstructorArgs: '0x',
       },
     ])
-  const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = ['MyContract2.json']
 
   return {
     executionMode,
     merkleRootNonce,
     accountAccesses,
-    expectedNumExecutionArtifacts,
     expectedContractFileNames,
   }
 }
 
 export const runDeployment = async (
   deploymentConfig: DeploymentConfig,
-  previousArtifacts: DeploymentArtifacts['networks']
-): Promise<DeploymentArtifacts> => {
+  previousArtifacts: DeploymentArtifacts
+): Promise<void> => {
   const artifactInputs: {
     [chainId: string]: {
       deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
-      previousContractArtifacts: {
-        [fileName: string]: ContractDeploymentArtifact
-      }
     }
   } = {}
 
@@ -608,24 +601,19 @@ export const runDeployment = async (
     receipts[0] = receipts[receipts.length - 1]
     receipts[receipts.length - 1] = tempReceipt
 
-    const previousContractArtifacts =
-      previousArtifacts.networks?.[chainId]?.contractDeploymentArtifacts ?? {}
-
     artifactInputs[networkConfig.chainId] = {
       deploymentConfig,
       receipts,
       provider,
-      previousContractArtifacts,
     }
   }
 
-  const artifacts = await makeDeploymentArtifacts(
+  await makeDeploymentArtifacts(
     artifactInputs,
     merkleTree.root,
-    configArtifacts
+    configArtifacts,
+    previousArtifacts
   )
-
-  return artifacts
 }
 
 export const isSortedChronologically = (
@@ -695,7 +683,6 @@ export const makeStandardDeployment = (
   executionMode: ExecutionMode
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
-  expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
   // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
@@ -737,7 +724,6 @@ export const makeStandardDeployment = (
       ),
     },
   ])
-  const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = [
     'MyContract2.json',
     'MyContract1.json',
@@ -749,17 +735,23 @@ export const makeStandardDeployment = (
     executionMode,
     merkleRootNonce,
     accountAccesses,
-    expectedNumExecutionArtifacts,
     expectedContractFileNames,
+  }
+}
+
+export const getEmptyDeploymentArtifacts = (): DeploymentArtifacts => {
+  return {
+    networks: {},
+    compilerInputs: {},
   }
 }
 
 export const checkArtifacts = (
   projectName: string,
   deploymentConfig: DeploymentConfig,
+  previousArtifacts: DeploymentArtifacts,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
-  expectedNumExecutionArtifacts: number,
   expectedContractFileNames: Array<string>
 ) => {
   for (const chainIdStr of Object.keys(artifacts.networks)) {
@@ -775,8 +767,12 @@ export const checkArtifacts = (
     expect(Object.keys(contractDeploymentArtifacts).length).equals(
       expectedContractFileNames.length
     )
+    const numPreviousExecutionArtifacts = getNumExecutionArtifacts(
+      previousArtifacts,
+      chainIdStr
+    )
     expect(Object.keys(executionArtifacts).length).equals(
-      expectedNumExecutionArtifacts
+      numPreviousExecutionArtifacts + 1
     )
 
     const contractArtifactArray = Object.entries(contractDeploymentArtifacts)
@@ -917,4 +913,14 @@ export const runForgeScript = async (
     throw new Error('Could not find broadcast file.')
   }
   return broadcast
+}
+
+export const getNumExecutionArtifacts = (
+  artifacts: DeploymentArtifacts,
+  chainId: string
+): number => {
+  if (artifacts.networks[chainId] === undefined) {
+    return 0
+  }
+  return Object.keys(artifacts.networks[chainId].executionArtifacts).length
 }
