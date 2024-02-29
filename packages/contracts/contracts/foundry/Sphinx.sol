@@ -96,6 +96,23 @@ abstract contract Sphinx {
         vm.makePersistent(address(sphinxUtils));
     }
 
+    function configureSphinx() public virtual;
+
+    /**
+     * Fetches the sphinxConfig state variable. We need this because we call into this contract
+     * from SphinxUtils to fetch the config. If we just called `sphinxConfig` directly, the dynamic
+     * arrays would not be included in the return value.
+     *
+     * This is an external function because it is only intended to be used by the SphinxUtils contract
+     * for fetching the unvalidated config from the sphinxConfig state variable.
+     *
+     * When fetching the config for normal usage in this contract, we should use the
+     * `sphinxUtils.fetchAndValidateConfig()` function.
+     */
+    function sphinxFetchConfig() external view returns (SphinxConfig memory) {
+        return sphinxConfig;
+    }
+
     /**
      * @notice Validates the user's Sphinx dependencies. Must be backwards compatible with previous
      *         versions of the Sphinx plugin package and the Sphinx contracts library. Specifically:
@@ -122,7 +139,7 @@ abstract contract Sphinx {
     }
 
     function sphinxCollectProposal(string memory _deploymentInfoPath) external {
-        sphinxUtils.validateProposal(sphinxConfig);
+        sphinxUtils.validateProposal(address(this));
 
         string memory serializedDeploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
@@ -179,7 +196,7 @@ abstract contract Sphinx {
         deploymentInfo.moduleAddress = module;
         deploymentInfo.chainId = block.chainid;
         deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(sphinxConfig);
+        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(address(this));
         deploymentInfo.newConfig = SphinxConfig({
             projectName: sphinxConfig.projectName,
             owners: sphinxConfig.owners,
@@ -265,7 +282,7 @@ abstract contract Sphinx {
         );
         address singletonAddress = constants.safeSingletonAddress();
 
-        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(sphinxConfig);
+        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(address(this));
 
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
@@ -305,7 +322,7 @@ abstract contract Sphinx {
         // `deploy`, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
-        sphinxUtils.validate(sphinxConfig);
+        sphinxUtils.fetchAndValidateConfig(address(this));
 
         // Prank the Gnosis Safe then execute the user's script. We prank the Gnosis
         // Safe to replicate the production environment.
@@ -322,16 +339,16 @@ abstract contract Sphinx {
      * @notice Get the address of the SphinxModule. Before calling this function, the
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function sphinxModule() public view returns (address) {
-        return sphinxUtils.getSphinxModuleAddress(sphinxConfig);
+    function sphinxModule() public returns (address) {
+        return sphinxUtils.getSphinxModuleAddress(address(this));
     }
 
     /**
      * @notice Get the address of the Gnosis Safe. Before calling this function, the
      *         `sphinxConfig.owners` array and `sphinxConfig.threshold` must be set.
      */
-    function safeAddress() public view returns (address) {
-        return sphinxUtils.getGnosisSafeProxyAddress(sphinxConfig);
+    function safeAddress() public returns (address) {
+        return sphinxUtils.getGnosisSafeProxyAddress(address(this));
     }
 
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {
@@ -351,9 +368,9 @@ abstract contract Sphinx {
      *         off-chain. We ABI encode the config because it's difficult to decode complex
      *         data types that are returned by invoking Forge scripts.
      */
-    function sphinxConfigABIEncoded() public view returns (bytes memory) {
-        sphinxUtils.validate(sphinxConfig);
-        return abi.encode(sphinxConfig, safeAddress(), sphinxModule());
+    function sphinxConfigABIEncoded() public returns (bytes memory) {
+        SphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
+        return abi.encode(config, safeAddress(), sphinxModule());
     }
 
     /**

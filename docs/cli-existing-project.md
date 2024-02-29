@@ -150,20 +150,22 @@ For example, you may need to:
 
 ### f. Add configuration options
 
-There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
+There are a few configuration options that you must specify inside a `configureSphinx()` function in your deployment script. The options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
 
-Copy and paste the following config template into your `setUp` function or constructor:
+Copy and paste the following `configureSphinx()` function template into your script:
 
 ```sol
-sphinxConfig.owners = [<your address>];
-sphinxConfig.orgId = <Sphinx org ID>;
-sphinxConfig.testnets = [
-  Network.sepolia,
-  Network.optimism_sepolia,
-  Network.arbitrum_sepolia
-];
-sphinxConfig.projectName = "My_First_Project";
-sphinxConfig.threshold = 1;
+function configureSphinx() public override {
+  sphinxConfig.owners = [<your address>];
+  sphinxConfig.orgId = <Sphinx org ID>;
+  sphinxConfig.testnets = [
+    Network.sepolia,
+    Network.optimism_sepolia,
+    Network.arbitrum_sepolia
+  ];
+  sphinxConfig.projectName = "My_First_Project";
+  sphinxConfig.threshold = 1;
+}
 ```
 
 You'll need to update the following fields in this template:

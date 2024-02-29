@@ -42,7 +42,7 @@ import "@sphinx-labs/contracts/SphinxPlugin.sol";
 contract HelloSphinxScript is Sphinx {
     HelloSphinx helloSphinx;
 
-    function setUp() public virtual {
+    function configureSphinx() public override {
         sphinxConfig.owners = [${owner}];
         sphinxConfig.orgId = "${orgId}";
         sphinxConfig.threshold = 1;
@@ -83,8 +83,7 @@ import "forge-std/Test.sol";
 import { HelloSphinxScript } from "${relativeScriptPath}/HelloSphinx.s.sol";
 
 contract HelloSphinxTest is Test, HelloSphinxScript {
-    function setUp() public override {
-        HelloSphinxScript.setUp();
+    function setUp() public {
         run();
     }
 

@@ -427,11 +427,11 @@ contract SphinxUtils_Test is Test, SphinxUtils {
     }
 
     function test_validate_revert_empty_config() external {
-        SphinxConfig memory sphinxConfig;
+        SphinxConfig memory config;
         vm.expectRevert(
-            "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+            "Sphinx: Detected missing Sphinx config. Are you sure you implemented the `configureSphinx` function correctly?\nSee the configuration options reference for more information:\nhttps://github.com/sphinx-labs/sphinx/blob/master/docs/writing-scripts.md#configuration-options"
         );
-        validate(sphinxConfig);
+        validate(config);
     }
 
     /////////////////////////////////// Helpers //////////////////////////////////////
