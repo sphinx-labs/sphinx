@@ -1,9 +1,9 @@
 # Sphinx Configuration Options
 
-You must specify configuration options inside the constructor or `setUp()` function in your deployment script. For example:
+You must specify configuration options inside the `configureSphinx()` function in your deployment script. For example:
 
 ```sol
-function setUp() public {
+function configureSphinx() public override {
     sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     ...
 }

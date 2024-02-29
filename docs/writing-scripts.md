@@ -35,10 +35,10 @@ The `sphinx` modifier pranks your Gnosis Safe before your deployment is executed
 
 ## Configuration options
 
-There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited by your script from `Sphinx.sol`.
+There are a few configuration options that you must specify inside a `configureSphinx()` function in your deployment script. The `configureSphinx()` function is a virtual function on `Sphinx.sol`, so you will be required to implement it or your script will not compile. The options all exist on the `sphinxConfig` struct, which is also inherited from `Sphinx.sol`.
 
 ```
-function setUp() public {
+function configureSphinx() public override {
     // Required settings:
     sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
     sphinxConfig.threshold = 1;

@@ -10,7 +10,7 @@ import {CREATE3} from "solady/utils/CREATE3.sol";
 contract Sample is Sphinx {
     MyContract1 myContract;
 
-    function setUp() public {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "test_project";
         sphinxConfig.owners = [0x226F14C3e19788934Ff37C653Cf5e24caD198341];
         sphinxConfig.threshold = 1;
