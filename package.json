@@ -34,6 +34,7 @@
     "preinstall": "sh ./scripts/create-placeholder.sh",
     "build:release": "/bin/bash ./scripts/build-release.sh && yarn build",
     "build": "yarn workspaces run build",
+    "test:root": "npx mocha --require ts-node/register --timeout 500000 'test/**/*.ts'",
     "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
