@@ -104,13 +104,13 @@ Copy and paste one of the following commands to propose your deployment with the
 Using Yarn or npm:
 
 ```
-npx sphinx propose script/HelloSphinx.s.sol --networks testnets
+npx sphinx propose script/HelloSphinx.s.sol --networks sepolia optimism_sepolia arbitrum_sepolia
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx propose script/HelloSphinx.s.sol --networks testnets
+pnpm sphinx propose script/HelloSphinx.s.sol --networks sepolia optimism_sepolia arbitrum_sepolia
 ```
 
 Here are the steps that occur when you run this command:
