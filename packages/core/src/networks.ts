@@ -2,6 +2,10 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 import {
+  DeployedContractSize,
+  ParsedAccountAccess,
+} from '@sphinx-labs/contracts'
+import {
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
 } from '@sphinx-labs/contracts/dist/networks'
@@ -119,6 +123,25 @@ export const fetchDripVersionForNetwork = (chainId: bigint) => {
     return network.dripVersion
   } else {
     throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
+export const calculateMerkleLeafGas = (
+  chainId: bigint,
+  foundryGas: string,
+  deployedContractSizes: DeployedContractSize[],
+  access: ParsedAccountAccess
+) => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network?.handleNetworkSpecificMerkleLeafGas) {
+    return network.handleNetworkSpecificMerkleLeafGas(
+      foundryGas,
+      deployedContractSizes,
+      access
+    )
+  } else {
+    return foundryGas
   }
 }
 

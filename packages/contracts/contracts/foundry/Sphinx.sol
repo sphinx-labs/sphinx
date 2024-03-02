@@ -21,7 +21,8 @@ import {
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess
+    ParsedAccountAccess,
+    DeployedContractSize
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -249,6 +250,11 @@ abstract contract Sphinx {
             accesses,
             safe
         );
+
+        deploymentInfo.encodedDeployedContractSizes = abi.encode(
+            sphinxUtils.fetchDeployedContractSizes(accesses)
+        );
+
         // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
         // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
         // decode, which causes an error. This occurs for large deployments, i.e. greater than 50

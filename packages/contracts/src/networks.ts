@@ -1,3 +1,121 @@
+import {
+  AccountAccess,
+  AccountAccessKind,
+  DeployedContractSize,
+  ParsedAccountAccess,
+} from './types'
+
+/**
+ * Calculates the storage used by a single AccountAccess. This function is intentionally very simple.
+ * We naively assume that every write takes up a full 32 bytes of storage despite the fact that there
+ * are many cases where the storage usage is less or even negative. We do this because we prefer to
+ * always overestimate the cost by a reasonable amount. Since the block gas limit on Moonbeam and
+ * related networks is comfortably high (15 million), this does not impede the users ability to deploy
+ * large contracts.
+ */
+const calculateStorageSizeForAccountAccess = (
+  access: AccountAccess,
+  deployedContractSizes: DeployedContractSize[]
+): { contractStorageSize: number; writeStorageSize: number } => {
+  const storageWriteSize =
+    access.storageAccesses.filter((storageAccess) => storageAccess.isWrite)
+      .length * 32
+
+  if (access.kind === AccountAccessKind.Create) {
+    const deployedContractSize = deployedContractSizes.find(
+      (deployedContact) => deployedContact.account === access.account
+    )
+
+    if (!deployedContractSize) {
+      throw new Error(
+        'Failed to find deployed contract size. This is a bug, please report it to the developers.'
+      )
+    }
+
+    return {
+      writeStorageSize: storageWriteSize,
+      contractStorageSize: Number(deployedContractSize.size),
+    }
+  } else {
+    return {
+      writeStorageSize: storageWriteSize,
+      contractStorageSize: 0,
+    }
+  }
+}
+
+/**
+ * Calculates the cost of a transaction on Moonbeam using their higher gas cost per byte.
+ *
+ * @param baseGas The estimated gas cost according to Foundry.
+ * @param deployedContractSizes The sizes of any contracts deployed during this transaction.
+ * @param access The ParsedAccountAccess for the transaction.
+ * @returns
+ */
+export const calculateActionLeafGasForMoonbeam = (
+  foundryGas: string,
+  deployedContractSizes: DeployedContractSize[],
+  access: ParsedAccountAccess
+): string => {
+  // Fetch the storage used by the root account access
+  const { contractStorageSize, writeStorageSize } =
+    calculateStorageSizeForAccountAccess(access.root, deployedContractSizes)
+
+  // Fetch the storage used by all the nested accesses
+  const nestedStorageSizes = access.nested.map((nestedAccountAccess) =>
+    calculateStorageSizeForAccountAccess(
+      nestedAccountAccess,
+      deployedContractSizes
+    )
+  )
+  const nestedContractStorageSize = nestedStorageSizes
+    .map((storageSize) => storageSize.contractStorageSize)
+    .reduce((prev, curr) => prev + curr, 0)
+  const nestedWriteStorageSize = nestedStorageSizes
+    .map((storageSize) => storageSize.writeStorageSize)
+    .reduce((prev, curr) => prev + curr, 0)
+
+  // Calculate the total storage for the full transaction
+  const totalContractSize = contractStorageSize + nestedContractStorageSize
+  const totalWriteStorageSize = writeStorageSize + nestedWriteStorageSize
+
+  // Gas per byte ratio = Block Gas Limit / (Block Storage Limit (kb) * 1024 Bytes)
+  const ratio = 15_000_000 / (40 * 1024)
+
+  // Total gas cost for storage on moonbeam
+  // The ratio isn't an exact integer, so we round the result up
+  const moonbeamStorageCost = Math.ceil(
+    (totalContractSize + totalWriteStorageSize) * ratio
+  )
+
+  /**
+   * Calculate the cost of the transaction according to Foundry without gas costs related to
+   * storage of the contracts.
+   *
+   * If we did not subtract the 200 gas / byte here, then we would wildly overestimate the cost of
+   * deploying contracts which could prevent the user from being able to deploy even reasonably
+   * sized contracts on Moonbeam due to their lower block gas limit.
+   *
+   * It's worth noting that the `foundryGas` value includes some value for the intrinsic storage
+   * cost of any other storage writes (i.e SSTOREs) in the transaction. Since we do not subtract
+   * the cost of that storage here as well, we are double counting the cost of standard storage.
+   * We do not implement logic to handle this because Ethereum does not have a straightforward
+   * way to calculate the intrinsic cost of storage. It can vary meaningfully depending on the
+   * specific situation. So we chose to not subtract anything for those writes since it's safer.
+   *
+   * This does introduce an edge case where if the user has a transaction that includes a very
+   * large number of writes (i.e 1000 SSTORES), we would likely wildly overestimate the cost of
+   * that transaction. The user would still be able to execute it through us, but since we're
+   * overestimating the cost, the user would be limited in the amount of storage they can write
+   * in a single transaction.
+   */
+  const baseGasLessStorageCost = Number(foundryGas) - 200 * totalContractSize
+
+  // The final cost is the base cost without any cost for storage, plus
+  // the higher cost for storage on Moonbeam
+  return (baseGasLessStorageCost + moonbeamStorageCost).toString()
+}
+
 export type SupportedNetwork = {
   name: string
   displayName: string
@@ -24,6 +142,11 @@ export type SupportedNetwork = {
     provider: RollupProvider
     type: RollupType
   }
+  handleNetworkSpecificMerkleLeafGas?: (
+    foundryGas: string,
+    deployedContractSizes: DeployedContractSize[],
+    access: ParsedAccountAccess
+  ) => string
 }
 
 export type SupportedLocalNetwork = {
@@ -642,8 +765,9 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'moonbeam',
@@ -665,8 +789,9 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'moonbase_alpha',
@@ -688,8 +813,9 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'fuse',
