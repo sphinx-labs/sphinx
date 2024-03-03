@@ -39,7 +39,8 @@ contract Sample is Sphinx {
         sphinxConfig.saltNonce = 2132412;
     }
 
-    function run() public sphinx {
+    function run() public {
+        console.log('this in script', address(this));
         new MyContract1(
             -1,
             2,

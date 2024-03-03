@@ -466,3 +466,64 @@ export const deploy = async (
     configArtifacts,
   }
 }
+
+// TODO(end): mention that dry run files are written, but the speed difference seems minor since
+// we're using --skip-simulation
+
+// TODO(end): ticket: Should we rename the sphinx modifier to something more descriptive, like
+// prankSafe? If so, how can we make this backwards compatible? This should probably be in a
+// different ticket.
+
+// ------------------------------ TODO(later-later)-------------------------------
+
+// TODO(later-later): here are two situations we need to handle in docs/error messages:
+// - The user doesn't include a deployer private key environment variable, which causes their Forge
+//   script to fail.
+// - The user includes their deployer private key environment variable, or they have an existing
+//   hardcoded deployer address in their script. In this scenario, their script doesn't fail, but
+//   their transactions won't be sent from their Gnosis Safe.
+
+// TODO(later-later): do our docs say anywhere that Sphinx will collect any _broadcasted_
+// transaction? if so, this isn't technically accurate until we fix the bug where regular txns from
+// the safe are also broadcasted.
+
+// ----------------------------- TODO(end) ------------------------------------------
+
+// TODO(end): make ticket: pranked txns from the gnosis safe should probably be invalid. only
+// broadcasts should be valid. maybe?
+
+// TODO(later): check:
+// - msg.sender
+// - ETH_FROM environment variable
+// - FOUNDRY_SENDER environment variable
+// - safeAddress()
+// - Users should be able to call vm.startPrank or vm.startBroadcast with any of the variables above
+//   as a parameter. It's also fine for the user to use vm.prank or vm.broadcast as long as there's
+//   a single transaction in their script.
+// - Additionally, users should be able to call vm.startBroadcast() with no parameters. Same with
+//   vm.broadcast(), as long as there's a single transaction in their script.
+// - Lastly, we should continue to allow usage of the sphinx modifier. This should continue to be
+//   the default approach in the Quickstart.
+
+// TODO(later): "We need some way to detect if the user didn’t prank or broadcast their Gnosis Safe
+// in their script. The call depth is probably the best solution. We should check that the UX of
+// this is reasonable. Also, we should reconcile this situation with the fact that the user’s script
+// may be idempotent on some networks, which means they may genuinely not have any transactions sent
+// from their Gnosis Safe". I think the solution is to throw an error if there aren't _any_
+// transactions w/ call depth zero (or two or w/e) that aren't from the Gnosis Safe. We should check
+// for the complete absence of these txns because the user may start pranking from another address
+// temporarily in their script, which should be a valid operation.
+
+// TODO(later): see if it's fine to do --skip-simulation. maybe it's safer to actually do the
+// simulation?
+
+// TODO(later): add --skip-simulation to deploy and propose
+
+// TODO(later): What happens if the user does vm.startBroadcast and we supply an --rpc-url  to the
+// Forge script? Does the on-chain simulation occur? If so, is that potentially bad?
+
+// TODO(end): Consider how our system will handle users stopping broadcasts, deploying a contract /
+// calling a function, then starting broadcasts again. One of the calls this week is with a user
+// that does this. E.g. I don’t think fetchNumCreateAccesses will behave correctly in this
+// situation, if there are unbroadcasted contract deployments.
+// https://github.com/vacp2p/rln-contract/blob/5d9108a1384cb53f73d23906d7085d212425b77b/script/Deploy.s.sol#L11-L13

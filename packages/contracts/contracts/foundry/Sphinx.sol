@@ -7,6 +7,7 @@ pragma solidity ^0.8.0;
 // forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../lib/forge-std/src/Vm.sol";
+import { console } from "../../lib/forge-std/src/console.sol"; // TODO(later): rm
 
 import { MerkleRootStatus, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -189,6 +190,10 @@ abstract contract Sphinx {
         address safe = safeAddress();
         address module = sphinxModule();
 
+        console.log('actual safe', safe);
+
+        console.log('address(this) in collect', address(this));
+
         FoundryDeploymentInfo memory deploymentInfo;
         deploymentInfo.executionMode = _executionMode;
         deploymentInfo.executorAddress = _executor;
@@ -257,6 +262,8 @@ abstract contract Sphinx {
         for (uint256 i = 0; i < parsedAccesses.length; i++) {
             deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
         }
+
+        // revert('yo'); // TODO(later): undo
 
         vm.revertTo(snapshotId);
         deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
