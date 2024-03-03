@@ -47,11 +47,6 @@ contract HelloSphinxScript is Sphinx {
         sphinxConfig.orgId = "${orgId}";
         sphinxConfig.threshold = 1;
         sphinxConfig.projectName = "My_First_Project";
-        sphinxConfig.testnets = [
-            Network.sepolia,
-            Network.optimism_sepolia,
-            Network.arbitrum_sepolia
-        ];
     }
 
     function run() public sphinx {

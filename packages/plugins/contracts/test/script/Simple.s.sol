@@ -12,8 +12,7 @@ contract Simple1 is Script, Sphinx {
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-        sphinxConfig.testnets = [Network.sepolia];
+        sphinxConfig.mainnets = ["ethereum", "optimism_mainnet"];
         sphinxConfig.orgId = "test-org-id";
     }
 
@@ -35,7 +34,6 @@ contract Simple2 is Script, Sphinx {
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.testnets = [Network.sepolia];
         sphinxConfig.orgId = "test-org-id";
     }
 

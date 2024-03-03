@@ -17,7 +17,7 @@ import {
   makeDeploymentConfig,
 } from '@sphinx-labs/core'
 import ora from 'ora'
-import { blue, red } from 'chalk'
+import { blue } from 'chalk'
 import { ethers } from 'ethers'
 import {
   BuildInfos,
@@ -41,6 +41,7 @@ import {
   getInitCodeWithArgsArray,
   assertValidVersions,
   assertNoLinkedLibraries,
+  validateProposalNetworks,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -53,7 +54,7 @@ import { BuildNetworkConfigArray } from '../types'
  */
 export interface ProposeArgs {
   confirm: boolean
-  isTestnet: boolean
+  networks: Array<string>
   isDryRun: boolean
   silent: boolean
   scriptPath: string
@@ -63,7 +64,8 @@ export interface ProposeArgs {
 
 export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   scriptPath: string,
-  isTestnet: boolean,
+  safeAddress: string,
+  rpcUrls: Array<string>,
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
@@ -71,39 +73,24 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
-  networkConfigArray?: Array<NetworkConfig>
+  networkConfigArrayWithRpcUrls?: Array<{
+    networkConfig: NetworkConfig
+    rpcUrl: string
+  }>
   configArtifacts?: ConfigArtifacts
   buildInfos?: BuildInfos
   isEmpty: boolean
 }> => {
-  const { testnets, mainnets, safeAddress } = await getSphinxConfigFromScript(
-    scriptPath,
-    sphinxPluginTypesInterface,
-    targetContract,
-    spinner
-  )
-
   const deploymentInfoPath = join(
     foundryToml.cachePath,
     'sphinx-deployment-info.txt'
   )
-  const networkNames = isTestnet ? testnets : mainnets
   const collected: Array<{
     deploymentInfo: DeploymentInfo
     libraries: Array<string>
-    forkUrl: string
+    rpcUrl: string
   }> = []
-  for (const networkName of networkNames) {
-    const rpcUrl = foundryToml.rpcEndpoints[networkName]
-    if (!rpcUrl) {
-      console.error(
-        red(
-          `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
-        )
-      )
-      process.exit(1)
-    }
-
+  for (const rpcUrl of rpcUrls) {
     // Remove the existing DeploymentInfo file if it exists. This ensures that we don't accidentally
     // use a file from a previous deployment.
     if (existsSync(deploymentInfoPath)) {
@@ -165,7 +152,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     collected.push({
       deploymentInfo,
       libraries: [], // We don't currently support linked libraries.
-      forkUrl: rpcUrl,
+      rpcUrl,
     })
   }
 
@@ -189,28 +176,33 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     targetContract
   )
 
-  const networkConfigArray = collected.map(({ deploymentInfo, libraries }) =>
-    makeNetworkConfig(
-      deploymentInfo,
-      true, // System contracts are deployed.
-      configArtifacts,
-      libraries
-    )
+  const networkConfigArrayWithRpcUrls = collected.map(
+    ({ deploymentInfo, libraries, rpcUrl }) => {
+      return {
+        rpcUrl,
+        networkConfig: makeNetworkConfig(
+          deploymentInfo,
+          true, // System contracts are deployed.
+          configArtifacts,
+          libraries
+        ),
+      }
+    }
   )
 
-  const isEmpty = networkConfigArray.every(
-    (networkConfig) => networkConfig.actionInputs.length === 0
+  const isEmpty = networkConfigArrayWithRpcUrls.every(
+    ({ networkConfig }) => networkConfig.actionInputs.length === 0
   )
   if (isEmpty) {
     return {
       isEmpty: true,
-      networkConfigArray: undefined,
+      networkConfigArrayWithRpcUrls: undefined,
       configArtifacts: undefined,
     }
   }
 
   return {
-    networkConfigArray,
+    networkConfigArrayWithRpcUrls,
     configArtifacts,
     buildInfos,
     isEmpty: false,
@@ -226,14 +218,8 @@ export const propose = async (
   networkConfigArray?: Array<NetworkConfig>
   merkleTree?: SphinxMerkleTree
 }> => {
-  const {
-    confirm,
-    isTestnet,
-    isDryRun,
-    silent,
-    sphinxContext,
-    targetContract,
-  } = args
+  const { confirm, networks, isDryRun, silent, sphinxContext, targetContract } =
+    args
 
   const projectRoot = process.cwd()
 
@@ -261,11 +247,14 @@ export const propose = async (
   )
 
   const spinner = ora({ isSilent: silent })
-  spinner.start(`Collecting transactions...`)
+  spinner.start(`Validating networks...`)
+
+  // Check that the Sphinx dependencies are installed. This check should occur before we call into
+  // the user's Forge script to collect transactions, get config variables, etc, since a version
+  // mismatch could cause these calls to fail unexpectedly.
+  await assertValidVersions(scriptPath, targetContract)
 
   const foundryToml = await getFoundryToml()
-
-  await assertValidVersions(scriptPath, targetContract)
 
   // We must load any ABIs after compiling the contracts to prevent a situation where the user
   // clears their artifacts then calls this task, in which case the artifact won't exist yet.
@@ -274,6 +263,24 @@ export const propose = async (
     'SphinxPluginTypes'
   )
 
+  const { safeAddress, testnets, mainnets } = await getSphinxConfigFromScript(
+    scriptPath,
+    sphinxPluginTypesInterface,
+    targetContract,
+    spinner
+  )
+
+  const { rpcUrls, isTestnet } = await validateProposalNetworks(
+    networks,
+    testnets,
+    mainnets,
+    foundryToml.rpcEndpoints,
+    sphinxContext.isLiveNetwork
+  )
+
+  spinner.succeed(`Validated networks.`)
+  spinner.start(`Collecting transactions...`)
+
   const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
     foundryToml.artifactFolder,
     foundryToml.buildInfoFolder,
@@ -281,17 +288,22 @@ export const propose = async (
     foundryToml.cachePath
   )
 
-  const { networkConfigArray, configArtifacts, isEmpty, buildInfos } =
-    await sphinxContext.buildNetworkConfigArray(
-      scriptPath,
-      isTestnet,
-      sphinxPluginTypesInterface,
-      foundryToml,
-      projectRoot,
-      getConfigArtifacts,
-      targetContract,
-      spinner
-    )
+  const {
+    networkConfigArrayWithRpcUrls,
+    configArtifacts,
+    isEmpty,
+    buildInfos,
+  } = await sphinxContext.buildNetworkConfigArray(
+    scriptPath,
+    safeAddress,
+    rpcUrls,
+    sphinxPluginTypesInterface,
+    foundryToml,
+    projectRoot,
+    getConfigArtifacts,
+    targetContract,
+    spinner
+  )
 
   if (isEmpty) {
     spinner.succeed(
@@ -301,12 +313,15 @@ export const propose = async (
   }
 
   // Narrow the TypeScript type of the NetworkConfig and ConfigArtifacts.
-  if (!networkConfigArray || !configArtifacts || !buildInfos) {
+  if (!networkConfigArrayWithRpcUrls || !configArtifacts || !buildInfos) {
     throw new Error(
       `NetworkConfig, ConfigArtifacts, or BuildInfos not defined. Should never happen.`
     )
   }
 
+  const networkConfigArray = networkConfigArrayWithRpcUrls.map(
+    ({ networkConfig }) => networkConfig
+  )
   const deploymentData = makeDeploymentData(networkConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
@@ -320,13 +335,13 @@ export const propose = async (
     merkleTree
   )
 
-  const gasEstimatesPromises = networkConfigArray
-    .filter((networkConfig) => networkConfig.actionInputs.length > 0)
-    .map((networkConfig) =>
+  const gasEstimatesPromises = networkConfigArrayWithRpcUrls
+    .filter(({ networkConfig }) => networkConfig.actionInputs.length > 0)
+    .map(({ networkConfig, rpcUrl }) =>
       sphinxContext.getNetworkGasEstimate(
         deploymentConfig,
         networkConfig.chainId,
-        foundryToml
+        rpcUrl
       )
     )
   const gasEstimates = await Promise.all(gasEstimatesPromises)
@@ -364,8 +379,7 @@ export const propose = async (
 
   // Since we know that the following fields are the same for each network, we get their values
   // here.
-  const { newConfig, safeAddress, moduleAddress, safeInitData } =
-    networkConfigArray[0]
+  const { newConfig, moduleAddress, safeInitData } = networkConfigArray[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   const chainStatus: Array<{

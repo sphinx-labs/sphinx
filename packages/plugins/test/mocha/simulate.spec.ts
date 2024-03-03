@@ -65,11 +65,11 @@ describe('Simulate', () => {
     const testnetNames = SPHINX_NETWORKS.filter(
       (n) => n.networkType === 'Testnet'
     ).map((n) => n.name)
+    const networkNames = productionNetworkNames.concat(testnetNames)
 
     const deployment = await makeDeployment(
       0, // First deployment
-      productionNetworkNames,
-      testnetNames,
+      networkNames,
       'Project_Name',
       ownerWallets,
       threshold, // Threshold

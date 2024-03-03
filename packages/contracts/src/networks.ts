@@ -49,7 +49,7 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
 ]
 
 type BlockExplorer = 'Etherscan' | 'Blockscout' | 'Unsupported'
-type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
+export type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
 type RollupProvider = 'Conduit' | 'Caldera'
 type RollupType = 'OP Stack' | 'Arbitrum'
 

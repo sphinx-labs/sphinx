@@ -23,6 +23,7 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
+  isArrayMixed,
   isDefined,
   isNormalizedAddress,
   sortHexStrings,
@@ -56,8 +57,6 @@ import {
   ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
-  fetchNameForNetwork,
-  networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -69,9 +68,10 @@ import {
   getSystemContractInfo,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CONTRACTS_LIBRARY_VERSION,
+  SPHINX_NETWORKS,
+  NetworkType,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
-import { red } from 'chalk'
 
 import {
   FoundryMultiChainDryRun,
@@ -83,6 +83,16 @@ import { simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
+import { SphinxContext } from '../../cli/context'
+import {
+  SphinxConfigMainnetsContainsTestnetsErrorMessage,
+  SphinxConfigTestnetsContainsMainnetsErrorMessage,
+  getFailedRequestErrorMessage,
+  getLocalNetworkErrorMessage,
+  getMissingEndpointErrorMessage,
+  getMixedNetworkTypeErrorMessage,
+  getUnsupportedNetworkErrorMessage,
+} from '../error-messages'
 
 const readFileAsync = promisify(readFile)
 
@@ -743,8 +753,8 @@ export const getSphinxConfigFromScript = async (
     owners: sortHexStrings(sphinxConfig.owners),
     threshold: sphinxConfig.threshold.toString(),
     orgId: sphinxConfig.orgId,
-    testnets: sphinxConfig.testnets.map(networkEnumToName),
-    mainnets: sphinxConfig.mainnets.map(networkEnumToName),
+    testnets: sphinxConfig.testnets,
+    mainnets: sphinxConfig.mainnets,
     saltNonce: sphinxConfig.saltNonce.toString(),
     safeAddress: decoded[1],
     moduleAddress: decoded[2],
@@ -1095,23 +1105,11 @@ export const getEstimatedGas = async (
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  foundryToml: FoundryToml
+  rpcUrl: string
 ): Promise<{
   chainId: number
   estimatedGas: string
 }> => {
-  const networkName = fetchNameForNetwork(BigInt(chainId))
-  const rpcUrl = foundryToml.rpcEndpoints[networkName]
-
-  if (!rpcUrl) {
-    console.error(
-      red(
-        `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
-      )
-    )
-    process.exit(1)
-  }
-
   const { receipts } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
@@ -1489,4 +1487,164 @@ const isStorageAccess = (
     typeof obj.newValue === 'string' &&
     typeof obj.reverted === 'boolean'
   )
+}
+
+export const validateProposalNetworks = async (
+  cliNetworks: Array<string>,
+  configTestnets: Array<string>,
+  configMainnets: Array<string>,
+  rpcEndpoints: FoundryToml['rpcEndpoints'],
+  isLiveNetwork: SphinxContext['isLiveNetwork']
+): Promise<{ rpcUrls: Array<string>; isTestnet: boolean }> => {
+  if (cliNetworks.length === 0) {
+    throw new Error(`Expected at least one network, but none were supplied.`)
+  }
+
+  let resolvedNetworks: Array<string>
+  if (cliNetworks.length === 1 && cliNetworks[0] === 'mainnets') {
+    if (configMainnets.length === 0) {
+      throw new Error(
+        `Your 'sphinxConfig.mainnets' array must contain at least one network when\n` +
+          `you use the '--mainnets' flag.`
+      )
+    }
+
+    resolvedNetworks = configMainnets
+  } else if (cliNetworks.length === 1 && cliNetworks[0] === 'testnets') {
+    if (configTestnets.length === 0) {
+      throw new Error(
+        `Your 'sphinxConfig.testnets' array must contain at least one network when\n` +
+          `you use the '--testnets' flag.`
+      )
+    }
+    resolvedNetworks = configTestnets
+  } else {
+    resolvedNetworks = cliNetworks
+  }
+
+  const networkPromises = resolvedNetworks.map(async (network) => {
+    const rpcUrl = rpcEndpoints[network]
+    if (!rpcUrl) {
+      return { type: 'missingEndpoint', network }
+    }
+
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    let networkInfo: ethers.Network
+    try {
+      networkInfo = await provider.getNetwork()
+    } catch {
+      return { type: 'failedRequest', network }
+    }
+
+    const sphinxNetwork = SPHINX_NETWORKS.find(
+      (supportedNetwork) => supportedNetwork.chainId === networkInfo.chainId
+    )
+
+    if (!sphinxNetwork) {
+      return {
+        type: 'unsupported',
+        network,
+        chainId: networkInfo.chainId.toString(),
+      }
+    }
+
+    if (!(await isLiveNetwork(provider))) {
+      return { type: 'localNetwork', network }
+    }
+
+    return {
+      type: 'valid',
+      rpcUrl,
+      network,
+      networkType: sphinxNetwork.networkType,
+    }
+  })
+
+  const results = await Promise.allSettled(networkPromises)
+
+  const missingEndpoint: Array<string> = []
+  const failedRequest: Array<string> = []
+  const unsupported: Array<{ chainId: string; networkName: string }> = []
+  const localNetwork: Array<string> = []
+  const valid: Array<{
+    network: string
+    networkType: NetworkType
+    rpcUrl: string
+  }> = []
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      throw new Error(`Promise was rejected. Should never happen.`)
+    }
+
+    const value = result.value
+    if (value.type === 'missingEndpoint') {
+      missingEndpoint.push(value.network)
+    } else if (value.type === 'failedRequest') {
+      failedRequest.push(value.network)
+    } else if (value.type === 'unsupported') {
+      // Narrow the TypeScript type.
+      if (value.chainId === undefined) {
+        throw new Error(`Chain ID is undefined. Should never happen.`)
+      }
+      unsupported.push({ networkName: value.network, chainId: value.chainId })
+    } else if (value.type === 'localNetwork') {
+      localNetwork.push(value.network)
+    } else if (value.type === 'valid') {
+      const { rpcUrl, network, networkType } = value
+      // Narrow the TypeScript types.
+      if (
+        rpcUrl === undefined ||
+        network === undefined ||
+        networkType === undefined
+      ) {
+        throw new Error(`Network field(s) are undefined. Should never happen.`)
+      }
+      valid.push({ rpcUrl, network, networkType })
+    } else {
+      throw new Error(`Unknown result: ${value.type}. Should never happen.`)
+    }
+  }
+
+  if (missingEndpoint.length > 0) {
+    throw new Error(getMissingEndpointErrorMessage(missingEndpoint))
+  }
+
+  if (failedRequest.length > 0) {
+    throw new Error(getFailedRequestErrorMessage(failedRequest))
+  }
+
+  if (unsupported.length > 0) {
+    throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
+  }
+
+  if (localNetwork.length > 0) {
+    throw new Error(getLocalNetworkErrorMessage(localNetwork))
+  }
+
+  // Check if the array contains a mix of test networks and production networks. We check this after
+  // resolving the promises above because we need to know all of the network types.
+  const networkTypes = valid.map(({ networkType }) => networkType)
+  const isMixed = isArrayMixed(networkTypes)
+  if (isMixed) {
+    throw new Error(getMixedNetworkTypeErrorMessage(valid))
+  }
+
+  // Check if the array contains all testnets or production networks. We know that the array doesn't
+  // contain mixed network types because we already checked this.
+  const isTestnet = networkTypes.every(
+    (networkType) => networkType === 'Testnet'
+  )
+
+  if (cliNetworks.length === 1 && cliNetworks[0] === 'mainnets' && isTestnet) {
+    throw new Error(SphinxConfigMainnetsContainsTestnetsErrorMessage)
+  } else if (
+    cliNetworks.length === 1 &&
+    cliNetworks[0] === 'testnets' &&
+    !isTestnet
+  ) {
+    throw new Error(SphinxConfigTestnetsContainsMainnetsErrorMessage)
+  }
+
+  const rpcUrls = valid.map(({ rpcUrl }) => rpcUrl)
+  return { rpcUrls, isTestnet }
 }

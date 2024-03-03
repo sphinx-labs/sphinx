@@ -69,6 +69,26 @@ export const fetchNameForNetwork = (chainId: bigint) => {
   }
 }
 
+export const isSupportedTestNetwork = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.networkType === 'Testnet'
+  } else {
+    return false
+  }
+}
+
+export const isSupportedProductionNetwork = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.networkType === 'Mainnet'
+  } else {
+    return false
+  }
+}
+
 // Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchDripSizeForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)

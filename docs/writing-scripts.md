@@ -45,8 +45,6 @@ function configureSphinx() public override {
     sphinxConfig.projectName = "My_Project";
 
     // Required settings for the Sphinx DevOps Platform:
-    sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-    sphinxConfig.testnets = [Network.sepolia, Network.optimism_sepolia];
     sphinxConfig.orgId = "abcd-1234";
 }
 ```

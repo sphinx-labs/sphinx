@@ -18,6 +18,7 @@ import {
   getCreate3Address,
   makeDeploymentArtifacts,
   setBalance,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -25,7 +26,6 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   SphinxMerkleTree,
 } from '@sphinx-labs/contracts'
-import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as FallbackArtifact from '../../../out/artifacts/Fallback.sol/Fallback.json'
@@ -85,7 +85,9 @@ chai.use(chaiAsPromised)
 const expect = chai.expect
 
 const sepoliaRpcUrl = `http://127.0.0.1:42111`
-const provider = new SphinxJsonRpcProvider(sepoliaRpcUrl)
+const optimismRpcUrl = `http://127.0.0.1:42010`
+const sepoliaProvider = new SphinxJsonRpcProvider(sepoliaRpcUrl)
+const optimismProvider = new SphinxJsonRpcProvider(optimismRpcUrl)
 
 const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
@@ -97,7 +99,10 @@ const expectedMyContract2Address = ethers.getCreate2Address(
   ethers.keccak256(MyContract2Artifact.bytecode.object)
 )
 
-const allChainIds = [fetchChainIdForNetwork('sepolia')]
+const allChainIds = [
+  fetchChainIdForNetwork('sepolia'),
+  fetchChainIdForNetwork('optimism'),
+]
 const deploymentArtifactDirPath = 'deployments'
 
 describe('Deploy CLI command', () => {
@@ -108,6 +113,7 @@ describe('Deploy CLI command', () => {
     originalEnv = { ...process.env }
 
     process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+    process.env['OPTIMISM_RPC_URL'] = optimismRpcUrl
   })
 
   after(() => {
@@ -142,7 +148,9 @@ describe('Deploy CLI command', () => {
 
       const executionMode = ExecutionMode.LocalNetworkCLI
 
-      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
+      expect(
+        await sepoliaProvider.getCode(expectedMyContract2Address)
+      ).to.equal('0x')
 
       // Check that the deployment artifacts have't been created yet
       expect(existsSync(deploymentArtifactDirPath)).to.be.false
@@ -150,6 +158,8 @@ describe('Deploy CLI command', () => {
       const { context } = makeMockSphinxContextForIntegrationTests([
         'contracts/test/MyContracts.sol:MyContract2',
       ])
+      // Use the standard `isLiveNetwork` function so that it returns false.
+      context.isLiveNetwork = isLiveNetwork
 
       const targetContract = 'Simple1'
       const {
@@ -193,7 +203,7 @@ describe('Deploy CLI command', () => {
           [networkConfig.chainId]: {
             deploymentConfig,
             receipts,
-            provider,
+            provider: sepoliaProvider,
           },
         },
         merkleTree.root,
@@ -208,15 +218,29 @@ describe('Deploy CLI command', () => {
         projectName,
         artifacts,
         executionMode,
-        ['MyContract2.json']
+        ['MyContract2.json'],
+        expectedMyContract2Address,
+        sepoliaProvider
       )
     })
 
     // This tests the logic that deploys on live networks, which uses a signer to call the Sphinx
     // Module. This is separate from the logic that deploys on local network, which uses an
     // auto-generated wallet and executes transactions through the `ManagedService`.
-    it('Executes deployment on live network', async () => {
-      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
+    //
+    // This test deploys on a network name, optimism_mainnet, which is different from the network
+    // name 'optimism' in `SPHINX_NETWORKS`. Changing the network name ensures that the user can
+    // deploy with network names that don't match ours.
+    it('Executes deployment on live network with non-standard network name', async () => {
+      const expectedContractAddressOptimism = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        '0x' + '00'.repeat(31) + '01',
+        ethers.keccak256(MyContract2Artifact.bytecode.object)
+      )
+
+      expect(
+        await optimismProvider.getCode(expectedContractAddressOptimism)
+      ).to.equal('0x')
 
       // First private key on Anvil
       const privateKey =
@@ -229,7 +253,7 @@ describe('Deploy CLI command', () => {
       await setBalance(
         wallet.address,
         ethers.toBeHex(ethers.parseEther('1.25')),
-        provider
+        optimismProvider
       )
 
       // Check that the deployment artifact hasn't been created yet
@@ -240,14 +264,6 @@ describe('Deploy CLI command', () => {
       ])
       const executionMode = ExecutionMode.LiveNetworkCLI
 
-      // Override the `isLiveNetwork` function to always return `true`.
-      context.isLiveNetwork = async (
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        provider_: SphinxJsonRpcProvider | HardhatEthersProvider
-      ): Promise<boolean> => {
-        return true
-      }
-
       const targetContract = 'Simple1'
       const {
         deploymentConfig,
@@ -257,7 +273,7 @@ describe('Deploy CLI command', () => {
         configArtifacts,
       } = await deploy({
         scriptPath: forgeScriptPath,
-        network: 'sepolia',
+        network: 'optimism_mainnet',
         skipPreview: false,
         silent: true,
         sphinxContext: context,
@@ -290,7 +306,7 @@ describe('Deploy CLI command', () => {
           [networkConfig.chainId]: {
             deploymentConfig,
             receipts,
-            provider,
+            provider: optimismProvider,
           },
         },
         merkleTree.root,
@@ -301,11 +317,13 @@ describe('Deploy CLI command', () => {
       await expectValidDeployment(
         deploymentConfig,
         preview,
-        'sepolia',
+        'optimism',
         projectName,
         artifacts,
         executionMode,
-        ['MyContract2.json']
+        ['MyContract2.json'],
+        expectedContractAddressOptimism,
+        optimismProvider
       )
     })
 
@@ -313,7 +331,9 @@ describe('Deploy CLI command', () => {
     // words, we don't allow the user to use the `deploy` CLI command to just deploy a Gnosis Safe
     // and Sphinx Module. This behavior is consistent with the `propose` CLI command.
     it(`Displays preview then exits when there's nothing to execute`, async () => {
-      expect(await provider.getCode(expectedMyContract2Address)).to.equal('0x')
+      expect(
+        await sepoliaProvider.getCode(expectedMyContract2Address)
+      ).to.equal('0x')
 
       const { context } = makeMockSphinxContextForIntegrationTests([])
 
@@ -470,12 +490,12 @@ describe('Deployment Cases', () => {
   })
 
   it('Can deploy contract using CREATE', async () => {
-    expect(await provider.getCode(createAddressOne)).to.not.eq('0x')
+    expect(await sepoliaProvider.getCode(createAddressOne)).to.not.eq('0x')
 
     const contract = new ethers.Contract(
       createAddressOne,
       MyContract2Artifact.abi,
-      provider
+      sepoliaProvider
     )
 
     expect(await contract.number()).to.equal(BigInt(1))
@@ -490,21 +510,23 @@ describe('Deployment Cases', () => {
     const contractOne = new ethers.Contract(
       createAddressOne,
       MyContract2Artifact.abi,
-      provider
+      sepoliaProvider
     )
     expect(await contractOne.number()).to.equal(BigInt(1))
 
-    expect(await provider.getCode(createAddressTwo)).to.not.eq('0x')
+    expect(await sepoliaProvider.getCode(createAddressTwo)).to.not.eq('0x')
     const contract = new ethers.Contract(
       createAddressTwo,
       MyContract2Artifact.abi,
-      provider
+      sepoliaProvider
     )
     expect(await contract.number()).to.equal(BigInt(0))
   })
 
   it('Can call fallback function on contract', async () => {
-    expect(await provider.getCode(fallbackCreate2Address)).to.not.eq('0x')
+    expect(await sepoliaProvider.getCode(fallbackCreate2Address)).to.not.eq(
+      '0x'
+    )
 
     const contract = getContract(fallbackCreate2Address, FallbackArtifact)
 
@@ -512,7 +534,9 @@ describe('Deployment Cases', () => {
   })
 
   it('Can deploy with Create3 and infer artifact', async () => {
-    expect(await provider.getCode(fallbackCreate3Address)).to.not.eq('0x')
+    expect(await sepoliaProvider.getCode(fallbackCreate3Address)).to.not.eq(
+      '0x'
+    )
 
     checkLabeled(fallbackCreate3Address, 'contracts/test/Fallback.sol:Fallback')
 
@@ -530,10 +554,10 @@ describe('Deployment Cases', () => {
       it('Create2', async () => {
         // expect both deployed
         expect(
-          await provider.getCode(constructorDeploysContractAddress)
+          await sepoliaProvider.getCode(constructorDeploysContractAddress)
         ).to.not.eq('0x')
         expect(
-          await provider.getCode(constructorDeploysContractChildAddress)
+          await sepoliaProvider.getCode(constructorDeploysContractChildAddress)
         ).to.not.eq('0x')
 
         // expect child is stored in parent
@@ -565,10 +589,14 @@ describe('Deployment Cases', () => {
       it('Create3', async () => {
         // expect both deployed
         expect(
-          await provider.getCode(constructorDeploysContractAddressCreate3)
+          await sepoliaProvider.getCode(
+            constructorDeploysContractAddressCreate3
+          )
         ).to.not.eq('0x')
         expect(
-          await provider.getCode(constructorDeploysContractChildAddressCreate3)
+          await sepoliaProvider.getCode(
+            constructorDeploysContractChildAddressCreate3
+          )
         ).to.not.eq('0x')
 
         // expect child is stored in parent
@@ -629,7 +657,7 @@ describe('Deployment Cases', () => {
         [networkConfig.chainId]: {
           deploymentConfig,
           receipts,
-          provider,
+          provider: sepoliaProvider,
         },
       },
       merkleTree.root,
@@ -642,7 +670,7 @@ describe('Deployment Cases', () => {
       deploymentConfig,
       getEmptyDeploymentArtifacts(),
       artifacts,
-      ExecutionMode.LocalNetworkCLI,
+      ExecutionMode.LiveNetworkCLI,
       [
         'MyContract2.json',
         'MyContract2_1.json',
@@ -658,7 +686,7 @@ describe('Deployment Cases', () => {
 })
 
 const getContract = (address: string, artifact: any): ethers.Contract => {
-  const contract = new ethers.Contract(address, artifact.abi, provider)
+  const contract = new ethers.Contract(address, artifact.abi, sepoliaProvider)
   return contract
 }
 
@@ -669,7 +697,9 @@ const expectValidDeployment = async (
   projectName: string,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
-  expectedContractFileNames: Array<string>
+  expectedContractFileNames: Array<string>,
+  expectedContractAddress: string,
+  provider: SphinxJsonRpcProvider
 ) => {
   const networkConfig = deploymentConfig.networkConfigs.at(0)
 
@@ -679,13 +709,13 @@ const expectValidDeployment = async (
 
   expect(
     (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
-  ).to.equal(expectedMyContract2Address)
+  ).to.equal(expectedContractAddress)
   const contract = new ethers.Contract(
-    expectedMyContract2Address,
+    expectedContractAddress,
     MyContract2Artifact.abi,
     provider
   )
-  expect(await provider.getCode(expectedMyContract2Address)).to.not.equal('0x')
+  expect(await provider.getCode(expectedContractAddress)).to.not.equal('0x')
   expect(await contract.number()).to.equal(BigInt(2))
 
   expect(preview).to.deep.equal({
@@ -712,13 +742,13 @@ const expectValidDeployment = async (
             referenceName: 'MyContract2',
             functionName: 'deploy',
             variables: {},
-            address: expectedMyContract2Address,
+            address: expectedContractAddress,
           },
           {
             referenceName: 'MyContract2',
             functionName: 'incrementMyContract2',
             variables: { _num: '2' },
-            address: expectedMyContract2Address,
+            address: expectedContractAddress,
           },
         ],
         skipping: [],

@@ -1,6 +1,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
+import { getDuplicateElements } from '@sphinx-labs/core'
 
 import { init } from '../sample-project'
 import { SphinxContext, makeSphinxContext } from './context'
@@ -9,7 +10,12 @@ import {
   DeployCommandArgs,
   ProposeCommandArgs,
 } from './types'
-import { ConfirmAndDryRunError, coerceNetworks } from './utils'
+import {
+  BothNetworksSpecifiedError,
+  ConfirmAndDryRunError,
+  NoNetworkArgsError,
+  getDuplicatedNetworkErrorMessage,
+} from './utils'
 import { handleInstall } from './install'
 
 const networkOption = 'network'
@@ -30,7 +36,7 @@ export const makeCLI = (
       (y) =>
         y
           .usage(
-            `Usage: sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]`
+            `Usage: sphinx propose <SCRIPT_PATH> --networks <NETWORK_NAMES...|testnets|mainnets> [options]`
           )
           .positional('scriptPath', {
             describe: 'Path to the Forge script file.',
@@ -39,9 +45,8 @@ export const makeCLI = (
           })
           .option('networks', {
             describe: 'The networks to propose on.',
-            type: 'string',
-            choices: ['testnets', 'mainnets'],
-            coerce: coerceNetworks,
+            type: 'array',
+            coerce: (networks: Array<string | number>) => networks.map(String),
             demandOption: true,
           })
           .option(confirmOption, {
@@ -63,6 +68,38 @@ export const makeCLI = (
             describe: 'Silence the output except for error messages.',
             boolean: true,
             default: false,
+          })
+          .check((argv) => {
+            const { networks } = argv
+
+            if (networks.length === 0) {
+              throw new Error(NoNetworkArgsError)
+            }
+
+            if (
+              networks.includes('testnets') &&
+              networks.includes('mainnets')
+            ) {
+              throw new Error(BothNetworksSpecifiedError)
+            }
+
+            const duplicatedNetworks = getDuplicateElements(networks)
+            if (duplicatedNetworks.length > 0) {
+              throw new Error(
+                getDuplicatedNetworkErrorMessage(duplicatedNetworks)
+              )
+            }
+
+            if (
+              networks.length > 1 &&
+              (networks.includes('testnets') || networks.includes('mainnets'))
+            ) {
+              throw new Error(
+                `If you specify 'mainnets' or testnets', you cannot specify any other networks.`
+              )
+            }
+
+            return true
           })
           .hide('version'),
       async (argv) => proposeCommandHandler(argv, sphinxContext)
@@ -232,10 +269,9 @@ const proposeCommandHandler = async (
     process.exit(1)
   }
 
-  const isTestnet = networks === 'testnets'
   await sphinxContext.propose({
     confirm,
-    isTestnet,
+    networks,
     isDryRun: dryRun,
     silent,
     scriptPath,

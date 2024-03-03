@@ -67,7 +67,7 @@ pnpm sphinx deploy <SCRIPT_PATH> --network <NETWORK_NAME> [options]
 - `<SCRIPT_PATH>`: **Required**. Path to the Forge script file to deploy.
 
 ### Options
-- `--network <NETWORK_NAME>`: **Required**. The name of the network to deploy on.
+- `--network <NETWORK_NAME>`: **Required**. The name of the network to deploy on, which must match a network in the `rpc_endpoints` section of your `foundry.toml`.
 - `--confirm`: **Optional**. Confirm the deployment without previewing it. Useful for automated deployments.
 - `--target-contract <TARGET_CONTRACT>` (Alias: `--tc <TARGET_CONTRACT>`): **Optional**. Specify a contract within the script file. Necessary for scripts with multiple contracts.
 - `--verify`: **Optional**. Verify the deployment on Etherscan.

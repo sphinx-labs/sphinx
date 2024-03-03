@@ -13,8 +13,6 @@ contract RevertDuringSimulation_Script is Script, Sphinx {
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.mainnets = [Network.optimism];
-        sphinxConfig.testnets = [Network.sepolia];
         sphinxConfig.orgId = "test-org-id";
     }
 

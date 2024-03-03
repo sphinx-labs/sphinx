@@ -138,8 +138,8 @@ struct SphinxConfig {
     address[] owners;
     uint256 threshold;
     string orgId;
-    Network[] mainnets;
-    Network[] testnets;
+    string[] mainnets;
+    string[] testnets;
     uint256 saltNonce;
 }
 
