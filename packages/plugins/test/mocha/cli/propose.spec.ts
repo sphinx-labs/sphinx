@@ -10,8 +10,8 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   fetchChainIdForNetwork,
-  fetchNameForNetwork,
   getSphinxWalletPrivateKey,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -105,6 +105,7 @@ describe('Propose CLI command', () => {
 
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
+    const networks = ['sepolia']
     const targetContract = 'Simple1'
 
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
@@ -113,7 +114,7 @@ describe('Propose CLI command', () => {
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Run preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
@@ -188,15 +189,17 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
     )
   })
 
-  it('Proposes without preview on multiple production networks', async () => {
+  it('Proposes without preview using --mainnets', async () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
+    const networks = ['ethereum', 'optimism_mainnet']
     const targetContract = 'Simple1'
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
@@ -205,7 +208,7 @@ describe('Propose CLI command', () => {
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
@@ -322,6 +325,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
@@ -333,13 +337,14 @@ describe('Propose CLI command', () => {
   it('Proposes large deployment', async () => {
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
+    const networks = ['sepolia']
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
@@ -427,6 +432,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       undefined,
       context
@@ -459,10 +465,11 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
+    const networks = ['sepolia']
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false,
-        isTestnet,
+        networks,
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -525,6 +532,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
@@ -538,7 +546,7 @@ describe('Propose CLI command', () => {
     const { context } = makeMockSphinxContextForIntegrationTests([])
     const { proposalRequest, networkConfigArray } = await propose({
       confirm: false, // Show preview
-      isTestnet: false,
+      networks: ['ethereum', 'optimism_mainnet'],
       isDryRun: true,
       silent: true,
       scriptPath: 'contracts/test/script/Empty.s.sol',
@@ -560,13 +568,14 @@ describe('Propose CLI command', () => {
   it('Proposes on one chain and skips proposal on a different chain', async () => {
     const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
+    const networks = ['ethereum', 'optimism_mainnet']
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Show preview
-        isTestnet,
+        networks,
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -646,6 +655,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       undefined,
       context
@@ -683,7 +693,7 @@ describe('Propose CLI command', () => {
     try {
       await propose({
         confirm: false, // Show preview
-        isTestnet: false,
+        networks: ['optimism_mainnet'],
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -710,6 +720,7 @@ describe('Propose CLI command', () => {
 const assertValidGasEstimates = async (
   networkGasEstimates: ProposalRequest['gasEstimates'],
   networkConfigArray: Array<NetworkConfig>,
+  networks: Array<string>,
   scriptPath: string,
   targetContract: string | undefined,
   context: SphinxContext
@@ -723,7 +734,9 @@ const assertValidGasEstimates = async (
   )
 
   // Iterate over each network
-  for (const { chainId, estimatedGas } of networkGasEstimates) {
+  for (let i = 0; i < networkGasEstimates.length; i++) {
+    const { chainId, estimatedGas } = networkGasEstimates[i]
+    const network = networks[i]
     const networkConfig = networkConfigArray.find(
       (config) => config.chainId === chainId.toString()
     )
@@ -734,9 +747,16 @@ const assertValidGasEstimates = async (
       )
     }
 
+    // Change the SphinxContext's `isLiveNetwork` method to be the standard function, which is
+    // necessary to accurately estimate the gas in the deployment below. Using the mocked function
+    // causes the deployment to use the `LiveNetworkCLI` execution mode because the mocked function
+    // always returns `true`. This causes an inaccurate gas estimate because the `LiveNetworkCLI`
+    // mode doesn't route transactions through the Managed Service contract.
+    context.isLiveNetwork = isLiveNetwork
+
     const { receipts } = await deploy({
       scriptPath,
-      network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+      network,
       skipPreview: false,
       silent: true,
       sphinxContext: context,

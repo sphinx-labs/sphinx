@@ -311,7 +311,6 @@ const makeThenRunThenCheckDeployment = async (
 
   const { deploymentConfig } = await makeDeployment(
     merkleRootNonce,
-    [],
     networkNames,
     projectName,
     owners,
@@ -357,7 +356,6 @@ const makeThenRunThenCheckRemoteDeployment = async (
 
   const { deploymentConfig } = await makeDeployment(
     merkleRootNonce,
-    [],
     networkNames,
     projectName,
     owners,

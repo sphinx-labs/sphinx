@@ -24,7 +24,6 @@ import {
   ExecutionMode,
   ConfigArtifacts,
   checkSystemDeployed,
-  fetchChainIdForNetwork,
   writeDeploymentArtifacts,
   isLegacyTransactionsRequiredForNetwork,
   MAX_UINT64,
@@ -130,8 +129,6 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const chainId = fetchChainIdForNetwork(network)
-
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
     if (!etherscan || !etherscan[network]) {
@@ -148,7 +145,10 @@ export const deploy = async (
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
 
-  const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
+  const [isLiveNetwork, { chainId }] = await Promise.all([
+    sphinxContext.isLiveNetwork(provider),
+    provider.getNetwork(),
+  ])
 
   // We must load any ABIs after compiling the contracts to prevent a situation where the user
   // clears their artifacts then calls this task, in which case the artifact won't exist yet.

@@ -1631,3 +1631,5 @@ export const readDeploymentArtifactsForNetwork = (
 
   return networkArtifacts
 }
+
+export const isArrayMixed = <T>(arr: T[]): boolean => new Set(arr).size > 1

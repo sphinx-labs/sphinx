@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { existsSync } from 'fs'
 
+import sinon from 'sinon'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { ConstructorFragment, ethers } from 'ethers'
@@ -9,7 +10,11 @@ import {
   LinkReferences,
   parseFoundryContractArtifact,
 } from '@sphinx-labs/contracts'
-import { GetConfigArtifacts, getBytesLength } from '@sphinx-labs/core'
+import {
+  GetConfigArtifacts,
+  SphinxJsonRpcProvider,
+  getBytesLength,
+} from '@sphinx-labs/core'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -35,7 +40,20 @@ import {
   startAnvilNodes,
 } from '../common'
 import { FoundryToml } from '../../../src/foundry/types'
-import { assertNoLinkedLibraries, makeGetConfigArtifacts } from '../../../dist'
+import {
+  assertNoLinkedLibraries,
+  makeGetConfigArtifacts,
+  validateProposalNetworks,
+} from '../../../dist'
+import {
+  SphinxConfigMainnetsContainsTestnetsErrorMessage,
+  SphinxConfigTestnetsContainsMainnetsErrorMessage,
+  getFailedRequestErrorMessage,
+  getLocalNetworkErrorMessage,
+  getMissingEndpointErrorMessage,
+  getMixedNetworkTypeErrorMessage,
+  getUnsupportedNetworkErrorMessage,
+} from '../../../src/foundry/error-messages'
 
 describe('Utils', async () => {
   let foundryToml: FoundryToml
@@ -861,6 +879,216 @@ describe('Utils', async () => {
           projectRoot
         )
       ).to.eventually.be.fulfilled
+    })
+  })
+
+  describe('validateProposalNetworks', () => {
+    const validMainnetOne = 'mainnet-1'
+    const validMainnetTwo = 'other-mainnet-2'
+    const validTestnetOne = 'testnet'
+    const validNetworks = [validMainnetOne, validMainnetTwo, validTestnetOne]
+    const unsupportedNetworkOne = 'unsupported1'
+    const unsupportedNetworkTwo = 'unsupported2'
+
+    let isLiveNetwork: sinon.SinonSpy
+    let rpcEndpoints: FoundryToml['rpcEndpoints']
+    let getNetworkStub: sinon.SinonStub
+
+    beforeEach(() => {
+      rpcEndpoints = {
+        [validMainnetOne]: 'http://mainnet.rpc',
+        [validTestnetOne]: 'http://testnet.rpc',
+        [validMainnetTwo]: 'http://other-mainnet.rpc',
+        [unsupportedNetworkOne]: 'http://unsupported-1.rpc',
+        [unsupportedNetworkTwo]: 'http://unsupported-2.rpc',
+      }
+
+      getNetworkStub = sinon.stub()
+
+      isLiveNetwork = sinon.fake.resolves(true)
+      sinon
+        .stub(SphinxJsonRpcProvider.prototype, 'getNetwork')
+        .callsFake(getNetworkStub)
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('throws an error if no CLI networks are provided', async () => {
+      await expect(
+        validateProposalNetworks([], [], [], rpcEndpoints, isLiveNetwork)
+      ).to.be.rejectedWith(
+        `Expected at least one network, but none were supplied.`
+      )
+    })
+
+    it('throws an error for missing RPC endpoints', async () => {
+      const unknownNetworks = ['unknown1', 'unknown2']
+      await expect(
+        validateProposalNetworks(
+          unknownNetworks,
+          [],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(getMissingEndpointErrorMessage(unknownNetworks))
+    })
+
+    it('throws an error for failed requests to RPC endpoints', async () => {
+      getNetworkStub.rejects(new Error('Request failed'))
+      await expect(
+        validateProposalNetworks(
+          validNetworks,
+          [],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(getFailedRequestErrorMessage(validNetworks))
+    })
+
+    it('throws an error for unsupported networks', async () => {
+      const unsupportedChainIdOne = '-1'
+      const unsupportedChainIdTwo = '-2'
+      const unsupportedNetworks = [
+        { networkName: unsupportedNetworkOne, chainId: unsupportedChainIdOne },
+        { networkName: unsupportedNetworkTwo, chainId: unsupportedChainIdTwo },
+      ]
+
+      getNetworkStub
+        .onFirstCall()
+        .resolves({ chainId: BigInt(unsupportedChainIdOne) })
+      getNetworkStub
+        .onSecondCall()
+        .resolves({ chainId: BigInt(unsupportedChainIdTwo) })
+
+      await expect(
+        validateProposalNetworks(
+          [unsupportedNetworkOne, unsupportedNetworkTwo],
+          [],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(
+        getUnsupportedNetworkErrorMessage(unsupportedNetworks)
+      )
+    })
+
+    it('throws error for local networks', async () => {
+      getNetworkStub.resolves({ chainId: BigInt(1) })
+      isLiveNetwork = sinon.fake.resolves(false)
+      await expect(
+        validateProposalNetworks(
+          validNetworks,
+          [],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(getLocalNetworkErrorMessage(validNetworks))
+    })
+
+    it('throws an error for mixed network types (test and production)', async () => {
+      const mixedNetworks = [
+        { networkType: 'Mainnet', network: validMainnetOne },
+        { networkType: 'Mainnet', network: validMainnetTwo },
+        { networkType: 'Testnet', network: validTestnetOne },
+      ]
+
+      getNetworkStub.onFirstCall().resolves({ chainId: BigInt(1) }) // Production network (Ethereum)
+      getNetworkStub.onSecondCall().resolves({ chainId: BigInt(10) }) // Production network (Optimism)
+      getNetworkStub.onThirdCall().resolves({ chainId: BigInt(11155111) }) // Test network (Sepolia)
+
+      await expect(
+        validateProposalNetworks(
+          validNetworks,
+          [],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(getMixedNetworkTypeErrorMessage(mixedNetworks))
+    })
+
+    it('throws an error if sphinxConfig.mainnets contains all testnets', async () => {
+      getNetworkStub.resolves({ chainId: BigInt(11155111) }) // Test network (Sepolia)
+
+      await expect(
+        validateProposalNetworks(
+          ['mainnets'],
+          [],
+          [validTestnetOne],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(SphinxConfigMainnetsContainsTestnetsErrorMessage)
+    })
+
+    it('throws an error if sphinxConfig.testnets contains all mainnets', async () => {
+      getNetworkStub.resolves({ chainId: BigInt(1) }) // Production network
+
+      await expect(
+        validateProposalNetworks(
+          ['testnets'],
+          [validMainnetOne, validMainnetTwo],
+          [],
+          rpcEndpoints,
+          isLiveNetwork
+        )
+      ).to.be.rejectedWith(SphinxConfigTestnetsContainsMainnetsErrorMessage)
+    })
+
+    it('validates CLI networks correctly', async () => {
+      getNetworkStub.onFirstCall().resolves({ chainId: BigInt(1) }) // Production network (Ethereum)
+      getNetworkStub.onSecondCall().resolves({ chainId: BigInt(10) }) // Production network (Optimism)
+
+      const result = await validateProposalNetworks(
+        [validMainnetOne, validMainnetTwo],
+        [],
+        [],
+        rpcEndpoints,
+        isLiveNetwork
+      )
+      expect(result.rpcUrls).to.deep.equals([
+        rpcEndpoints[validMainnetOne],
+        rpcEndpoints[validMainnetTwo],
+      ])
+      expect(result.isTestnet).to.be.false
+    })
+
+    it('validates config mainnets correctly', async () => {
+      getNetworkStub.onFirstCall().resolves({ chainId: BigInt(1) }) // Production network (Ethereum)
+      getNetworkStub.onSecondCall().resolves({ chainId: BigInt(10) }) // Production network (Optimism)
+
+      const result = await validateProposalNetworks(
+        ['mainnets'],
+        [],
+        [validMainnetOne, validMainnetTwo],
+        rpcEndpoints,
+        isLiveNetwork
+      )
+      expect(result.rpcUrls).to.deep.equals([
+        rpcEndpoints[validMainnetOne],
+        rpcEndpoints[validMainnetTwo],
+      ])
+      expect(result.isTestnet).to.be.false
+    })
+
+    it('validates config testnets correctly', async () => {
+      getNetworkStub.resolves({ chainId: BigInt(11155111) }) // Test network (Sepolia)
+
+      const result = await validateProposalNetworks(
+        ['testnets'],
+        [validTestnetOne],
+        [],
+        rpcEndpoints,
+        isLiveNetwork
+      )
+      expect(result.rpcUrls).to.deep.equals([rpcEndpoints[validTestnetOne]])
+      expect(result.isTestnet).to.be.true
     })
   })
 })

@@ -3,7 +3,6 @@ import {
   BuildInfos,
   ConfigArtifacts,
   GetConfigArtifacts,
-  isLiveNetwork,
 } from '@sphinx-labs/core'
 import sinon from 'sinon'
 
@@ -23,6 +22,10 @@ export const makeMockSphinxContext = (
   mockedFullyQualifiedNames: Array<string>
 ) => {
   const sphinxContext = makeSphinxContext()
+
+  const isLiveNetwork = sinon
+    .stub(sphinxContext, 'isLiveNetwork')
+    .returns(Promise.resolve(true))
 
   const getNetworkGasEstimate = sinon
     .stub(sphinxContext, 'getNetworkGasEstimate')
@@ -108,13 +111,16 @@ export const makeMockSphinxContextForIntegrationTests = (
     prompt,
     relayProposal,
     storeDeploymentConfig,
+    isLiveNetwork,
     makeGetConfigArtifacts,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
+
   context.makeGetConfigArtifacts = makeGetConfigArtifacts
   context.prompt = prompt
   context.relayProposal = relayProposal
   context.storeDeploymentConfig = storeDeploymentConfig
+  context.isLiveNetwork = isLiveNetwork
 
   return { context, prompt }
 }
