@@ -336,8 +336,7 @@ export const makeAddress = (uint: number): string => {
 
 export const makeDeployment = async (
   merkleRootNonce: number,
-  mainnets: Array<string>,
-  testnets: Array<string>,
+  networkNames: Array<string>,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
@@ -362,7 +361,6 @@ export const makeDeployment = async (
   }
 
   const ownerAddresses = owners.map((owner) => owner.address)
-  const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
     try {
@@ -426,8 +424,8 @@ export const makeDeployment = async (
           owners: ownerAddresses,
           threshold: threshold.toString(),
           orgId: 'test-org-id',
-          mainnets,
-          testnets,
+          mainnets: [],
+          testnets: [],
           saltNonce: saltNonce.toString(),
         },
         arbitraryChain: false,

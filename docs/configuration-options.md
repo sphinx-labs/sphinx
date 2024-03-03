@@ -65,7 +65,7 @@ Your organization ID from the Sphinx UI (under "Options" -> "API Credentials"). 
 sphinxConfig.mainnets = ["ethereum", "optimism", "arbitrum"];
 ```
 
-A list of production networks to propose on via the `--networks mainnets` flag. Provides a convenient way to propose on many networks without needing to specify them on the command line. Note that the strings in this array must match the network names in the `rpc_endpoints` section of your `foundry.toml` file.
+A list of production networks to propose on via the `--networks mainnets` flag. Provides a convenient way to propose on many networks without specifying them on the command line. Note that the strings in this array must match the network names in the `rpc_endpoints` section of your `foundry.toml` file.
 
 ### `string[] testnets` (Optional)
 
@@ -73,4 +73,4 @@ A list of production networks to propose on via the `--networks mainnets` flag. 
 sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "arbitrum_sepolia"];
 ```
 
-A list of test networks to propose on via the `--networks testnets` flag. Provides a convenient way to propose on many networks without needing to specify them on the command line. Note that the strings in this array must match the network names in the `rpc_endpoints` section of your `foundry.toml` file.
+A list of test networks to propose on via the `--networks testnets` flag. Provides a convenient way to propose on many networks without specifying them on the command line. Note that the strings in this array must match the network names in the `rpc_endpoints` section of your `foundry.toml` file.

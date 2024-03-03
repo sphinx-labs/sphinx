@@ -55,7 +55,7 @@ touch .github/workflows/sphinx.deploy.yml
 
 ## 5. Create the dry run workflow
 
-First, we'll create a workflow that dry-runs the proposal on test networks whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if a transaction reverts. This prevents you from merging pull requests for deployments bound to fail.
+First, we'll create a workflow that dry runs the proposal on test networks whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if a transaction reverts. This prevents you from merging pull requests for deployments bound to fail.
 
 Copy and paste the following into your `sphinx.dry-run.yml` file:
 
@@ -150,6 +150,6 @@ Push your branch to GitHub, open a PR, and merge it after the dry run succeeds. 
 
 ## 9. Production deployments
 
-In this guide, we've configured the CI process to deploy against test networks. When you're ready to deploy in production, simply replace the test networks in the `sphinx propose` commands with names of the production networks. Make sure you update both templates.
+In this guide, we've configured the CI process to deploy against test networks. When you're ready to deploy in production, simply replace the test networks in the `sphinx propose` commands with the names of the production networks. Make sure you update both templates.
 
 In practice, we recommend triggering testnet deployments when merging to your development branch, and triggering production deployments when you merge from your development branch to your main branch.

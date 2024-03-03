@@ -382,36 +382,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         revert("Sphinx: Could not find network. Should never happen.");
     }
 
-    function toString(Network[] memory _network) public pure returns (string memory) {
-        string memory result = "\n";
-        for (uint256 i = 0; i < _network.length; i++) {
-            result = string(abi.encodePacked(result, getNetworkInfo(_network[i]).name));
-            if (i != _network.length - 1) {
-                result = string(abi.encodePacked(result, "\n"));
-            }
-        }
-        return result;
-    }
-
-    function removeNetworkType(
-        Network[] memory _networks,
-        NetworkType _networkType
-    ) public pure returns (Network[] memory) {
-        Network[] memory notNetworkType = new Network[](_networks.length);
-        uint256 numNotNetworkType = 0;
-        for (uint256 i = 0; i < _networks.length; i++) {
-            if (getNetworkInfo(_networks[i]).networkType != _networkType) {
-                notNetworkType[numNotNetworkType] = _networks[i];
-                numNotNetworkType++;
-            }
-        }
-        Network[] memory trimmed = new Network[](numNotNetworkType);
-        for (uint256 i = 0; i < numNotNetworkType; i++) {
-            trimmed[i] = notNetworkType[i];
-        }
-        return trimmed;
-    }
-
     function toString(address[] memory _ary) public pure returns (string memory) {
         string memory result = "\n";
         for (uint256 i = 0; i < _ary.length; i++) {
@@ -447,34 +417,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Returns an array of Networks that appear more than once in the given array.
-     * @param _networks The unfiltered elements.
-     * @return duplicates The duplicated elements.
-     */
-    function getDuplicatedElements(
-        Network[] memory _networks
-    ) public pure returns (Network[] memory) {
-        // We return early here because the for-loop below will throw an underflow error if the
-        // array is empty.
-        if (_networks.length == 0) return new Network[](0);
-
-        Network[] memory sorted = sortNetworks(_networks);
-        Network[] memory duplicates = new Network[](_networks.length);
-        uint256 numDuplicates = 0;
-        for (uint256 i = 0; i < sorted.length - 1; i++) {
-            if (sorted[i] == sorted[i + 1]) {
-                duplicates[numDuplicates] = sorted[i];
-                numDuplicates++;
-            }
-        }
-        Network[] memory trimmed = new Network[](numDuplicates);
-        for (uint256 i = 0; i < numDuplicates; i++) {
-            trimmed[i] = duplicates[i];
-        }
-        return trimmed;
-    }
-
-    /**
      * @notice Returns an array of addresses that appear more than once in the given array.
      * @param _ary The unfiltered elements.
      * @return duplicates The duplicated elements.
@@ -498,25 +440,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             trimmed[i] = duplicates[i];
         }
         return trimmed;
-    }
-
-    /**
-     * @notice Sorts the networks in ascending order according to the Network enum's value.
-     * @param _unsorted The networks to sort.
-     * @return sorted The sorted networks.
-     */
-    function sortNetworks(Network[] memory _unsorted) private pure returns (Network[] memory) {
-        Network[] memory sorted = _unsorted;
-        for (uint256 i = 0; i < sorted.length; i++) {
-            for (uint256 j = i + 1; j < sorted.length; j++) {
-                if (sorted[i] > sorted[j]) {
-                    Network temp = sorted[i];
-                    sorted[i] = sorted[j];
-                    sorted[j] = temp;
-                }
-            }
-        }
-        return sorted;
     }
 
     function getMappingValueSlotKey(
@@ -581,53 +504,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
-        Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
-        Network[] memory duplicateTestnets = getDuplicatedElements(_config.testnets);
         require(
             duplicateOwners.length == 0,
             string(
                 abi.encodePacked(
                     "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ",
                     toString(duplicateOwners)
-                )
-            )
-        );
-        require(
-            duplicateMainnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.mainnets' array contains duplicate networks: ",
-                    toString(duplicateMainnets)
-                )
-            )
-        );
-        require(
-            duplicateTestnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.testnets' array contains duplicate networks: ",
-                    toString(duplicateTestnets)
-                )
-            )
-        );
-
-        Network[] memory invalidMainnets = removeNetworkType(_config.mainnets, NetworkType.Mainnet);
-        require(
-            invalidMainnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.mainnets' array contains non-production networks: ",
-                    toString(invalidMainnets)
-                )
-            )
-        );
-        Network[] memory invalidTestnets = removeNetworkType(_config.testnets, NetworkType.Testnet);
-        require(
-            invalidTestnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'testnets' array contains invalid test networks: ",
-                    toString(invalidTestnets)
                 )
             )
         );
@@ -1095,8 +977,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.serializeJson(sphinxConfigKey, "{}");
 
         vm.serializeAddress(sphinxConfigKey, "owners", config.owners);
-        vm.serializeString(sphinxConfigKey, "mainnets", convertNetworksToStrings(config.mainnets));
-        vm.serializeString(sphinxConfigKey, "testnets", convertNetworksToStrings(config.testnets));
+        vm.serializeString(sphinxConfigKey, "mainnets", config.mainnets);
+        vm.serializeString(sphinxConfigKey, "testnets", config.testnets);
         // Serialize the string values as ABI encoded strings.
         vm.serializeBytes(sphinxConfigKey, "projectName", abi.encode(config.projectName));
         vm.serializeBytes(sphinxConfigKey, "orgId", abi.encode(config.orgId));
@@ -1127,16 +1009,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         return finalJson;
-    }
-
-    function convertNetworksToStrings(
-        Network[] memory _networks
-    ) private pure returns (string[] memory) {
-        string[] memory converted = new string[](_networks.length);
-        for (uint256 i = 0; i < _networks.length; i++) {
-            converted[i] = vm.toString(uint256(_networks[i]));
-        }
-        return converted;
     }
 
     function parseAccountAccesses(
