@@ -18,7 +18,6 @@ import {
   Deployment,
   DeploymentConfig,
   DeploymentContext,
-  ConfigArtifacts,
   HumanReadableAction,
   executeTransactionViaSigner,
   getSphinxWalletsSortedByAddress,
@@ -314,15 +313,11 @@ export const simulateDeploymentSubtask = async (
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
       _networkConfig: NetworkConfig,
-      _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {
       throw new Error(
         `The following action reverted during the simulation:\n${failureReason.reason}`
       )
-    },
-    verify: async () => {
-      return
     },
     handleSuccess: async () => {
       return

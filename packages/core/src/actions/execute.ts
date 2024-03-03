@@ -13,9 +13,9 @@ import {
   decodeExecuteLeafData,
 } from '@sphinx-labs/contracts'
 import ora from 'ora'
-import { Contract, TransactionReceipt, ethers } from 'ethers'
+import { TransactionReceipt, ethers } from 'ethers'
 
-import { DeploymentConfig, ConfigArtifacts, NetworkConfig } from '../config'
+import { DeploymentConfig, NetworkConfig } from '../config'
 import {
   ApproveDeployment,
   EstimateGas,
@@ -92,12 +92,7 @@ export type Deployment = {
   treeSigners: Array<TreeSigner>
 }
 
-export type HandleError = (
-  e: any,
-  deployment: Deployment,
-  deploymentTransactionReceipts: ethers.TransactionReceipt[],
-  wallet?: ethers.Wallet
-) => Promise<void>
+export type HandleError = (e: any, deployment: Deployment) => Promise<void>
 
 export type ThrowError = (
   message: string,
@@ -107,30 +102,18 @@ export type ThrowError = (
 
 export type HandleAlreadyExecutedDeployment = (
   deploymentContext: DeploymentContext,
-  networkConfig: NetworkConfig,
-  configArtifacts: ConfigArtifacts
+  networkConfig: NetworkConfig
 ) => Promise<void>
 
 export type HandleExecutionFailure = (
   deploymentContext: DeploymentContext,
   networkConfig: NetworkConfig,
-  configArtifacts: ConfigArtifacts,
-  failureAction: HumanReadableAction | undefined,
-  deploymentTransactionReceipts: ethers.TransactionReceipt[]
-) => Promise<void>
-
-export type Verify = (
-  deploymentContext: DeploymentContext,
-  networkConfig: NetworkConfig,
-  configArtifacts: ConfigArtifacts,
-  deploymentId: string
+  failureAction: HumanReadableAction | undefined
 ) => Promise<void>
 
 export type HandleSuccess = (
   deploymentContext: DeploymentContext,
-  deploymentTransactionReceipts: ethers.TransactionReceipt[],
-  networkConfig: NetworkConfig,
-  module: ethers.Contract
+  networkConfig: NetworkConfig
 ) => Promise<void>
 
 export type MinimumTransaction = {
@@ -212,22 +195,6 @@ export type DeploymentContext = {
    * partial executions in the database.
    */
   handleExecutionFailure: HandleExecutionFailure
-
-  /**
-   * Handles verifying contracts
-   *
-   * We use the `DeploymentContext` for this because the websites implementation of etherscan verification is
-   * currently quite different from the deploy command.
-   *
-   * This is one area where we definitely could improve this execution logic so that more of it is shared. We could
-   * do that by refactoring the way that the website and deploy command handle etherscan verification so that more
-   * logic could be shared between them.
-   *
-   * Ideally, we would also include some of the etherscan verification logic in the simulation (by mocking etherscan).
-   * We haven't done that since our etherscan verification logic is quite ossified and hasn't been a signficiant
-   * source of bugs.
-   */
-  verify: Verify
 
   /**
    * Handles post execution cleanup after successful execution.
@@ -1230,7 +1197,7 @@ export const compileAndExecuteDeployment = async (
   deploymentConfig.merkleTree.leavesWithProofs = toSphinxLeafWithProofArray(
     deploymentConfig.merkleTree.leavesWithProofs
   )
-  const { merkleTree, configArtifacts } = deploymentConfig
+  const { merkleTree } = deploymentConfig
   const { logger } = deploymentContext
   const deploymentTransactionReceipts: ethers.TransactionReceipt[] = []
 
@@ -1270,8 +1237,7 @@ export const compileAndExecuteDeployment = async (
     if (deploymentState.status === MerkleRootStatus.COMPLETED) {
       await deploymentContext.handleAlreadyExecutedDeployment(
         deploymentContext,
-        targetNetworkNetworkConfig,
-        configArtifacts
+        targetNetworkNetworkConfig
       )
 
       return
@@ -1307,9 +1273,7 @@ export const compileAndExecuteDeployment = async (
         await deploymentContext.handleExecutionFailure(
           deploymentContext,
           targetNetworkNetworkConfig,
-          configArtifacts,
-          failureAction,
-          deploymentTransactionReceipts
+          failureAction
         )
         return {
           receipts: deploymentTransactionReceipts.map(
@@ -1321,27 +1285,13 @@ export const compileAndExecuteDeployment = async (
         }
       }
     } catch (e: any) {
-      await deploymentContext.handleError(
-        e,
-        deployment,
-        deploymentTransactionReceipts
-      )
+      await deploymentContext.handleError(e, deployment)
       return
     }
 
     await deploymentContext.handleSuccess(
       deploymentContext,
-      deploymentTransactionReceipts,
-      targetNetworkNetworkConfig,
-      sphinxModuleReadOnly
-    )
-
-    // verify on etherscan
-    await deploymentContext.verify(
-      deploymentContext,
-      targetNetworkNetworkConfig,
-      configArtifacts,
-      deploymentId
+      targetNetworkNetworkConfig
     )
 
     // If we make it to this point, we know that the executor has executed the deployment (or that it
@@ -1358,13 +1308,5 @@ export const compileAndExecuteDeployment = async (
       finalStatus,
       failureAction,
     }
-  } else if (deployment.status === 'executed') {
-    // verify on etherscan
-    await deploymentContext.verify(
-      deploymentContext,
-      targetNetworkNetworkConfig,
-      configArtifacts,
-      deploymentId
-    )
   }
 }

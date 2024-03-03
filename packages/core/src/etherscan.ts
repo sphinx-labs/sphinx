@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
 import {
   CompilerOutputMetadata,
+  ExplorerName,
   SystemContractType,
   additionalSystemContractsToVerify,
   getSphinxConstants,
@@ -14,7 +15,6 @@ import { Logger } from '@eth-optimism/common-ts'
 import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
 import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
-import { customChains } from './constants'
 import { DeploymentConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
@@ -26,6 +26,7 @@ import {
 } from './utils'
 import { BuildInfo, SolcInput } from './languages'
 import {
+  fetchEtherscanConfigForNetwork,
   fetchNameForNetwork,
   isVerificationSupportedForNetwork,
 } from './networks'
@@ -34,31 +35,13 @@ import {
 dotenv.config()
 
 /**
- * Get the current Etherscan chain config. This function copies some of the logic from Hardhat's
- * `getCurrentChainConfig`. We don't use their function because they use a different type of
- * provider (an `EthereumProvider`). ref:
- * https://github.com/NomicFoundation/hardhat/blob/2a99de5908cd56766c3a77e2088d6b9f82bd85ef/packages/hardhat-verify/src/internal/etherscan.ts#L46
- */
-export const getChainConfig = (chainId: number): ChainConfig => {
-  const chainConfig = [
-    // custom chains has higher precedence than builtin chains
-    ...[...customChains].reverse(), // the last entry has higher precedence
-  ].find((config) => config.chainId === chainId)
-
-  if (chainConfig === undefined) {
-    throw new Error(`Could not find chain config for: ${chainId}`)
-  }
-
-  return chainConfig
-}
-
-/**
  * Verify a deployment on Etherscan. Meant to be used by the DevOps Platform.
  */
 export const verifySphinxConfig = async (
   deploymentConfig: DeploymentConfig,
   provider: ethers.Provider,
-  apiKey: string
+  apiKey: string,
+  explorer?: ExplorerName
 ): Promise<void> => {
   const networkConfig = fetchNetworkConfigFromDeploymentConfig(
     (await provider.getNetwork()).chainId,
@@ -98,7 +81,8 @@ export const verifySphinxConfig = async (
         minimumCompilerInput,
         provider,
         networkConfig.chainId,
-        apiKey
+        apiKey,
+        explorer
       )
 
       if (!result.success) {
@@ -194,9 +178,16 @@ export const attemptVerification = async (
   minimumCompilerInput: SolcInput,
   provider: ethers.Provider,
   chainId: string,
-  etherscanApiKey: string
+  etherscanApiKey: string,
+  explorer?: ExplorerName
 ): Promise<{ success: boolean; message?: string }> => {
-  const { urls } = getChainConfig(Number(chainId))
+  const urls = fetchEtherscanConfigForNetwork(BigInt(chainId), explorer)
+
+  if (!urls) {
+    throw new Error(
+      `Could not find Etherscan or Blockscout configuration for network with chainId ${chainId}. This is a bug, please report it to the developers.`
+    )
+  }
 
   const contractName = fullyQualifiedName.split(':')[1]
 
@@ -276,7 +267,7 @@ export const attemptVerification = async (
   }
 }
 
-export const etherscanVerifySphinxSystem = async (
+export const verifySphinxSystem = async (
   provider: SphinxJsonRpcProvider,
   logger: Logger
 ): Promise<void> => {

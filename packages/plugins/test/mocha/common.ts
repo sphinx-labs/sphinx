@@ -572,9 +572,6 @@ export const runDeployment = async (
       handleExecutionFailure: async () => {
         return
       },
-      verify: async () => {
-        return
-      },
       handleSuccess: async () => {
         return
       },

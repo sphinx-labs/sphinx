@@ -363,15 +363,11 @@ export const deploy = async (
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
       _networkConfig: NetworkConfig,
-      _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {
       throw new Error(
         `The following action reverted during the execution:\n${failureReason.reason}`
       )
-    },
-    verify: async () => {
-      return
     },
     handleSuccess: async () => {
       return

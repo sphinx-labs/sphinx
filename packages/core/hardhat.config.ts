@@ -15,7 +15,7 @@ import ora from 'ora'
 
 import { SphinxJsonRpcProvider } from './src/provider'
 import { SphinxSystemConfig, deploySphinxSystem } from './src/languages'
-import { etherscanVerifySphinxSystem } from './src/etherscan'
+import { verifySphinxSystem } from './src/etherscan'
 import { ExecutionMode } from './src/constants'
 import { isVerificationSupportedForNetwork } from './src/networks'
 
@@ -99,7 +99,7 @@ task('deploy-system')
       if (
         isVerificationSupportedForNetwork((await provider.getNetwork()).chainId)
       ) {
-        await etherscanVerifySphinxSystem(provider, logger)
+        await verifySphinxSystem(provider, logger)
       } else {
         spinner.info('Verification unsupported on this network')
       }
