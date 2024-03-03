@@ -42,6 +42,7 @@ import {
   assertValidVersions,
   assertNoLinkedLibraries,
   validateProposalNetworks,
+  parseScriptFunctionCalldata,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -60,10 +61,12 @@ export interface ProposeArgs {
   scriptPath: string
   sphinxContext: SphinxContext
   targetContract?: string
+  sig?: Array<string>
 }
 
 export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   scriptPath: string,
+  scriptFunctionCalldata: string,
   safeAddress: string,
   rpcUrls: Array<string>,
   sphinxPluginTypesInterface: ethers.Interface,
@@ -106,7 +109,8 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(string)',
+      'sphinxCollectProposal(bytes,string)',
+      scriptFunctionCalldata,
       deploymentInfoPath,
       '--always-use-create-2-factory',
     ]
@@ -220,6 +224,7 @@ export const propose = async (
 }> => {
   const { confirm, networks, isDryRun, silent, sphinxContext, targetContract } =
     args
+  const sig = args.sig === undefined ? ['run()'] : args.sig
 
   const projectRoot = process.cwd()
 
@@ -245,6 +250,8 @@ export const propose = async (
     silent,
     false // Do not force re-compile.
   )
+
+  const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Validating networks...`)
@@ -295,6 +302,7 @@ export const propose = async (
     buildInfos,
   } = await sphinxContext.buildNetworkConfigArray(
     scriptPath,
+    scriptFunctionCalldata,
     safeAddress,
     rpcUrls,
     sphinxPluginTypesInterface,

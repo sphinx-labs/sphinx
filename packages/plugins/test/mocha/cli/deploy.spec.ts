@@ -403,6 +403,8 @@ describe('Deploy CLI command', () => {
 })
 
 describe('Deployment Cases', () => {
+  const scriptInputParam = '1234'
+
   let preview: SphinxPreview | undefined
   let deploymentConfig: DeploymentConfig | undefined
   let networkConfig: NetworkConfig | undefined
@@ -462,6 +464,7 @@ describe('Deployment Cases', () => {
           'contracts/test/MyContracts.sol:MyContract2',
         ]).context,
         verify: false,
+        sig: ['deploy(uint256)', scriptInputParam],
       }))
 
     networkConfig = deploymentConfig?.networkConfigs.at(0)
@@ -521,6 +524,18 @@ describe('Deployment Cases', () => {
       sepoliaProvider
     )
     expect(await contract.number()).to.equal(BigInt(0))
+  })
+
+  it('Calls custom script entry point function', async () => {
+    const contractAddress = ethers.getCreate2Address(
+      DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+      ethers.ZeroHash,
+      ethers.keccak256(MyContract2Artifact.bytecode.object)
+    )
+
+    const contract = getContract(contractAddress, MyContract2Artifact)
+
+    expect(await contract.number()).equals(BigInt(scriptInputParam))
   })
 
   it('Can call fallback function on contract', async () => {
@@ -674,6 +689,7 @@ describe('Deployment Cases', () => {
       [
         'MyContract2.json',
         'MyContract2_1.json',
+        'MyContract2_2.json',
         'Fallback.json',
         'Fallback_1.json',
         'ConstructorDeploysContract.json',

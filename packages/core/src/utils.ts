@@ -1633,3 +1633,24 @@ export const readDeploymentArtifactsForNetwork = (
 }
 
 export const isArrayMixed = <T>(arr: T[]): boolean => new Set(arr).size > 1
+
+/**
+ * Checks if a string contains an opening then closing parenthesis.
+ *
+ * @param {string} str - The string to be checked.
+ * @returns {boolean} `true` if the string contains opening then closing parentheses,
+ * otherwise `false`.
+ */
+export const hasParentheses = (str: string): boolean => {
+  return /\(.*\)/.test(str)
+}
+
+/**
+ * Removes leading and trailing single or double quotes from a string.
+ *
+ * @param {string} str - The string to be processed.
+ * @returns {string} The string with leading and trailing quotes removed.
+ */
+export const trimQuotes = (str: string): string => {
+  return str.replace(/^['"]+|['"]+$/g, '')
+}

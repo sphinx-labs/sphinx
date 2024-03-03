@@ -23,11 +23,14 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
+  hasParentheses,
   isArrayMixed,
+  isDataHexString,
   isDefined,
   isNormalizedAddress,
   sortHexStrings,
   spawnAsync,
+  trimQuotes,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
@@ -85,6 +88,8 @@ import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
 import { SphinxContext } from '../../cli/context'
 import {
+  InvalidFirstSigArgumentErrorMessage,
+  SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
   getFailedRequestErrorMessage,
@@ -1487,6 +1492,67 @@ const isStorageAccess = (
     typeof obj.newValue === 'string' &&
     typeof obj.reverted === 'boolean'
   )
+}
+
+/**
+ * Parses the parameters to `--sig` specified by the user. We attempt to maintain the exact same
+ * interface as Foundry's `--sig` parameter to make it easy for users to migrate their Forge Scripts
+ * to Sphinx.
+ *
+ * @returns { string } The 0x-prefixed raw calldata.
+ */
+export const parseScriptFunctionCalldata = async (
+  sig: Array<string>,
+  spawnAsyncFunction: typeof spawnAsync = spawnAsync
+): Promise<string> => {
+  if (sig.length === 0) {
+    throw new Error(SigCalledWithNoArgsErrorMessage)
+  }
+
+  // Differentiate between a function signature and raw calldata by checking if the first parameter
+  // has parentheses (e.g. `run()`). This is a reasonable approach because Foundry doesn't allow
+  // function signatures without parentheses. For example, specifying `run` would cause an error.
+  if (hasParentheses(sig[0])) {
+    // Use `cast` to get the function selector, which is a four-byte hex string, as well as the ABI
+    // encoded arguments. We use `cast` to provide an identical interface for the `--sig` parameter.
+    // Using EthersJS doesn't work because it can't parse stringified function arguments, like
+    // `(2, 3)`, which `cast` interprets correctly as a struct's arguments.
+    const selectorOutput = await spawnAsyncFunction(`cast`, ['sig', sig[0]])
+    if (selectorOutput.code !== 0) {
+      // The `stdout` is an empty string, so we throw the error using the `stderr`.
+      throw new Error(selectorOutput.stderr)
+    }
+
+    const abiEncodeOutput = await spawnAsyncFunction(`cast`, [
+      'abi-encode',
+      ...sig,
+    ])
+    if (abiEncodeOutput.code !== 0) {
+      // The `stdout` is an empty string, so we throw the error using the `stderr`.
+      throw new Error(abiEncodeOutput.stderr)
+    }
+
+    // Remove the trailing `\n` from the strings.
+    const trimmedSelector = selectorOutput.stdout.replace(/\n/g, '')
+    const trimmedAbiEncodedData = abiEncodeOutput.stdout.replace(/\n/g, '')
+
+    const calldata = ethers.concat([trimmedSelector, trimmedAbiEncodedData])
+    return calldata
+  } else if (sig.length === 1) {
+    // Check if the user entered raw calldata.
+
+    // Remove leading and trailing quotes. For some reason, Foundry allows raw calldata wrapped in
+    // an arbitrary number of strings, e.g. """"0x1234"""".
+    const trimmed = trimQuotes(sig[0])
+    // Add an 0x-prefix if it doesn't already exist. Foundry allows calldata without an 0x-prefix,
+    // but we need to add the prefix it to continue the validation.
+    const with0x = add0x(trimmed)
+
+    if (isDataHexString(with0x)) {
+      return add0x(trimmed)
+    }
+  }
+  throw new Error(InvalidFirstSigArgumentErrorMessage)
 }
 
 export const validateProposalNetworks = async (

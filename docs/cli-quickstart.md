@@ -114,7 +114,7 @@ pnpm sphinx propose script/HelloSphinx.s.sol --networks sepolia optimism_sepolia
 ```
 
 Here are the steps that occur when you run this command:
-1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+1. **Simulation**: Sphinx simulates the deployment by invoking the Forge script on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
 2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
 3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
 

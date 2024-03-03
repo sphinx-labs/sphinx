@@ -20,7 +20,7 @@ In this guide, you'll propose the deployment on the command line and then approv
 6. [Update your deployment script](#6-update-your-deployment-script)\
   a. [Import Sphinx](#a-import-sphinx)\
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
-  c. [Update your `run()` function](#c-update-your-run-function)\
+  c. [Add the `sphinx` modifier](#c-add-the-sphinx-modifier)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
   e. [Handle new sender address](#e-handle-new-sender-address)\
   f. [Add configuration options](#e-add-configuration-options)
@@ -120,11 +120,11 @@ contract MyDeploymentScript is
   // ...
 ```
 
-### c. Update your `run()` function
+### c. Add the `sphinx` modifier
 
-The entry point of your deployment script must be a `run()` function; it cannot be named anything else. Please change its name if necessary.
+Navigate to the entry point function in your deployment script. This is typically a `run()` function.
 
-Then, add a `sphinx` modifier to your `run` function:
+Then, add a `sphinx` modifier to this function. For example:
 
 ```sol
 function run() sphinx public {
@@ -196,7 +196,10 @@ If you can't get your test suite to pass, we're more than happy to help! Reach o
 
 ## 10. Propose on testnets
 
-Copy and paste one of the following commands to propose your deployment with the DevOps Platform. Make sure to replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script. Also, make sure to replace `<NETWORK_NAMES>` with the testnets you want to deploy on, which must match the network names in the `rpc_endpoints` section of your `foundry.toml`.
+Use one of the command templates below to propose your deployment. Make sure to update the following parts of the command:
+* Replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script.
+* Replace `<NETWORK_NAMES>` with the testnets you want to deploy on, which must match the network names in the `rpc_endpoints` section of your `foundry.toml`.
+* If your script's entry point is a function other than `run()`, add `--sig [PARAMETERS]` to the command, where `[PARAMETERS]` is either the signature of the function to call in the script, or raw calldata. Sphinx's `--sig` parameter accepts the same arguments as Foundry's `--sig` parameter; see docs [here](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md#options).
 
 Using Yarn or npm:
 
@@ -211,7 +214,7 @@ pnpm sphinx propose <PATH_TO_FORGE_SCRIPT> --networks <NETWORK_NAMES>
 ```
 
 Here are the steps that occur when you run this command:
-1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+1. **Simulation**: Sphinx simulates the deployment by invoking the Forge script on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
 2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
 3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
 

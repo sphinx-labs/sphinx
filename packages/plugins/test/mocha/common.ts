@@ -922,3 +922,14 @@ export const getNumExecutionArtifacts = (
   }
   return Object.keys(artifacts.networks[chainId].executionArtifacts).length
 }
+
+export const encodeFunctionCalldata = (sig: Array<string>): string => {
+  const fragment = ethers.FunctionFragment.from(sig[0])
+  const params = sig.slice(1)
+  const encodedParams = ethers.AbiCoder.defaultAbiCoder().encode(
+    fragment.inputs,
+    params
+  )
+  const calldata = ethers.concat([fragment.selector, encodedParams])
+  return calldata
+}

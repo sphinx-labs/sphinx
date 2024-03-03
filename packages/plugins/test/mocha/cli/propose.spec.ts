@@ -334,10 +334,12 @@ describe('Propose CLI command', () => {
 
   // We'll propose a script that deploys a contract near the contract size limit. We'll deploy it
   // dozens of times in the script.
-  it('Proposes large deployment', async () => {
+  it('Proposes large deployment with custom script entry point', async () => {
+    const scriptInputParam = 50
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
     const networks = ['sepolia']
+    const sig = ['deploy(uint256)', scriptInputParam.toString()]
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
@@ -350,6 +352,7 @@ describe('Propose CLI command', () => {
         scriptPath,
         sphinxContext: context,
         targetContract: undefined, // Only one contract in the script file, so there's no target contract to specify.
+        sig,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
@@ -366,7 +369,7 @@ describe('Propose CLI command', () => {
     }
 
     const expectedContractAddresses: Array<string> = []
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < scriptInputParam; i++) {
       // Generate the salt: a 32-byte hex string left-padded with zeros. Each salt is incremented by
       // one. E.g. the first salt is '0x000...000', the next is '0x000...001', etc.
       const salt = '0x' + i.toString(16).padStart(64, '0')
@@ -435,7 +438,8 @@ describe('Propose CLI command', () => {
       networks,
       scriptPath,
       undefined,
-      context
+      context,
+      sig
     )
   })
 
@@ -723,7 +727,8 @@ const assertValidGasEstimates = async (
   networks: Array<string>,
   scriptPath: string,
   targetContract: string | undefined,
-  context: SphinxContext
+  context: SphinxContext,
+  sig?: Array<string>
 ) => {
   // Check that the number of gas estimates matches the number of NetworkConfig objects with at least
   // one action.
@@ -762,6 +767,7 @@ const assertValidGasEstimates = async (
       sphinxContext: context,
       verify: false,
       targetContract,
+      sig,
     })
 
     if (!receipts) {

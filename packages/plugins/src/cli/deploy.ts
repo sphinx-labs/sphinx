@@ -50,6 +50,7 @@ import {
   compile,
   getInitCodeWithArgsArray,
   getSphinxConfigFromScript,
+  parseScriptFunctionCalldata,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
@@ -66,6 +67,7 @@ export interface DeployArgs {
   sphinxContext: SphinxContext
   verify: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export const deploy = async (
@@ -85,6 +87,7 @@ export const deploy = async (
     verify,
     targetContract,
   } = args
+  const sig = args.sig === undefined ? ['run()'] : args.sig
 
   const projectRoot = process.cwd()
 
@@ -104,6 +107,8 @@ export const deploy = async (
     silent,
     false // Do not force re-compile.
   )
+
+  const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
@@ -191,7 +196,8 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(uint8,string,string)',
+    'sphinxCollectDeployment(bytes,uint8,string,string)',
+    scriptFunctionCalldata,
     executionMode.toString(),
     deploymentInfoPath,
     systemContractsFilePath,
