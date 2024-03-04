@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: sphinx-labs/foundry-toolchain@v1
+        uses: foundry/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
@@ -117,7 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: sphinx-labs/foundry-toolchain@v1
+        uses: foundry/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
