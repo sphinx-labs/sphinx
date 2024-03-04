@@ -198,6 +198,9 @@ export const deploy = async (
     '--rpc-url',
     forkUrl,
     '--always-use-create-2-factory',
+    // We skip the on-chain simulation since it slows down the script unnecessarily. The local
+    // simulation occurs regardless, which should catch any errors that occur in the user's script.
+    '--skip-simulation',
   ]
   if (
     isLegacyTransactionsRequiredForNetwork(
@@ -476,14 +479,27 @@ export const deploy = async (
 
 // TODO(end): ticket: pranked txns from the gnosis safe should probably be invalid. only broadcasts
 // should be valid. this would be a breaking change I think. i don't have confidence that there's
-// *never* a valid reason to prank the safe w/o broadcasting. allowing pranks to create transactions
-// is unexpected behavior in the context of Forge Scripts. We should consider how our existing error
-// handling is impacted by this change:
+// *never* a valid reason to prank the safe w/o broadcasting. also, our docs already say that we
+// collect the _broadcasted_ transactions. allowing pranks to create transactions is unexpected
+// behavior in the context of Forge Scripts. We should consider how our existing error handling is
+// impacted by this change:
 // 1. We currently exit early (w/o an error) if there are no top-level txns in the user's script. It
 //    may make more sense for this check to only occur for broadcasted txns.
-// 2. We currently exit early (w/o an error) if there _are_ top-level txns in the user's script, but
-//    they aren't sent from the gnosis safe. It also may make more sense for this check to only
-//    occur for broadcasted txns.
+// 2. We currently throw an error if there _are_ top-level txns in the user's script, but they
+//    aren't sent from the gnosis safe. It also may make more sense for this check to only occur for
+//    broadcasted txns.
+
+// TODO(end): gh: I didn't include a note in the proposal step of the "Existing Project" guide
+// explaining how to handle a missing deployer private key. Here's the current UX for this situation:
+// 1. User runs their proposal
+// 2. ~5 seconds later into the command, they see Foundry's "missing env variable" error message
+// 3. They supply the env variable, then run the proposal again.
+// 4. ~5 seconds later, they see this error message:
+// Sphinx: Detected transactions from incorrect sender. Please broadcast from
+// your Gnosis Safe via 'vm.startBroadcast(safeAddress())'. For more info, see:
+// https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md#your-gnosis-safe
+//
+// 
 
 // ------------------------------- TODO(docs) ---------------------------------
 
@@ -492,46 +508,7 @@ export const deploy = async (
 // outside of a pranked/broadcasted gnosis safe call. if there actually aren't any transactions
 // to collect in this scenario, throwing an error is not desirable behavior.
 
-// ------------------------------ TODO(later-later)-------------------------------
+// ------------------------------ TODO(later)-------------------------------
 
-// TODO(later-later): do our docs say anywhere that Sphinx will collect any _broadcasted_
-// transaction? if so, this isn't technically accurate until we fix the bug where regular txns from
-// the safe are also broadcasted.
-
-// TODO(later-later): Handle the situation where the user doesn't include a deployer private key
+// TODO(later): Handle the situation where the user doesn't include a deployer private key
 //   environment variable, which causes their Forge script to fail.
-
-// ----------------------------- TODO(end) ------------------------------------------
-
-// TODO(later): handle the situation where:
-// - The user includes their deployer private key environment variable, or they have an existing
-//   hardcoded deployer address in their script. In this scenario, their script doesn't fail, but
-//   their transactions won't be sent from their Gnosis Safe.
-// - Check that the regular "Nothing to deploy" `spinner.info` can still be triggered.
-
-// TODO(later): check:
-// - msg.sender
-// - ETH_FROM environment variable
-// - FOUNDRY_SENDER environment variable
-// - safeAddress()
-// - Users should be able to call vm.startPrank or vm.startBroadcast with any of the variables above
-//   as a parameter. It's also fine for the user to use vm.prank or vm.broadcast as long as there's
-//   a single transaction in their script.
-// - Additionally, users should be able to call vm.startBroadcast() with no parameters. Same with
-//   vm.broadcast(), as long as there's a single transaction in their script.
-// - Lastly, we should continue to allow usage of the sphinx modifier. This should continue to be
-//   the default approach in the Quickstart.
-
-// TODO(later): see if it's fine to do --skip-simulation. maybe it's safer to actually do the
-// simulation?
-
-// TODO(later): add --skip-simulation to deploy and propose
-
-// TODO(end): Consider how our system will handle users stopping broadcasts, deploying a contract /
-// calling a function, then starting broadcasts again. One of the calls this week is with a user
-// that does this. E.g. I don’t think fetchNumCreateAccesses will behave correctly in this
-// situation, if there are unbroadcasted contract deployments.
-// https://github.com/vacp2p/rln-contract/blob/5d9108a1384cb53f73d23906d7085d212425b77b/script/Deploy.s.sol#L11-L13
-
-// TODO(later): case: user does `vm.startBroadcast` in their script, but never does `stopBroadcast`.
-// similarly, they could do `vm.broadcast()` but never have a broadcasted txn.

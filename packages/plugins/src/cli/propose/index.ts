@@ -109,6 +109,9 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       'sphinxCollectProposal(string)',
       deploymentInfoPath,
       '--always-use-create-2-factory',
+      // We skip the on-chain simulation since it slows down the script unnecessarily. The local
+      // simulation occurs regardless, which should catch any errors that occur in the user's script.
+      '--skip-simulation',
     ]
 
     if (

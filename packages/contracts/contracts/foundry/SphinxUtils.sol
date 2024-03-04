@@ -144,6 +144,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return sphinxLibraryVersion;
     }
 
+    function stopPrankOrBroadcast() external {
+        (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
+        if (callerMode == VmSafe.CallerMode.Broadcast || callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.stopBroadcast();
+        else if (callerMode == VmSafe.CallerMode.Prank || callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
+    }
+
     /**
      * @notice Get auto-generated wallets sorted in ascending order according to their addresses.
      *         We don't use `vm.createWallet` because this function must be view/pure, since it may
@@ -1038,7 +1044,36 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 rootCount += 1;
             }
         }
+
+        if (rootCount == 0 && containsTxnsFromInvalidSender(_accesses, _safeAddress)) {
+            revert(
+                string.concat(
+                    "Sphinx: Detected transactions from incorrect sender. Please broadcast from \n",
+                    "your Gnosis Safe via 'vm.startBroadcast(safeAddress())'. For more info, see: \n",
+                    "https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md#your-gnosis-safe"
+                )
+            );
+        }
+
         return parsed;
+    }
+
+    function containsTxnsFromInvalidSender(
+        Vm.AccountAccess[] memory _accesses,
+        address _safeAddress
+    ) public pure returns (bool) {
+        for (uint256 i = 0; i < _accesses.length; i++) {
+            Vm.AccountAccess memory access = _accesses[i];
+            if (
+                access.accessor != _safeAddress &&
+                access.depth == 2 &&
+                (access.kind == VmSafe.AccountAccessKind.Call ||
+                    access.kind == VmSafe.AccountAccessKind.Create)
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

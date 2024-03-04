@@ -40,8 +40,7 @@ contract Sample is Sphinx, Script {
     }
 
     function run() public {
-        console.log('this in script', address(this));
-        // vm.startBroadcast(msg.sender);
+        // vm.startBroadcast(vm.envUint("MY_PRIVATE_KEY"));
         new MyContract1(
             -1,
             2,
@@ -60,6 +59,5 @@ contract Sample is Sphinx, Script {
             address(1),
             address(2)
         );
-        // vm.stopBroadcast();
     }
 }

@@ -244,11 +244,15 @@ abstract contract Sphinx {
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
+        // TODO(docs): should occur immediately after the user's script to prevent any unnecessary
+        // transactions from being added to the state diff.
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
         ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
             accesses,
             safe
         );
+        // TODO(docs)
+        sphinxUtils.stopPrankOrBroadcast();
         // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
         // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
         // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
