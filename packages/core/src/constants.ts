@@ -1,22 +1,6 @@
-import { ChainConfig } from '@nomicfoundation/hardhat-verify/types'
-import { SPHINX_NETWORKS } from '@sphinx-labs/contracts/dist/networks'
 import { ethers } from 'ethers'
 
 export const WEBSITE_URL = `https://sphinx.dev`
-
-// Etherscan constants
-export const customChains: ChainConfig[] = SPHINX_NETWORKS.filter(
-  (network) => network.etherscan.blockExplorer !== 'Unsupported'
-).map((network) => {
-  return {
-    network: network.name,
-    chainId: Number(network.chainId),
-    urls: {
-      apiURL: network.etherscan.apiURL,
-      browserURL: network.etherscan.browserURL,
-    },
-  }
-})
 
 export type Integration = 'hardhat' | 'foundry'
 

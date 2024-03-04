@@ -11,7 +11,7 @@ Deployments with Sphinx are a three-step process:
 
 * **Gasless Deployments**: You don't need to worry about securing a funded private key or getting native gas tokens on any chain. We'll bill you in fiat after your deployment is finished. Deployments on testnets are completely free.
 
-* **One-Click Multichain Deployments**: Approve deployments across dozens of networks by signing a single meta transaction. Sphinx's backend will deploy on each network in parallel and verify your smart contracts on Etherscan.
+* **One-Click Multichain Deployments**: Approve deployments across dozens of networks by signing a single meta transaction. Sphinx's backend will deploy on each network in parallel and verify your smart contracts on block explorers.
 
 * **Deployments in CI**: Eliminate human error and improve security by gaslessly triggering deployments from your CI process. You can always propose from your local machine if you'd prefer.
 
