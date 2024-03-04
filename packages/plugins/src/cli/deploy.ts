@@ -224,7 +224,6 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
-    FOUNDRY_SENDER: safeAddress,
     ETH_FROM: safeAddress,
   })
 
