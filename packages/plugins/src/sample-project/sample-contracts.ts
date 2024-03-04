@@ -42,16 +42,11 @@ import "@sphinx-labs/contracts/SphinxPlugin.sol";
 contract HelloSphinxScript is Sphinx {
     HelloSphinx helloSphinx;
 
-    function setUp() public virtual {
+    function configureSphinx() public override {
         sphinxConfig.owners = [${owner}];
         sphinxConfig.orgId = "${orgId}";
         sphinxConfig.threshold = 1;
         sphinxConfig.projectName = "My_First_Project";
-        sphinxConfig.testnets = [
-            Network.sepolia,
-            Network.optimism_sepolia,
-            Network.arbitrum_sepolia
-        ];
     }
 
     function run() public sphinx {
@@ -83,8 +78,7 @@ import "forge-std/Test.sol";
 import { HelloSphinxScript } from "${relativeScriptPath}/HelloSphinx.s.sol";
 
 contract HelloSphinxTest is Test, HelloSphinxScript {
-    function setUp() public override {
-        HelloSphinxScript.setUp();
+    function setUp() public {
         run();
     }
 

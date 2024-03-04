@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Technically, we could use a forge-std remapping in our non-production contracts (scripts, tests, etc). We chose not too because allowing
-// that would increase the chance that we accidentally ship something that may not compile in the users project because we accidentially
-// relied on a remapping in the wrong file.
+/**
+ * We do not use remappings for forge-std because if we did, the user would need to define them
+ * in their remappings, or our library contracts would not work. Technically, we could use a
+ * forge-std remapping in our non-production contracts (scripts, tests, etc.), such as this file,
+ * without forcing the user to define a remapping. We chose not to because doing that would increase
+ * the chance of accidentally shipping something that may not compile in the user's project because
+ * we accidentally relied on a remapping in the wrong file.
+ */
 import "../lib/forge-std/src/Test.sol";
 
 import { Sphinx, Network } from "../contracts/foundry/Sphinx.sol";
@@ -15,7 +20,9 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
     function setUp() public {
         SystemContractInfo[] memory contracts = getSystemContractInfo();
         deploySphinxSystem(contracts);
+    }
 
+    function configureSphinx() public override {
         sphinxConfig.projectName = "test_project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;

@@ -6,7 +6,8 @@ import { makeCLI } from '../../../src/cli/setup'
 import {
   BothNetworksSpecifiedError,
   ConfirmAndDryRunError,
-  getInvalidNetworksArgumentError,
+  NoNetworkArgsError,
+  getDuplicatedNetworkErrorMessage,
 } from '../../../src/cli/utils'
 
 const expect = chai.expect
@@ -62,23 +63,10 @@ describe('CLI Commands', () => {
 
       makeCLI(args, sphinxContext)
 
-      expect(proposeSpy.called).to.be.false
+      expect(exitSpy.calledWith(1)).to.be.true
       expect(consoleErrorSpy.called).to.be.true
       expect(consoleErrorSpy.firstCall.args[0]).to.include(
         BothNetworksSpecifiedError
-      )
-    })
-
-    it('fails if an invalid network is provided', () => {
-      const wrongNetwork = 'wrongNetwork'
-      const args = ['propose', scriptPath, '--networks', wrongNetwork]
-
-      makeCLI(args, sphinxContext)
-
-      expect(proposeSpy.called).to.be.false
-      expect(consoleErrorSpy.called).to.be.true
-      expect(consoleErrorSpy.firstCall.args[0]).to.include(
-        getInvalidNetworksArgumentError(wrongNetwork)
       )
     })
 
@@ -91,6 +79,36 @@ describe('CLI Commands', () => {
       expect(consoleErrorSpy.called).to.be.true
       expect(consoleErrorSpy.firstCall.args[0]).to.include(
         'Missing required argument: networks'
+      )
+    })
+
+    it('fails if --networks has no args', () => {
+      const args = ['propose', scriptPath, '--networks']
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(NoNetworkArgsError)
+    })
+
+    it('fails if a network name is duplicated', () => {
+      const args = [
+        'propose',
+        scriptPath,
+        '--networks',
+        'ethereum',
+        'optimism',
+        'ethereum',
+        'optimism',
+      ]
+
+      makeCLI(args, sphinxContext)
+
+      expect(exitSpy.calledWith(1)).to.be.true
+      expect(consoleErrorSpy.called).to.be.true
+      expect(consoleErrorSpy.firstCall.args[0]).to.include(
+        getDuplicatedNetworkErrorMessage(['ethereum', 'optimism'])
       )
     })
 
@@ -113,6 +131,34 @@ describe('CLI Commands', () => {
       )
     })
 
+    it('--networks ethereum optimism arbitrum', () => {
+      const args = [
+        'propose',
+        scriptPath,
+        '--networks',
+        'ethereum',
+        'optimism',
+        'arbitrum',
+      ]
+
+      makeCLI(args, sphinxContext)
+
+      expect(proposeSpy.called).to.be.true
+
+      const expectedParams = {
+        confirm: false,
+        networks: ['ethereum', 'optimism', 'arbitrum'],
+        isDryRun: false,
+        silent: false,
+        scriptPath,
+        sphinxContext: sinon.match.any,
+        targetContract: undefined,
+      }
+
+      // Assert that the propose function was called with the correct object
+      expect(proposeSpy.calledWithMatch(expectedParams)).to.be.true
+    })
+
     it('--networks testnets', () => {
       const args = ['propose', scriptPath, '--networks', 'testnets']
 
@@ -122,7 +168,7 @@ describe('CLI Commands', () => {
 
       const expectedParams = {
         confirm: false,
-        isTestnet: true,
+        networks: ['testnets'],
         isDryRun: false,
         silent: false,
         scriptPath,
@@ -141,7 +187,7 @@ describe('CLI Commands', () => {
 
       const expectedParams = {
         confirm: false,
-        isTestnet: false, // Changed to false for mainnets
+        networks: ['mainnets'],
         isDryRun: false,
         silent: false,
         scriptPath,
@@ -165,7 +211,7 @@ describe('CLI Commands', () => {
 
       const expectedParams = {
         confirm: true, // confirm is true
-        isTestnet: false,
+        networks: ['mainnets'],
         isDryRun: false,
         silent: false,
         scriptPath,
@@ -190,7 +236,7 @@ describe('CLI Commands', () => {
 
       const expectedParams = {
         confirm: false,
-        isTestnet: false,
+        networks: ['mainnets'],
         isDryRun: false,
         silent: false,
         scriptPath,
@@ -340,6 +386,70 @@ describe('CLI Commands', () => {
 
       expect(deploySpy.calledWithMatch(expectedParams)).to.be.true
     })
+  })
+
+  // Tests CLI parameters shared by the Deploy and Propose commands to reduce the amount of
+  // duplication in this test suite.
+  describe('deploy and propose', () => {
+    const deployBaseCommand = ['deploy', scriptPath, '--network', 'ethereum']
+    const proposeBaseCommand = ['propose', scriptPath, '--networks', 'testnets']
+    for (const command of [deployBaseCommand, proposeBaseCommand]) {
+      const commandName = command[0]
+
+      let spy: sinon.SinonStub
+
+      beforeEach(() => {
+        spy = sinon.stub(sphinxContext, commandName as keyof SphinxContext)
+      })
+
+      it(`${commandName}: --sig 'deploy(uint256,uint256)' 123 321`, () => {
+        const sig = ["'deploy(uint256,uint256)'", '123', '321']
+        const args = [...command, '--sig', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+
+      it(`${commandName}: -s 'myScriptFunction()'`, () => {
+        const sig = ["'myScriptFunction()'"]
+        const args = [...command, '-s', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+
+      // Checks that Yargs always uses strings as parameters to `--sig`, which ensures that the
+      // arguments aren't prone to JavaScript's precision loss issues for large numbers.
+      it(`${commandName}: --sig uses string arguments`, () => {
+        const bigNumber = BigInt(2 ^ 255)
+        const sig = ["'myScriptFunction(uint256)'", bigNumber.toString()]
+        const args = [...command, scriptPath, '-s', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+    }
   })
 
   describe('artifacts', () => {

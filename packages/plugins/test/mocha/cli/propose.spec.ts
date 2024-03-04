@@ -10,8 +10,8 @@ import {
   ensureSphinxAndGnosisSafeDeployed,
   execAsync,
   fetchChainIdForNetwork,
-  fetchNameForNetwork,
   getSphinxWalletPrivateKey,
+  isLiveNetwork,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
@@ -105,6 +105,7 @@ describe('Propose CLI command', () => {
 
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = true
+    const networks = ['sepolia']
     const targetContract = 'Simple1'
 
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
@@ -113,7 +114,7 @@ describe('Propose CLI command', () => {
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Run preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
@@ -188,15 +189,17 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
     )
   })
 
-  it('Proposes without preview on multiple production networks', async () => {
+  it('Proposes without preview using --mainnets', async () => {
     const scriptPath = 'contracts/test/script/Simple.s.sol'
     const isTestnet = false
+    const networks = ['ethereum', 'optimism_mainnet']
     const targetContract = 'Simple1'
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
@@ -205,7 +208,7 @@ describe('Propose CLI command', () => {
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
@@ -322,6 +325,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
@@ -330,21 +334,25 @@ describe('Propose CLI command', () => {
 
   // We'll propose a script that deploys a contract near the contract size limit. We'll deploy it
   // dozens of times in the script.
-  it('Proposes large deployment', async () => {
+  it('Proposes large deployment with custom script entry point', async () => {
+    const scriptInputParam = 50
     const scriptPath = 'contracts/test/script/Large.s.sol'
     const isTestnet = true
+    const networks = ['sepolia']
+    const sig = ['deploy(uint256)', scriptInputParam.toString()]
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyLargeContract',
     ])
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: true, // Skip preview
-        isTestnet,
+        networks,
         isDryRun: false,
         silent: true,
         scriptPath,
         sphinxContext: context,
         targetContract: undefined, // Only one contract in the script file, so there's no target contract to specify.
+        sig,
         // Skip force re-compiling. (This test would take a really long time otherwise. The correct
         // artifacts will always be used in CI because we don't modify the contracts source files
         // during our test suite).
@@ -361,7 +369,7 @@ describe('Propose CLI command', () => {
     }
 
     const expectedContractAddresses: Array<string> = []
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < scriptInputParam; i++) {
       // Generate the salt: a 32-byte hex string left-padded with zeros. Each salt is incremented by
       // one. E.g. the first salt is '0x000...000', the next is '0x000...001', etc.
       const salt = '0x' + i.toString(16).padStart(64, '0')
@@ -427,9 +435,11 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       undefined,
-      context
+      context,
+      sig
     )
   })
 
@@ -459,10 +469,11 @@ describe('Propose CLI command', () => {
 
     const targetContract = 'Simple2'
     const isTestnet = true
+    const networks = ['sepolia']
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false,
-        isTestnet,
+        networks,
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -525,6 +536,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       targetContract,
       context
@@ -538,7 +550,7 @@ describe('Propose CLI command', () => {
     const { context } = makeMockSphinxContextForIntegrationTests([])
     const { proposalRequest, networkConfigArray } = await propose({
       confirm: false, // Show preview
-      isTestnet: false,
+      networks: ['ethereum', 'optimism_mainnet'],
       isDryRun: true,
       silent: true,
       scriptPath: 'contracts/test/script/Empty.s.sol',
@@ -560,13 +572,14 @@ describe('Propose CLI command', () => {
   it('Proposes on one chain and skips proposal on a different chain', async () => {
     const scriptPath = 'contracts/test/script/PartiallyEmpty.s.sol'
     const isTestnet = false
+    const networks = ['ethereum', 'optimism_mainnet']
     const { context, prompt } = makeMockSphinxContextForIntegrationTests([
       'contracts/test/MyContracts.sol:MyContract2',
     ])
     const { proposalRequest, networkConfigArray, configArtifacts, merkleTree } =
       await propose({
         confirm: false, // Show preview
-        isTestnet,
+        networks,
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -646,6 +659,7 @@ describe('Propose CLI command', () => {
     await assertValidGasEstimates(
       proposalRequest.gasEstimates,
       networkConfigArray,
+      networks,
       scriptPath,
       undefined,
       context
@@ -683,7 +697,7 @@ describe('Propose CLI command', () => {
     try {
       await propose({
         confirm: false, // Show preview
-        isTestnet: false,
+        networks: ['optimism_mainnet'],
         isDryRun: true,
         silent: true,
         scriptPath,
@@ -710,9 +724,11 @@ describe('Propose CLI command', () => {
 const assertValidGasEstimates = async (
   networkGasEstimates: ProposalRequest['gasEstimates'],
   networkConfigArray: Array<NetworkConfig>,
+  networks: Array<string>,
   scriptPath: string,
   targetContract: string | undefined,
-  context: SphinxContext
+  context: SphinxContext,
+  sig?: Array<string>
 ) => {
   // Check that the number of gas estimates matches the number of NetworkConfig objects with at least
   // one action.
@@ -723,7 +739,9 @@ const assertValidGasEstimates = async (
   )
 
   // Iterate over each network
-  for (const { chainId, estimatedGas } of networkGasEstimates) {
+  for (let i = 0; i < networkGasEstimates.length; i++) {
+    const { chainId, estimatedGas } = networkGasEstimates[i]
+    const network = networks[i]
     const networkConfig = networkConfigArray.find(
       (config) => config.chainId === chainId.toString()
     )
@@ -734,14 +752,22 @@ const assertValidGasEstimates = async (
       )
     }
 
+    // Change the SphinxContext's `isLiveNetwork` method to be the standard function, which is
+    // necessary to accurately estimate the gas in the deployment below. Using the mocked function
+    // causes the deployment to use the `LiveNetworkCLI` execution mode because the mocked function
+    // always returns `true`. This causes an inaccurate gas estimate because the `LiveNetworkCLI`
+    // mode doesn't route transactions through the Managed Service contract.
+    context.isLiveNetwork = isLiveNetwork
+
     const { receipts } = await deploy({
       scriptPath,
-      network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+      network,
       skipPreview: false,
       silent: true,
       sphinxContext: context,
       verify: false,
       targetContract,
+      sig,
     })
 
     if (!receipts) {

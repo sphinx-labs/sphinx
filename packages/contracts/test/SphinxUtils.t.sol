@@ -60,7 +60,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -74,7 +75,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -105,7 +107,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -123,7 +126,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -148,7 +152,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 2
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -165,7 +170,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 3
         });
 
         bool passedCheck = checkAccesses(
@@ -190,7 +196,8 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             value: 0,
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0)
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 2
         });
 
         bool passedCheck = checkAccesses(
@@ -319,15 +326,18 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](3);
         accesses[0] = makeAccountAccess({
             _accessor: address(0x1),
-            _kind: VmSafe.AccountAccessKind.Call
+            _kind: VmSafe.AccountAccessKind.Call,
+            _depth: 3
         });
         accesses[1] = makeAccountAccess({
             _accessor: address(0x2),
-            _kind: VmSafe.AccountAccessKind.Create
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 3
         });
         accesses[2] = makeAccountAccess({
             _accessor: address(0x3),
-            _kind: VmSafe.AccountAccessKind.Extcodesize
+            _kind: VmSafe.AccountAccessKind.Extcodesize,
+            _depth: 3
         });
 
         ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
@@ -338,11 +348,13 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](2);
         accesses[0] = makeAccountAccess({
             _accessor: dummySafeAddress,
-            _kind: VmSafe.AccountAccessKind.Call
+            _kind: VmSafe.AccountAccessKind.Call,
+            _depth: 2
         });
         accesses[1] = makeAccountAccess({
             _accessor: dummySafeAddress,
-            _kind: VmSafe.AccountAccessKind.Create
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 2
         });
 
         ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
@@ -415,22 +427,24 @@ contract SphinxUtils_Test is Test, SphinxUtils {
     }
 
     function test_validate_revert_empty_config() external {
-        SphinxConfig memory sphinxConfig;
+        SphinxConfig memory config;
         vm.expectRevert(
-            "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+            "Sphinx: Detected missing Sphinx config. Are you sure you implemented the `configureSphinx` function correctly?\nSee the configuration options reference for more information:\nhttps://github.com/sphinx-labs/sphinx/blob/master/docs/writing-scripts.md#configuration-options"
         );
-        validate(sphinxConfig);
+        validate(config);
     }
 
     /////////////////////////////////// Helpers //////////////////////////////////////
 
     function makeAccountAccess(
         address _accessor,
-        Vm.AccountAccessKind _kind
+        Vm.AccountAccessKind _kind,
+        uint64 _depth
     ) private pure returns (Vm.AccountAccess memory) {
         Vm.AccountAccess memory access;
         access.kind = _kind;
         access.accessor = _accessor;
+        access.depth = _depth;
         return access;
     }
 

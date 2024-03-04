@@ -64,8 +64,6 @@ pnpm add -D @sphinx-labs/plugins https://github.com/foundry-rs/forge-std.git#v1.
 
 Run one of the following commands on your command line, replacing the placeholders with your values. We've included a description of each command line argument below.
 
-> Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo, but for now, you'll have to use our fork to be able to use Sphinx. You'll be prompted to install our Foundry fork when you run the init command below.
-
 Using Yarn or npm:
 
 ```
@@ -106,17 +104,17 @@ Copy and paste one of the following commands to propose your deployment with the
 Using Yarn or npm:
 
 ```
-npx sphinx propose script/HelloSphinx.s.sol --networks testnets
+npx sphinx propose script/HelloSphinx.s.sol --networks sepolia optimism_sepolia arbitrum_sepolia
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx propose script/HelloSphinx.s.sol --networks testnets
+pnpm sphinx propose script/HelloSphinx.s.sol --networks sepolia optimism_sepolia arbitrum_sepolia
 ```
 
 Here are the steps that occur when you run this command:
-1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+1. **Simulation**: Sphinx simulates the deployment by invoking the Forge script on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
 2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
 3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
 

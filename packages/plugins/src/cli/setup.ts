@@ -1,6 +1,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
+import { getDuplicateElements } from '@sphinx-labs/core'
 
 import { init } from '../sample-project'
 import { SphinxContext, makeSphinxContext } from './context'
@@ -9,7 +10,12 @@ import {
   DeployCommandArgs,
   ProposeCommandArgs,
 } from './types'
-import { ConfirmAndDryRunError, coerceNetworks } from './utils'
+import {
+  BothNetworksSpecifiedError,
+  ConfirmAndDryRunError,
+  NoNetworkArgsError,
+  getDuplicatedNetworkErrorMessage,
+} from './utils'
 import { handleInstall } from './install'
 
 const networkOption = 'network'
@@ -30,7 +36,7 @@ export const makeCLI = (
       (y) =>
         y
           .usage(
-            `Usage: sphinx propose <SCRIPT_PATH> --networks <testnets|mainnets> [options]`
+            `Usage: sphinx propose <SCRIPT_PATH> --networks <NETWORK_NAMES...|testnets|mainnets> [options]`
           )
           .positional('scriptPath', {
             describe: 'Path to the Forge script file.',
@@ -39,10 +45,19 @@ export const makeCLI = (
           })
           .option('networks', {
             describe: 'The networks to propose on.',
-            type: 'string',
-            choices: ['testnets', 'mainnets'],
-            coerce: coerceNetworks,
+            type: 'array',
+            coerce: (networks: Array<string | number>) => networks.map(String),
             demandOption: true,
+          })
+          .option('sig', {
+            describe:
+              'The signature of the function to call in the script, or raw calldata',
+            array: true,
+            // Set all array elements to be strings. Necessary to avoid precision loss for large
+            // numbers, which will otherwise occur because Yargs' default behavior is to convert CLI
+            // arguments to numbers when possible.
+            string: true,
+            alias: 's',
           })
           .option(confirmOption, {
             describe: 'Confirm the proposal without previewing it.',
@@ -63,6 +78,38 @@ export const makeCLI = (
             describe: 'Silence the output except for error messages.',
             boolean: true,
             default: false,
+          })
+          .check((argv) => {
+            const { networks } = argv
+
+            if (networks.length === 0) {
+              throw new Error(NoNetworkArgsError)
+            }
+
+            if (
+              networks.includes('testnets') &&
+              networks.includes('mainnets')
+            ) {
+              throw new Error(BothNetworksSpecifiedError)
+            }
+
+            const duplicatedNetworks = getDuplicateElements(networks)
+            if (duplicatedNetworks.length > 0) {
+              throw new Error(
+                getDuplicatedNetworkErrorMessage(duplicatedNetworks)
+              )
+            }
+
+            if (
+              networks.length > 1 &&
+              (networks.includes('testnets') || networks.includes('mainnets'))
+            ) {
+              throw new Error(
+                `If you specify 'mainnets' or testnets', you cannot specify any other networks.`
+              )
+            }
+
+            return true
           })
           .hide('version'),
       async (argv) => proposeCommandHandler(argv, sphinxContext)
@@ -136,32 +183,18 @@ export const makeCLI = (
     .command(
       'install',
       'Installs the required version of the Sphinx Solidity library contracts and Sphinx Foundry fork',
-      (y) =>
-        y
-          .usage('Usage: sphinx install')
-          .option('skip-library', {
-            describe:
-              'Skips installing the Sphinx library and only installs the Sphinx Foundry fork.',
-            boolean: true,
-            default: false,
-          })
-          .option('ci', {
-            describe:
-              'Continuous integration mode (skips installing the Sphinx Foundry fork)',
-            boolean: true,
-            default: false,
-          }),
+      (y) => y.usage('Usage: sphinx install'),
       async (argv) => {
-        const { skipLibrary, ci } = argv
+        const { ci } = argv
 
-        if (skipLibrary && ci) {
-          throw new Error(
-            'Cannot specify both `--skip-library` and `--ci` at the same time.'
+        if (ci) {
+          console.warn(
+            'The `--ci` flag is no longer necessary and has been deprecated.'
           )
         }
 
         const spinner = ora()
-        await handleInstall(spinner, skipLibrary, ci)
+        await handleInstall(spinner)
       }
     )
     .command(
@@ -170,12 +203,22 @@ export const makeCLI = (
       (y) =>
         y
           .usage(
-            `Usage: sphinx deploy <SCRIPT_PATH> --network <network_name> [OPTIONS]`
+            `Usage: sphinx deploy <SCRIPT_PATH> --network <NETWORK_NAME> [options]`
           )
           .positional('scriptPath', {
             describe: 'Path to the Forge script file.',
             type: 'string',
             demandOption: true,
+          })
+          .option('sig', {
+            describe:
+              'The signature of the function to call in the script, or raw calldata',
+            array: true,
+            // Set all array elements to be strings. Necessary to avoid precision loss for large
+            // numbers, which will otherwise occur because Yargs' default behavior is to convert CLI
+            // arguments to numbers when possible.
+            string: true,
+            alias: 's',
           })
           .option(networkOption, {
             describe: 'Name of the network to deploy on.',
@@ -228,7 +271,8 @@ const proposeCommandHandler = async (
   argv: ProposeCommandArgs,
   sphinxContext: SphinxContext
 ): Promise<void> => {
-  const { networks, scriptPath, targetContract, silent, dryRun, confirm } = argv
+  const { networks, scriptPath, targetContract, silent, dryRun, confirm, sig } =
+    argv
 
   if (dryRun && confirm) {
     // Throw an error because these flags are redundant, which signals user error or a
@@ -246,15 +290,15 @@ const proposeCommandHandler = async (
     process.exit(1)
   }
 
-  const isTestnet = networks === 'testnets'
   await sphinxContext.propose({
     confirm,
-    isTestnet,
+    networks,
     isDryRun: dryRun,
     silent,
     scriptPath,
     sphinxContext,
     targetContract,
+    sig,
   })
 }
 
@@ -262,7 +306,8 @@ const deployCommandHandler = async (
   argv: DeployCommandArgs,
   sphinxContext: SphinxContext
 ): Promise<void> => {
-  const { network, scriptPath, targetContract, verify, silent, confirm } = argv
+  const { network, scriptPath, targetContract, verify, silent, confirm, sig } =
+    argv
 
   if (silent && !confirm) {
     // Since the '--silent' option silences the preview, the user must confirm the deployment
@@ -281,6 +326,7 @@ const deployCommandHandler = async (
     sphinxContext,
     verify,
     targetContract,
+    sig,
   })
 }
 

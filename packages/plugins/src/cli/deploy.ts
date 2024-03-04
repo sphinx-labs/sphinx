@@ -1,12 +1,12 @@
 import { join, relative } from 'path'
-import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 import {
   displayDeploymentTable,
   fundAccountMaxBalance,
-  getNetworkNameDirectory,
   getSphinxWalletPrivateKey,
   isFile,
+  readDeploymentArtifactsForNetwork,
   signMerkleRoot,
   spawnAsync,
 } from '@sphinx-labs/core/dist/utils'
@@ -17,8 +17,6 @@ import {
   SphinxPreview,
   makeDeploymentData,
   makeDeploymentArtifacts,
-  ContractDeploymentArtifact,
-  isContractDeploymentArtifact,
   DeploymentConfig,
   makeDeploymentConfig,
   verifyDeploymentWithRetries,
@@ -26,7 +24,6 @@ import {
   ExecutionMode,
   ConfigArtifacts,
   checkSystemDeployed,
-  fetchChainIdForNetwork,
   writeDeploymentArtifacts,
   isLegacyTransactionsRequiredForNetwork,
   MAX_UINT64,
@@ -52,6 +49,8 @@ import {
   assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
+  getSphinxConfigFromScript,
+  parseScriptFunctionCalldata,
   readInterface,
   writeSystemContracts,
 } from '../foundry/utils'
@@ -68,6 +67,7 @@ export interface DeployArgs {
   sphinxContext: SphinxContext
   verify: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export const deploy = async (
@@ -87,6 +87,7 @@ export const deploy = async (
     verify,
     targetContract,
   } = args
+  const sig = args.sig === undefined ? ['run()'] : args.sig
 
   const projectRoot = process.cwd()
 
@@ -106,6 +107,8 @@ export const deploy = async (
     silent,
     false // Do not force re-compile.
   )
+
+  const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Collecting transactions...`)
@@ -131,8 +134,6 @@ export const deploy = async (
     process.exit(1)
   }
 
-  const chainId = fetchChainIdForNetwork(network)
-
   // If the verification flag is specified, then make sure there is an etherscan configuration for the target network
   if (verify) {
     if (!etherscan || !etherscan[network]) {
@@ -149,7 +150,10 @@ export const deploy = async (
 
   const provider = new SphinxJsonRpcProvider(forkUrl)
 
-  const isLiveNetwork = await sphinxContext.isLiveNetwork(provider)
+  const [isLiveNetwork, { chainId }] = await Promise.all([
+    sphinxContext.isLiveNetwork(provider),
+    provider.getNetwork(),
+  ])
 
   // We must load any ABIs after compiling the contracts to prevent a situation where the user
   // clears their artifacts then calls this task, in which case the artifact won't exist yet.
@@ -192,12 +196,14 @@ export const deploy = async (
     'script',
     scriptPath,
     '--sig',
-    'sphinxCollectDeployment(uint8,string,string)',
+    'sphinxCollectDeployment(bytes,uint8,string,string)',
+    scriptFunctionCalldata,
     executionMode.toString(),
     deploymentInfoPath,
     systemContractsFilePath,
     '--rpc-url',
     forkUrl,
+    '--always-use-create-2-factory',
   ]
   if (
     isLegacyTransactionsRequiredForNetwork(
@@ -210,6 +216,13 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
+  const { safeAddress } = await getSphinxConfigFromScript(
+    scriptPath,
+    sphinxPluginTypesInterface,
+    targetContract,
+    spinner
+  )
+
   // Collect the transactions.
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
     // Set the block gas limit to the max amount allowed by Foundry. This overrides lower block
@@ -217,6 +230,7 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
+    ETH_FROM: safeAddress,
   })
 
   if (spawnOutput.code !== 0) {
@@ -354,15 +368,11 @@ export const deploy = async (
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
       _networkConfig: NetworkConfig,
-      _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {
       throw new Error(
         `The following action reverted during the execution:\n${failureReason.reason}`
       )
-    },
-    verify: async () => {
-      return
     },
     handleSuccess: async () => {
       return
@@ -389,40 +399,35 @@ export const deploy = async (
 
   const { projectName } = networkConfig.newConfig
 
-  // Get the existing contract deployment artifacts
-  const contractArtifactDirPath = join(
-    `deployments`,
+  // Get the existing contract deployment artifacts and execution artifacts for the current network.
+  // This object will potentially be modified when we make the new deployment artifacts.
+  // Specifically, the `history` field of the contract deployment artifacts could be modified. Even
+  // though we don't currently modify the execution artifacts, we include them anyways in case we
+  // add logic in the future that modifies them. We don't include the compiler input artifacts
+  // mainly as a performance optimization and because we don't expect to modify them in the future.
+  const networkArtifacts = readDeploymentArtifactsForNetwork(
     projectName,
-    getNetworkNameDirectory(chainId.toString(), networkConfig.executionMode)
+    chainId,
+    executionMode
   )
-  const artifactFileNames = existsSync(contractArtifactDirPath)
-    ? readdirSync(contractArtifactDirPath)
-    : []
-  const previousContractArtifacts: {
-    [fileName: string]: ContractDeploymentArtifact
-  } = {}
-  for (const fileName of artifactFileNames) {
-    if (fileName.endsWith('.json')) {
-      const filePath = join(contractArtifactDirPath, fileName)
-      const fileContent = readFileSync(filePath, 'utf8')
-      const artifact = JSON.parse(fileContent)
-      if (isContractDeploymentArtifact(artifact)) {
-        previousContractArtifacts[fileName] = artifact
-      }
-    }
+  const deploymentArtifacts = {
+    networks: {
+      [chainId.toString()]: networkArtifacts,
+    },
+    compilerInputs: {},
   }
 
-  const deploymentArtifacts = await makeDeploymentArtifacts(
+  await makeDeploymentArtifacts(
     {
       [chainId.toString()]: {
         provider,
         deploymentConfig,
         receipts,
-        previousContractArtifacts,
       },
     },
     merkleTree.root,
-    configArtifacts
+    configArtifacts,
+    deploymentArtifacts
   )
 
   spinner.succeed(`Built deployment artifacts.`)

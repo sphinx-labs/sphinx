@@ -55,7 +55,7 @@ touch .github/workflows/sphinx.deploy.yml
 
 ## 5. Create the dry run workflow
 
-First, we'll create a workflow that dry-runs the proposal whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if a transaction reverts. This prevents you from merging pull requests for deployments bound to fail.
+First, we'll create a workflow that dry runs the proposal on test networks whenever a pull request is opened or updated. The dry run includes a simulation for the deployment, which will throw an error if a transaction reverts. This prevents you from merging pull requests for deployments bound to fail.
 
 Copy and paste the following into your `sphinx.dry-run.yml` file:
 
@@ -75,15 +75,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: sphinx-labs/foundry-toolchain@v1
+        uses: foundry/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Install Sphinx Solidity Library
-        run: yarn sphinx install --ci
+        run: yarn sphinx install
       - name: Dry Run
-        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks testnets
+        run: npx sphinx propose <path/to/your/script.s.sol> --dry-run --networks <NETWORK_NAMES>
 ```
 
 Here is a list of things you may need to change in the template:
@@ -91,6 +91,7 @@ Here is a list of things you may need to change in the template:
 - If your repository doesn't use Yarn, update the `yarn --frozen-lockfile` step under `jobs`.
 - If your repository uses pnpm instead of Yarn or npm, change `npx sphinx propose` to `pnpm sphinx propose`.
 - In the `sphinx propose` command, replace `<path/to/your/script.s.sol>` with the path to your Forge script.
+- In the `sphinx propose` command, replace `<NETWORK_NAMES>` with the test networks to propose on.
 
 ## 6. Create the proposal workflow
 Next, we'll create a workflow to propose the deployment when a pull request is merged.
@@ -116,15 +117,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Foundry
-        uses: sphinx-labs/foundry-toolchain@v1
+        uses: foundry/foundry-toolchain@v1
         with:
           version: nightly
       - name: Install Dependencies
         run: yarn --frozen-lockfile
       - name: Install Sphinx Solidity Library
-        run: yarn sphinx install --ci
+        run: yarn sphinx install
       - name: Propose
-        run: npx sphinx propose <path/to/your/script.s.sol> --confirm --networks testnets
+        run: npx sphinx propose <path/to/your/script.s.sol> --confirm --networks <NETWORK_NAMES>
 ```
 
 Here is a list of things you may need to change in the template:
@@ -133,6 +134,7 @@ Here is a list of things you may need to change in the template:
 - If your repository doesn't use Yarn, update the `yarn --frozen-lockfile` step under `jobs`.
 - If your repository uses pnpm instead of Yarn or npm, change `npx sphinx propose` to `pnpm sphinx propose`.
 - In the `sphinx propose` command, replace `<path/to/your/script.s.sol>` with the path to your Forge script.
+- In the `sphinx propose` command, replace `<NETWORK_NAMES>` with the test networks to propose on.
 
 ## 7. Configure secret variables
 
@@ -148,6 +150,6 @@ Push your branch to GitHub, open a PR, and merge it after the dry run succeeds. 
 
 ## 9. Production deployments
 
-In this guide, we've configured the CI process to deploy against test networks. When you're ready to deploy in production, simply update the `sphinx propose` command to include `--networks mainnets` instead of `--networks testnets`. Make sure you update both templates.
+In this guide, we've configured the CI process to deploy against test networks. When you're ready to deploy in production, simply replace the test networks in the `sphinx propose` commands with the names of the production networks. Make sure you update both templates.
 
 In practice, we recommend triggering testnet deployments when merging to your development branch, and triggering production deployments when you merge from your development branch to your main branch.

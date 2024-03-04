@@ -1,14 +1,143 @@
+import {
+  AccountAccess,
+  AccountAccessKind,
+  DeployedContractSize,
+  ParsedAccountAccess,
+} from './types'
+
+/**
+ * Calculates the storage used by a single AccountAccess. This function is intentionally very simple.
+ * We naively assume that every write takes up a full 32 bytes of storage despite the fact that there
+ * are many cases where the storage usage is less or even negative. We do this because we prefer to
+ * always overestimate the cost by a reasonable amount. Since the block gas limit on Moonbeam and
+ * related networks is comfortably high (15 million), this does not impede the users ability to deploy
+ * large contracts.
+ */
+const calculateStorageSizeForAccountAccess = (
+  access: AccountAccess,
+  deployedContractSizes: DeployedContractSize[]
+): { contractStorageSize: number; writeStorageSize: number } => {
+  const storageWriteSize =
+    access.storageAccesses.filter((storageAccess) => storageAccess.isWrite)
+      .length * 32
+
+  if (access.kind === AccountAccessKind.Create) {
+    const deployedContractSize = deployedContractSizes.find(
+      (deployedContact) => deployedContact.account === access.account
+    )
+
+    if (!deployedContractSize) {
+      throw new Error(
+        'Failed to find deployed contract size. This is a bug, please report it to the developers.'
+      )
+    }
+
+    return {
+      writeStorageSize: storageWriteSize,
+      contractStorageSize: Number(deployedContractSize.size),
+    }
+  } else {
+    return {
+      writeStorageSize: storageWriteSize,
+      contractStorageSize: 0,
+    }
+  }
+}
+
+/**
+ * Calculates the cost of a transaction on Moonbeam using their higher gas cost per byte.
+ *
+ * @param baseGas The estimated gas cost according to Foundry.
+ * @param deployedContractSizes The sizes of any contracts deployed during this transaction.
+ * @param access The ParsedAccountAccess for the transaction.
+ * @returns
+ */
+export const calculateActionLeafGasForMoonbeam = (
+  foundryGas: string,
+  deployedContractSizes: DeployedContractSize[],
+  access: ParsedAccountAccess
+): string => {
+  // Fetch the storage used by the root account access
+  const { contractStorageSize, writeStorageSize } =
+    calculateStorageSizeForAccountAccess(access.root, deployedContractSizes)
+
+  // Fetch the storage used by all the nested accesses
+  const nestedStorageSizes = access.nested.map((nestedAccountAccess) =>
+    calculateStorageSizeForAccountAccess(
+      nestedAccountAccess,
+      deployedContractSizes
+    )
+  )
+  const nestedContractStorageSize = nestedStorageSizes
+    .map((storageSize) => storageSize.contractStorageSize)
+    .reduce((prev, curr) => prev + curr, 0)
+  const nestedWriteStorageSize = nestedStorageSizes
+    .map((storageSize) => storageSize.writeStorageSize)
+    .reduce((prev, curr) => prev + curr, 0)
+
+  // Calculate the total storage for the full transaction
+  const totalContractSize = contractStorageSize + nestedContractStorageSize
+  const totalWriteStorageSize = writeStorageSize + nestedWriteStorageSize
+
+  // Gas per byte ratio = Block Gas Limit / (Block Storage Limit (kb) * 1024 Bytes)
+  const ratio = 15_000_000 / (40 * 1024)
+
+  // Total gas cost for storage on moonbeam
+  // The ratio isn't an exact integer, so we round the result up
+  const moonbeamStorageCost = Math.ceil(
+    (totalContractSize + totalWriteStorageSize) * ratio
+  )
+
+  /**
+   * Calculate the cost of the transaction according to Foundry without gas costs related to
+   * storage of the contracts.
+   *
+   * If we did not subtract the 200 gas / byte here, then we would wildly overestimate the cost of
+   * deploying contracts which could prevent the user from being able to deploy even reasonably
+   * sized contracts on Moonbeam due to their lower block gas limit.
+   *
+   * It's worth noting that the `foundryGas` value includes some value for the intrinsic storage
+   * cost of any other storage writes (i.e SSTOREs) in the transaction. Since we do not subtract
+   * the cost of that storage here as well, we are double counting the cost of standard storage.
+   * We do not implement logic to handle this because Ethereum does not have a straightforward
+   * way to calculate the intrinsic cost of storage. It can vary meaningfully depending on the
+   * specific situation. So we chose to not subtract anything for those writes since it's safer.
+   *
+   * This does introduce an edge case where if the user has a transaction that includes a very
+   * large number of writes (i.e 1000 SSTORES), we would likely wildly overestimate the cost of
+   * that transaction. The user would still be able to execute it through us, but since we're
+   * overestimating the cost, the user would be limited in the amount of storage they can write
+   * in a single transaction.
+   */
+  const baseGasLessStorageCost = Number(foundryGas) - 200 * totalContractSize
+
+  // The final cost is the base cost without any cost for storage, plus
+  // the higher cost for storage on Moonbeam
+  return (baseGasLessStorageCost + moonbeamStorageCost).toString()
+}
+
+export type ExplorerName = 'Blockscout' | 'Etherscan'
+
+export type BlockExplorers = {
+  etherscan?: {
+    apiURL: string
+    browserURL: string
+    envKey: string
+  }
+  blockscout?: {
+    apiURL: string
+    browserURL: string
+    envKey: string
+    selfHosted: boolean
+  }
+}
+
 export type SupportedNetwork = {
   name: string
   displayName: string
   chainId: bigint
   rpcUrl: () => string
-  etherscan: {
-    apiURL: string
-    browserURL: string
-    envKey: string
-    blockExplorer: BlockExplorer
-  }
+  blockexplorers: BlockExplorers
   currency: string
   dripSize: string
   requiredEnvVariables: Array<string>
@@ -24,6 +153,11 @@ export type SupportedNetwork = {
     provider: RollupProvider
     type: RollupType
   }
+  handleNetworkSpecificMerkleLeafGas?: (
+    foundryGas: string,
+    deployedContractSizes: DeployedContractSize[],
+    access: ParsedAccountAccess
+  ) => string
 }
 
 export type SupportedLocalNetwork = {
@@ -48,8 +182,7 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
   },
 ]
 
-type BlockExplorer = 'Etherscan' | 'Blockscout' | 'Unsupported'
-type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
+export type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
 type RollupProvider = 'Conduit' | 'Caldera'
 type RollupType = 'OP Stack' | 'Arbitrum'
 
@@ -60,11 +193,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(1),
     rpcUrl: () =>
       `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.etherscan.io/api',
-      browserURL: 'https://etherscan.io',
-      envKey: 'ETH_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.etherscan.io/api',
+        browserURL: 'https://etherscan.io',
+        envKey: 'ETH_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://eth.blockscout.com/api',
+        browserURL: 'https://eth.blockscout.com/',
+        envKey: 'ETH_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -84,11 +224,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(11155111),
     rpcUrl: () =>
       `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-sepolia.etherscan.io/api',
-      browserURL: 'https://sepolia.etherscan.io',
-      envKey: 'ETH_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.etherscan.io/api',
+        browserURL: 'https://sepolia.etherscan.io',
+        envKey: 'ETH_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://eth-sepolia.blockscout.com/api',
+        browserURL: 'https://eth-sepolia.blockscout.com/',
+        envKey: 'ETH_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -108,11 +255,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(10),
     rpcUrl: () =>
       `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-optimistic.etherscan.io/api',
-      browserURL: 'https://optimistic.etherscan.io/',
-      envKey: 'OPT_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-optimistic.etherscan.io/api',
+        browserURL: 'https://optimistic.etherscan.io/',
+        envKey: 'OPT_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://optimism.blockscout.com/api',
+        browserURL: 'https://optimism.blockscout.com/',
+        envKey: 'OPT_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -132,11 +286,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(11155420),
     rpcUrl: () =>
       `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-sepolia-optimism.etherscan.io/api',
-      browserURL: 'https://sepolia-optimism.etherscan.io/',
-      envKey: 'OPT_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia-optimism.etherscan.io/api',
+        browserURL: 'https://sepolia-optimism.etherscan.io/',
+        envKey: 'OPT_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://optimism-sepolia.blockscout.com/api',
+        browserURL: 'https://optimism-sepolia.blockscout.com/',
+        envKey: 'OPT_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -156,11 +317,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(42161),
     rpcUrl: () =>
       `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.arbiscan.io/api',
-      browserURL: 'https://arbiscan.io/',
-      envKey: 'ARB_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.arbiscan.io/api',
+        browserURL: 'https://arbiscan.io/',
+        envKey: 'ARB_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -180,11 +342,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(421614),
     rpcUrl: () =>
       `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-sepolia.arbiscan.io/api',
-      browserURL: 'https://sepolia.arbiscan.io/',
-      envKey: 'ARB_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.arbiscan.io/api',
+        browserURL: 'https://sepolia.arbiscan.io/',
+        envKey: 'ARB_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -204,11 +367,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(137),
     rpcUrl: () =>
       `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.polygonscan.com/api',
-      browserURL: 'https://polygonscan.com',
-      envKey: 'POLYGON_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.polygonscan.com/api',
+        browserURL: 'https://polygonscan.com',
+        envKey: 'POLYGON_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'MATIC',
     dripSize: '1',
@@ -228,11 +392,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(80001),
     rpcUrl: () =>
       `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-testnet.polygonscan.com/api',
-      browserURL: 'https://mumbai.polygonscan.com/',
-      envKey: 'POLYGON_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-testnet.polygonscan.com/api',
+        browserURL: 'https://mumbai.polygonscan.com/',
+        envKey: 'POLYGON_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'MATIC',
     dripSize: '1',
@@ -251,11 +416,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Binance Smart Chain',
     chainId: BigInt(56),
     rpcUrl: () => process.env.BNB_MAINNET_URL!,
-    etherscan: {
-      apiURL: 'https://api.bscscan.com/api',
-      browserURL: 'https://bscscan.com',
-      envKey: 'BNB_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.bscscan.com/api',
+        browserURL: 'https://bscscan.com',
+        envKey: 'BNB_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'BNB',
     dripSize: '0.05',
@@ -274,11 +440,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Binance Smart Chain Testnet',
     chainId: BigInt(97),
     rpcUrl: () => process.env.BNB_TESTNET_URL!,
-    etherscan: {
-      apiURL: 'https://api-testnet.bscscan.com/api',
-      browserURL: 'https://testnet.bscscan.com',
-      envKey: 'BNB_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-testnet.bscscan.com/api',
+        browserURL: 'https://testnet.bscscan.com',
+        envKey: 'BNB_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'BNB',
     dripSize: '0.15',
@@ -297,11 +464,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Gnosis',
     chainId: BigInt(100),
     rpcUrl: () => process.env.GNOSIS_MAINNET_URL!,
-    etherscan: {
-      apiURL: 'https://api.gnosisscan.io/api',
-      browserURL: 'https://gnosisscan.io',
-      envKey: 'GNOSIS_MAINNET_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.gnosisscan.io/api',
+        browserURL: 'https://gnosisscan.io',
+        envKey: 'GNOSIS_MAINNET_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://gnosis-chiado.blockscout.com/api',
+        browserURL: 'https://gnosis-chiado.blockscout.com/',
+        envKey: 'GNOSIS_MAINNET_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'xDAI',
     dripSize: '1',
@@ -320,11 +494,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Gnosis Chiado',
     chainId: BigInt(10200),
     rpcUrl: () => process.env.CHIADO_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://gnosis-chiado.blockscout.com/api',
-      browserURL: 'https://gnosis-chiado.blockscout.com',
-      envKey: 'GNOSIS_CHIADO_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://gnosis-chiado.blockscout.com/api',
+        browserURL: 'https://gnosis-chiado.blockscout.com',
+        envKey: 'GNOSIS_CHIADO_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'xDAI',
     dripSize: '0.15',
@@ -344,11 +520,19 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(59144),
     rpcUrl: () =>
       `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.lineascan.build/api',
-      browserURL: 'https://lineascan.build',
-      envKey: 'LINEA_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.lineascan.build/api',
+        browserURL: 'https://lineascan.build',
+        envKey: 'LINEA_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://explorer.goerli.linea.build/api',
+        browserURL: 'https://explorer.goerli.linea.build/',
+        // key is not required on this network
+        envKey: 'LINEA_BLOCKSCOUT_API_KEY',
+        selfHosted: true,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -368,11 +552,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(59140),
     rpcUrl: () =>
       `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-goerli.lineascan.build/api',
-      browserURL: 'https://goerli.lineascan.build',
-      envKey: 'LINEA_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-goerli.lineascan.build/api',
+        browserURL: 'https://goerli.lineascan.build',
+        envKey: 'LINEA_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -391,11 +576,19 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Polygon zkEVM',
     chainId: BigInt(1101),
     rpcUrl: () => process.env.POLYGON_ZKEVM_MAINNET_URL!,
-    etherscan: {
-      apiURL: 'https://api-zkevm.polygonscan.com/api',
-      browserURL: 'https://zkevm.polygonscan.com/',
-      envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-zkevm.polygonscan.com/api',
+        browserURL: 'https://zkevm.polygonscan.com/',
+        envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://zkevm.blockscout.com/api',
+        browserURL: 'https://zkevm.blockscout.com/',
+        // key is not required on this network
+        envKey: 'POLYGON_ZKEVM_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -414,11 +607,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Polygon zkEVM Goerli',
     chainId: BigInt(1442),
     rpcUrl: () => process.env.POLYGON_ZKEVM_TESTNET_URL!,
-    etherscan: {
-      apiURL: 'https://api-testnet-zkevm.polygonscan.com/api',
-      browserURL: 'https://testnet-zkevm.polygonscan.com',
-      envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-testnet-zkevm.polygonscan.com/api',
+        browserURL: 'https://testnet-zkevm.polygonscan.com',
+        envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -438,11 +632,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(43114),
     rpcUrl: () =>
       `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.snowtrace.io/api',
-      browserURL: 'https://snowtrace.io/',
-      envKey: 'AVAX_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.snowtrace.io/api',
+        browserURL: 'https://snowtrace.io/',
+        envKey: 'AVAX_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'AVAX',
     dripSize: '1',
@@ -462,11 +657,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(43113),
     rpcUrl: () =>
       `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-testnet.snowtrace.io/api',
-      browserURL: 'https://testnet.snowtrace.io/',
-      envKey: 'AVAX_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-testnet.snowtrace.io/api',
+        browserURL: 'https://testnet.snowtrace.io/',
+        envKey: 'AVAX_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'AVAX',
     dripSize: '1',
@@ -485,11 +681,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Fantom',
     chainId: BigInt(250),
     rpcUrl: () => process.env.FANTOM_MAINNET_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api.ftmscan.com/api',
-      browserURL: 'https://ftmscan.com',
-      envKey: 'FANTOM_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.ftmscan.com/api',
+        browserURL: 'https://ftmscan.com',
+        envKey: 'FANTOM_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'FTM',
     dripSize: '1',
@@ -508,12 +705,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Fantom Testnet',
     chainId: BigInt(4002),
     rpcUrl: () => process.env.FANTOM_TESTNET_RPC_URL!,
-    etherscan: {
-      apiURL: '',
-      browserURL: '',
-      envKey: '',
-      blockExplorer: 'Unsupported',
-    },
+    blockexplorers: {},
     currency: 'FTM',
     dripSize: '1',
     requiredEnvVariables: ['FANTOM_TESTNET_RPC_URL'],
@@ -532,11 +724,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(8453),
     rpcUrl: () =>
       `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.basescan.org/api',
-      browserURL: 'https://basescan.org/',
-      envKey: 'BASE_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.basescan.org/api',
+        browserURL: 'https://basescan.org/',
+        envKey: 'BASE_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://base.blockscout.com/api',
+        browserURL: 'https://base.blockscout.com/',
+        envKey: 'BASE_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -556,11 +755,18 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(84532),
     rpcUrl: () =>
       `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://base-sepolia.blockscout.com/api',
-      browserURL: 'https://base-sepolia.blockscout.com/',
-      envKey: 'BASE_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.basescan.org/',
+        browserURL: 'https://sepolia.basescan.org/',
+        envKey: 'BASE_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://base-sepolia.blockscout.com/api',
+        browserURL: 'https://base-sepolia.blockscout.com/',
+        envKey: 'BASE_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -580,11 +786,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(42220),
     rpcUrl: () =>
       `https://celo-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api.celoscan.io/api',
-      browserURL: 'https://celoscan.io/',
-      envKey: 'CELO_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.celoscan.io/api',
+        browserURL: 'https://celoscan.io/',
+        envKey: 'CELO_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'CELO',
     dripSize: '1',
@@ -604,11 +811,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     chainId: BigInt(44787),
     rpcUrl: () =>
       `https://celo-alfajores.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    etherscan: {
-      apiURL: 'https://api-alfajores.celoscan.io/api',
-      browserURL: 'https://alfajores.celoscan.io/',
-      envKey: 'CELO_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-alfajores.celoscan.io/api',
+        browserURL: 'https://alfajores.celoscan.io/',
+        envKey: 'CELO_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'CELO',
     dripSize: '0.15',
@@ -627,11 +835,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Moonriver',
     chainId: BigInt(1285),
     rpcUrl: () => process.env.MOONRIVER_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api-moonriver.moonscan.io/api',
-      browserURL: 'https://moonriver.moonscan.io',
-      envKey: 'MOONRIVER_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-moonriver.moonscan.io/api',
+        browserURL: 'https://moonriver.moonscan.io',
+        envKey: 'MOONRIVER_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'MOVR',
     dripSize: '0.15',
@@ -642,19 +851,21 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'moonbeam',
     displayName: 'Moonbeam',
     chainId: BigInt(1284),
     rpcUrl: () => process.env.MOONBEAM_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api-moonbeam.moonscan.io/api',
-      browserURL: 'https://moonbeam.moonscan.io',
-      envKey: 'MOONBEAM_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-moonbeam.moonscan.io/api',
+        browserURL: 'https://moonbeam.moonscan.io',
+        envKey: 'MOONBEAM_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'GLMR',
     dripSize: '1',
@@ -665,19 +876,21 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'moonbase_alpha',
     displayName: 'Moonbase Alpha',
     chainId: BigInt(1287),
     rpcUrl: () => process.env.MOONBASE_ALPHA_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api-moonbase.moonscan.io/api',
-      browserURL: 'https://moonbase.moonscan.io/',
-      envKey: 'MOONBEAM_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-moonbase.moonscan.io/api',
+        browserURL: 'https://moonbase.moonscan.io/',
+        envKey: 'MOONBEAM_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'GLMR',
     dripSize: '0.05',
@@ -688,19 +901,22 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
   },
   {
     name: 'fuse',
     displayName: 'Fuse',
     chainId: BigInt(122),
     rpcUrl: () => process.env.FUSE_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://explorer.fuse.io/api',
-      browserURL: 'https://explorer.fuse.io',
-      envKey: 'FUSE_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://explorer.fuse.io/api',
+        browserURL: 'https://explorer.fuse.io',
+        envKey: 'FUSE_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'FUSE',
     dripSize: '1',
@@ -719,13 +935,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Evmos',
     chainId: BigInt(9001),
     rpcUrl: () => process.env.EVMOS_RPC_URL!,
-    etherscan: {
-      // Need to support sourcify
-      apiURL: '',
-      browserURL: '',
-      envKey: '',
-      blockExplorer: 'Unsupported',
-    },
+    blockexplorers: {},
     currency: 'EVMOS',
     dripSize: '1',
     requiredEnvVariables: ['EVMOS_RPC_URL'],
@@ -743,13 +953,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Evmos Testnet',
     chainId: BigInt(9000),
     rpcUrl: () => process.env.EVMOS_TESTNET_RPC_URL!,
-    etherscan: {
-      // Need to support sourcify
-      apiURL: '',
-      browserURL: '',
-      envKey: '',
-      blockExplorer: 'Unsupported',
-    },
+    blockexplorers: {},
     currency: 'EVMOS',
     dripSize: '0.015',
     requiredEnvVariables: ['EVMOS_TESTNET_RPC_URL'],
@@ -767,11 +971,14 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Kava',
     chainId: BigInt(2222),
     rpcUrl: () => process.env.KAVA_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://kavascan.com/api',
-      browserURL: 'https://kavascan.com',
-      envKey: 'KAVA_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://kavascan.com/api',
+        browserURL: 'https://kavascan.com',
+        // key is not required on this network
+        envKey: 'KAVA_ETHERSCAN_API_KEY',
+        selfHosted: true,
+      },
     },
     currency: 'KAVA',
     dripSize: '1',
@@ -790,14 +997,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Kava Testnet',
     chainId: BigInt(2221),
     rpcUrl: () => process.env.KAVA_TESTNET_RPC_URL!,
-    etherscan: {
-      // Need to support sourcify
-      // They have blockscout, but the api is non-responsive
-      apiURL: '',
-      browserURL: '',
-      envKey: '',
-      blockExplorer: 'Unsupported',
-    },
+    blockexplorers: {},
     currency: 'KAVA',
     dripSize: '1',
     requiredEnvVariables: ['KAVA_TESTNET_RPC_URL'],
@@ -815,12 +1015,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'OKT Chain',
     chainId: BigInt(66),
     rpcUrl: () => process.env.OKTC_RPC_URL!,
-    etherscan: {
-      apiURL: '',
-      browserURL: '',
-      envKey: '',
-      blockExplorer: 'Unsupported',
-    },
+    blockexplorers: {},
     currency: 'OKT',
     dripSize: '1',
     requiredEnvVariables: ['OKTC_RPC_URL'],
@@ -838,11 +1033,19 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Scroll',
     chainId: BigInt(534352),
     rpcUrl: () => process.env.SCROLL_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api.scrollscan.com/api',
-      browserURL: 'https://scrollscan.com/',
-      envKey: 'SCROLL_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.scrollscan.com/api',
+        browserURL: 'https://scrollscan.com/',
+        envKey: 'SCROLL_ETHERSCAN_API_KEY',
+      },
+      blockscout: {
+        apiURL: 'https://blockscout.scroll.io/api',
+        browserURL: 'https://blockscout.scroll.io/api',
+        // key is not required on this network
+        envKey: 'SCROLL_BLOCKSCOUT_API_KEY',
+        selfHosted: true,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -861,11 +1064,12 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Scroll Sepolia',
     chainId: BigInt(534351),
     rpcUrl: () => process.env.SCROLL_TESTNET_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://api-sepolia.scrollscan.com/api',
-      browserURL: 'https://sepolia.scrollscan.com/',
-      envKey: 'SCROLL_ETHERSCAN_API_KEY',
-      blockExplorer: 'Etherscan',
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.scrollscan.com/api',
+        browserURL: 'https://sepolia.scrollscan.com/',
+        envKey: 'SCROLL_ETHERSCAN_API_KEY',
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -884,11 +1088,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Rootstock',
     chainId: BigInt(30),
     rpcUrl: () => process.env.ROOTSTOCK_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://rootstock.blockscout.com/api',
-      browserURL: 'https://rootstock.blockscout.com/',
-      envKey: 'ROOTSTOCK_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://rootstock.blockscout.com/api',
+        browserURL: 'https://rootstock.blockscout.com/',
+        envKey: 'ROOTSTOCK_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'RBTC',
     dripSize: '0.001',
@@ -907,11 +1113,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Rootstock Testnet',
     chainId: BigInt(31),
     rpcUrl: () => process.env.ROOTSTOCK_TESTNET_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://rootstock-testnet.blockscout.com/api',
-      browserURL: 'https://rootstock-testnet.blockscout.com/',
-      envKey: 'ROOTSTOCK_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://rootstock-testnet.blockscout.com/api',
+        browserURL: 'https://rootstock-testnet.blockscout.com/',
+        envKey: 'ROOTSTOCK_TESTNET_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'RBTC',
     dripSize: '0.001',
@@ -930,11 +1138,14 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Zora',
     chainId: BigInt(7777777),
     rpcUrl: () => process.env.ZORA_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://explorer.zora.energy/api',
-      browserURL: 'https://explorer.zora.energy/',
-      envKey: 'ZORA_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://explorer.zora.energy/api',
+        browserURL: 'https://explorer.zora.energy/',
+        // key is not necessary on this network
+        envKey: 'ZORA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -957,11 +1168,14 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Zora Sepolia',
     chainId: BigInt(999999999),
     rpcUrl: () => process.env.ZORA_SEPOLIA_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://sepolia.explorer.zora.energy/api',
-      browserURL: 'https://sepolia.explorer.zora.energy/',
-      envKey: 'ZORA_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://sepolia.explorer.zora.energy/api',
+        browserURL: 'https://sepolia.explorer.zora.energy/',
+        // key is not necessary on this network
+        envKey: 'ZORA_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',
@@ -984,11 +1198,14 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'RARI',
     chainId: BigInt(1380012617),
     rpcUrl: () => process.env.RARI_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://mainnet.explorer.rarichain.org/api',
-      browserURL: 'https://mainnet.explorer.rarichain.org/',
-      envKey: 'RARI_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://mainnet.explorer.rarichain.org/api',
+        browserURL: 'https://mainnet.explorer.rarichain.org/',
+        // key is not necessary on this network
+        envKey: 'RARI_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.025',
@@ -1011,11 +1228,14 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'RARI Sepolia',
     chainId: BigInt(1918988905),
     rpcUrl: () => process.env.RARI_SEPOLIA_RPC_URL!,
-    etherscan: {
-      apiURL: 'https://explorer.rarichain.org/api',
-      browserURL: 'https://explorer.rarichain.org/',
-      envKey: 'RARI_ETHERSCAN_API_KEY',
-      blockExplorer: 'Blockscout',
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://explorer.rarichain.org/api',
+        browserURL: 'https://explorer.rarichain.org/',
+        // key is not necessary on this network
+        envKey: 'RARI_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
     },
     currency: 'ETH',
     dripSize: '0.15',

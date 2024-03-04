@@ -10,31 +10,31 @@ import {CREATE3} from "solady/utils/CREATE3.sol";
 contract Sample is Sphinx {
     MyContract1 myContract;
 
-    function setUp() public {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "test_project";
         sphinxConfig.owners = [0x226F14C3e19788934Ff37C653Cf5e24caD198341];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [
-            Network.sepolia,
-            Network.arbitrum_sepolia,
-            Network.optimism_sepolia,
-            Network.avalanche_fuji,
-            Network.polygon_mumbai,
-            Network.fantom_testnet,
-            Network.bnb_testnet,
-            // Network.gnosis_chiado,
-            Network.linea_goerli,
-            Network.polygon_zkevm_goerli,
-            Network.base_sepolia,
-            Network.celo_alfajores,
-            // Network.moonbase_alpha,
-            Network.evmos_testnet,
-            Network.kava_testnet,
-            Network.scroll_sepolia,
-            Network.zora_sepolia,
-            Network.rari_sepolia
+            "sepolia",
+            "arbitrum_sepolia",
+            "optimism_sepolia",
+            "avalanche_fuji",
+            "polygon_mumbai",
+            "fantom_testnet",
+            "bnb_testnet",
+            // "gnosis_chiado",
+            "linea_goerli",
+            "polygon_zkevm_goerli",
+            "base_sepolia",
+            "celo_alfajores",
+            // "moonbase_alpha",
+            "evmos_testnet",
+            "kava_testnet",
+            "scroll_sepolia",
+            "zora_sepolia",
+            "rari_sepolia"
         ];
-        sphinxConfig.mainnets = [Network.ethereum, Network.arbitrum];
+        sphinxConfig.mainnets = ["ethereum", "arbitrum"];
         sphinxConfig.orgId = "clo6byksj0001cbld6lelntej";
         sphinxConfig.saltNonce = 2132412;
     }

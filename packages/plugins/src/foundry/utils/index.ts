@@ -23,22 +23,23 @@ import {
   execAsync,
   formatSolcLongVersion,
   getBytesLength,
+  hasParentheses,
+  isArrayMixed,
+  isDataHexString,
   isDefined,
   isNormalizedAddress,
   sortHexStrings,
   spawnAsync,
+  trimQuotes,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
-  AccountAccess,
-  AccountAccessKind,
   ActionInput,
   DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
   InitialChainState,
-  ParsedAccountAccess,
   NetworkConfig,
   ParsedVariable,
   SphinxConfig,
@@ -56,8 +57,6 @@ import {
   ExecutionMode,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
-  fetchNameForNetwork,
-  networkEnumToName,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -69,9 +68,13 @@ import {
   getSystemContractInfo,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CONTRACTS_LIBRARY_VERSION,
+  SPHINX_NETWORKS,
+  NetworkType,
+  ParsedAccountAccess,
+  AccountAccessKind,
+  AccountAccess,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
-import { red } from 'chalk'
 
 import {
   FoundryMultiChainDryRun,
@@ -83,6 +86,18 @@ import { simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
+import { SphinxContext } from '../../cli/context'
+import {
+  InvalidFirstSigArgumentErrorMessage,
+  SigCalledWithNoArgsErrorMessage,
+  SphinxConfigMainnetsContainsTestnetsErrorMessage,
+  SphinxConfigTestnetsContainsMainnetsErrorMessage,
+  getFailedRequestErrorMessage,
+  getLocalNetworkErrorMessage,
+  getMissingEndpointErrorMessage,
+  getMixedNetworkTypeErrorMessage,
+  getUnsupportedNetworkErrorMessage,
+} from '../error-messages'
 
 const readFileAsync = promisify(readFile)
 
@@ -743,8 +758,8 @@ export const getSphinxConfigFromScript = async (
     owners: sortHexStrings(sphinxConfig.owners),
     threshold: sphinxConfig.threshold.toString(),
     orgId: sphinxConfig.orgId,
-    testnets: sphinxConfig.testnets.map(networkEnumToName),
-    mainnets: sphinxConfig.mainnets.map(networkEnumToName),
+    testnets: sphinxConfig.testnets,
+    mainnets: sphinxConfig.mainnets,
     saltNonce: sphinxConfig.saltNonce.toString(),
     safeAddress: decoded[1],
     moduleAddress: decoded[2],
@@ -1095,23 +1110,11 @@ export const getEstimatedGas = async (
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  foundryToml: FoundryToml
+  rpcUrl: string
 ): Promise<{
   chainId: number
   estimatedGas: string
 }> => {
-  const networkName = fetchNameForNetwork(BigInt(chainId))
-  const rpcUrl = foundryToml.rpcEndpoints[networkName]
-
-  if (!rpcUrl) {
-    console.error(
-      red(
-        `No RPC endpoint specified in your foundry.toml for the network: ${networkName}.`
-      )
-    )
-    process.exit(1)
-  }
-
   const { receipts } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
@@ -1340,6 +1343,12 @@ export const parseNestedContractDeployments = (
   return { parsedContracts, unlabeled }
 }
 
+/**
+ * Checks that our dependencies are installed with the correct versions including:
+ * NodeJS >= v16.16
+ * Foundry (some commit that includes all our changes to the state diff)
+ * Sphinx Library Contracts (whatever version required by CONTRACTS_LIBRARY_VERSION)
+ */
 export const assertValidVersions = async (
   scriptPath: string,
   targetContract?: string
@@ -1348,11 +1357,18 @@ export const assertValidVersions = async (
   assertValidNodeVersion()
 
   // Validate the user's Sphinx dependencies. Specifically, we retrieve the Sphinx contracts library
-  // version and empirically check that our Foundry fork is functioning properly.
+  // version and empirically check that our changes to Foundry are included in the version they have
+  // installed (using create2 factory in scripts, recording the call to the create2 factory, etc).
   const output = await callForgeScriptFunction<{
     libraryVersion: { value: string }
     forkInstalled: { value: string }
-  }>(scriptPath, 'sphinxValidate()', [], undefined, targetContract)
+  }>(
+    scriptPath,
+    'sphinxValidate()',
+    ['--always-use-create-2-factory'],
+    undefined,
+    targetContract
+  )
 
   const libraryVersion = output.returns.libraryVersion.value
     // The raw string is wrapped in two sets of quotes, so we remove the outer quotes here.
@@ -1369,9 +1385,8 @@ export const assertValidVersions = async (
 
   if (forkInstalled === 'false') {
     throw new Error(
-      `Detected invalid Foundry version. Please use Sphinx's fork of Foundry by\n` +
-        `running the command:\n` +
-        `foundryup --repo sphinx-labs/foundry --branch sphinx-patch-v0.1.0`
+      `Detected invalid Foundry version. Please update to the latest version of Foundry by running:\n` +
+        `foundryup`
     )
   }
 }
@@ -1477,4 +1492,225 @@ const isStorageAccess = (
     typeof obj.newValue === 'string' &&
     typeof obj.reverted === 'boolean'
   )
+}
+
+/**
+ * Parses the parameters to `--sig` specified by the user. We attempt to maintain the exact same
+ * interface as Foundry's `--sig` parameter to make it easy for users to migrate their Forge Scripts
+ * to Sphinx.
+ *
+ * @returns { string } The 0x-prefixed raw calldata.
+ */
+export const parseScriptFunctionCalldata = async (
+  sig: Array<string>,
+  spawnAsyncFunction: typeof spawnAsync = spawnAsync
+): Promise<string> => {
+  if (sig.length === 0) {
+    throw new Error(SigCalledWithNoArgsErrorMessage)
+  }
+
+  // Differentiate between a function signature and raw calldata by checking if the first parameter
+  // has parentheses (e.g. `run()`). This is a reasonable approach because Foundry doesn't allow
+  // function signatures without parentheses. For example, specifying `run` would cause an error.
+  if (hasParentheses(sig[0])) {
+    // Use `cast` to get the function selector, which is a four-byte hex string, as well as the ABI
+    // encoded arguments. We use `cast` to provide an identical interface for the `--sig` parameter.
+    // Using EthersJS doesn't work because it can't parse stringified function arguments, like
+    // `(2, 3)`, which `cast` interprets correctly as a struct's arguments.
+    const selectorOutput = await spawnAsyncFunction(`cast`, ['sig', sig[0]])
+    if (selectorOutput.code !== 0) {
+      // The `stdout` is an empty string, so we throw the error using the `stderr`.
+      throw new Error(selectorOutput.stderr)
+    }
+
+    const abiEncodeOutput = await spawnAsyncFunction(`cast`, [
+      'abi-encode',
+      ...sig,
+    ])
+    if (abiEncodeOutput.code !== 0) {
+      // The `stdout` is an empty string, so we throw the error using the `stderr`.
+      throw new Error(abiEncodeOutput.stderr)
+    }
+
+    // Remove the trailing `\n` from the strings.
+    const trimmedSelector = selectorOutput.stdout.replace(/\n/g, '')
+    const trimmedAbiEncodedData = abiEncodeOutput.stdout.replace(/\n/g, '')
+
+    const calldata = ethers.concat([trimmedSelector, trimmedAbiEncodedData])
+    return calldata
+  } else if (sig.length === 1) {
+    // Check if the user entered raw calldata.
+
+    // Remove leading and trailing quotes. For some reason, Foundry allows raw calldata wrapped in
+    // an arbitrary number of strings, e.g. """"0x1234"""".
+    const trimmed = trimQuotes(sig[0])
+    // Add an 0x-prefix if it doesn't already exist. Foundry allows calldata without an 0x-prefix,
+    // but we need to add the prefix it to continue the validation.
+    const with0x = add0x(trimmed)
+
+    if (isDataHexString(with0x)) {
+      return add0x(trimmed)
+    }
+  }
+  throw new Error(InvalidFirstSigArgumentErrorMessage)
+}
+
+export const validateProposalNetworks = async (
+  cliNetworks: Array<string>,
+  configTestnets: Array<string>,
+  configMainnets: Array<string>,
+  rpcEndpoints: FoundryToml['rpcEndpoints'],
+  isLiveNetwork: SphinxContext['isLiveNetwork']
+): Promise<{ rpcUrls: Array<string>; isTestnet: boolean }> => {
+  if (cliNetworks.length === 0) {
+    throw new Error(`Expected at least one network, but none were supplied.`)
+  }
+
+  let resolvedNetworks: Array<string>
+  if (cliNetworks.length === 1 && cliNetworks[0] === 'mainnets') {
+    if (configMainnets.length === 0) {
+      throw new Error(
+        `Your 'sphinxConfig.mainnets' array must contain at least one network when\n` +
+          `you use the '--mainnets' flag.`
+      )
+    }
+
+    resolvedNetworks = configMainnets
+  } else if (cliNetworks.length === 1 && cliNetworks[0] === 'testnets') {
+    if (configTestnets.length === 0) {
+      throw new Error(
+        `Your 'sphinxConfig.testnets' array must contain at least one network when\n` +
+          `you use the '--testnets' flag.`
+      )
+    }
+    resolvedNetworks = configTestnets
+  } else {
+    resolvedNetworks = cliNetworks
+  }
+
+  const networkPromises = resolvedNetworks.map(async (network) => {
+    const rpcUrl = rpcEndpoints[network]
+    if (!rpcUrl) {
+      return { type: 'missingEndpoint', network }
+    }
+
+    const provider = new SphinxJsonRpcProvider(rpcUrl)
+    let networkInfo: ethers.Network
+    try {
+      networkInfo = await provider.getNetwork()
+    } catch {
+      return { type: 'failedRequest', network }
+    }
+
+    const sphinxNetwork = SPHINX_NETWORKS.find(
+      (supportedNetwork) => supportedNetwork.chainId === networkInfo.chainId
+    )
+
+    if (!sphinxNetwork) {
+      return {
+        type: 'unsupported',
+        network,
+        chainId: networkInfo.chainId.toString(),
+      }
+    }
+
+    if (!(await isLiveNetwork(provider))) {
+      return { type: 'localNetwork', network }
+    }
+
+    return {
+      type: 'valid',
+      rpcUrl,
+      network,
+      networkType: sphinxNetwork.networkType,
+    }
+  })
+
+  const results = await Promise.allSettled(networkPromises)
+
+  const missingEndpoint: Array<string> = []
+  const failedRequest: Array<string> = []
+  const unsupported: Array<{ chainId: string; networkName: string }> = []
+  const localNetwork: Array<string> = []
+  const valid: Array<{
+    network: string
+    networkType: NetworkType
+    rpcUrl: string
+  }> = []
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      throw new Error(`Promise was rejected. Should never happen.`)
+    }
+
+    const value = result.value
+    if (value.type === 'missingEndpoint') {
+      missingEndpoint.push(value.network)
+    } else if (value.type === 'failedRequest') {
+      failedRequest.push(value.network)
+    } else if (value.type === 'unsupported') {
+      // Narrow the TypeScript type.
+      if (value.chainId === undefined) {
+        throw new Error(`Chain ID is undefined. Should never happen.`)
+      }
+      unsupported.push({ networkName: value.network, chainId: value.chainId })
+    } else if (value.type === 'localNetwork') {
+      localNetwork.push(value.network)
+    } else if (value.type === 'valid') {
+      const { rpcUrl, network, networkType } = value
+      // Narrow the TypeScript types.
+      if (
+        rpcUrl === undefined ||
+        network === undefined ||
+        networkType === undefined
+      ) {
+        throw new Error(`Network field(s) are undefined. Should never happen.`)
+      }
+      valid.push({ rpcUrl, network, networkType })
+    } else {
+      throw new Error(`Unknown result: ${value.type}. Should never happen.`)
+    }
+  }
+
+  if (missingEndpoint.length > 0) {
+    throw new Error(getMissingEndpointErrorMessage(missingEndpoint))
+  }
+
+  if (failedRequest.length > 0) {
+    throw new Error(getFailedRequestErrorMessage(failedRequest))
+  }
+
+  if (unsupported.length > 0) {
+    throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
+  }
+
+  if (localNetwork.length > 0) {
+    throw new Error(getLocalNetworkErrorMessage(localNetwork))
+  }
+
+  // Check if the array contains a mix of test networks and production networks. We check this after
+  // resolving the promises above because we need to know all of the network types.
+  const networkTypes = valid.map(({ networkType }) => networkType)
+  const isMixed = isArrayMixed(networkTypes)
+  if (isMixed) {
+    throw new Error(getMixedNetworkTypeErrorMessage(valid))
+  }
+
+  // Check if the array contains all testnets or production networks. We know that the array doesn't
+  // contain mixed network types because we already checked this.
+  const isTestnet = networkTypes.every(
+    (networkType) => networkType === 'Testnet'
+  )
+
+  if (cliNetworks.length === 1 && cliNetworks[0] === 'mainnets' && isTestnet) {
+    throw new Error(SphinxConfigMainnetsContainsTestnetsErrorMessage)
+  } else if (
+    cliNetworks.length === 1 &&
+    cliNetworks[0] === 'testnets' &&
+    !isTestnet
+  ) {
+    throw new Error(SphinxConfigTestnetsContainsMainnetsErrorMessage)
+  }
+
+  const rpcUrls = valid.map(({ rpcUrl }) => rpcUrl)
+  return { rpcUrls, isTestnet }
 }

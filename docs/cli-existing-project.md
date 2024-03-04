@@ -1,6 +1,6 @@
 # Getting Started with an Existing Foundry Project
 
-In this guide, you'll integrate Sphinx with your existing Foundry project. Then, you'll deploy your project on a few testnets.
+In this guide, you'll integrate Sphinx with your existing Foundry project. Then, you'll deploy your project on test networks.
 
 Deployments are a three-step process with the DevOps Platform:
 
@@ -14,22 +14,21 @@ In this guide, you'll propose the deployment on the command line and then approv
 
 1. [Prerequisites](#1-prerequisites)
 2. [Install Sphinx CLI](#2-install-sphinx-cli)
-3. [Install Sphinx Foundry library and fork](#3-install-sphinx-foundry-library-and-fork)
+3. [Install Sphinx Foundry library](#3-install-sphinx-foundry-library)
 4. [Update `.gitignore`](#4-update-gitignore)
 5. [Add remapping](#5-add-remapping)
 6. [Update your deployment script](#6-update-your-deployment-script)\
   a. [Import Sphinx](#a-import-sphinx)\
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
-  c. [Update your `run()` function](#c-update-your-run-function)\
+  c. [Add the `sphinx` modifier](#c-add-the-sphinx-modifier)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
   e. [Handle new sender address](#e-handle-new-sender-address)\
   f. [Add configuration options](#e-add-configuration-options)
 7. [Add environment variables](#7-add-environment-variables)
-8. [Update RPC endpoints](#8-update-rpc-endpoints)
-9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
-10. [Run tests](#10-run-tests)
-11. [Propose on testnets](#11-propose-on-testnets)
-12. [Next steps](#12-next-steps)
+8. [Update `foundry.toml` settings](#8-update-foundrytoml-settings)
+9. [Run tests](#9-run-tests)
+10. [Propose on testnets](#10-propose-on-testnets)
+11. [Next steps](#11-next-steps)
 
 ## 1. Prerequisites
 
@@ -64,11 +63,9 @@ pnpm add -D @sphinx-labs/plugins
 ```
 
 
-## 3. Install Sphinx Foundry Library and Fork
+## 3. Install Sphinx Foundry Library
 
-Use the `sphinx install` command to install the Sphinx Foundry library and Foundry fork.
-
-> Sphinx requires a [fork of Foundry](https://github.com/sphinx-labs/foundry) that resolves several bugs that conflict with Sphinx. We're working on getting these fixed in the official Foundry repo, but for now, you'll have to use our fork to be able to use Sphinx. You'll be prompted to install our Foundry fork when you run the install command below.
+Use the `sphinx install` command to install the Sphinx Foundry library.
 
 Yarn:
 ```
@@ -123,11 +120,11 @@ contract MyDeploymentScript is
   // ...
 ```
 
-### c. Update your `run()` function
+### c. Add the `sphinx` modifier
 
-The entry point of your deployment script must be a `run()` function; it cannot be named anything else. Please change its name if necessary.
+Navigate to the entry point function in your deployment script. This is typically a `run()` function.
 
-Then, add a `sphinx` modifier to your `run` function:
+Then, add a `sphinx` modifier to this function. For example:
 
 ```sol
 function run() sphinx public {
@@ -152,26 +149,22 @@ For example, you may need to:
 
 ### f. Add configuration options
 
-There are a few configuration options that you must specify inside the `setUp()` function or constructor in your deployment script. These options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
+There are a few configuration options that you must specify inside a `configureSphinx()` function in your deployment script. The options all exist on the `sphinxConfig` struct, which is inherited from `Sphinx.sol`.
 
-Copy and paste the following config template into your `setUp` function or constructor:
+Copy and paste the following `configureSphinx()` function template into your script:
 
 ```sol
-sphinxConfig.owners = [<your address>];
-sphinxConfig.orgId = <Sphinx org ID>;
-sphinxConfig.testnets = [
-  Network.sepolia,
-  Network.optimism_sepolia,
-  Network.arbitrum_sepolia
-];
-sphinxConfig.projectName = "My_First_Project";
-sphinxConfig.threshold = 1;
+function configureSphinx() public override {
+  sphinxConfig.owners = [<your address>];
+  sphinxConfig.orgId = <Sphinx org ID>;
+  sphinxConfig.projectName = "My_First_Project";
+  sphinxConfig.threshold = 1;
+}
 ```
 
 You'll need to update the following fields in this template:
 * Enter your address in the `owners` array.
 * Enter your Sphinx Organization ID in the `orgId` field. It's a public field, so you don't need to keep it secret. You can find it in the Sphinx UI.
-* If you'd like to deploy on networks other than Sepolia, Optimism Sepolia, and Arbitrum Sepolia, update the `testnets` array. You can find a list of valid fields in the [Sphinx Configuration Options reference](https://github.com/sphinx-labs/sphinx/blob/main/docs/configuration-options.md#network-testnets).
 
 ## 7. Add environment variables
 
@@ -185,20 +178,7 @@ Also, if you haven't added your node provider API key as an environment variable
 ALCHEMY_API_KEY=<your_api_key>
 ```
 
-## 8. Update RPC endpoints
-
-Include an RPC endpoint in your `foundry.toml` for each testnet you'd like to deploy on. The names of the RPC endpoints in your `foundry.toml` must match the testnet names in the `sphinxConfig.testnets` array that you defined in your deployment script. For example, `sepolia` is a valid RPC endpoint name, but `ethereum_testnet` is not.
-
-Here's what your `foundry.toml` might look like if you're using Alchemy:
-
-```toml
-[rpc_endpoints]
-sepolia = "https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-optimism_sepolia = "https://opt-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-arbitrum_sepolia = "https://arb-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-```
-
-## 9. Update `foundry.toml` settings
+## 8. Update `foundry.toml` settings
 
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
@@ -206,38 +186,40 @@ Update your `foundry.toml` file to include a few settings required by Sphinx. We
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
-always_use_create_2_factory = true
 ```
 
-## 10. Run tests
+## 9. Run tests
 
 You've finished integrating Sphinx! Your next step is to check that your existing tests are passing. Go ahead and run your Forge tests.
 
 If you can't get your test suite to pass, we're more than happy to help! Reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np).
 
-## 11. Propose on testnets
+## 10. Propose on testnets
 
-Copy and paste one of the following commands to propose your deployment with the DevOps Platform. Make sure to replace `<path/to/your/Script.s.sol>` with the path to your Forge script.
+Use one of the command templates below to propose your deployment. Make sure to update the following parts of the command:
+* Replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script.
+* Replace `<NETWORK_NAMES>` with the testnets you want to deploy on, which must match the network names in the `rpc_endpoints` section of your `foundry.toml`.
+* If your script's entry point is a function other than `run()`, add `--sig [PARAMETERS]` to the command, where `[PARAMETERS]` is either the signature of the function to call in the script, or raw calldata. Sphinx's `--sig` parameter accepts the same arguments as Foundry's `--sig` parameter; see docs [here](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md#options).
 
 Using Yarn or npm:
 
 ```
-npx sphinx propose <path/to/your/Script.s.sol> --networks testnets
+npx sphinx propose <PATH_TO_FORGE_SCRIPT> --networks <NETWORK_NAMES>
 ```
 
 Using pnpm:
 
 ```
-pnpm sphinx propose <path/to/your/Script.s.sol> --networks testnets
+pnpm sphinx propose <PATH_TO_FORGE_SCRIPT> --networks <NETWORK_NAMES>
 ```
 
 Here are the steps that occur when you run this command:
-1. **Simulation**: Sphinx simulates the deployment by invoking the script's `run()` function on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
+1. **Simulation**: Sphinx simulates the deployment by invoking the Forge script on a fork of each network. If a transaction reverts during the simulation, Sphinx will throw an error.
 2. **Preview**: Sphinx displays the broadcasted transactions in a preview, which you'll be prompted to confirm.
 3. **Relay**: Sphinx submits the deployment to the website, where you'll approve it in the next step.
 
 When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
-## 12. Next steps
+## 11. Next steps
 
 Before you use Sphinx in production, we recommend reading the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md), which covers essential information for using Sphinx.

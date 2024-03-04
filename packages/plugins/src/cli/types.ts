@@ -12,11 +12,12 @@ import { FoundryToml } from '../foundry/types'
 
 export interface ProposeCommandArgs {
   scriptPath: string
-  networks: 'testnets' | 'mainnets'
+  networks: Array<string>
   confirm: boolean
   dryRun: boolean
   silent: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export interface DeployCommandArgs {
@@ -26,6 +27,7 @@ export interface DeployCommandArgs {
   scriptPath: string
   verify: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export interface FetchArtifactsArgs {
@@ -44,7 +46,7 @@ export interface ArtifactsCommandArgs {
 export type GetNetworkGasEstimate = (
   deploymentConfig: DeploymentConfig,
   chainId: string,
-  foundryToml: FoundryToml
+  rpcUrl: string
 ) => Promise<{
   chainId: number
   estimatedGas: string
@@ -52,7 +54,9 @@ export type GetNetworkGasEstimate = (
 
 export type BuildNetworkConfigArray = (
   scriptPath: string,
-  isTestnet: boolean,
+  scriptFunctionCalldata: string,
+  safeAddress: string,
+  networks: Array<string>,
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
@@ -60,7 +64,10 @@ export type BuildNetworkConfigArray = (
   targetContract?: string,
   spinner?: ora.Ora
 ) => Promise<{
-  networkConfigArray?: Array<NetworkConfig>
+  networkConfigArrayWithRpcUrls?: Array<{
+    networkConfig: NetworkConfig
+    rpcUrl: string
+  }>
   configArtifacts?: ConfigArtifacts
   buildInfos?: BuildInfos
   isEmpty: boolean

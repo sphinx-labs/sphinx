@@ -2,8 +2,14 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 import {
+  DeployedContractSize,
+  ParsedAccountAccess,
+} from '@sphinx-labs/contracts'
+import {
+  ExplorerName,
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
+  SupportedNetwork,
 } from '@sphinx-labs/contracts/dist/networks'
 
 export type SupportedLocalNetworkName = 'anvil'
@@ -69,6 +75,26 @@ export const fetchNameForNetwork = (chainId: bigint) => {
   }
 }
 
+export const isSupportedTestNetwork = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.networkType === 'Testnet'
+  } else {
+    return false
+  }
+}
+
+export const isSupportedProductionNetwork = (chainId: bigint): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.networkType === 'Mainnet'
+  } else {
+    return false
+  }
+}
+
 // Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchDripSizeForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
@@ -102,11 +128,104 @@ export const fetchDripVersionForNetwork = (chainId: bigint) => {
   }
 }
 
-export const isVerificationSupportedForNetwork = (chainId: bigint) => {
+export const calculateMerkleLeafGas = (
+  chainId: bigint,
+  foundryGas: string,
+  deployedContractSizes: DeployedContractSize[],
+  access: ParsedAccountAccess
+) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
+  if (network?.handleNetworkSpecificMerkleLeafGas) {
+    return network.handleNetworkSpecificMerkleLeafGas(
+      foundryGas,
+      deployedContractSizes,
+      access
+    )
+  } else {
+    return foundryGas
+  }
+}
+
+export const isEtherscanSupportedForNetwork = (
+  chainId: bigint,
+  mockSphinxNetworks?: any
+) => {
+  const networks: Array<SupportedNetwork> =
+    mockSphinxNetworks ?? SPHINX_NETWORKS
+  const network = networks.find((n) => n.chainId === chainId)
+
   if (network) {
-    return network.etherscan.blockExplorer !== 'Unsupported'
+    return network.blockexplorers.etherscan !== undefined
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
+export const isBlockscoutSupportedForNetwork = (
+  chainId: bigint,
+  mockSphinxNetworks?: any
+) => {
+  const networks: Array<SupportedNetwork> =
+    mockSphinxNetworks ?? SPHINX_NETWORKS
+  const network = networks.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.blockexplorers.blockscout !== undefined
+  } else {
+    throw new Error(`Unsupported network id ${chainId}`)
+  }
+}
+
+export const isVerificationSupportedForNetwork = (
+  chainId: bigint,
+  mockSphinxNetworks?: any
+) => {
+  return (
+    isEtherscanSupportedForNetwork(chainId, mockSphinxNetworks) ||
+    isBlockscoutSupportedForNetwork(chainId, mockSphinxNetworks)
+  )
+}
+
+export const fetchEtherscanConfigForNetwork = (
+  chainId: bigint,
+  explorerName?: ExplorerName,
+  mockSphinxNetworks?: any
+) => {
+  const networks: Array<SupportedNetwork> =
+    mockSphinxNetworks ?? SPHINX_NETWORKS
+
+  const network = networks.find((n) => n.chainId === chainId)
+
+  if (!isVerificationSupportedForNetwork(chainId, mockSphinxNetworks)) {
+    throw new Error(
+      `verification is not supported on network with id: ${chainId}`
+    )
+  }
+
+  if (network) {
+    // If an explorer name was provided, then return the config for it no matter what
+    if (explorerName) {
+      if (explorerName === 'Blockscout') {
+        return network.blockexplorers.blockscout
+      } else if (explorerName === 'Etherscan') {
+        return network.blockexplorers.etherscan
+      } else {
+        throw new Error('unsupported explorer name, should never happen')
+      }
+    } else {
+      // If an explorer name was not provided, then return the first defined config
+      // prioritizing etherscan
+      if (network.blockexplorers.etherscan) {
+        return network.blockexplorers.etherscan
+      } else if (network.blockexplorers.blockscout) {
+        return network.blockexplorers.blockscout
+      } else {
+        throw new Error(
+          'Failed to find etherscan or blockscout config for network, should never happen'
+        )
+      }
+    }
   } else {
     throw new Error(`Unsupported network id ${chainId}`)
   }

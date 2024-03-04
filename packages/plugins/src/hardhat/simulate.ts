@@ -18,7 +18,6 @@ import {
   Deployment,
   DeploymentConfig,
   DeploymentContext,
-  ConfigArtifacts,
   HumanReadableAction,
   executeTransactionViaSigner,
   getSphinxWalletsSortedByAddress,
@@ -208,6 +207,36 @@ export const simulate = async (
 }
 
 /**
+ * Handles setting up any
+ *
+ * @param provider
+ * @returns
+ */
+export const setupPresimulationState = async (
+  provider: any,
+  executionMode: ExecutionMode
+) => {
+  let signer: ethers.Wallet
+  if (executionMode === ExecutionMode.LiveNetworkCLI) {
+    const privateKey = process.env.PRIVATE_KEY
+    if (!privateKey) {
+      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
+    }
+    signer = new ethers.Wallet(privateKey, provider)
+  } else if (
+    executionMode === ExecutionMode.LocalNetworkCLI ||
+    executionMode === ExecutionMode.Platform
+  ) {
+    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
+    await fundAccountMaxBalance(signer.address, provider)
+  } else {
+    throw new Error(`Unknown execution mode.`)
+  }
+
+  return signer
+}
+
+/**
  * A Hardhat subtask that simulates a deployment against a forked Hardhat node. We need to load the
  * Hardhat Runtime Environment (HRE) because Hardhat doesn't document any lower-level functionality
  * for running a fork. We could theoretically interact with lower-level components, but this would
@@ -233,22 +262,7 @@ export const simulateDeploymentSubtask = async (
   // This provider is connected to the forked in-process Hardhat node.
   const provider = hre.ethers.provider
 
-  let signer: ethers.Wallet
-  if (executionMode === ExecutionMode.LiveNetworkCLI) {
-    const privateKey = process.env.PRIVATE_KEY
-    if (!privateKey) {
-      throw new Error(`Could not find 'PRIVATE_KEY' environment variable.`)
-    }
-    signer = new ethers.Wallet(privateKey, provider)
-  } else if (
-    executionMode === ExecutionMode.LocalNetworkCLI ||
-    executionMode === ExecutionMode.Platform
-  ) {
-    signer = new ethers.Wallet(getSphinxWalletPrivateKey(0), provider)
-    await fundAccountMaxBalance(signer.address, provider)
-  } else {
-    throw new Error(`Unknown execution mode.`)
-  }
+  let signer = await setupPresimulationState(provider, executionMode)
 
   // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
   const sphinxWallets = getSphinxWalletsSortedByAddress(
@@ -299,15 +313,11 @@ export const simulateDeploymentSubtask = async (
     handleExecutionFailure: (
       _deploymentContext: DeploymentContext,
       _networkConfig: NetworkConfig,
-      _configArtifacts: ConfigArtifacts,
       failureReason: HumanReadableAction
     ) => {
       throw new Error(
         `The following action reverted during the simulation:\n${failureReason.reason}`
       )
-    },
-    verify: async () => {
-      return
     },
     handleSuccess: async () => {
       return
@@ -350,16 +360,47 @@ export const simulateDeploymentSubtask = async (
 
       return { receipts }
     } catch (e) {
-      // This handles a very common response message if the user is using an RPC provider that is rate limiting them.
-      // We handle it specifically and immediate error since we want to make sure the user gets an accurate message
-      // indicating they may need to switch to a paid rpc provider for the network where this error occurred.
-      if (e.message.toLowerCase().includes('too many requests')) {
+      /**
+       * There are really only a few cases where an error will be thrown during the deployment and caught
+       * here (that we know of):
+       * 1. There's a legitimate error in our execution logic
+       * 2. We estimate the merkle leaf gas incorrectly
+       * 3. We fail to find a valid batch size
+       * 4. The users RPC provider rate limits us
+       *
+       * Retrying execution won't help in cases 1, 2, or 3.
+       *
+       * We have this retry logic implemented almost entirely for case 4 where we hit a rate limit that
+       * causes the execution to fail. We found that simply retrying in this case generally does work, but
+       * is not 100% reliable. We often get other errors that appear to be caused by the initial rate limiting.
+       *
+       * For example, we occassionally encountered a situation where transactions would fail after rate
+       * limiting due to the nonce used in the transaction being incorrect. There's also another case where
+       * the transaction to deploy the users Safe would fail after rate limiting because the Safe has already
+       * been deployed. This is something we have logic specifically to prevent that we know works well.
+       *
+       * We believe these issues are related to there being data cached somewhere that is not correct. We
+       * found the most reliable method to resolve these sort of issues was to completely reset the simulation
+       * fork back to the original state using `hardhat_reset`.
+       */
+
+      if (!hre.config.networks.hardhat.forking) {
         throw new Error(
-          `Simulation failed due to rate limiting on RPC provider for ${fetchNameForNetwork(
-            BigInt(deployment.chainId)
-          )}. You may need to switch to an RPC provider that supports higher request volume for this network.`
+          'Simulation was not using fork. This is a bug, please report it to the developers.'
         )
       }
+
+      await provider.send('hardhat_reset', [
+        {
+          forking: {
+            jsonRpcUrl: hre.config.networks.hardhat.forking.url,
+            blockNumber: hre.config.networks.hardhat.forking.blockNumber,
+          },
+        },
+      ])
+
+      // Since we're resetting back to the initial state, we also need to call the setup function again
+      signer = await setupPresimulationState(provider, executionMode)
 
       if (attempts < 5) {
         attempts += 1

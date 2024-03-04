@@ -26,7 +26,8 @@ import {
     ExecutionMode,
     SystemContractInfo,
     GnosisSafeTransaction,
-    ParsedAccountAccess
+    ParsedAccountAccess,
+    DeployedContractSize
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -34,6 +35,11 @@ import { IGnosisSafeProxyFactory } from "./interfaces/IGnosisSafeProxyFactory.so
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 import { IMultiSend } from "./interfaces/IMultiSend.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
+
+interface ISphinxScript {
+    function sphinxFetchConfig() external view returns (SphinxConfig memory);
+    function configureSphinx() external;
+}
 
 contract SphinxUtils is SphinxConstants, StdUtils {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -377,36 +383,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         revert("Sphinx: Could not find network. Should never happen.");
     }
 
-    function toString(Network[] memory _network) public pure returns (string memory) {
-        string memory result = "\n";
-        for (uint256 i = 0; i < _network.length; i++) {
-            result = string(abi.encodePacked(result, getNetworkInfo(_network[i]).name));
-            if (i != _network.length - 1) {
-                result = string(abi.encodePacked(result, "\n"));
-            }
-        }
-        return result;
-    }
-
-    function removeNetworkType(
-        Network[] memory _networks,
-        NetworkType _networkType
-    ) public pure returns (Network[] memory) {
-        Network[] memory notNetworkType = new Network[](_networks.length);
-        uint256 numNotNetworkType = 0;
-        for (uint256 i = 0; i < _networks.length; i++) {
-            if (getNetworkInfo(_networks[i]).networkType != _networkType) {
-                notNetworkType[numNotNetworkType] = _networks[i];
-                numNotNetworkType++;
-            }
-        }
-        Network[] memory trimmed = new Network[](numNotNetworkType);
-        for (uint256 i = 0; i < numNotNetworkType; i++) {
-            trimmed[i] = notNetworkType[i];
-        }
-        return trimmed;
-    }
-
     function toString(address[] memory _ary) public pure returns (string memory) {
         string memory result = "\n";
         for (uint256 i = 0; i < _ary.length; i++) {
@@ -442,34 +418,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
-     * @notice Returns an array of Networks that appear more than once in the given array.
-     * @param _networks The unfiltered elements.
-     * @return duplicates The duplicated elements.
-     */
-    function getDuplicatedElements(
-        Network[] memory _networks
-    ) public pure returns (Network[] memory) {
-        // We return early here because the for-loop below will throw an underflow error if the
-        // array is empty.
-        if (_networks.length == 0) return new Network[](0);
-
-        Network[] memory sorted = sortNetworks(_networks);
-        Network[] memory duplicates = new Network[](_networks.length);
-        uint256 numDuplicates = 0;
-        for (uint256 i = 0; i < sorted.length - 1; i++) {
-            if (sorted[i] == sorted[i + 1]) {
-                duplicates[numDuplicates] = sorted[i];
-                numDuplicates++;
-            }
-        }
-        Network[] memory trimmed = new Network[](numDuplicates);
-        for (uint256 i = 0; i < numDuplicates; i++) {
-            trimmed[i] = duplicates[i];
-        }
-        return trimmed;
-    }
-
-    /**
      * @notice Returns an array of addresses that appear more than once in the given array.
      * @param _ary The unfiltered elements.
      * @return duplicates The duplicated elements.
@@ -495,25 +443,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return trimmed;
     }
 
-    /**
-     * @notice Sorts the networks in ascending order according to the Network enum's value.
-     * @param _unsorted The networks to sort.
-     * @return sorted The sorted networks.
-     */
-    function sortNetworks(Network[] memory _unsorted) private pure returns (Network[] memory) {
-        Network[] memory sorted = _unsorted;
-        for (uint256 i = 0; i < sorted.length; i++) {
-            for (uint256 j = i + 1; j < sorted.length; j++) {
-                if (sorted[i] > sorted[j]) {
-                    Network temp = sorted[i];
-                    sorted[i] = sorted[j];
-                    sorted[j] = temp;
-                }
-            }
-        }
-        return sorted;
-    }
-
     function getMappingValueSlotKey(
         bytes32 _mappingSlotKey,
         bytes32 _key
@@ -521,12 +450,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return keccak256(abi.encodePacked(_key, _mappingSlotKey));
     }
 
-    /**
-     * @notice Performs validation on the user's deployment. This mainly checks that the user's
-     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
-     *         proposals, broadcasting, etc).
-     */
-    function validate(SphinxConfig memory _config) public pure {
+    function isConfigObjectEmpty(SphinxConfig memory _config) internal pure returns (bool) {
         if (
             _config.owners.length == 0 &&
             _config.threshold == 0 &&
@@ -536,8 +460,30 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _config.saltNonce == 0 &&
             bytes(_config.orgId).length == 0
         ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function fetchAndValidateConfig(address _script) public returns (SphinxConfig memory) {
+        ISphinxScript(_script).configureSphinx();
+        SphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
+        validate(config);
+        return config;
+    }
+
+    /**
+     * @notice Performs validation on the user's deployment. This mainly checks that the user's
+     *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
+     *         proposals, broadcasting, etc).
+     */
+    function validate(SphinxConfig memory _config) public pure {
+        // We still explicitly check if the config is empty b/c you could define the sphinxConfig
+        // function, but not actually configure any options in it.
+        if (isConfigObjectEmpty(_config)) {
             revert(
-                "Sphinx: Detected an empty 'sphinxConfig' struct. Did you forget to add fields to it in your script's\nsetUp function or constructor? If you've already added fields to it in your setUp function, have you\ncalled 'super.setUp()' in any contracts that inherit from your script?"
+                "Sphinx: Detected missing Sphinx config. Are you sure you implemented the `configureSphinx` function correctly?\nSee the configuration options reference for more information:\nhttps://github.com/sphinx-labs/sphinx/blob/master/docs/writing-scripts.md#configuration-options"
             );
         }
 
@@ -559,53 +505,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         address[] memory duplicateOwners = getDuplicatedElements(_config.owners);
-        Network[] memory duplicateMainnets = getDuplicatedElements(_config.mainnets);
-        Network[] memory duplicateTestnets = getDuplicatedElements(_config.testnets);
         require(
             duplicateOwners.length == 0,
             string(
                 abi.encodePacked(
                     "Sphinx: Your 'sphinxConfig.owners' array contains duplicate addresses: ",
                     toString(duplicateOwners)
-                )
-            )
-        );
-        require(
-            duplicateMainnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.mainnets' array contains duplicate networks: ",
-                    toString(duplicateMainnets)
-                )
-            )
-        );
-        require(
-            duplicateTestnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.testnets' array contains duplicate networks: ",
-                    toString(duplicateTestnets)
-                )
-            )
-        );
-
-        Network[] memory invalidMainnets = removeNetworkType(_config.mainnets, NetworkType.Mainnet);
-        require(
-            invalidMainnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'sphinxConfig.mainnets' array contains non-production networks: ",
-                    toString(invalidMainnets)
-                )
-            )
-        );
-        Network[] memory invalidTestnets = removeNetworkType(_config.testnets, NetworkType.Testnet);
-        require(
-            invalidTestnets.length == 0,
-            string(
-                abi.encodePacked(
-                    "Sphinx: Your 'testnets' array contains invalid test networks: ",
-                    toString(invalidTestnets)
                 )
             )
         );
@@ -697,20 +602,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return a == 0 ? 0 : (a - 1) / b + 1;
     }
 
-    function validateProposal(SphinxConfig memory _config) external pure {
+    function validateProposal(address _script) external {
+        SphinxConfig memory config = fetchAndValidateConfig(_script);
         require(
-            bytes(_config.orgId).length > 0,
+            bytes(config.orgId).length > 0,
             "Sphinx: Your 'sphinxConfig.orgId' cannot be an empty string. Please retrieve it from Sphinx's UI."
         );
     }
 
-    function getGnosisSafeProxyAddress(SphinxConfig memory _config) public pure returns (address) {
-        bytes memory safeInitializerData = getGnosisSafeInitializerData(_config);
+    function getGnosisSafeProxyInitCode() public pure returns (bytes memory) {
+        return
+            hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+    }
+
+    function getGnosisSafeProxyAddress(address _script) public returns (address) {
+        bytes memory safeInitializerData = getGnosisSafeInitializerData(_script);
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
+
         bytes32 salt = keccak256(
             abi.encodePacked(keccak256(safeInitializerData), _config.saltNonce)
         );
-        bytes
-            memory safeProxyInitCode = hex"608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea2646970667358221220d1429297349653a4918076d650332de1a1068c5f3e07c5c82360c277770b955264736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564";
+        bytes memory safeProxyInitCode = getGnosisSafeProxyInitCode();
         bytes memory deploymentData = abi.encodePacked(
             safeProxyInitCode,
             uint256(uint160(safeSingletonAddress))
@@ -745,8 +657,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    function getSphinxModuleAddress(SphinxConfig memory _config) public pure returns (address) {
-        address safeProxyAddress = getGnosisSafeProxyAddress(_config);
+    function getSphinxModuleAddress(address _script) public returns (address) {
+        address safeProxyAddress = getGnosisSafeProxyAddress(_script);
         bytes32 salt = keccak256(
             abi.encode(
                 safeProxyAddress,
@@ -788,9 +700,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      *         location.
      */
     function getGnosisSafeInitializerData(
-        SphinxConfig memory _config
-    ) public pure returns (bytes memory safeInitializerData) {
-        validate(_config);
+        address _script
+    ) public returns (bytes memory safeInitializerData) {
+        SphinxConfig memory _config = fetchAndValidateConfig(_script);
 
         // Sort the owner addresses. This provides a consistent ordering, which makes it easier
         // to calculate the `CREATE2` address of the Gnosis Safe off-chain.
@@ -949,12 +861,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return count;
     }
 
+    /**
+     * This function checks if a given AccountAccess struct is a "root" access meaning that it
+     * is a transaction in the users script that originates from their Safe.
+     *
+     * We consider an AccountAccess struct to be a root access if fits these conditions:
+     * - The accessor is the safe address, meaning the transaction originated from the safe.
+     * - The AccountAccessKind is either Call or Create. These types are the only ones that
+     * represent real transactions. However, if Foundry added support for deploying with the
+     * CREATE2 opcode instead of the default CREATE2 factory, then Create2 would probably be
+     * added as a kind here.
+     * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
+     * at 1 and because we initiate the collection process by doing a delegatecall to the entry
+     * point function so the depth is 2 by the time any transactions get sent in the users script.
+     */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
         address _safeAddress
     ) private pure returns (bool) {
         return
             _access.accessor == _safeAddress &&
+            _access.depth == 2 &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }
@@ -1000,6 +927,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "encodedAccountAccesses",
             _deployment.encodedAccountAccesses
         );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "encodedDeployedContractSizes",
+            _deployment.encodedDeployedContractSizes
+        );
+
         // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
         // numbers to prevent the possibility that they lose precision due JavaScript's relatively
         // low integer size limit. We'll ABI decode these values in TypeScript. It'd be simpler to
@@ -1051,8 +984,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         vm.serializeJson(sphinxConfigKey, "{}");
 
         vm.serializeAddress(sphinxConfigKey, "owners", config.owners);
-        vm.serializeString(sphinxConfigKey, "mainnets", convertNetworksToStrings(config.mainnets));
-        vm.serializeString(sphinxConfigKey, "testnets", convertNetworksToStrings(config.testnets));
+        vm.serializeString(sphinxConfigKey, "mainnets", config.mainnets);
+        vm.serializeString(sphinxConfigKey, "testnets", config.testnets);
         // Serialize the string values as ABI encoded strings.
         vm.serializeBytes(sphinxConfigKey, "projectName", abi.encode(config.projectName));
         vm.serializeBytes(sphinxConfigKey, "orgId", abi.encode(config.orgId));
@@ -1085,14 +1018,44 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return finalJson;
     }
 
-    function convertNetworksToStrings(
-        Network[] memory _networks
-    ) private pure returns (string[] memory) {
-        string[] memory converted = new string[](_networks.length);
-        for (uint256 i = 0; i < _networks.length; i++) {
-            converted[i] = vm.toString(uint256(_networks[i]));
+    function fetchNumCreateAccesses(
+        Vm.AccountAccess[] memory _accesses
+    ) public pure returns (uint) {
+        uint numCreateAccesses = 0;
+        for (uint i = 0; i < _accesses.length; i++) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+                numCreateAccesses += 1;
+            }
         }
-        return converted;
+        return numCreateAccesses;
+    }
+
+    function fetchDeployedContractSizes(
+        Vm.AccountAccess[] memory _accesses
+    ) public view returns (DeployedContractSize[] memory) {
+        uint numCreateAccesses = fetchNumCreateAccesses(_accesses);
+        DeployedContractSize[] memory deployedContractSizes = new DeployedContractSize[](
+            numCreateAccesses
+        );
+        uint deployContractSizeIndex = 0;
+        for (uint i = 0; i < _accesses.length; i++) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+                // We could also read the size of the code from the AccountAccess deployedCode field
+                // We don't do that because Foundry occasionally does not populate that field when
+                // it should.
+                address account = _accesses[i].account;
+                uint size;
+                assembly {
+                    size := extcodesize(account)
+                }
+                deployedContractSizes[deployContractSizeIndex] = DeployedContractSize(
+                    account,
+                    size
+                );
+                deployContractSizeIndex += 1;
+            }
+        }
+        return deployedContractSizes;
     }
 
     function parseAccountAccesses(
@@ -1157,6 +1120,118 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 });
         } else {
             revert("AccountAccess kind is incorrect. Should never happen.");
+        }
+    }
+
+    function getModuleInitializerMultiSendData() private pure returns (bytes memory) {
+        ISphinxModuleProxyFactory moduleProxyFactory = ISphinxModuleProxyFactory(
+            sphinxModuleProxyFactoryAddress
+        );
+
+        // Encode the data that will deploy the Sphinx Module.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory deployModuleMultiSendData = abi.encodePacked(
+            // We use `Call` so that the Gnosis Safe calls the `SphinxModuleProxyFactory` to deploy
+            // the Sphinx Module. This makes it easier for off-chain tooling to calculate the
+            // deployed Sphinx Module address because the `SphinxModuleProxyFactory`'s address is a
+            // global constant.
+            uint8(IEnum.GnosisSafeOperation.Call),
+            moduleProxyFactory,
+            uint256(0),
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+
+        // Encode the data that will enable the Sphinx Module in the Gnosis Safe.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            // Use the zero-hash as the salt.
+            bytes32(0)
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            // We can only enable the module by delegatecalling the `SphinxModuleProxyFactory`
+            // from the Gnosis Safe.
+            uint8(IEnum.GnosisSafeOperation.DelegateCall),
+            moduleProxyFactory,
+            uint256(0),
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+
+        // Encode the entire `MultiSend` data.
+        bytes memory multiSendData = abi.encodeWithSelector(
+            IMultiSend.multiSend.selector,
+            abi.encodePacked(deployModuleMultiSendData, enableModuleMultiSendData)
+        );
+
+        return multiSendData;
+    }
+
+    /**
+     * @notice Deploys a Gnosis Safe, deploys a Sphinx Module,
+     *         and enables the Sphinx Module in the Gnosis Safe
+     */
+    function deployModuleAndGnosisSafe(
+        address[] memory _owners,
+        uint256 _threshold,
+        address _safeAddress
+    ) external {
+        // Get the encoded data that'll be sent to the `MultiSend` contract to deploy and enable the
+        // Sphinx Module in the Gnosis Safe.
+        bytes memory multiSendData = getModuleInitializerMultiSendData();
+
+        // Deploy the Gnosis Safe Proxy to its expected address. We use cheatcodes to deploy the
+        // Gnosis Safe instead of the standard deployment process to avoid a bug in Foundry.
+        // Specifically, Foundry throws an error if we attempt to deploy a contract at the same
+        // address as the `FOUNDRY_SENDER`. We must set the Gnosis Safe as the `FOUNDRY_SENDER` so
+        // that deployed linked library addresses match the production environment. If we deploy the
+        // Gnosis Safe without using cheatcodes, Foundry would throw an error here.
+        deployContractTo(
+            getGnosisSafeProxyInitCode(),
+            abi.encode(safeSingletonAddress),
+            _safeAddress
+        );
+
+        // Initialize the Gnosis Safe proxy.
+        IGnosisSafe(_safeAddress).setup(
+            sortAddresses(_owners),
+            _threshold,
+            multiSendAddress,
+            multiSendData,
+            // This is the default fallback handler used by Gnosis Safe during their
+            // standard deployments.
+            compatibilityFallbackHandlerAddress,
+            // The following fields are for specifying an optional payment as part of the
+            // deployment. We don't use them.
+            address(0),
+            0,
+            payable(address(0))
+        );
+    }
+
+    /**
+     * @notice Deploy a contract to the given address. Slightly modified from
+     *         `StdCheats.sol:deployCodeTo`.
+     */
+    function deployContractTo(
+        bytes memory _initCode,
+        bytes memory _abiEncodedConstructorArgs,
+        address _where
+    ) public {
+        require(_where.code.length == 0, "SphinxUtils: contract already exists");
+        vm.etch(_where, abi.encodePacked(_initCode, _abiEncodedConstructorArgs));
+        (bool success, bytes memory runtimeBytecode) = _where.call("");
+        require(success, "SphinxUtils: failed to create runtime bytecode");
+        vm.etch(_where, runtimeBytecode);
+        if (vm.getNonce(_where) == 0) {
+            // Set the nonce to be 1, which is the initial nonce for contracts.
+            vm.setNonce(_where, 1);
         }
     }
 }

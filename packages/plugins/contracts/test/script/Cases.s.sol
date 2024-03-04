@@ -10,23 +10,26 @@ import { Fallback } from "../../../contracts/test/Fallback.sol";
 import { MyContract2 } from "../MyContracts.sol";
 
 contract Simple is Script, Sphinx {
-    constructor() {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "Deployment_Cases_Project";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
-        sphinxConfig.testnets = [Network.sepolia];
         sphinxConfig.orgId = "test-org-id";
     }
 
-    function run() public sphinx {
+    function deploy(uint256 _inputParam) public sphinx {
         // Deploy a contract, then call a function on it, then deploy another contract. it's
         // important to order the transactions this way to test that the Gnosis Safe's nonce is
         // incremented as a contract instead of an EOA.
         MyContract2 createContractOne = new MyContract2();
         createContractOne.incrementMyContract2(1);
         new MyContract2();
+
+        // Deploy a contract using the input parameter. This tests that we can call arbitrary entry
+        // point functions from the Deploy command.
+        MyContract2 inputParamContract = new MyContract2{ salt: 0 }();
+        inputParamContract.incrementMyContract2(_inputParam);
 
         // Deploy with Create2
         Fallback fallbackCreate2 = new Fallback{ salt: 0 }(-1);

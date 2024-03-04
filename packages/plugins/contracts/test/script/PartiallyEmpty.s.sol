@@ -7,12 +7,11 @@ import { MyContract2 } from "../../../contracts/test/MyContracts.sol";
 import { Sphinx } from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 
 contract PartiallyEmpty is Script, Sphinx {
-    constructor() {
+    function configureSphinx() public override {
         sphinxConfig.projectName = "Partially_Empty";
         sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
         sphinxConfig.threshold = 1;
 
-        sphinxConfig.mainnets = [Network.ethereum, Network.optimism];
         sphinxConfig.orgId = "test-org-id";
     }
 

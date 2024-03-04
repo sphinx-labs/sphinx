@@ -14,7 +14,6 @@ import {
   makeDeploymentData,
   DeploymentArtifacts,
   SphinxTransactionReceipt,
-  ContractDeploymentArtifact,
   getSphinxWalletPrivateKey,
   makeDeploymentArtifacts,
   isReceiptEarlier,
@@ -28,9 +27,6 @@ import {
   fetchChainIdForNetwork,
   checkSystemDeployed,
   ensureSphinxAndGnosisSafeDeployed,
-  AccountAccess,
-  AccountAccessKind,
-  ParsedAccountAccess,
   compileAndExecuteDeployment,
   signMerkleRoot,
   Deployment,
@@ -63,6 +59,9 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   isNonNullObject,
   CONTRACTS_LIBRARY_VERSION,
+  AccountAccess,
+  AccountAccessKind,
+  ParsedAccountAccess,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -337,8 +336,7 @@ export const makeAddress = (uint: number): string => {
 
 export const makeDeployment = async (
   merkleRootNonce: number,
-  mainnets: Array<string>,
-  testnets: Array<string>,
+  networkNames: Array<string>,
   projectName: string,
   owners: Array<ethers.Wallet>,
   threshold: number,
@@ -363,7 +361,6 @@ export const makeDeployment = async (
   }
 
   const ownerAddresses = owners.map((owner) => owner.address)
-  const networkNames = mainnets.concat(testnets)
 
   const collectedPromises = networkNames.map(async (networkName) => {
     try {
@@ -427,14 +424,16 @@ export const makeDeployment = async (
           owners: ownerAddresses,
           threshold: threshold.toString(),
           orgId: 'test-org-id',
-          mainnets,
-          testnets,
+          mainnets: [],
+          testnets: [],
           saltNonce: saltNonce.toString(),
         },
         arbitraryChain: false,
         accountAccesses,
         gasEstimates: new Array(numActionInputs).fill(gasEstimateSize),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+        // This is currenly only used specifically on Moonbeam
+        deployedContractSizes: [],
       }
 
       return deploymentInfo
@@ -493,7 +492,6 @@ export const makeRevertingDeployment = (
   executionMode: ExecutionMode
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
-  expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
   // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
@@ -513,30 +511,25 @@ export const makeRevertingDeployment = (
         abiEncodedConstructorArgs: '0x',
       },
     ])
-  const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = ['MyContract2.json']
 
   return {
     executionMode,
     merkleRootNonce,
     accountAccesses,
-    expectedNumExecutionArtifacts,
     expectedContractFileNames,
   }
 }
 
 export const runDeployment = async (
   deploymentConfig: DeploymentConfig,
-  previousArtifacts: DeploymentArtifacts['networks']
-): Promise<DeploymentArtifacts> => {
+  previousArtifacts: DeploymentArtifacts
+): Promise<void> => {
   const artifactInputs: {
     [chainId: string]: {
       deploymentConfig: DeploymentConfig
       receipts: Array<SphinxTransactionReceipt>
       provider: SphinxJsonRpcProvider
-      previousContractArtifacts: {
-        [fileName: string]: ContractDeploymentArtifact
-      }
     }
   } = {}
 
@@ -579,9 +572,6 @@ export const runDeployment = async (
       handleExecutionFailure: async () => {
         return
       },
-      verify: async () => {
-        return
-      },
       handleSuccess: async () => {
         return
       },
@@ -608,24 +598,19 @@ export const runDeployment = async (
     receipts[0] = receipts[receipts.length - 1]
     receipts[receipts.length - 1] = tempReceipt
 
-    const previousContractArtifacts =
-      previousArtifacts.networks?.[chainId]?.contractDeploymentArtifacts ?? {}
-
     artifactInputs[networkConfig.chainId] = {
       deploymentConfig,
       receipts,
       provider,
-      previousContractArtifacts,
     }
   }
 
-  const artifacts = await makeDeploymentArtifacts(
+  await makeDeploymentArtifacts(
     artifactInputs,
     merkleTree.root,
-    configArtifacts
+    configArtifacts,
+    previousArtifacts
   )
-
-  return artifacts
 }
 
 export const isSortedChronologically = (
@@ -695,7 +680,6 @@ export const makeStandardDeployment = (
   executionMode: ExecutionMode
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
-  expectedNumExecutionArtifacts: number
   expectedContractFileNames: Array<string>
 } => {
   // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
@@ -737,7 +721,6 @@ export const makeStandardDeployment = (
       ),
     },
   ])
-  const expectedNumExecutionArtifacts = 1
   const expectedContractFileNames = [
     'MyContract2.json',
     'MyContract1.json',
@@ -749,17 +732,23 @@ export const makeStandardDeployment = (
     executionMode,
     merkleRootNonce,
     accountAccesses,
-    expectedNumExecutionArtifacts,
     expectedContractFileNames,
+  }
+}
+
+export const getEmptyDeploymentArtifacts = (): DeploymentArtifacts => {
+  return {
+    networks: {},
+    compilerInputs: {},
   }
 }
 
 export const checkArtifacts = (
   projectName: string,
   deploymentConfig: DeploymentConfig,
+  previousArtifacts: DeploymentArtifacts,
   artifacts: DeploymentArtifacts,
   executionMode: ExecutionMode,
-  expectedNumExecutionArtifacts: number,
   expectedContractFileNames: Array<string>
 ) => {
   for (const chainIdStr of Object.keys(artifacts.networks)) {
@@ -775,8 +764,12 @@ export const checkArtifacts = (
     expect(Object.keys(contractDeploymentArtifacts).length).equals(
       expectedContractFileNames.length
     )
+    const numPreviousExecutionArtifacts = getNumExecutionArtifacts(
+      previousArtifacts,
+      chainIdStr
+    )
     expect(Object.keys(executionArtifacts).length).equals(
-      expectedNumExecutionArtifacts
+      numPreviousExecutionArtifacts + 1
     )
 
     const contractArtifactArray = Object.entries(contractDeploymentArtifacts)
@@ -885,7 +878,8 @@ export const getSphinxModuleAddressFromScript = async (
 export const runForgeScript = async (
   scriptPath: string,
   broadcastFolder: string,
-  rpcUrl: string
+  rpcUrl: string,
+  targetContract?: string
 ): Promise<FoundrySingleChainBroadcast> => {
   const initialTime = new Date()
   const forgeScriptArgs = [
@@ -895,6 +889,10 @@ export const runForgeScript = async (
     rpcUrl,
     '--broadcast',
   ]
+  if (targetContract) {
+    forgeScriptArgs.push('--tc')
+    forgeScriptArgs.push(targetContract)
+  }
   const { code, stdout, stderr } = await spawnAsync(`forge`, forgeScriptArgs)
   if (code !== 0) {
     throw new Error(`${stdout}\n${stderr}`)
@@ -912,4 +910,25 @@ export const runForgeScript = async (
     throw new Error('Could not find broadcast file.')
   }
   return broadcast
+}
+
+export const getNumExecutionArtifacts = (
+  artifacts: DeploymentArtifacts,
+  chainId: string
+): number => {
+  if (artifacts.networks[chainId] === undefined) {
+    return 0
+  }
+  return Object.keys(artifacts.networks[chainId].executionArtifacts).length
+}
+
+export const encodeFunctionCalldata = (sig: Array<string>): string => {
+  const fragment = ethers.FunctionFragment.from(sig[0])
+  const params = sig.slice(1)
+  const encodedParams = ethers.AbiCoder.defaultAbiCoder().encode(
+    fragment.inputs,
+    params
+  )
+  const calldata = ethers.concat([fragment.selector, encodedParams])
+  return calldata
 }
