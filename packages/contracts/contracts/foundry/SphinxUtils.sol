@@ -872,8 +872,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * CREATE2 opcode instead of the default CREATE2 factory, then Create2 would probably be
      * added as a kind here.
      * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
-     * at 1 and because we initiate the collection process by doing a delegatecall to the run()
-     * function so the depth is 2 by the time any transactions get sent in the users script.
+     * at 1 and because we initiate the collection process by doing a delegatecall to the entry
+     * point function so the depth is 2 by the time any transactions get sent in the users script.
      */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,

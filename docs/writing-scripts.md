@@ -23,7 +23,7 @@ address safe = safeAddress();
 
 ## The `sphinx` modifier
 
-The entry point for your deployment must always be a `run()` function that has a `sphinx` modifier:
+The entry point function in your script must always have a `sphinx` modifier. For example:
 
 ```sol
 function run() public sphinx {

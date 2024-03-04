@@ -388,6 +388,70 @@ describe('CLI Commands', () => {
     })
   })
 
+  // Tests CLI parameters shared by the Deploy and Propose commands to reduce the amount of
+  // duplication in this test suite.
+  describe('deploy and propose', () => {
+    const deployBaseCommand = ['deploy', scriptPath, '--network', 'ethereum']
+    const proposeBaseCommand = ['propose', scriptPath, '--networks', 'testnets']
+    for (const command of [deployBaseCommand, proposeBaseCommand]) {
+      const commandName = command[0]
+
+      let spy: sinon.SinonStub
+
+      beforeEach(() => {
+        spy = sinon.stub(sphinxContext, commandName as keyof SphinxContext)
+      })
+
+      it(`${commandName}: --sig 'deploy(uint256,uint256)' 123 321`, () => {
+        const sig = ["'deploy(uint256,uint256)'", '123', '321']
+        const args = [...command, '--sig', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+
+      it(`${commandName}: -s 'myScriptFunction()'`, () => {
+        const sig = ["'myScriptFunction()'"]
+        const args = [...command, '-s', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+
+      // Checks that Yargs always uses strings as parameters to `--sig`, which ensures that the
+      // arguments aren't prone to JavaScript's precision loss issues for large numbers.
+      it(`${commandName}: --sig uses string arguments`, () => {
+        const bigNumber = BigInt(2 ^ 255)
+        const sig = ["'myScriptFunction(uint256)'", bigNumber.toString()]
+        const args = [...command, scriptPath, '-s', ...sig]
+
+        makeCLI(args, sphinxContext)
+
+        expect(spy.called).to.be.true
+
+        const expectedParams = {
+          sig,
+        }
+
+        expect(spy.calledWithMatch(expectedParams)).to.be.true
+      })
+    }
+  })
+
   describe('artifacts', () => {
     let fetchArtifactsSpy: sinon.SinonStub
 

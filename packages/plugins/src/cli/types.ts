@@ -17,6 +17,7 @@ export interface ProposeCommandArgs {
   dryRun: boolean
   silent: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export interface DeployCommandArgs {
@@ -26,6 +27,7 @@ export interface DeployCommandArgs {
   scriptPath: string
   verify: boolean
   targetContract?: string
+  sig?: Array<string>
 }
 
 export interface FetchArtifactsArgs {
@@ -52,6 +54,7 @@ export type GetNetworkGasEstimate = (
 
 export type BuildNetworkConfigArray = (
   scriptPath: string,
+  scriptFunctionCalldata: string,
   safeAddress: string,
   networks: Array<string>,
   sphinxPluginTypesInterface: ethers.Interface,

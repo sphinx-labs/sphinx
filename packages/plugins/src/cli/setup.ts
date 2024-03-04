@@ -49,6 +49,16 @@ export const makeCLI = (
             coerce: (networks: Array<string | number>) => networks.map(String),
             demandOption: true,
           })
+          .option('sig', {
+            describe:
+              'The signature of the function to call in the script, or raw calldata',
+            array: true,
+            // Set all array elements to be strings. Necessary to avoid precision loss for large
+            // numbers, which will otherwise occur because Yargs' default behavior is to convert CLI
+            // arguments to numbers when possible.
+            string: true,
+            alias: 's',
+          })
           .option(confirmOption, {
             describe: 'Confirm the proposal without previewing it.',
             boolean: true,
@@ -193,12 +203,22 @@ export const makeCLI = (
       (y) =>
         y
           .usage(
-            `Usage: sphinx deploy <SCRIPT_PATH> --network <network_name> [OPTIONS]`
+            `Usage: sphinx deploy <SCRIPT_PATH> --network <NETWORK_NAME> [options]`
           )
           .positional('scriptPath', {
             describe: 'Path to the Forge script file.',
             type: 'string',
             demandOption: true,
+          })
+          .option('sig', {
+            describe:
+              'The signature of the function to call in the script, or raw calldata',
+            array: true,
+            // Set all array elements to be strings. Necessary to avoid precision loss for large
+            // numbers, which will otherwise occur because Yargs' default behavior is to convert CLI
+            // arguments to numbers when possible.
+            string: true,
+            alias: 's',
           })
           .option(networkOption, {
             describe: 'Name of the network to deploy on.',
@@ -251,7 +271,8 @@ const proposeCommandHandler = async (
   argv: ProposeCommandArgs,
   sphinxContext: SphinxContext
 ): Promise<void> => {
-  const { networks, scriptPath, targetContract, silent, dryRun, confirm } = argv
+  const { networks, scriptPath, targetContract, silent, dryRun, confirm, sig } =
+    argv
 
   if (dryRun && confirm) {
     // Throw an error because these flags are redundant, which signals user error or a
@@ -277,6 +298,7 @@ const proposeCommandHandler = async (
     scriptPath,
     sphinxContext,
     targetContract,
+    sig,
   })
 }
 
@@ -284,7 +306,8 @@ const deployCommandHandler = async (
   argv: DeployCommandArgs,
   sphinxContext: SphinxContext
 ): Promise<void> => {
-  const { network, scriptPath, targetContract, verify, silent, confirm } = argv
+  const { network, scriptPath, targetContract, verify, silent, confirm, sig } =
+    argv
 
   if (silent && !confirm) {
     // Since the '--silent' option silences the preview, the user must confirm the deployment
@@ -303,6 +326,7 @@ const deployCommandHandler = async (
     sphinxContext,
     verify,
     targetContract,
+    sig,
   })
 }
 

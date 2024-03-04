@@ -44,3 +44,10 @@ export const SphinxConfigMainnetsContainsTestnetsErrorMessage =
 export const SphinxConfigTestnetsContainsMainnetsErrorMessage =
   `Your 'sphinxConfig.testnets' array contains all production networks. Please put these networks\n` +
   `in 'sphinxConfig.mainnets' instead.`
+
+export const InvalidFirstSigArgumentErrorMessage =
+  `The first argument passed to --sig is invalid. If you're passing in a function, make sure\n` +
+  `it includes parenthesis, e.g. 'run()'. If you're passing in raw calldata, make sure it's\n` +
+  `a valid hex string.`
+
+export const SigCalledWithNoArgsErrorMessage = `Expected at least one argument passed to --sig, but none were supplied.`

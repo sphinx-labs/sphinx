@@ -9,6 +9,7 @@ import {
   ContractArtifact,
   LinkReferences,
   parseFoundryContractArtifact,
+  remove0x,
 } from '@sphinx-labs/contracts'
 import {
   GetConfigArtifacts,
@@ -33,6 +34,7 @@ import * as MyContractWithLibrariesArtifact from '../../../out/artifacts/MyContr
 import * as MyImmutableContractArtifact from '../../../out/artifacts/MyContracts.sol/MyImmutableContract.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import {
+  encodeFunctionCalldata,
   getAnvilRpcUrl,
   killAnvilNodes,
   makeAddress,
@@ -43,9 +45,12 @@ import { FoundryToml } from '../../../src/foundry/types'
 import {
   assertNoLinkedLibraries,
   makeGetConfigArtifacts,
+  parseScriptFunctionCalldata,
   validateProposalNetworks,
 } from '../../../dist'
 import {
+  InvalidFirstSigArgumentErrorMessage,
+  SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
   getFailedRequestErrorMessage,
@@ -1089,6 +1094,98 @@ describe('Utils', async () => {
       )
       expect(result.rpcUrls).to.deep.equals([rpcEndpoints[validTestnetOne]])
       expect(result.isTestnet).to.be.true
+    })
+  })
+
+  describe('parseScriptFunctionCalldata', () => {
+    let spawnAsyncStub: sinon.SinonStub
+
+    beforeEach(() => {
+      spawnAsyncStub = sinon.stub()
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('throws an error if called with no arguments', async () => {
+      await expect(parseScriptFunctionCalldata([])).to.be.rejectedWith(
+        SigCalledWithNoArgsErrorMessage
+      )
+    })
+
+    it('throws an error if spawnAsync fails on selector retrieval', async () => {
+      const mockSig = ['testFunc(uint256)']
+      const errorMessage = 'spawnAsync failed on selector retrieval'
+
+      spawnAsyncStub
+        .onFirstCall()
+        .resolves({ code: 1, stdout: '', stderr: errorMessage })
+
+      await expect(
+        parseScriptFunctionCalldata(mockSig, spawnAsyncStub)
+      ).to.be.rejectedWith(errorMessage)
+    })
+
+    it('throws an error if spawnAsync fails on abi-encode', async () => {
+      const mockSig = ['testFunc(uint256)', '1234']
+      const errorMessage = 'spawnAsync failed on abi-encode'
+
+      spawnAsyncStub
+        .onFirstCall()
+        .resolves({ code: 0, stdout: 'selector', stderr: '' })
+      spawnAsyncStub
+        .onSecondCall()
+        .resolves({ code: 1, stdout: '', stderr: errorMessage })
+
+      await expect(
+        parseScriptFunctionCalldata(mockSig, spawnAsyncStub)
+      ).to.be.rejectedWith(errorMessage)
+    })
+
+    it('throws an error if the first argument is a function with no parentheses', async () => {
+      const invalidSig = ['invalidSig']
+      await expect(parseScriptFunctionCalldata(invalidSig)).to.be.rejectedWith(
+        InvalidFirstSigArgumentErrorMessage
+      )
+    })
+
+    it('throws an error if the first argument is a hex string with odd number of bytes', async () => {
+      const invalidSig = ['0x111']
+      await expect(parseScriptFunctionCalldata(invalidSig)).to.be.rejectedWith(
+        InvalidFirstSigArgumentErrorMessage
+      )
+    })
+
+    it('should handle valid function signature with parentheses', async () => {
+      const sig = ['testFunc(uint256)', '1234']
+      const expectedCalldata = encodeFunctionCalldata(sig)
+
+      const actualCalldata = await parseScriptFunctionCalldata(sig)
+      expect(actualCalldata).to.equal(expectedCalldata)
+    })
+
+    it("should return the input if it's an 0x-prefixed hex string", async () => {
+      const calldata = encodeFunctionCalldata(['testFunc(uint256)', '1234'])
+
+      const actualCalldata = await parseScriptFunctionCalldata([calldata])
+      expect(actualCalldata).to.equal(calldata)
+    })
+
+    it('should return the 0x-prefixed input if the input is a hex string that is not 0x-prefixed', async () => {
+      const with0x = encodeFunctionCalldata(['testFunc(uint256)', '1234'])
+      const calldata = remove0x(with0x)
+
+      const actualCalldata = await parseScriptFunctionCalldata([calldata])
+      expect(actualCalldata).to.equal(with0x)
+    })
+
+    it('should trim strings surrounding hex string', async () => {
+      const calldata = encodeFunctionCalldata(['testFunc(uint256)', '1234'])
+      const withStrings = `""""""${calldata}""""""`
+
+      const actualCalldata = await parseScriptFunctionCalldata([withStrings])
+      expect(actualCalldata).to.equal(calldata)
     })
   })
 })

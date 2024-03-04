@@ -33,7 +33,7 @@ import { SphinxForkCheck } from "./SphinxForkCheck.sol";
 /**
  * @notice An abstract contract that the user must inherit in order to deploy with Sphinx.
  *         The main user-facing element of this contract is the `sphinx` modifier, which
- *         the user must include in their `run()` function. The rest of the logic is used
+ *         the user must include in their entry point function. The rest of the logic is used
  *         internally by Sphinx to handle the process of collecting the user's contract
  *         deployments and function calls.
  *
@@ -139,18 +139,23 @@ abstract contract Sphinx {
         return (libraryVersion, forkInstalled);
     }
 
-    function sphinxCollectProposal(string memory _deploymentInfoPath) external {
+    function sphinxCollectProposal(
+        bytes memory _scriptFunctionCalldata,
+        string memory _deploymentInfoPath
+    ) external {
         sphinxUtils.validateProposal(address(this));
 
         string memory serializedDeploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
-            constants.managedServiceAddress()
+            constants.managedServiceAddress(),
+            _scriptFunctionCalldata
         );
 
         vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollectDeployment(
+        bytes memory _scriptFunctionCalldata,
         ExecutionMode _executionMode,
         string memory _deploymentInfoPath,
         string memory _systemContractsFilePath
@@ -179,13 +184,18 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        string memory serializedDeploymentInfo = sphinxCollect(_executionMode, deployer);
+        string memory serializedDeploymentInfo = sphinxCollect(
+            _executionMode,
+            deployer,
+            _scriptFunctionCalldata
+        );
         vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
     }
 
     function sphinxCollect(
         ExecutionMode _executionMode,
-        address _executor
+        address _executor,
+        bytes memory _scriptFunctionCalldata
     ) private returns (string memory) {
         address safe = safeAddress();
         address module = sphinxModule();
@@ -238,9 +248,8 @@ abstract contract Sphinx {
         uint256 snapshotId = vm.snapshot();
 
         vm.startStateDiffRecording();
-        // Delegatecall the `run()` function on this contract to collect the transactions. This
-        // pattern gives us flexibility to support function names other than `run()` in the future.
-        (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("run()"));
+        // Delegatecall the entry point function on this contract to collect the transactions.
+        (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
         // Throw an error if the deployment script fails. The error message in the user's script is
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
@@ -300,7 +309,7 @@ abstract contract Sphinx {
     }
 
     /**
-     * @notice A modifier that the user must include on their `run()` function when using Sphinx.
+     * @notice A modifier that the user must include on their entry point function when using Sphinx.
      *         This modifier mainly performs validation on the user's configuration and environment.
      */
     modifier sphinx() {
