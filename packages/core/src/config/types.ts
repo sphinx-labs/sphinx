@@ -9,6 +9,8 @@ import {
   SphinxTransaction,
   ContractArtifact,
   SphinxMerkleTree,
+  ParsedAccountAccess,
+  DeployedContractSize,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
@@ -93,11 +95,6 @@ export type NetworkConfig = {
   gitCommit: string | null
 }
 
-export type ParsedAccountAccess = {
-  root: AccountAccess
-  nested: Array<AccountAccess>
-}
-
 export type DeploymentInfo = {
   safeAddress: string
   moduleAddress: string
@@ -115,6 +112,7 @@ export type DeploymentInfo = {
   sphinxLibraryVersion: string
   accountAccesses: Array<ParsedAccountAccess>
   gasEstimates: Array<string>
+  deployedContractSizes: Array<DeployedContractSize>
 }
 
 export type InitialChainState = {
@@ -285,43 +283,4 @@ export interface FoundryDryRunTransaction extends AbstractFoundryTransaction {
 export interface FoundryBroadcastTransaction
   extends AbstractFoundryTransaction {
   hash: string
-}
-
-export enum AccountAccessKind {
-  Call = '0',
-  DelegateCall = '1',
-  CallCode = '2',
-  StaticCall = '3',
-  Create = '4',
-  SelfDestruct = '5',
-  Resume = '6',
-  Balance = '7',
-  Extcodesize = '8',
-  Extcodehash = '9',
-  Extcodecopy = '10',
-}
-
-export type AccountAccess = {
-  chainInfo: {
-    forkId: string
-    chainId: string
-  }
-  kind: AccountAccessKind
-  account: string
-  accessor: string
-  initialized: boolean
-  oldBalance: string
-  newBalance: string
-  deployedCode: string
-  value: string
-  data: string
-  reverted: boolean
-  storageAccesses: Array<{
-    account: string
-    slot: string
-    isWrite: boolean
-    previousValue: string
-    newValue: string
-    reverted: boolean
-  }>
 }

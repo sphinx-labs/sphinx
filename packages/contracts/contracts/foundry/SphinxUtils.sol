@@ -26,7 +26,8 @@ import {
     ExecutionMode,
     SystemContractInfo,
     GnosisSafeTransaction,
-    ParsedAccountAccess
+    ParsedAccountAccess,
+    DeployedContractSize
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -926,6 +927,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "encodedAccountAccesses",
             _deployment.encodedAccountAccesses
         );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "encodedDeployedContractSizes",
+            _deployment.encodedDeployedContractSizes
+        );
+
         // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
         // numbers to prevent the possibility that they lose precision due JavaScript's relatively
         // low integer size limit. We'll ABI decode these values in TypeScript. It'd be simpler to
@@ -1009,6 +1016,46 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         return finalJson;
+    }
+
+    function fetchNumCreateAccesses(
+        Vm.AccountAccess[] memory _accesses
+    ) public pure returns (uint) {
+        uint numCreateAccesses = 0;
+        for (uint i = 0; i < _accesses.length; i++) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+                numCreateAccesses += 1;
+            }
+        }
+        return numCreateAccesses;
+    }
+
+    function fetchDeployedContractSizes(
+        Vm.AccountAccess[] memory _accesses
+    ) public view returns (DeployedContractSize[] memory) {
+        uint numCreateAccesses = fetchNumCreateAccesses(_accesses);
+        DeployedContractSize[] memory deployedContractSizes = new DeployedContractSize[](
+            numCreateAccesses
+        );
+        uint deployContractSizeIndex = 0;
+        for (uint i = 0; i < _accesses.length; i++) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+                // We could also read the size of the code from the AccountAccess deployedCode field
+                // We don't do that because Foundry occasionally does not populate that field when
+                // it should.
+                address account = _accesses[i].account;
+                uint size;
+                assembly {
+                    size := extcodesize(account)
+                }
+                deployedContractSizes[deployContractSizeIndex] = DeployedContractSize(
+                    account,
+                    size
+                );
+                deployContractSizeIndex += 1;
+            }
+        }
+        return deployedContractSizes;
     }
 
     function parseAccountAccesses(

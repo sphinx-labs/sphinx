@@ -31,15 +31,12 @@ import {
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
-  AccountAccess,
-  AccountAccessKind,
   ActionInput,
   DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
   GetConfigArtifacts,
   InitialChainState,
-  ParsedAccountAccess,
   NetworkConfig,
   ParsedVariable,
   SphinxConfig,
@@ -70,6 +67,9 @@ import {
   CONTRACTS_LIBRARY_VERSION,
   SPHINX_NETWORKS,
   NetworkType,
+  ParsedAccountAccess,
+  AccountAccessKind,
+  AccountAccess,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 

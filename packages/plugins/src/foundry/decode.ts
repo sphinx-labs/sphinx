@@ -9,7 +9,6 @@ import {
   ParsedVariable,
   getAbiEncodedConstructorArgs,
   decodeCall,
-  AccountAccessKind,
   CreateActionInput,
   encodeCreateCall,
   decodeDeterministicDeploymentProxyData,
@@ -18,6 +17,7 @@ import {
   fetchNameForNetwork,
   getMaxGasLimit,
   prettyFunctionCall,
+  calculateMerkleLeafGas,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -26,6 +26,7 @@ import {
   recursivelyConvertResult,
   getCurrentGitCommitHash,
   getCreateCallAddress,
+  AccountAccessKind,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -50,6 +51,11 @@ export const decodeDeploymentInfo = (
     'parsedAccountAccessType'
   )
 
+  const deployedContractSizesFragment = findFunctionFragment(
+    sphinxPluginTypesInterface,
+    'deployedContractSizesType'
+  )
+
   const coder = AbiCoder.defaultAbiCoder()
 
   const {
@@ -69,6 +75,16 @@ export const decodeDeploymentInfo = (
   const nonce = abiDecodeUint256(parsed.nonce)
 
   const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
+
+  // ABI decode the `deployedContractSizes` array
+  const deployedContractSizesResult = coder.decode(
+    deployedContractSizesFragment.outputs,
+    parsed.encodedDeployedContractSizes
+  )
+  const { deployedContractSizes } = recursivelyConvertResult(
+    deployedContractSizesFragment.outputs,
+    deployedContractSizesResult
+  ) as any
 
   // ABI decode each `ParsedAccountAccess` individually.
   const accountAccesses = parsed.encodedAccountAccesses.map((encoded) => {
@@ -111,6 +127,7 @@ export const decodeDeploymentInfo = (
     sphinxLibraryVersion: abiDecodeString(sphinxLibraryVersion),
     accountAccesses,
     gasEstimates,
+    deployedContractSizes,
   }
 
   if (!isDeploymentInfo(deploymentInfo)) {
@@ -143,13 +160,19 @@ export const makeNetworkConfig = (
     requireSuccess,
     accountAccesses,
     gasEstimates,
+    deployedContractSizes,
   } = deploymentInfo
 
   const parsedActionInputs: Array<ActionInput> = []
   const unlabeledContracts: NetworkConfig['unlabeledContracts'] = []
   for (let i = 0; i < accountAccesses.length; i++) {
     const { root, nested } = accountAccesses[i]
-    const gas = gasEstimates[i].toString()
+    const gas = calculateMerkleLeafGas(
+      BigInt(chainId),
+      gasEstimates[i].toString(),
+      deployedContractSizes,
+      accountAccesses[i]
+    )
 
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
       nested,

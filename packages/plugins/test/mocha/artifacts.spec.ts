@@ -5,7 +5,6 @@ import {
   ExecutionMode,
   fetchChainIdForNetwork,
   writeDeploymentArtifacts,
-  ParsedAccountAccess,
   makeContractDeploymentArtifacts,
   SphinxJsonRpcProvider,
   isContractDeploymentArtifact,
@@ -13,7 +12,7 @@ import {
   isExecutionArtifact,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { remove0x } from '@sphinx-labs/contracts'
+import { ParsedAccountAccess, remove0x } from '@sphinx-labs/contracts'
 import sinon from 'sinon'
 import { expect } from 'chai'
 

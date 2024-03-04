@@ -27,9 +27,6 @@ import {
   fetchChainIdForNetwork,
   checkSystemDeployed,
   ensureSphinxAndGnosisSafeDeployed,
-  AccountAccess,
-  AccountAccessKind,
-  ParsedAccountAccess,
   compileAndExecuteDeployment,
   signMerkleRoot,
   Deployment,
@@ -62,6 +59,9 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   isNonNullObject,
   CONTRACTS_LIBRARY_VERSION,
+  AccountAccess,
+  AccountAccessKind,
+  ParsedAccountAccess,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -432,6 +432,8 @@ export const makeDeployment = async (
         accountAccesses,
         gasEstimates: new Array(numActionInputs).fill(gasEstimateSize),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
+        // This is currenly only used specifically on Moonbeam
+        deployedContractSizes: [],
       }
 
       return deploymentInfo
