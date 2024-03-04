@@ -7,7 +7,7 @@ import {Network} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginType
 import {MyContract1} from "../contracts/test/MyContracts.sol";
 import {CREATE3} from "solady/utils/CREATE3.sol";
 
-contract Sample is Sphinx {
+contract Sample is Sphinx, Script {
     MyContract1 myContract;
 
     function configureSphinx() public override {
@@ -41,6 +41,7 @@ contract Sample is Sphinx {
 
     function run() public {
         console.log('this in script', address(this));
+        // vm.startBroadcast(msg.sender);
         new MyContract1(
             -1,
             2,
@@ -59,5 +60,6 @@ contract Sample is Sphinx {
             address(1),
             address(2)
         );
+        // vm.stopBroadcast();
     }
 }

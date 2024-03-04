@@ -471,26 +471,43 @@ export const deploy = async (
 // we're using --skip-simulation
 
 // TODO(end): ticket: Should we rename the sphinx modifier to something more descriptive, like
-// prankSafe? If so, how can we make this backwards compatible? This should probably be in a
+// sphinxBroadcast? If so, how can we make this backwards compatible? This should probably be in a
 // different ticket.
 
-// ------------------------------ TODO(later-later)-------------------------------
+// TODO(end): ticket: pranked txns from the gnosis safe should probably be invalid. only broadcasts
+// should be valid. this would be a breaking change I think. i don't have confidence that there's
+// *never* a valid reason to prank the safe w/o broadcasting. allowing pranks to create transactions
+// is unexpected behavior in the context of Forge Scripts. We should consider how our existing error
+// handling is impacted by this change:
+// 1. We currently exit early (w/o an error) if there are no top-level txns in the user's script. It
+//    may make more sense for this check to only occur for broadcasted txns.
+// 2. We currently exit early (w/o an error) if there _are_ top-level txns in the user's script, but
+//    they aren't sent from the gnosis safe. It also may make more sense for this check to only
+//    occur for broadcasted txns.
 
-// TODO(later-later): here are two situations we need to handle in docs/error messages:
-// - The user doesn't include a deployer private key environment variable, which causes their Forge
-//   script to fail.
-// - The user includes their deployer private key environment variable, or they have an existing
-//   hardcoded deployer address in their script. In this scenario, their script doesn't fail, but
-//   their transactions won't be sent from their Gnosis Safe.
+// ------------------------------- TODO(docs) ---------------------------------
+
+// TODO(docs): we don't throw an error if there are top-level transactions in the user's script
+// because it's possible that the user has an idempotent script where they execute a transaction
+// outside of a pranked/broadcasted gnosis safe call. if there actually aren't any transactions
+// to collect in this scenario, throwing an error is not desirable behavior.
+
+// ------------------------------ TODO(later-later)-------------------------------
 
 // TODO(later-later): do our docs say anywhere that Sphinx will collect any _broadcasted_
 // transaction? if so, this isn't technically accurate until we fix the bug where regular txns from
 // the safe are also broadcasted.
 
+// TODO(later-later): Handle the situation where the user doesn't include a deployer private key
+//   environment variable, which causes their Forge script to fail.
+
 // ----------------------------- TODO(end) ------------------------------------------
 
-// TODO(end): make ticket: pranked txns from the gnosis safe should probably be invalid. only
-// broadcasts should be valid. maybe?
+// TODO(later): handle the situation where:
+// - The user includes their deployer private key environment variable, or they have an existing
+//   hardcoded deployer address in their script. In this scenario, their script doesn't fail, but
+//   their transactions won't be sent from their Gnosis Safe.
+// - Check that the regular "Nothing to deploy" `spinner.info` can still be triggered.
 
 // TODO(later): check:
 // - msg.sender
@@ -505,25 +522,16 @@ export const deploy = async (
 // - Lastly, we should continue to allow usage of the sphinx modifier. This should continue to be
 //   the default approach in the Quickstart.
 
-// TODO(later): "We need some way to detect if the user didn’t prank or broadcast their Gnosis Safe
-// in their script. The call depth is probably the best solution. We should check that the UX of
-// this is reasonable. Also, we should reconcile this situation with the fact that the user’s script
-// may be idempotent on some networks, which means they may genuinely not have any transactions sent
-// from their Gnosis Safe". I think the solution is to throw an error if there aren't _any_
-// transactions w/ call depth zero (or two or w/e) that aren't from the Gnosis Safe. We should check
-// for the complete absence of these txns because the user may start pranking from another address
-// temporarily in their script, which should be a valid operation.
-
 // TODO(later): see if it's fine to do --skip-simulation. maybe it's safer to actually do the
 // simulation?
 
 // TODO(later): add --skip-simulation to deploy and propose
-
-// TODO(later): What happens if the user does vm.startBroadcast and we supply an --rpc-url  to the
-// Forge script? Does the on-chain simulation occur? If so, is that potentially bad?
 
 // TODO(end): Consider how our system will handle users stopping broadcasts, deploying a contract /
 // calling a function, then starting broadcasts again. One of the calls this week is with a user
 // that does this. E.g. I don’t think fetchNumCreateAccesses will behave correctly in this
 // situation, if there are unbroadcasted contract deployments.
 // https://github.com/vacp2p/rln-contract/blob/5d9108a1384cb53f73d23906d7085d212425b77b/script/Deploy.s.sol#L11-L13
+
+// TODO(later): case: user does `vm.startBroadcast` in their script, but never does `stopBroadcast`.
+// similarly, they could do `vm.broadcast()` but never have a broadcasted txn.

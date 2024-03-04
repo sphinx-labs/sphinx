@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
 import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
-import { console } from "../../lib/forge-std/src/console.sol"; // TODO(later): rm
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";
@@ -849,7 +848,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getNumRootAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) private returns (uint256) {
+    ) private pure returns (uint256) {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -878,8 +877,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
         address _safeAddress
-    ) private returns (bool) {
-        console.log('moose', _access.accessor, uint(_access.kind));
+    ) private pure returns (bool) {
         return
             _access.accessor == _safeAddress &&
             _access.depth == 2 &&
@@ -891,7 +889,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         Vm.AccountAccess[] memory _accesses,
         uint256 _rootIdx,
         address _safeAddress
-    ) private returns (uint256) {
+    ) private pure returns (uint256) {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -1016,7 +1014,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function parseAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) public returns (ParsedAccountAccess[] memory) {
+    ) public pure returns (ParsedAccountAccess[] memory) {
         uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
@@ -1025,7 +1023,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             Vm.AccountAccess memory access = _accesses[rootIdx];
 
             if (isRootAccountAccess(access, _safeAddress)) {
-                console.log('found root');
                 uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress);
                 Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
                 for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
@@ -1041,7 +1038,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
                 rootCount += 1;
             }
         }
-        console.log('finished parsing');
         return parsed;
     }
 
