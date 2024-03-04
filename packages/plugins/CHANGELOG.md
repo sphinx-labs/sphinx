@@ -1,5 +1,33 @@
 # @sphinx-labs/plugins
 
+## 0.30.0
+
+### Minor Changes
+
+- 4dfc0ba: Add support for arbitrary entry point functions in the user's script
+- 5b6ae62: Let users specify arbitrary network names when deploying and proposing
+- 8e5a590: Require configuration via configureSphinx function
+
+### Patch Changes
+
+- 8f4b270: Remove requirement for Foundry fork
+- 145ddc1: Handle higher storage cost on Moonbeam
+- 91d1293: Add support for multiple block explorer configurations on each network
+- 1373688: Continue with retries on rate limiting
+- e8b2c20: Keep previous deployment artifacts
+- dc2b2a6: Use call depth when filtering AccountAccesses
+- 342864a: Remove FOUNDRY_SENDER during collection phase
+- 56bae32: Set FOUNDRY_SENDER and ETH_FROM during transaction collection
+- Updated dependencies [145ddc1]
+- Updated dependencies [91d1293]
+- Updated dependencies [4dfc0ba]
+- Updated dependencies [e8b2c20]
+- Updated dependencies [dc2b2a6]
+- Updated dependencies [5b6ae62]
+- Updated dependencies [8e5a590]
+  - @sphinx-labs/contracts@0.20.0
+  - @sphinx-labs/core@0.23.0
+
 ## 0.29.6
 
 ### Patch Changes
