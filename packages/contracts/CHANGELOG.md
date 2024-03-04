@@ -1,5 +1,19 @@
 # @sphinx-labs/contracts
 
+## 0.20.0
+
+### Minor Changes
+
+- 4dfc0ba: Add support for arbitrary entry point functions in the user's script
+- 5b6ae62: Let users specify arbitrary network names when deploying and proposing
+- 8e5a590: Require configuration via configureSphinx function
+
+### Patch Changes
+
+- 145ddc1: Handle higher storage cost on Moonbeam
+- 91d1293: Add support for multiple block explorer configurations on each network
+- dc2b2a6: Use call depth when filtering AccountAccesses
+
 ## 0.19.3
 
 ### Patch Changes
