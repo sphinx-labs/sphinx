@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.23.1
+
+### Patch Changes
+
+- b304407: Use fixed hardhat version
+
 ## 0.23.0
 
 ### Minor Changes
