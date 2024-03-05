@@ -1,6 +1,9 @@
 // Converts BigInt values to strings when calling JSON.stringify. An error would be thrown
 // otherwise. For more context, see these sources:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#use_within_json
+
+import { compileAndExecuteDeployment } from './actions'
+
 // https://github.com/GoogleChromeLabs/jsbi/issues/30#issuecomment-1006088574
 BigInt.prototype['toJSON'] = function () {
   return this.toString()
@@ -19,3 +22,8 @@ export * from './preview'
 export * from './provider'
 export * from './artifacts'
 export * from './types'
+export * from './errors'
+
+export const SphinxCore = {
+  compileAndExecuteDeployment,
+}

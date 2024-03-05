@@ -329,12 +329,12 @@ abstract contract Sphinx {
             "Sphinx: Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
         );
 
-        // We allow users to call `vm.startPrank` before calling their `deploy` function so that
-        // they don't need to toggle it before and after calling `deploy`, which may be annoying for
-        // users who have complex deployment flows. However, we turn pranking off here because we'll
-        // prank the Gnosis Safe during the execution process, since this is the contract that
-        // deploys their contracts on live networks. If the user enabled pranking before calling
-        // `deploy`, then we'll turn it back on at the end of this modifier.
+        // We allow users to call `vm.startPrank` before calling their entry point function so that
+        // they don't need to toggle pranking before and after calling their entry point, which may
+        // be annoying for users who have complex deployment flows. However, we turn pranking off
+        // here because we'll prank the Gnosis Safe during the execution process, since this is the
+        // contract that deploys their contracts on live networks. If the user enabled pranking
+        // before calling their entry point, then we'll turn it back on at the end of this modifier.
         if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
 
         sphinxUtils.fetchAndValidateConfig(address(this));

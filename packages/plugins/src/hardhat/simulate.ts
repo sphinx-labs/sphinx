@@ -14,7 +14,6 @@ import {
   isLiveNetwork,
   fundAccountMaxBalance,
   signMerkleRoot,
-  compileAndExecuteDeployment,
   Deployment,
   DeploymentConfig,
   DeploymentContext,
@@ -28,8 +27,13 @@ import {
   callWithTimeout,
   fetchExecutionTransactionReceipts,
   convertEthersTransactionReceipt,
+  InvariantError,
+  batchPromises,
+  getContractAddressesFromNetworkConfig,
+  SphinxCore,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -319,9 +323,7 @@ export const simulateDeploymentSubtask = async (
         `The following action reverted during the simulation:\n${failureReason.reason}`
       )
     },
-    handleSuccess: async () => {
-      return
-    },
+    handleSuccess: async () => handleSimulationSuccess(networkConfig, provider),
     executeTransaction: executeTransactionViaSigner,
     deployment,
     provider,
@@ -334,7 +336,7 @@ export const simulateDeploymentSubtask = async (
   while (executionCompleted === false) {
     try {
       const result = await callWithTimeout(
-        compileAndExecuteDeployment(simulationContext),
+        SphinxCore.compileAndExecuteDeployment(simulationContext),
         90000,
         'timed out executing deployment'
       )
@@ -360,6 +362,12 @@ export const simulateDeploymentSubtask = async (
 
       return { receipts }
     } catch (e) {
+      // Throw the error if it's an `InvariantError`, since this error type only occurs if there's a
+      // bug in Sphinx.
+      if (e instanceof InvariantError) {
+        throw e
+      }
+
       /**
        * There are really only a few cases where an error will be thrown during the deployment and caught
        * here (that we know of):
@@ -418,3 +426,34 @@ export const simulateDeploymentSubtask = async (
 
   return { receipts }
 }
+
+export const handleSimulationSuccess = async (
+  networkConfig: NetworkConfig,
+  provider: HardhatEthersProvider
+) => {
+  const contractAddresses = getContractAddressesFromNetworkConfig(networkConfig)
+
+  // Check that the contracts have all been deployed. This ensures the contract addresses in
+  // Foundry's `AccountAccess` structs match the actual deployed contract addresses. It's dangerous
+  // if these don't match because it indicates that the `ActionInput` array contains incorrect
+  // contract addresses, since this array is created from Foundry's `AccountAccess` structs. If
+  // there's a mismatch, the preview will contain the wrong contract addresses, and the user may use
+  // the wrong contract addresses as inputs to functions in their script.
+  //
+  // We use a small batch size to speed up this logic. We don't use a Promise.all because this could
+  // always cause a rate limit error if the deployment contains a lot of contract deployments.
+  await batchPromises(
+    3, // Batch size of 3
+    contractAddresses,
+    async (address) => {
+      if ((await provider.getCode(address)) === '0x') {
+        throw new InvariantError(getUndeployedContractErrorMesage(address))
+      }
+    }
+  )
+  return
+}
+
+export const getUndeployedContractErrorMesage = (address: string): string =>
+  `Simulation succeeded, but the following contract wasn't deployed at its expected address:\n` +
+  address

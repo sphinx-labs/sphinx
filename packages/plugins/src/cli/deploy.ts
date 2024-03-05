@@ -38,6 +38,7 @@ import {
   injectRoles,
   removeRoles,
   NetworkConfig,
+  DeploymentArtifacts,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -78,6 +79,7 @@ export const deploy = async (
   preview?: ReturnType<typeof getPreview>
   receipts?: Array<SphinxTransactionReceipt>
   configArtifacts?: ConfigArtifacts
+  deploymentArtifacts?: DeploymentArtifacts
 }> => {
   const {
     network,
@@ -465,5 +467,6 @@ export const deploy = async (
     preview,
     receipts,
     configArtifacts,
+    deploymentArtifacts,
   }
 }

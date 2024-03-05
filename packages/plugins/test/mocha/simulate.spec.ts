@@ -9,9 +9,13 @@ import {
   isFork,
   isLiveNetwork,
   NetworkConfig,
+  InvariantError,
+  SphinxCore,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
+import sinon from 'sinon'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import {
   getAnvilRpcUrl,
@@ -21,7 +25,17 @@ import {
   makeStandardDeployment,
   startForkedAnvilNodes,
 } from './common'
-import { simulate } from '../../src/hardhat/simulate'
+import {
+  getUndeployedContractErrorMesage,
+  handleSimulationSuccess,
+  simulate,
+  simulateDeploymentSubtask,
+} from '../../src/hardhat/simulate'
+import {
+  dummyUnlabeledAddress,
+  getDummyDeploymentConfig,
+  getDummyNetworkConfig,
+} from './dummy'
 
 chai.use(chaiAsPromised)
 
@@ -142,5 +156,71 @@ describe('Simulate', () => {
     )
 
     await killAnvilNodes([ethereumChainId])
+  })
+})
+
+describe('simulateDeploymentSubtask', () => {
+  const testInvariantErrorMessage = 'Test InvariantError'
+  const hre: any = {}
+  hre.ethers = {}
+
+  let providerStub: sinon.SinonStubbedInstance<HardhatEthersProvider>
+
+  beforeEach(() => {
+    providerStub = sinon.createStubInstance(HardhatEthersProvider)
+    hre.ethers.provider = providerStub
+
+    sinon
+      .stub(SphinxCore, 'compileAndExecuteDeployment')
+      .throws(new InvariantError(testInvariantErrorMessage))
+  })
+
+  afterEach(() => {
+    sinon.restore()
+  })
+
+  it('should rethrow the InvariantError thrown by compileAndExecuteDeployment', async () => {
+    const taskArgs = {
+      deploymentConfig: getDummyDeploymentConfig(),
+      chainId: '1',
+    }
+
+    try {
+      await simulateDeploymentSubtask(taskArgs, hre)
+      // If the function doesn't throw, force the test to fail
+      expect.fail('Expected function to throw an InvariantError.')
+    } catch (error) {
+      expect(error).to.be.instanceOf(InvariantError)
+      expect(error.message).to.include(testInvariantErrorMessage)
+    }
+  })
+})
+
+describe('handleSimulationSuccess', () => {
+  let providerStub: sinon.SinonStubbedInstance<HardhatEthersProvider>
+
+  beforeEach(() => {
+    providerStub = sinon.createStubInstance(HardhatEthersProvider)
+
+    providerStub.getCode.resolves('0x')
+  })
+
+  afterEach(() => {
+    sinon.restore()
+  })
+
+  it('should throw an InvariantError if a contract address has no deployed code', async () => {
+    const networkConfig = getDummyNetworkConfig()
+
+    try {
+      await handleSimulationSuccess(networkConfig, providerStub)
+      // If the function doesn't throw, force the test to fail
+      expect.fail('Expected function to throw an InvariantError.')
+    } catch (error) {
+      expect(error).to.be.instanceOf(InvariantError)
+      expect(error.message).to.include(
+        getUndeployedContractErrorMesage(dummyUnlabeledAddress)
+      )
+    }
   })
 })
