@@ -1,5 +1,14 @@
 # @sphinx-labs/demo
 
+## 0.12.7
+
+### Patch Changes
+
+- b304407: Use fixed hardhat version
+- Updated dependencies [b304407]
+  - @sphinx-labs/plugins@0.30.1
+  - @sphinx-labs/core@0.23.1
+
 ## 0.12.6
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@sphinx-labs/core",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "description": "Sphinx core library",
   "main": "dist/index",
   "types": "dist/index",
@@ -57,6 +57,6 @@
     "@types/sinon": "^17.0.2",
     "chai": "^4.3.8",
     "sinon": "^17.0.1",
-    "hardhat": "^2.20.1"
+    "hardhat": "2.20.1"
   }
 }
