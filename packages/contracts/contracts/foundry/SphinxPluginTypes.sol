@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { SphinxLeafType, SphinxLeaf, SphinxLeafWithProof } from "../core/SphinxDataTypes.sol";
 import { Network } from "./SphinxConstants.sol";
 import { IEnum } from "./interfaces/IEnum.sol";
-import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../../contracts/forge-std/src/Vm.sol";
 
 struct HumanReadableAction {
     string reason;

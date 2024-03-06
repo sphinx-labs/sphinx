@@ -34,8 +34,13 @@ jobs:
       - name: Install dependencies
         run: yarn --frozen-lockfile --network-concurrency 1
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - name: Build
-        run: yarn build
+        run: yarn build:release
 
       - name: Setup canary snapshot
         run: yarn changeset version --snapshot
