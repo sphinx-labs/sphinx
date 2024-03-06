@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "../lib/forge-std/src/Vm.sol";
+import { Vm } from "../contracts/forge-std/src/Vm.sol";
 import { Network, NetworkInfo, SphinxConfig } from "../contracts/foundry/SphinxPluginTypes.sol";
-import { StdCheatsSafe } from "../lib/forge-std/src/StdCheats.sol";
+import { StdCheatsSafe } from "../contracts/forge-std/src/StdCheats.sol";
 
 import { SphinxConstants } from "../contracts/foundry/SphinxConstants.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
