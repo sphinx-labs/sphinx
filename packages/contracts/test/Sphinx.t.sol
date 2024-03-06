@@ -9,7 +9,7 @@ pragma solidity ^0.8.0;
  * the chance of accidentally shipping something that may not compile in the user's project because
  * we accidentally relied on a remapping in the wrong file.
  */
-import "../lib/forge-std/src/Test.sol";
+import "../contracts/forge-std/src/Test.sol";
 
 import { Sphinx, Network } from "../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
