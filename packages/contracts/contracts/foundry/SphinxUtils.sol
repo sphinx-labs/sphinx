@@ -53,6 +53,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     string internal deploymentInfoKey = "Sphinx_Internal__FoundryDeploymentInfo";
     string internal sphinxConfigKey = "Sphinx_Internal__SphinxConfig";
 
+    // Tracks if we've called the users `configureSphinx()` function yet
+    bool internal calledConfigureSphinx = false;
+
     function slice(
         bytes calldata _data,
         uint256 _start,
@@ -473,7 +476,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function fetchAndValidateConfig(address _script) public returns (SphinxConfig memory) {
-        ISphinxScript(_script).configureSphinx();
+        // We keep track of if we've called the configureSphinx() function yet or not so we
+        // can avoid situations where there would be an infinite loop due to user calling
+        // safeAddress() from their configureSphinx() function.
+        if (calledConfigureSphinx == false) {
+            calledConfigureSphinx = true;
+            ISphinxScript(_script).configureSphinx();
+        }
+
         SphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
         validate(config);
         return config;
