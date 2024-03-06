@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.30.2
+
+### Patch Changes
+
+- fb439d6: Support installing Sphinx Library contracts via NPM
+- Updated dependencies [fb439d6]
+  - @sphinx-labs/contracts@0.20.1
+
 ## 0.30.1
 
 ### Patch Changes
