@@ -849,7 +849,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getNumRootAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) private pure returns (uint256) {
+    ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -874,14 +874,17 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
      * at 1 and because we initiate the collection process by doing a delegatecall to the entry
      * point function so the depth is 2 by the time any transactions get sent in the users script.
+     * - The target contract is not `SphinxUtils`. This can occur if the user calls a function
+     * that calls into this contract during their script. I.e calling safeAddress().
      */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
         address _safeAddress
-    ) private pure returns (bool) {
+    ) private view returns (bool) {
         return
             _access.accessor == _safeAddress &&
             _access.depth == 2 &&
+            _access.account != address(this) &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }
@@ -890,7 +893,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         Vm.AccountAccess[] memory _accesses,
         uint256 _rootIdx,
         address _safeAddress
-    ) private pure returns (uint256) {
+    ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -1061,7 +1064,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function parseAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) public pure returns (ParsedAccountAccess[] memory) {
+    ) public view returns (ParsedAccountAccess[] memory) {
         uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);

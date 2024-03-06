@@ -19,6 +19,7 @@ import { DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS } from '@sphinx-labs/contracts'
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import * as RevertDuringSimulation from '../../../out/artifacts/RevertDuringSimulation.sol/RevertDuringSimulation.json'
+import * as Owned from '../../../out/artifacts/Owned.sol/Owned.json'
 import { propose } from '../../../src/cli/propose'
 import { deploy } from '../../../src/cli/deploy'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
@@ -714,6 +715,93 @@ describe('Propose CLI command', () => {
     }
 
     expect(errorThrown).to.be.true
+  })
+
+  describe('Issues', () => {
+    it('CHU-676: Deploys with call to safeAddress() in script', async () => {
+      const CHU676Path = './contracts/test/script/issues/CHU676.s.sol'
+
+      const { context } = makeMockSphinxContextForIntegrationTests([
+        `contracts/test/script/issues/Owned.sol:Owned`,
+      ])
+      const isTestnet = true
+
+      const {
+        proposalRequest,
+        networkConfigArray,
+        configArtifacts,
+        merkleTree,
+      } = await propose({
+        confirm: false, // Show preview
+        networks: ['sepolia'],
+        isDryRun: true,
+        silent: true,
+        scriptPath: CHU676Path,
+        sphinxContext: context,
+        targetContract: 'CHU676',
+      })
+
+      if (
+        !networkConfigArray ||
+        !proposalRequest ||
+        !configArtifacts ||
+        !merkleTree
+      ) {
+        throw new Error(`Expected field(s) to be defined`)
+      }
+
+      const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
+        CHU676Path,
+        sepoliaRpcUrl,
+        'CHU676'
+      )
+
+      const expectedContractAddress = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        ethers.ZeroHash,
+        ethers.keccak256(
+          ethers.concat([
+            Owned.bytecode.object,
+            coder.encode(['address'], [sphinxModuleAddress]),
+          ])
+        )
+      )
+
+      assertValidProposalRequest(
+        proposalRequest,
+        'CHU-676',
+        isTestnet,
+        [11155111],
+        [
+          {
+            networkTags: ['sepolia'],
+            executing: [
+              {
+                referenceName: 'GnosisSafe',
+                functionName: 'deploy',
+                variables: {},
+                address: proposalRequest.safeAddress,
+              },
+              {
+                referenceName: 'SphinxModule',
+                functionName: 'deploy',
+                variables: {},
+                address: proposalRequest.moduleAddress,
+              },
+              {
+                referenceName: 'Owned',
+                functionName: 'deploy',
+                variables: {
+                  _owner: sphinxModuleAddress,
+                },
+                address: expectedContractAddress,
+              },
+            ],
+            skipping: [],
+          },
+        ]
+      )
+    })
   })
 })
 
