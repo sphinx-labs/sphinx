@@ -89,31 +89,16 @@ export const calculateActionLeafGasForMoonbeam = (
   )
 
   /**
-   * Calculate the cost of the transaction according to Foundry without gas costs related to
-   * storage of the contracts.
-   *
-   * If we did not subtract the 200 gas / byte here, then we would wildly overestimate the cost of
-   * deploying contracts which could prevent the user from being able to deploy even reasonably
-   * sized contracts on Moonbeam due to their lower block gas limit.
-   *
-   * It's worth noting that the `foundryGas` value includes some value for the intrinsic storage
-   * cost of any other storage writes (i.e SSTOREs) in the transaction. Since we do not subtract
-   * the cost of that storage here as well, we are double counting the cost of standard storage.
-   * We do not implement logic to handle this because Ethereum does not have a straightforward
-   * way to calculate the intrinsic cost of storage. It can vary meaningfully depending on the
-   * specific situation. So we chose to not subtract anything for those writes since it's safer.
-   *
-   * This does introduce an edge case where if the user has a transaction that includes a very
-   * large number of writes (i.e 1000 SSTORES), we would likely wildly overestimate the cost of
-   * that transaction. The user would still be able to execute it through us, but since we're
-   * overestimating the cost, the user would be limited in the amount of storage they can write
-   * in a single transaction.
+   * The final cost is cost estimated by Foundry + the cost of the storage required for
+   * the deployment on Moonbeam.
+   * Note that this is a very naive estimate because we are using the maximum possible
+   * storage cost, and we are assuming the storage cost in Moonbeam is in addition to
+   * the normal 200 gas included for storage of contracts on Ethereum.
+   * In practice, this means we will probably wildly overestimate the gas cost for large
+   * contracts which may limit what the user is able to deploy on Moonbeam and related
+   * networks.
    */
-  const baseGasLessStorageCost = Number(foundryGas) - 200 * totalContractSize
-
-  // The final cost is the base cost without any cost for storage, plus
-  // the higher cost for storage on Moonbeam
-  return (baseGasLessStorageCost + moonbeamStorageCost).toString()
+  return (BigInt(foundryGas) + BigInt(moonbeamStorageCost)).toString()
 }
 
 export type ExplorerName = 'Blockscout' | 'Etherscan'

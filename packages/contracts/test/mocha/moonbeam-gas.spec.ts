@@ -131,7 +131,6 @@ describe('calculateActionLeafGasForMoonbeam', () => {
     const expectedGas = Math.ceil(
       Number(foundryGas) +
         ratio * Number(deployedContractSizes[0].size) +
-        -200 * Number(deployedContractSizes[0].size) +
         32 * ratio +
         32 * ratio
     )
@@ -192,7 +191,6 @@ describe('calculateActionLeafGasForMoonbeam', () => {
     const expectedGas = Math.ceil(
       Number(foundryGas) +
         ratio * Number(deployedContractSizes[0].size) +
-        -200 * Number(deployedContractSizes[0].size) +
         32 * ratio
     )
     const result = calculateActionLeafGasForMoonbeam(
