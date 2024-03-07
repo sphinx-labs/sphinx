@@ -1,5 +1,17 @@
 # @sphinx-labs/plugins
 
+## 0.30.3
+
+### Patch Changes
+
+- 0d8af8f: Fetch artifacts via presigned url
+- a6e1473: Filter calls to SphinxUtils out of state diff
+- Updated dependencies [0d8af8f]
+- Updated dependencies [a6e1473]
+- Updated dependencies [caa8515]
+  - @sphinx-labs/core@0.23.2
+  - @sphinx-labs/contracts@0.20.2
+
 ## 0.30.2
 
 ### Patch Changes
