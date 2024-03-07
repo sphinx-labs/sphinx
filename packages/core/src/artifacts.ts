@@ -64,6 +64,7 @@ export const fetchDeploymentArtifacts = async (
       apiKey,
       orgId,
       projectName,
+      viaPresignedUrl: true,
     })
     .catch((err) => {
       if (err.response) {
@@ -87,7 +88,8 @@ export const fetchDeploymentArtifacts = async (
       }
     })
 
-  return response.data
+  const artifact = await axios.get(response.data)
+  return artifact.data as DeploymentArtifacts
 }
 
 /**
