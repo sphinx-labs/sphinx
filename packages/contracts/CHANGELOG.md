@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.20.2
+
+### Patch Changes
+
+- a6e1473: Filter calls to SphinxUtils out of state diff
+- caa8515: Remove storage gas cost subtraction on Moonbeam
+
 ## 0.20.1
 
 ### Patch Changes
