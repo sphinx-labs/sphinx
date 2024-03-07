@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.23.2
+
+### Patch Changes
+
+- 0d8af8f: Fetch artifacts via presigned url
+- Updated dependencies [a6e1473]
+- Updated dependencies [caa8515]
+  - @sphinx-labs/contracts@0.20.2
+
 ## 0.23.1
 
 ### Patch Changes
