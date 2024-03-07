@@ -1,6 +1,6 @@
 [profile.default]
 src = 'contracts'
-fs_permissions = [{ access = "read", path = "./"}]
+fs_permissions = [{ access = "read-write", path = "./"}]
 verbosity = 2
 ffi = true
 solc = '0.8.4'
