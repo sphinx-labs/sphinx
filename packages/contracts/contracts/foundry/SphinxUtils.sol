@@ -91,6 +91,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             return false;
         }
 
+        // If the second access has a depth of 0, then the foundry version installed must not include
+        // the depth field, so we return false
+        if (accountAccesses[1].depth == 0) {
+            return false;
+        }
+
         // If the deployed code at the calculated address is incorrect, then return false.
         // This confirms the deterministic deployment proxy is in fact being used for the
         // internal simulation.
