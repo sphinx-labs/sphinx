@@ -14,28 +14,28 @@ contract Sample is Sphinx {
         sphinxConfig.projectName = "test_project";
         sphinxConfig.owners = [0x4856e043a1F2CAA8aCEfd076328b4981Aca91000];
         sphinxConfig.threshold = 1;
-        sphinxConfig.testnets = [
-            "sepolia",
+        // sphinxConfig.testnets = [
+            // "sepolia",
             // "arbitrum_sepolia",
             // "optimism_sepolia",
-            "avalanche_fuji",
+            // "avalanche_fuji",
             // "polygon_mumbai",
-            "fantom_testnet",
+            // "fantom_testnet",
             // "bnb_testnet",
-            "gnosis_chiado",
+            // "gnosis_chiado",
             // "linea_goerli",
             // "polygon_zkevm_goerli",
             // "base_sepolia",
             // "celo_alfajores",
             // "moonbase_alpha",
-            "evmos_testnet",
-            "kava_testnet",
-            "scroll_sepolia",
+            // "evmos_testnet",
+            // "kava_testnet",
+            // "scroll_sepolia",
             // "zora_sepolia",
             // "rari_sepolia",
-            "rootstock_testnet"
-        ];
-        sphinxConfig.mainnets = ["ethereum", "arbitrum"];
+            // "rootstock_testnet"
+        // ];
+        sphinxConfig.mainnets = ["moonriver", "moonbeam"];
         sphinxConfig.orgId = "clksrkg1v0001l00815670lu8";
         sphinxConfig.saltNonce = 213222412;
     }
