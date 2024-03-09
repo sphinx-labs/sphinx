@@ -250,9 +250,14 @@ abstract contract Sphinx {
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
         (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
-        // Throw an error if the deployment script fails. The error message in the user's script is
-        // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
-        // the delegatecall in our error message.
+        // TODO(later): throw an error here if the `accesses` contain a different chain id.
+        // TODO(docs): check if the `acccesses` contain a different chain ID, which indicates that
+        // the user forgot to call the script with the `--multi` flag. we check this before
+        // checking that the script succeeded because the script may have failed due to the user
+        // forking within their script. in this situation, we throw a more specific error than the
+        // generic error that follows. Throw an error if the deployment script fails. The error
+        // message in the user's script is displayed by Foundry's stack trace, so it'd be redundant
+        // to include the data returned by the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
         ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(

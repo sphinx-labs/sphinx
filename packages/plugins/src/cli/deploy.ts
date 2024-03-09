@@ -467,3 +467,36 @@ export const deploy = async (
     configArtifacts,
   }
 }
+
+// TODO(end): check that you did the "Notes" section in the Linear ticket. The "Problem" section
+// isn't relevant.
+
+// TODO(end): gh: i called it `--manual-fork` instead of `--multi`. i chose not to use `--multi` b/c
+// I could see it being a pretty confusing flag for users b/c they may reasonably think, "--multi?
+// yes, i'm doing a multichain deployment, so i'll include it." fwiw, i don't think the usage of the
+// --multi flag is very common, and it isn't well-documented in foundry.
+
+// --------------------------------- TODO(later-later) --------------------------------
+
+// TODO(later-later): add a test for the case where the user specifies a network that has no
+// AccountAccesses.
+
+// TODO(later-later): add a test for the case where the user _doesn't_ specify a network that _does_
+// have AccountAccesses.
+
+// TODO(later-later): consider adding a new `require` statement in `sphinxCollect` checking the
+// current block.chainid against the expected chain id. this may catch a situation that the other
+// new `require` statement doesn't catch.
+
+// TODO(later-later): add a test to the deploy command that you can successfully make a deployment
+// against a multifork script (i.e. a script with account accesses on other chains).
+
+// TODO(later-later): throw an error if the user includes --multi, but shouldn't. one idea is to set the
+// chain ID in the script to some value like 0, and check that the chain ID in the _parsed_ accesses
+// don't include a chainId == 0.
+
+// TODO(later-later): manually check what happens if you don't specify `--multi` and do
+// `createSelectFork` in your script to switch to the correct network. this should succeed.
+
+// ---------------------------------- TODO(later) --------------------------------------
+

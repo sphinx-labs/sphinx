@@ -200,6 +200,7 @@ Use one of the command templates below to propose your deployment. Make sure to 
 * Replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script.
 * Replace `<NETWORK_NAMES>` with the testnets you want to deploy on, which must match the network names in the `rpc_endpoints` section of your `foundry.toml`.
 * If your script's entry point is a function other than `run()`, add `--sig [PARAMETERS]` to the command, where `[PARAMETERS]` is either the signature of the function to call in the script, or raw calldata. Sphinx's `--sig` parameter accepts the same arguments as Foundry's `--sig` parameter; see docs [here](https://github.com/sphinx-labs/sphinx/blob/main/docs/cli-propose.md#options).
+* If you use `vm.createFork`, `vm.selectFork`, or `vm.createSelectFork` in your script, include the `--manual-fork` flag.
 
 Using Yarn or npm:
 
