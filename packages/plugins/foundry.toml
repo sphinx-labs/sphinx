@@ -18,6 +18,7 @@ always_use_create_2_factory=true
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
+anvil2 = "http://127.0.0.1:8546"
 ethereum = "${ETHEREUM_RPC_URL}"
 optimism_mainnet = "${OPTIMISM_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"

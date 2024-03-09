@@ -69,20 +69,6 @@ contract MyContract1 {
     }
 }
 
-contract HelloSphinx {
-    bytes32 hashed;
-
-    function add(bytes memory _x, uint _numIterations) public returns (uint) {
-        uint initial = gasleft();
-
-        for (uint i = 0; i < _numIterations; i++) {
-            hashed = keccak256(bytes(_x));
-        }
-
-        return initial - gasleft();
-    }
-}
-
 contract MyContract2 {
     uint256 public number;
 

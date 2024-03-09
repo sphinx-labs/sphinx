@@ -46,7 +46,6 @@ pnpm sphinx propose <SCRIPT_PATH> --networks <NETWORK_NAMES...|testnets|mainnets
 - `--dry-run`: **Optional**. Perform a trial run without sending data to Sphinx's backend. Useful for testing and validation.
 - `--silent`: **Optional**. Suppress output to display only error messages. Must be combined with `--confirm` to confirm the proposal without previewing it.
 - `--target-contract <TARGET_CONTRACT>` (Alias: `--tc`): **Optional**. Specify a contract in multi-contract scripts.
-- `--manual-fork`: **Optional**. Manually fork networks in your script, skipping Sphinx's default behavior of forking networks on your behalf. Use this flag if you use `vm.createFork`, `vm.selectFork`, or `vm.createSelectFork` in your script.
 
 ## Examples
 1. Propose a script located at `./path/to/script.s.sol` on Sepolia:
