@@ -15,6 +15,7 @@ import {
   isFile,
   MAX_UINT64,
   makeDeploymentConfig,
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -29,6 +30,8 @@ import {
 import {
   SphinxLeafType,
   SphinxMerkleTree,
+  SphinxSimulatorABI,
+  getSphinxSimulatorAddress,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
@@ -192,6 +195,48 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       }
     }
   )
+
+  // TODO(later-later): consider putting this somewhere else.
+  for (const { networkConfig, rpcUrl } of networkConfigArrayWithRpcUrls) {
+    const { chainId, actionInputs, safeInitData, moduleAddress, newConfig } =
+      networkConfig
+
+    if (
+      chainId === '31337'
+      // TODO(later): undo
+      // BigInt(chainId) === fetchChainIdForNetwork('moonriver') ||
+      // BigInt(chainId) === fetchChainIdForNetwork('moonbeam') ||
+      // BigInt(chainId) === fetchChainIdForNetwork('moonbase_alpha')
+    ) {
+      const provider = new SphinxJsonRpcProvider(rpcUrl)
+
+      const gnosisSafeTxns = actionInputs.map((action) => {
+        return {
+          to: action.to,
+          value: action.value,
+          txData: action.txData,
+          operation: action.operation,
+        }
+      })
+
+      const iface = new ethers.Interface(SphinxSimulatorABI)
+      const calldata = iface.encodeFunctionData('simulate', [
+        gnosisSafeTxns,
+        safeAddress,
+        safeInitData,
+        newConfig.saltNonce,
+      ])
+      const ret = await provider.send('eth_call', [
+        {
+          to: getSphinxSimulatorAddress(),
+          data: calldata,
+          from: moduleAddress,
+        },
+        'latest',
+      ])
+      ret
+    }
+  }
 
   const isEmpty = networkConfigArrayWithRpcUrls.every(
     ({ networkConfig }) => networkConfig.actionInputs.length === 0

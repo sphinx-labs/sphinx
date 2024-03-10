@@ -5,6 +5,7 @@ import {
   displayDeploymentTable,
   fundAccountMaxBalance,
   getSphinxWalletPrivateKey,
+  getSphinxWalletsSortedByAddress,
   isFile,
   readDeploymentArtifactsForNetwork,
   signMerkleRoot,
@@ -38,11 +39,20 @@ import {
   injectRoles,
   removeRoles,
   NetworkConfig,
+  ensureSphinxAndGnosisSafeDeployed,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  GnosisSafeProxyFactoryArtifact,
+  SphinxMerkleTree,
+  SphinxSimulatorABI,
+  getGnosisSafeProxyFactoryAddress,
+  getGnosisSafeSingletonAddress,
+  getSphinxSimulatorAddress,
+  makeSphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
@@ -307,6 +317,66 @@ export const deploy = async (
     [] // We don't currently support linked libraries.
   )
 
+  await ensureSphinxAndGnosisSafeDeployed(
+    provider,
+    getSphinxWalletsSortedByAddress(1, provider)[0],
+    ExecutionMode.LocalNetworkCLI,
+    false
+  )
+
+  const { actionInputs, safeInitData, moduleAddress, newConfig } = networkConfig
+
+  // TODO(later-later): move this elsewhere
+  if (
+    chainId === BigInt('31337')
+    // TODO(later): undo
+    // BigInt(chainId) === fetchChainIdForNetwork('moonriver') ||
+    // BigInt(chainId) === fetchChainIdForNetwork('moonbeam') ||
+    // BigInt(chainId) === fetchChainIdForNetwork('moonbase_alpha')
+  ) {
+    const gnosisSafeProxyFactory = new ethers.Contract(
+      getGnosisSafeProxyFactoryAddress(),
+      GnosisSafeProxyFactoryArtifact.abi,
+      signer
+    )
+
+    await gnosisSafeProxyFactory.createProxyWithNonce(
+      getGnosisSafeSingletonAddress(),
+      networkConfig.safeInitData,
+      networkConfig.newConfig.saltNonce
+    )
+
+    if ((await provider.getCode(safeAddress)) === '0x') {
+      throw new Error(`Safe proxy not deployed`)
+    }
+
+    const gnosisSafeTxns = actionInputs.map((action) => {
+      return {
+        to: action.to,
+        value: action.value,
+        txData: action.txData,
+        operation: action.operation,
+      }
+    })
+
+    const iface = new ethers.Interface(SphinxSimulatorABI)
+    const calldata = iface.encodeFunctionData('simulate', [
+      gnosisSafeTxns,
+      safeAddress,
+      safeInitData,
+      newConfig.saltNonce,
+    ])
+    const ret = await provider.send('eth_call', [
+      {
+        to: getSphinxSimulatorAddress(),
+        data: calldata,
+        from: moduleAddress,
+      },
+      'latest',
+    ])
+    ret
+  }
+
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
@@ -468,17 +538,34 @@ export const deploy = async (
   }
 }
 
-// TODO(end): check that you did everything in the Linear ticket.
+// --------------------------------------- TODO(end) ---------------------------------------
 
-// --------------------------------- TODO(later-later) --------------------------------
+// TODO(end): include all of the rpc urls in `hi.ts` in the github description. label the paid one
+// and say why it's fine to post it publicly.
 
-// TODO(later-later): add a test for the case where the user specifies a network that has no
-// AccountAccesses.
+// TODO(end): consider having some sort of way to make sure that moonbeam doesn't unexpectedly
+// reduce the 150M gas limit.
 
-// TODO(later-later): add a test for the case where the user _doesn't_ specify a network that _does_
-// have AccountAccesses.
+// --------------------------------------- TODO(docs) ---------------------------------------
 
-// TODO(later-later): add a test to the deploy command that you can successfully make a deployment
-// against a multifork script (i.e. a script with account accesses on other chains).
+// TODO(docs): document 150M somewhere.
 
-// ---------------------------------- TODO(later) --------------------------------------
+// --------------------------------------- TODO(later-later) ---------------------------------------
+
+// TODO(later-later): SphinxSimulator -> SphinxEstimator, and `SphinxSimulator:simulate` -> estimate?
+
+// TODO(later-later): optimize the inputs to the `SphinxSimulator` so that you can fit more contracts?
+// At least get a sense of the upper bound and document it.
+
+// TODO(later-later): confirm that you can't call `SphinxSimulator` from Foundry since it doesn't
+// execute it using Moonbeam's VM.
+
+// TODO(later-later): remove all of the moonbeam heuristic logic.
+
+// TODO(later-later): should you do anything to the hardhat simulation on moonbeam et al?
+
+// TODO(later-later): update the Deploy command too
+
+// TODO(later-later): we need to be cautious of EthersJS' abi encoding size limit.
+
+// --------------------------------------- TODO(later) ---------------------------------------

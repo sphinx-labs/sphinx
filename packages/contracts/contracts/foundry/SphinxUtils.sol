@@ -862,17 +862,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         }
     }
 
-    // TODO(later): checked this.
     function getNumRootAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
-        address _safeAddress,
-        uint256 _chainId
+        address _safeAddress
     ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
 
-            if (isRootAccountAccess(access, _safeAddress, _chainId)) {
+            if (isRootAccountAccess(access, _safeAddress)) {
                 count += 1;
             }
         }
@@ -894,42 +892,28 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * point function so the depth is 2 by the time any transactions get sent in the users script.
      * - The target contract is not `SphinxUtils`. This can occur if the user calls a function
      * that calls into this contract during their script. I.e calling safeAddress().
-     * - TODO(docs): maybe just delete this novel? the code is self-explanatory imo, and it's easy
-         to forget to update these docs.
      */
-    // TODO(later): checked this.
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
-        address _safeAddress,
-        uint256 _chainId
+        address _safeAddress
     ) private view returns (bool) {
         return
             _access.accessor == _safeAddress &&
             _access.depth == 2 &&
-            _access.chainInfo.chainId == _chainId &&
             _access.account != address(this) &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }
 
-    // TODO(later): checked this.
-    // TODO(later-later): test:
-    // - The account access after `_rootIdx` is _root_ from another chain. Expected return
-    //   value: 0.
-    // - The account access after `_rootIdx` is _nested_ from another chain. Expected return
-    //   value: 0.
-    // - The account access after `_rootIdx` is _nested_ from the same chain, and the one after
-    //   that is a root index from the same chain. Expected return value: 1.
     function getNumNestedAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         uint256 _rootIdx,
-        address _safeAddress,
-        uint256 _chainId
+        address _safeAddress
     ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
-            if (isRootAccountAccess(access, _safeAddress, _chainId) || _chainId != access.chainInfo.chainId) {
+            if (isRootAccountAccess(access, _safeAddress)) {
                 return count;
             } else {
                 count += 1;
@@ -1054,36 +1038,27 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function fetchNumCreateAccesses(
-        Vm.AccountAccess[] memory _accesses,
-        uint256 _chainId
+        Vm.AccountAccess[] memory _accesses
     ) public pure returns (uint) {
         uint numCreateAccesses = 0;
         for (uint i = 0; i < _accesses.length; i++) {
-            if (isCreateAccountAccess(_accesses[i], _chainId)) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
                 numCreateAccesses += 1;
             }
         }
         return numCreateAccesses;
     }
 
-    function isCreateAccountAccess(
-        Vm.AccountAccess memory _access,
-        uint256 _chainId
-    ) private pure returns (bool) {
-        return _access.kind == VmSafe.AccountAccessKind.Create && _access.chainInfo.chainId == _chainId;
-    }
-
     function fetchDeployedContractSizes(
-        Vm.AccountAccess[] memory _accesses,
-        uint256 _chainId
+        Vm.AccountAccess[] memory _accesses
     ) public view returns (DeployedContractSize[] memory) {
-        uint numCreateAccesses = fetchNumCreateAccesses(_accesses, _chainId);
+        uint numCreateAccesses = fetchNumCreateAccesses(_accesses);
         DeployedContractSize[] memory deployedContractSizes = new DeployedContractSize[](
             numCreateAccesses
         );
         uint deployContractSizeIndex = 0;
         for (uint i = 0; i < _accesses.length; i++) {
-            if (isCreateAccountAccess(_accesses[i], _chainId)) {
+            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
                 // We could also read the size of the code from the AccountAccess deployedCode field
                 // We don't do that because Foundry occasionally does not populate that field when
                 // it should.
@@ -1102,21 +1077,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return deployedContractSizes;
     }
 
-    // TODO(later): checked this.
     function parseAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
-        address _safeAddress,
-        uint256 _chainId
+        address _safeAddress
     ) public view returns (ParsedAccountAccess[] memory) {
-        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress, _chainId);
+        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
         uint256 rootCount = 0;
         for (uint256 rootIdx = 0; rootIdx < _accesses.length; rootIdx++) {
             Vm.AccountAccess memory access = _accesses[rootIdx];
 
-            if (isRootAccountAccess(access, _safeAddress, _chainId)) {
-                uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress, _chainId);
+            if (isRootAccountAccess(access, _safeAddress)) {
+                uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress);
                 Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
                 for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
                     // Calculate the index of the current nested `AccountAccess` in the `_accesses`

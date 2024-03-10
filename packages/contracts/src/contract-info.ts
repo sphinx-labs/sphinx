@@ -16,6 +16,8 @@ import {
   SphinxModuleProxyFactoryArtifact,
   SignMessageLibArtifact,
   SphinxModuleArtifact,
+  SphinxSimulatorABI,
+  SphinxSimulatorArtifact,
 } from './ifaces'
 import {
   ContractArtifact,
@@ -38,6 +40,7 @@ import {
   getSimulateTxAccessorAddress,
   getSphinxModuleImplAddress,
   getSphinxModuleProxyFactoryAddress,
+  getSphinxSimulatorAddress,
 } from './addresses'
 import { getOwnerAddress } from './constants'
 import { remove0x } from './utils'
@@ -153,6 +156,16 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
       expectedAddress: getCheckBalanceLowAddress(),
       constructorArgs: [],
       type: SystemContractType.OPTIMISM,
+    },
+    // TODO(later-later): remove this.
+    {
+      artifact: SphinxSimulatorArtifact,
+      expectedAddress: getSphinxSimulatorAddress(),
+      constructorArgs: [
+        getGnosisSafeProxyFactoryAddress(),
+        getGnosisSafeSingletonAddress(),
+      ],
+      type: SystemContractType.SPHINX,
     },
   ]
 

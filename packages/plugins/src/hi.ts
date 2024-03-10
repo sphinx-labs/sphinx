@@ -34,17 +34,16 @@ import { fetchChainIdForNetwork, fetchURLForNetwork } from '@sphinx-labs/core'
 
   const rpcUrls = [
     // Moonbeam
-    'https://1rpc.io/glmr',
-    'https://moonbeam.public.blastapi.io',
-    'https://moonbeam-rpc.dwellir.com',
-    'https://moonbeam-mainnet.gateway.pokt.network/v1/lb/629a2b5650ec8c0039bb30f0',
-    'https://moonbeam.unitedbloc.com',
+    // 'https://1rpc.io/glmr',
+    // 'https://moonbeam.public.blastapi.io',
+    // 'https://moonbeam-rpc.dwellir.com',
+    // 'https://moonbeam.unitedbloc.com',
     // Moonriver
-    'https://moonriver.public.blastapi.io',
-    'https://moonriver-rpc.dwellir.com',
+    // 'https://moonriver.public.blastapi.io',
+    // 'https://moonriver-rpc.dwellir.com',
     'https://moonriver-mainnet.gateway.pokt.network/v1/lb/62a74fdb123e6f003963642f',
     'https://moonriver.unitedbloc.com',
-    'https://moonriver.blastapi.io/e61786fd-b97e-4b56-9798-b5db4a3445da',
+    'https://moonriver.blastapi.io/e61786fd-b97e-4b56-9798-b5db4a3445da', // Private free tier
     // Moonbase Alpha
     'https://moonbase-rpc.dwellir.com',
     'https://moonbeam-alpha.api.onfinality.io/public',
@@ -59,7 +58,7 @@ import { fetchChainIdForNetwork, fetchURLForNetwork } from '@sphinx-labs/core'
   for (const rpcUrl of rpcUrls) {
     const provider = new ethers.JsonRpcProvider(rpcUrl)
 
-    const to = '0x7888Ba6c4747766099607B5713687975cd246662'
+    const to = '0x987CCa7d9EeB2593271fd1D155724f18eB2CC913'
 
     // You'll need to ABI encode and store the calldata elsewhere because
     // EthersJS throws an error when it attempts to ABI encode really large

@@ -257,14 +257,11 @@ abstract contract Sphinx {
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
         ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
             accesses,
-            safe,
-            // TODO(docs): we use `deploymentInfo.chainId` instead of `block.chainid` because
-            // the user may have changed the current `block.chainid` in their script.
-            deploymentInfo.chainId
+            safe
         );
 
         deploymentInfo.encodedDeployedContractSizes = abi.encode(
-            sphinxUtils.fetchDeployedContractSizes(accesses, deploymentInfo.chainId)
+            sphinxUtils.fetchDeployedContractSizes(accesses)
         );
 
         // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
