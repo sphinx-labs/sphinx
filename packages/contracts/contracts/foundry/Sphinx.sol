@@ -198,36 +198,13 @@ abstract contract Sphinx {
         bytes memory _scriptFunctionCalldata
     ) private returns (string memory) {
         address safe = safeAddress();
-        address module = sphinxModule();
 
-        FoundryDeploymentInfo memory deploymentInfo;
-        deploymentInfo.executionMode = _executionMode;
-        deploymentInfo.executorAddress = _executor;
-        deploymentInfo.safeAddress = safe;
-        deploymentInfo.moduleAddress = module;
-        deploymentInfo.chainId = block.chainid;
-        deploymentInfo.blockGasLimit = block.gaslimit;
-        deploymentInfo.safeInitData = sphinxUtils.getGnosisSafeInitializerData(address(this));
-        deploymentInfo.newConfig = SphinxConfig({
-            projectName: sphinxConfig.projectName,
-            owners: sphinxConfig.owners,
-            threshold: sphinxConfig.threshold,
-            orgId: sphinxConfig.orgId,
-            mainnets: sphinxConfig.mainnets,
-            testnets: sphinxConfig.testnets,
-            saltNonce: sphinxConfig.saltNonce
-        });
-        deploymentInfo.initialState = sphinxUtils.getInitialChainState(safe, ISphinxModule(module));
-        deploymentInfo.nonce = sphinxUtils.getMerkleRootNonce(ISphinxModule(module));
-        deploymentInfo.sphinxLibraryVersion = sphinxUtils.getSphinxLibraryVersion();
-        deploymentInfo.arbitraryChain = false;
-        deploymentInfo.requireSuccess = true;
-
-        // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
-        // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`
-        // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead of Arbitrum.
-        // This could cause the simulation to use an invalid block number and fail.
-        deploymentInfo.blockNumber = 0;
+        FoundryDeploymentInfo memory deploymentInfo = sphinxUtils.initializeDeploymentInfo(
+            sphinxConfig,
+            _executionMode,
+            _executor,
+            address(this)
+        );
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
@@ -255,32 +232,15 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
-        ParsedAccountAccess[] memory parsedAccesses = sphinxUtils.parseAccountAccesses(
-            accesses,
-            safe
-        );
-
-        deploymentInfo.encodedDeployedContractSizes = abi.encode(
-            sphinxUtils.fetchDeployedContractSizes(accesses)
-        );
-
-        // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
-        // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
-        // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
-        // contracts.
-        deploymentInfo.encodedAccountAccesses = new bytes[](parsedAccesses.length);
-        for (uint256 i = 0; i < parsedAccesses.length; i++) {
-            deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
-        }
 
         vm.revertTo(snapshotId);
-        deploymentInfo.gasEstimates = _sphinxEstimateMerkleLeafGas(
-            parsedAccesses,
-            IGnosisSafe(safe),
-            module
-        );
 
-        return sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo);
+        FoundryDeploymentInfo memory finalDeploymentInfo = sphinxUtils.finalizeDeploymentInfo(
+            deploymentInfo,
+            accesses,
+            address(this)
+        );
+        return sphinxUtils.serializeFoundryDeploymentInfo(finalDeploymentInfo);
     }
 
     /**
@@ -386,71 +346,5 @@ abstract contract Sphinx {
     function sphinxConfigABIEncoded() public returns (bytes memory) {
         SphinxConfig memory config = sphinxUtils.fetchAndValidateConfig(address(this));
         return abi.encode(config, safeAddress(), sphinxModule());
-    }
-
-    /**
-     * @notice Estimates the values of the `gas` fields in the Merkle leaves using `gasleft`. This
-     *         provides a more accurate estimate than simulating the transactions for two reasons:
-     *         1. The `eth_estimateGas` RPC method includes the minimum gas limit (21k) and the
-     *            calldata cost of initiating the transaction, which shouldn't be factored into the
-     *            Merkle leaf's `gas` field because it's executed as a sub-call.
-     *         2. It could be possible to underestimate the Merkle leaf's gas using a simulation due
-     *            to gas refunds. Consider this (contrived) edge case: Say a user's transaction
-     *            deploys a contract, which costs ~2 million gas, and also involves a large gas
-     *            refund (~500k gas). Since gas refunds occur after the transaction is executed, the
-     *            broadcast file will have a gas estimate of ~1.5 million gas. However, the user's
-     *            transaction costs 2 million gas. This will cause Sphinx to underestimate the
-     *            Merkle leaf's gas, resulting in a failed deployment on-chain. This situation uses
-     *            contrived numbers, but the point is that using `gasleft` is accurate even if
-     *            there's a large gas refund.
-     */
-    function _sphinxEstimateMerkleLeafGas(
-        ParsedAccountAccess[] memory _accountAccesses,
-        IGnosisSafe _safe,
-        address _moduleAddress
-    ) private returns (uint256[] memory) {
-        uint256[] memory gasEstimates = new uint256[](_accountAccesses.length);
-
-        // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
-        // Module calls the Gnosis Safe.
-        vm.startPrank(_moduleAddress);
-
-        for (uint256 i = 0; i < _accountAccesses.length; i++) {
-            ParsedAccountAccess memory parsed = _accountAccesses[i];
-            GnosisSafeTransaction memory txn = sphinxUtils.makeGnosisSafeTransaction(parsed.root);
-            uint256 startGas = gasleft();
-            bool success = _safe.execTransactionFromModule(
-                txn.to,
-                txn.value,
-                txn.txData,
-                txn.operation
-            );
-            uint256 finalGas = gasleft();
-
-            require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
-
-            // Include a buffer to ensure the user's transaction doesn't fail on-chain due to
-            // variations between the simulation and the live execution environment. There are a
-            // couple areas in particular that could lead to variations:
-            // 1. The on-chain state could vary, which could impact the cost of execution. This is
-            //    inherently a source of variation because there's a delay between the simulation
-            //    and execution.
-            // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are
-            //    more likely to be "warm" (i.e. cheaper) than the production environment, where
-            //    transactions may be split between batches.
-            //
-            // Collecting the user's transactions in the same process as this function does not
-            // impact the Merkle leaf gas fields because we use `vm.snapshot`/`vm.revertTo`. Also,
-            // state changes on one fork do not impact the gas cost on other forks.
-            //
-            // We chose to multiply the gas by 1.1 because multiplying it by a higher number could
-            // make a very large transaction unexecutable on-chain. Since the 1.1x multiplier
-            // doesn't impact small transactions very much, we add a constant amount of 60k too.
-            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 11) / 10;
-        }
-
-        vm.stopPrank();
-
-        return gasEstimates;
     }
 }

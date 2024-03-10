@@ -610,7 +610,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getInitialChainState(
         address _safe,
         ISphinxModule _sphinxModule
-    ) external view returns (InitialChainState memory) {
+    ) private view returns (InitialChainState memory) {
         if (address(_safe).code.length == 0) {
             return
                 InitialChainState({
@@ -1140,7 +1140,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function makeGnosisSafeTransaction(
         Vm.AccountAccess memory _access
-    ) external pure returns (GnosisSafeTransaction memory) {
+    ) private pure returns (GnosisSafeTransaction memory) {
         if (_access.kind == VmSafe.AccountAccessKind.Create) {
             // `Create` transactions are executed by delegatecalling the `CreateCall`
             // contract from the Gnosis Safe.
@@ -1279,5 +1279,155 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             // Set the nonce to be 1, which is the initial nonce for contracts.
             vm.setNonce(_where, 1);
         }
+    }
+
+    /**
+     * @notice Initializes the `FoundryDeploymentInfo` struct. Meant to be called before calling
+     *         the user's script. Does not include all of the fields of the `FoundryDeploymentInfo`
+     *         because some fields, like `gasEstimates`, must be assigned after the user's Forge
+     *         script is called.
+     */
+    function initializeDeploymentInfo(
+        SphinxConfig memory _config,
+        ExecutionMode _executionMode,
+        address _executor,
+        address _scriptAddress
+    ) external returns (FoundryDeploymentInfo memory) {
+        address safe = getGnosisSafeProxyAddress(_scriptAddress);
+        address module = getSphinxModuleAddress(_scriptAddress);
+
+        FoundryDeploymentInfo memory deploymentInfo;
+        deploymentInfo.executionMode = _executionMode;
+        deploymentInfo.executorAddress = _executor;
+        deploymentInfo.safeAddress = safe;
+        deploymentInfo.moduleAddress = module;
+        deploymentInfo.chainId = block.chainid;
+        deploymentInfo.blockGasLimit = block.gaslimit;
+        deploymentInfo.safeInitData = getGnosisSafeInitializerData(_scriptAddress);
+        deploymentInfo.newConfig = SphinxConfig({
+            projectName: _config.projectName,
+            owners: _config.owners,
+            threshold: _config.threshold,
+            orgId: _config.orgId,
+            mainnets: _config.mainnets,
+            testnets: _config.testnets,
+            saltNonce: _config.saltNonce
+        });
+        deploymentInfo.initialState = getInitialChainState(safe, ISphinxModule(module));
+        deploymentInfo.nonce = getMerkleRootNonce(ISphinxModule(module));
+        deploymentInfo.sphinxLibraryVersion = getSphinxLibraryVersion();
+        deploymentInfo.arbitraryChain = false;
+        deploymentInfo.requireSuccess = true;
+
+        // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
+        // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`
+        // means. For example, on Arbitrum` `block.number` returns the block number on ETH instead of Arbitrum.
+        // This could cause the simulation to use an invalid block number and fail.
+        deploymentInfo.blockNumber = 0;
+
+        return deploymentInfo;
+    }
+
+    /**
+     * @notice Estimates the values of the `gas` fields in the Merkle leaves using `gasleft`. This
+     *         provides a more accurate estimate than simulating the transactions for two reasons:
+     *         1. The `eth_estimateGas` RPC method includes the minimum gas limit (21k) and the
+     *            calldata cost of initiating the transaction, which shouldn't be factored into the
+     *            Merkle leaf's `gas` field because it's executed as a sub-call.
+     *         2. It could be possible to underestimate the Merkle leaf's gas using a simulation due
+     *            to gas refunds. Consider this (contrived) edge case: Say a user's transaction
+     *            deploys a contract, which costs ~2 million gas, and also involves a large gas
+     *            refund (~500k gas). Since gas refunds occur after the transaction is executed, the
+     *            broadcast file will have a gas estimate of ~1.5 million gas. However, the user's
+     *            transaction costs 2 million gas. This will cause Sphinx to underestimate the
+     *            Merkle leaf's gas, resulting in a failed deployment on-chain. This situation uses
+     *            contrived numbers, but the point is that using `gasleft` is accurate even if
+     *            there's a large gas refund.
+     */
+    function estimateMerkleLeafGas(
+        ParsedAccountAccess[] memory _accountAccesses,
+        address _scriptAddress
+    ) private returns (uint256[] memory) {
+        address safe = getGnosisSafeProxyAddress(_scriptAddress);
+        address module = getSphinxModuleAddress(_scriptAddress);
+
+        uint256[] memory gasEstimates = new uint256[](_accountAccesses.length);
+
+        // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
+        // Module calls the Gnosis Safe.
+        vm.startPrank(module);
+
+        for (uint256 i = 0; i < _accountAccesses.length; i++) {
+            ParsedAccountAccess memory parsed = _accountAccesses[i];
+            GnosisSafeTransaction memory txn = makeGnosisSafeTransaction(parsed.root);
+            uint256 startGas = gasleft();
+            bool success = IGnosisSafe(safe).execTransactionFromModule(
+                txn.to,
+                txn.value,
+                txn.txData,
+                txn.operation
+            );
+            uint256 finalGas = gasleft();
+
+            require(success, "Sphinx: failed to call Gnosis Safe from Sphinx Module");
+
+            // Include a buffer to ensure the user's transaction doesn't fail on-chain due to
+            // variations between the simulation and the live execution environment. There are a
+            // couple areas in particular that could lead to variations:
+            // 1. The on-chain state could vary, which could impact the cost of execution. This is
+            //    inherently a source of variation because there's a delay between the simulation
+            //    and execution.
+            // 2. Foundry's simulation is treated as a single transaction, which means SLOADs are
+            //    more likely to be "warm" (i.e. cheaper) than the production environment, where
+            //    transactions may be split between batches.
+            //
+            // Collecting the user's transactions in the same process as this function does not
+            // impact the Merkle leaf gas fields because we use `vm.snapshot`/`vm.revertTo`. Also,
+            // state changes on one fork do not impact the gas cost on other forks.
+            //
+            // We chose to multiply the gas by 1.1 because multiplying it by a higher number could
+            // make a very large transaction unexecutable on-chain. Since the 1.1x multiplier
+            // doesn't impact small transactions very much, we add a constant amount of 60k too.
+            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 11) / 10;
+        }
+
+        vm.stopPrank();
+
+        return gasEstimates;
+    }
+
+    /**
+     * @notice Finishes creating the `FoundryDeploymentInfo` struct. Meant to be called after
+     *         running the user's script and after calling `initializeDeploymentInfo`.
+     *
+     * @param _deploymentInfo The `FoundryDeploymentInfo` struct, which contains the initial values.
+     *                        We'll modify this struct then return its final version.
+     */
+    function finalizeDeploymentInfo(
+        FoundryDeploymentInfo memory _deploymentInfo,
+        Vm.AccountAccess[] memory _accesses,
+        address _scriptAddress
+    ) external returns (FoundryDeploymentInfo memory) {
+        ParsedAccountAccess[] memory parsedAccesses = parseAccountAccesses(
+            _accesses,
+            _deploymentInfo.safeAddress
+        );
+
+        _deploymentInfo.encodedDeployedContractSizes = abi.encode(
+            fetchDeployedContractSizes(_accesses)
+        );
+
+        // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
+        // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI
+        // decode, which causes an error. This occurs for large deployments, i.e. greater than 50
+        // contracts.
+        _deploymentInfo.encodedAccountAccesses = new bytes[](parsedAccesses.length);
+        for (uint256 i = 0; i < parsedAccesses.length; i++) {
+            _deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
+        }
+
+        _deploymentInfo.gasEstimates = estimateMerkleLeafGas(parsedAccesses, _scriptAddress);
+
+        return _deploymentInfo;
     }
 }
