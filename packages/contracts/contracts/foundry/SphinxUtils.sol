@@ -489,6 +489,35 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return config;
     }
 
+    function assertValidOwners(SphinxConfig memory _config) private pure {
+        require(
+            _config.owners.length > 0,
+            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
+        );
+
+        for (uint256 i = 0; i < _config.owners.length; i++) {
+            // We prevent the owners from being either address(0) or address(0x1)
+            // address(0x1) is the SENTINEL_ADDRESS which is a special address used
+            // by Safe to handle their owner implementation. We check for it here for
+            // completeness, but it's unlikely the user would ever actually use that
+            // value so we don't mention it in the error message.
+            if (_config.owners[i] == address(0) || _config.owners[i] == address(0x1)) {
+                string memory ownerString = _config.owners[i] == address(0)
+                    ? "address(0)"
+                    : "address(1)";
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "Sphinx: Detected owner that is, ",
+                            ownerString,
+                            ". Gnosis Safe prevents you from using this address as an owner."
+                        )
+                    )
+                );
+            }
+        }
+    }
+
     /**
      * @notice Performs validation on the user's deployment. This mainly checks that the user's
      *         configuration is valid. This validation occurs regardless of the `SphinxMode` (e.g.
@@ -503,10 +532,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             );
         }
 
-        require(
-            _config.owners.length > 0,
-            "Sphinx: You must have at least one owner in your 'sphinxConfig.owners' array before calling this function."
-        );
+        assertValidOwners(_config);
+
         require(
             _config.threshold > 0,
             "Sphinx: You must set your 'sphinxConfig.threshold' to a value greater than 0 before calling this function."

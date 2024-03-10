@@ -146,7 +146,8 @@ export const getPreviewString = (
     previewString += yellow(
       `This typically happens when deploying contracts using hardcoded bytecode and no \n` +
         `associated source file. Sphinx will not create a deployment artifact or attempt \n` +
-        `Etherscan verification for any address in the list above.\n\n`
+        `Etherscan verification for any address in the list above.\n\n` +
+        `If you think this is a mistake, try running "forge build --force", then run your Sphinx command again.\n`
     )
   }
 
