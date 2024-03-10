@@ -13,13 +13,22 @@ import "../contracts/forge-std/src/Test.sol";
 
 import { Sphinx, Network } from "../contracts/foundry/Sphinx.sol";
 import { IGnosisSafe } from "../contracts/foundry/interfaces/IGnosisSafe.sol";
-import { SystemContractInfo } from "../contracts/foundry/SphinxPluginTypes.sol";
+import {
+    SystemContractInfo,
+    FoundryDeploymentInfo,
+    ParsedAccountAccess
+} from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxTestUtils } from "./SphinxTestUtils.sol";
+import { MySimpleContract } from "../test/helpers/MyTestContracts.t.sol";
 
 contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
+    string dummyDeploymentInfoPath;
+
     function setUp() public {
         SystemContractInfo[] memory contracts = getSystemContractInfo();
         deploySphinxSystem(contracts);
+
+        dummyDeploymentInfoPath = vm.envString("DUMMY_DEPLOYMENT_INFO_PATH");
     }
 
     function configureSphinx() public override {
@@ -50,5 +59,47 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
         address expectedAddress = this.sphinxModule();
 
         assertEq(expectedAddress, sphinxModule);
+    }
+
+    function test_sphinxCollectProposal_success_multiFork() external {
+        vm.createSelectFork("ethereum");
+        uint256 expectedChainId = block.chainid;
+        deploySphinxSystem(getSystemContractInfo());
+        FoundryDeploymentInfo memory deploymentInfo = this.sphinxCollectProposal({
+            _scriptFunctionCalldata: abi.encodeWithSelector(this.runMultiFork.selector),
+            _deploymentInfoPath: dummyDeploymentInfoPath,
+            // The call depth is one greater than the default call depth because we're calling
+            // `sphinxCollectProposal` from within a Forge test.
+            _callDepth: defaultCallDepth + 1
+        });
+
+        assertEq(deploymentInfo.encodedAccountAccesses.length, 1);
+        ParsedAccountAccess memory access = abi.decode(
+            deploymentInfo.encodedAccountAccesses[0],
+            (ParsedAccountAccess)
+        );
+        assertEq(access.root.chainInfo.chainId, expectedChainId);
+        assertEq(access.root.accessor, safeAddress());
+        assertEq(access.root.account, CREATE2_FACTORY);
+        // The data sent to the CREATE2 Factory is the 32-byte CREATE2 salt appended with the
+        // contract's init code.
+        bytes memory create2FactoryInputData = bytes.concat(
+            bytes32(0), // The salt to deploy `MySimpleContract` on Ethereum in `runMultiFork`.
+            type(MySimpleContract).creationCode
+        );
+        assertEq(access.root.data, create2FactoryInputData);
+        // Check that the nested accesses have the correct chain ID.
+        for (uint256 i = 0; i < access.nested.length; i++) {
+            assertEq(access.nested[i].chainInfo.chainId, expectedChainId);
+        }
+    }
+
+    /////////////////////////////////// Helpers //////////////////////////////////////
+
+    function runMultiFork() public sphinx {
+        vm.createSelectFork("ethereum");
+        new MySimpleContract{ salt: 0 }();
+        vm.createSelectFork("optimism");
+        new MySimpleContract{ salt: hex"01" }();
     }
 }

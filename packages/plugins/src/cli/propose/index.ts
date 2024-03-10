@@ -15,6 +15,7 @@ import {
   isFile,
   MAX_UINT64,
   makeDeploymentConfig,
+  DEFAULT_CALL_DEPTH,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -109,10 +110,11 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(bytes,string)',
+      'sphinxCollectProposal(bytes,string,uint64)',
       scriptFunctionCalldata,
       deploymentInfoPath,
       '--always-use-create-2-factory',
+      DEFAULT_CALL_DEPTH,
     ]
 
     if (

@@ -16,8 +16,9 @@ import {
     SphinxConfig,
     ParsedAccountAccess
 } from "../contracts/foundry/SphinxPluginTypes.sol";
+import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 
-contract SphinxUtils_Test is Test, SphinxUtils {
+contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
     address dummySafeAddress = address(0x1234);
 
     function setUp() public {}
@@ -365,7 +366,12 @@ contract SphinxUtils_Test is Test, SphinxUtils {
 
     function test_parseAccountAccesses_emptyInput() public {
         Vm.AccountAccess[] memory accesses;
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
+            accesses,
+            dummySafeAddress,
+            defaultCallDepth,
+            block.chainid
+        );
         assertEq(parsed.length, 0);
     }
 
@@ -387,7 +393,12 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             _depth: 3
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
+            accesses,
+            dummySafeAddress,
+            defaultCallDepth,
+            block.chainid
+        );
         assertEq(parsed.length, 0);
     }
 
@@ -404,7 +415,12 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             _depth: 2
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(accesses, dummySafeAddress);
+        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
+            accesses,
+            dummySafeAddress,
+            defaultCallDepth,
+            block.chainid
+        );
         assertEq(parsed.length, 2);
 
         assertEq(parsed[0].root.accessor, dummySafeAddress);
@@ -481,17 +497,78 @@ contract SphinxUtils_Test is Test, SphinxUtils {
         validate(config);
     }
 
+    function test_getNumNestedAccountAccesses_success_nextAccessIsRootWithDifferentChainId()
+        external
+    {
+        Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](2);
+        // Root account access:
+        accesses[0] = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 2
+        });
+        // Next account access, which has a different chain ID:
+        Vm.AccountAccess memory nextAccess = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 2 // Also a root account access
+        });
+        nextAccess.chainInfo.chainId = block.chainid - 1;
+        accesses[1] = nextAccess;
+
+        uint256 numNested = getNumNestedAccountAccesses({
+            _accesses: accesses,
+            _rootIdx: 0,
+            _safeAddress: dummySafeAddress,
+            _callDepth: defaultCallDepth,
+            _chainId: block.chainid
+        });
+
+        assertEq(numNested, 0);
+    }
+
+    function test_getNumNestedAccountAccesses_success_nextAccessIsNestedWithDifferentChainId()
+        external
+    {
+        Vm.AccountAccess[] memory accesses = new Vm.AccountAccess[](2);
+        // Root account access:
+        accesses[0] = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 2
+        });
+        // Next account access, which has a different chain ID:
+        Vm.AccountAccess memory nextAccess = makeAccountAccess({
+            _accessor: dummySafeAddress,
+            _kind: VmSafe.AccountAccessKind.Create,
+            _depth: 3 // Nested account access
+        });
+        nextAccess.chainInfo.chainId = block.chainid - 1;
+        accesses[1] = nextAccess;
+
+        uint256 numNested = getNumNestedAccountAccesses({
+            _accesses: accesses,
+            _rootIdx: 0,
+            _safeAddress: dummySafeAddress,
+            _callDepth: defaultCallDepth,
+            _chainId: block.chainid
+        });
+
+        assertEq(numNested, 0);
+    }
+
     /////////////////////////////////// Helpers //////////////////////////////////////
 
     function makeAccountAccess(
         address _accessor,
         Vm.AccountAccessKind _kind,
         uint64 _depth
-    ) private pure returns (Vm.AccountAccess memory) {
+    ) private view returns (Vm.AccountAccess memory) {
         Vm.AccountAccess memory access;
         access.kind = _kind;
         access.accessor = _accessor;
         access.depth = _depth;
+        access.chainInfo.chainId = block.chainid;
         return access;
     }
 
