@@ -1,5 +1,33 @@
 # @sphinx-labs/plugins
 
+## 0.30.3
+
+### Patch Changes
+
+- 0d8af8f: Fetch artifacts via presigned url
+- a6e1473: Filter calls to SphinxUtils out of state diff
+- Updated dependencies [0d8af8f]
+- Updated dependencies [a6e1473]
+- Updated dependencies [caa8515]
+  - @sphinx-labs/core@0.23.2
+  - @sphinx-labs/contracts@0.20.2
+
+## 0.30.2
+
+### Patch Changes
+
+- fb439d6: Support installing Sphinx Library contracts via NPM
+- Updated dependencies [fb439d6]
+  - @sphinx-labs/contracts@0.20.1
+
+## 0.30.1
+
+### Patch Changes
+
+- b304407: Use fixed hardhat version
+- Updated dependencies [b304407]
+  - @sphinx-labs/core@0.23.1
+
 ## 0.30.0
 
 ### Minor Changes

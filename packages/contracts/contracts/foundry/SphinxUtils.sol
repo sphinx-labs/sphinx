@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm, VmSafe } from "../../lib/forge-std/src/Vm.sol";
-import { StdUtils } from "../../lib/forge-std/src/StdUtils.sol";
+import { Vm, VmSafe } from "../../contracts/forge-std/src/Vm.sol";
+import { StdUtils } from "../../contracts/forge-std/src/StdUtils.sol";
 
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
 import { ISphinxModuleProxyFactory } from "../core/interfaces/ISphinxModuleProxyFactory.sol";
@@ -53,6 +53,9 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     string internal deploymentInfoKey = "Sphinx_Internal__FoundryDeploymentInfo";
     string internal sphinxConfigKey = "Sphinx_Internal__SphinxConfig";
 
+    // Tracks if we've called the users `configureSphinx()` function yet
+    bool internal calledConfigureSphinx = false;
+
     function slice(
         bytes calldata _data,
         uint256 _start,
@@ -88,6 +91,12 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
         // If the second access did not come from the deterministic deployment proxy, then return false
         if (accountAccesses[1].accessor != DETERMINISTIC_DEPLOYMENT_PROXY) {
+            return false;
+        }
+
+        // If the second access has a depth of 0, then the foundry version installed must not include
+        // the depth field, so we return false
+        if (accountAccesses[1].depth == 0) {
             return false;
         }
 
@@ -467,7 +476,14 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function fetchAndValidateConfig(address _script) public returns (SphinxConfig memory) {
-        ISphinxScript(_script).configureSphinx();
+        // We keep track of if we've called the configureSphinx() function yet or not so we
+        // can avoid situations where there would be an infinite loop due to user calling
+        // safeAddress() from their configureSphinx() function.
+        if (calledConfigureSphinx == false) {
+            calledConfigureSphinx = true;
+            ISphinxScript(_script).configureSphinx();
+        }
+
         SphinxConfig memory config = ISphinxScript(_script).sphinxFetchConfig();
         validate(config);
         return config;
@@ -849,7 +865,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getNumRootAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) private pure returns (uint256) {
+    ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -874,14 +890,17 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
      * at 1 and because we initiate the collection process by doing a delegatecall to the entry
      * point function so the depth is 2 by the time any transactions get sent in the users script.
+     * - The target contract is not `SphinxUtils`. This can occur if the user calls a function
+     * that calls into this contract during their script. I.e calling safeAddress().
      */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
         address _safeAddress
-    ) private pure returns (bool) {
+    ) private view returns (bool) {
         return
             _access.accessor == _safeAddress &&
             _access.depth == 2 &&
+            _access.account != address(this) &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
     }
@@ -890,7 +909,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         Vm.AccountAccess[] memory _accesses,
         uint256 _rootIdx,
         address _safeAddress
-    ) private pure returns (uint256) {
+    ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
@@ -1061,7 +1080,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function parseAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         address _safeAddress
-    ) public pure returns (ParsedAccountAccess[] memory) {
+    ) public view returns (ParsedAccountAccess[] memory) {
         uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);

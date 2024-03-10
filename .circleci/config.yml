@@ -8,19 +8,11 @@ jobs:
           username: samgoldman
           password: $DOCKERHUB_PASSWORD
     steps:
-      - restore_cache:
-          keys:
-            - v2-cache-source-{{ .Branch }}-{{ .Revision }}
-            - v2-cache-source-{{ .Branch }}
-      - run:
-          name: Reset Head
-          command: git reset --hard || true
+      # - restore_cache:
+      #     keys:
+      #       - v2-cache-source-{{ .Branch }}-{{ .Revision }}
+      #       - v2-cache-source-{{ .Branch }}
       - checkout
-      - run:
-          name: Initialize submodules
-          command: |
-            git submodule init
-            git submodule update
       - save_cache:
           key: v2-cache-source-{{ .Branch }}-{{ .Revision }}
           paths:

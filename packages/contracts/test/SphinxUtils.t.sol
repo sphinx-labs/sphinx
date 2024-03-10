@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../lib/forge-std/src/Test.sol";
-import { VmSafe } from "../lib/forge-std/src/Vm.sol";
+import "../contracts/forge-std/src/Test.sol";
+import { VmSafe } from "../contracts/forge-std/src/Vm.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxForkCheck } from "../contracts/foundry/SphinxForkCheck.sol";
 import {
@@ -22,7 +22,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
 
     function setUp() public {}
 
-    function test_checkFork_passes() external {
+    function test_checkAccesses_passes() external {
         vm.startStateDiffRecording();
         new SphinxForkCheck{ salt: 0 }();
         Vm.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
@@ -61,7 +61,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 2
+            depth: 0
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -76,7 +76,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 3
+            depth: 1
         });
 
         bool passedCheck = checkAccesses(
@@ -108,7 +108,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 2
+            depth: 0
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -127,7 +127,54 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 3
+            depth: 1
+        });
+
+        bool passedCheck = checkAccesses(
+            accountAccesses,
+            keccak256(type(SphinxForkCheck).creationCode),
+            keccak256(type(SphinxForkCheck).runtimeCode)
+        );
+        assertEq(passedCheck, false);
+    }
+
+    function test_sphinxCheckAccesses_fails_incorrect_depth() external {
+        address expectedAddress = vm.computeCreate2Address(
+            0,
+            keccak256(type(SphinxForkCheck).creationCode),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
+        accountAccesses[0] = VmSafe.AccountAccess({
+            chainInfo: VmSafe.ChainInfo(0, 1),
+            kind: VmSafe.AccountAccessKind.Call,
+            account: address(DETERMINISTIC_DEPLOYMENT_PROXY),
+            accessor: address(this),
+            initialized: false,
+            oldBalance: 0,
+            newBalance: 0,
+            deployedCode: new bytes(0),
+            value: 0,
+            data: type(SphinxForkCheck).creationCode,
+            reverted: false,
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 0
+        });
+        accountAccesses[1] = VmSafe.AccountAccess({
+            chainInfo: VmSafe.ChainInfo(0, 1),
+            kind: VmSafe.AccountAccessKind.Create,
+            account: address(expectedAddress),
+            accessor: DETERMINISTIC_DEPLOYMENT_PROXY,
+            initialized: false,
+            oldBalance: 0,
+            newBalance: 0,
+            deployedCode: "",
+            value: 0,
+            data: type(SphinxForkCheck).creationCode,
+            reverted: false,
+            storageAccesses: new Vm.StorageAccess[](0),
+            depth: 0
         });
 
         bool passedCheck = checkAccesses(
@@ -153,7 +200,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 2
+            depth: 0
         });
         accountAccesses[1] = VmSafe.AccountAccess({
             chainInfo: VmSafe.ChainInfo(0, 1),
@@ -171,7 +218,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 3
+            depth: 1
         });
 
         bool passedCheck = checkAccesses(
@@ -197,7 +244,7 @@ contract SphinxUtils_Test is Test, SphinxUtils {
             data: type(SphinxForkCheck).creationCode,
             reverted: false,
             storageAccesses: new Vm.StorageAccess[](0),
-            depth: 2
+            depth: 0
         });
 
         bool passedCheck = checkAccesses(

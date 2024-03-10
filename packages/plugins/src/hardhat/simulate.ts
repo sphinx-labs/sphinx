@@ -1,4 +1,5 @@
 import { join } from 'path'
+import { existsSync } from 'fs'
 
 import {
   spawnAsync,
@@ -88,13 +89,25 @@ export const simulate = async (
     deploymentConfig
   )
 
+  const expectedHardhatConfigPath = join(
+    rootPluginPath,
+    'dist',
+    'hardhat.config.js'
+  )
+
+  if (!existsSync(expectedHardhatConfigPath)) {
+    throw new Error(
+      'Failed to locate simulation configuration. This is a bug, please report it to the developers'
+    )
+  }
+
   const envVars = {
     SPHINX_INTERNAL__FORK_URL: rpcUrl,
     SPHINX_INTERNAL__CHAIN_ID: chainId,
     SPHINX_INTERNAL__BLOCK_GAS_LIMIT: networkConfig.blockGasLimit,
     // We must set the Hardhat config using an environment variable so that Hardhat recognizes the
     // Hardhat config when we import the HRE in the child process.
-    HARDHAT_CONFIG: join(rootPluginPath, 'dist', 'hardhat.config.js'),
+    HARDHAT_CONFIG: expectedHardhatConfigPath,
   }
 
   const taskParams: simulateDeploymentSubtaskArgs = {
