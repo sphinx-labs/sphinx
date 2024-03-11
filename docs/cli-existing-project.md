@@ -14,21 +14,22 @@ In this guide, you'll propose the deployment on the command line and then approv
 
 1. [Prerequisites](#1-prerequisites)
 2. [Install Sphinx CLI](#2-install-sphinx-cli)
-3. [Install Sphinx Foundry library](#3-install-sphinx-foundry-library)
-4. [Update `.gitignore`](#4-update-gitignore)
-5. [Add remapping](#5-add-remapping)
-6. [Update your deployment script](#6-update-your-deployment-script)\
+3. [Update Foundry](#3-update-foundry)
+4. [Install Sphinx Foundry library](#4-install-sphinx-foundry-library)
+5. [Update `.gitignore`](#5-update-gitignore)
+6. [Add remapping](#6-add-remapping)
+7. [Update your deployment script](#7-update-your-deployment-script)\
   a. [Import Sphinx](#a-import-sphinx)\
   b. [Inherit from `Sphinx`](#b-inherit-from-sphinx)\
   c. [Add the `sphinx` modifier](#c-add-the-sphinx-modifier)\
   d. [Remove broadcasts](#d-remove-broadcasts)\
   e. [Handle new sender address](#e-handle-new-sender-address)\
   f. [Add configuration options](#e-add-configuration-options)
-7. [Add environment variables](#7-add-environment-variables)
-8. [Update `foundry.toml` settings](#8-update-foundrytoml-settings)
-9. [Run tests](#9-run-tests)
-10. [Propose on testnets](#10-propose-on-testnets)
-11. [Next steps](#11-next-steps)
+8. [Add environment variables](#8-add-environment-variables)
+9. [Update `foundry.toml` settings](#9-update-foundrytoml-settings)
+10. [Run tests](#10-run-tests)
+11. [Propose on testnets](#11-propose-on-testnets)
+12. [Next steps](#12-next-steps)
 
 ## 1. Prerequisites
 
@@ -63,7 +64,12 @@ pnpm add -D @sphinx-labs/plugins
 ```
 
 
-## 3. Install Sphinx Foundry Library
+## 3. Update Foundry
+```
+foundryup
+```
+
+## 4. Install Sphinx Foundry Library
 
 Use the `sphinx install` command to install the Sphinx Foundry library.
 
@@ -82,14 +88,14 @@ pnpm:
 pnpm sphinx install
 ```
 
-## 4. Update `.gitignore`
+## 5. Update `.gitignore`
 
 Add the following to your `.gitignore` file:
 ```
 node_modules/
 ```
 
-## 5. Add remapping
+## 6. Add remapping
 
 Configure the following remapping in either your `foundry.toml` file or `remappings.txt` file:
 
@@ -97,7 +103,7 @@ Configure the following remapping in either your `foundry.toml` file or `remappi
 @sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry
 ```
 
-## 6. Update your deployment script
+## 7. Update your deployment script
 
 Navigate to your deployment script. In this section, we'll update it to be compatible with Sphinx.
 
@@ -166,7 +172,7 @@ You'll need to update the following fields in this template:
 * Enter your address in the `owners` array.
 * Enter your Sphinx Organization ID in the `orgId` field. It's a public field, so you don't need to keep it secret. You can find it in the Sphinx UI.
 
-## 7. Add environment variables
+## 8. Add environment variables
 
 Get your Sphinx API Key from the Sphinx UI, then enter it as an environment variable:
 ```
@@ -178,7 +184,7 @@ Also, if you haven't added your node provider API key as an environment variable
 ALCHEMY_API_KEY=<your_api_key>
 ```
 
-## 8. Update `foundry.toml` settings
+## 9. Update `foundry.toml` settings
 
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
@@ -188,13 +194,13 @@ extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```
 
-## 9. Run tests
+## 10. Run tests
 
 You've finished integrating Sphinx! Your next step is to check that your existing tests are passing. Go ahead and run your Forge tests.
 
 If you can't get your test suite to pass, we're more than happy to help! Reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np).
 
-## 10. Propose on testnets
+## 11. Propose on testnets
 
 Use one of the command templates below to propose your deployment. Make sure to update the following parts of the command:
 * Replace `<PATH_TO_FORGE_SCRIPT>` with the path to your Forge script.
@@ -220,6 +226,6 @@ Here are the steps that occur when you run this command:
 
 When the proposal is finished, go to the [Sphinx UI](https://sphinx.dev) to approve the deployment. After you approve it, you can monitor the deployment's status in the UI while it's executed.
 
-## 11. Next steps
+## 12. Next steps
 
 Before you use Sphinx in production, we recommend reading the [Writing Deployment Scripts with Sphinx guide](https://github.com/sphinx-labs/sphinx/blob/main/docs/writing-scripts.md), which covers essential information for using Sphinx.
