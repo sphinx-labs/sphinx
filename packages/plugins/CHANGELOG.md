@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.30.4
+
+### Patch Changes
+
+- 5d482d6: Error if getaddrinfo ENOTFOUND occurs a large number of times
+
 ## 0.30.3
 
 ### Patch Changes
