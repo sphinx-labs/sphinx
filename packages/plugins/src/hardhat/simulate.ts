@@ -26,7 +26,6 @@ import {
   removeRoles,
   fetchNetworkConfigFromDeploymentConfig,
   NetworkConfig,
-  callWithTimeout,
   fetchExecutionTransactionReceipts,
   convertEthersTransactionReceipt,
 } from '@sphinx-labs/core'
@@ -346,12 +345,7 @@ export const simulateDeploymentSubtask = async (
   let attempts = 0
   while (executionCompleted === false) {
     try {
-      const result = await callWithTimeout(
-        compileAndExecuteDeployment(simulationContext),
-        90000,
-        'timed out executing deployment'
-      )
-
+      const result = await compileAndExecuteDeployment(simulationContext)
       if (!result) {
         throw new Error(
           'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
