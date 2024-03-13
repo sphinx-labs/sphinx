@@ -51,18 +51,17 @@ process.on('uncaughtException', (error) => {
    * It's worth mentioning, that we've already had logic that handles this running in the website backend
    * and it very reliably works for handling this exact issue.
    */
-  if (error.message.includes('getaddrinfo ENOTFOUND')) {
-    if (getaddrinfoErrors < 25) {
-      getaddrinfoErrors += 1
-      return
-    } else {
-      throw error
-    }
+  if (
+    error.message.includes('getaddrinfo ENOTFOUND') &&
+    getaddrinfoErrors < 25
+  ) {
+    getaddrinfoErrors += 1
+    return
+  } else {
+    process.stdout.write(
+      JSON.stringify({ message: error.message, stack: error.stack })
+    )
+
+    process.exit(1)
   }
-
-  process.stdout.write(
-    JSON.stringify({ message: error.message, stack: error.stack })
-  )
-
-  process.exit(1)
 })
