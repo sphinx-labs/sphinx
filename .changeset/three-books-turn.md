@@ -1,7 +1,7 @@
 ---
 '@sphinx-labs/contracts': patch
-'@sphinx-labs/core': patch
 '@sphinx-labs/plugins': patch
+'@sphinx-labs/core': patch
 ---
 
-Support Blast and Blast Sepolia
+Add support for scripts that fork networks

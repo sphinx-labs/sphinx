@@ -31,6 +31,8 @@ const runHardhatSimulation = async (
   process.stdout.write(JSON.stringify({ receipts }))
 }
 
+let getaddrinfoErrors = 0
+
 // If an error occurs, we write the error message and stack trace to `stdout` then exit the process
 // with exit code `1`. We write the error to `stdout` instead of `stderr` because `stderr` may
 // contain warnings that were written via `console.warn`, which are indistinguishable from the
@@ -49,13 +51,17 @@ process.on('uncaughtException', (error) => {
    * It's worth mentioning, that we've already had logic that handles this running in the website backend
    * and it very reliably works for handling this exact issue.
    */
-  if (error.message.includes('getaddrinfo ENOTFOUND')) {
+  if (
+    error.message.includes('getaddrinfo ENOTFOUND') &&
+    getaddrinfoErrors < 25
+  ) {
+    getaddrinfoErrors += 1
     return
+  } else {
+    process.stdout.write(
+      JSON.stringify({ message: error.message, stack: error.stack })
+    )
+
+    process.exit(1)
   }
-
-  process.stdout.write(
-    JSON.stringify({ message: error.message, stack: error.stack })
-  )
-
-  process.exit(1)
 })

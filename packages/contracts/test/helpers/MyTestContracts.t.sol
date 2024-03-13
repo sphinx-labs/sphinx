@@ -55,3 +55,9 @@ contract MyDelegateCallContract {
 contract GnosisSafeSingletonInvalidVersion {
     string public VERSION = "1.2.0";
 }
+
+contract MySimpleContract {
+    function myFunction() public pure returns (uint256) {
+        return 42;
+    }
+}
