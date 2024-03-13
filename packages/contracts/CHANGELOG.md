@@ -1,5 +1,14 @@
 # @sphinx-labs/contracts
 
+## 0.20.3
+
+### Patch Changes
+
+- ea7ddf9: Detect missing depth field in account accesses
+- a38b587: Prevent owner from being set to the zero address
+- f33d464: Stop infinite loop if the user calls safeAddress() in configureSphinx() function
+- bdfb0d1: Support Blast and Blast Sepolia
+
 ## 0.20.2
 
 ### Patch Changes

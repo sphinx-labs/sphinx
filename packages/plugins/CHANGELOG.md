@@ -1,5 +1,20 @@
 # @sphinx-labs/plugins
 
+## 0.30.5
+
+### Patch Changes
+
+- 76bcb9e: Passthrough getaddrinfo error using standard json format
+- 23476e7: Throw an error if the simulation is going to fail due to missing hardhat config
+- bdfb0d1: Support Blast and Blast Sepolia
+- Updated dependencies [ea7ddf9]
+- Updated dependencies [a38b587]
+- Updated dependencies [f33d464]
+- Updated dependencies [b036600]
+- Updated dependencies [bdfb0d1]
+  - @sphinx-labs/contracts@0.20.3
+  - @sphinx-labs/core@0.23.3
+
 ## 0.30.4
 
 ### Patch Changes
