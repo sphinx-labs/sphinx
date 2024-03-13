@@ -891,13 +891,15 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function getNumRootAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
-        address _safeAddress
+        address _safeAddress,
+        uint64 _callDepth,
+        uint256 _chainId
     ) private view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = 0; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
 
-            if (isRootAccountAccess(access, _safeAddress)) {
+            if (isRootAccountAccess(access, _safeAddress, _callDepth, _chainId)) {
                 count += 1;
             }
         }
@@ -914,19 +916,26 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      * represent real transactions. However, if Foundry added support for deploying with the
      * CREATE2 opcode instead of the default CREATE2 factory, then Create2 would probably be
      * added as a kind here.
-     * - The call depth is equal to 2. The expected depth is 2 because the depth value starts
-     * at 1 and because we initiate the collection process by doing a delegatecall to the entry
-     * point function so the depth is 2 by the time any transactions get sent in the users script.
+     * - The call depth is equal to the input call depth, which has a default value of 2. The
+     * expected depth is 2 because the depth value starts at 1 and because we initiate the
+     * collection process by doing a delegatecall to the entry point function so the depth is 2 by
+     * the time any transactions get sent in the users script. The call depth will be greater than
+     * 2 in Forge tests, which is why this is an input parameter instead of a constant.
      * - The target contract is not `SphinxUtils`. This can occur if the user calls a function
      * that calls into this contract during their script. I.e calling safeAddress().
+     * - The chain ID of the account access is correct. It will differ if the user forks other
+     * networks in their script.
      */
     function isRootAccountAccess(
         Vm.AccountAccess memory _access,
-        address _safeAddress
+        address _safeAddress,
+        uint64 _callDepth,
+        uint256 _chainId
     ) private view returns (bool) {
         return
             _access.accessor == _safeAddress &&
-            _access.depth == 2 &&
+            _access.depth == _callDepth &&
+            _access.chainInfo.chainId == _chainId &&
             _access.account != address(this) &&
             (_access.kind == VmSafe.AccountAccessKind.Call ||
                 _access.kind == VmSafe.AccountAccessKind.Create);
@@ -935,12 +944,19 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function getNumNestedAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
         uint256 _rootIdx,
-        address _safeAddress
-    ) private view returns (uint256) {
+        address _safeAddress,
+        uint64 _callDepth,
+        uint256 _chainId
+    ) internal view returns (uint256) {
         uint256 count = 0;
         for (uint256 i = _rootIdx + 1; i < _accesses.length; i++) {
             Vm.AccountAccess memory access = _accesses[i];
-            if (isRootAccountAccess(access, _safeAddress)) {
+            // If the current account access is a new root account access or exists on a different
+            // chain, we'll return from this function.
+            if (
+                isRootAccountAccess(access, _safeAddress, _callDepth, _chainId) ||
+                _chainId != access.chainInfo.chainId
+            ) {
                 return count;
             } else {
                 count += 1;
@@ -1065,27 +1081,38 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     function fetchNumCreateAccesses(
-        Vm.AccountAccess[] memory _accesses
+        Vm.AccountAccess[] memory _accesses,
+        uint256 _chainId
     ) public pure returns (uint) {
         uint numCreateAccesses = 0;
         for (uint i = 0; i < _accesses.length; i++) {
-            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+            if (isCreateAccountAccess(_accesses[i], _chainId)) {
                 numCreateAccesses += 1;
             }
         }
         return numCreateAccesses;
     }
 
+    function isCreateAccountAccess(
+        Vm.AccountAccess memory _access,
+        uint256 _chainId
+    ) private pure returns (bool) {
+        return
+            _access.kind == VmSafe.AccountAccessKind.Create &&
+            _access.chainInfo.chainId == _chainId;
+    }
+
     function fetchDeployedContractSizes(
-        Vm.AccountAccess[] memory _accesses
-    ) public view returns (DeployedContractSize[] memory) {
-        uint numCreateAccesses = fetchNumCreateAccesses(_accesses);
+        Vm.AccountAccess[] memory _accesses,
+        uint256 _chainId
+    ) private view returns (DeployedContractSize[] memory) {
+        uint numCreateAccesses = fetchNumCreateAccesses(_accesses, _chainId);
         DeployedContractSize[] memory deployedContractSizes = new DeployedContractSize[](
             numCreateAccesses
         );
         uint deployContractSizeIndex = 0;
         for (uint i = 0; i < _accesses.length; i++) {
-            if (_accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+            if (isCreateAccountAccess(_accesses[i], _chainId)) {
                 // We could also read the size of the code from the AccountAccess deployedCode field
                 // We don't do that because Foundry occasionally does not populate that field when
                 // it should.
@@ -1106,17 +1133,25 @@ contract SphinxUtils is SphinxConstants, StdUtils {
 
     function parseAccountAccesses(
         Vm.AccountAccess[] memory _accesses,
-        address _safeAddress
-    ) public view returns (ParsedAccountAccess[] memory) {
-        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress);
+        address _safeAddress,
+        uint64 _callDepth,
+        uint256 _chainId
+    ) internal view returns (ParsedAccountAccess[] memory) {
+        uint256 numRoots = getNumRootAccountAccesses(_accesses, _safeAddress, _callDepth, _chainId);
 
         ParsedAccountAccess[] memory parsed = new ParsedAccountAccess[](numRoots);
         uint256 rootCount = 0;
         for (uint256 rootIdx = 0; rootIdx < _accesses.length; rootIdx++) {
             Vm.AccountAccess memory access = _accesses[rootIdx];
 
-            if (isRootAccountAccess(access, _safeAddress)) {
-                uint256 numNested = getNumNestedAccountAccesses(_accesses, rootIdx, _safeAddress);
+            if (isRootAccountAccess(access, _safeAddress, _callDepth, _chainId)) {
+                uint256 numNested = getNumNestedAccountAccesses(
+                    _accesses,
+                    rootIdx,
+                    _safeAddress,
+                    _callDepth,
+                    _chainId
+                );
                 Vm.AccountAccess[] memory nested = new Vm.AccountAccess[](numNested);
                 for (uint256 nestedIdx = 0; nestedIdx < numNested; nestedIdx++) {
                     // Calculate the index of the current nested `AccountAccess` in the `_accesses`
@@ -1406,15 +1441,20 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     function finalizeDeploymentInfo(
         FoundryDeploymentInfo memory _deploymentInfo,
         Vm.AccountAccess[] memory _accesses,
+        uint64 _callDepth,
         address _scriptAddress
     ) external returns (FoundryDeploymentInfo memory) {
         ParsedAccountAccess[] memory parsedAccesses = parseAccountAccesses(
             _accesses,
-            _deploymentInfo.safeAddress
+            _deploymentInfo.safeAddress,
+            _callDepth,
+            // We use `deploymentInfo.chainId` instead of `block.chainid` because the user may have
+            // changed the current `block.chainid` in their script by forking a different network.
+            _deploymentInfo.chainId
         );
 
         _deploymentInfo.encodedDeployedContractSizes = abi.encode(
-            fetchDeployedContractSizes(_accesses)
+            fetchDeployedContractSizes(_accesses, _deploymentInfo.chainId)
         );
 
         // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode

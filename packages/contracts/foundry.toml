@@ -23,6 +23,10 @@ src = 'contracts/core'
 [profile.lite]
 optimizer = false
 
+[rpc_endpoints]
+ethereum = 'http://127.0.0.1:42001'
+optimism = 'http://127.0.0.1:42010'
+
 [fmt]
 line_length=100
 multiline_func_header="all"

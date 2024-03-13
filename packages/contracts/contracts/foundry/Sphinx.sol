@@ -141,17 +141,24 @@ abstract contract Sphinx {
 
     function sphinxCollectProposal(
         bytes memory _scriptFunctionCalldata,
-        string memory _deploymentInfoPath
-    ) external {
+        string memory _deploymentInfoPath,
+        uint64 _callDepth
+    ) external returns (FoundryDeploymentInfo memory) {
         sphinxUtils.validateProposal(address(this));
 
-        string memory serializedDeploymentInfo = sphinxCollect(
+        FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
             ExecutionMode.Platform,
             constants.managedServiceAddress(),
-            _scriptFunctionCalldata
+            _scriptFunctionCalldata,
+            _callDepth
         );
 
-        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
+        vm.writeFile(
+            _deploymentInfoPath,
+            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+        );
+
+        return deploymentInfo;
     }
 
     function sphinxCollectDeployment(
@@ -184,19 +191,24 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        string memory serializedDeploymentInfo = sphinxCollect(
+        FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
             _executionMode,
             deployer,
-            _scriptFunctionCalldata
+            _scriptFunctionCalldata,
+            2
         );
-        vm.writeFile(_deploymentInfoPath, serializedDeploymentInfo);
+        vm.writeFile(
+            _deploymentInfoPath,
+            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+        );
     }
 
     function sphinxCollect(
         ExecutionMode _executionMode,
         address _executor,
-        bytes memory _scriptFunctionCalldata
-    ) private returns (string memory) {
+        bytes memory _scriptFunctionCalldata,
+        uint64 _callDepth
+    ) private returns (FoundryDeploymentInfo memory) {
         address safe = safeAddress();
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxUtils.initializeDeploymentInfo(
@@ -235,12 +247,8 @@ abstract contract Sphinx {
 
         vm.revertTo(snapshotId);
 
-        FoundryDeploymentInfo memory finalDeploymentInfo = sphinxUtils.finalizeDeploymentInfo(
-            deploymentInfo,
-            accesses,
-            address(this)
-        );
-        return sphinxUtils.serializeFoundryDeploymentInfo(finalDeploymentInfo);
+        return
+            sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth, address(this));
     }
 
     /**
