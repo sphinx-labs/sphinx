@@ -1,5 +1,17 @@
 # @sphinx-labs/core
 
+## 0.23.3
+
+### Patch Changes
+
+- b036600: Suggest running forge build with --force if we fail to infer artifact
+- bdfb0d1: Support Blast and Blast Sepolia
+- Updated dependencies [ea7ddf9]
+- Updated dependencies [a38b587]
+- Updated dependencies [f33d464]
+- Updated dependencies [bdfb0d1]
+  - @sphinx-labs/contracts@0.20.3
+
 ## 0.23.2
 
 ### Patch Changes
