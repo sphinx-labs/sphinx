@@ -38,6 +38,12 @@ import {
   makeDeploymentConfig,
   getMaxGasLimit,
   getBytesLength,
+  Create2ActionInput,
+  ActionInput,
+  ActionInputType,
+  FunctionCallActionInput,
+  CreateActionInput,
+  encodeCreateCall,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -64,6 +70,7 @@ import {
   AccountAccessKind,
   ParsedAccountAccess,
   DeployedContractSize,
+  getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -72,7 +79,11 @@ import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyCont
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
 import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
-import { makeNetworkConfig } from '../../src/foundry/decode'
+import {
+  makeContractDecodedAction,
+  makeFunctionCallDecodedAction,
+  makeNetworkConfig,
+} from '../../src/foundry/decode'
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
 import {
   getInitCodeWithArgsArray,
@@ -952,4 +963,144 @@ export const encodeFunctionCalldata = (sig: Array<string>): string => {
   )
   const calldata = ethers.concat([fragment.selector, encodedParams])
   return calldata
+}
+
+export const makeActionInputsWithoutGas = (
+  ary: Array<
+    | {
+        actionType: ActionInputType.CREATE2
+        create2Salt: string
+        artifact: ContractArtifact
+        encodedArgs?: string
+      }
+    | {
+        actionType: ActionInputType.CALL
+        to: string
+        txData: string
+        fullyQualifiedName?: string
+      }
+    | {
+        actionType: ActionInputType.CREATE
+        nonce: number
+        artifact: ContractArtifact
+        from: string
+        encodedArgs?: string
+      }
+  >,
+  configArtifacts: ConfigArtifacts
+): Array<Omit<ActionInput, 'gas'>> => {
+  const actionInputs: Array<Omit<ActionInput, 'gas'>> = []
+  for (let index = 1; index <= ary.length; index++) {
+    const data = ary[index - 1]
+    if (data.actionType === ActionInputType.CREATE2) {
+      const { actionType, create2Salt, artifact, encodedArgs } = data
+      const { bytecode, sourceName, contractName } = artifact
+
+      const initCodeWithArgs = encodedArgs
+        ? ethers.concat([bytecode, encodedArgs])
+        : bytecode
+      const create2Address = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        create2Salt,
+        ethers.keccak256(initCodeWithArgs)
+      )
+
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+      const decodedAction = makeContractDecodedAction(
+        create2Address,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const contracts = [
+        {
+          address: create2Address,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        },
+      ]
+
+      const txData = ethers.concat([create2Salt, initCodeWithArgs])
+      const actionInput: Omit<Create2ActionInput, 'gas'> = {
+        decodedAction,
+        create2Address,
+        initCodeWithArgs,
+        actionType,
+        contracts,
+        index: index.toString(),
+        to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        value: '0',
+        txData,
+        operation: Operation.Call,
+        requireSuccess: true,
+      }
+      actionInputs.push(actionInput)
+    } else if (data.actionType === ActionInputType.CALL) {
+      const { actionType, to, txData, fullyQualifiedName } = data
+      const decodedAction = makeFunctionCallDecodedAction(
+        to,
+        txData,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const actionInput: Omit<FunctionCallActionInput, 'gas'> = {
+        actionType,
+        contracts: [],
+        index: index.toString(),
+        decodedAction,
+        requireSuccess: true,
+        value: '0',
+        operation: Operation.Call,
+        to,
+        txData,
+      }
+      actionInputs.push(actionInput)
+    } else if (data.actionType === ActionInputType.CREATE) {
+      const { actionType, nonce, artifact, encodedArgs, from } = data
+      const { bytecode, sourceName, contractName } = artifact
+
+      const initCodeWithArgs = encodedArgs
+        ? ethers.concat([bytecode, encodedArgs])
+        : bytecode
+      const contractAddress = ethers.getCreateAddress({
+        from,
+        nonce,
+      })
+
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+      const decodedAction = makeContractDecodedAction(
+        contractAddress,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const contracts = [
+        {
+          address: contractAddress,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        },
+      ]
+
+      const txData = encodeCreateCall('0', initCodeWithArgs)
+      const actionInput: Omit<CreateActionInput, 'gas'> = {
+        decodedAction,
+        contractAddress,
+        initCodeWithArgs,
+        actionType,
+        contracts,
+        index: index.toString(),
+        to: getCreateCallAddress(),
+        value: '0',
+        txData,
+        operation: Operation.DelegateCall,
+        requireSuccess: true,
+      }
+      actionInputs.push(actionInput)
+    } else {
+      throw new Error(`Action input type is not implemented.`)
+    }
+  }
+
+  return actionInputs
 }

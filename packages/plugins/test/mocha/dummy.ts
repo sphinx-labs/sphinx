@@ -5,7 +5,10 @@ import {
   BuildInfos,
   CompilerInput,
   ContractDeploymentArtifact,
+  Deployment,
   DeploymentArtifacts,
+  DeploymentConfig,
+  DeploymentContext,
   ExecutionArtifact,
   ExecutionMode,
   NetworkConfig,
@@ -14,12 +17,14 @@ import {
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
+import sinon from 'sinon'
 
 import { makeAddress } from './common'
 
 export const dummyChainId = '43211234'
 export const dummyMerkleRoot = '0x' + 'fe'.repeat(32)
 export const dummyModuleAddress = '0x' + 'df'.repeat(20)
+export const dummyUnlabeledAddress = '0x' + 'ad'.repeat(20)
 export const dummyContractName = 'DummyContractName'
 export const dummyContractArtifactFileName = `${dummyContractName}.json`
 export const dummyExecutionArtifactFileName = `${dummyMerkleRoot}.json`
@@ -219,7 +224,12 @@ export const getDummyNetworkConfig = (): NetworkConfig => {
       isExecuting: false,
     },
     isSystemDeployed: true,
-    unlabeledContracts: [],
+    unlabeledContracts: [
+      {
+        address: dummyUnlabeledAddress,
+        initCodeWithArgs: 'dummyInitCodeWithArgs',
+      },
+    ],
     arbitraryChain: false,
     libraries: [],
     gitCommit: null,
@@ -261,6 +271,17 @@ const getDummyExecutionArtifact = (): ExecutionArtifact => {
   }
 }
 
+export const getDummyDeploymentConfig = (): DeploymentConfig => {
+  return {
+    networkConfigs: [getDummyNetworkConfig()],
+    merkleTree: getDummyMerkleTree(),
+    configArtifacts: {},
+    buildInfos: getDummyBuildInfos(),
+    inputs: [getDummyCompilerInput()],
+    version: 'dummyVersion',
+  }
+}
+
 export const getDummyDeploymentArtifacts = (): DeploymentArtifacts => {
   const { id, input, solcVersion, solcLongVersion } = getDummyBuildInfo()
 
@@ -283,5 +304,38 @@ export const getDummyDeploymentArtifacts = (): DeploymentArtifacts => {
         solcVersion,
       },
     },
+  }
+}
+
+export const getDummyDeploymentContext = (): DeploymentContext => {
+  return {
+    throwError: sinon.fake(),
+    handleError: sinon.fake(),
+    handleAlreadyExecutedDeployment: sinon.fake(),
+    handleExecutionFailure: sinon.fake(),
+    handleSuccess: sinon.fake(),
+    executeTransaction: sinon.fake(),
+    injectRoles: sinon.fake(),
+    removeRoles: sinon.fake(),
+    deployment: getDummyDeployment(),
+    provider: new SphinxJsonRpcProvider(``),
+    wallet: new ethers.Wallet(
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+    ),
+  }
+}
+
+export const getDummyDeployment = (): Deployment => {
+  return {
+    id: 'dummyId',
+    multichainDeploymentId: 'dummyMultichainId',
+    projectId: 'dummyProjectId',
+    chainId: '1',
+    status: 'approved',
+    safeAddress: '0xdummySafeAddress',
+    moduleAddress: '0xdummyModuleAddress',
+    deploymentConfig: getDummyDeploymentConfig(),
+    networkName: 'dummyNetwork',
+    treeSigners: [],
   }
 }
