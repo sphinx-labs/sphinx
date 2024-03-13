@@ -106,10 +106,36 @@ export type ContractInfo = {
   addr: string
 }
 
+export type EstimateGasTransactionData = {
+  to: string | null
+  from: string
+  data: string
+  gasLimit: string
+  gasPrice: string
+  value: string
+  chainId: string
+}
+
+export type TransactionEstimatedGas = {
+  transaction: EstimateGasTransactionData
+  estimatedGas: string
+  estimatedBlobGas: string
+}
+
+/**
+ * The estimated cost to execute the deployment on a given network. Includes the overall gas cost with a buffer as well
+ * as the raw transaction data used to generate the estimate. We include the transaction data because some networks have
+ * more complex fee formulas or custom RPC methods for calculating fees which require more information.
+ */
+export type NetworkGasEstimate = {
+  chainId: number
+  estimatedGas: string
+  estimatedBlobGas: string
+  transactions: Array<TransactionEstimatedGas>
+}
+
 /**
  * @param compilerConfigId Deprecated field.
- * @param gasEstimates The estimated amount of gas required to the entire deployment tree on each
- * chain, including a buffer.
  */
 export type ProposalRequest = {
   apiKey: string
@@ -124,7 +150,7 @@ export type ProposalRequest = {
   deploymentName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>
-  gasEstimates: Array<{ chainId: number; estimatedGas: string }>
+  gasEstimates: Array<NetworkGasEstimate>
   diff: SphinxPreview
   compilerConfigId: string | undefined
   deploymentConfigId: string | undefined

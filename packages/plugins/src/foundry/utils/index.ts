@@ -16,7 +16,6 @@ import { spawnSync } from 'child_process'
 import {
   BuildInfo,
   CompilerOutputContracts,
-  SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   decodeDeterministicDeploymentProxyData,
@@ -55,8 +54,11 @@ import { streamObject } from 'stream-json/streamers/StreamObject'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import {
   ExecutionMode,
+  NetworkGasEstimate,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
+  EstimateGasTransactionData,
+  TransactionEstimatedGas,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -74,7 +76,7 @@ import {
   AccountAccessKind,
   AccountAccess,
 } from '@sphinx-labs/contracts'
-import { ConstructorFragment, ethers } from 'ethers'
+import { ConstructorFragment, TransactionResponse, ethers } from 'ethers'
 
 import {
   FoundryMultiChainDryRun,
@@ -82,7 +84,7 @@ import {
   FoundrySingleChainDryRun,
   FoundryToml,
 } from '../types'
-import { simulate } from '../../hardhat/simulate'
+import { SimulationTransactions, simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
@@ -1063,6 +1065,21 @@ export const convertLibraryFormat = (
     return `${filePath}:${contractName}=${ethers.getAddress(address)}`
   })
 }
+
+const toSphinxTransactionEstimatedGas = (
+  response: TransactionResponse
+): EstimateGasTransactionData => {
+  return {
+    to: response.to,
+    from: response.from,
+    data: response.data,
+    gasLimit: response.gasLimit.toString(),
+    gasPrice: response.gasPrice.toString(),
+    value: response.value.toString(),
+    chainId: response.chainId.toString(),
+  }
+}
+
 /**
  * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
  * for variations between the local simulation and the production environment. Also adjusts the
@@ -1070,9 +1087,13 @@ export const convertLibraryFormat = (
  * forks.
  */
 export const getEstimatedGas = async (
-  receipts: Array<SphinxTransactionReceipt>,
+  transactions: SimulationTransactions,
   provider: SphinxJsonRpcProvider
-): Promise<string> => {
+): Promise<{
+  estimatedGas: string
+  estimatedBlobGas: string
+  transactionsWithGasEstimates: Array<TransactionEstimatedGas>
+}> => {
   // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
   // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
   // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
@@ -1086,11 +1107,18 @@ export const getEstimatedGas = async (
   })
   const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
 
-  const estimatedGas = receipts
-    .map((receipt) => receipt.gasUsed)
-    .map(Number)
-    .map((gasUsed) => Math.round(gasUsed * 1.3))
-    .map((gasWithBuffer) => {
+  const transactionsWithGasEstimates = transactions
+    .map((transaction) => {
+      return {
+        transaction: toSphinxTransactionEstimatedGas(transaction.response),
+        estimatedGas: Math.round(Number(transaction.receipt.gasUsed) * 1.3),
+        estimatedBlobGas: Math.round(
+          Number(transaction.receipt.blobGasUsed ?? 0) * 1.3
+        ),
+      }
+    })
+    .map((transactionWithEstimatedGas) => {
+      const gasWithBuffer = transactionWithEstimatedGas.estimatedGas
       // Add the adjusted gas limit amount. We add this after multiplying by the 1.3x buffer because
       // the estimated minimum gas limit already includes a ~1.35x buffer due to the fact that the
       // `eth_estimateGas` RPC method overestimates the gas. ref:
@@ -1100,29 +1128,47 @@ export const getEstimatedGas = async (
       if (totalGas < 0) {
         throw new Error('Gas used is less than 0. Should never happen.')
       }
-      return totalGas
+      return {
+        transaction: transactionWithEstimatedGas.transaction,
+        estimatedGas: totalGas.toString(),
+        estimatedBlobGas:
+          transactionWithEstimatedGas.estimatedBlobGas.toString(),
+      }
     })
+
+  const estimatedGas = transactionsWithGasEstimates
+    .map((receiptWithEstimatedGas) => receiptWithEstimatedGas.estimatedGas)
+    .map(Number)
     .reduce((a, b) => a + b, 0)
 
-  return estimatedGas.toString()
+  const estimatedBlobGas = transactionsWithGasEstimates
+    .map((receiptWithEstimatedGas) => receiptWithEstimatedGas.estimatedBlobGas)
+    .map(Number)
+    .reduce((a, b) => a + b, 0)
+
+  return {
+    estimatedGas: estimatedGas.toString(),
+    estimatedBlobGas: estimatedBlobGas.toString(),
+    transactionsWithGasEstimates,
+  }
 }
 
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   deploymentConfig: DeploymentConfig,
   chainId: string,
   rpcUrl: string
-): Promise<{
-  chainId: number
-  estimatedGas: string
-}> => {
-  const { receipts } = await simulate(deploymentConfig, chainId, rpcUrl)
+): Promise<NetworkGasEstimate> => {
+  const { transactions } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
-  const estimatedGas = await getEstimatedGas(receipts, provider)
+  const { estimatedGas, estimatedBlobGas, transactionsWithGasEstimates } =
+    await getEstimatedGas(transactions, provider)
 
   return {
     chainId: Number(chainId),
     estimatedGas,
+    estimatedBlobGas,
+    transactions: transactionsWithGasEstimates,
   }
 }
 

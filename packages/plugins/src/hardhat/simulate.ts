@@ -30,7 +30,16 @@ import {
   fetchExecutionTransactionReceipts,
   convertEthersTransactionReceipt,
 } from '@sphinx-labs/core'
-import { ethers } from 'ethers'
+import { TransactionResponse, ethers } from 'ethers'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import pLimit from 'p-limit'
+
+const limit = pLimit(5)
+
+export type SimulationTransactions = Array<{
+  receipt: SphinxTransactionReceipt
+  response: TransactionResponse
+}>
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -73,7 +82,7 @@ export const simulate = async (
   chainId: string,
   rpcUrl: string
 ): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
+  transactions: SimulationTransactions
 }> => {
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
@@ -210,8 +219,8 @@ export const simulate = async (
    * and exit with the real value of stdout if an error occurs.
    */
   try {
-    const receipts = JSON.parse(stdout).receipts
-    return { receipts }
+    const transactions = JSON.parse(stdout).transactions
+    return { transactions }
   } catch (e) {
     console.log(stdout)
     console.error(stderr)
@@ -250,6 +259,40 @@ export const setupPresimulationState = async (
 }
 
 /**
+ * Fetches the transaction response objects for all of the transactions in the simulation. There's some additional
+ * data in the responses that is not in the receipts (data, value, etc) which is not available in the receipts. We
+ * use this information to calculate deployment cost estimates on the website.
+ */
+export const fetchTransactionResponses = async (
+  receipts: Array<SphinxTransactionReceipt>,
+  provider: HardhatEthersProvider
+): Promise<SimulationTransactions> => {
+  // Since the size of receipts array is unbounded, we use pLimit to reduce the number of simultaneous calls.
+  // This reduces the chance of us triggering a rate limit in the RPC provider.
+  const transactions = await Promise.all(
+    receipts.map(async (receipt) => {
+      const response = await limit(async () =>
+        provider.getTransaction(receipt.hash)
+      )
+      return {
+        receipt,
+        response,
+      }
+    })
+  )
+
+  if (transactions.some((transaction) => transaction.response === null)) {
+    throw new Error(
+      'Could not find simulation transaction for hash. This is a bug, please report it to the developers.'
+    )
+  }
+
+  // We cast as any then to the return type here because Typescript doesn't understand the above if statement
+  // guarentees none of the response objects are null.
+  return transactions as any as SimulationTransactions
+}
+
+/**
  * A Hardhat subtask that simulates a deployment against a forked Hardhat node. We need to load the
  * Hardhat Runtime Environment (HRE) because Hardhat doesn't document any lower-level functionality
  * for running a fork. We could theoretically interact with lower-level components, but this would
@@ -259,9 +302,7 @@ export const setupPresimulationState = async (
 export const simulateDeploymentSubtask = async (
   taskArgs: simulateDeploymentSubtaskArgs,
   hre: any
-): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
-}> => {
+): Promise<{ transactions: SimulationTransactions }> => {
   const { deploymentConfig, chainId } = taskArgs
   const { merkleTree } = deploymentConfig
 
@@ -371,7 +412,9 @@ export const simulateDeploymentSubtask = async (
         }
       }
 
-      return { receipts }
+      return {
+        transactions: await fetchTransactionResponses(receipts, provider),
+      }
     } catch (e) {
       /**
        * There are really only a few cases where an error will be thrown during the deployment and caught
@@ -429,5 +472,7 @@ export const simulateDeploymentSubtask = async (
     )
   }
 
-  return { receipts }
+  return {
+    transactions: await fetchTransactionResponses(receipts, provider),
+  }
 }

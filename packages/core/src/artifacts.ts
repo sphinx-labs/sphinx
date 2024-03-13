@@ -210,6 +210,8 @@ export const isSphinxTransactionReceipt = (
     typeof receipt.from === 'string' &&
     typeof receipt.gasPrice === 'string' &&
     typeof receipt.gasUsed === 'string' &&
+    (typeof receipt.blobGasUsed === 'string' ||
+      typeof receipt.blobGasUsed === 'undefined') &&
     typeof receipt.hash === 'string' &&
     typeof receipt.index === 'number' &&
     Array.isArray(receipt.logs) &&
@@ -244,6 +246,7 @@ export const convertEthersTransactionReceipt = (
     from: receipt.from,
     gasPrice: receipt.gasPrice.toString(),
     gasUsed: receipt.gasUsed.toString(),
+    blobGasUsed: receipt.blobGasUsed?.toString(),
     hash: receipt.hash,
     index: receipt.index,
     logs: receipt.logs.map((l) => ({

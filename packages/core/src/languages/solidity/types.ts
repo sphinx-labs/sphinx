@@ -227,6 +227,7 @@ export type SphinxTransactionReceipt = {
   from: string
   gasPrice: string
   gasUsed: string
+  blobGasUsed?: string
   hash: string
   index: number
   // Unlike EthersJS and Foundry, we don't include a `removed` boolean as a field in the `logs`
