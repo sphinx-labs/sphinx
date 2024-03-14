@@ -6,7 +6,6 @@ import chaiAsPromised from 'chai-as-promised'
 import {
   DeploymentConfig,
   ConfigArtifacts,
-  Create2ActionInput,
   DeploymentArtifacts,
   ExecutionMode,
   NetworkConfig,
@@ -19,12 +18,17 @@ import {
   makeDeploymentArtifacts,
   setBalance,
   isLiveNetwork,
+  InitialChainState,
+  getContractAddressesFromNetworkConfig,
+  ActionInputType,
+  ActionInput,
 } from '@sphinx-labs/core'
-import { ethers } from 'ethers'
+import { ethers, keccak256 } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   SphinxMerkleTree,
+  parseFoundryContractArtifact,
 } from '@sphinx-labs/contracts'
 
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
@@ -39,8 +43,12 @@ import {
   startAnvilNodes,
   getSphinxModuleAddressFromScript,
   getEmptyDeploymentArtifacts,
+  getGnosisSafeProxyAddress,
+  makeActionInputsWithoutGas,
+  encodeFunctionCalldata,
 } from '../common'
 import { makeMockSphinxContextForIntegrationTests } from '../mock'
+import { getFakeConfigArtifactsFromContractArtifacts } from '../fake'
 
 const coder = new ethers.AbiCoder()
 
@@ -93,12 +101,6 @@ const forgeScriptPath = 'contracts/test/script/Simple.s.sol'
 const emptyScriptPath = 'contracts/test/script/Empty.s.sol'
 const deploymentCasesScriptPath = 'contracts/test/script/Cases.s.sol'
 
-const expectedMyContract2Address = ethers.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.ZeroHash,
-  ethers.keccak256(MyContract2Artifact.bytecode.object)
-)
-
 const allChainIds = [
   fetchChainIdForNetwork('sepolia'),
   fetchChainIdForNetwork('optimism'),
@@ -136,9 +138,44 @@ describe('Deploy CLI command', () => {
   })
 
   describe('With preview', () => {
-    const projectName = 'Simple_Project_1'
+    it('Executes deployment on local network twice', async () => {
+      const artifact = parseFoundryContractArtifact(MyContract2Artifact)
+      const safeAddress = getGnosisSafeProxyAddress(
+        ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'],
+        1, // Threshold
+        0 // Salt nonce
+      )
 
-    it('Executes deployment on local network', async () => {
+      const nonce = 1
+      const expectedContractAddressOne = ethers.getCreateAddress({
+        from: safeAddress,
+        nonce,
+      })
+      const expectedContractFileNames = ['MyContract2.json']
+      const configArtifacts = await getFakeConfigArtifactsFromContractArtifacts(
+        [artifact]
+      )
+      const expectedActionInputsOne = makeActionInputsWithoutGas(
+        [
+          {
+            actionType: ActionInputType.CREATE,
+            nonce,
+            artifact,
+            from: safeAddress,
+          },
+          {
+            actionType: ActionInputType.CALL,
+            to: expectedContractAddressOne,
+            txData: encodeFunctionCalldata([
+              'incrementMyContract2(uint256)',
+              '2',
+            ]),
+            fullyQualifiedName: `${artifact.sourceName}:${artifact.contractName}`,
+          },
+        ],
+        configArtifacts
+      )
+
       // We run `forge clean` to ensure that a deployment can occur even if there are no existing
       // contract artifacts. This is worthwhile to test because we read contract interfaces in the
       // `deploy` function, which will fail if the function hasn't compiled the contracts yet. By
@@ -149,7 +186,7 @@ describe('Deploy CLI command', () => {
       const executionMode = ExecutionMode.LocalNetworkCLI
 
       expect(
-        await sepoliaProvider.getCode(expectedMyContract2Address)
+        await sepoliaProvider.getCode(expectedContractAddressOne)
       ).to.equal('0x')
 
       // Check that the deployment artifacts have't been created yet
@@ -161,14 +198,8 @@ describe('Deploy CLI command', () => {
       // Use the standard `isLiveNetwork` function so that it returns false.
       context.isLiveNetwork = isLiveNetwork
 
-      const targetContract = 'Simple1'
-      const {
-        deploymentConfig,
-        preview,
-        merkleTree,
-        receipts,
-        configArtifacts,
-      } = await deploy({
+      const targetContract = 'Simple3'
+      const firstDeployment = await deploy({
         scriptPath: forgeScriptPath,
         network: 'sepolia',
         skipPreview: false,
@@ -178,50 +209,78 @@ describe('Deploy CLI command', () => {
         targetContract,
       })
 
-      const networkConfig = deploymentConfig?.networkConfigs.at(0)
+      await expectValidDeployment({
+        deployment: firstDeployment,
+        previousArtifacts: getEmptyDeploymentArtifacts(),
+        provider: sepoliaProvider,
+        expectedExecutionMode: executionMode,
+        expectedContractFileNames,
+        expectedContractAddress: expectedContractAddressOne,
+        expectedInitialState: {
+          isSafeDeployed: false,
+          isModuleDeployed: false,
+          isExecuting: false,
+        },
+        expectedActionInputs: expectedActionInputsOne,
+      })
 
-      // Narrow the TypeScript types.
-      if (
-        !deploymentConfig ||
-        !preview ||
-        !merkleTree ||
-        !receipts ||
-        !configArtifacts ||
-        !networkConfig
-      ) {
+      const expectedContractAddressTwo = ethers.getCreateAddress({
+        from: safeAddress,
+        nonce: 2,
+      })
+      const expectedActionInputsTwo = makeActionInputsWithoutGas(
+        [
+          {
+            actionType: ActionInputType.CREATE,
+            nonce: nonce + 1,
+            artifact,
+            from: safeAddress,
+          },
+          {
+            actionType: ActionInputType.CALL,
+            to: expectedContractAddressTwo,
+            txData: encodeFunctionCalldata([
+              'incrementMyContract2(uint256)',
+              '2',
+            ]),
+            fullyQualifiedName: `${artifact.sourceName}:${artifact.contractName}`,
+          },
+        ],
+        configArtifacts
+      )
+
+      expect(
+        await sepoliaProvider.getCode(expectedContractAddressTwo)
+      ).to.equal('0x')
+
+      const secondDeployment = await deploy({
+        scriptPath: forgeScriptPath,
+        network: 'sepolia',
+        skipPreview: false,
+        silent: true,
+        sphinxContext: context,
+        verify: false,
+        targetContract,
+      })
+
+      if (!firstDeployment.deploymentArtifacts) {
         throw new Error(`Object(s) undefined.`)
       }
 
-      expect(networkConfig.executionMode).equals(executionMode)
-
-      const artifacts: DeploymentArtifacts = {
-        networks: {},
-        compilerInputs: {},
-      }
-      await makeDeploymentArtifacts(
-        {
-          [networkConfig.chainId]: {
-            deploymentConfig,
-            receipts,
-            provider: sepoliaProvider,
-          },
+      await expectValidDeployment({
+        deployment: secondDeployment, // Use the second deployment
+        previousArtifacts: firstDeployment.deploymentArtifacts,
+        provider: sepoliaProvider,
+        expectedExecutionMode: executionMode,
+        expectedContractFileNames,
+        expectedContractAddress: expectedContractAddressTwo,
+        expectedInitialState: {
+          isSafeDeployed: true,
+          isModuleDeployed: true,
+          isExecuting: false,
         },
-        merkleTree.root,
-        configArtifacts,
-        artifacts
-      )
-
-      await expectValidDeployment(
-        deploymentConfig,
-        preview,
-        'sepolia (local)',
-        projectName,
-        artifacts,
-        executionMode,
-        ['MyContract2.json'],
-        expectedMyContract2Address,
-        sepoliaProvider
-      )
+        expectedActionInputs: expectedActionInputsTwo,
+      })
     })
 
     // This tests the logic that deploys on live networks, which uses a signer to call the Sphinx
@@ -232,10 +291,34 @@ describe('Deploy CLI command', () => {
     // name 'optimism' in `SPHINX_NETWORKS`. Changing the network name ensures that the user can
     // deploy with network names that don't match ours.
     it('Executes deployment on live network with non-standard network name', async () => {
+      const create2Salt = '0x' + '00'.repeat(31) + '01'
+      const artifact = parseFoundryContractArtifact(MyContract2Artifact)
       const expectedContractAddressOptimism = ethers.getCreate2Address(
         DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-        '0x' + '00'.repeat(31) + '01',
-        ethers.keccak256(MyContract2Artifact.bytecode.object)
+        create2Salt,
+        keccak256(artifact.bytecode)
+      )
+      const configArtifacts = await getFakeConfigArtifactsFromContractArtifacts(
+        [artifact]
+      )
+      const expectedActionInputs = makeActionInputsWithoutGas(
+        [
+          {
+            actionType: ActionInputType.CREATE2,
+            create2Salt,
+            artifact,
+          },
+          {
+            actionType: ActionInputType.CALL,
+            to: expectedContractAddressOptimism,
+            txData: encodeFunctionCalldata([
+              'incrementMyContract2(uint256)',
+              '2',
+            ]),
+            fullyQualifiedName: `${artifact.sourceName}:${artifact.contractName}`,
+          },
+        ],
+        configArtifacts
       )
 
       expect(
@@ -265,13 +348,7 @@ describe('Deploy CLI command', () => {
       const executionMode = ExecutionMode.LiveNetworkCLI
 
       const targetContract = 'Simple1'
-      const {
-        deploymentConfig,
-        preview,
-        merkleTree,
-        receipts,
-        configArtifacts,
-      } = await deploy({
+      const deployment = await deploy({
         scriptPath: forgeScriptPath,
         network: 'optimism_mainnet',
         skipPreview: false,
@@ -280,57 +357,32 @@ describe('Deploy CLI command', () => {
         verify: false,
         targetContract,
       })
-
-      const networkConfig = deploymentConfig?.networkConfigs.at(0)
-
-      // Narrow the TypeScript types.
-      if (
-        !deploymentConfig ||
-        !preview ||
-        !merkleTree ||
-        !receipts ||
-        !configArtifacts ||
-        !networkConfig
-      ) {
-        throw new Error(`Object(s) undefined.`)
-      }
-
-      expect(networkConfig.executionMode).equals(executionMode)
-
-      const artifacts: DeploymentArtifacts = {
-        networks: {},
-        compilerInputs: {},
-      }
-      await makeDeploymentArtifacts(
-        {
-          [networkConfig.chainId]: {
-            deploymentConfig,
-            receipts,
-            provider: optimismProvider,
-          },
+      await expectValidDeployment({
+        deployment,
+        previousArtifacts: getEmptyDeploymentArtifacts(),
+        provider: optimismProvider,
+        expectedExecutionMode: executionMode,
+        expectedContractFileNames: ['MyContract2.json'],
+        expectedContractAddress: expectedContractAddressOptimism,
+        expectedInitialState: {
+          isSafeDeployed: false,
+          isModuleDeployed: false,
+          isExecuting: false,
         },
-        merkleTree.root,
-        configArtifacts,
-        artifacts
-      )
-
-      await expectValidDeployment(
-        deploymentConfig,
-        preview,
-        'optimism',
-        projectName,
-        artifacts,
-        executionMode,
-        ['MyContract2.json'],
-        expectedContractAddressOptimism,
-        optimismProvider
-      )
+        expectedActionInputs,
+      })
     })
 
     // We exit early even if the Gnosis Safe and Sphinx Module haven't been deployed yet. In other
     // words, we don't allow the user to use the `deploy` CLI command to just deploy a Gnosis Safe
     // and Sphinx Module. This behavior is consistent with the `propose` CLI command.
     it(`Displays preview then exits when there's nothing to execute`, async () => {
+      const expectedMyContract2Address = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        ethers.ZeroHash,
+        ethers.keccak256(MyContract2Artifact.bytecode.object)
+      )
+
       expect(
         await sepoliaProvider.getCode(expectedMyContract2Address)
       ).to.equal('0x')
@@ -706,26 +758,57 @@ const getContract = (address: string, artifact: any): ethers.Contract => {
   return contract
 }
 
-const expectValidDeployment = async (
-  deploymentConfig: DeploymentConfig,
-  preview: SphinxPreview,
-  expectedNetworkTag: string,
-  projectName: string,
-  artifacts: DeploymentArtifacts,
-  executionMode: ExecutionMode,
-  expectedContractFileNames: Array<string>,
-  expectedContractAddress: string,
+const expectValidDeployment = async (input: {
+  deployment: Awaited<ReturnType<typeof deploy>>
+  previousArtifacts: DeploymentArtifacts
   provider: SphinxJsonRpcProvider
-) => {
-  const networkConfig = deploymentConfig.networkConfigs.at(0)
+  expectedExecutionMode: ExecutionMode
+  expectedContractFileNames: Array<string>
+  expectedContractAddress: string
+  expectedInitialState: InitialChainState
+  expectedActionInputs: Array<Omit<ActionInput, 'gas'>>
+}) => {
+  const {
+    deployment,
+    previousArtifacts,
+    provider,
+    expectedExecutionMode,
+    expectedContractFileNames,
+    expectedContractAddress,
+    expectedInitialState,
+    expectedActionInputs,
+  } = input
 
-  if (!networkConfig) {
+  const {
+    deploymentConfig,
+    preview,
+    merkleTree,
+    receipts,
+    configArtifacts,
+    deploymentArtifacts,
+  } = deployment
+
+  const networkConfig = deploymentConfig?.networkConfigs.at(0)
+
+  if (
+    !deploymentConfig ||
+    !preview ||
+    !merkleTree ||
+    !receipts ||
+    !configArtifacts ||
+    !networkConfig ||
+    !deploymentArtifacts
+  ) {
     throw new Error(`Object(s) undefined.`)
   }
 
-  expect(
-    (networkConfig.actionInputs[0] as Create2ActionInput).create2Address
-  ).to.equal(expectedContractAddress)
+  expect(networkConfig.executionMode).equals(expectedExecutionMode)
+
+  const contractAddresses = getContractAddressesFromNetworkConfig(networkConfig)
+  for (const address of contractAddresses) {
+    expect(await provider.getCode(address)).does.not.equal('0x')
+  }
+
   const contract = new ethers.Contract(
     expectedContractAddress,
     MyContract2Artifact.abi,
@@ -734,51 +817,20 @@ const expectValidDeployment = async (
   expect(await provider.getCode(expectedContractAddress)).to.not.equal('0x')
   expect(await contract.number()).to.equal(BigInt(2))
 
-  expect(preview).to.deep.equal({
-    networks: [
-      {
-        networkTags: [expectedNetworkTag],
-        executing: [
-          {
-            type: 'SystemDeployment',
-          },
-          {
-            referenceName: 'GnosisSafe',
-            functionName: 'deploy',
-            variables: {},
-            address: networkConfig.safeAddress,
-          },
-          {
-            referenceName: 'SphinxModule',
-            functionName: 'deploy',
-            variables: {},
-            address: networkConfig.moduleAddress,
-          },
-          {
-            referenceName: 'MyContract2',
-            functionName: 'deploy',
-            variables: {},
-            address: expectedContractAddress,
-          },
-          {
-            referenceName: 'MyContract2',
-            functionName: 'incrementMyContract2',
-            variables: { _num: '2' },
-            address: expectedContractAddress,
-          },
-        ],
-        skipping: [],
-      },
-    ],
-    unlabeledAddresses: new Set([]),
-  })
+  expect(networkConfig.initialState).deep.equals(expectedInitialState)
+
+  const actualActionInputsClone = structuredClone(
+    networkConfig.actionInputs
+  ) as any[]
+  actualActionInputsClone.forEach((actionInput) => delete actionInput.gas)
+  expect(actualActionInputsClone).deep.equals(expectedActionInputs)
 
   checkArtifacts(
-    projectName,
+    networkConfig.newConfig.projectName,
     deploymentConfig,
-    getEmptyDeploymentArtifacts(),
-    artifacts,
-    executionMode,
+    previousArtifacts,
+    deploymentArtifacts,
+    expectedExecutionMode,
     expectedContractFileNames
   )
 }

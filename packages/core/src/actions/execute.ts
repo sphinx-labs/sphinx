@@ -1310,3 +1310,27 @@ export const compileAndExecuteDeployment = async (
     }
   }
 }
+
+/**
+ * An object that contains functions defined in this file. We use this object to mock its member
+ * functions in tests. It's easiest to explain why this object is necessary through an example. Say
+ * this object doesn't exist, and say we have a function `myFunction` that calls
+ * `compileAndExecuteDeployment`. To mock `compileAndExecuteDeployment` when testing `myFunction`,
+ * we'd write:
+ * ```
+ * import * as sphinxCore from '@sphinx-labs/core'
+ * sinon.stub(sphinxCore, 'compileAndExecuteDeployment')
+ * ```
+ * However, the above code will fail with the following error: "TypeError: Descriptor for property
+ * compileAndExecuteDeployment is non-configurable and non-writable".
+ *
+ * Then, say we introduce this object and we update `myFunction` to contain
+ *  `sphinxCoreExecute.compileAndExecuteDeployment`. We can sucessfully create the mock by writing:
+ * ```
+ * import { sphinxCoreExecute } from '@sphinx-labs/core'
+ * sinon.stub(sphinxCoreExecute, 'compileAndExecuteDeployment')
+ *```
+ */
+export const sphinxCoreExecute = {
+  compileAndExecuteDeployment,
+}

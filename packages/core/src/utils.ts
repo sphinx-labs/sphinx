@@ -1544,7 +1544,7 @@ export const isCreateActionInput = (
     typeof create.value === 'string' &&
     typeof create.txData === 'string' &&
     typeof create.gas === 'string' &&
-    create.operation === Operation.Call &&
+    create.operation === Operation.DelegateCall &&
     typeof create.requireSuccess === 'boolean'
   )
 }
@@ -1633,6 +1633,18 @@ export const readDeploymentArtifactsForNetwork = (
 }
 
 export const isArrayMixed = <T>(arr: T[]): boolean => new Set(arr).size > 1
+
+export const getContractAddressesFromNetworkConfig = (
+  networkConfig: NetworkConfig
+): Array<string> => {
+  const unlabeledAddresses = networkConfig.unlabeledContracts.map(
+    (ct) => ct.address
+  )
+  const labeledAddresses = networkConfig.actionInputs
+    .flatMap((actions) => actions.contracts)
+    .map((ct) => ct.address)
+  return unlabeledAddresses.concat(labeledAddresses)
+}
 
 /**
  * Checks if a string contains an opening then closing parenthesis.

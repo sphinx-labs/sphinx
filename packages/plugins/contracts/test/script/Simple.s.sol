@@ -41,3 +41,18 @@ contract Simple2 is Script, Sphinx {
         new MyContract2{ salt: bytes32(uint(2)) }();
     }
 }
+
+contract Simple3 is Script, Sphinx {
+    function configureSphinx() public override {
+        sphinxConfig.projectName = "Simple_Project_3";
+        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
+        sphinxConfig.threshold = 1;
+
+        sphinxConfig.orgId = "test-org-id";
+    }
+
+    function run() public sphinx {
+        MyContract2 myContract = new MyContract2();
+        myContract.incrementMyContract2(2);
+    }
+}
