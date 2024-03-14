@@ -23,7 +23,7 @@ import {
   ActionInputType,
   ActionInput,
 } from '@sphinx-labs/core'
-import { ethers, keccak256 } from 'ethers'
+import { ethers, keccak256, parseEther } from 'ethers'
 import {
   CREATE3_PROXY_INITCODE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -465,6 +465,7 @@ describe('Deployment Cases', () => {
   let configArtifacts: ConfigArtifacts | undefined
   let createAddressOne: string
   let createAddressTwo: string
+  let myContractPayableAddress: string
   let originalEnv: NodeJS.ProcessEnv
 
   const checkLabeled = (
@@ -498,6 +499,16 @@ describe('Deployment Cases', () => {
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
     await startAnvilNodes(allChainIds)
+
+    const safeAddress = getGnosisSafeProxyAddress(
+      ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'],
+      1, // Threshold
+      0 // Salt nonce
+    )
+    // Set the balance of the Safe ahead of time. This tests that transferring to the Safe
+    // works even if the Safe already has a balance.
+    const provider = new SphinxJsonRpcProvider(sepoliaRpcUrl)
+    await setBalance(safeAddress, parseEther('1').toString(), provider)
 
     if (existsSync(deploymentArtifactDirPath)) {
       await rm(deploymentArtifactDirPath, { recursive: true, force: true })
@@ -533,6 +544,10 @@ describe('Deployment Cases', () => {
     createAddressTwo = ethers.getCreateAddress({
       from: networkConfig!.safeAddress,
       nonce: 2,
+    })
+    myContractPayableAddress = ethers.getCreateAddress({
+      from: networkConfig!.safeAddress,
+      nonce: 3,
     })
   })
 
@@ -701,6 +716,29 @@ describe('Deployment Cases', () => {
         checkNotLabeled(create3ProxyAddress)
       })
     })
+  })
+
+  it('Transfers funds to Safe during deployment', async () => {
+    // Narrow the TypeScript types.
+    if (!networkConfig) {
+      throw new Error(`Object(s) undefined.`)
+    }
+
+    // Expect funds to be in the safe
+    // 1 eth (the initial value of the safe) + 0.15 eth (the funds airdropped to the safe) - 0.03 eth (the funds transferred away from the safe during the deployment)
+    expect(await sepoliaProvider.getBalance(networkConfig.safeAddress)).to.eq(
+      BigInt('1120000000000000000')
+    )
+
+    // Expect funds to have been transferred to createAddressOne
+    expect(await sepoliaProvider.getBalance(createAddressOne)).to.eq(
+      BigInt('10000000000000000')
+    )
+
+    // Expect funds to have been transferred to createAddressTwo
+    expect(await sepoliaProvider.getBalance(myContractPayableAddress)).to.eq(
+      BigInt('20000000000000000')
+    )
   })
 
   it('Writes deployment artifacts correctly', async () => {

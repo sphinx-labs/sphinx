@@ -22,259 +22,345 @@ contract SphinxConstants {
       network: Network.anvil,
       name: "anvil",
       chainId: 31337,
-      networkType: NetworkType.Local
+      networkType: NetworkType.Local,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 ETH'
     });
     all[1] = NetworkInfo({
       network: Network.ethereum,
       name: "ethereum",
       chainId: 1,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[2] = NetworkInfo({
       network: Network.sepolia,
       name: "sepolia",
       chainId: 11155111,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[3] = NetworkInfo({
       network: Network.optimism,
       name: "optimism",
       chainId: 10,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[4] = NetworkInfo({
       network: Network.optimism_sepolia,
       name: "optimism_sepolia",
       chainId: 11155420,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[5] = NetworkInfo({
       network: Network.arbitrum,
       name: "arbitrum",
       chainId: 42161,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[6] = NetworkInfo({
       network: Network.arbitrum_sepolia,
       name: "arbitrum_sepolia",
       chainId: 421614,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[7] = NetworkInfo({
       network: Network.polygon,
       name: "polygon",
       chainId: 137,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 MATIC'
     });
     all[8] = NetworkInfo({
       network: Network.polygon_mumbai,
       name: "polygon_mumbai",
       chainId: 80001,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 MATIC'
     });
     all[9] = NetworkInfo({
       network: Network.bnb,
       name: "bnb",
       chainId: 56,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 50000000000000000,
+      dripSizeString: '0.05 BNB'
     });
     all[10] = NetworkInfo({
       network: Network.bnb_testnet,
       name: "bnb_testnet",
       chainId: 97,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 BNB'
     });
     all[11] = NetworkInfo({
       network: Network.gnosis,
       name: "gnosis",
       chainId: 100,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 xDAI'
     });
     all[12] = NetworkInfo({
       network: Network.gnosis_chiado,
       name: "gnosis_chiado",
       chainId: 10200,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 xDAI'
     });
     all[13] = NetworkInfo({
       network: Network.linea,
       name: "linea",
       chainId: 59144,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[14] = NetworkInfo({
       network: Network.linea_goerli,
       name: "linea_goerli",
       chainId: 59140,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[15] = NetworkInfo({
       network: Network.polygon_zkevm,
       name: "polygon_zkevm",
       chainId: 1101,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[16] = NetworkInfo({
       network: Network.polygon_zkevm_goerli,
       name: "polygon_zkevm_goerli",
       chainId: 1442,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[17] = NetworkInfo({
       network: Network.avalanche,
       name: "avalanche",
       chainId: 43114,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 AVAX'
     });
     all[18] = NetworkInfo({
       network: Network.avalanche_fuji,
       name: "avalanche_fuji",
       chainId: 43113,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 AVAX'
     });
     all[19] = NetworkInfo({
       network: Network.fantom,
       name: "fantom",
       chainId: 250,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 FTM'
     });
     all[20] = NetworkInfo({
       network: Network.fantom_testnet,
       name: "fantom_testnet",
       chainId: 4002,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 FTM'
     });
     all[21] = NetworkInfo({
       network: Network.base,
       name: "base",
       chainId: 8453,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[22] = NetworkInfo({
       network: Network.base_sepolia,
       name: "base_sepolia",
       chainId: 84532,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[23] = NetworkInfo({
       network: Network.celo,
       name: "celo",
       chainId: 42220,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 CELO'
     });
     all[24] = NetworkInfo({
       network: Network.celo_alfajores,
       name: "celo_alfajores",
       chainId: 44787,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 CELO'
     });
     all[25] = NetworkInfo({
       network: Network.moonriver,
       name: "moonriver",
       chainId: 1285,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 MOVR'
     });
     all[26] = NetworkInfo({
       network: Network.moonbeam,
       name: "moonbeam",
       chainId: 1284,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 GLMR'
     });
     all[27] = NetworkInfo({
       network: Network.moonbase_alpha,
       name: "moonbase_alpha",
       chainId: 1287,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 50000000000000000,
+      dripSizeString: '0.05 GLMR'
     });
     all[28] = NetworkInfo({
       network: Network.fuse,
       name: "fuse",
       chainId: 122,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 FUSE'
     });
     all[29] = NetworkInfo({
       network: Network.evmos,
       name: "evmos",
       chainId: 9001,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 EVMOS'
     });
     all[30] = NetworkInfo({
       network: Network.evmos_testnet,
       name: "evmos_testnet",
       chainId: 9000,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 15000000000000000,
+      dripSizeString: '0.015 EVMOS'
     });
     all[31] = NetworkInfo({
       network: Network.kava,
       name: "kava",
       chainId: 2222,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 KAVA'
     });
     all[32] = NetworkInfo({
       network: Network.kava_testnet,
       name: "kava_testnet",
       chainId: 2221,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 KAVA'
     });
     all[33] = NetworkInfo({
       network: Network.scroll,
       name: "scroll",
       chainId: 534352,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[34] = NetworkInfo({
       network: Network.scroll_sepolia,
       name: "scroll_sepolia",
       chainId: 534351,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[35] = NetworkInfo({
       network: Network.rootstock,
       name: "rootstock",
       chainId: 30,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 1000000000000000,
+      dripSizeString: '0.001 RBTC'
     });
     all[36] = NetworkInfo({
       network: Network.rootstock_testnet,
       name: "rootstock_testnet",
       chainId: 31,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 1000000000000000,
+      dripSizeString: '0.001 RBTC'
     });
     all[37] = NetworkInfo({
       network: Network.zora,
       name: "zora",
       chainId: 7777777,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[38] = NetworkInfo({
       network: Network.zora_sepolia,
       name: "zora_sepolia",
       chainId: 999999999,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[39] = NetworkInfo({
       network: Network.rari,
       name: "rari",
       chainId: 1380012617,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[40] = NetworkInfo({
       network: Network.rari_sepolia,
       name: "rari_sepolia",
       chainId: 1918988905,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
     });
     all[41] = NetworkInfo({
       network: Network.blast_sepolia,
       name: "blast_sepolia",
       chainId: 168587773,
-      networkType: NetworkType.Testnet
+      networkType: NetworkType.Testnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     all[42] = NetworkInfo({
       network: Network.blast,
       name: "blast",
       chainId: 81457,
-      networkType: NetworkType.Mainnet
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
     });
     return all;
   }

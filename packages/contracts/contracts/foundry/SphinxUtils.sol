@@ -56,6 +56,22 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     // Tracks if we've called the users `configureSphinx()` function yet
     bool internal calledConfigureSphinx = false;
 
+    function checkValidSafeFundingRequest(uint _value, uint _chainId) public pure {
+        NetworkInfo memory info = findNetworkInfoByChainId(_chainId);
+        if (info.dripSize < _value) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        "Sphinx: Gnosis Safe funding request exceeds the maximum value allowed on ",
+                        info.name,
+                        ". Please update your script to request less than or equal to the maximum value of ",
+                        info.dripSizeString
+                    )
+                )
+            );
+        }
+    }
+
     function slice(
         bytes calldata _data,
         uint256 _start,
@@ -1013,6 +1029,16 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "executionMode",
             abi.encode(uint256(_deployment.executionMode))
         );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "fundsRequestedForSafe",
+            abi.encode(_deployment.fundsRequestedForSafe)
+        );
+        vm.serializeBytes(
+            deploymentInfoKey,
+            "safeStartingBalance",
+            abi.encode(_deployment.safeStartingBalance)
+        );
         // Serialize the gas estimates as an ABI encoded `uint256` array.
         vm.serializeBytes(deploymentInfoKey, "gasEstimates", abi.encode(_deployment.gasEstimates));
         // Serialize the Sphinx library version as an ABI encoded string. We ABI encode it to ensure
@@ -1381,7 +1407,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function estimateMerkleLeafGas(
         ParsedAccountAccess[] memory _accountAccesses,
-        address _scriptAddress
+        address _scriptAddress,
+        FoundryDeploymentInfo memory _deploymentInfo
     ) private returns (uint256[] memory) {
         address safe = getGnosisSafeProxyAddress(_scriptAddress);
         address module = getSphinxModuleAddress(_scriptAddress);
@@ -1391,6 +1418,13 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         // We prank the Sphinx Module to replicate the production environment. In prod, the Sphinx
         // Module calls the Gnosis Safe.
         vm.startPrank(module);
+
+        // Update the balance of the Safe to be equal to the starting balance + the amount of funds
+        // requested. This ensures the Safe is properly funded when we execute the transactions below.
+        vm.deal(
+            _deploymentInfo.safeAddress,
+            _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe
+        );
 
         for (uint256 i = 0; i < _accountAccesses.length; i++) {
             ParsedAccountAccess memory parsed = _accountAccesses[i];
@@ -1466,7 +1500,11 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             _deploymentInfo.encodedAccountAccesses[i] = abi.encode(parsedAccesses[i]);
         }
 
-        _deploymentInfo.gasEstimates = estimateMerkleLeafGas(parsedAccesses, _scriptAddress);
+        _deploymentInfo.gasEstimates = estimateMerkleLeafGas(
+            parsedAccesses,
+            _scriptAddress,
+            _deploymentInfo
+        );
 
         return _deploymentInfo;
     }

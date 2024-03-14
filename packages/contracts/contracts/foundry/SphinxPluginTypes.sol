@@ -113,6 +113,8 @@ struct FoundryDeploymentInfo {
     bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
     bytes encodedDeployedContractSizes;
+    uint fundsRequestedForSafe;
+    uint safeStartingBalance;
 }
 
 enum ExecutionMode {
@@ -165,6 +167,8 @@ struct NetworkInfo {
     string name;
     uint256 chainId;
     NetworkType networkType;
+    uint256 dripSize;
+    string dripSizeString;
 }
 
 struct Wallet {

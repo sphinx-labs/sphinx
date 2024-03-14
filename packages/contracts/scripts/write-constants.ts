@@ -1,3 +1,5 @@
+import { ethers } from 'ethers'
+
 import { remove0x } from '../src/utils'
 import {
   getManagedServiceAddress,
@@ -89,7 +91,18 @@ const writeConstants = async () => {
     `${[...SPHINX_LOCAL_NETWORKS, ...SPHINX_NETWORKS]
       .map(
         (network, index) =>
-          `    all[${index}] = NetworkInfo({\n      network: Network.${network.name},\n      name: "${network.name}",\n      chainId: ${network.chainId},\n      networkType: NetworkType.${network.networkType}\n    });`
+          `    all[${index}] = NetworkInfo({\n      network: Network.${
+            network.name
+          },\n      name: "${network.name}",\n      chainId: ${
+            network.chainId
+          },\n      networkType: NetworkType.${
+            network.networkType
+          },\n      dripSize: ${ethers.parseUnits(
+            network.dripSize,
+            'ether'
+          )},\n      dripSizeString: '${
+            network.dripSize + ' ' + network.currency
+          }'\n    });`
       )
       .join('\n')}\n` +
     `    return all;\n  }` +

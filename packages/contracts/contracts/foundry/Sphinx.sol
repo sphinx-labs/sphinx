@@ -73,6 +73,21 @@ abstract contract Sphinx {
 
     bool private sphinxModifierEnabled;
 
+    /**
+     * @dev Tracks the amount of funding we need to transfer to the safe at the beginning of the deployment
+     *      We use a mapping for this and for the Safe starting balance because the user may have a complex
+     *      script that forks multiple different networks internally. See the `test_fundSafe_success_multifork`
+     *      test in Sphinx.t.sol for an example of this case.
+     *      chain => funds requested
+     */
+    mapping(uint256 => uint256) private fundsRequestedForSafe;
+
+    /**
+     * @dev Tracks the starting balance of the Safe.
+     *      chainId => starting balance
+     */
+    mapping(uint256 => uint256) private safeStartingBalance;
+
     constructor() {
         // Deploy the `SphinxUtils` and `SphinxConstants` helper contracts. We don't deploy these
         // using the `new` keyword because this causes an error when compiling with `viaIR` and the
@@ -236,6 +251,9 @@ abstract contract Sphinx {
         // have already occurred.
         uint256 snapshotId = vm.snapshot();
 
+        // Record the starting balance of the Safe
+        safeStartingBalance[deploymentInfo.chainId] = safeAddress().balance;
+
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
         (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
@@ -244,6 +262,17 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+
+        // We have to copy fundsRequestedForSafe and safeStartingBalance into deploymentInfo before
+        // calling vm.revertTo because that cheatcode will clear the state variables.
+        deploymentInfo.fundsRequestedForSafe = fundsRequestedForSafe[deploymentInfo.chainId];
+        deploymentInfo.safeStartingBalance = safeStartingBalance[deploymentInfo.chainId];
+
+        // Check that the amount of funds requested for the Safe is valid
+        sphinxUtils.checkValidSafeFundingRequest(
+            deploymentInfo.fundsRequestedForSafe,
+            deploymentInfo.chainId
+        );
 
         vm.revertTo(snapshotId);
 
@@ -332,6 +361,23 @@ abstract contract Sphinx {
      */
     function safeAddress() public returns (address) {
         return sphinxUtils.getGnosisSafeProxyAddress(address(this));
+    }
+
+    /**
+     * @notice Utility function that allows the user to transfer funds to their Safe at
+     * the beginning of a deployment. A utility function is required for this (vs just
+     * using _to.call{value: _amount} or transfer()) because this features involves the
+     * DevOps platform transferring funds directly to the safe from an EOA as part of the
+     * deployment. _to.call{value: _amount} or transfer() can be used to transfer value
+     * from the Safe to other addresses.
+     */
+    function fundSafe(uint _value) public {
+        fundsRequestedForSafe[block.chainid] += _value;
+
+        // Update the balance of the safe to equal to Safe's current balance + the
+        // value that we will transfer to the Safe during the deployment.
+        address safe = safeAddress();
+        vm.deal(safe, safe.balance + _value);
     }
 
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {

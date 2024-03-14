@@ -121,13 +121,13 @@ export type MinimumTransaction = {
   chainId: string
   data: string
   gasLimit?: string
+  value?: string
 }
 
 export type ExecuteTransaction = (
   deploymentContext: DeploymentContext,
   transaction: MinimumTransaction,
   executionMode: ExecutionMode,
-  signer?: ethers.Signer,
   minimumActionsGasLimit?: number
 ) => Promise<TransactionReceipt>
 
@@ -143,9 +143,9 @@ export type RemoveRoles = (
 ) => Promise<void>
 
 /**
- * Before calling the `compileAndExecuteDeployment` function, we have to construct a DeploymentContext
+ * Before calling the `attemptDeployment` function, we have to construct a DeploymentContext
  * which implements a number of functions that vary depending on the specific context in which the function
- * is executed. This allows us to share the `compileAndExecuteDeployment` function between the proposal
+ * is executed. This allows us to share the `attemptDeployment` function between the proposal
  * simulation, deploy cli command simulation/execution, and the website execution flow.
  *
  * Using a single function for all of these related flows improves maintainability and also reduces the
@@ -179,12 +179,12 @@ export type DeploymentContext = {
    *
    * We use the `DeploymentContext` for this because the website implements retry logic, as a result
    * there are some cases where the deployment may be partially or fully executed already when we call
-   * the `compileAndExecuteDeployment` function. For the propose/deploy commands, this should never happen
+   * the `attemptDeployment` function. For the propose/deploy commands, this should never happen
    * so we just error.
    *
    * It's worth noting that if we wanted to implement retry logic in the deploy cli command to make it more
    * reliable, we would want to do that by implementing this function and then repeatedly calling the
-   * `compileAndExecuteDeployment` function. This is how the website currently works.
+   * `attemptDeployment` function. This is how the website currently works.
    */
   handleAlreadyExecutedDeployment: HandleAlreadyExecutedDeployment
 
@@ -210,7 +210,7 @@ export type DeploymentContext = {
    * We use the `DeploymentContext` for this because the website sends transactions using the relayer service rather
    * than an ethers signer like the deploy/propose commands.
    *
-   * There are cases within the `compileAndExecuteDeployment` where we can just use a signer to send transactions
+   * There are cases within the `attemptDeployment` where we can just use a signer to send transactions
    * without breaking the website (any time we send a transaction that will *never* get send on the website). However,
    * we bias towards always using this function even if it's not strictly necessary. It's generally easier to reason
    * about always using this function than it is to reason about if it's necessary in specific cases or not.
@@ -259,7 +259,7 @@ export type DeploymentContext = {
    * An optional wallet.
    *
    * This wallet will be available in the `executeTransaction` function and can be used to send transactions in cases
-   * where an ethers signer is desirable. It will not be available when the `compileAndExecuteDeployment` function is
+   * where an ethers signer is desirable. It will not be available when the `attemptDeployment` function is
    * invoked in the website backend. It's up to the `executeTransaction` function to ensure the field exists if it's
    * required.
    */
@@ -679,7 +679,6 @@ export const executeActionsViaManagedService: ExecuteActions = async (
       chainId: deploymentContext.deployment.chainId,
     },
     executionMode,
-    undefined,
     minimumActionsGasLimit
   )
 }
@@ -902,7 +901,7 @@ export const handleStatus = (
 }
 
 /**
- * We do not recommend using this function directly. We prefer to us the `compileAndExecuteDeployment` function
+ * We do not recommend using this function directly. We prefer to us the `attemptDeployment` function
  * below which is shared between the deploy command, propose command, simulation, and website backend.
  */
 const executeDeployment = async (
@@ -920,7 +919,7 @@ const executeDeployment = async (
   const { spinner, provider } = deploymentContext
 
   const humanReadableActions = {
-    [chainId]: getReadableActions(actionInputs),
+    [chainId]: getReadableActions(actionInputs, chainId),
   }
 
   let estimateGas: EstimateGas
@@ -966,6 +965,52 @@ const executeDeployment = async (
       // when deploying on local nodes.
       executionMode === ExecutionMode.LiveNetworkCLI ? spinner : undefined
     )
+  }
+
+  // Handle transferring funds to the safe.
+  // `networkConfig.safeFundingRequest` may be undefined for configs generated
+  // with previous Sphinx plugin versions that did not support transferring funds
+  // to the safe.
+  if (networkConfig.safeFundingRequest) {
+    const safeBalance = await provider.getBalance(networkConfig.safeAddress)
+    const { startingBalance, fundsRequested } = networkConfig.safeFundingRequest
+    const requiredBalance = BigInt(startingBalance) + BigInt(fundsRequested)
+
+    /**
+     * If the Safe does not have the required funds, then trigger a transfer to it.
+     *
+     * Note that there is an edge case that is not covered here which may cause funds to be
+     * transferred to the Safe multiple times:
+     * 1. Propose a script for a safe that already has funds in it.
+     * 2. After the proposal completes but before the deployment is executed, transfer funds
+     * away from the Safe.
+     * 3. Execute the deployment. If the execution times out at any point and the deployment
+     * is retried, then funds may be transferred to the additional times.
+     *
+     * We don't address this edge case here because it is non-trivial to do in a reliable way
+     * just by looking at the on-chain state. Instead, we rely on the websites implementation
+     * of `deploymentContext.executeTransaction` to be idempotent on a per deployment basis.
+     * So that even if the deployment times out and `deploymentContext.executeTransaction` is
+     * called multiple times, it wont result in additional transfers because the website backend
+     * still only sends a single transaction.
+     *
+     * This issue could still potentially occur in the deploy CLI command if/when we implement
+     * retries for that command. I've documented this in the ticket to improve the deploy CLI
+     * command:
+     * https://linear.app/chugsplash/issue/CHU-447/implement-timeout-and-retry-logic-in-deploy-cli-command
+     */
+    if (safeBalance < requiredBalance) {
+      await deploymentContext.executeTransaction(
+        deploymentContext,
+        {
+          to: networkConfig.safeAddress,
+          chainId: networkConfig.chainId,
+          value: fundsRequested.toString(),
+          data: '0x',
+        },
+        executionMode
+      )
+    }
   }
 
   const sphinxModuleReadOnly = new ethers.Contract(
@@ -1179,7 +1224,7 @@ export const fetchExecutionTransactionReceipts = async (
  * See documentation on the `DeploymentContext` type at the top of this file for more information of the specific fields
  * and justification for why the logic implemented in them cannot be shared.
  */
-export const compileAndExecuteDeployment = async (
+export const attemptDeployment = async (
   deploymentContext: DeploymentContext
 ): Promise<
   | {
@@ -1315,22 +1360,22 @@ export const compileAndExecuteDeployment = async (
  * An object that contains functions defined in this file. We use this object to mock its member
  * functions in tests. It's easiest to explain why this object is necessary through an example. Say
  * this object doesn't exist, and say we have a function `myFunction` that calls
- * `compileAndExecuteDeployment`. To mock `compileAndExecuteDeployment` when testing `myFunction`,
+ * `attemptDeployment`. To mock `attemptDeployment` when testing `myFunction`,
  * we'd write:
  * ```
  * import * as sphinxCore from '@sphinx-labs/core'
- * sinon.stub(sphinxCore, 'compileAndExecuteDeployment')
+ * sinon.stub(sphinxCore, 'attemptDeployment')
  * ```
  * However, the above code will fail with the following error: "TypeError: Descriptor for property
- * compileAndExecuteDeployment is non-configurable and non-writable".
+ * attemptDeployment is non-configurable and non-writable".
  *
  * Then, say we introduce this object and we update `myFunction` to contain
- *  `sphinxCoreExecute.compileAndExecuteDeployment`. We can sucessfully create the mock by writing:
+ *  `sphinxCoreExecute.attemptDeployment`. We can sucessfully create the mock by writing:
  * ```
  * import { sphinxCoreExecute } from '@sphinx-labs/core'
- * sinon.stub(sphinxCoreExecute, 'compileAndExecuteDeployment')
+ * sinon.stub(sphinxCoreExecute, 'attemptDeployment')
  *```
  */
 export const sphinxCoreExecute = {
-  compileAndExecuteDeployment,
+  attemptDeployment,
 }

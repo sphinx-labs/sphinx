@@ -9,15 +9,22 @@ import {
   prettyRawFunctionCall,
 } from './utils'
 import { fetchNameForNetwork } from './networks'
+import { InvariantError } from './errors'
 
 type SystemDeploymentElement = {
   type: 'SystemDeployment'
 }
 
+type FundingSafeElement = {
+  type: 'FundingSafe'
+  value: string
+}
+
 type PreviewElement =
   | DecodedAction
-  | { to: string; data: string }
+  | { to: string; data: string; value: string }
   | SystemDeploymentElement
+  | FundingSafeElement
 
 /**
  * @property unlabeledAddresses A set of unlabeled addresses. The preview will warn the user that
@@ -33,6 +40,8 @@ export type SphinxPreview = {
     networkTags: Array<string>
     executing: Array<PreviewElement>
     skipping: Array<PreviewElement>
+    chainId: string
+    safeAddress: string
   }>
   unlabeledAddresses: Set<string>
 }
@@ -57,7 +66,13 @@ export const getPreviewString = (
     `Already executed.`
   )}`
 
-  for (const { networkTags, executing, skipping } of preview.networks) {
+  for (const {
+    networkTags,
+    executing,
+    skipping,
+    chainId,
+    safeAddress,
+  } of preview.networks) {
     // Get the preview string for the networks.
     const networkTagsArray: Array<string> = []
     if (networkTags.length === 1) {
@@ -79,12 +94,15 @@ export const getPreviewString = (
         const element = executing[i]
 
         if (isDecodedAction(element)) {
-          const { referenceName, functionName, variables, address } = element
+          const { referenceName, functionName, variables, address, value } =
+            element
           const actionStr = prettyFunctionCall(
             referenceName,
             address,
             functionName,
             variables,
+            chainId,
+            value,
             5,
             3
           )
@@ -92,6 +110,18 @@ export const getPreviewString = (
           executingArray.push(green(`${i + 1}. ${actionStr}`))
         } else if (isSystemDeploymentElement(element)) {
           executingArray.push(green(`${i + 1}. Sphinx & Gnosis Safe Contracts`))
+        } else if (isFundingSafeElement(element)) {
+          const actionStr = prettyFunctionCall(
+            'GnosisSafe',
+            safeAddress,
+            'call',
+            {},
+            chainId,
+            element.value,
+            5,
+            3
+          )
+          executingArray.push(green(`${i + 1}. ${actionStr}`))
         } else {
           const { to, data } = element
           const actionStr = prettyRawFunctionCall(to, data)
@@ -115,12 +145,18 @@ export const getPreviewString = (
             element.address,
             element.functionName,
             element.variables,
+            chainId,
+            element.value,
             5,
             3
           )
         } else if (isSystemDeploymentElement(element)) {
           throw new Error(
             `Skipped preview elements contain the Sphinx system contracts. Should never happen.`
+          )
+        } else if (isFundingSafeElement(element)) {
+          throw new InvariantError(
+            `Skipped preview elements contain a Safe funding element`
           )
         } else {
           functionCallStr = prettyRawFunctionCall(element.to, element.data)
@@ -165,6 +201,8 @@ export const getPreview = (
       executing: Array<PreviewElement>
       skipping: Array<PreviewElement>
       unlabeledAddresses: Array<string>
+      chainId: string
+      safeAddress: string
     }
   } = {}
 
@@ -211,6 +249,7 @@ export const getPreview = (
           functionName: 'deploy',
           variables: {},
           address: networkConfig.safeAddress,
+          value: '0',
         })
       }
       if (!initialState.isModuleDeployed) {
@@ -219,6 +258,17 @@ export const getPreview = (
           functionName: 'deploy',
           variables: {},
           address: networkConfig.moduleAddress,
+          value: '0',
+        })
+      }
+
+      if (
+        networkConfig.safeFundingRequest &&
+        BigInt(networkConfig.safeFundingRequest.fundsRequested) > BigInt(0)
+      ) {
+        executing.push({
+          type: 'FundingSafe',
+          value: networkConfig.safeFundingRequest.fundsRequested,
         })
       }
 
@@ -228,7 +278,13 @@ export const getPreview = (
       }
     }
 
-    networks[networkTag] = { executing, skipping, unlabeledAddresses }
+    networks[networkTag] = {
+      executing,
+      skipping,
+      unlabeledAddresses,
+      chainId: networkConfig.chainId,
+      safeAddress: networkConfig.safeAddress,
+    }
   }
 
   // Next, we group networks that have the same executing and skipping arrays.
@@ -238,7 +294,7 @@ export const getPreview = (
   }
   for (const [
     networkTag,
-    { executing, skipping, unlabeledAddresses },
+    { executing, skipping, unlabeledAddresses, chainId, safeAddress },
   ] of Object.entries(networks)) {
     const existingNetwork = preview.networks.find(
       (e) =>
@@ -256,6 +312,8 @@ export const getPreview = (
         networkTags: [networkTag],
         executing,
         skipping,
+        chainId,
+        safeAddress,
       })
     }
   }
@@ -267,4 +325,10 @@ const isSystemDeploymentElement = (
   element: PreviewElement
 ): element is SystemDeploymentElement => {
   return (element as SystemDeploymentElement).type === 'SystemDeployment'
+}
+
+const isFundingSafeElement = (
+  element: PreviewElement
+): element is FundingSafeElement => {
+  return (element as FundingSafeElement).type === 'FundingSafe'
 }
