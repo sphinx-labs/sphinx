@@ -27,7 +27,7 @@ import {
   writeDeploymentArtifacts,
   isLegacyTransactionsRequiredForNetwork,
   MAX_UINT64,
-  compileAndExecuteDeployment,
+  attemptDeployment,
   Deployment,
   fetchNameForNetwork,
   DeploymentContext,
@@ -404,7 +404,7 @@ export const deploy = async (
     provider,
     spinner,
   }
-  const result = await compileAndExecuteDeployment(deploymentContext)
+  const result = await attemptDeployment(deploymentContext)
 
   if (!result) {
     throw new Error(

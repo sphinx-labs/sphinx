@@ -153,6 +153,8 @@ export type SupportedLocalNetwork = {
   actionGasLimitBuffer: false
   useHigherMaxGasLimit: false
   eip2028: true
+  dripSize: string
+  currency: string
 }
 
 export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
@@ -164,6 +166,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
+    dripSize: '1',
+    currency: 'ETH',
   },
 ]
 

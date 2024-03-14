@@ -73,6 +73,8 @@ export const decodeDeploymentInfo = (
   const chainId = abiDecodeUint256(parsed.chainId)
   const executionMode = abiDecodeUint256(parsed.executionMode)
   const nonce = abiDecodeUint256(parsed.nonce)
+  const fundsRequestedForSafe = abiDecodeUint256(parsed.fundsRequestedForSafe)
+  const safeStartingBalance = abiDecodeUint256(parsed.safeStartingBalance)
 
   const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
 
@@ -128,6 +130,8 @@ export const decodeDeploymentInfo = (
     accountAccesses,
     gasEstimates,
     deployedContractSizes,
+    fundsRequestedForSafe,
+    safeStartingBalance,
   }
 
   if (!isDeploymentInfo(deploymentInfo)) {
@@ -161,6 +165,8 @@ export const makeNetworkConfig = (
     accountAccesses,
     gasEstimates,
     deployedContractSizes,
+    fundsRequestedForSafe,
+    safeStartingBalance,
   } = deploymentInfo
 
   const parsedActionInputs: Array<ActionInput> = []
@@ -197,7 +203,8 @@ export const makeNetworkConfig = (
         address,
         initCodeWithArgs,
         configArtifacts,
-        fullyQualifiedName
+        fullyQualifiedName,
+        root.value
       )
 
       // If the fully qualified name exists, add the contract deployed to the list of parsed
@@ -245,7 +252,8 @@ export const makeNetworkConfig = (
         create2Address,
         initCodeWithArgs,
         configArtifacts,
-        fullyQualifiedName
+        fullyQualifiedName,
+        root.value
       )
 
       const action: Create2ActionInput = {
@@ -277,6 +285,7 @@ export const makeNetworkConfig = (
       const decodedAction = makeFunctionCallDecodedAction(
         to,
         root.data,
+        root.value.toString(),
         configArtifacts,
         fullyQualifiedName
       )
@@ -308,7 +317,7 @@ export const makeNetworkConfig = (
     const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
     if (BigInt(gas) > maxGasLimit) {
       const networkName = fetchNameForNetwork(BigInt(chainId))
-      const { referenceName, address, functionName, variables } =
+      const { referenceName, address, functionName, variables, value } =
         actionInput.decodedAction
       throw new Error(
         `Estimated gas for the following transaction is too high to be executed by Sphinx on ${networkName}:\n` +
@@ -317,6 +326,8 @@ export const makeNetworkConfig = (
             address,
             functionName,
             variables,
+            chainId,
+            value,
             5,
             3
           )
@@ -350,6 +361,10 @@ export const makeNetworkConfig = (
     executorAddress: deploymentInfo.executorAddress,
     libraries: convertLibraryFormat(libraries),
     gitCommit: getCurrentGitCommitHash(),
+    safeFundingRequest: {
+      fundsRequested: fundsRequestedForSafe,
+      startingBalance: safeStartingBalance,
+    },
   }
 
   return networkConfig
@@ -359,7 +374,8 @@ export const makeContractDecodedAction = (
   contractAddress: string,
   initCodeWithArgs: string,
   configArtifacts: ConfigArtifacts,
-  fullyQualifiedName?: string
+  fullyQualifiedName: string | undefined,
+  value: string
 ): DecodedAction => {
   if (fullyQualifiedName) {
     const coder = ethers.AbiCoder.defaultAbiCoder()
@@ -391,6 +407,7 @@ export const makeContractDecodedAction = (
       functionName: 'deploy',
       variables,
       address: contractAddress,
+      value,
     }
   } else {
     return {
@@ -398,6 +415,7 @@ export const makeContractDecodedAction = (
       functionName: 'deploy',
       variables: [],
       address: contractAddress,
+      value,
     }
   }
 }
@@ -405,6 +423,7 @@ export const makeContractDecodedAction = (
 export const makeFunctionCallDecodedAction = (
   to: string,
   data: string,
+  value: string,
   configArtifacts: ConfigArtifacts,
   fullyQualifiedName?: string
 ): DecodedAction => {
@@ -427,6 +446,7 @@ export const makeFunctionCallDecodedAction = (
       functionName,
       variables,
       address: to,
+      value,
     }
   } else {
     const variables = [
@@ -437,6 +457,7 @@ export const makeFunctionCallDecodedAction = (
       functionName: 'call',
       variables,
       address: '',
+      value,
     }
   }
 }
