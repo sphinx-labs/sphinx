@@ -348,7 +348,7 @@ export const simulateDeploymentSubtask = async (
     try {
       const result = await callWithTimeout(
         compileAndExecuteDeployment(simulationContext),
-        90000,
+        50_000_000,
         'timed out executing deployment'
       )
 
@@ -396,6 +396,11 @@ export const simulateDeploymentSubtask = async (
        * found the most reliable method to resolve these sort of issues was to completely reset the simulation
        * fork back to the original state using `hardhat_reset`.
        */
+
+      // Put breakpoint here. The `reproduced` variable will be `true` if we successfully reproduced
+      // the bug.
+      const reproduced = e.stack.includes('correct nonce')
+      reproduced
 
       if (!hre.config.networks.hardhat.forking) {
         throw new Error(

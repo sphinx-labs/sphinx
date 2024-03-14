@@ -12,7 +12,7 @@ contract Sample is Sphinx {
 
     function configureSphinx() public override {
         sphinxConfig.projectName = "test_project";
-        sphinxConfig.owners = [0x226F14C3e19788934Ff37C653Cf5e24caD198341];
+        sphinxConfig.owners = [address(0x1234)];
         sphinxConfig.threshold = 1;
         sphinxConfig.testnets = [
             "sepolia",

@@ -11,6 +11,7 @@ import {
   getGnosisSafeProxyFactoryAddress,
   SphinxModuleABI,
   decodeExecuteLeafData,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
 } from '@sphinx-labs/contracts'
 import ora from 'ora'
 import { TransactionReceipt, ethers } from 'ethers'
@@ -36,6 +37,7 @@ import {
   getSphinxWalletsSortedByAddress,
   removeSphinxWalletsFromGnosisSafeOwners,
   setManagedServiceRelayer,
+  sleep,
   toSphinxLeafWithProofArray,
 } from '../utils'
 import {
@@ -988,27 +990,97 @@ const executeDeployment = async (
         GnosisSafeProxyFactoryArtifact.abi
       )
 
-      const gnosisSafeDeploymentData =
-        gnosisSafeProxyFactory.interface.encodeFunctionData(
-          'createProxyWithNonce',
-          [
-            getGnosisSafeSingletonAddress(),
-            networkConfig.safeInitData,
-            networkConfig.newConfig.saltNonce,
-          ]
-        )
+      let saltNonce = 1
+      // We'll use the snapshotId as part of the solution to the bug.
+      let snapshotId
 
-      const gnosisSafeDeploymentReceipt =
-        await deploymentContext.executeTransaction(
-          deploymentContext,
-          {
-            to: getGnosisSafeProxyFactoryAddress(),
-            data: gnosisSafeDeploymentData,
-            chainId: deploymentContext.deployment.chainId,
-          },
-          executionMode
-        )
-      ethersReceipts.push(gnosisSafeDeploymentReceipt)
+      // In this loop, we'll repeatedly trigger a rate limit, then attempt to deploy the Gnosis
+      // Safe. The process to trigger the nonce bug is: In the first iteration of the while loop:
+      // 1. Trigger a rate limit by sending a bunch of RPC requests.
+      // 2. Attempt to deploy the Gnosis Safe, which triggers a rate limit error roughly 50% of the
+      //    time.
+      //
+      // Then, in the second iteration of the while loop:
+      // 1. Trigger more rate limits (potentially not necessary)
+      // 2. Attempt to deploy another Gnosis Safe, which should trigger the "nonce too low" error.
+      while (true) {
+        // Uncomment this line to fix the bug.
+        snapshotId = await provider.send('evm_snapshot', [])
+
+        try {
+          // Trigger a rate limit.
+          await Promise.all([
+            provider.getBlock('latest'),
+            provider.getBalance(ethers.ZeroAddress),
+            provider.getTransactionCount(ethers.ZeroAddress),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '01'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '02'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '03'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '04'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '05'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '06'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '07'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '08'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '09'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '10'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '11'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '12'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '13'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '14'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '15'),
+            provider.getTransactionCount('0x' + '00'.repeat(19) + '16'),
+          ])
+        } catch {
+          // Do nothing.
+        }
+
+        try {
+          // Attempt to deploy the Gnosis Safe. Roughly 50% of the time, this will cause a rate
+          // limit error, which is necessary to cause the nonce bug.
+          const gnosisSafeDeploymentData =
+            gnosisSafeProxyFactory.interface.encodeFunctionData(
+              'createProxyWithNonce',
+              [
+                getGnosisSafeSingletonAddress(),
+                networkConfig.safeInitData,
+                saltNonce,
+              ]
+            )
+          saltNonce += 1 // Increment the nonce to avoid deployment collisions on subsequent attempts.
+          await deploymentContext.executeTransaction(
+            deploymentContext,
+            {
+              to: getGnosisSafeProxyFactoryAddress(),
+              data: gnosisSafeDeploymentData,
+              chainId: deploymentContext.deployment.chainId,
+            },
+            executionMode
+          )
+
+          // If we made it to this point, a rate limit wasn't hit. Since we're in a `while(true)`
+          // loop, we'll throw a misc error, which will cause us to try again on the next iteration.
+          throw new Error('initial txn should have hit rate limit, but did not')
+        } catch (error) {
+          // Re-throw th error if it includes "nonce" which means the "nonce too low" error was
+          // triggered. This should happen on the second iteration.
+          if (error.stack.includes('nonce')) {
+            throw error
+          } else if (
+            // This error message occurs when we hit a rate limit. This should happen on the first
+            // iteration. We continue to the next iteration to trigger the "nonce too low" error.
+            error.stack.includes('compute units')
+          ) {
+            // Uncomment this line to fix the bug.
+            await provider.send('evm_revert', [snapshotId])
+            console.log('txn hit rate limit')
+            continue
+          } else {
+            // Log misc errors and continue to the next iteration.
+            console.log('txn hit other error', error.message)
+            continue
+          }
+        }
+      }
 
       spinner?.succeed(`Deployed Gnosis Safe and Sphinx Module.`)
     }
