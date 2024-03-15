@@ -3,7 +3,6 @@ import { promisify } from 'util'
 import {
   createReadStream,
   existsSync,
-  mkdirSync,
   readFile,
   readFileSync,
   readdirSync,
@@ -420,11 +419,6 @@ export const makeGetConfigArtifacts = (
     const initCodeWithArgsArray = Array.from(
       new Set(initCodeWithArgsIncludingDuplicates)
     )
-
-    // Check if the cache directory exists, and create it if not
-    if (!existsSync(cachePath)) {
-      mkdirSync(cachePath, { recursive: true })
-    }
 
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
     // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
