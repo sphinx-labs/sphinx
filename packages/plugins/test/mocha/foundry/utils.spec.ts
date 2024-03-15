@@ -15,6 +15,7 @@ import {
   GetConfigArtifacts,
   SphinxJsonRpcProvider,
   getBytesLength,
+  sphinxCoreUtils,
 } from '@sphinx-labs/core'
 
 chai.use(chaiAsPromised)
@@ -24,6 +25,7 @@ import {
   convertLibraryFormat,
   isInitCodeMatch,
   messageArtifactNotFound,
+  readBuildInfoCache,
   readContractArtifact,
   replaceEnvVariables,
 } from '../../../src/foundry/utils'
@@ -1186,6 +1188,52 @@ describe('Utils', async () => {
 
       const actualCalldata = await parseScriptFunctionCalldata([withStrings])
       expect(actualCalldata).to.equal(calldata)
+    })
+  })
+
+  // This test suite should check for backwards compatibility between different versions of Sphinx's
+  // build info cache. This is important because our plugin may break unexpectedly if we don't
+  // gracefully handle previous cache versions.
+  describe('readBuildInfoCache', () => {
+    let readFileSyncStub: sinon.SinonStub
+    let existsSyncStub: sinon.SinonStub
+
+    beforeEach(() => {
+      readFileSyncStub = sinon.stub(sphinxCoreUtils, 'readFileSync')
+      existsSyncStub = sinon.stub(sphinxCoreUtils, 'existsSync')
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('returns empty cache if cache file does not exist', () => {
+      existsSyncStub.returns(false)
+      readFileSyncStub.throws(new Error('File does not exist'))
+      const cache = readBuildInfoCache(foundryToml.cachePath)
+      expect(cache).to.deep.equal({
+        _format: 'sphinx-build-info-cache-1',
+        entries: {},
+      })
+    })
+
+    // Test that the 'sphinx-build-info-cache-1' version is compatible with the original
+    // version, which did not have a `_format` string.
+    it('returns empty cache for original cache structure', () => {
+      const originalCache = {
+        'dummyBuildInfoId.json': {
+          name: 'dummyBuildInfoName.json',
+          time: 123,
+          contracts: [],
+        },
+      }
+      existsSyncStub.returns(true)
+      readFileSyncStub.returns(JSON.stringify(originalCache))
+      const cache = readBuildInfoCache(foundryToml.cachePath)
+      expect(cache).to.deep.equal({
+        _format: 'sphinx-build-info-cache-1',
+        entries: {},
+      })
     })
   })
 })
