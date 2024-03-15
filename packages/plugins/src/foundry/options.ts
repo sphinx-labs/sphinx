@@ -1,4 +1,5 @@
 import { join, resolve } from 'path'
+import { existsSync, mkdirSync } from 'fs'
 
 import { spawnAsync } from '@sphinx-labs/core'
 
@@ -97,6 +98,15 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     alwaysUseCreate2Factory: always_use_create_2_factory,
     buildInfo: build_info,
     extraOutput: extra_output,
+  }
+
+  // Check if the cache directory exists, and create it if not.
+  // Some versions of Foundry do not automatically create the cache folder
+  // when compiling, so this ensures it will always exist.
+  // We noticed this issue occurring in Foundry starting approximately at
+  // commit 42da94276892f63afefd0dc743e862b058a4b4c2
+  if (!existsSync(cachePath)) {
+    mkdirSync(cachePath, { recursive: true })
   }
 
   checkRequiredTomlOptions(resolved)
