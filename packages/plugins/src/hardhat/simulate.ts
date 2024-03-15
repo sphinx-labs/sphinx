@@ -31,10 +31,17 @@ import {
   InvariantError,
   getContractAddressesFromNetworkConfig,
   sphinxCoreExecute,
+  convertEthersTransactionResponse,
+  SphinxTransactionResponse,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import pLimit from 'p-limit'
+
+export type SimulationTransactions = Array<{
+  receipt: SphinxTransactionReceipt
+  response: SphinxTransactionResponse
+}>
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -77,7 +84,7 @@ export const simulate = async (
   chainId: string,
   rpcUrl: string
 ): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
+  transactions: SimulationTransactions
 }> => {
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
@@ -214,8 +221,8 @@ export const simulate = async (
    * and exit with the real value of stdout if an error occurs.
    */
   try {
-    const receipts = JSON.parse(stdout).receipts
-    return { receipts }
+    const transactions = JSON.parse(stdout).transactions
+    return { transactions }
   } catch (e) {
     console.log(stdout)
     console.error(stderr)
@@ -254,6 +261,40 @@ export const setupPresimulationState = async (
 }
 
 /**
+ * Fetches the transaction response objects for all of the transactions in the simulation. There's some additional
+ * data in the responses that is not in the receipts (data, value, etc) which is not available in the receipts. We
+ * use this information to calculate deployment cost estimates on the website.
+ */
+export const fetchTransactionResponses = async (
+  receipts: Array<SphinxTransactionReceipt>,
+  provider: HardhatEthersProvider
+): Promise<SimulationTransactions> => {
+  const chainId = (await provider.getNetwork()).chainId
+
+  // Since the size of receipts array is unbounded, we use pLimit to reduce the number of simultaneous calls.
+  // This reduces the chance of us triggering a rate limit in the RPC provider.
+  const limit = pLimit(5)
+  const transactions = await Promise.all(
+    receipts.map(async (receipt) => {
+      const response = await limit(async () =>
+        provider.getTransaction(receipt.hash)
+      )
+      const sphinxResponse = convertEthersTransactionResponse(
+        response,
+        chainId.toString()
+      )
+
+      return {
+        receipt,
+        response: sphinxResponse,
+      }
+    })
+  )
+
+  return transactions
+}
+
+/**
  * A Hardhat subtask that simulates a deployment against a forked Hardhat node. We need to load the
  * Hardhat Runtime Environment (HRE) because Hardhat doesn't document any lower-level functionality
  * for running a fork. We could theoretically interact with lower-level components, but this would
@@ -263,9 +304,7 @@ export const setupPresimulationState = async (
 export const simulateDeploymentSubtask = async (
   taskArgs: simulateDeploymentSubtaskArgs,
   hre: any
-): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
-}> => {
+): Promise<{ transactions: SimulationTransactions }> => {
   const { deploymentConfig, chainId } = taskArgs
   const { merkleTree } = deploymentConfig
 
@@ -373,7 +412,9 @@ export const simulateDeploymentSubtask = async (
         }
       }
 
-      return { receipts }
+      return {
+        transactions: await fetchTransactionResponses(receipts, provider),
+      }
     } catch (e) {
       // Throw the error if it's an `InvariantError`, since this error type only occurs if there's a
       // bug in Sphinx.
@@ -437,7 +478,9 @@ export const simulateDeploymentSubtask = async (
     )
   }
 
-  return { receipts }
+  return {
+    transactions: await fetchTransactionResponses(receipts, provider),
+  }
 }
 
 export const handleSimulationSuccess = async (

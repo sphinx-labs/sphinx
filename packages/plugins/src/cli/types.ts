@@ -6,6 +6,7 @@ import {
   GetConfigArtifacts,
   NetworkConfig,
   BuildInfos,
+  NetworkGasEstimate,
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
@@ -47,10 +48,7 @@ export type GetNetworkGasEstimate = (
   deploymentConfig: DeploymentConfig,
   chainId: string,
   rpcUrl: string
-) => Promise<{
-  chainId: number
-  estimatedGas: string
-}>
+) => Promise<NetworkGasEstimate>
 
 export type BuildNetworkConfigArray = (
   scriptPath: string,

@@ -33,6 +33,7 @@ export const makeMockSphinxContext = (
       Promise.resolve({
         chainId: 0,
         estimatedGas: '0',
+        transactions: [],
       })
     )
   const relayProposal = sinon
