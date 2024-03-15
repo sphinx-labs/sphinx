@@ -30,6 +30,7 @@ import {
   isNormalizedAddress,
   sortHexStrings,
   spawnAsync,
+  sphinxCoreUtils,
   trimQuotes,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
@@ -77,6 +78,8 @@ import {
 import { ConstructorFragment, ethers } from 'ethers'
 
 import {
+  BuildInfoCache,
+  BuildInfoCacheEntry,
   FoundryMultiChainDryRun,
   FoundrySingleChainBroadcast,
   FoundrySingleChainDryRun,
@@ -101,22 +104,6 @@ import {
 
 const readFileAsync = promisify(readFile)
 
-/**
- * @field contracts An array where each element corresponds to a contract in the
- * `BuildInfo.output.contracts` object. We use this array to match collected contract init code to
- * its artifact (in the `isInitCodeMatch` function).
- */
-type BuildInfoCacheEntry = {
-  name: string
-  time: number
-  contracts: Array<{
-    fullyQualifiedName: string
-    bytecode: string
-    linkReferences: LinkReferences
-    constructorFragment?: ethers.ConstructorFragment
-  }>
-}
-
 export const streamBuildInfoCacheContracts = async (filePath: string) => {
   const pipeline = new chain([
     createReadStream(filePath),
@@ -137,7 +124,11 @@ export const streamBuildInfoCacheContracts = async (filePath: string) => {
         contracts.push({
           fullyQualifiedName: `${sourceName}:${contractName}`,
           bytecode: add0x(contract.evm.bytecode.object),
+          deployedBytecode: add0x(contract.evm.deployedBytecode.object),
           linkReferences: contract.evm.bytecode.linkReferences,
+          deployedLinkReferences: contract.evm.deployedBytecode.linkReferences,
+          immutableReferences:
+            contract.evm.deployedBytecode.immutableReferences ?? {},
           constructorFragment,
         })
       }
@@ -426,11 +417,7 @@ export const makeGetConfigArtifacts = (
     const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
     // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
     // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-    let buildInfoCache: Record<string, BuildInfoCacheEntry> = existsSync(
-      buildInfoCacheFilePath
-    )
-      ? JSON.parse(readFileSync(buildInfoCacheFilePath, 'utf8'))
-      : {}
+    let { entries: buildInfoCache } = readBuildInfoCache(cachePath)
 
     const buildInfoPath = join(buildInfoFolder)
 
@@ -572,11 +559,7 @@ export const makeGetConfigArtifacts = (
       }
     })
 
-    // Write the updated build info cache
-    writeFileSync(
-      buildInfoCacheFilePath,
-      JSON.stringify(buildInfoCache, null, 2)
-    )
+    writeBuildInfoCache(cachePath, buildInfoCache)
 
     const configArtifacts: ConfigArtifacts = {}
     const buildInfos: BuildInfos = {}
@@ -1713,4 +1696,44 @@ export const validateProposalNetworks = async (
 
   const rpcUrls = valid.map(({ rpcUrl }) => rpcUrl)
   return { rpcUrls, isTestnet }
+}
+
+/**
+ * Reads Sphinx's build info cache from the file system. Returns an empty cache object if the cache
+ * file doesn't exist or if it's in an outdated format.
+ */
+export const readBuildInfoCache = (cachePath: string): BuildInfoCache => {
+  const emptyCache: BuildInfoCache = {
+    _format: 'sphinx-build-info-cache-1',
+    entries: {},
+  }
+
+  const cacheFilePath = join(cachePath, 'sphinx-cache.json')
+  if (!sphinxCoreUtils.existsSync(cacheFilePath)) {
+    return emptyCache
+  }
+
+  const cache = JSON.parse(sphinxCoreUtils.readFileSync(cacheFilePath, 'utf8'))
+  if (!cache || cache._format !== 'sphinx-build-info-cache-1') {
+    return emptyCache
+  }
+
+  return cache
+}
+
+const writeBuildInfoCache = (
+  cachePath: string,
+  entries: BuildInfoCache['entries']
+): void => {
+  const cacheFilePath = join(cachePath, 'sphinx-cache.json')
+  const cache: BuildInfoCache = {
+    _format: 'sphinx-build-info-cache-1',
+    entries,
+  }
+
+  writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2))
+}
+
+export const sphinxFoundryUtils = {
+  readBuildInfoCache,
 }

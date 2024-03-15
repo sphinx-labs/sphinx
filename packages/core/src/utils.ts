@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec, spawn } from 'child_process'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 
 import yesno from 'yesno'
 import axios from 'axios'
@@ -1654,3 +1654,5 @@ export const hasParentheses = (str: string): boolean => {
 export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
+
+export const sphinxCoreUtils = { readFileSync, existsSync }

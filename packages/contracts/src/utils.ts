@@ -72,6 +72,12 @@ export const parseFoundryContractArtifact = (
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
   const metadata = foundryArtifact.metadata
+  // The immutable references field is `undefined` in foundry's contract artifact if the contract
+  // has no immutable variables. However, we set it to an empty object instead of `undefined` so
+  // that other functions don't need to handle the `undefined` case, which will make it a little
+  // easier to handle this field.
+  const immutableReferences =
+    foundryArtifact.deployedBytecode.immutableReferences ?? {}
 
   const artifact: ContractArtifact = {
     abi,
@@ -80,6 +86,7 @@ export const parseFoundryContractArtifact = (
     contractName,
     deployedBytecode,
     metadata,
+    immutableReferences,
     methodIdentifiers: foundryArtifact.methodIdentifiers,
     storageLayout: foundryArtifact.storageLayout,
     linkReferences: foundryArtifact.bytecode.linkReferences,
@@ -105,10 +112,28 @@ export const isContractArtifact = (obj: any): obj is ContractArtifact => {
     isLinkReferences(obj.linkReferences) &&
     isLinkReferences(obj.deployedLinkReferences) &&
     isNonNullObject(obj.metadata) &&
+    isImmutableReferences(obj.immutableReferences) &&
     (obj.storageLayout === undefined ||
       isValidStorageLayout(obj.storageLayout)) &&
     (isNonNullObject(obj.methodIdentifiers) ||
       obj.methodIdentifiers === undefined)
+  )
+}
+
+const isImmutableReferences = (immutableReferences: any): boolean => {
+  if (!isNonNullObject(immutableReferences)) {
+    return false
+  }
+
+  return Object.values(immutableReferences).every(
+    (refArray) =>
+      Array.isArray(refArray) &&
+      refArray.every(
+        (ref) =>
+          isNonNullObject(ref) &&
+          typeof ref.start === 'number' &&
+          typeof ref.length === 'number'
+      )
   )
 }
 

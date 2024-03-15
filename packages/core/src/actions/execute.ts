@@ -1244,7 +1244,7 @@ export const compileAndExecuteDeployment = async (
     }
   }
 
-  deploymentContext.spinner?.start('Execution ready')
+  deploymentContext.spinner?.succeed('Execution ready')
 
   if (deployment.status === 'approved') {
     let receipts: ethers.TransactionReceipt[] = []
