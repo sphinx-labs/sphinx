@@ -205,17 +205,28 @@ export const attemptVerification = async (
 
   const contractURL = etherscan.getContractUrl(address)
 
-  const isVerified = await etherscan.isVerified(address)
-  if (isVerified) {
-    console.log(
-      `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
-    )
-    return { success: true }
-  }
-
   let guid: string
-  // We wrap this in a try/catch because this call may throw an error if the contract was recently
-  // deployed and hasn't propogated to Etherscan's backend yet.
+  /**
+   * We wrap this in a try/catch because this call may throw an error if the contract was recently
+   * deployed and hasn't propogated to Etherscan's backend yet.
+   *
+   * An error may also occur if the contract is already verified which can happen in two scenarios:
+   * - We're retrying verification and this contract was succesfully verified in a previous attempt.
+   * - The contract was verified by some mechanism implemented by the Blockexplorer such as automatic
+   * linking via source code matching.
+   *
+   * You might wonder why we do not check if a contract is already verified before attempting to verify
+   * it here. The reason is that we've found that the `etherscan.isVerified()` function will sometimes
+   * return true for contracts have been verified through source code matching. However, the source code
+   * won't always appear in the Etherscan UI. We've found that in this situation if we simply attempt to
+   * verify the contract, the source code will appear in the Etherscan UI.
+   * See this repo to replicate that issue: https://github.com/sphinx-labs/etherscan_verification_bug
+   *
+   * It's useful to note that when attempting to verify a contract on Etherscan, an error may be thrown
+   * if the contract is already verified. So to handle that, we call `etherscan.isVerified()`in the catch
+   * block below and then return { success: true } if the contract is already verified according to that
+   * function.
+   */
   try {
     const response = await etherscan.verify(
       address,
@@ -226,7 +237,15 @@ export const attemptVerification = async (
     )
     guid = response.message
   } catch (err) {
-    return { success: false, message: err.message }
+    const verified = await etherscan.isVerified(address)
+    if (verified) {
+      console.log(
+        `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
+      )
+      return { success: true }
+    } else {
+      return { success: false, message: err.message }
+    }
   }
 
   const networkName = fetchNameForNetwork(BigInt(chainId))
