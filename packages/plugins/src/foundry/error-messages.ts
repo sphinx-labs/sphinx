@@ -51,3 +51,10 @@ export const InvalidFirstSigArgumentErrorMessage =
   `a valid hex string.`
 
 export const SigCalledWithNoArgsErrorMessage = `Expected at least one argument passed to --sig, but none were supplied.`
+
+export const getDetectedLinkedLibraryErrorMessage = (
+  sourceName: string,
+  contractName: string
+): string =>
+  `Detected linked library in: ${sourceName}:${contractName}\n` +
+  `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`

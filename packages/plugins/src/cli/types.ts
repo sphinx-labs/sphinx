@@ -9,6 +9,7 @@ import {
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
+import { SphinxContext } from './context'
 
 export interface ProposeCommandArgs {
   scriptPath: string
@@ -52,6 +53,13 @@ export type GetNetworkGasEstimate = (
   estimatedGas: string
 }>
 
+export type AssertNoLinkedLibraries = (
+  scriptDeployedCode: string,
+  cachePath: string,
+  artifactFolder: string,
+  projectRoot: string
+) => Promise<void>
+
 export type BuildNetworkConfigArray = (
   scriptPath: string,
   scriptFunctionCalldata: string,
@@ -60,6 +68,7 @@ export type BuildNetworkConfigArray = (
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
+  sphinxContext: SphinxContext,
   getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora

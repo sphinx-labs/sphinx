@@ -113,6 +113,7 @@ export type DeploymentInfo = {
   accountAccesses: Array<ParsedAccountAccess>
   gasEstimates: Array<string>
   deployedContractSizes: Array<DeployedContractSize>
+  scriptDeployedCode: string
 }
 
 export type InitialChainState = {
@@ -254,6 +255,7 @@ export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 interface AbstractFoundryTransaction {
   transactionType: 'CREATE' | 'CALL' | 'CREATE2'
   contractName: string | null
+  contractAddress: string | null
   function: string | null
   arguments: Array<any> | null
   transaction: {

@@ -194,3 +194,30 @@ contract MyImmutableContract {
         return myFirstImmutable + uint256(mySecondImmutable);
     }
 }
+
+// A contract that contains immutable variables calls to libraries. We use the immutable variables
+// and libraries in multiple places so that the contract's artifact has somewhat complex
+// `immutableReferences`, `linkReferences`, and `deployedLinkReferences` fields.
+contract MyContractWithLibrariesAndImmutables {
+
+    uint256 public immutable myImmutableOne = 123;
+    uint256 public immutable myImmutableTwo;
+
+    uint256 public myValue;
+
+    constructor() {
+        myImmutableTwo = 42;
+    }
+
+    function doubleValue() external {
+        myValue = 2 * myImmutableOne * myImmutableTwo * MyLibraryOne.myFirstLibraryFunction();
+    }
+
+    function tripleValue() external {
+        myValue = 3 * myImmutableOne * myImmutableTwo * MyLibraryOne.myFirstLibraryFunction();
+    }
+
+    function newValue() external {
+        myValue = MyLibraryTwo.mySecondLibraryFunction() + myImmutableOne;
+    }
+}

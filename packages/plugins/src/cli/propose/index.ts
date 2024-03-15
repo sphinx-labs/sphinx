@@ -41,7 +41,6 @@ import {
   compile,
   getInitCodeWithArgsArray,
   assertValidVersions,
-  assertNoLinkedLibraries,
   validateProposalNetworks,
   parseScriptFunctionCalldata,
 } from '../../foundry/utils'
@@ -73,6 +72,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
+  sphinxContext: SphinxContext,
   getConfigArtifacts: GetConfigArtifacts,
   targetContract?: string,
   spinner?: ora.Ora
@@ -173,13 +173,14 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     initCodeWithArgsArray
   )
 
-  await assertNoLinkedLibraries(
-    scriptPath,
-    foundryToml.cachePath,
-    foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
-  )
+  for (const { deploymentInfo } of collected) {
+    await sphinxContext.assertNoLinkedLibraries(
+      deploymentInfo.scriptDeployedCode,
+      foundryToml.cachePath,
+      foundryToml.artifactFolder,
+      projectRoot
+    )
+  }
 
   const networkConfigArrayWithRpcUrls = collected.map(
     ({ deploymentInfo, libraries, rpcUrl }) => {
@@ -309,6 +310,7 @@ export const propose = async (
     sphinxPluginTypesInterface,
     foundryToml,
     projectRoot,
+    sphinxContext,
     getConfigArtifacts,
     targetContract,
     spinner
