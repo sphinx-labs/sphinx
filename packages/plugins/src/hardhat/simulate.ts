@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { appendFileSync, existsSync, writeFileSync } from 'fs'
 
 import {
   spawnAsync,
@@ -343,12 +343,15 @@ export const simulateDeploymentSubtask = async (
     wallet: signer,
   }
 
+  writeFileSync('poll.txt', '')
+
   let attempts = 0
   while (executionCompleted === false) {
     try {
+      appendFileSync('poll.txt', 'simulating\n')
       const result = await callWithTimeout(
         compileAndExecuteDeployment(simulationContext),
-        90000,
+        20000,
         'timed out executing deployment'
       )
 
@@ -373,6 +376,7 @@ export const simulateDeploymentSubtask = async (
 
       return { receipts }
     } catch (e) {
+      appendFileSync('poll.txt', 'resetting\n')
       /**
        * There are really only a few cases where an error will be thrown during the deployment and caught
        * here (that we know of):
@@ -415,7 +419,7 @@ export const simulateDeploymentSubtask = async (
       // Since we're resetting back to the initial state, we also need to call the setup function again
       signer = await setupPresimulationState(provider, executionMode)
 
-      if (attempts < 5) {
+      if (attempts < 1000) {
         attempts += 1
       } else {
         throw e
