@@ -25,12 +25,6 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
 }
 
 export const checkRequiredTomlOptions = (toml: FoundryToml) => {
-  if (toml.buildInfo !== true) {
-    throw new Error(
-      'Missing required option in foundry.toml file:\nbuild_info = true\nPlease update your foundry.toml file and try again.'
-    )
-  }
-
   // Check if the user included the `storageLayout` option. Since foundry force recompiles after
   // changing the foundry.toml file, we can assume that the contract artifacts will contain the
   // necessary info as long as the config includes the expected options
