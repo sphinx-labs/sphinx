@@ -51,3 +51,11 @@ export const InvalidFirstSigArgumentErrorMessage =
   `a valid hex string.`
 
 export const SigCalledWithNoArgsErrorMessage = `Expected at least one argument passed to --sig, but none were supplied.`
+
+export const HardhatResetNotAllowedErrorMessage = `Calling 'hardhat_reset' is not allowed.`
+
+export const getRpcRequestStalledErrorMessage = (ms: number): string =>
+  `RPC request stalled for ${
+    ms / 1000
+  } seconds. Please check that your RPC provider is functional, and\n` +
+  `consider switching if it isn't.`

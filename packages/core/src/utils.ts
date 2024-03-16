@@ -290,9 +290,9 @@ export const callWithTimeout = async <T>(
     timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeout)
   })
 
-  return Promise.race([promise, timeoutPromise]).then((result) => {
+  // Call `clearTimeout` as soon as either of the promises resolve or reject.
+  return Promise.race([promise, timeoutPromise]).finally(() => {
     clearTimeout(timeoutHandle)
-    return result
   })
 }
 
@@ -1666,3 +1666,5 @@ export const hasParentheses = (str: string): boolean => {
 export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
+
+export const sphinxCoreUtils = { sleep, callWithTimeout }

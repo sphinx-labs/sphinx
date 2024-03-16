@@ -25,7 +25,6 @@ import {
   removeRoles,
   fetchNetworkConfigFromDeploymentConfig,
   NetworkConfig,
-  callWithTimeout,
   fetchExecutionTransactionReceipts,
   convertEthersTransactionReceipt,
   InvariantError,
@@ -33,15 +32,35 @@ import {
   sphinxCoreExecute,
   convertEthersTransactionResponse,
   SphinxTransactionResponse,
+  sphinxCoreUtils,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import pLimit from 'p-limit'
 
+import {
+  HardhatResetNotAllowedErrorMessage,
+  getRpcRequestStalledErrorMessage,
+} from '../foundry/error-messages'
+
 export type SimulationTransactions = Array<{
   receipt: SphinxTransactionReceipt
   response: SphinxTransactionResponse
 }>
+
+/**
+ * @property maxAttempts - The maximum number of attempts that Sphinx will make for a single network
+ * request before throwing an error.
+ * @property timeout - The maximum number of time that Sphinx will wait for a single RPC request
+ * before timing out. An RPC request can stall if the RPC provider has degraded service, which would
+ * cause the simulation to stall indefinitely if we don't time out. We set this value to be
+ * relatively high because the execution process may submit very large transactions (specifically
+ * transactions with `EXECUTE` Merkle leaves), which can cause the RPC request to be slow.
+ */
+export const simulationConstants = {
+  maxAttempts: 7,
+  timeout: 60_000,
+}
 
 /**
  * These arguments are passed into the Hardhat subtask that simulates a user's deployment. There
@@ -230,12 +249,6 @@ export const simulate = async (
   }
 }
 
-/**
- * Handles setting up any
- *
- * @param provider
- * @returns
- */
 export const setupPresimulationState = async (
   provider: any,
   executionMode: ExecutionMode
@@ -305,6 +318,9 @@ export const simulateDeploymentSubtask = async (
   taskArgs: simulateDeploymentSubtaskArgs,
   hre: any
 ): Promise<{ transactions: SimulationTransactions }> => {
+  // Wrap the Hardhat provider with a Proxy, which implements retry and timeout logic.
+  const provider = createHardhatEthersProviderProxy(hre.ethers.provider)
+
   const { deploymentConfig, chainId } = taskArgs
   const { merkleTree } = deploymentConfig
 
@@ -315,10 +331,7 @@ export const simulateDeploymentSubtask = async (
 
   const { executionMode } = networkConfig
 
-  // This provider is connected to the forked in-process Hardhat node.
-  const provider = hre.ethers.provider
-
-  let signer = await setupPresimulationState(provider, executionMode)
+  const signer = await setupPresimulationState(provider, executionMode)
 
   // Create a list of auto-generated wallets. We'll later add these wallets as Gnosis Safe owners.
   const sphinxWallets = getSphinxWalletsSortedByAddress(
@@ -334,7 +347,6 @@ export const simulateDeploymentSubtask = async (
     })
   )
 
-  let executionCompleted = false
   let receipts: Array<SphinxTransactionReceipt> | undefined
   const deployment: Deployment = {
     id: 'only required on website',
@@ -356,7 +368,6 @@ export const simulateDeploymentSubtask = async (
       throw e
     },
     handleAlreadyExecutedDeployment: async (deploymentContext) => {
-      executionCompleted = true
       receipts = (
         await fetchExecutionTransactionReceipts(
           [],
@@ -384,98 +395,33 @@ export const simulateDeploymentSubtask = async (
     wallet: signer,
   }
 
-  let attempts = 0
-  while (executionCompleted === false) {
-    try {
-      const result = await callWithTimeout(
-        sphinxCoreExecute.compileAndExecuteDeployment(simulationContext),
-        90000,
-        'timed out executing deployment'
-      )
+  const result = await sphinxCoreExecute.compileAndExecuteDeployment(
+    simulationContext
+  )
 
-      if (!result) {
-        throw new Error(
-          'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
-        )
-      }
-
-      const { finalStatus, failureAction } = result
-      receipts = result.receipts
-
-      if (finalStatus === MerkleRootStatus.FAILED) {
-        if (failureAction) {
-          throw new Error(
-            `The following action reverted during the simulation:\n${failureAction.reason}`
-          )
-        } else {
-          throw new Error(`An action reverted during the simulation.`)
-        }
-      }
-
-      return {
-        transactions: await fetchTransactionResponses(receipts, provider),
-      }
-    } catch (e) {
-      // Throw the error if it's an `InvariantError`, since this error type only occurs if there's a
-      // bug in Sphinx.
-      if (e instanceof InvariantError) {
-        throw e
-      }
-
-      /**
-       * There are really only a few cases where an error will be thrown during the deployment and caught
-       * here (that we know of):
-       * 1. There's a legitimate error in our execution logic
-       * 2. We estimate the merkle leaf gas incorrectly
-       * 3. We fail to find a valid batch size
-       * 4. The users RPC provider rate limits us
-       *
-       * Retrying execution won't help in cases 1, 2, or 3.
-       *
-       * We have this retry logic implemented almost entirely for case 4 where we hit a rate limit that
-       * causes the execution to fail. We found that simply retrying in this case generally does work, but
-       * is not 100% reliable. We often get other errors that appear to be caused by the initial rate limiting.
-       *
-       * For example, we occassionally encountered a situation where transactions would fail after rate
-       * limiting due to the nonce used in the transaction being incorrect. There's also another case where
-       * the transaction to deploy the users Safe would fail after rate limiting because the Safe has already
-       * been deployed. This is something we have logic specifically to prevent that we know works well.
-       *
-       * We believe these issues are related to there being data cached somewhere that is not correct. We
-       * found the most reliable method to resolve these sort of issues was to completely reset the simulation
-       * fork back to the original state using `hardhat_reset`.
-       */
-
-      if (!hre.config.networks.hardhat.forking) {
-        throw new Error(
-          'Simulation was not using fork. This is a bug, please report it to the developers.'
-        )
-      }
-
-      await provider.send('hardhat_reset', [
-        {
-          forking: {
-            jsonRpcUrl: hre.config.networks.hardhat.forking.url,
-            blockNumber: hre.config.networks.hardhat.forking.blockNumber,
-          },
-        },
-      ])
-
-      // Since we're resetting back to the initial state, we also need to call the setup function again
-      signer = await setupPresimulationState(provider, executionMode)
-
-      if (attempts < 5) {
-        attempts += 1
-      } else {
-        throw e
-      }
-    }
+  if (!result) {
+    throw new Error(
+      'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
+    )
   }
+
+  const { finalStatus, failureAction } = result
+  receipts = result.receipts
 
   if (!receipts) {
     throw new Error(
       'Simulation failed for an unexpected reason. This is a bug. Please report it to the developers.'
     )
+  }
+
+  if (finalStatus === MerkleRootStatus.FAILED) {
+    if (failureAction) {
+      throw new Error(
+        `The following action reverted during the simulation:\n${failureAction.reason}`
+      )
+    } else {
+      throw new Error(`An action reverted during the simulation.`)
+    }
   }
 
   return {
@@ -509,6 +455,141 @@ export const handleSimulationSuccess = async (
     )
   )
   return
+}
+
+/**
+ * Create a Proxy that wraps a `HardhatEthersProvider` to implement retry and timeout logic, which
+ * isn't available natively in this provider.
+ *
+ * This function uses an exponential backoff strategy for retries. After each failed attempt, we
+ * wait `2 ** (attempt + 1)` seconds before trying again. At the time of writing this, we allow 7
+ * attempts, which means we'll wait a total of `2 + 4 + 8 + 16 + 32 + 64` seconds, which equals 126.
+ * Notice that there are 6 terms in that equation instead of 7 because we'll immediately revert if
+ * the last attempt fails.
+ *
+ * This function uses the `evm_snapshot` and `evm_revert` RPC methods to prevent a 'nonce too low'
+ * bug caused by the Hardhat simulation (context: https://github.com/sphinx-labs/sphinx/pull/1565).
+ * The fact that we use these RPC methods means that an edge case could occur:
+ * 1. Say we simultaneously submit state-changing transactions from Account A and Account B (e.g. via
+ * `Promise.all`).
+ * 2. Say the transaction from Account A reverts but the transaction from Account B finalizes. We'll
+ * call 'evm_revert' in the transaction for Account A, potentially causing the transaction from
+ * Account B to be undone.
+ *
+ * This edge case currently isn't an issue because we don't parallelize state-changing transactions
+ * in the execution process.
+ */
+export const createHardhatEthersProviderProxy = (
+  ethersProvider: HardhatEthersProvider
+): HardhatEthersProvider => {
+  return new Proxy(ethersProvider, {
+    get: (target, prop) => {
+      return (...args: any[]) => {
+        // Queue a snapshot of the Hardhat node state. We may revert to this snapshot later in this
+        // function to prevent a 'nonce too low' bug in Hardhat. We must queue the snapshot before
+        // calling `target[prop](...args)` to avoid this nonce bug, which occurs in spite of the
+        // fact that we don't immediately await either of these calls. We don't await this call yet
+        // because the `target[prop](...args)` call may be synchronous. If we await this call, then
+        // every call routed through this Proxy will become asynchronous, which could lead to
+        // expected behavior.
+        //
+        // More info on the nonce error is in this pull request description:
+        // https://github.com/sphinx-labs/sphinx/pull/1565.
+        const snapshotIdPromise = target.send('evm_snapshot', [])
+
+        // Call the method on the EthersJS provider.
+        const initialResult = target[prop](...args)
+        // Check if the call is synchronous. If so, return it.
+        if (!(initialResult instanceof Promise)) {
+          return initialResult
+        }
+
+        // A helper function that implements the timeout and retry logic for asynchronous calls to
+        // the Hardhat provider.
+        const invokeWithRetryAndSnapshot = async () => {
+          // We don't allow the 'hardhat_reset' RPC method to avoid an infinite loop bug caused by
+          // Hardhat. More context is in this pull request description:
+          // https://github.com/sphinx-labs/sphinx/pull/1565
+          if (args.length > 0 && args[0] === 'hardhat_reset') {
+            throw new Error(HardhatResetNotAllowedErrorMessage)
+          }
+
+          // Resolve the promise that we initially created.
+          let snapshotId = await snapshotIdPromise
+
+          for (
+            let attempt = 0;
+            attempt < simulationConstants.maxAttempts;
+            attempt++
+          ) {
+            try {
+              // If this is the first attempt, we use the `initialResult` instead of calling
+              // `target[prop](...args)` again to avoid unintended consequences of calling the
+              // method on the provider more than once.
+              const result =
+                attempt === 0 ? initialResult : target[prop](...args)
+
+              // Forward the call to the Hardhat provider. We include a timeout to ensure that an
+              // RPC provider with degraded service doesn't cause this call to hang indefinitely.
+              // See this pull request description for more info:
+              // https://github.com/sphinx-labs/sphinx/pull/1565
+              return await sphinxCoreUtils.callWithTimeout(
+                result,
+                simulationConstants.timeout,
+                getRpcRequestStalledErrorMessage(simulationConstants.timeout)
+              )
+            } catch (error) {
+              // The most likely reason that the call failed is a rate limit.
+
+              // NOTE: Don't include any RPC calls to the remote node in this 'catch' block because
+              // they may stall indefinitely if the user's RPC provider has degraded service. It's
+              // safe to call RPC methods that begin with 'evm_' or 'hardhat_' because these
+              // shouldn't be sent to the remote node, so there shouldn't be a risk of a rate limit
+              // occurring for these calls.
+
+              // We revert the Hardhat node state to ensure that there weren't any local state
+              // changes made by the failed RPC request. There should be no state changes because
+              // the call threw an error. This is a precaution against the "nonce too low" error,
+              // which is described in this pull request description:
+              // https://github.com/sphinx-labs/sphinx/pull/1565
+              const success = await target.send('evm_revert', [snapshotId])
+              if (!success) {
+                throw new InvariantError(`Failed to call 'evm_revert'.`)
+              }
+
+              // Pass the error up if we're out of attempts.
+              if (attempt === simulationConstants.maxAttempts - 1) {
+                throw error
+              }
+
+              // We use exponential backoff starting at 2 seconds. This serves as a cooldown period
+              // for rate limit errors.
+              const sleepTime = 2 ** (attempt + 1)
+              await sphinxCoreUtils.sleep(sleepTime)
+
+              snapshotId = await target.send('evm_snapshot', [])
+            }
+          }
+        }
+
+        // Return a thenable promise for asynchronous calls, which ensures that the asynchronous
+        // operations in `invokeWithRetryAndSnapshot` occur after the asynchronous method call is
+        // awaited.
+        return Promise.resolve({
+          then: (resolve, reject) => {
+            ;(async () => {
+              try {
+                const result = await invokeWithRetryAndSnapshot()
+                resolve(result)
+              } catch (error) {
+                reject(error)
+              }
+            })()
+          },
+        })
+      }
+    },
+  })
 }
 
 export const getUndeployedContractErrorMesage = (address: string): string =>
