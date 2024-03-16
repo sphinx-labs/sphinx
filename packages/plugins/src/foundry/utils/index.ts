@@ -300,7 +300,11 @@ export const getInitCodeWithArgsArray = (
  * It's fine for recompilation to occur after running the user's Forge script because Foundry
  * automatically compiles the necessary contracts before executing it.
  */
-export const compile = (silent: boolean, force: boolean): void => {
+export const compile = (
+  silent: boolean,
+  force: boolean,
+  buildInfo: boolean
+): void => {
   const forgeBuildArgs = ['build']
 
   if (silent) {
@@ -308,6 +312,9 @@ export const compile = (silent: boolean, force: boolean): void => {
   }
   if (force) {
     forgeBuildArgs.push('--force')
+  }
+  if (buildInfo) {
+    forgeBuildArgs.push('--build-info')
   }
 
   // We use `spawnSync` to display the compilation process to the user as it occurs. Compiler errors
@@ -833,7 +840,12 @@ export const callForgeScriptFunction = async <T>(
     code: testCode,
     stdout: testOut,
     stderr: testErr,
-  } = await spawnAsync('forge', testScriptArgs)
+  } = await spawnAsync('forge', testScriptArgs, {
+    // We specify build info to be false so that calling the script does not cause the users entire
+    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
+    // We do need the build info, but that is generated when we compile at the beginning of the script.
+    FOUNDRY_BUILD_INFO: 'false',
+  })
 
   if (testCode !== 0) {
     spinner?.stop()
@@ -855,7 +867,12 @@ export const callForgeScriptFunction = async <T>(
     true
   )
 
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs, {
+    // We specify build info to be false so that calling the script does not cause the users entire
+    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
+    // We do need the build info, but that is generated when we compile at the beginning of the script.
+    FOUNDRY_BUILD_INFO: 'false',
+  })
 
   // For good measure, we still read the code and error if necessary but this is unlikely to be triggered
   if (code !== 0) {
