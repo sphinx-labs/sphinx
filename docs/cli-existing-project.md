@@ -189,7 +189,6 @@ ALCHEMY_API_KEY=<your_api_key>
 Update your `foundry.toml` file to include a few settings required by Sphinx. We recommend putting them in `[profile.default]`.
 
 ```
-build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 ```

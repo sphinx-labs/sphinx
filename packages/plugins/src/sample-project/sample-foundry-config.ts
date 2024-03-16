@@ -23,7 +23,6 @@ export const fetchForgeConfig = (
 ): string => `[profile.default]
 script = 'script'
 test = 'test'
-build_info = true
 extra_output = ['storageLayout']
 fs_permissions=[{access="read", path="./out"}, {access="read-write", path="./cache"}]
 allow_paths = ["../.."]
