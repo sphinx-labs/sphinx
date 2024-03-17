@@ -5,7 +5,11 @@ import {
   DeploymentConfig,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core'
-import { Operation, SphinxModuleABI } from '@sphinx-labs/contracts'
+import {
+  ContractArtifact,
+  Operation,
+  SphinxModuleABI,
+} from '@sphinx-labs/contracts'
 import { EventFragment, ethers } from 'ethers'
 
 import {
@@ -58,6 +62,20 @@ export const getFakeConfigArtifacts = async (
       artifactFolder
     )
     configArtifacts[name] = {
+      buildInfoId: dummyBuildInfoId,
+      artifact,
+    }
+  }
+  return configArtifacts
+}
+
+export const getFakeConfigArtifactsFromContractArtifacts = async (
+  artifacts: Array<ContractArtifact>
+): Promise<ConfigArtifacts> => {
+  const configArtifacts: ConfigArtifacts = {}
+  for (const artifact of artifacts) {
+    const fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`
+    configArtifacts[fullyQualifiedName] = {
       buildInfoId: dummyBuildInfoId,
       artifact,
     }

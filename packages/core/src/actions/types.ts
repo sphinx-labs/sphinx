@@ -106,10 +106,52 @@ export type ContractInfo = {
   addr: string
 }
 
+export type EstimateGasTransactionData = {
+  to: string | null
+  from: string
+  data: string
+  gasLimit: string
+  gasPrice: string
+  value: string
+  chainId: string
+}
+
+/**
+ * The estimated cost for a specific transaction during a deployment.
+ *
+ * @property {object} transaction: The raw transaction data. This is useful for networks that have custom RPC methods for
+ * calculating fees such as polygon zkevm.
+ * @property {string} estimatedGas: The amount of gas we estimate will be used by this transaction.
+ *
+ */
+export type TransactionEstimatedGas = {
+  transaction: EstimateGasTransactionData
+  estimatedGas: string
+}
+
+/**
+ * The estimated cost to execute the deployment on a given network. Includes the overall gas cost with a buffer as well
+ * as the raw transaction data used to generate the estimate. We include the transaction data because some networks have
+ * more complex fee formulas or custom RPC methods for calculating fees which require more information.
+ *
+ * Note that the array of transactions contains approximately the transactions we will actually use when executing the
+ * deployment and *not* the transactions defined by the user. So this array will contain a transaction to approve the deployment
+ * and a series of transactions to execute batches of actions via the users module. The real transactions we end up executing
+ * may end up being somewhat different depending on network conditions.
+ *
+ * @property {number} chainId: The id of the network this estimate is for.
+ * @property {string} estimatedGas: The amount of gas we've estimated will be used for the entire deployment including a buffer.
+ * @property {array} transactions: An array of individual transactions used to generate this estimate along with their estimated
+ * gas cost and estimated blob gas cost.
+ */
+export type NetworkGasEstimate = {
+  chainId: number
+  estimatedGas: string
+  transactions: Array<TransactionEstimatedGas>
+}
+
 /**
  * @param compilerConfigId Deprecated field.
- * @param gasEstimates The estimated amount of gas required to the entire deployment tree on each
- * chain, including a buffer.
  */
 export type ProposalRequest = {
   apiKey: string
@@ -124,7 +166,7 @@ export type ProposalRequest = {
   deploymentName: string
   chainIds: Array<number>
   projectDeployments: Array<ProjectDeployment>
-  gasEstimates: Array<{ chainId: number; estimatedGas: string }>
+  gasEstimates: Array<NetworkGasEstimate>
   diff: SphinxPreview
   compilerConfigId: string | undefined
   deploymentConfigId: string | undefined

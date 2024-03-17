@@ -290,9 +290,9 @@ export const callWithTimeout = async <T>(
     timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeout)
   })
 
-  return Promise.race([promise, timeoutPromise]).then((result) => {
+  // Call `clearTimeout` as soon as either of the promises resolve or reject.
+  return Promise.race([promise, timeoutPromise]).finally(() => {
     clearTimeout(timeoutHandle)
-    return result
   })
 }
 
@@ -1544,7 +1544,7 @@ export const isCreateActionInput = (
     typeof create.value === 'string' &&
     typeof create.txData === 'string' &&
     typeof create.gas === 'string' &&
-    create.operation === Operation.Call &&
+    create.operation === Operation.DelegateCall &&
     typeof create.requireSuccess === 'boolean'
   )
 }
@@ -1634,6 +1634,18 @@ export const readDeploymentArtifactsForNetwork = (
 
 export const isArrayMixed = <T>(arr: T[]): boolean => new Set(arr).size > 1
 
+export const getContractAddressesFromNetworkConfig = (
+  networkConfig: NetworkConfig
+): Array<string> => {
+  const unlabeledAddresses = networkConfig.unlabeledContracts.map(
+    (ct) => ct.address
+  )
+  const labeledAddresses = networkConfig.actionInputs
+    .flatMap((actions) => actions.contracts)
+    .map((ct) => ct.address)
+  return unlabeledAddresses.concat(labeledAddresses)
+}
+
 /**
  * Checks if a string contains an opening then closing parenthesis.
  *
@@ -1654,3 +1666,5 @@ export const hasParentheses = (str: string): boolean => {
 export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
+
+export const sphinxCoreUtils = { sleep, callWithTimeout }

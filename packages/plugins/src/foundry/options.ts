@@ -1,4 +1,5 @@
 import { join, resolve } from 'path'
+import { existsSync, mkdirSync } from 'fs'
 
 import { spawnAsync } from '@sphinx-labs/core'
 
@@ -24,12 +25,6 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
 }
 
 export const checkRequiredTomlOptions = (toml: FoundryToml) => {
-  if (toml.buildInfo !== true) {
-    throw new Error(
-      'Missing required option in foundry.toml file:\nbuild_info = true\nPlease update your foundry.toml file and try again.'
-    )
-  }
-
   // Check if the user included the `storageLayout` option. Since foundry force recompiles after
   // changing the foundry.toml file, we can assume that the contract artifacts will contain the
   // necessary info as long as the config includes the expected options
@@ -97,6 +92,15 @@ export const getFoundryToml = async (): Promise<FoundryToml> => {
     alwaysUseCreate2Factory: always_use_create_2_factory,
     buildInfo: build_info,
     extraOutput: extra_output,
+  }
+
+  // Check if the cache directory exists, and create it if not.
+  // Some versions of Foundry do not automatically create the cache folder
+  // when compiling, so this ensures it will always exist.
+  // We noticed this issue occurring in Foundry starting approximately at
+  // commit 42da94276892f63afefd0dc743e862b058a4b4c2
+  if (!existsSync(cachePath)) {
+    mkdirSync(cachePath, { recursive: true })
   }
 
   checkRequiredTomlOptions(resolved)

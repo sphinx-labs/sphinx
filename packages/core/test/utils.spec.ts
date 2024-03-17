@@ -1,6 +1,8 @@
-import { expect } from 'chai'
+import chai, { expect } from 'chai'
 import { ethers } from 'ethers'
 import { recursivelyConvertResult } from '@sphinx-labs/contracts'
+import sinon from 'sinon'
+import sinonChai from 'sinon-chai'
 
 import {
   arraysEqual,
@@ -9,7 +11,9 @@ import {
   formatSolcLongVersion,
 } from '../src/utils'
 import { ABI } from './common'
-import { getBytesLength } from '../dist'
+import { callWithTimeout, getBytesLength } from '../dist'
+
+chai.use(sinonChai)
 
 describe('Utils', () => {
   describe('equal', () => {
@@ -450,6 +454,32 @@ describe('Utils', () => {
           _myStruct: variables,
         },
       })
+    })
+  })
+
+  describe('callWithTimeout', () => {
+    let clearTimeoutSpy: sinon.SinonSpy
+
+    beforeEach(() => {
+      clearTimeoutSpy = sinon.spy(global, 'clearTimeout')
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('should clear the timeout if the promise rejects', async () => {
+      const expectedError = new Error('expected error')
+      const rejectedPromise = Promise.reject(expectedError)
+
+      try {
+        await callWithTimeout(rejectedPromise, 1000, 'Timeout error')
+      } catch (error) {
+        expect(error).to.equal(expectedError)
+      }
+
+      // Assert that clearTimeout was called
+      expect(clearTimeoutSpy).to.have.been.called
     })
   })
 })

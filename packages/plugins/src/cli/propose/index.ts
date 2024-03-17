@@ -15,6 +15,7 @@ import {
   isFile,
   MAX_UINT64,
   makeDeploymentConfig,
+  DEFAULT_CALL_DEPTH,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -109,10 +110,11 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(bytes,string)',
+      'sphinxCollectProposal(bytes,string,uint64)',
       scriptFunctionCalldata,
       deploymentInfoPath,
       '--always-use-create-2-factory',
+      DEFAULT_CALL_DEPTH,
     ]
 
     if (
@@ -134,6 +136,10 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
       ETH_FROM: safeAddress,
+      // We specify build info to be false so that calling the script does not cause the users entire
+      // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
+      // We do need the build info, but that is generated when we compile at the beginning of the script.
+      FOUNDRY_BUILD_INFO: 'false',
     })
 
     if (spawnOutput.code !== 0) {
@@ -244,10 +250,23 @@ export const propose = async (
     process.exit(1)
   }
 
-  // Run the compiler. It's necessary to do this before we read any contract interfaces.
+  /**
+   * Run the compiler. It's necessary to do this before we read any contract interfaces.
+   * We force recompile and request the build info here. We need to build info to generate
+   * the compiler config.
+   *
+   * The current behavior of Foundry is to disregard the cache when compiling with the build info.
+   * This causes the users entire project to be rebuilt when the build info file is requested. So
+   * since we have to rebuild the entire project anyway, we also use force which will remove any
+   * previous build info files making our later logic for reading the build info files more performant.
+   *
+   * If/when Foundry fixes this so that the cache is used when the build info file is requested, we should
+   * remove force here for the best performance.
+   */
   compile(
     silent,
-    false // Do not force re-compile.
+    true, // Force recompile
+    true // Generate build info
   )
 
   const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
