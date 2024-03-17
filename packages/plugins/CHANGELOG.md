@@ -1,5 +1,24 @@
 # @sphinx-labs/plugins
 
+## 0.30.6
+
+### Patch Changes
+
+- e36f793: Always attempt to verify contract even if Etherscan claims it is verified
+- 93e10af: Include specific transaction data in NetworkGasEstimates
+- edf33c0: Check that contracts are deployed in simulation
+- 24e1dcc: Avoid recompiling every single time we invoke the users script
+- 6c36c1f: Ensure cache directory always exists
+- 4e2ae6d: Add support for scripts that fork networks
+- ff4a186: Add retry and timeout logic to Hardhat simulation
+- Updated dependencies [e36f793]
+- Updated dependencies [93e10af]
+- Updated dependencies [edf33c0]
+- Updated dependencies [4e2ae6d]
+- Updated dependencies [ff4a186]
+  - @sphinx-labs/core@0.23.4
+  - @sphinx-labs/contracts@0.20.4
+
 ## 0.30.5
 
 ### Patch Changes

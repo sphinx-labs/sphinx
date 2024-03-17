@@ -1,5 +1,13 @@
 # @sphinx-labs/contracts
 
+## 0.20.4
+
+### Patch Changes
+
+- edf33c0: Check that contracts are deployed in simulation
+- 4e2ae6d: Add support for scripts that fork networks
+- ff4a186: Add retry and timeout logic to Hardhat simulation
+
 ## 0.20.3
 
 ### Patch Changes
