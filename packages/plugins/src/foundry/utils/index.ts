@@ -105,6 +105,7 @@ import {
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
 } from '../error-messages'
+import { decodeDeploymentInfo } from '../decode'
 
 const readFileAsync = promisify(readFile)
 
@@ -1869,4 +1870,37 @@ export const findContractArtifactForDeployedCode = async (
   }
 
   return undefined
+}
+
+// TODO(later):
+// - throw error if calldata.length is less than 4 bytes
+// - if (!iface.hasFunction(selector])):
+//    - if (selector.lowercase === selector(run()).lowercase): throw error [user forgot to do --sig <stuff>, causing us to attempt to call a non-existent run() function]
+//    - else: throw error [nonsensical raw hex string, e.g. --sig 0x12341241234]
+// - iface.parseTransaction:
+//    - if returns null: throw error [function selector exists in ABI, but calldata is invalid]
+//    - else: the _scriptFunctionCalldata is valid, and the script failed for some other reason.
+export const TODO = (
+  scriptFunctionCalldata: string,
+  scriptDeployedCode: string,
+  cachePath: string,
+  projectRoot: string,
+  artifactFolder: string
+): void => {
+  if (getBytesLength(scriptFunctionCalldata) < 4) {
+    throw new Error(
+      `TODO(docs): calldata length must be >= 4 bytes, which is the length of a function selector. got: ${scriptFunctionCalldata}`
+    )
+  }
+
+  const scriptArtifact = findContractArtifactForDeployedCode(
+    scriptDeployedCode,
+    cachePath,
+    projectRoot,
+    artifactFolder
+  )
+
+  if (!scriptArtifact) {
+    throw new InvariantError()
+  }
 }

@@ -465,3 +465,20 @@ export const deploy = async (
     configArtifacts,
   }
 }
+
+// TODO(later-later): do the same thing in the deploy command.
+
+// TODO(later-later): check the Linear ticket for stuff to do.
+
+// TODO(later-later): consider checking what'd happen if the function selector corresponds to more
+// than one function in the ABI.
+
+// TODO(later-later): test: `decodeDeploymentInfo` works on initial deployment info
+
+// TODO(later): SphinxUtils.serializeDeploymentInfo works on initial deployment info.
+
+// TODO(docs): i think it's possible for this to happen:
+// 1. user supplies invalid sig
+// 2. sphinxUtils.validate causes script to Forge script to fail
+// 3. we detect that an invalid sig was used, and throw an error related to that instead of the real
+//    reason that the script failed. IMO this is fine.

@@ -218,6 +218,10 @@ abstract contract Sphinx {
             address(this)
         );
 
+        // TODO(docs): we write it here because...
+
+        // TODO(later): vm.writeFile
+
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
         // This also also ensures that the safe's nonce is incremented as a contract instead of an EOA.
@@ -239,6 +243,8 @@ abstract contract Sphinx {
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
         (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
+        // TODO(docs): don't put stuff here that'll pollute the stack trace.
+
         // Throw an error if the deployment script fails. The error message in the user's script is
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
