@@ -33,7 +33,7 @@ import {
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
-import { makeNetworkConfig, decodeDeploymentInfo } from '../../foundry/decode'
+import { makeNetworkConfig } from '../../foundry/decode'
 import { getFoundryToml } from '../../foundry/options'
 import {
   getSphinxConfigFromScript,
@@ -43,6 +43,7 @@ import {
   assertValidVersions,
   validateProposalNetworks,
   parseScriptFunctionCalldata,
+  validateCollection,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -138,20 +139,15 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       ETH_FROM: safeAddress,
     })
 
-    if (spawnOutput.code !== 0) {
-      spinner?.stop()
-      // The `stdout` contains the trace of the error.
-      console.log(spawnOutput.stdout)
-      // The `stderr` contains the error message.
-      console.log(spawnOutput.stderr)
-      process.exit(1)
-    }
-
-    const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
-    const deploymentInfo = decodeDeploymentInfo(
-      serializedDeploymentInfo,
+    const deploymentInfo = await validateCollection(
+      spawnOutput,
+      scriptFunctionCalldata,
       sphinxPluginTypesInterface,
-      blockNumber
+      deploymentInfoPath,
+      foundryToml,
+      projectRoot,
+      blockNumber,
+      spinner
     )
 
     collected.push({
@@ -502,4 +498,3 @@ const getProjectDeploymentForChain = (
     isExecuting: initialState.isExecuting,
   }
 }
-

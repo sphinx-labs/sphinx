@@ -16,6 +16,7 @@ import {
 } from '@sphinx-labs/core'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
+import ora from 'ora'
 
 import {
   assertNoLinkedLibraries,

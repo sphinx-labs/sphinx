@@ -150,7 +150,8 @@ abstract contract Sphinx {
             ExecutionMode.Platform,
             constants.managedServiceAddress(),
             _scriptFunctionCalldata,
-            _callDepth
+            _callDepth,
+            _deploymentInfoPath
         );
 
         vm.writeFile(
@@ -195,7 +196,8 @@ abstract contract Sphinx {
             _executionMode,
             deployer,
             _scriptFunctionCalldata,
-            2
+            2,
+            _deploymentInfoPath
         );
         vm.writeFile(
             _deploymentInfoPath,
@@ -207,7 +209,8 @@ abstract contract Sphinx {
         ExecutionMode _executionMode,
         address _executor,
         bytes memory _scriptFunctionCalldata,
-        uint64 _callDepth
+        uint64 _callDepth,
+        string memory _deploymentInfoPath
     ) private returns (FoundryDeploymentInfo memory) {
         address safe = safeAddress();
 
@@ -219,8 +222,10 @@ abstract contract Sphinx {
         );
 
         // TODO(docs): we write it here because...
-
-        // TODO(later): vm.writeFile
+        vm.writeFile(
+            _deploymentInfoPath,
+            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+        );
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.

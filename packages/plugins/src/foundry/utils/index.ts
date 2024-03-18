@@ -34,6 +34,7 @@ import {
   trimQuotes,
   zeroOutImmutableReferences,
   zeroOutLibraryReferences,
+  logErrorThenExit,
 } from '@sphinx-labs/core/dist/utils'
 import {
   ActionInput,
@@ -1872,28 +1873,22 @@ export const findContractArtifactForDeployedCode = async (
   return undefined
 }
 
-// TODO(later):
-// - throw error if calldata.length is less than 4 bytes
-// - if (!iface.hasFunction(selector])):
-//    - if (selector.lowercase === selector(run()).lowercase): throw error [user forgot to do --sig <stuff>, causing us to attempt to call a non-existent run() function]
-//    - else: throw error [nonsensical raw hex string, e.g. --sig 0x12341241234]
-// - iface.parseTransaction:
-//    - if returns null: throw error [function selector exists in ABI, but calldata is invalid]
-//    - else: the _scriptFunctionCalldata is valid, and the script failed for some other reason.
-export const TODO = (
+export const assertValidScriptFunctionCalldata = async (
   scriptFunctionCalldata: string,
   scriptDeployedCode: string,
   cachePath: string,
   projectRoot: string,
   artifactFolder: string
-): void => {
+): Promise<void> => {
   if (getBytesLength(scriptFunctionCalldata) < 4) {
-    throw new Error(
+    logErrorThenExit(
       `TODO(docs): calldata length must be >= 4 bytes, which is the length of a function selector. got: ${scriptFunctionCalldata}`
     )
   }
 
-  const scriptArtifact = findContractArtifactForDeployedCode(
+  const selector = ethers.dataSlice(scriptFunctionCalldata, 0, 4)
+
+  const scriptArtifact = await findContractArtifactForDeployedCode(
     scriptDeployedCode,
     cachePath,
     projectRoot,
@@ -1901,6 +1896,87 @@ export const TODO = (
   )
 
   if (!scriptArtifact) {
-    throw new InvariantError()
+    throw new Error(
+      `Could not find Forge script artifact. Should never happen.`
+    )
   }
+
+  const scriptIface = new ethers.Interface(scriptArtifact.abi)
+
+  if (!scriptIface.hasFunction(selector)) {
+    if (
+      selector.toLowerCase() ===
+      ethers.FunctionFragment.getSelector('run').toLowerCase()
+    ) {
+      logErrorThenExit(
+        `TODO(docs): user forgot to do --sig <stuff>, causing us to attempt to call a non-existent run() function`
+      )
+    } else {
+      logErrorThenExit(
+        `TODO(docs): nonsensical raw hex string, e.g. --sig 0x12341241234`
+      )
+    }
+  }
+
+  const parsed = scriptIface.parseTransaction({
+    data: scriptFunctionCalldata,
+  })
+
+  if (parsed === null) {
+    logErrorThenExit(
+      `TODO(docs): function selector exists in ABI, but calldata is invalid `
+    )
+  }
+
+  // If we make it to this point, the calldata is valid, so the script must have failed for some
+  // other reason.
+}
+
+export const validateCollection = async (
+  collectionOutput: {
+    stdout: string
+    stderr: string
+    code: number | null
+  },
+  scriptFunctionCalldata: string,
+  sphinxPluginTypesInterface: ethers.Interface,
+  deploymentInfoPath: string,
+  foundryToml: FoundryToml,
+  projectRoot: string,
+  blockNumber: number,
+  spinner?: ora.Ora
+): Promise<DeploymentInfo> => {
+  if (collectionOutput.code === 0) {
+    const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+    return decodeDeploymentInfo(
+      serializedDeploymentInfo,
+      sphinxPluginTypesInterface,
+      blockNumber
+    )
+  }
+
+  spinner?.stop()
+
+  if (existsSync(deploymentInfoPath)) {
+    // TODO(docs): the deployment info only contains the initial fields.
+    const serializedDeploymentInfo = readFileSync(deploymentInfoPath, 'utf-8')
+    const { scriptDeployedCode } = JSON.parse(serializedDeploymentInfo)
+
+    await assertValidScriptFunctionCalldata(
+      scriptFunctionCalldata,
+      scriptDeployedCode,
+      foundryToml.cachePath,
+      projectRoot,
+      foundryToml.artifactFolder
+    )
+  }
+
+  // TODO(docs): if we make it to this point, the script failed due to some misc reason, e.g.
+  // validation. we'll log the stack trace of the Forge script then exit the process.
+
+  // The `stdout` contains the trace of the error.
+  console.log(collectionOutput.stdout)
+  // The `stderr` contains the error message.
+  console.log(collectionOutput.stderr)
+  process.exit(1)
 }

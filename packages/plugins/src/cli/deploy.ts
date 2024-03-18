@@ -466,6 +466,11 @@ export const deploy = async (
   }
 }
 
+// TODO: left off: we're unable to get the script's artifact because
+// `findContractArtifactFromDeployedCode` relies on the build info cache, which is updated later in
+// the proposal process. i figured i should wait until we decide if we're going to continue using
+// the build info file given that foundry creates one every time proposal is run.
+
 // TODO(later-later): do the same thing in the deploy command.
 
 // TODO(later-later): check the Linear ticket for stuff to do.
@@ -475,7 +480,10 @@ export const deploy = async (
 
 // TODO(later-later): test: `decodeDeploymentInfo` works on initial deployment info
 
-// TODO(later): SphinxUtils.serializeDeploymentInfo works on initial deployment info.
+// TODO(later-later): test: SphinxUtils.serializeDeploymentInfo works on initial deployment info.
+
+// TODO(later-later): consider making an integration test for the scenario where the user supplies
+// an invalid sig.
 
 // TODO(docs): i think it's possible for this to happen:
 // 1. user supplies invalid sig

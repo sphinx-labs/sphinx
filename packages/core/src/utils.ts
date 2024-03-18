@@ -1686,3 +1686,8 @@ export const trimQuotes = (str: string): string => {
 }
 
 export const sphinxCoreUtils = { readFileSync, existsSync }
+
+export const logErrorThenExit = (message: string): void => {
+  console.error(message)
+  process.exit(1)
+}
