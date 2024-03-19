@@ -252,20 +252,15 @@ export const propose = async (
 
   /**
    * Run the compiler. It's necessary to do this before we read any contract interfaces.
-   * We force recompile and request the build info here. We need to build info to generate
-   * the compiler config.
+   * We request the build info here which we need to build info to generate the compiler
+   * config.
    *
-   * The current behavior of Foundry is to disregard the cache when compiling with the build info.
-   * This causes the users entire project to be rebuilt when the build info file is requested. So
-   * since we have to rebuild the entire project anyway, we also use force which will remove any
-   * previous build info files making our later logic for reading the build info files more performant.
-   *
-   * If/when Foundry fixes this so that the cache is used when the build info file is requested, we should
-   * remove force here for the best performance.
+   * We do not force recompile here because the user may have a custom compilation pipeline
+   * that yields additional artifacts which the standard forge compiler does not.
    */
   compile(
     silent,
-    true, // Force recompile
+    false, // Do not force recompile
     true // Generate build info
   )
 
