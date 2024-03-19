@@ -1667,4 +1667,39 @@ export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
 
-export const sphinxCoreUtils = { sleep, callWithTimeout }
+/**
+ * Checks if a given property of an object is a public asynchronous method.
+ *
+ * This function iterates over the prototype chain of the object to check if the specified property
+ * is an asynchronous function that is not intended to be private (not starting with '_'). We check
+ * for a leading underscore to determine whether a function is meant to be private because
+ * JavaScript doesn't have a native way to check this. This function stops the search once it
+ * reaches the top of the prototype chain or finds a match.
+ *
+ * @param {any} obj - The object to inspect.
+ * @param {string | symbol} prop - The property name or symbol to check.
+ * @returns {boolean} - `true` if the property is a public asynchronous method, `false` otherwise.
+ */
+export const isPublicAsyncMethod = (
+  obj: any,
+  prop: string | symbol
+): boolean => {
+  let currentObj = obj
+
+  while (currentObj && currentObj !== Object.prototype) {
+    const propValue = currentObj[prop]
+    if (
+      typeof propValue === 'function' &&
+      propValue.constructor.name === 'AsyncFunction' &&
+      typeof prop === 'string' &&
+      !prop.startsWith('_')
+    ) {
+      return true
+    }
+    currentObj = Object.getPrototypeOf(currentObj)
+  }
+
+  return false
+}
+
+export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }
