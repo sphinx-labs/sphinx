@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.23.5
+
+### Patch Changes
+
+- e2fc1e9: Fix simulation bugs
+
 ## 0.23.4
 
 ### Patch Changes
