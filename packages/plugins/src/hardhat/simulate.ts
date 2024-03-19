@@ -55,11 +55,14 @@ export type SimulationTransactions = Array<{
  * before timing out. An RPC request can stall if the RPC provider has degraded service, which would
  * cause the simulation to stall indefinitely if we don't time out. We set this value to be
  * relatively high because the execution process may submit very large transactions (specifically
- * transactions with `EXECUTE` Merkle leaves), which can cause the RPC request to be slow.
+ * transactions with `EXECUTE` Merkle leaves), which can cause the RPC request to be slow. We also
+ * set it high because the Hardhat provider appears to make a few retries (in
+ * `hardhat/internal/core/providers/http.ts`), which can contribute to the duration of a single RPC
+ * call sent from our provider proxy.
  */
 export const simulationConstants = {
-  maxAttempts: 7,
-  timeout: 60_000,
+  maxAttempts: 10,
+  timeout: 150_000,
 }
 
 /**
@@ -459,13 +462,10 @@ export const handleSimulationSuccess = async (
 
 /**
  * Create a Proxy that wraps a `HardhatEthersProvider` to implement retry and timeout logic, which
- * isn't available natively in this provider.
+ * isn't robust in the native provider.
  *
- * This function uses an exponential backoff strategy for retries. After each failed attempt, we
- * wait `2 ** (attempt + 1)` seconds before trying again. At the time of writing this, we allow 7
- * attempts, which means we'll wait a total of `2 + 4 + 8 + 16 + 32 + 64` seconds, which equals 126.
- * Notice that there are 6 terms in that equation instead of 7 because we'll immediately revert if
- * the last attempt fails.
+ * This function uses a linear backoff strategy for retries. We use a multiple of 2, and start with
+ * a backoff period of two seconds.
  *
  * This function uses the `evm_snapshot` and `evm_revert` RPC methods to prevent a 'nonce too low'
  * bug caused by the Hardhat simulation (context: https://github.com/sphinx-labs/sphinx/pull/1565).
@@ -482,26 +482,12 @@ export const handleSimulationSuccess = async (
 export const createHardhatEthersProviderProxy = (
   ethersProvider: HardhatEthersProvider
 ): HardhatEthersProvider => {
-  return new Proxy(ethersProvider, {
+  const proxy = new Proxy(ethersProvider, {
     get: (target, prop) => {
       return (...args: any[]) => {
-        // Queue a snapshot of the Hardhat node state. We may revert to this snapshot later in this
-        // function to prevent a 'nonce too low' bug in Hardhat. We must queue the snapshot before
-        // calling `target[prop](...args)` to avoid this nonce bug, which occurs in spite of the
-        // fact that we don't immediately await either of these calls. We don't await this call yet
-        // because the `target[prop](...args)` call may be synchronous. If we await this call, then
-        // every call routed through this Proxy will become asynchronous, which could lead to
-        // expected behavior.
-        //
-        // More info on the nonce error is in this pull request description:
-        // https://github.com/sphinx-labs/sphinx/pull/1565.
-        const snapshotIdPromise = target.send('evm_snapshot', [])
-
-        // Call the method on the EthersJS provider.
-        const initialResult = target[prop](...args)
-        // Check if the call is synchronous. If so, return it.
-        if (!(initialResult instanceof Promise)) {
-          return initialResult
+        // Return the result directly if the method isn't asynchronous.
+        if (!sphinxCoreUtils.isPublicAsyncMethod(ethersProvider, prop)) {
+          return target[prop](...args)
         }
 
         // A helper function that implements the timeout and retry logic for asynchronous calls to
@@ -514,30 +500,44 @@ export const createHardhatEthersProviderProxy = (
             throw new Error(HardhatResetNotAllowedErrorMessage)
           }
 
-          // Resolve the promise that we initially created.
-          let snapshotId = await snapshotIdPromise
-
+          let snapshotId: string
           for (
             let attempt = 0;
             attempt < simulationConstants.maxAttempts;
             attempt++
           ) {
-            try {
-              // If this is the first attempt, we use the `initialResult` instead of calling
-              // `target[prop](...args)` again to avoid unintended consequences of calling the
-              // method on the provider more than once.
-              const result =
-                attempt === 0 ? initialResult : target[prop](...args)
+            // Create a snapshot of the Hardhat node state. We may revert to this snapshot later in
+            // this function to prevent a 'nonce too low' bug in Hardhat. We must queue the snapshot
+            // before calling `target[prop](...args)` to avoid this nonce bug.
+            //
+            // More info on the nonce error is in this pull request description:
+            // https://github.com/sphinx-labs/sphinx/pull/1565.
+            //
+            // This RPC method is outside of the try...catch statement below because this call
+            // should never error, so if it does, it'd preferable to throw the error immediately.
+            snapshotId = await target.send('evm_snapshot', [])
 
+            try {
               // Forward the call to the Hardhat provider. We include a timeout to ensure that an
               // RPC provider with degraded service doesn't cause this call to hang indefinitely.
               // See this pull request description for more info:
               // https://github.com/sphinx-labs/sphinx/pull/1565
-              return await sphinxCoreUtils.callWithTimeout(
-                result,
+
+              const result = await sphinxCoreUtils.callWithTimeout(
+                target[prop](...args),
                 simulationConstants.timeout,
                 getRpcRequestStalledErrorMessage(simulationConstants.timeout)
               )
+
+              if (prop === 'getSigner') {
+                // By default, the `HardhatEthersProxy.getSigner` method returns a signer connected
+                // to the `HardhatEthersProvider` instead of this Proxy, which prevents our timeout
+                // and retry logic from being used when the signer executes transactions. To avoid
+                // this, we set the signer's provider to be the current Proxy instance.
+                return (result as ethers.Signer).connect(proxy)
+              } else {
+                return result
+              }
             } catch (error) {
               // The most likely reason that the call failed is a rate limit.
 
@@ -562,12 +562,10 @@ export const createHardhatEthersProviderProxy = (
                 throw error
               }
 
-              // We use exponential backoff starting at 2 seconds. This serves as a cooldown period
+              // We use linear backoff starting at 2 seconds. This serves as a cooldown period
               // for rate limit errors.
-              const sleepTime = 2 ** (attempt + 1)
+              const sleepTime = 2 * (attempt + 1) * 1000
               await sphinxCoreUtils.sleep(sleepTime)
-
-              snapshotId = await target.send('evm_snapshot', [])
             }
           }
         }
@@ -590,6 +588,7 @@ export const createHardhatEthersProviderProxy = (
       }
     },
   })
+  return proxy
 }
 
 export const getUndeployedContractErrorMesage = (address: string): string =>
