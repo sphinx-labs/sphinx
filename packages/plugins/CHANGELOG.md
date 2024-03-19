@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.30.7
+
+### Patch Changes
+
+- e2fc1e9: Fix simulation bugs
+- Updated dependencies [e2fc1e9]
+  - @sphinx-labs/core@0.23.5
+
 ## 0.30.6
 
 ### Patch Changes
