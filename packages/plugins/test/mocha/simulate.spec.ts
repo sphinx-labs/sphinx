@@ -27,7 +27,7 @@ import {
   makeStandardDeployment,
   promiseThatNeverSettles,
   startForkedAnvilNodes,
-  sumGeometricSeries,
+  sumEvenNumbers,
 } from './common'
 import {
   simulationConstants,
@@ -238,10 +238,18 @@ describe('handleSimulationSuccess', () => {
 })
 
 describe('createHardhatEthersProviderProxy', () => {
+  const asyncMethods = [
+    { name: 'send', isAsync: true },
+    { name: 'hardhat_reset', isAsync: true },
+    { name: 'getBlockNumber', isAsync: true },
+    { name: 'toJSON', isAsync: false },
+  ]
+
   let ethersProvider: any
   let proxy: HardhatEthersProvider
   let timeSum: number = 0
   let sendStub: sinon.SinonStub
+  let isPublicAsyncMethodStub: sinon.SinonStub
 
   beforeEach(() => {
     sinon
@@ -249,6 +257,11 @@ describe('createHardhatEthersProviderProxy', () => {
       .callsFake(async (time: number): Promise<void> => {
         timeSum += time
       })
+    isPublicAsyncMethodStub = sinon.stub(sphinxCoreUtils, 'isPublicAsyncMethod')
+
+    for (const { name, isAsync } of asyncMethods) {
+      isPublicAsyncMethodStub.withArgs(sinon.match.any, name).returns(isAsync)
+    }
 
     sendStub = sinon.stub().resolves('defaultPromiseValue')
     sendStub.withArgs('evm_snapshot', []).resolves('snapshotId')
@@ -278,7 +291,7 @@ describe('createHardhatEthersProviderProxy', () => {
 
     ethersProvider.getBlockNumber = sinon
       .stub()
-      .returns(promiseThatNeverSettles)
+      .resolves(promiseThatNeverSettles)
 
     const callWithTimeoutSpy = sinon.spy(sphinxCoreUtils, 'callWithTimeout')
 
@@ -310,14 +323,16 @@ describe('createHardhatEthersProviderProxy', () => {
       simulationConstants.maxAttempts
     )
 
-    // Verify exponential backoff timing
-    const expectedDuration = sumGeometricSeries(
-      2,
-      2,
-      // We subtract one because we throw the error after the last attempt instead of waiting.
-      simulationConstants.maxAttempts - 1
-    )
+    // Verify linear backoff timing
+    const expectedDuration =
+      sumEvenNumbers(
+        2,
+        // We subtract one because we throw the error after the last attempt instead of waiting.
+        simulationConstants.maxAttempts - 1
+      ) * 1000
     expect(timeSum).equals(expectedDuration)
+    // Check that the time is denominated in seconds
+    expect(timeSum % 1000).equals(0)
 
     // The following is a regression test for the 'nonce too low' bug described in this pull request
     // description: https://github.com/sphinx-labs/sphinx/pull/1565
@@ -382,14 +397,16 @@ describe('createHardhatEthersProviderProxy', () => {
       simulationConstants.maxAttempts
     )
 
-    // Verify exponential backoff timing.
-    const expectedDuration = sumGeometricSeries(
-      2,
-      2,
-      // We subtract one because the last attempt succeeded.
-      simulationConstants.maxAttempts - 1
-    )
+    // Verify linear backoff timing
+    const expectedDuration =
+      sumEvenNumbers(
+        2,
+        // We subtract one because we throw the error after the last attempt instead of waiting.
+        simulationConstants.maxAttempts - 1
+      ) * 1000
     expect(timeSum).equals(expectedDuration)
+    // Check that the time is denominated in seconds
+    expect(timeSum % 1000).equals(0)
 
     // Check that the last call was successful
     expect(

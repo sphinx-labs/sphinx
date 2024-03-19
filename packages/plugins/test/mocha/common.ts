@@ -1105,8 +1105,13 @@ export const makeActionInputsWithoutGas = (
   return actionInputs
 }
 
-export const sumGeometricSeries = (a: number, r: number, n: number): number =>
-  a * ((1 - Math.pow(r, n)) / (1 - r))
+export const sumEvenNumbers = (start: number, numTerms: number): number => {
+  let sum = 0
+  for (let i = 0; i < numTerms; i++) {
+    sum += start + 2 * i
+  }
+  return sum
+}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export const promiseThatNeverSettles = new Promise(() => {})
