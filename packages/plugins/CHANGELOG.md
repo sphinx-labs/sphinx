@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.30.8
+
+### Patch Changes
+
+- 4cc6c75: Do not force recompile
+
 ## 0.30.7
 
 ### Patch Changes
