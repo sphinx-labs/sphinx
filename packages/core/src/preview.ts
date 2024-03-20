@@ -1,7 +1,12 @@
 import { yellow, green, bold } from 'chalk'
-import { CREATE3_PROXY_INITCODE } from '@sphinx-labs/contracts'
+import { CREATE3_PROXY_INITCODE, Operation } from '@sphinx-labs/contracts'
 
-import { DecodedAction, NetworkConfig } from './config/types'
+import {
+  ActionInput,
+  ActionInputType,
+  DecodedAction,
+  NetworkConfig,
+} from './config/types'
 import {
   arraysEqual,
   getNetworkTag,
@@ -193,6 +198,43 @@ export const getPreviewString = (
   return previewString
 }
 
+const assertIsFundingCheckAction = (
+  fundingCheck: ActionInput | undefined,
+  fundingRequest: {
+    fundsRequested: string
+    startingBalance: string
+  },
+  safeAddress: string
+) => {
+  const expectedCheckValue = (
+    BigInt(fundingRequest.fundsRequested) +
+    BigInt(fundingRequest.startingBalance)
+  ).toString()
+
+  if (
+    !fundingCheck ||
+    fundingCheck.txData !== '0x' ||
+    fundingCheck.value !== expectedCheckValue ||
+    fundingCheck.to !== safeAddress ||
+    fundingCheck.actionType !== ActionInputType.CALL ||
+    fundingCheck.requireSuccess !== true ||
+    fundingCheck.operation !== Operation.Call ||
+    fundingCheck.contracts.length !== 0 ||
+    fundingCheck.index !== '1' ||
+    fundingCheck.decodedAction.address !== '' ||
+    fundingCheck.decodedAction.functionName !== 'call' ||
+    fundingCheck.decodedAction.referenceName !== safeAddress ||
+    fundingCheck.decodedAction.value !== expectedCheckValue ||
+    !Array.isArray(fundingCheck.decodedAction.variables) ||
+    fundingCheck.decodedAction.variables?.length !== 1 ||
+    fundingCheck.decodedAction.variables[0] !== '0x'
+  ) {
+    throw new InvariantError(
+      'Expected to find Gnosis Safe funding checking action, but did not'
+    )
+  }
+}
+
 export const getPreview = (
   networkConfigs: Array<NetworkConfig>
 ): SphinxPreview => {
@@ -262,19 +304,35 @@ export const getPreview = (
         })
       }
 
-      if (
-        networkConfig.safeFundingRequest &&
-        BigInt(networkConfig.safeFundingRequest.fundsRequested) > BigInt(0)
-      ) {
-        executing.push({
-          type: 'FundingSafe',
-          value: networkConfig.safeFundingRequest.fundsRequested,
-        })
-      }
+      for (let i = 0; i < actionInputs.length; i++) {
+        /**
+         * We do not display the Safe balance check action in the preview because we don't want to confuse
+         * the user by showing an action that they don't understand without context on why it's there.
+         *
+         * If we find that users are having deployments fail due to this check, then we will reconsider if
+         * we should provide more detail on this specific check.
+         */
+        if (
+          i === 0 &&
+          networkConfig.safeFundingRequest &&
+          BigInt(networkConfig.safeFundingRequest.fundsRequested) > BigInt(0)
+        ) {
+          const [fundingCheck] = actionInputs
+          assertIsFundingCheckAction(
+            fundingCheck,
+            networkConfig.safeFundingRequest,
+            networkConfig.safeAddress
+          )
 
-      for (const action of actionInputs) {
-        const { decodedAction } = action
-        executing.push(decodedAction)
+          // Instead we use a special preview element to represent the Safe funding request
+          executing.push({
+            type: 'FundingSafe',
+            value: networkConfig.safeFundingRequest.fundsRequested,
+          })
+        } else {
+          const { decodedAction } = actionInputs[i]
+          executing.push(decodedAction)
+        }
       }
     }
 

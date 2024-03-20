@@ -1201,7 +1201,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
      */
     function makeGnosisSafeTransaction(
         Vm.AccountAccess memory _access
-    ) private pure returns (GnosisSafeTransaction memory) {
+    ) public pure returns (GnosisSafeTransaction memory) {
         if (_access.kind == VmSafe.AccountAccessKind.Create) {
             // `Create` transactions are executed by delegatecalling the `CreateCall`
             // contract from the Gnosis Safe.
@@ -1288,7 +1288,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         address[] memory _owners,
         uint256 _threshold,
         address _safeAddress
-    ) external {
+    ) public {
         // Get the encoded data that'll be sent to the `MultiSend` contract to deploy and enable the
         // Sphinx Module in the Gnosis Safe.
         bytes memory multiSendData = getModuleInitializerMultiSendData();
@@ -1409,7 +1409,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         ParsedAccountAccess[] memory _accountAccesses,
         address _scriptAddress,
         FoundryDeploymentInfo memory _deploymentInfo
-    ) private returns (uint256[] memory) {
+    ) public returns (uint256[] memory) {
         address safe = getGnosisSafeProxyAddress(_scriptAddress);
         address module = getSphinxModuleAddress(_scriptAddress);
 
@@ -1466,6 +1466,79 @@ contract SphinxUtils is SphinxConstants, StdUtils {
     }
 
     /**
+     * Handles adding an execute action that confirms the Safe has received the requested funding from
+     * our backend. We only include this check if the user requests funds from our backend. This check
+     * just protects the user from an error occurring in our backend which causes the funds to fail to
+     * delivered. This check causes the deployment to immediately fail instead of potentially failing
+     * part of the way through.
+     *
+     * It's worth noting the following edge case which this check does not protect against:
+     * Say there are already funds in the Safe, the user then proposes a script that requires those
+     * funds, the user executes a transaction via the Safe using a third party interface that reduces
+     * the balance of the Safe. We then attempt to execute the deployment and it fails because the Safe
+     * does not have enough funds.
+     *
+     * This is a specific case of the more general problem that if a deployment depends on some specific
+     * on chain state, the deployment may end up failing if that state changes in between the deployment
+     * being approved and it getting executed.
+     */
+    function addBalanceCheckAction(
+        FoundryDeploymentInfo memory _deploymentInfo,
+        ParsedAccountAccess[] memory parsedAccesses,
+        uint64 _callDepth
+    ) private pure returns (ParsedAccountAccess[] memory) {
+        // We don't need a check balance action if the user did not request funds
+        if (_deploymentInfo.fundsRequestedForSafe == 0) {
+            return parsedAccesses;
+        }
+
+        ParsedAccountAccess memory checkFundsAccess = ParsedAccountAccess(
+            VmSafe.AccountAccess({
+                chainInfo: VmSafe.ChainInfo(0, _deploymentInfo.chainId),
+                kind: VmSafe.AccountAccessKind.Call,
+                account: _deploymentInfo.safeAddress,
+                accessor: _deploymentInfo.safeAddress,
+                initialized: true,
+                // The old balance is the starting balance + the amount of funds requested because
+                // this action is executed after we've already transferred the requested funds to
+                // the Safe.
+                oldBalance: _deploymentInfo.safeStartingBalance +
+                    _deploymentInfo.fundsRequestedForSafe,
+                newBalance: _deploymentInfo.safeStartingBalance +
+                    _deploymentInfo.fundsRequestedForSafe,
+                deployedCode: "",
+                // We transfer the current balance of the Safe + the amount of funds requested
+                // We include the starting balance in addition to the amount requested because the
+                // safe may already have a balance that exceeds the amount requested.
+                // The following case could occur if we just checked for the amount requested:
+                // 1. The user requestes 0.1 eth using a Safe that has 0.15 eth
+                // 2. Our backend executes the deployment and fails to transfer the requested 0.1 eth
+                // due to an error.
+                // 3. The rest of the deployment is executed and this check passed because the balance
+                // of the Safe is greater than the amount of funds requested.
+                // 4. Transactions in the rest of the deployment may fail because the Safe doesn't have
+                // the amount of funds expected.
+                value: _deploymentInfo.safeStartingBalance + _deploymentInfo.fundsRequestedForSafe,
+                data: "",
+                reverted: false,
+                storageAccesses: new VmSafe.StorageAccess[](0),
+                depth: _callDepth
+            }),
+            new VmSafe.AccountAccess[](0)
+        );
+
+        ParsedAccountAccess[] memory parsedAccessesWithCheck = new ParsedAccountAccess[](
+            parsedAccesses.length + 1
+        );
+        parsedAccessesWithCheck[0] = checkFundsAccess;
+        for (uint i = 1; i < parsedAccessesWithCheck.length; i++) {
+            parsedAccessesWithCheck[i] = parsedAccesses[i - 1];
+        }
+
+        return parsedAccessesWithCheck;
+    }
+
+    /**
      * @notice Finishes creating the `FoundryDeploymentInfo` struct. Meant to be called after
      *         running the user's script and after calling `initializeDeploymentInfo`.
      *
@@ -1486,6 +1559,8 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             // changed the current `block.chainid` in their script by forking a different network.
             _deploymentInfo.chainId
         );
+
+        parsedAccesses = addBalanceCheckAction(_deploymentInfo, parsedAccesses, _callDepth);
 
         _deploymentInfo.encodedDeployedContractSizes = abi.encode(
             fetchDeployedContractSizes(_accesses, _deploymentInfo.chainId)

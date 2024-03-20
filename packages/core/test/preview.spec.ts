@@ -11,8 +11,10 @@ import { getPreview } from '../src/preview'
 import { ActionInputType, FunctionCallActionInput } from '../dist'
 import { ExecutionMode } from '../src/constants'
 
+const safeAddress = '0x' + 'ff'.repeat(20)
+
 const expectedGnosisSafe = {
-  address: '0x' + 'ff'.repeat(20),
+  address: safeAddress,
   referenceName: 'GnosisSafe',
   functionName: 'deploy',
   variables: {},
@@ -29,6 +31,27 @@ const expectedFundingRequest = {
   type: 'FundingSafe',
   value: parseUnits('0.1', 'ether').toString(),
 }
+
+const safeBalanceCheck: FunctionCallActionInput = {
+  actionType: ActionInputType.CALL,
+  decodedAction: {
+    referenceName: safeAddress,
+    functionName: 'call',
+    variables: ['0x'],
+    address: '',
+    value: parseUnits('0.1', 'ether').toString(),
+  },
+  index: '1',
+  operation: Operation.Call,
+  txData: '0x',
+  to: safeAddress,
+  requireSuccess: true,
+  value: parseUnits('0.1', 'ether').toString(),
+  contracts: [],
+  // These fields are unused:
+  gas: '0',
+}
+
 const expectedCreate2: Create2ActionInput = {
   actionType: ActionInputType.CREATE2,
   decodedAction: {
@@ -125,6 +148,7 @@ const originalNetworkConfig: NetworkConfig = {
   chainId: '10',
   executionMode: ExecutionMode.Platform,
   actionInputs: [
+    safeBalanceCheck,
     expectedCreate2,
     expectedFunctionCallOne,
     expectedCall,
@@ -140,7 +164,7 @@ const originalNetworkConfig: NetworkConfig = {
       initCodeWithArgs: CREATE3_PROXY_INITCODE,
     },
   ],
-  safeAddress: '0x' + 'ff'.repeat(20),
+  safeAddress,
   moduleAddress: '0x' + 'ee'.repeat(20),
   initialState: {
     isSafeDeployed: false,
@@ -210,6 +234,7 @@ describe('Preview', () => {
     it('returns preview for single network that is executing everything, except sending funds to the Gnosis Safe', () => {
       const networkConfig = structuredClone(originalNetworkConfig)
       networkConfig.safeFundingRequest!.fundsRequested = '0'
+      networkConfig.actionInputs.shift()
       const { networks, unlabeledAddresses } = getPreview([networkConfig])
 
       expect(networks.length).to.equal(1)
@@ -337,12 +362,12 @@ describe('Preview', () => {
       // Skip the Gnosis Safe on Polygon
       networkConfigPolygon.initialState.isSafeDeployed = true
 
-      // Use different variables for the first action on Arbitrum
+      // Use different variables for the first action on Arbitrum (other than the Safe balance check)
       const variablesArbitrum = {
         myVar: 'myArbitrumVal',
         myOtherVar: 'myOtherArbitrumVal',
       }
-      const firstAction = networkConfigArbitrum.actionInputs[0]
+      const firstAction = networkConfigArbitrum.actionInputs[1]
       firstAction.decodedAction.variables = variablesArbitrum
 
       const { networks, unlabeledAddresses } = getPreview([
