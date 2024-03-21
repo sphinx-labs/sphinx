@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.20.5
+
+### Patch Changes
+
+- d3057c7: Hardcode Merkle leaf gas field on Moonbeam networks
+
 ## 0.20.4
 
 ### Patch Changes

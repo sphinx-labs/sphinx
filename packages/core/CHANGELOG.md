@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.23.6
+
+### Patch Changes
+
+- 643bcb4: Remove gas limit override on Gnosis
+- d3057c7: Hardcode Merkle leaf gas field on Moonbeam networks
+- Updated dependencies [d3057c7]
+  - @sphinx-labs/contracts@0.20.5
+
 ## 0.23.5
 
 ### Patch Changes
