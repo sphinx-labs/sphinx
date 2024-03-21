@@ -146,7 +146,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       },
     },
     currency: 'ETH',
-    dripSize: '0.15',
+    dripSize: '1',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
