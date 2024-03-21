@@ -994,6 +994,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "encodedDeployedContractSizes",
             _deployment.encodedDeployedContractSizes
         );
+        vm.serializeBytes(deploymentInfoKey, "scriptDeployedCode", _deployment.scriptDeployedCode);
 
         // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
         // numbers to prevent the possibility that they lose precision due JavaScript's relatively
@@ -1353,6 +1354,7 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         deploymentInfo.sphinxLibraryVersion = getSphinxLibraryVersion();
         deploymentInfo.arbitraryChain = false;
         deploymentInfo.requireSuccess = true;
+        deploymentInfo.scriptDeployedCode = address(_scriptAddress).code;
 
         // We fill the block number in later in Typescript. We have to do this using a call to the rpc provider
         // instead of using `block.number` within forge b/c some networks have odd changes to what `block.number`

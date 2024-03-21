@@ -1,4 +1,8 @@
-import { ImmutableReferences, LinkReferences } from '@sphinx-labs/contracts'
+import {
+  ContractArtifact,
+  ImmutableReferences,
+  LinkReferences,
+} from '@sphinx-labs/contracts'
 import {
   FoundryBroadcastTransaction,
   FoundryDryRunTransaction,
@@ -76,6 +80,17 @@ export type FoundryToml = {
     }
   }
 }
+
+/**
+ * A function type that returns `true` if the `actualBytecode` and the corresponding contract
+ * bytecode in the `artifact` have an exact match. Returns `false` otherwise. This function type can
+ * be used for either contract init code or deployed bytecode. This is useful for creating logic that
+ * works with either type of bytecode.
+ */
+export type IsBytecodeInArtifact = (
+  actualBytecode: string,
+  artifact: ContractArtifact
+) => boolean
 
 export type BuildInfoCache = {
   _format: 'sphinx-build-info-cache-1'

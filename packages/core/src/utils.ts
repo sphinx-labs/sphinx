@@ -34,6 +34,7 @@ import {
   recursivelyConvertResult,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CreateCallArtifact,
+  ImmutableReferences,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -1388,7 +1389,8 @@ export const getBytesLength = (hexString: string): number => {
 
 /**
  * Replace library references in the `bytecode` with zeros. This function uses the `linkReferences`
- * to find the location of the library references.
+ * to find the location of the library references. The `linkReferences` can be taken from the
+ * contract artifact's init code or deployed bytecode since the structure of both is identical.
  *
  * @returns The `bytecode` with zeros instead of library references.
  */
@@ -1409,6 +1411,34 @@ export const zeroOutLibraryReferences = (
           replacer +
           modifiedBytecode.substring(start + ref.length * 2)
       }
+    }
+  }
+
+  return modifiedBytecode
+}
+
+/**
+ * Replace immutable variable references in the bytecode with zeros. This function uses the
+ * `immutableReferences` to find the location of the immutable references.
+ *
+ * @returns The `bytecode` with zeros instead of immutable references.
+ */
+export const zeroOutImmutableReferences = (
+  deployedBytecode: string,
+  immutableReferences: ImmutableReferences
+): string => {
+  // Create the replacer. Immutable variable references are always 32 bytes.
+  const replacer = remove0x(ethers.ZeroHash)
+
+  let modifiedBytecode = deployedBytecode
+
+  for (const referencesForVariable of Object.values(immutableReferences)) {
+    for (const ref of referencesForVariable) {
+      const start = 2 + ref.start * 2 // Adjusting for '0x' prefix and hex encoding
+      modifiedBytecode =
+        modifiedBytecode.substring(0, start) +
+        replacer +
+        modifiedBytecode.substring(start + ref.length * 2)
     }
   }
 

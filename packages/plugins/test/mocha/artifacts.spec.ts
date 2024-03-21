@@ -180,6 +180,7 @@ describe('Artifacts', () => {
       newFullyQualifiedName,
       MyContract2Artifact.bytecode.object,
       foundryToml.artifactFolder,
+      foundryToml.cachePath,
       newCompilerInputId,
       newMerkleRoot
     )
@@ -259,6 +260,7 @@ describe('Contract Deployment Artifacts', () => {
 
     const configArtifacts = await getFakeConfigArtifacts(
       [fullyQualifiedName],
+      foundryToml.cachePath,
       foundryToml.artifactFolder
     )
 

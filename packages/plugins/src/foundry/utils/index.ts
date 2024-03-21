@@ -1,4 +1,4 @@
-import path, { basename, dirname, join, relative } from 'path'
+import path, { basename, dirname, join } from 'path'
 import { promisify } from 'util'
 import {
   createReadStream,
@@ -19,6 +19,7 @@ import {
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
+  sphinxCoreUtils,
   decodeDeterministicDeploymentProxyData,
   execAsync,
   formatSolcLongVersion,
@@ -30,8 +31,8 @@ import {
   isNormalizedAddress,
   sortHexStrings,
   spawnAsync,
-  sphinxCoreUtils,
   trimQuotes,
+  zeroOutImmutableReferences,
   zeroOutLibraryReferences,
 } from '@sphinx-labs/core/dist/utils'
 import {
@@ -74,6 +75,7 @@ import {
   ParsedAccountAccess,
   AccountAccessKind,
   AccountAccess,
+  ImmutableReferences,
 } from '@sphinx-labs/contracts'
 import { ConstructorFragment, ethers } from 'ethers'
 
@@ -84,9 +86,10 @@ import {
   FoundrySingleChainBroadcast,
   FoundrySingleChainDryRun,
   FoundryToml,
+  IsBytecodeInArtifact,
 } from '../types'
 import { simulate } from '../../hardhat/simulate'
-import { GetNetworkGasEstimate } from '../../cli/types'
+import { AssertNoLinkedLibraries, GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
 import { SphinxContext } from '../../cli/context'
@@ -95,6 +98,7 @@ import {
   SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
+  getDetectedLinkedLibraryErrorMessage,
   getFailedRequestErrorMessage,
   getLocalNetworkErrorMessage,
   getMissingEndpointErrorMessage,
@@ -165,13 +169,6 @@ export const streamBuildInfo = async (filePath: string) => {
   return buildInfo
 }
 
-export const messageArtifactNotFound = (fullyQualifiedName: string): string => {
-  return (
-    `Could not find artifact for: ${fullyQualifiedName}. Please reload your artifacts by running:\n` +
-    `forge clean`
-  )
-}
-
 export const messageMultipleArtifactsFound = (
   contractNameOrFullyQualifiedName: string
 ): string => {
@@ -182,12 +179,17 @@ export const messageMultipleArtifactsFound = (
 }
 
 /**
- * @notice Read a Foundry contract artifact from the file system.
+ * @notice Read a Foundry contract artifact from the file system. Returns `undefined` if the
+ * artifact is not found. This function uses an exact match strategy on the given contract bytecode
+ * to ensure that we're selecting the correct artifact. The bytecode can be a contract's init code
+ * or runtime bytecode.
  * @dev The location of an artifact file will be nested in the artifacts folder if there's more than
  * one contract in the contract source directory with the same name. This function ensures that we
- * retrieve the correct contract artifact in all cases. It works by checking the deepest possible
- * file location, and searching shallower directories until the file is found or until all
- * possibilities are exhausted.
+ * retrieve the correct contract artifact in all cases by checking for an exact match of its
+ * bytecode. It works by checking the deepest possible file location, and searching shallower
+ * directories until the file is found or until all possibilities are exhausted. It's not strictly
+ * necessary to start with the deepest file path because the bytecode matching strategy should
+ * return the correct artifact regardless.
  *
  * Example: Consider a project with a file structure where the project root is at
  * '/Users/dev/myRepo', and the contract is defined in
@@ -196,12 +198,21 @@ export const messageMultipleArtifactsFound = (
  * 'myRepo/artifacts/tokens/MyFile/MyContract.json' (notice that 'src/' is removed in this attempt),
  * and finally 'myRepo/artifacts/MyFile/MyContract.json' (notice that 'src/tokens/ is removed in
  * this attempt). If the artifact is still not found, it throws an error.
+ *
+ * @param actualBytecode The actual bytecode of the contract, which is either contract init code or
+ * runtime bytecode. If it's init code, the `isBytecodeInArtifact` function must be
+ * `isInitCodeInArtifact`. If it's runtime bytecode, the `isBytecodeInArtifact` function must be
+ * `isDeployedBytecodeInArtifact`.
+ * @param isBytecodeInArtifact A function that returns `true` if the `actualBytecode` matches the
+ * bytecode in the artifact.
  */
-export const readContractArtifact = async (
+export const findContractArtifact = async (
   fullyQualifiedName: string,
   projectRoot: string,
-  artifactFolder: string
-): Promise<ContractArtifact> => {
+  artifactFolder: string,
+  actualBytecode: string,
+  isBytecodeInArtifact: IsBytecodeInArtifact
+): Promise<ContractArtifact | undefined> => {
   // Get the source file name (e.g. `MyFile.sol`) and contract name (e.g. `MyContractName`).
   const [sourceFileName, contractName] = path
     .basename(fullyQualifiedName)
@@ -233,10 +244,13 @@ export const readContractArtifact = async (
       `${contractName}.json`
     )
 
-    if (existsSync(currentPath)) {
-      return parseFoundryContractArtifact(
+    if (sphinxCoreUtils.existsSync(currentPath)) {
+      const artifact = parseFoundryContractArtifact(
         JSON.parse(await readFileAsync(currentPath, 'utf8'))
       )
+      if (isBytecodeInArtifact(actualBytecode, artifact)) {
+        return artifact
+      }
     }
 
     // Remove the base path part.
@@ -251,13 +265,16 @@ export const readContractArtifact = async (
     sourceFileName,
     `${contractName}.json`
   )
-  if (existsSync(shortestPath)) {
-    return parseFoundryContractArtifact(
+  if (sphinxCoreUtils.existsSync(shortestPath)) {
+    const artifact = parseFoundryContractArtifact(
       JSON.parse(await readFileAsync(shortestPath, 'utf8'))
     )
+    if (isBytecodeInArtifact(actualBytecode, artifact)) {
+      return artifact
+    }
   }
 
-  throw new Error(messageArtifactNotFound(fullyQualifiedName))
+  return undefined
 }
 
 /**
@@ -310,82 +327,37 @@ export const compile = (silent: boolean, force: boolean): void => {
 }
 
 /**
- * Throws an error if there are any linked libraries in `scriptPath`. If a `targetContract` is
- * defined, this function simply builds fully qualified name, then uses it to load the script's
- * artifact. If a `targetContract` isn't defined, this function searches the build info cache to
- * find the most recent fully qualified name for the given `sourceName`. We use the build info cache
- * because it's more reliable than searching Foundry's artifact file tree, which can be
- * unpredictable due to the potentially nested structure of artifact file locations, and due to the
- * fact that we don't know the fully qualified name in advance.
+ * Throws an error if there are any linked libraries in the contract artifact that corresponds to
+ * the given bytecode.
  */
-export const assertNoLinkedLibraries = async (
-  scriptPath: string,
+export const assertNoLinkedLibraries: AssertNoLinkedLibraries = async (
+  deployedCode: string,
   cachePath: string,
   artifactFolder: string,
-  projectRoot: string,
-  targetContract?: string
+  projectRoot: string
 ): Promise<void> => {
-  const fullyQualifiedName = targetContract
-    ? `${scriptPath}:${targetContract}`
-    : // Find the fully qualified name using its source name. We can safely assume
-      // that there's a single fully qualified name in the array returned by
-      // `findFullyQualifiedNames` because the user's Forge script was executed successfully before
-      // this function was called, which means there must only be a single contract.
-      findFullyQualifiedNames(scriptPath, cachePath, projectRoot)[0]
-  const artifact = await readContractArtifact(
-    fullyQualifiedName,
+  const artifact = await findContractArtifactForDeployedCode(
+    deployedCode,
+    cachePath,
     projectRoot,
     artifactFolder
   )
+
+  if (!artifact) {
+    throw new Error(`Could not find the contract artifact.`)
+  }
 
   const containsLibrary =
     Object.keys(artifact.linkReferences).length > 0 ||
     Object.keys(artifact.deployedLinkReferences).length > 0
   if (containsLibrary) {
     throw new Error(
-      `Detected linked library in: ${fullyQualifiedName}\n` +
-        `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
+      getDetectedLinkedLibraryErrorMessage(
+        artifact.sourceName,
+        artifact.contractName
+      )
     )
   }
-}
-
-/**
- * Returns an array of the most recent fully qualified names for the given `sourceName`. This
- * function searches the build info cache for the most recent build info file that contains a fully
- * qualified name starting with `sourceName`. Returns an empty array if there is no such fully
- * qualified name in any of the cached build info files.
- */
-const findFullyQualifiedNames = (
-  rawSourceName: string,
-  cachePath: string,
-  projectRoot: string
-): Array<string> => {
-  const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
-
-  // Normalize the source name so that it conforms to the format of the fully qualified names in the
-  // build info cache. The normalized format is "path/to/file.sol".
-  const sourceName = relative(projectRoot, rawSourceName)
-
-  const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
-    readFileSync(buildInfoCacheFilePath, 'utf8')
-  )
-
-  // Sort the build info files from most recent to least recent.
-  const sortedCachedFiles = Object.values(buildInfoCache).sort(
-    (a, b) => b.time - a.time
-  )
-
-  for (const { contracts } of sortedCachedFiles) {
-    const fullyQualifiedNames = contracts
-      .filter((contract) => contract.fullyQualifiedName.startsWith(sourceName))
-      .map((contract) => contract.fullyQualifiedName)
-
-    if (fullyQualifiedNames.length > 0) {
-      return fullyQualifiedNames
-    }
-  }
-
-  return []
 }
 
 /**
@@ -448,6 +420,14 @@ export const makeGetConfigArtifacts = (
         name: fileName,
         time: statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
       }))
+      // Sort the build info files according to their `time` field, which equals the `mtime`, i.e.
+      // the time that the build info was last modified. We'll use this field to determine the order
+      // in which to search the cache for the build info file and contract artifact that correspond
+      // to each init code supplied to this function. It's possible for the user to modify their
+      // build info files, which will change the `mtime` of the file. However, this is acceptable
+      // because we search for the build info file and contract artifact using an exact match on the
+      // init code. This means the worst case is that we select a valid yet outdated build info and
+      // artifact.
       .sort((a, b) => b.time - a.time)
 
     // Read all of the new/modified files and update the cache to reflect the changes
@@ -486,34 +466,48 @@ export const makeGetConfigArtifacts = (
 
     const fullyQualifiedNamePromises = initCodeWithArgsArray.map(
       async (initCodeWithArgs) => {
-        // Look through the cache for the first build info file that contains the contract
+        // Look through the cache for the first cache entry that contains the given init code and
+        // has a contract artifact that exists. If we're unable to find a cache entry that meets
+        // these two conditions, we'll return `undefined` for the `initCodeWithArgs` on this
+        // iteration.
         for (const file of sortedCachedFiles) {
-          const contract = file.contracts.find((ct) => {
-            const { bytecode, constructorFragment, linkReferences } = ct
-
-            return isInitCodeMatch(initCodeWithArgs, {
+          for (const ct of file.contracts) {
+            const {
               bytecode,
-              linkReferences,
               constructorFragment,
-            })
-          })
+              linkReferences,
+              fullyQualifiedName,
+            } = ct
 
-          if (contract) {
-            // Keep track of if we need to read the file or not
-            if (!toReadFiles.includes(file.name)) {
-              toReadFiles.push(file.name)
-            }
+            if (
+              isInitCodeMatch(initCodeWithArgs, {
+                bytecode,
+                linkReferences,
+                constructorFragment,
+              })
+            ) {
+              // Use the fully qualified name from the cache entry to check if the contract's
+              // artifact exists.
+              const artifact = await findContractArtifact(
+                fullyQualifiedName,
+                projectRoot,
+                artifactFolder,
+                initCodeWithArgs,
+                isInitCodeInArtifact
+              )
+              // If the artifact exists, end the search.
+              if (artifact) {
+                // Keep track of if we need to read the file or not
+                if (!toReadFiles.includes(file.name)) {
+                  toReadFiles.push(file.name)
+                }
 
-            const artifact = await readContractArtifact(
-              contract.fullyQualifiedName,
-              projectRoot,
-              artifactFolder
-            )
-
-            return {
-              fullyQualifiedName: contract.fullyQualifiedName,
-              artifact,
-              buildInfoName: file.name,
+                return {
+                  fullyQualifiedName,
+                  artifact,
+                  buildInfoName: file.name,
+                }
+              }
             }
           }
         }
@@ -600,6 +594,38 @@ export const inferSolcVersion = async (): Promise<string> => {
   } catch (err) {
     return defaultSolcVersion
   }
+}
+
+export const isDeployedCodeInArtifact: IsBytecodeInArtifact = (
+  actualBytecode: string,
+  artifact: ContractArtifact
+): boolean => {
+  const { deployedBytecode, deployedLinkReferences, immutableReferences } =
+    artifact
+
+  return isDeployedCodeMatch(actualBytecode, {
+    deployedBytecode,
+    deployedLinkReferences,
+    immutableReferences,
+  })
+}
+
+const isInitCodeInArtifact: IsBytecodeInArtifact = (
+  actualBytecode: string,
+  artifact: ContractArtifact
+): boolean => {
+  const { bytecode, linkReferences, abi } = artifact
+
+  const iface = new ethers.Interface(abi)
+  const constructorFragment = iface.fragments.find(
+    ConstructorFragment.isFragment
+  )
+
+  return isInitCodeMatch(actualBytecode, {
+    bytecode,
+    linkReferences,
+    constructorFragment,
+  })
 }
 
 /**
@@ -696,6 +722,59 @@ export const isInitCodeMatch = (
   return (
     artifactInitCodeNoLibraries.toLowerCase() ===
     actualInitCodeNoLibraries.toLowerCase()
+  )
+}
+
+/**
+ * Returns `true` if the given contract deployed bytecode belongs to the given contract artifact,
+ * and returns `false` otherwise. The difference between these two types of runtime bytecode is that
+ * the artifact bytecode contains placeholders for linked libraries and immutable variables, whereas
+ * the actual bytecode contains the real values.
+ *
+ * @param artifact Artifact info. This object contains only the necessary variables from the
+ * artifact because we store these variables in a cache file. Storing the entire artifact in the
+ * cache would result in an enormous cache size because we need to store the artifact info for each
+ * contract in the user's repository.
+ */
+export const isDeployedCodeMatch = (
+  actualDeployedCode: string,
+  artifact: {
+    deployedBytecode: string
+    deployedLinkReferences: LinkReferences
+    immutableReferences: ImmutableReferences
+  }
+): boolean => {
+  // Return `false` if the length of the bytecodes don't match.
+  const artifactCodeLength = getBytesLength(artifact.deployedBytecode)
+  const actualCodeLength = getBytesLength(actualDeployedCode)
+  if (artifactCodeLength !== actualCodeLength) {
+    return false
+  }
+
+  // Remove the library and immutable references from the artifact bytecode.
+  const artifactCodeNoLibraries = zeroOutLibraryReferences(
+    artifact.deployedBytecode,
+    artifact.deployedLinkReferences
+  )
+  const artifactCodeNoPlaceholders = zeroOutImmutableReferences(
+    artifactCodeNoLibraries,
+    artifact.immutableReferences
+  )
+
+  // Remove the library and immutable references from the actual bytecode.
+  const actualCodeNoLibraries = zeroOutLibraryReferences(
+    actualDeployedCode,
+    artifact.deployedLinkReferences
+  )
+  const actualCodeNoPlaceholders = zeroOutImmutableReferences(
+    actualCodeNoLibraries,
+    artifact.immutableReferences
+  )
+
+  // Check if we've found a match.
+  return (
+    artifactCodeNoPlaceholders.toLowerCase() ===
+    actualCodeNoPlaceholders.toLowerCase()
   )
 }
 
@@ -1736,4 +1815,58 @@ const writeBuildInfoCache = (
 
 export const sphinxFoundryUtils = {
   readBuildInfoCache,
+}
+
+/**
+ * Searches the build info cache for the contract artifact that corresponds to the given
+ * `deployedCode`. Returns `undefined` if the artifact can't be found.
+ */
+export const findContractArtifactForDeployedCode = async (
+  deployedCode: string,
+  cachePath: string,
+  projectRoot: string,
+  artifactFolder: string
+): Promise<ContractArtifact | undefined> => {
+  const buildInfoCache = sphinxFoundryUtils.readBuildInfoCache(cachePath)
+
+  // Sort the build info files from most recent to least recent.
+  const sortedCachedFiles = Object.values(buildInfoCache.entries).sort(
+    (a, b) => b.time - a.time
+  )
+
+  for (const file of sortedCachedFiles) {
+    for (const ct of file.contracts) {
+      const {
+        deployedBytecode,
+        deployedLinkReferences,
+        immutableReferences,
+        fullyQualifiedName,
+      } = ct
+
+      if (
+        isDeployedCodeMatch(deployedCode, {
+          deployedBytecode,
+          deployedLinkReferences,
+          immutableReferences,
+        })
+      ) {
+        // Use the fully qualified name from the cache entry to check if the contract's artifact
+        // exists.
+        const artifact = await findContractArtifact(
+          fullyQualifiedName,
+          projectRoot,
+          artifactFolder,
+          deployedCode,
+          isDeployedCodeInArtifact
+        )
+
+        // Return the artifact if it exists. Otherwise, keep searching.
+        if (artifact) {
+          return artifact
+        }
+      }
+    }
+  }
+
+  return undefined
 }

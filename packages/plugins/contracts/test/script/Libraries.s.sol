@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Script } from "sphinx-forge-std/Script.sol";
-import { MyContractWithLibraries } from "../../../contracts/test/MyContracts.sol";
+import { MyContractWithLibraries, MyContractWithLibrariesAndImmutables } from "../../../contracts/test/MyContracts.sol";
 
 /**
  * @notice A Forge script that deploys two libraries dynamically (i.e. not pre-linked) as well as
@@ -18,5 +18,13 @@ contract MyContractWithLibraries_Script is Script {
     function run() external {
         vm.broadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         new MyContractWithLibraries();
+    }
+}
+// A similar script to the one above, except this script deploys a contract that contains immutable
+// variables in addition to linked libraries.
+contract MyContractWithLibrariesAndImmutables_Script is Script {
+    function run() external {
+        vm.broadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+        new MyContractWithLibrariesAndImmutables();
     }
 }
