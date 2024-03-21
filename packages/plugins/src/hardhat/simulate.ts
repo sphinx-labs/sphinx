@@ -9,7 +9,6 @@ import {
   MerkleRootStatus,
   SphinxJsonRpcProvider,
   fetchNameForNetwork,
-  getLargestPossibleReorg,
   isFork,
   stripLeadingZero,
   isLiveNetwork,
@@ -36,6 +35,10 @@ import {
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import {
+  FALLBACK_MAX_REORG,
+  getLargestPossibleReorg,
+} from 'hardhat/internal/hardhat-network/provider/utils/reorgs-protection'
 import pLimit from 'p-limit'
 
 import {
@@ -145,10 +148,27 @@ export const simulate = async (
   }
 
   if ((await isLiveNetwork(provider)) || (await isFork(provider))) {
-    // Use the same block number as the Forge script that collected the user's transactions. This
-    // reduces the chance that the simulation throws an error or stalls, which can occur when using
-    // the most recent block number.
-    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = networkConfig.blockNumber
+    // Use the block number from the Forge script minus the largest possible chain reorg size, which
+    // is determined by Hardhat. We must subtract the reorg size so that Hardhat caches the RPC
+    // calls in the simulation. Otherwise, Hardhat will send hundreds of RPC calls, which frequently
+    // causes rate limit errors, especially for public or free tier RPC endpoints.
+    //
+    // Subtracting the reorg size can lead to the following edge case:
+    // 1. User executes a transaction on the live network.
+    // 2. User calls Sphinx's Propose or Deploy command using a script that relies on the state that
+    //    resulted from the transaction in the previous step.
+    // 3. The collection process works correctly because Foundry uses the latest block number.
+    // 4. The simulation uses a block where the transaction doesn't exist yet, causing an error.
+    //
+    // This edge case is unlikely to happen in practice because the reorg size is pretty small. For
+    // example, it's 5 blocks on Ethereum, and 30 blocks on most other networks. A reorg size of 30
+    // blocks corresponds to 15 minutes on Rootstock, which is one of the slowest networks that
+    // Sphinx supports as of now. If the edge case occurs, it will naturally resolve itself if the
+    // user continues to attempt to propose/deploy. This is because the corresponding block will
+    // eventually be included in the simulation after there have been enough block confirmations.
+    const blockNumber =
+      BigInt(networkConfig.blockNumber) - BigInt(getLargestReorg(chainId))
+    envVars['SPHINX_INTERNAL__BLOCK_NUMBER'] = blockNumber.toString()
   } else {
     // The network is a non-forked local node (i.e. an Anvil or Hardhat node with a fresh state). We
     // do not hardcode the block number in the Hardhat config to avoid the following edge case:
@@ -177,7 +197,7 @@ export const simulate = async (
     //    is meant to protect against chain reorgs on forks of live networks.
     // 3. The simulation fails because the transactions executed in step 1 don't exist on the
     //    Hardhat fork.
-    const blocksToFastForward = getLargestPossibleReorg(chainId)
+    const blocksToFastForward = getLargestReorg(chainId)
     const blocksHex = stripLeadingZero(ethers.toBeHex(blocksToFastForward))
     await provider.send(
       'hardhat_mine', // The `hardhat_mine` RPC method works on Anvil and Hardhat nodes.
@@ -589,6 +609,10 @@ export const createHardhatEthersProviderProxy = (
     },
   })
   return proxy
+}
+
+const getLargestReorg = (chainId: string): bigint => {
+  return getLargestPossibleReorg(Number(chainId)) ?? FALLBACK_MAX_REORG
 }
 
 export const getUndeployedContractErrorMesage = (address: string): string =>
