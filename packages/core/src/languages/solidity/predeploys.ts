@@ -205,7 +205,7 @@ export const assignManagedServiceRoles = async (
       baseDripName + (currentDripVersion > 0 ? `_${currentDripVersion}` : '')
 
     const reentrant = false
-    const interval = 30
+    const interval = 1
     const dripcheck = getCheckBalanceLowAddress()
     const checkparams = AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
