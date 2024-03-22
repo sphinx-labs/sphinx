@@ -1,5 +1,15 @@
 # @sphinx-labs/core
 
+## 0.23.7
+
+### Patch Changes
+
+- d8ffb22: Reduce Drippie interval
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+
 ## 0.23.6
 
 ### Patch Changes
