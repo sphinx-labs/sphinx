@@ -107,7 +107,6 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Fuse
 - Evmos
 - Kava
-- OKT Chain
 - Rootstock
 - Blast
 
