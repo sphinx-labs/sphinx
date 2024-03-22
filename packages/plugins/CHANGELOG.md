@@ -1,5 +1,18 @@
 # @sphinx-labs/plugins
 
+## 0.30.10
+
+### Patch Changes
+
+- f176e46: Increase Sepolia drip size to handle gas price spikes
+- d8ffb22: Reduce Drippie interval
+- c8e5320: Drop support for OKTC
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+  - @sphinx-labs/core@0.23.7
+
 ## 0.30.9
 
 ### Patch Changes
