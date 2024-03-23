@@ -35,6 +35,14 @@ module.exports = {
           typeof blockNumber === 'string' ? Number(blockNumber) : undefined,
       },
       blockGasLimit: Number(blockGasLimit),
+      // We don't use Hardhat's genesis accounts, so we set this to an empty array. This eliminates
+      // 20 RPC calls that Hardhat sends at the beginning of every simulation to get the nonce of
+      // each genesis account. (There's one RPC call per genesis account). Hardhat needs to get
+      // these nonces on forked networks because the private keys are publicly known.
+      //
+      // If a user's script uses one of these genesis accounts, Hardhat will fetch its nonce on an
+      // as-needed basis, which is the behavior that we want.
+      accounts: [],
     },
   },
 }
