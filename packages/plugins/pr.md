@@ -34,7 +34,11 @@ My successful transaction: https://moonscan.io/tx/0x76d520dbd3ff8f96db4f86a693af
 * I used `debug_traceTransaction` to check that the two transaction hashes above attempted to deploy identical init code.
 * The `debug_traceTransaction` method on Moonbeam has some seemingly incorrect gas-related fields. (Compare the second "gas" field of `trace-0xfec715.json` vs `trace-0x76d520.json`. These are supposed to be identical transactions: `dca-two.ts` with `entry2(4467448)`. The contract was deployed successfully in both scenarios.)
 
-Reasons:
-* `gasleft()` returns the exact same value as the EVM, which means it doesn't include the extra storage gas costs. (Confirmed: `gas-used.ts`)
-* You can hard-code the same `gas` value on-chain to call a function (e.g. `this.myFunction{ gas: ... }()`). (Confirmed: `storage-cost.ts`)
-* Hypothesis: The `execTransactionFromModule` call can fail randomly depending on whether it causes the block storage limit to exceed 40,960 bytes (or 40,000 bytes, depending on which documentation you're reading).
+Observations:
+* `gasleft()` returns the exact same value as the EVM, which means it doesn't include the extra storage gas costs. Evidence:
+  * `gas-cost.ts`: Simple.
+  * `try-storage-cost.ts`: Wrapped in a try...catch.
+* Say you specify an on-chain `gas` value to call a function (e.g. `this.myFunction{ gas: ... }()`).
+  * If the call _isn't_ wrapped in an on-chain try...catch, you can use the same `gas` value as an EVM chain. Evidence: `storage-cost.ts`
+  * If the call _is_ wrapped in an on-chain try...catch, you _cannot_ use the same `gas` value as an EVM chain. Evidence: `try-storage-cost.ts`.
+* We don't need to worry about the block storage limit. It's impossible to exceed the block storage limit without also exceeding the block gas limit. This is because adding ~40kb of storage costs 15M gas. (See their storage growth formula for context). This could change if they increase the block gas limit without increasing the block storage limit though.

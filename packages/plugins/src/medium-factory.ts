@@ -5,23 +5,31 @@ import { ethers } from 'ethers'
 import { SPHINX_NETWORKS } from '@sphinx-labs/contracts'
 import {
   SphinxJsonRpcProvider,
+  fetchChainIdForNetwork,
   fetchNameForNetwork,
+  fetchURLForNetwork,
   setBalance,
 } from '@sphinx-labs/core'
 
 import * as MyMediumContractFactoryArtifact from '../out/artifacts/MyContracts.sol/MyMediumContractFactory.json'
 
 dotenv.config()
+
+const networkName = process.argv[3]
+if (!networkName) {
+  throw new Error(`Supply a network name, e.g. --network anvil.`)
+}
+
 ;(async () => {
-  const rpcUrl = `https://moonbase-alpha.public.blastapi.io`
-  // const rpcUrl = `https://go.getblock.io/c6560f084b4748378df66bf0f9a78c0d`
-  // const rpcUrl = `${process.env.SEPOLIA_RPC_URL!}`
-  // const rpcUrl = 'http://127.0.0.1:8545'
+  const chainId = fetchChainIdForNetwork(networkName)
+  const rpcUrl =
+    chainId === BigInt(31337)
+      ? 'http://127.0.0.1:8545'
+      : fetchURLForNetwork(chainId)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider)
 
-  const chainId = await provider.getNetwork().then((n) => n.chainId)
   if (chainId === BigInt(31337)) {
     await setBalance(wallet.address, ethers.MaxUint256.toString(), provider)
   }
