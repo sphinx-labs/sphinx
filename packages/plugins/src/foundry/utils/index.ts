@@ -1679,9 +1679,9 @@ export const validateProposalNetworks = async (
     throw new Error(getFailedRequestErrorMessage(failedRequest))
   }
 
-  if (unsupported.length > 0) {
-    throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
-  }
+  // if (unsupported.length > 0) {
+  //   throw new Error(getUnsupportedNetworkErrorMessage(unsupported))
+  // }
 
   if (localNetwork.length > 0) {
     throw new Error(getLocalNetworkErrorMessage(localNetwork))

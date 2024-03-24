@@ -18,6 +18,9 @@ import {
   getMaxGasLimit,
   prettyFunctionCall,
   calculateMerkleLeafGas,
+  SphinxJsonRpcProvider,
+  getGasEstimatesTODO,
+  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -306,22 +309,22 @@ export const makeNetworkConfig = (
     // process. If the estimated gas is less than the max batch gas limit but it can't fit into a
     // batch, the simulation will throw an error.
     const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
-    if (BigInt(gas) > maxGasLimit) {
-      const networkName = fetchNameForNetwork(BigInt(chainId))
-      const { referenceName, address, functionName, variables } =
-        actionInput.decodedAction
-      throw new Error(
-        `Estimated gas for the following transaction is too high to be executed by Sphinx on ${networkName}:\n` +
-          prettyFunctionCall(
-            referenceName,
-            address,
-            functionName,
-            variables,
-            5,
-            3
-          )
-      )
-    }
+    // if (BigInt(gas) > maxGasLimit) {
+    //   const networkName = fetchNameForNetwork(BigInt(chainId))
+    //   const { referenceName, address, functionName, variables } =
+    //     actionInput.decodedAction
+    //   throw new Error(
+    //     `Estimated gas for the following transaction is too high to be executed by Sphinx on ${networkName}:\n` +
+    //       prettyFunctionCall(
+    //         referenceName,
+    //         address,
+    //         functionName,
+    //         variables,
+    //         5,
+    //         3
+    //       )
+    //   )
+    // }
   }
 
   // Sanity check that the number of gas estimates equals the number of actions.

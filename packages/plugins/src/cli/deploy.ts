@@ -5,7 +5,6 @@ import {
   displayDeploymentTable,
   fundAccountMaxBalance,
   getSphinxWalletPrivateKey,
-  getSphinxWalletsSortedByAddress,
   isFile,
   readDeploymentArtifactsForNetwork,
   signMerkleRoot,
@@ -39,17 +38,15 @@ import {
   injectRoles,
   removeRoles,
   NetworkConfig,
+  DeploymentArtifacts,
   ensureSphinxAndGnosisSafeDeployed,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
 import {
-  GnosisSafeProxyFactoryArtifact,
   SphinxMerkleTree,
   SphinxSimulatorABI,
-  getGnosisSafeProxyFactoryAddress,
-  getGnosisSafeSingletonAddress,
   getSphinxSimulatorAddress,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
@@ -88,6 +85,7 @@ export const deploy = async (
   preview?: ReturnType<typeof getPreview>
   receipts?: Array<SphinxTransactionReceipt>
   configArtifacts?: ConfigArtifacts
+  deploymentArtifacts?: DeploymentArtifacts
 }> => {
   const {
     network,
@@ -112,7 +110,14 @@ export const deploy = async (
     )
   }
 
-  // Run the compiler. It's necessary to do this before we read any contract interfaces.
+  /**
+   * Run the compiler. It's necessary to do this before we read any contract interfaces.
+   * We request the build info here which we need to build info to generate the compiler
+   * config.
+   *
+   * We do not force recompile here because the user may have a custom compilation pipeline
+   * that yields additional artifacts which the standard forge compiler does not.
+   */
   compile(
     silent,
     false // Do not force re-compile.
@@ -317,70 +322,19 @@ export const deploy = async (
     [] // We don't currently support linked libraries.
   )
 
-  await ensureSphinxAndGnosisSafeDeployed(
-    provider,
-    getSphinxWalletsSortedByAddress(1, provider)[0],
-    ExecutionMode.LocalNetworkCLI,
-    false
-  )
-
-  const { actionInputs, safeInitData, moduleAddress, newConfig } = networkConfig
-
-  // TODO(later-later): move this elsewhere
-  if (
-    chainId === BigInt('31337')
-    // TODO(later): undo
-    // BigInt(chainId) === fetchChainIdForNetwork('moonriver') ||
-    // BigInt(chainId) === fetchChainIdForNetwork('moonbeam') ||
-    // BigInt(chainId) === fetchChainIdForNetwork('moonbase_alpha')
-  ) {
-    const gnosisSafeProxyFactory = new ethers.Contract(
-      getGnosisSafeProxyFactoryAddress(),
-      GnosisSafeProxyFactoryArtifact.abi,
-      signer
-    )
-
-    await gnosisSafeProxyFactory.createProxyWithNonce(
-      getGnosisSafeSingletonAddress(),
-      networkConfig.safeInitData,
-      networkConfig.newConfig.saltNonce
-    )
-
-    if ((await provider.getCode(safeAddress)) === '0x') {
-      throw new Error(`Safe proxy not deployed`)
-    }
-
-    const gnosisSafeTxns = actionInputs.map((action) => {
-      return {
-        to: action.to,
-        value: action.value,
-        txData: action.txData,
-        operation: action.operation,
-      }
-    })
-
-    const iface = new ethers.Interface(SphinxSimulatorABI)
-    const calldata = iface.encodeFunctionData('simulate', [
-      gnosisSafeTxns,
-      safeAddress,
-      safeInitData,
-      newConfig.saltNonce,
-    ])
-    const ret = await provider.send('eth_call', [
-      {
-        to: getSphinxSimulatorAddress(),
-        data: calldata,
-        from: moduleAddress,
-      },
-      'latest',
-    ])
-    ret
-  }
+  const { safeInitData, actionInputs, newConfig } = networkConfig
 
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
+
+  await ensureSphinxAndGnosisSafeDeployed(
+    provider,
+    signer,
+    ExecutionMode.LocalNetworkCLI,
+    false
+  )
 
   const deploymentData = makeDeploymentData([networkConfig])
 
@@ -535,37 +489,42 @@ export const deploy = async (
     preview,
     receipts,
     configArtifacts,
+    deploymentArtifacts,
   }
 }
 
-// --------------------------------------- TODO(end) ---------------------------------------
+// TODO(later-later): error handling when the calldata is too large (e.g. new bytes(100 million))
 
-// TODO(end): include all of the rpc urls in `hi.ts` in the github description. label the paid one
-// and say why it's fine to post it publicly.
+// TODO(later-later): error handling when the RPC call runs out of gas
 
-// TODO(end): consider having some sort of way to make sure that moonbeam doesn't unexpectedly
-// reduce the 150M gas limit.
+// TODO(docs): we don't call `execTransactionFromModule` directly because the SphinxSimulator isn't
+// a module.
 
-// --------------------------------------- TODO(docs) ---------------------------------------
+// TODO(later-later): which buffers should we keep, and which should we remove? I think we still
+// need a buffer to account for changes in on-chain state between proposal and approval. also, i
+// think we need a buffer to account for the fact that actions may be executed in separate
+// transactions on-chain, which means there are more cold SLOADs.
 
-// TODO(docs): document 150M somewhere.
+// TODO(later-later): optimize SphinxSimulator to maximize the size of the deployment. consider not
+// ABI encoding the input array. first, check the difference in size between packing the bytes and
+// abi encoding them.
 
-// --------------------------------------- TODO(later-later) ---------------------------------------
+// TODO(later): i think the targetContract should be the SphinxSimulator. OLD: the `targetContract`
+// input param to `simulateAndRevert` should be the safe singleton. it's redundant to delegatecall
+// the safe proxy because it's already being delegatecalled. also, delegatecalling the singleton is
+// a little cheaper than delegatecalling the Safe Proxy, which is good b/c we we want to minimize
+// gas used to increase the max deployment size.
 
-// TODO(later-later): SphinxSimulator -> SphinxEstimator, and `SphinxSimulator:simulate` -> estimate?
+// TODO(later): check Safe v1.4.1 for differences
 
-// TODO(later-later): optimize the inputs to the `SphinxSimulator` so that you can fit more contracts?
-// At least get a sense of the upper bound and document it.
+// TODO(later): how are we going to figure out whether an `EXECUTE` action fits in a batch that doesn't exceed the value returned by `getMaxGasLimit`?
 
-// TODO(later-later): confirm that you can't call `SphinxSimulator` from Foundry since it doesn't
-// execute it using Moonbeam's VM.
+// TODO: left off: puzzled by moonbeam and rootstock.
 
-// TODO(later-later): remove all of the moonbeam heuristic logic.
+// TODO: rm: eth sepolia sample.s.sol MyContract1: "736753,734003,734003"
 
-// TODO(later-later): should you do anything to the hardhat simulation on moonbeam et al?
-
-// TODO(later-later): update the Deploy command too
-
-// TODO(later-later): we need to be cautious of EthersJS' abi encoding size limit.
-
-// --------------------------------------- TODO(later) ---------------------------------------
+// TODO: rm: new gas estimates using Large.s.sol w/ 3 contract deployments:
+// '9117610,9114860,9114860' 11155111
+// ['9117610,9114860,9114860'] 1287
+// ['8820110,8820110,8820110'] rootstock
+// ['9117610,9114860,9114860'] optimism

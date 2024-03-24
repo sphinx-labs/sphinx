@@ -16,6 +16,8 @@ import {
   MAX_UINT64,
   makeDeploymentConfig,
   fetchChainIdForNetwork,
+  getGasEstimatesTODO,
+  fetchNameForNetwork,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -196,48 +198,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     }
   )
 
-  // TODO(later-later): consider putting this somewhere else.
-  for (const { networkConfig, rpcUrl } of networkConfigArrayWithRpcUrls) {
-    const { chainId, actionInputs, safeInitData, moduleAddress, newConfig } =
-      networkConfig
-
-    if (
-      chainId === '31337'
-      // TODO(later): undo
-      // BigInt(chainId) === fetchChainIdForNetwork('moonriver') ||
-      // BigInt(chainId) === fetchChainIdForNetwork('moonbeam') ||
-      // BigInt(chainId) === fetchChainIdForNetwork('moonbase_alpha')
-    ) {
-      const provider = new SphinxJsonRpcProvider(rpcUrl)
-
-      const gnosisSafeTxns = actionInputs.map((action) => {
-        return {
-          to: action.to,
-          value: action.value,
-          txData: action.txData,
-          operation: action.operation,
-        }
-      })
-
-      const iface = new ethers.Interface(SphinxSimulatorABI)
-      const calldata = iface.encodeFunctionData('simulate', [
-        gnosisSafeTxns,
-        safeAddress,
-        safeInitData,
-        newConfig.saltNonce,
-      ])
-      const ret = await provider.send('eth_call', [
-        {
-          to: getSphinxSimulatorAddress(),
-          data: calldata,
-          from: moduleAddress,
-        },
-        'latest',
-      ])
-      ret
-    }
-  }
-
   const isEmpty = networkConfigArrayWithRpcUrls.every(
     ({ networkConfig }) => networkConfig.actionInputs.length === 0
   )
@@ -248,6 +208,44 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       configArtifacts: undefined,
     }
   }
+
+  // TODO(later-later): mv
+  // TODO(later-later): parallelize
+  const promises = networkConfigArrayWithRpcUrls.map(
+    async ({ rpcUrl, networkConfig }) => {
+      try {
+        const provider = new SphinxJsonRpcProvider(rpcUrl)
+        const gasEstimates = await getGasEstimatesTODO(networkConfig, provider)
+        for (let i = 0; i < networkConfig.actionInputs.length; i++) {
+          networkConfig.actionInputs[i].gas = gasEstimates[i]
+        }
+        return {
+          success: true,
+          gasEstimates,
+          network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+        }
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error
+              : new Error('An unexpected error occurred'),
+        }
+      }
+    }
+  )
+
+  const results = await Promise.allSettled(promises)
+  const final = results.map((result) =>
+    result.status === 'fulfilled'
+      ? result.value
+      : {
+          success: false,
+          error: result.reason,
+        }
+  )
+  final
 
   return {
     networkConfigArrayWithRpcUrls,

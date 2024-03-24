@@ -1,0 +1,1677 @@
+{
+  "config": {
+    "networks": {
+      "hardhat": {
+        "hardfork": "shanghai",
+        "blockGasLimit": 30000000,
+        "gasPrice": "auto",
+        "chainId": 11155420,
+        "throwOnTransactionFailures": true,
+        "throwOnCallFailures": true,
+        "allowUnlimitedContractSize": false,
+        "mining": {
+          "auto": true,
+          "interval": 0,
+          "mempool": { "order": "priority" }
+        },
+        "accounts": {
+          "initialIndex": 0,
+          "count": 20,
+          "path": "m/44'/60'/0'/0",
+          "passphrase": "",
+          "mnemonic": "test test test test test test test test test test test junk",
+          "accountsBalance": "10000000000000000000000"
+        },
+        "loggingEnabled": false,
+        "gasMultiplier": 1,
+        "minGasPrice": "0",
+        "chains": {},
+        "forking": {
+          "url": "https://opt-sepolia.g.alchemy.com/v2/PB93OqW0alejRNV29Xy2JKdnlObWVwFq",
+          "enabled": true,
+          "httpHeaders": {},
+          "blockNumber": 9627735
+        },
+        "gas": 30000000,
+        "initialDate": "2024-03-21T21:53:39.696Z"
+      },
+      "localhost": {
+        "accounts": "remote",
+        "gas": "auto",
+        "gasPrice": "auto",
+        "gasMultiplier": 1,
+        "httpHeaders": {},
+        "timeout": 40000,
+        "url": "http://127.0.0.1:8545"
+      }
+    },
+    "defaultNetwork": "hardhat",
+    "paths": {
+      "root": "/Users/samgoldman/dev/sphinx/packages/plugins/dist",
+      "configFile": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/hardhat.config.js",
+      "sources": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/contracts",
+      "cache": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/cache",
+      "artifacts": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/artifacts",
+      "tests": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/test"
+    },
+    "solidity": {
+      "compilers": [
+        {
+          "version": "0.7.3",
+          "settings": {
+            "optimizer": { "enabled": false, "runs": 200 },
+            "outputSelection": {
+              "*": {
+                "*": [
+                  "abi",
+                  "evm.bytecode",
+                  "evm.deployedBytecode",
+                  "evm.methodIdentifiers",
+                  "metadata"
+                ],
+                "": ["ast"]
+              }
+            }
+          }
+        }
+      ],
+      "overrides": {}
+    },
+    "mocha": { "timeout": 40000 }
+  },
+  "hardhatArguments": {
+    "showStackTraces": false,
+    "version": false,
+    "help": false,
+    "emoji": true,
+    "config": "dist/hardhat.config.js",
+    "verbose": false,
+    "typecheck": false
+  },
+  "tasks": {
+    "check": {
+      "isSubtask": false,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "check",
+      "_description": "Check whatever you need"
+    },
+    "clean:global": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "clean:global"
+    },
+    "clean": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "global": {
+          "name": "global",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Clear the global cache",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "clean",
+      "_description": "Clears the cache and deletes all artifacts"
+    },
+    "compile:solidity:get-source-paths": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "sourcePath": {
+          "name": "sourcePath",
+          "type": { "name": "string" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-source-paths"
+    },
+    "compile:solidity:get-source-names": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "rootPath": {
+          "name": "rootPath",
+          "type": { "name": "string" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "sourcePaths": {
+          "name": "sourcePaths",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-source-names"
+    },
+    "compile:solidity:read-file": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "absolutePath": {
+          "name": "absolutePath",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:read-file"
+    },
+    "compile:solidity:transform-import-name": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "importName": {
+          "name": "importName",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:transform-import-name"
+    },
+    "compile:solidity:get-remappings": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-remappings"
+    },
+    "compile:solidity:get-dependency-graph": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "rootPath": {
+          "name": "rootPath",
+          "type": { "name": "string" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "sourceNames": {
+          "name": "sourceNames",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solidityFilesCache": {
+          "name": "solidityFilesCache",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-dependency-graph"
+    },
+    "compile:solidity:get-compilation-job-for-file": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "dependencyGraph": {
+          "name": "dependencyGraph",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "file": {
+          "name": "file",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solidityFilesCache": {
+          "name": "solidityFilesCache",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-compilation-job-for-file"
+    },
+    "compile:solidity:get-compilation-jobs": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "dependencyGraph": {
+          "name": "dependencyGraph",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solidityFilesCache": {
+          "name": "solidityFilesCache",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-compilation-jobs"
+    },
+    "compile:solidity:filter-compilation-jobs": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "force": {
+          "name": "force",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solidityFilesCache": {
+          "name": "solidityFilesCache",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:filter-compilation-jobs"
+    },
+    "compile:solidity:merge-compilation-jobs": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:merge-compilation-jobs"
+    },
+    "compile:solidity:log:nothing-to-compile": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:nothing-to-compile"
+    },
+    "compile:solidity:compile-jobs": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "concurrency": {
+          "name": "concurrency",
+          "defaultValue": 9,
+          "type": { "name": "int" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:compile-jobs"
+    },
+    "compile:solidity:get-compiler-input": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-compiler-input"
+    },
+    "compile:solidity:log:download-compiler-start": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "isCompilerDownloaded": {
+          "name": "isCompilerDownloaded",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcVersion": {
+          "name": "solcVersion",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:download-compiler-start"
+    },
+    "compile:solidity:log:download-compiler-end": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "isCompilerDownloaded": {
+          "name": "isCompilerDownloaded",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcVersion": {
+          "name": "solcVersion",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:download-compiler-end"
+    },
+    "compile:solidity:solc:get-build": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcVersion": {
+          "name": "solcVersion",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:solc:get-build"
+    },
+    "compile:solidity:solcjs:run": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "input": {
+          "name": "input",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcJsPath": {
+          "name": "solcJsPath",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:solcjs:run"
+    },
+    "compile:solidity:solc:run": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "input": {
+          "name": "input",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcPath": {
+          "name": "solcPath",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcVersion": {
+          "name": "solcVersion",
+          "type": { "name": "string" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:solc:run"
+    },
+    "compile:solidity:solc:compile": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "input": {
+          "name": "input",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcVersion": {
+          "name": "solcVersion",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobIndex": {
+          "name": "compilationJobIndex",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:solc:compile"
+    },
+    "compile:solidity:compile": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:compile"
+    },
+    "compile:solidity:log:compilation-errors": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "output": {
+          "name": "output",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:compilation-errors"
+    },
+    "compile:solidity:check-errors": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "output": {
+          "name": "output",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:check-errors"
+    },
+    "compile:solidity:emit-artifacts": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "input": {
+          "name": "input",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "output": {
+          "name": "output",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "solcBuild": {
+          "name": "solcBuild",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:emit-artifacts"
+    },
+    "compile:solidity:get-artifact-from-compilation-output": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "sourceName": {
+          "name": "sourceName",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "contractName": {
+          "name": "contractName",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "contractOutput": {
+          "name": "contractOutput",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-artifact-from-compilation-output"
+    },
+    "compile:solidity:log:run-compiler-start": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobIndex": {
+          "name": "compilationJobIndex",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:run-compiler-start"
+    },
+    "compile:solidity:log:run-compiler-end": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobIndex": {
+          "name": "compilationJobIndex",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "output": {
+          "name": "output",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:run-compiler-end"
+    },
+    "compile:solidity:compile-job": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJob": {
+          "name": "compilationJob",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "compilationJobIndex": {
+          "name": "compilationJobIndex",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "emitsArtifacts": {
+          "name": "emitsArtifacts",
+          "defaultValue": true,
+          "type": { "name": "boolean" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:compile-job"
+    },
+    "compile:solidity:handle-compilation-jobs-failures": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobsCreationErrors": {
+          "name": "compilationJobsCreationErrors",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:handle-compilation-jobs-failures"
+    },
+    "compile:solidity:get-compilation-jobs-failure-reasons": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobsCreationErrors": {
+          "name": "compilationJobsCreationErrors",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:get-compilation-jobs-failure-reasons"
+    },
+    "compile:solidity:log:compilation-result": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "compilationJobs": {
+          "name": "compilationJobs",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity:log:compilation-result"
+    },
+    "compile:solidity": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "force": {
+          "name": "force",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "type": { "name": "boolean" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "concurrency": {
+          "name": "concurrency",
+          "defaultValue": 9,
+          "type": { "name": "int" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:solidity"
+    },
+    "compile:remove-obsolete-artifacts": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:remove-obsolete-artifacts"
+    },
+    "compile:get-compilation-tasks": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile:get-compilation-tasks"
+    },
+    "compile": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "force": {
+          "name": "force",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Force compilation ignoring cache",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "quiet": {
+          "name": "quiet",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Makes the compilation process less verbose",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "concurrency": {
+          "name": "concurrency",
+          "defaultValue": 9,
+          "type": { "name": "int" },
+          "description": "Number of compilation jobs executed in parallel. Defaults to the number of CPU cores - 1",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "compile",
+      "_description": "Compiles the entire project, building all artifacts"
+    },
+    "console": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "noCompile": {
+          "name": "noCompile",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Don't compile before running this task",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "console",
+      "_description": "Opens a hardhat console"
+    },
+    "flatten:get-flattened-sources-and-metadata": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "files": {
+          "name": "files",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "flatten:get-flattened-sources-and-metadata",
+      "_description": "Returns all contracts and their dependencies flattened. Also return metadata about pragma directives and SPDX licenses"
+    },
+    "flatten:get-flattened-sources": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "files": {
+          "name": "files",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "flatten:get-flattened-sources",
+      "_description": "Returns all contracts and their dependencies flattened"
+    },
+    "flatten:get-dependency-graph": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "files": {
+          "name": "files",
+          "type": { "name": "any" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "flatten:get-dependency-graph"
+    },
+    "flatten": {
+      "isSubtask": false,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [
+        {
+          "name": "files",
+          "type": { "name": "inputFile" },
+          "description": "The files to flatten",
+          "isVariadic": true,
+          "isOptional": true,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": true,
+      "_hasOptionalPositionalParam": true,
+      "_task": "flatten",
+      "_description": "Flattens and prints contracts and their dependencies. If no file is passed, all the contracts in the project will be flattened."
+    },
+    "help": {
+      "isSubtask": false,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [
+        {
+          "name": "scopeOrTask",
+          "type": { "name": "string" },
+          "description": "An optional scope or task to print more info about",
+          "isVariadic": false,
+          "isOptional": true,
+          "isFlag": false
+        },
+        {
+          "name": "task",
+          "type": { "name": "string" },
+          "description": "An optional task to print more info about",
+          "isVariadic": false,
+          "isOptional": true,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": true,
+      "_task": "help",
+      "_description": "Prints this message"
+    },
+    "node:get-provider": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "forkUrl": {
+          "name": "forkUrl",
+          "type": { "name": "string" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "forkBlockNumber": {
+          "name": "forkBlockNumber",
+          "type": { "name": "int" },
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "node:get-provider"
+    },
+    "node:create-server": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "hostname": {
+          "name": "hostname",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "port": {
+          "name": "port",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "node:create-server"
+    },
+    "node:server-created": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "hostname": {
+          "name": "hostname",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "port": {
+          "name": "port",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "server": {
+          "name": "server",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "node:server-created"
+    },
+    "node:server-ready": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "address": {
+          "name": "address",
+          "type": { "name": "string" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "port": {
+          "name": "port",
+          "type": { "name": "int" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "server": {
+          "name": "server",
+          "type": { "name": "any" },
+          "isOptional": false,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "node:server-ready"
+    },
+    "node": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "hostname": {
+          "name": "hostname",
+          "type": { "name": "string" },
+          "description": "The host to which to bind to for new connections (Defaults to 127.0.0.1 running locally, and 0.0.0.0 in Docker)",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "port": {
+          "name": "port",
+          "defaultValue": 8545,
+          "type": { "name": "int" },
+          "description": "The port on which to listen for new connections",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "fork": {
+          "name": "fork",
+          "type": { "name": "string" },
+          "description": "The URL of the JSON-RPC server to fork from",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        },
+        "forkBlockNumber": {
+          "name": "forkBlockNumber",
+          "type": { "name": "int" },
+          "description": "The block number to fork from",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "node",
+      "_description": "Starts a JSON-RPC server on top of Hardhat Network"
+    },
+    "run": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "noCompile": {
+          "name": "noCompile",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Don't compile before running this task",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [
+        {
+          "name": "script",
+          "type": { "name": "string" },
+          "description": "A js file to be run within hardhat's environment",
+          "isVariadic": false,
+          "isOptional": false,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "run",
+      "_description": "Runs a user-defined script after compiling the project"
+    },
+    "test:get-test-files": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [
+        {
+          "name": "testFiles",
+          "defaultValue": [],
+          "type": { "name": "string" },
+          "description": "An optional list of files to test",
+          "isVariadic": true,
+          "isOptional": true,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": true,
+      "_hasOptionalPositionalParam": true,
+      "_task": "test:get-test-files"
+    },
+    "test:setup-test-environment": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "test:setup-test-environment"
+    },
+    "test:run-mocha-tests": {
+      "isSubtask": true,
+      "paramDefinitions": {
+        "parallel": {
+          "name": "parallel",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Run tests in parallel",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "bail": {
+          "name": "bail",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Stop running tests after the first test failure",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "grep": {
+          "name": "grep",
+          "type": { "name": "string" },
+          "description": "Only run tests matching the given string or regexp",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [
+        {
+          "name": "testFiles",
+          "defaultValue": [],
+          "type": { "name": "string" },
+          "description": "An optional list of files to test",
+          "isVariadic": true,
+          "isOptional": true,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": true,
+      "_hasOptionalPositionalParam": true,
+      "_task": "test:run-mocha-tests"
+    },
+    "test:show-fork-recommendations": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "test:show-fork-recommendations"
+    },
+    "test": {
+      "isSubtask": false,
+      "paramDefinitions": {
+        "noCompile": {
+          "name": "noCompile",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Don't compile before running this task",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "parallel": {
+          "name": "parallel",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Run tests in parallel",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "bail": {
+          "name": "bail",
+          "defaultValue": false,
+          "type": { "name": "boolean" },
+          "description": "Stop running tests after the first test failure",
+          "isFlag": true,
+          "isOptional": true,
+          "isVariadic": false
+        },
+        "grep": {
+          "name": "grep",
+          "type": { "name": "string" },
+          "description": "Only run tests matching the given string or regexp",
+          "isOptional": true,
+          "isFlag": false,
+          "isVariadic": false
+        }
+      },
+      "positionalParamDefinitions": [
+        {
+          "name": "testFiles",
+          "defaultValue": [],
+          "type": { "name": "string" },
+          "description": "An optional list of files to test",
+          "isVariadic": true,
+          "isOptional": true,
+          "isFlag": false
+        }
+      ],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": true,
+      "_hasOptionalPositionalParam": true,
+      "_task": "test",
+      "_description": "Runs mocha tests"
+    },
+    "sphinxSimulateDeployment": {
+      "isSubtask": true,
+      "paramDefinitions": {},
+      "positionalParamDefinitions": [],
+      "_positionalParamNames": {},
+      "_hasVariadicParam": false,
+      "_hasOptionalPositionalParam": false,
+      "_task": "sphinxSimulateDeployment"
+    }
+  },
+  "scopes": {
+    "vars": {
+      "name": "vars",
+      "_description": "Manage your configuration variables",
+      "tasks": {
+        "set": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [
+            {
+              "name": "var",
+              "type": { "name": "string" },
+              "description": "The name of the variable",
+              "isVariadic": false,
+              "isOptional": false,
+              "isFlag": false
+            },
+            {
+              "name": "value",
+              "type": { "name": "string" },
+              "description": "The value to store. Omit to be prompted for it.",
+              "isVariadic": false,
+              "isOptional": true,
+              "isFlag": false
+            }
+          ],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": true,
+          "_scope": "vars",
+          "_task": "set",
+          "_description": "Set the value of a configuration variable"
+        },
+        "get": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [
+            {
+              "name": "var",
+              "type": { "name": "string" },
+              "description": "The name of the variable",
+              "isVariadic": false,
+              "isOptional": false,
+              "isFlag": false
+            }
+          ],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": false,
+          "_scope": "vars",
+          "_task": "get",
+          "_description": "Get the value of a configuration variable"
+        },
+        "list": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": false,
+          "_scope": "vars",
+          "_task": "list",
+          "_description": "List all the configuration variables"
+        },
+        "delete": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [
+            {
+              "name": "var",
+              "type": { "name": "string" },
+              "description": "The name of the variable",
+              "isVariadic": false,
+              "isOptional": false,
+              "isFlag": false
+            }
+          ],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": false,
+          "_scope": "vars",
+          "_task": "delete",
+          "_description": "Delete a configuration variable"
+        },
+        "path": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": false,
+          "_scope": "vars",
+          "_task": "path",
+          "_description": "Show the path of the file where all the configuration variables are stored"
+        },
+        "setup": {
+          "isSubtask": false,
+          "paramDefinitions": {},
+          "positionalParamDefinitions": [],
+          "_positionalParamNames": {},
+          "_hasVariadicParam": false,
+          "_hasOptionalPositionalParam": false,
+          "_scope": "vars",
+          "_task": "setup",
+          "_description": "Show how to setup the configuration variables used by this project"
+        }
+      }
+    }
+  },
+  "userConfig": {
+    "networks": {
+      "hardhat": {
+        "chainId": 11155420,
+        "forking": {
+          "url": "https://opt-sepolia.g.alchemy.com/v2/PB93OqW0alejRNV29Xy2JKdnlObWVwFq",
+          "blockNumber": 9627735
+        },
+        "blockGasLimit": 30000000
+      }
+    }
+  },
+  "version": "2.20.1",
+  "artifacts": {
+    "_artifactsPath": "/Users/samgoldman/dev/sphinx/packages/plugins/dist/artifacts",
+    "_cache": {
+      "artifactNameToArtifactPathCache": {},
+      "artifactFQNToBuildInfoPathCache": {}
+    },
+    "_validArtifacts": []
+  },
+  "network": {
+    "name": "hardhat",
+    "config": {
+      "hardfork": "shanghai",
+      "blockGasLimit": 30000000,
+      "gasPrice": "auto",
+      "chainId": 11155420,
+      "throwOnTransactionFailures": true,
+      "throwOnCallFailures": true,
+      "allowUnlimitedContractSize": false,
+      "mining": {
+        "auto": true,
+        "interval": 0,
+        "mempool": { "order": "priority" }
+      },
+      "accounts": {
+        "initialIndex": 0,
+        "count": 20,
+        "path": "m/44'/60'/0'/0",
+        "passphrase": "",
+        "mnemonic": "test test test test test test test test test test test junk",
+        "accountsBalance": "10000000000000000000000"
+      },
+      "loggingEnabled": false,
+      "gasMultiplier": 1,
+      "minGasPrice": "0",
+      "chains": {},
+      "forking": {
+        "url": "https://opt-sepolia.g.alchemy.com/v2/PB93OqW0alejRNV29Xy2JKdnlObWVwFq",
+        "enabled": true,
+        "httpHeaders": {},
+        "blockNumber": 9627735
+      },
+      "gas": 30000000,
+      "initialDate": "2024-03-21T21:53:39.696Z"
+    },
+    "provider": { "_emitter": { "_events": {}, "_eventsCount": 0 } }
+  },
+  "_environmentExtenders": [null],
+  "ethers": {
+    "version": "6.11.1",
+    "ZeroAddress": "0x0000000000000000000000000000000000000000",
+    "WeiPerEther": "1000000000000000000",
+    "MaxUint256": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    "MinInt256": "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
+    "MaxInt256": "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+    "N": "115792089237316195423570985008687907852837564279074904382605163141518161494337",
+    "ZeroHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "EtherSymbol": "Ξ",
+    "MessagePrefix": "\u0019Ethereum Signed Message:\n",
+    "Utf8ErrorFuncs": {},
+    "defaultPath": "m/44'/60'/0'/0/0",
+    "wordlists": {
+      "cz": { "locale": "cz" },
+      "en": { "locale": "en" },
+      "es": { "locale": "es" },
+      "fr": { "locale": "fr" },
+      "it": { "locale": "it" },
+      "pt": { "locale": "pt" },
+      "ja": { "locale": "ja" },
+      "ko": { "locale": "ko" },
+      "zh_cn": { "locale": "zh_cn" },
+      "zh_tw": { "locale": "zh_tw" }
+    },
+    "provider": "<EthersHardhatProvider>"
+  }
+}
