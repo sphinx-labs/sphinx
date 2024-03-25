@@ -34,6 +34,7 @@ import {
   recursivelyConvertResult,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CreateCallArtifact,
+  SphinxSimulatorABI,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -1653,4 +1654,78 @@ export const hasParentheses = (str: string): boolean => {
  */
 export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
+}
+
+export const getGasEstimatesTODO = async (
+  networkConfig: NetworkConfig,
+  provider: SphinxJsonRpcProvider
+): Promise<Array<string>> => {
+  const sphinxSimulatorAddressTODO =
+    '0x74565ED64C00dA77C578c2eBD81f1aA7A65831dF'
+
+  const { safeInitData, actionInputs, newConfig, safeAddress } = networkConfig
+
+  const gnosisSafeTxns = actionInputs.map((action) => {
+    return {
+      to: action.to,
+      value: action.value,
+      txData: action.txData,
+      operation: action.operation,
+    }
+  })
+
+  const iface = new ethers.Interface(SphinxSimulatorABI)
+  const calldata = iface.encodeFunctionData('simulate1', [
+    gnosisSafeTxns,
+    safeAddress,
+    safeInitData,
+    newConfig.saltNonce,
+  ])
+  const ret = await provider.send('eth_call', [
+    {
+      to: sphinxSimulatorAddressTODO,
+      data: calldata,
+    },
+    'latest',
+  ])
+  const decoded1 = iface.decodeFunctionResult('simulate1', ret)[0]
+  const [success, , encodedGasEstimates] =
+    ethers.AbiCoder.defaultAbiCoder().decode(
+      ['bool', 'uint256', 'bytes'],
+      decoded1
+    )
+
+  if (!success) {
+    throw new Error(
+      `TODO(later-later): should we check for the success condition here?`
+    )
+  }
+  const gasEstimates = ethers.AbiCoder.defaultAbiCoder().decode(
+    ['uint256[]'],
+    encodedGasEstimates
+  )
+
+  return gasEstimates.map(String)
+}
+
+export const isPublicAsyncMethod = (
+  obj: any,
+  prop: string | symbol
+): boolean => {
+  let currentObj = obj
+
+  while (currentObj && currentObj !== Object.prototype) {
+    const propValue = currentObj[prop]
+    if (
+      typeof propValue === 'function' &&
+      propValue.constructor.name === 'AsyncFunction' &&
+      typeof prop === 'string' &&
+      !prop.startsWith('_')
+    ) {
+      return true
+    }
+    currentObj = Object.getPrototypeOf(currentObj)
+  }
+
+  return false
 }
