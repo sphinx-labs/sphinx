@@ -35,6 +35,7 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CreateCallArtifact,
   SphinxSimulatorABI,
+  getSphinxSimulatorAddress,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -1663,14 +1664,11 @@ export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
 
-// TODO:: rename
-export const getGasEstimatesTODO = async (
+export const getMerkleLeafGasFields = async (
   networkConfig: NetworkConfig,
   provider: SphinxJsonRpcProvider
 ): Promise<Array<string>> => {
-  // TODO:: change this address:
-  const sphinxSimulatorAddressTODO =
-    '0x74565ED64C00dA77C578c2eBD81f1aA7A65831dF'
+  const sphinxSimulatorAddress = getSphinxSimulatorAddress()
 
   const { safeInitData, actionInputs, newConfig, safeAddress } = networkConfig
 
@@ -1692,7 +1690,7 @@ export const getGasEstimatesTODO = async (
   ])
   const rawReturnData = await provider.send('eth_call', [
     {
-      to: sphinxSimulatorAddressTODO,
+      to: sphinxSimulatorAddress,
       data: calldata,
     },
     'latest',

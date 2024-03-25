@@ -6,22 +6,9 @@ import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
 import { GnosisSafeTransaction } from "./SphinxPeripheryDataTypes.sol";
 
-// TODO: left off: we should add the SphinxSimulator as a module in the Gnosis Safe so that we can
-// call `GnosisSafe(_safeProxy).execTransactionFromModule` directly. if we can do this, scan this
-// contract for stuff that we can remove.
-
-
 contract SphinxSimulator {
 
-    event ExecutionFromModuleSuccess(address indexed module);
-    event ExecutionFromModuleFailure(address indexed module);
-    event SafeModuleTransaction(address module, address to, uint256 value, bytes data, Enum.Operation operation);
-
-    address internal constant SENTINEL_MODULES = address(0x1);
-
     address internal immutable SPHINX_SIMULATOR = address(this);
-
-    mapping(address => address) internal modules;
 
     GnosisSafeProxyFactory internal safeProxyFactory;
 
@@ -54,6 +41,8 @@ contract SphinxSimulator {
     function getMerkleLeafGasEstimates(GnosisSafeTransaction[] memory _txns, GnosisSafe _safeProxy) external returns (uint256[] memory gasEstimates) {
         require(address(this) == address(_safeProxy), "TODO(docs): must be delegatecalled by safe proxy");
 
+        _safeProxy.enableModule(address(this));
+
         gasEstimates = new uint256[](_txns.length);
 
         address to;
@@ -69,59 +58,17 @@ contract SphinxSimulator {
             operation = txn.operation;
 
             uint256 startGas = gasleft();
-            bool success = execute(to, value, txData, operation, gasleft());
+            bool success = GnosisSafe(_safeProxy).execTransactionFromModule(
+                    to,
+                    value,
+                    txData,
+                    operation
+                );
             // TODO(docs): we put the buffers off-chain to make it easier to adjust them in the
             // future.
             gasEstimates[i] = startGas - gasleft();
 
             require(success, "SphinxSimulator: TODO(docs)");
-        }
-    }
-
-    function execTransactionFromModuleL1(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) public virtual returns (bool success) {
-        require(msg.sender != SENTINEL_MODULES && modules[msg.sender] != address(0), "SphinxSimulator: TODO(docs)");
-        // TODO(docs): Safe v1.4.1 uses `type(uint).max` instead of `gasleft()`. the former is 2
-        // gas cheaper. We use `gasleft()` because it's 2 gas more expensive, and we want to
-        // make sure that we're overestimating the gas (even though the difference is very
-        // minor). we assume that the execution flow isn't impacted by choosing one or the other
-        // because the behavior of `execTransactionFromModule` wasn't changed between v1.3.0 and
-        // v1.4.1.
-        success = execute(to, value, data, operation, gasleft());
-        if (success) emit ExecutionFromModuleSuccess(msg.sender);
-        else emit ExecutionFromModuleFailure(msg.sender);
-    }
-
-    // TODO:: call this conditionally
-    function execTransactionFromModuleL2(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) public returns (bool success) {
-        emit SafeModuleTransaction(msg.sender, to, value, data, operation);
-        success = execTransactionFromModuleL1(to, value, data, operation);
-    }
-
-    function execute(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation,
-        uint256 txGas
-    ) internal returns (bool success) {
-        if (operation == Enum.Operation.DelegateCall) {
-            assembly {
-                success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)
-            }
-        } else {
-            assembly {
-                success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)
-            }
         }
     }
 }

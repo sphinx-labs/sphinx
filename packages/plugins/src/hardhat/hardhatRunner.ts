@@ -25,14 +25,10 @@ process.stdin.on('end', async () => {
 const runHardhatSimulation = async (
   taskArgs: simulateDeploymentSubtaskArgs
 ): Promise<void> => {
-  const {
-    transactions,
-  }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> = await hre.run(
-    'sphinxSimulateDeployment',
-    taskArgs
-  )
+  const { receipts }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> =
+    await hre.run('sphinxSimulateDeployment', taskArgs)
 
-  process.stdout.write(JSON.stringify({ transactions }))
+  process.stdout.write(JSON.stringify({ receipts }))
 }
 
 let getaddrinfoErrors = 0

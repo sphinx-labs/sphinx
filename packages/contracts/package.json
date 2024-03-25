@@ -15,7 +15,7 @@
     "contract-artifacts/**/*.json"
   ],
   "scripts": {
-    "build": "forge clean && forge build --build-info --contracts contracts/core --extra-output storageLayout --skip test --skip script && yarn generate && forge build && yarn build:ts",
+    "build": "/bin/bash ./scripts/build.sh",
     "generate": "yarn write-constants && yarn write-initcode",
     "write-constants": "npx ts-node scripts/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "write-initcode": "npx ts-node scripts/write-initcode.ts > test/SphinxInitCode.sol",

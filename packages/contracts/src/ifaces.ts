@@ -11,7 +11,7 @@ export const SphinxModuleArtifact = parseFoundryContractArtifact(
 export const SphinxModuleProxyFactoryArtifact = parseFoundryContractArtifact(
   require('../contract-artifacts/sphinx/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
-// TODO:: change this to `contract-artifacts`.
+// TODO(end): change this to `contract-artifacts`.
 export const SphinxSimulatorArtifact = parseFoundryContractArtifact(
   require('../out/SphinxSimulator.sol/SphinxSimulator.json')
 )

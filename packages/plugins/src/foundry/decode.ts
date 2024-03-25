@@ -19,7 +19,7 @@ import {
   prettyFunctionCall,
   calculateMerkleLeafGas,
   SphinxJsonRpcProvider,
-  getGasEstimatesTODO,
+  getMerkleLeafGasFields,
   fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'

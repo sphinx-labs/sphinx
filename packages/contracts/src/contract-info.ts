@@ -86,6 +86,15 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
       type: SystemContractType.SPHINX,
     },
     {
+      artifact: SphinxSimulatorArtifact,
+      expectedAddress: getSphinxSimulatorAddress(),
+      constructorArgs: [
+        getGnosisSafeProxyFactoryAddress(),
+        getGnosisSafeSingletonAddress(),
+      ],
+      type: SystemContractType.SPHINX,
+    },
+    {
       artifact: SimulateTxAccessorArtifact,
       expectedAddress: getSimulateTxAccessorAddress(),
       constructorArgs: [],
@@ -156,16 +165,6 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
       expectedAddress: getCheckBalanceLowAddress(),
       constructorArgs: [],
       type: SystemContractType.OPTIMISM,
-    },
-    // TODO:: move this further up in the array.
-    {
-      artifact: SphinxSimulatorArtifact,
-      expectedAddress: getSphinxSimulatorAddress(),
-      constructorArgs: [
-        getGnosisSafeProxyFactoryAddress(),
-        getGnosisSafeSingletonAddress(),
-      ],
-      type: SystemContractType.SPHINX,
     },
   ]
 
