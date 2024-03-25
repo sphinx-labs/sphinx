@@ -25,11 +25,17 @@ process.stdin.on('end', async () => {
 const runHardhatSimulation = async (
   taskArgs: simulateDeploymentSubtaskArgs
 ): Promise<void> => {
-  const { receipts }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> =
-    await hre.run('sphinxSimulateDeployment', taskArgs)
+  const {
+    transactions,
+  }: Awaited<ReturnType<typeof simulateDeploymentSubtask>> = await hre.run(
+    'sphinxSimulateDeployment',
+    taskArgs
+  )
 
-  process.stdout.write(JSON.stringify({ receipts }))
+  process.stdout.write(JSON.stringify({ transactions }))
 }
+
+let getaddrinfoErrors = 0
 
 // If an error occurs, we write the error message and stack trace to `stdout` then exit the process
 // with exit code `1`. We write the error to `stdout` instead of `stderr` because `stderr` may
@@ -49,13 +55,17 @@ process.on('uncaughtException', (error) => {
    * It's worth mentioning, that we've already had logic that handles this running in the website backend
    * and it very reliably works for handling this exact issue.
    */
-  if (error.message.includes('getaddrinfo ENOTFOUND')) {
+  if (
+    error.message.includes('getaddrinfo ENOTFOUND') &&
+    getaddrinfoErrors < 25
+  ) {
+    getaddrinfoErrors += 1
     return
+  } else {
+    process.stdout.write(
+      JSON.stringify({ message: error.message, stack: error.stack })
+    )
+
+    process.exit(1)
   }
-
-  process.stdout.write(
-    JSON.stringify({ message: error.message, stack: error.stack })
-  )
-
-  process.exit(1)
 })

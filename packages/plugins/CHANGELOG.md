@@ -1,5 +1,83 @@
 # @sphinx-labs/plugins
 
+## 0.30.10
+
+### Patch Changes
+
+- f176e46: Increase Sepolia drip size to handle gas price spikes
+- d8ffb22: Reduce Drippie interval
+- c8e5320: Drop support for OKTC
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+  - @sphinx-labs/core@0.23.7
+
+## 0.30.9
+
+### Patch Changes
+
+- 643bcb4: Remove gas limit override on Gnosis
+- d3057c7: Hardcode Merkle leaf gas field on Moonbeam networks
+- Updated dependencies [643bcb4]
+- Updated dependencies [d3057c7]
+  - @sphinx-labs/core@0.23.6
+  - @sphinx-labs/contracts@0.20.5
+
+## 0.30.8
+
+### Patch Changes
+
+- 4cc6c75: Do not force recompile
+
+## 0.30.7
+
+### Patch Changes
+
+- e2fc1e9: Fix simulation bugs
+- Updated dependencies [e2fc1e9]
+  - @sphinx-labs/core@0.23.5
+
+## 0.30.6
+
+### Patch Changes
+
+- e36f793: Always attempt to verify contract even if Etherscan claims it is verified
+- 93e10af: Include specific transaction data in NetworkGasEstimates
+- edf33c0: Check that contracts are deployed in simulation
+- 24e1dcc: Avoid recompiling every single time we invoke the users script
+- 6c36c1f: Ensure cache directory always exists
+- 4e2ae6d: Add support for scripts that fork networks
+- ff4a186: Add retry and timeout logic to Hardhat simulation
+- Updated dependencies [e36f793]
+- Updated dependencies [93e10af]
+- Updated dependencies [edf33c0]
+- Updated dependencies [4e2ae6d]
+- Updated dependencies [ff4a186]
+  - @sphinx-labs/core@0.23.4
+  - @sphinx-labs/contracts@0.20.4
+
+## 0.30.5
+
+### Patch Changes
+
+- 76bcb9e: Passthrough getaddrinfo error using standard json format
+- 23476e7: Throw an error if the simulation is going to fail due to missing hardhat config
+- bdfb0d1: Support Blast and Blast Sepolia
+- Updated dependencies [ea7ddf9]
+- Updated dependencies [a38b587]
+- Updated dependencies [f33d464]
+- Updated dependencies [b036600]
+- Updated dependencies [bdfb0d1]
+  - @sphinx-labs/contracts@0.20.3
+  - @sphinx-labs/core@0.23.3
+
+## 0.30.4
+
+### Patch Changes
+
+- 5d482d6: Error if getaddrinfo ENOTFOUND occurs a large number of times
+
 ## 0.30.3
 
 ### Patch Changes

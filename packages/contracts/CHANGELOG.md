@@ -1,5 +1,36 @@
 # @sphinx-labs/contracts
 
+## 0.20.6
+
+### Patch Changes
+
+- f176e46: Increase Sepolia drip size to handle gas price spikes
+- d8ffb22: Reduce Drippie interval
+- c8e5320: Drop support for OKTC
+
+## 0.20.5
+
+### Patch Changes
+
+- d3057c7: Hardcode Merkle leaf gas field on Moonbeam networks
+
+## 0.20.4
+
+### Patch Changes
+
+- edf33c0: Check that contracts are deployed in simulation
+- 4e2ae6d: Add support for scripts that fork networks
+- ff4a186: Add retry and timeout logic to Hardhat simulation
+
+## 0.20.3
+
+### Patch Changes
+
+- ea7ddf9: Detect missing depth field in account accesses
+- a38b587: Prevent owner from being set to the zero address
+- f33d464: Stop infinite loop if the user calls safeAddress() in configureSphinx() function
+- bdfb0d1: Support Blast and Blast Sepolia
+
 ## 0.20.2
 
 ### Patch Changes

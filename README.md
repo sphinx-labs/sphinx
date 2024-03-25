@@ -107,8 +107,8 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Fuse
 - Evmos
 - Kava
-- OKT Chain
 - Rootstock
+- Blast
 
 Test networks:
 
@@ -131,6 +131,7 @@ Test networks:
 - Evmos Testnet
 - Kava Testnet
 - Rootstock Testnet
+- Blast Sepolia
 
 More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 

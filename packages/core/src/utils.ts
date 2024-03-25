@@ -239,11 +239,6 @@ export const getGasPriceOverrides = async (
     // On OKC, override nothing b/c it's unnecessary
     case 66:
       return overridden
-    // On Gnosis, set the gas limit artificially high (since ethers does not seem to always estimate it proplerly especially for contract deployments)
-    case 100:
-    case 10200:
-      overridden.gasLimit = (block.gasLimit / BigInt(4)) * BigInt(3)
-      return overridden
     // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
     default:
       if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
@@ -291,9 +286,9 @@ export const callWithTimeout = async <T>(
     timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeout)
   })
 
-  return Promise.race([promise, timeoutPromise]).then((result) => {
+  // Call `clearTimeout` as soon as either of the promises resolve or reject.
+  return Promise.race([promise, timeoutPromise]).finally(() => {
     clearTimeout(timeoutHandle)
-    return result
   })
 }
 
@@ -1545,7 +1540,7 @@ export const isCreateActionInput = (
     typeof create.value === 'string' &&
     typeof create.txData === 'string' &&
     typeof create.gas === 'string' &&
-    create.operation === Operation.Call &&
+    create.operation === Operation.DelegateCall &&
     typeof create.requireSuccess === 'boolean'
   )
 }
@@ -1635,6 +1630,18 @@ export const readDeploymentArtifactsForNetwork = (
 
 export const isArrayMixed = <T>(arr: T[]): boolean => new Set(arr).size > 1
 
+export const getContractAddressesFromNetworkConfig = (
+  networkConfig: NetworkConfig
+): Array<string> => {
+  const unlabeledAddresses = networkConfig.unlabeledContracts.map(
+    (ct) => ct.address
+  )
+  const labeledAddresses = networkConfig.actionInputs
+    .flatMap((actions) => actions.contracts)
+    .map((ct) => ct.address)
+  return unlabeledAddresses.concat(labeledAddresses)
+}
+
 /**
  * Checks if a string contains an opening then closing parenthesis.
  *
@@ -1708,6 +1715,19 @@ export const getGasEstimatesTODO = async (
   return gasEstimates.map(String)
 }
 
+/**
+ * Checks if a given property of an object is a public asynchronous method.
+ *
+ * This function iterates over the prototype chain of the object to check if the specified property
+ * is an asynchronous function that is not intended to be private (not starting with '_'). We check
+ * for a leading underscore to determine whether a function is meant to be private because
+ * JavaScript doesn't have a native way to check this. This function stops the search once it
+ * reaches the top of the prototype chain or finds a match.
+ *
+ * @param {any} obj - The object to inspect.
+ * @param {string | symbol} prop - The property name or symbol to check.
+ * @returns {boolean} - `true` if the property is a public asynchronous method, `false` otherwise.
+ */
 export const isPublicAsyncMethod = (
   obj: any,
   prop: string | symbol
@@ -1729,3 +1749,5 @@ export const isPublicAsyncMethod = (
 
   return false
 }
+
+export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }

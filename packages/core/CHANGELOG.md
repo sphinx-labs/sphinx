@@ -1,5 +1,56 @@
 # @sphinx-labs/core
 
+## 0.23.7
+
+### Patch Changes
+
+- d8ffb22: Reduce Drippie interval
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+
+## 0.23.6
+
+### Patch Changes
+
+- 643bcb4: Remove gas limit override on Gnosis
+- d3057c7: Hardcode Merkle leaf gas field on Moonbeam networks
+- Updated dependencies [d3057c7]
+  - @sphinx-labs/contracts@0.20.5
+
+## 0.23.5
+
+### Patch Changes
+
+- e2fc1e9: Fix simulation bugs
+
+## 0.23.4
+
+### Patch Changes
+
+- e36f793: Always attempt to verify contract even if Etherscan claims it is verified
+- 93e10af: Include specific transaction data in NetworkGasEstimates
+- edf33c0: Check that contracts are deployed in simulation
+- 4e2ae6d: Add support for scripts that fork networks
+- ff4a186: Add retry and timeout logic to Hardhat simulation
+- Updated dependencies [edf33c0]
+- Updated dependencies [4e2ae6d]
+- Updated dependencies [ff4a186]
+  - @sphinx-labs/contracts@0.20.4
+
+## 0.23.3
+
+### Patch Changes
+
+- b036600: Suggest running forge build with --force if we fail to infer artifact
+- bdfb0d1: Support Blast and Blast Sepolia
+- Updated dependencies [ea7ddf9]
+- Updated dependencies [a38b587]
+- Updated dependencies [f33d464]
+- Updated dependencies [bdfb0d1]
+  - @sphinx-labs/contracts@0.20.3
+
 ## 0.23.2
 
 ### Patch Changes

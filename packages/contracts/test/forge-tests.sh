@@ -32,9 +32,17 @@ anvil --chain-id 1 --port 42001 --silent &
 anvil --chain-id 5 --port 42005 --silent &
 anvil --chain-id 10 --port 42010 --silent &
 
+# Define the dummy deployment info path, which will contain data after running
+# the Forge tests. We use an environment variable so we can access it in our
+# tests, and so we can delete the file contents when the tests finish.
+export DUMMY_DEPLOYMENT_INFO_PATH="dummyDeploymentInfoPath.json"
+
 forge test
 
 # Kill the Anvil nodes
 kill $(lsof -t -i:42001)
 kill $(lsof -t -i:42005)
 kill $(lsof -t -i:42010)
+
+# Delete the dummy deployment info file, which was written during the Forge tests.
+rm "$DUMMY_DEPLOYMENT_INFO_PATH"

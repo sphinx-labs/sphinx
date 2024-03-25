@@ -104,7 +104,7 @@ export const simulate = async (
   chainId: string,
   rpcUrl: string
 ): Promise<{
-  receipts: Array<SphinxTransactionReceipt>
+  transactions: SimulationTransactions
 }> => {
   const rootPluginPath =
     process.env.DEV_FILE_PATH ?? join('node_modules', '@sphinx-labs', 'plugins')
@@ -258,8 +258,8 @@ export const simulate = async (
    * and exit with the real value of stdout if an error occurs.
    */
   try {
-    const receipts = JSON.parse(stdout).receipts
-    return { receipts }
+    const transactions = JSON.parse(stdout).transactions
+    return { transactions }
   } catch (e) {
     console.log(stdout)
     console.error(stderr)

@@ -4,7 +4,7 @@ pragma solidity >=0.6.2 <0.9.0;
 import { NetworkInfo, NetworkType } from "./SphinxPluginTypes.sol";
 
 contract SphinxConstants {
-  string public constant sphinxLibraryVersion = 'v0.20.2';
+  string public constant sphinxLibraryVersion = 'v0.20.6';
   address public constant compatibilityFallbackHandlerAddress = 0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4;
   address public constant multiSendAddress = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
   address public constant createCallAddress = 0x7cbB62EaA69F79e6873cD1ecB2392971036cFAa4;
@@ -14,7 +14,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 42;
+  uint8 internal constant numSupportedNetworks = 43;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -217,58 +217,64 @@ contract SphinxConstants {
       networkType: NetworkType.Testnet
     });
     all[33] = NetworkInfo({
-      network: Network.oktc,
-      name: "oktc",
-      chainId: 66,
-      networkType: NetworkType.Mainnet
-    });
-    all[34] = NetworkInfo({
       network: Network.scroll,
       name: "scroll",
       chainId: 534352,
       networkType: NetworkType.Mainnet
     });
-    all[35] = NetworkInfo({
+    all[34] = NetworkInfo({
       network: Network.scroll_sepolia,
       name: "scroll_sepolia",
       chainId: 534351,
       networkType: NetworkType.Testnet
     });
-    all[36] = NetworkInfo({
+    all[35] = NetworkInfo({
       network: Network.rootstock,
       name: "rootstock",
       chainId: 30,
       networkType: NetworkType.Mainnet
     });
-    all[37] = NetworkInfo({
+    all[36] = NetworkInfo({
       network: Network.rootstock_testnet,
       name: "rootstock_testnet",
       chainId: 31,
       networkType: NetworkType.Testnet
     });
-    all[38] = NetworkInfo({
+    all[37] = NetworkInfo({
       network: Network.zora,
       name: "zora",
       chainId: 7777777,
       networkType: NetworkType.Mainnet
     });
-    all[39] = NetworkInfo({
+    all[38] = NetworkInfo({
       network: Network.zora_sepolia,
       name: "zora_sepolia",
       chainId: 999999999,
       networkType: NetworkType.Testnet
     });
-    all[40] = NetworkInfo({
+    all[39] = NetworkInfo({
       network: Network.rari,
       name: "rari",
       chainId: 1380012617,
       networkType: NetworkType.Mainnet
     });
-    all[41] = NetworkInfo({
+    all[40] = NetworkInfo({
       network: Network.rari_sepolia,
       name: "rari_sepolia",
       chainId: 1918988905,
       networkType: NetworkType.Testnet
+    });
+    all[41] = NetworkInfo({
+      network: Network.blast_sepolia,
+      name: "blast_sepolia",
+      chainId: 168587773,
+      networkType: NetworkType.Testnet
+    });
+    all[42] = NetworkInfo({
+      network: Network.blast,
+      name: "blast",
+      chainId: 81457,
+      networkType: NetworkType.Mainnet
     });
     return all;
   }
@@ -308,7 +314,6 @@ enum Network {
   evmos_testnet,
   kava,
   kava_testnet,
-  oktc,
   scroll,
   scroll_sepolia,
   rootstock,
@@ -316,5 +321,7 @@ enum Network {
   zora,
   zora_sepolia,
   rari,
-  rari_sepolia
+  rari_sepolia,
+  blast_sepolia,
+  blast
 }

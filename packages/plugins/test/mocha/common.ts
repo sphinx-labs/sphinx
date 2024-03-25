@@ -37,6 +37,13 @@ import {
   removeRoles,
   makeDeploymentConfig,
   getMaxGasLimit,
+  getBytesLength,
+  Create2ActionInput,
+  ActionInput,
+  ActionInputType,
+  FunctionCallActionInput,
+  CreateActionInput,
+  encodeCreateCall,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import {
@@ -62,6 +69,8 @@ import {
   AccountAccess,
   AccountAccessKind,
   ParsedAccountAccess,
+  DeployedContractSize,
+  getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
@@ -70,7 +79,11 @@ import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyCont
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
 import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
-import { makeNetworkConfig } from '../../src/foundry/decode'
+import {
+  makeContractDecodedAction,
+  makeFunctionCallDecodedAction,
+  makeNetworkConfig,
+} from '../../src/foundry/decode'
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
 import {
   getInitCodeWithArgsArray,
@@ -342,6 +355,7 @@ export const makeDeployment = async (
   threshold: number,
   executionMode: ExecutionMode,
   accountAccesses: Array<ParsedAccountAccess>,
+  deployedContractSizes: Array<DeployedContractSize>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -433,7 +447,7 @@ export const makeDeployment = async (
         gasEstimates: new Array(numActionInputs).fill(gasEstimateSize),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
         // This is currenly only used specifically on Moonbeam
-        deployedContractSizes: [],
+        deployedContractSizes,
       }
 
       return deploymentInfo
@@ -493,13 +507,15 @@ export const makeRevertingDeployment = (
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
   expectedContractFileNames: Array<string>
+  deployedContractSizes: Array<DeployedContractSize>
 } => {
   // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const accountAccesses: Array<ParsedAccountAccess> =
-    makeCreate2AccountAccesses(safeAddress, [
+  const { accountAccesses, deployedContractSizes } = makeCreate2AccountAccesses(
+    safeAddress,
+    [
       {
         salt,
         artifact: parseFoundryContractArtifact(MyContract2Artifact),
@@ -510,7 +526,8 @@ export const makeRevertingDeployment = (
         artifact: parseFoundryContractArtifact(Reverter),
         abiEncodedConstructorArgs: '0x',
       },
-    ])
+    ]
+  )
   const expectedContractFileNames = ['MyContract2.json']
 
   return {
@@ -518,6 +535,7 @@ export const makeRevertingDeployment = (
     merkleRootNonce,
     accountAccesses,
     expectedContractFileNames,
+    deployedContractSizes,
   }
 }
 
@@ -631,10 +649,14 @@ const makeCreate2AccountAccesses = (
     artifact: ContractArtifact
     abiEncodedConstructorArgs: string
   }>
-): Array<ParsedAccountAccess> => {
+): {
+  accountAccesses: Array<ParsedAccountAccess>
+  deployedContractSizes: Array<DeployedContractSize>
+} => {
   const accountAccesses: Array<ParsedAccountAccess> = []
+  const deployedContractSizes: Array<DeployedContractSize> = []
   for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
-    const { bytecode } = artifact
+    const { bytecode, deployedBytecode } = artifact
 
     const saltPadded = ethers.zeroPadValue(ethers.toBeHex(salt), 32)
     const initCodeWithArgs = ethers.concat([
@@ -647,6 +669,11 @@ const makeCreate2AccountAccesses = (
       saltPadded,
       ethers.keccak256(initCodeWithArgs)
     )
+
+    deployedContractSizes.push({
+      account: create2Address,
+      size: getBytesLength(deployedBytecode).toString(),
+    })
 
     accountAccesses.push({
       root: {
@@ -669,7 +696,7 @@ const makeCreate2AccountAccesses = (
       ],
     })
   }
-  return accountAccesses
+  return { accountAccesses, deployedContractSizes }
 }
 
 export const makeStandardDeployment = (
@@ -681,6 +708,7 @@ export const makeStandardDeployment = (
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
   expectedContractFileNames: Array<string>
+  deployedContractSizes: Array<DeployedContractSize>
 } => {
   // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
   // deploy a contract at the same address in successive deployments. We add a constant number
@@ -690,37 +718,40 @@ export const makeStandardDeployment = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const accountAccesses = makeCreate2AccountAccesses(safeAddress, [
-    {
-      salt,
-      artifact: parseFoundryContractArtifact(MyContract2Artifact),
-      abiEncodedConstructorArgs: '0x',
-    },
-    {
-      salt,
-      artifact: parseFoundryContractArtifact(MyContract1Artifact),
-      abiEncodedConstructorArgs: coder.encode(
-        ['int256', 'uint256', 'address', 'address'],
-        [3, 3, makeAddress(3), makeAddress(3)]
-      ),
-    },
-    {
-      salt,
-      artifact: parseFoundryContractArtifact(MyContract1Artifact),
-      abiEncodedConstructorArgs: coder.encode(
-        ['int256', 'uint256', 'address', 'address'],
-        [4, 4, makeAddress(4), makeAddress(4)]
-      ),
-    },
-    {
-      salt,
-      artifact: parseFoundryContractArtifact(MyContract1Artifact),
-      abiEncodedConstructorArgs: coder.encode(
-        ['int256', 'uint256', 'address', 'address'],
-        [5, 5, makeAddress(5), makeAddress(5)]
-      ),
-    },
-  ])
+  const { accountAccesses, deployedContractSizes } = makeCreate2AccountAccesses(
+    safeAddress,
+    [
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(MyContract2Artifact),
+        abiEncodedConstructorArgs: '0x',
+      },
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(MyContract1Artifact),
+        abiEncodedConstructorArgs: coder.encode(
+          ['int256', 'uint256', 'address', 'address'],
+          [3, 3, makeAddress(3), makeAddress(3)]
+        ),
+      },
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(MyContract1Artifact),
+        abiEncodedConstructorArgs: coder.encode(
+          ['int256', 'uint256', 'address', 'address'],
+          [4, 4, makeAddress(4), makeAddress(4)]
+        ),
+      },
+      {
+        salt,
+        artifact: parseFoundryContractArtifact(MyContract1Artifact),
+        abiEncodedConstructorArgs: coder.encode(
+          ['int256', 'uint256', 'address', 'address'],
+          [5, 5, makeAddress(5), makeAddress(5)]
+        ),
+      },
+    ]
+  )
   const expectedContractFileNames = [
     'MyContract2.json',
     'MyContract1.json',
@@ -733,6 +764,7 @@ export const makeStandardDeployment = (
     merkleRootNonce,
     accountAccesses,
     expectedContractFileNames,
+    deployedContractSizes,
   }
 }
 
@@ -932,3 +964,154 @@ export const encodeFunctionCalldata = (sig: Array<string>): string => {
   const calldata = ethers.concat([fragment.selector, encodedParams])
   return calldata
 }
+
+export const makeActionInputsWithoutGas = (
+  ary: Array<
+    | {
+        actionType: ActionInputType.CREATE2
+        create2Salt: string
+        artifact: ContractArtifact
+        encodedArgs?: string
+      }
+    | {
+        actionType: ActionInputType.CALL
+        to: string
+        txData: string
+        fullyQualifiedName?: string
+      }
+    | {
+        actionType: ActionInputType.CREATE
+        nonce: number
+        artifact: ContractArtifact
+        from: string
+        encodedArgs?: string
+      }
+  >,
+  configArtifacts: ConfigArtifacts
+): Array<Omit<ActionInput, 'gas'>> => {
+  const actionInputs: Array<Omit<ActionInput, 'gas'>> = []
+  for (let index = 1; index <= ary.length; index++) {
+    const data = ary[index - 1]
+    if (data.actionType === ActionInputType.CREATE2) {
+      const { actionType, create2Salt, artifact, encodedArgs } = data
+      const { bytecode, sourceName, contractName } = artifact
+
+      const initCodeWithArgs = encodedArgs
+        ? ethers.concat([bytecode, encodedArgs])
+        : bytecode
+      const create2Address = ethers.getCreate2Address(
+        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        create2Salt,
+        ethers.keccak256(initCodeWithArgs)
+      )
+
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+      const decodedAction = makeContractDecodedAction(
+        create2Address,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const contracts = [
+        {
+          address: create2Address,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        },
+      ]
+
+      const txData = ethers.concat([create2Salt, initCodeWithArgs])
+      const actionInput: Omit<Create2ActionInput, 'gas'> = {
+        decodedAction,
+        create2Address,
+        initCodeWithArgs,
+        actionType,
+        contracts,
+        index: index.toString(),
+        to: DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+        value: '0',
+        txData,
+        operation: Operation.Call,
+        requireSuccess: true,
+      }
+      actionInputs.push(actionInput)
+    } else if (data.actionType === ActionInputType.CALL) {
+      const { actionType, to, txData, fullyQualifiedName } = data
+      const decodedAction = makeFunctionCallDecodedAction(
+        to,
+        txData,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const actionInput: Omit<FunctionCallActionInput, 'gas'> = {
+        actionType,
+        contracts: [],
+        index: index.toString(),
+        decodedAction,
+        requireSuccess: true,
+        value: '0',
+        operation: Operation.Call,
+        to,
+        txData,
+      }
+      actionInputs.push(actionInput)
+    } else if (data.actionType === ActionInputType.CREATE) {
+      const { actionType, nonce, artifact, encodedArgs, from } = data
+      const { bytecode, sourceName, contractName } = artifact
+
+      const initCodeWithArgs = encodedArgs
+        ? ethers.concat([bytecode, encodedArgs])
+        : bytecode
+      const contractAddress = ethers.getCreateAddress({
+        from,
+        nonce,
+      })
+
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+      const decodedAction = makeContractDecodedAction(
+        contractAddress,
+        initCodeWithArgs,
+        configArtifacts,
+        fullyQualifiedName
+      )
+      const contracts = [
+        {
+          address: contractAddress,
+          initCodeWithArgs,
+          fullyQualifiedName,
+        },
+      ]
+
+      const txData = encodeCreateCall('0', initCodeWithArgs)
+      const actionInput: Omit<CreateActionInput, 'gas'> = {
+        decodedAction,
+        contractAddress,
+        initCodeWithArgs,
+        actionType,
+        contracts,
+        index: index.toString(),
+        to: getCreateCallAddress(),
+        value: '0',
+        txData,
+        operation: Operation.DelegateCall,
+        requireSuccess: true,
+      }
+      actionInputs.push(actionInput)
+    } else {
+      throw new Error(`Action input type is not implemented.`)
+    }
+  }
+
+  return actionInputs
+}
+
+export const sumEvenNumbers = (start: number, numTerms: number): number => {
+  let sum = 0
+  for (let i = 0; i < numTerms; i++) {
+    sum += start + 2 * i
+  }
+  return sum
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+export const promiseThatNeverSettles = new Promise(() => {})

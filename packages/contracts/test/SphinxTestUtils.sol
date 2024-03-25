@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from "../contracts/forge-std/src/Vm.sol";
+import { Vm, VmSafe } from "../contracts/forge-std/src/Vm.sol";
 import { Network, NetworkInfo, SphinxConfig } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "../contracts/forge-std/src/StdCheats.sol";
 
@@ -20,6 +20,8 @@ import { SphinxInitCode, SystemContractInfo } from "./SphinxInitCode.sol";
  *         contains helper functions for the plugin itself.
  */
 contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxInitCode {
+    uint64 internal defaultCallDepth = 2;
+
     // Same as the `RawTx1559` struct defined in StdCheats.sol, except this struct has two
     // addditional fields: `additionalContracts` and `isFixedGasLimit`.
     struct AnvilBroadcastedTxn {
@@ -216,5 +218,24 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
         );
 
         return IGnosisSafe(address(safeProxy));
+    }
+
+    /**
+     * @notice Returns the stringified `AccountAccessKind`. Useful for debugging.
+     */
+    function accessKindToString(VmSafe.AccountAccessKind kind) public pure returns (string memory) {
+        if (kind == VmSafe.AccountAccessKind.Call) return "Call";
+        if (kind == VmSafe.AccountAccessKind.DelegateCall) return "DelegateCall";
+        if (kind == VmSafe.AccountAccessKind.CallCode) return "CallCode";
+        if (kind == VmSafe.AccountAccessKind.StaticCall) return "StaticCall";
+        if (kind == VmSafe.AccountAccessKind.Create) return "Create";
+        if (kind == VmSafe.AccountAccessKind.SelfDestruct) return "SelfDestruct";
+        if (kind == VmSafe.AccountAccessKind.Resume) return "Resume";
+        if (kind == VmSafe.AccountAccessKind.Balance) return "Balance";
+        if (kind == VmSafe.AccountAccessKind.Extcodesize) return "Extcodesize";
+        if (kind == VmSafe.AccountAccessKind.Extcodehash) return "Extcodehash";
+        if (kind == VmSafe.AccountAccessKind.Extcodecopy) return "Extcodecopy";
+
+        revert("Invalid AccountAccessKind");
     }
 }

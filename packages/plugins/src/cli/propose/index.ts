@@ -18,6 +18,7 @@ import {
   fetchChainIdForNetwork,
   getGasEstimatesTODO,
   fetchNameForNetwork,
+  DEFAULT_CALL_DEPTH,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -114,10 +115,11 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       '--rpc-url',
       rpcUrl,
       '--sig',
-      'sphinxCollectProposal(bytes,string)',
+      'sphinxCollectProposal(bytes,string,uint64)',
       scriptFunctionCalldata,
       deploymentInfoPath,
       '--always-use-create-2-factory',
+      DEFAULT_CALL_DEPTH,
     ]
 
     if (
@@ -139,6 +141,10 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
       ETH_FROM: safeAddress,
+      // We specify build info to be false so that calling the script does not cause the users entire
+      // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
+      // We do need the build info, but that is generated when we compile at the beginning of the script.
+      FOUNDRY_BUILD_INFO: 'false',
     })
 
     if (spawnOutput.code !== 0) {
@@ -287,10 +293,18 @@ export const propose = async (
     process.exit(1)
   }
 
-  // Run the compiler. It's necessary to do this before we read any contract interfaces.
+  /**
+   * Run the compiler. It's necessary to do this before we read any contract interfaces.
+   * We request the build info here which we need to build info to generate the compiler
+   * config.
+   *
+   * We do not force recompile here because the user may have a custom compilation pipeline
+   * that yields additional artifacts which the standard forge compiler does not.
+   */
   compile(
     silent,
-    false // Do not force re-compile.
+    false, // Do not force recompile
+    true // Generate build info
   )
 
   const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)

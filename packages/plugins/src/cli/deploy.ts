@@ -120,7 +120,8 @@ export const deploy = async (
    */
   compile(
     silent,
-    false // Do not force re-compile.
+    false, // Do not force recompile
+    true // Generate build info
   )
 
   const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
@@ -246,6 +247,10 @@ export const deploy = async (
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
     ETH_FROM: safeAddress,
+    // We specify build info to be false so that calling the script does not cause the users entire
+    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
+    // We do need the build info, but that is generated when we compile at the beginning of the script.
+    FOUNDRY_BUILD_INFO: 'false',
   })
 
   if (spawnOutput.code !== 0) {

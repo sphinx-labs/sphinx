@@ -1,51 +1,9 @@
-import {
-  AccountAccess,
-  AccountAccessKind,
-  DeployedContractSize,
-  ParsedAccountAccess,
-} from './types'
+import { DeployedContractSize, ParsedAccountAccess } from './types'
 
 /**
- * Calculates the storage used by a single AccountAccess. This function is intentionally very simple.
- * We naively assume that every write takes up a full 32 bytes of storage despite the fact that there
- * are many cases where the storage usage is less or even negative. We do this because we prefer to
- * always overestimate the cost by a reasonable amount. Since the block gas limit on Moonbeam and
- * related networks is comfortably high (15 million), this does not impede the users ability to deploy
- * large contracts.
- */
-const calculateStorageSizeForAccountAccess = (
-  access: AccountAccess,
-  deployedContractSizes: DeployedContractSize[]
-): { contractStorageSize: number; writeStorageSize: number } => {
-  const storageWriteSize =
-    access.storageAccesses.filter((storageAccess) => storageAccess.isWrite)
-      .length * 32
-
-  if (access.kind === AccountAccessKind.Create) {
-    const deployedContractSize = deployedContractSizes.find(
-      (deployedContact) => deployedContact.account === access.account
-    )
-
-    if (!deployedContractSize) {
-      throw new Error(
-        'Failed to find deployed contract size. This is a bug, please report it to the developers.'
-      )
-    }
-
-    return {
-      writeStorageSize: storageWriteSize,
-      contractStorageSize: Number(deployedContractSize.size),
-    }
-  } else {
-    return {
-      writeStorageSize: storageWriteSize,
-      contractStorageSize: 0,
-    }
-  }
-}
-
-/**
- * Calculates the cost of a transaction on Moonbeam using their higher gas cost per byte.
+ * Return a hard-coded gas value for Moonbeam, Moonbase Alpha, and Moonriver. We hard-code this
+ * value as a temporary solution because these networks have a non-standard gas calculation
+ * mechanism.
  *
  * @param baseGas The estimated gas cost according to Foundry.
  * @param deployedContractSizes The sizes of any contracts deployed during this transaction.
@@ -53,52 +11,17 @@ const calculateStorageSizeForAccountAccess = (
  * @returns
  */
 export const calculateActionLeafGasForMoonbeam = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   foundryGas: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   deployedContractSizes: DeployedContractSize[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   access: ParsedAccountAccess
 ): string => {
-  // Fetch the storage used by the root account access
-  const { contractStorageSize, writeStorageSize } =
-    calculateStorageSizeForAccountAccess(access.root, deployedContractSizes)
-
-  // Fetch the storage used by all the nested accesses
-  const nestedStorageSizes = access.nested.map((nestedAccountAccess) =>
-    calculateStorageSizeForAccountAccess(
-      nestedAccountAccess,
-      deployedContractSizes
-    )
-  )
-  const nestedContractStorageSize = nestedStorageSizes
-    .map((storageSize) => storageSize.contractStorageSize)
-    .reduce((prev, curr) => prev + curr, 0)
-  const nestedWriteStorageSize = nestedStorageSizes
-    .map((storageSize) => storageSize.writeStorageSize)
-    .reduce((prev, curr) => prev + curr, 0)
-
-  // Calculate the total storage for the full transaction
-  const totalContractSize = contractStorageSize + nestedContractStorageSize
-  const totalWriteStorageSize = writeStorageSize + nestedWriteStorageSize
-
-  // Gas per byte ratio = Block Gas Limit / (Block Storage Limit (kb) * 1024 Bytes)
-  const ratio = 15_000_000 / (40 * 1024)
-
-  // Total gas cost for storage on moonbeam
-  // The ratio isn't an exact integer, so we round the result up
-  const moonbeamStorageCost = Math.ceil(
-    (totalContractSize + totalWriteStorageSize) * ratio
-  )
-
-  /**
-   * The final cost is cost estimated by Foundry + the cost of the storage required for
-   * the deployment on Moonbeam.
-   * Note that this is a very naive estimate because we are using the maximum possible
-   * storage cost, and we are assuming the storage cost in Moonbeam is in addition to
-   * the normal 200 gas included for storage of contracts on Ethereum.
-   * In practice, this means we will probably wildly overestimate the gas cost for large
-   * contracts which may limit what the user is able to deploy on Moonbeam and related
-   * networks.
-   */
-  return (BigInt(foundryGas) + BigInt(moonbeamStorageCost)).toString()
+  // This is the maximum Merkle leaf gas size that fits in a batch on these networks. (The max batch
+  // size is 12M, and there's a buffer applied to 10,896,000 before we check whether it fits in a
+  // batch).
+  return (10_896_000).toString()
 }
 
 export type ExplorerName = 'Blockscout' | 'Etherscan'
@@ -195,7 +118,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -223,10 +146,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       },
     },
     currency: 'ETH',
-    dripSize: '0.15',
+    dripSize: '1',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -257,7 +180,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -288,7 +211,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -313,7 +236,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -338,7 +261,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -363,7 +286,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -388,7 +311,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -412,7 +335,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.05',
     requiredEnvVariables: ['BNB_MAINNET_URL'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -436,7 +359,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['BNB_TESTNET_URL'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -466,7 +389,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['GNOSIS_MAINNET_URL'],
     networkType: 'Mainnet',
-    dripVersion: 2,
+    dripVersion: 3,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -491,7 +414,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['CHIADO_RPC_URL'],
     networkType: 'Testnet',
-    dripVersion: 2,
+    dripVersion: 3,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -523,7 +446,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -548,7 +471,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -579,7 +502,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['POLYGON_ZKEVM_MAINNET_URL'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -603,7 +526,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['POLYGON_ZKEVM_TESTNET_URL'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -628,7 +551,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -653,7 +576,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -677,7 +600,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['FANTOM_MAINNET_RPC_URL'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -695,7 +618,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['FANTOM_TESTNET_RPC_URL'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -726,7 +649,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -757,7 +680,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -782,7 +705,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -807,7 +730,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -831,7 +754,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['MOONRIVER_RPC_URL'],
     queryFilterBlockLimit: 500,
-    dripVersion: 1,
+    dripVersion: 2,
     networkType: 'Mainnet',
     decimals: 18,
     legacyTx: false,
@@ -857,7 +780,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     requiredEnvVariables: ['MOONBEAM_RPC_URL'],
     queryFilterBlockLimit: 500,
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
@@ -882,7 +805,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     requiredEnvVariables: ['MOONBASE_ALPHA_RPC_URL'],
     queryFilterBlockLimit: 500,
     networkType: 'Testnet',
-    dripVersion: 2,
+    dripVersion: 3,
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
@@ -907,7 +830,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['FUSE_RPC_URL'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     legacyTx: true,
     decimals: 18,
     queryFilterBlockLimit: 2000,
@@ -924,7 +847,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'EVMOS',
     dripSize: '1',
     requiredEnvVariables: ['EVMOS_RPC_URL'],
-    dripVersion: 1,
+    dripVersion: 2,
     networkType: 'Mainnet',
     decimals: 18,
     queryFilterBlockLimit: 2000,
@@ -943,7 +866,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.015',
     requiredEnvVariables: ['EVMOS_TESTNET_RPC_URL'],
     networkType: 'Testnet',
-    dripVersion: 2,
+    dripVersion: 3,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -968,7 +891,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'KAVA',
     dripSize: '1',
     requiredEnvVariables: ['KAVA_RPC_URL'],
-    dripVersion: 1,
+    dripVersion: 2,
     networkType: 'Mainnet',
     legacyTx: true,
     decimals: 18,
@@ -987,28 +910,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '1',
     requiredEnvVariables: ['KAVA_TESTNET_RPC_URL'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     legacyTx: true,
     decimals: 18,
     queryFilterBlockLimit: 2000,
-    actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
-    eip2028: true,
-  },
-  {
-    name: 'oktc',
-    displayName: 'OKT Chain',
-    chainId: BigInt(66),
-    rpcUrl: () => process.env.OKTC_RPC_URL!,
-    blockexplorers: {},
-    currency: 'OKT',
-    dripSize: '1',
-    requiredEnvVariables: ['OKTC_RPC_URL'],
-    dripVersion: 2,
-    queryFilterBlockLimit: 500,
-    networkType: 'Mainnet',
-    legacyTx: true,
-    decimals: 18,
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
@@ -1036,7 +941,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.025',
     requiredEnvVariables: ['SCROLL_RPC_URL'],
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1060,7 +965,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     dripSize: '0.15',
     requiredEnvVariables: ['SCROLL_TESTNET_RPC_URL'],
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1084,10 +989,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'RBTC',
     dripSize: '0.001',
     requiredEnvVariables: ['ROOTSTOCK_RPC_URL'],
-    dripVersion: 3,
+    dripVersion: 4,
     networkType: 'Mainnet',
     legacyTx: true,
-    decimals: 8,
+    decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
     useHigherMaxGasLimit: true,
@@ -1109,10 +1014,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'RBTC',
     dripSize: '0.001',
     requiredEnvVariables: ['ROOTSTOCK_TESTNET_RPC_URL'],
-    dripVersion: 3,
+    dripVersion: 4,
     networkType: 'Testnet',
     legacyTx: true,
-    decimals: 8,
+    decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
     useHigherMaxGasLimit: true,
@@ -1135,7 +1040,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.025',
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1165,7 +1070,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.15',
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1195,7 +1100,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.025',
     networkType: 'Mainnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1225,7 +1130,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.15',
     networkType: 'Testnet',
-    dripVersion: 1,
+    dripVersion: 2,
     decimals: 18,
     queryFilterBlockLimit: 2000,
     legacyTx: false,
@@ -1237,5 +1142,53 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       provider: 'Caldera',
       type: 'Arbitrum',
     },
+  },
+  {
+    name: 'blast_sepolia',
+    displayName: 'Blast Sepolia',
+    chainId: BigInt(168587773),
+    rpcUrl: () => process.env.BLAST_SEPOLIA_RPC_URL!,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.blastscan.io/api',
+        browserURL: 'https://sepolia.blastscan.io/',
+        envKey: 'BLAST_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Testnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['BLAST_SEPOLIA_RPC_URL'],
+  },
+  {
+    name: 'blast',
+    displayName: 'Blast',
+    chainId: BigInt(81457),
+    rpcUrl: () => process.env.BLAST_MAINNET_RPC_URL!,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api.blastscan.io/api',
+        browserURL: 'https://blastscan.io/',
+        envKey: 'BLAST_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['BLAST_MAINNET_RPC_URL'],
   },
 ]
