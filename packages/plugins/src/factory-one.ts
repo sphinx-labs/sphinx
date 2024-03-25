@@ -10,7 +10,6 @@ import * as MyContract1FactoryOneArtifact from '../out/artifacts/MyContracts.sol
 dotenv.config()
 ;(async () => {
   // const rpcUrl = `https://moonbase-alpha.public.blastapi.io`
-  // const rpcUrl = `https://go.getblock.io/c6560f084b4748378df66bf0f9a78c0d`
   const rpcUrl = `${process.env.SEPOLIA_RPC_URL!}`
 
   const provider = new ethers.JsonRpcProvider(rpcUrl)

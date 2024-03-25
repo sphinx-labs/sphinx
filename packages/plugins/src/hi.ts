@@ -13,7 +13,6 @@ dotenv.config()
 ;(async () => {
   // const rpcUrl = `https://moonbase-alpha.public.blastapi.io`
   const rpcUrl = `http://127.0.0.1:8545`
-  // const rpcUrl = `https://go.getblock.io/c6560f084b4748378df66bf0f9a78c0d`
   // const rpcUrl = `${process.env.OPTIMISM_SEPOLIA_RPC_URL!}`
   // const rpcUrl = `${process.env.SEPOLIA_RPC_URL!}`
 
