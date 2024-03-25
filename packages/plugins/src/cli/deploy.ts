@@ -500,6 +500,20 @@ export const deploy = async (
 // TODO(docs): we don't call `execTransactionFromModule` directly because the SphinxSimulator isn't
 // a module.
 
+// TODO(docs): we need to replace the Hardhat simulation because this situation could occur on
+// Rootstock, where transactions generally use less gas than the EVM:
+// 1. Say a contract deployment costs 3M on Rootstock, but 5M on Ethereum. Since we're using an
+//    on-chain simulation to calculate the Merkle leaf gas, we'll set it a little greater than 3M.
+// 2. The Hardhat simulation, which uses the EVM, thinks that the contract deployment costs 5M gas,
+//    causing the action to fail because it's underfunded. This will cause the simulation to throw
+//    an error.
+
+// TODO(docs):
+// https://dev.rootstock.io/guides/quickstart/overview/rootstock-ethereum-differences/#gas-differences
+// "The EVM and RVM are compatible in that they support the same op-codes, and therefore can run the
+// same smart contracts. However, the price of each op-code (measured in units known as gas) is
+// different between EVM and RVM, thus the total gas consumed in various transactions is different."
+
 // TODO(later-later): which buffers should we keep, and which should we remove? I think we still
 // need a buffer to account for changes in on-chain state between proposal and approval. also, i
 // think we need a buffer to account for the fact that actions may be executed in separate
@@ -518,13 +532,3 @@ export const deploy = async (
 // TODO(later): check Safe v1.4.1 for differences
 
 // TODO(later): how are we going to figure out whether an `EXECUTE` action fits in a batch that doesn't exceed the value returned by `getMaxGasLimit`?
-
-// TODO: left off: puzzled by moonbeam and rootstock.
-
-// TODO: rm: eth sepolia sample.s.sol MyContract1: "736753,734003,734003"
-
-// TODO: rm: new gas estimates using Large.s.sol w/ 3 contract deployments:
-// '9117610,9114860,9114860' 11155111
-// ['9117610,9114860,9114860'] 1287
-// ['8820110,8820110,8820110'] rootstock
-// ['9117610,9114860,9114860'] optimism

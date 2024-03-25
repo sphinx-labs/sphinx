@@ -15,7 +15,7 @@ struct GnosisSafeTransaction {
     Enum.Operation operation;
 }
 
-// TODO(later): probably move out of contracts/core.`
+// TODO(later-later): probably move out of contracts/core.`
 contract SphinxSimulator {
 
     GnosisSafeProxyFactory safeProxyFactory;
