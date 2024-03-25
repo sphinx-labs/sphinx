@@ -37,8 +37,8 @@ My successful transaction: https://moonscan.io/tx/0x76d520dbd3ff8f96db4f86a693af
 Observations:
 * `gasleft()` returns the exact same value as the EVM, which means it doesn't include the extra storage gas costs. Evidence:
   * `gas-cost.ts`: Simple.
-  * `try-storage-cost.ts`: Wrapped in a try...catch.
+  * `try-storage-cost.ts`: Wrapped in a try/catch.
 * Say you specify an on-chain `gas` value to call a function (e.g. `this.myFunction{ gas: ... }()`).
-  * If the call _isn't_ wrapped in an on-chain try...catch, you can use the same `gas` value as an EVM chain. Evidence: `storage-cost.ts`
-  * If the call _is_ wrapped in an on-chain try...catch, you _cannot_ use the same `gas` value as an EVM chain. Evidence: `try-storage-cost.ts`.
+  * If the call _isn't_ wrapped in an on-chain try/catch, you can use the same `gas` value as an EVM chain. Evidence: `storage-cost.ts`
+  * If the call _is_ wrapped in an on-chain try/catch, you _cannot_ use the same `gas` value as an EVM chain. Evidence: `try-storage-cost.ts`.
 * We don't need to worry about the block storage limit. It's impossible to exceed the block storage limit without also exceeding the block gas limit. This is because adding ~40kb of storage costs 15M gas. (See their storage growth formula for context). This could change if they increase the block gas limit without increasing the block storage limit though.

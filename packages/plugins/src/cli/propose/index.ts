@@ -215,8 +215,8 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     }
   }
 
-  // TODO(later-later): mv
-  // TODO(later-later): parallelize
+  // TODO:: mv
+  // TODO:: parallelize
   const promises = networkConfigArrayWithRpcUrls.map(
     async ({ rpcUrl, networkConfig }) => {
       try {

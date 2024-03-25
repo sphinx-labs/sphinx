@@ -500,7 +500,7 @@ export const createHardhatEthersProviderProxy = (
             // More info on the nonce error is in this pull request description:
             // https://github.com/sphinx-labs/sphinx/pull/1565.
             //
-            // This RPC method is outside of the try...catch statement below because this call
+            // This RPC method is outside of the try/catch statement below because this call
             // should never error, so if it does, it'd preferable to throw the error immediately.
             snapshotId = await target.send('evm_snapshot', [])
 

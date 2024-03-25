@@ -6,7 +6,7 @@ import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import {SphinxConstants} from "@sphinx-labs/contracts/contracts/foundry/SphinxConstants.sol";
 import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import {Network} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
-// import {SphinxSimulator} from "@sphinx-labs/contracts/contracts/core/SphinxSimulator.sol";
+// import {SphinxSimulator} from "@sphinx-labs/contracts/contracts/periphery/SphinxSimulator.sol";
 import {MyContract1,MyContract2, HelloSphinx} from "../contracts/test/MyContracts.sol";
 import {CREATE3} from "solady/utils/CREATE3.sol";
 

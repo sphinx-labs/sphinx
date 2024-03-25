@@ -157,7 +157,7 @@ export const getSphinxConstants = (): Array<SphinxSystemContract> => {
       constructorArgs: [],
       type: SystemContractType.OPTIMISM,
     },
-    // TODO(later-later): remove this.
+    // TODO:: move this further up in the array.
     {
       artifact: SphinxSimulatorArtifact,
       expectedAddress: getSphinxSimulatorAddress(),

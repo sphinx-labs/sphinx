@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {Script, console} from "sphinx-forge-std/Script.sol";
 import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import {Network} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
-// import {SphinxSimulator} from "@sphinx-labs/contracts/contracts/core/SphinxSimulator.sol";
+// import {SphinxSimulator} from "@sphinx-labs/contracts/contracts/periphery/SphinxSimulator.sol";
 import {MyContract1,MyContract2, HelloSphinx} from "../contracts/test/MyContracts.sol";
 import {CREATE3} from "solady/utils/CREATE3.sol";
 
