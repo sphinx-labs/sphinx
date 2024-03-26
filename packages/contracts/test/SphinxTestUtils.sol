@@ -2,7 +2,13 @@
 pragma solidity ^0.8.0;
 
 import { Vm, VmSafe } from "../contracts/forge-std/src/Vm.sol";
-import { Network, NetworkInfo, SphinxConfig } from "../contracts/foundry/SphinxPluginTypes.sol";
+import {
+    Network,
+    NetworkInfo,
+    SphinxConfig,
+    FoundryDeploymentInfo,
+    ParsedAccountAccess
+} from "../contracts/foundry/SphinxPluginTypes.sol";
 import { StdCheatsSafe } from "../contracts/forge-std/src/StdCheats.sol";
 
 import { SphinxConstants } from "../contracts/foundry/SphinxConstants.sol";
@@ -237,5 +243,24 @@ contract SphinxTestUtils is SphinxConstants, StdCheatsSafe, SphinxUtils, SphinxI
         if (kind == VmSafe.AccountAccessKind.Extcodecopy) return "Extcodecopy";
 
         revert("Invalid AccountAccessKind");
+    }
+
+    /**
+     * @notice Decodes and returns the ParsedAccountAccess array in the passed in FoundryDeploymentInfo struct.
+     */
+    function decodeParsedAccountAcccesses(
+        FoundryDeploymentInfo memory _deploymentInfo
+    ) public pure returns (ParsedAccountAccess[] memory) {
+        ParsedAccountAccess[] memory parsedAccesses = new ParsedAccountAccess[](
+            _deploymentInfo.encodedAccountAccesses.length
+        );
+        for (uint256 i = 0; i < parsedAccesses.length; i++) {
+            parsedAccesses[i] = abi.decode(
+                _deploymentInfo.encodedAccountAccesses[i],
+                (ParsedAccountAccess)
+            );
+        }
+
+        return parsedAccesses;
     }
 }
