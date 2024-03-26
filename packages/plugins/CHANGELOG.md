@@ -1,5 +1,14 @@
 # @sphinx-labs/plugins
 
+## 0.30.11
+
+### Patch Changes
+
+- 3446011: Support sending funds to Safe during deployment
+- Updated dependencies [3446011]
+  - @sphinx-labs/contracts@0.20.7
+  - @sphinx-labs/core@0.23.8
+
 ## 0.30.10
 
 ### Patch Changes
