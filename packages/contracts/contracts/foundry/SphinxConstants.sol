@@ -39,8 +39,8 @@ contract SphinxConstants {
       name: "sepolia",
       chainId: 11155111,
       networkType: NetworkType.Testnet,
-      dripSize: 150000000000000000,
-      dripSizeString: '0.15 ETH'
+      dripSize: 1000000000000000000,
+      dripSizeString: '1 ETH'
     });
     all[3] = NetworkInfo({
       network: Network.optimism,
