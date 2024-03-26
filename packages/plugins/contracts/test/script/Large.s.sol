@@ -37,8 +37,7 @@ contract Simple is Script, Sphinx {
         ];
     }
 
-    function deploy(uint256 _numDeployments) public {
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+    function deploy(uint256 _numDeployments) public sphinx {
         for (uint256 i = 0; i < _numDeployments; i++) {
             new MyLargeContract{ salt: bytes32(i) }();
         }

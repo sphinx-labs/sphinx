@@ -194,3 +194,18 @@ contract MyImmutableContract {
         return myFirstImmutable + uint256(mySecondImmutable);
     }
 }
+
+contract LimitTester {
+
+    mapping(bytes32 => bool) myMapping;
+
+    function gasLimit(uint256 _iterations) external returns (uint256) {
+        uint256 initial = gasleft();
+        for (uint i = 0; i < _iterations; i++) {
+            myMapping[keccak256(abi.encodePacked(i, block.timestamp))] = true;
+        }
+        return initial - gasleft();
+    }
+
+    function calldataLimit(bytes memory) external {}
+}

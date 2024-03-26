@@ -1,5 +1,5 @@
 import { join, relative } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 
 import {
   ProjectDeployment,

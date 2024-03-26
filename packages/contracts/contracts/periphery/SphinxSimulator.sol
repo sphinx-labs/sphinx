@@ -19,7 +19,8 @@ contract SphinxSimulator {
         safeSingleton = _safeSingleton;
     }
 
-    function simulate(GnosisSafeTransaction[] memory _txns, GnosisSafe _safeProxy, bytes memory _safeInitializerData, uint256 _safeSaltNonce) external returns (bytes memory) {
+    // TODO(later): do something with the 'payable' modifier on this function.
+    function simulate(GnosisSafeTransaction[] memory _txns, GnosisSafe _safeProxy, bytes memory _safeInitializerData, uint256 _safeSaltNonce) external payable returns (bytes memory) {
         if (address(_safeProxy).code.length == 0) {
             safeProxyFactory.createProxyWithNonce(
                 safeSingleton,

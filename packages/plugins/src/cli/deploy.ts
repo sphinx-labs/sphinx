@@ -1,5 +1,8 @@
 import { join, relative } from 'path'
-import { existsSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+
+// TODO(end): rm
+Error.stackTraceLimit = Infinity
 
 import {
   displayDeploymentTable,
@@ -66,6 +69,7 @@ import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
+import { InvalidFirstSigArgumentErrorMessage } from '../foundry/error-messages'
 
 export interface DeployArgs {
   scriptPath: string
@@ -88,6 +92,10 @@ export const deploy = async (
   configArtifacts?: ConfigArtifacts
   deploymentArtifacts?: DeploymentArtifacts
 }> => {
+  // if (!process.env.LABEL) {
+  //   throw new Error(`Include a LABEL env var.`)
+  // }
+
   const {
     network,
     skipPreview,
@@ -328,12 +336,19 @@ export const deploy = async (
     [] // We don't currently support linked libraries.
   )
 
+  writeFileSync(
+    `network-config-${process.env.LABEL}.json`,
+    JSON.stringify(networkConfig)
+  )
+
   await ensureSphinxAndGnosisSafeDeployed(
     provider,
     signer,
     ExecutionMode.LocalNetworkCLI,
     false
   )
+
+  await getMerkleLeafGasFields(networkConfig, provider)
 
   const { safeInitData, actionInputs, newConfig } = networkConfig
 
@@ -581,3 +596,15 @@ export const deploy = async (
 
 // TODO: how will the SphinxSimulator contract get deployed in production on the networks
 // supported by the DevOps platform?
+
+// TODO: the following RPC providers didn't work for 3-MyLargeContract:
+// - Linea Goerli
+// - celo_alfajores
+// - evmos_testnet
+// - kava_testnet
+// - rootstock_testnet
+// - rari_sepolia: {to: ethers.ZeroAddress, data: '0x' + '11'.repeat(51500)}
+
+// TODO: consider using fallback providers that we know work.
+
+// TODO(later): EthersJS throws an error when ABI decoding this

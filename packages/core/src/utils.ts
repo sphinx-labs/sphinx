@@ -1668,7 +1668,14 @@ export const getMerkleLeafGasFields = async (
   networkConfig: NetworkConfig,
   provider: SphinxJsonRpcProvider
 ): Promise<Array<string>> => {
-  const sphinxSimulatorAddress = getSphinxSimulatorAddress()
+  // TODO(later): rm:
+  // const sphinxSimulatorAddress = getSphinxSimulatorAddress()
+  const simulatorCode = await provider.getCode(getSphinxSimulatorAddress())
+  const sphinxSimulatorAddress =
+    simulatorCode !== '0x'
+      ? getSphinxSimulatorAddress()
+      : // Original SphinxSimulator:
+        '0xdF649B5d815eE23ca0264Ce7373E8538494f3b8E'
 
   const { safeInitData, actionInputs, newConfig, safeAddress } = networkConfig
 

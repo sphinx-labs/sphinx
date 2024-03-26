@@ -8,7 +8,7 @@ import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
 import {Network} from "@sphinx-labs/contracts/contracts/foundry/SphinxPluginTypes.sol";
 // import {SphinxSimulator} from "@sphinx-labs/contracts/contracts/periphery/SphinxSimulator.sol";
 // import {MyContract1,MyContract2, HelloSphinx} from "../contracts/test/MyContracts.sol";
-import {MyContract1} from "../contracts/test/MyContracts.sol";
+import "../contracts/test/MyContracts.sol";
 import {CREATE3} from "solady/utils/CREATE3.sol";
 
 contract Sample is Sphinx, Script, SphinxConstants {
@@ -20,27 +20,35 @@ contract Sample is Sphinx, Script, SphinxConstants {
         sphinxConfig.threshold = 1;
         sphinxConfig.orgId = "clksrkg1v0001l00815670lu8";
         sphinxConfig.saltNonce = 213222412;
+        sphinxConfig.mainnets = [
+            'kava',
+            'rootstock',
+            'rari',
+            'optimism_mainnet',
+            'celo',
+            'evmos'
+        ];
         sphinxConfig.testnets = [
-            'sepolia',
-            'arbitrum_sepolia',
-            'bnb_testnet',
-            'linea_goerli',
-            'avalanche_fuji',
-            'base_sepolia',
-            'moonbase_alpha',
+            // 'sepolia',
+            // 'arbitrum_sepolia',
+            // 'bnb_testnet',
+            // 'linea_goerli',
+            // 'avalanche_fuji',
+            // 'base_sepolia',
+            // 'moonbase_alpha',
             'kava_testnet',
             'rootstock_testnet',
             'rari_sepolia',
             'optimism_sepolia',
-            'polygon_mumbai',
-            'gnosis_chiado',
-            'polygon_zkevm_goerli',
-            'fantom_testnet',
+            // 'polygon_mumbai',
+            // 'gnosis_chiado',
+            // 'polygon_zkevm_goerli',
+            // 'fantom_testnet',
             'celo_alfajores',
-            'evmos_testnet',
-            'scroll_sepolia',
-            'zora_sepolia',
-            'blast_sepolia'
+            'evmos_testnet'
+            // 'scroll_sepolia',
+            // 'zora_sepolia',
+            // 'blast_sepolia'
         ];
     }
 
@@ -63,6 +71,10 @@ contract Sample is Sphinx, Script, SphinxConstants {
             address(1),
             address(2)
         );
+    }
+
+    function limitTester() external sphinx {
+        new LimitTester{ salt: 0 }();
     }
 
     function simulator() public sphinx {
