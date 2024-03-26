@@ -137,7 +137,7 @@ export const startForkedAnvilNodes = async (chainIds: Array<bigint>) => {
     exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
   }
 
-  await sleep(3000)
+  await sleep(10000)
 }
 
 export const killAnvilNodes = async (chainIds: Array<bigint>) => {
