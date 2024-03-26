@@ -75,6 +75,12 @@ contract MyContract2 {
     function incrementMyContract2(uint256 _num) external {
         number += _num;
     }
+
+    receive() external payable {}
+}
+
+contract MyContractPayable {
+    constructor() payable {}
 }
 
 contract MyOwnable is Ownable {

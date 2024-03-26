@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ConstructorFragment, ethers } from 'ethers'
+import { ConstructorFragment, ethers, parseUnits } from 'ethers'
 import { ConfigArtifacts } from '@sphinx-labs/core'
 import {
   CREATE3_PROXY_INITCODE,
@@ -50,18 +50,21 @@ describe('Decoded Actions', () => {
         bytecode,
         iface.encodeDeploy(Object.values(constructorArgs)),
       ])
+      const value = parseUnits('0.1', 'ether').toString()
 
       const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         mockConfigArtifacts,
-        myContract1FullyQualifiedName
+        myContract1FullyQualifiedName,
+        value
       )
       expect(result).to.deep.equal({
         referenceName: contractName,
         functionName: 'deploy',
         variables: constructorArgs,
         address: create2Address,
+        value,
       })
     })
 
@@ -69,18 +72,21 @@ describe('Decoded Actions', () => {
       const { contractName, abi, bytecode } = MyContract2Artifact
       const iface = new ethers.Interface(abi)
       const initCodeWithArgs = ethers.concat([bytecode, iface.encodeDeploy([])])
+      const value = parseUnits('0.1', 'ether').toString()
 
       const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
         mockConfigArtifacts,
-        myContract2FullyQualifiedName
+        myContract2FullyQualifiedName,
+        value
       )
       expect(result).to.deep.equal({
         referenceName: contractName,
         functionName: 'deploy',
         variables: {},
         address: create2Address,
+        value,
       })
 
       // Check that the contract does not have a constructor.
@@ -90,16 +96,20 @@ describe('Decoded Actions', () => {
     it('returns decoded action for contract with no fully qualified name', () => {
       const initCodeWithArgs = CREATE3_PROXY_INITCODE
       const configArtifacts = {}
+      const value = parseUnits('0.1', 'ether').toString()
       const result = makeContractDecodedAction(
         create2Address,
         initCodeWithArgs,
-        configArtifacts
+        configArtifacts,
+        undefined,
+        value
       )
       expect(result).to.deep.equal({
         referenceName: create2Address,
         functionName: 'deploy',
         variables: [],
         address: create2Address,
+        value,
       })
     })
   })
@@ -111,9 +121,11 @@ describe('Decoded Actions', () => {
       const functionName = 'incrementMyContract2'
       const iface = new ethers.Interface(MyContract2Artifact.abi)
       const data = iface.encodeFunctionData(functionName, [1])
+      const value = parseUnits('0.1', 'ether').toString()
       const result = makeFunctionCallDecodedAction(
         to,
         data,
+        value,
         mockConfigArtifacts,
         myContract2FullyQualifiedName
       )
@@ -123,14 +135,17 @@ describe('Decoded Actions', () => {
         functionName,
         variables: { _num: '1' },
         address: to,
+        value,
       })
     })
 
     it('returns decoded action for a call with fully qualified name but unsuccessful decoding', () => {
       const data = '0x1111'
+      const value = parseUnits('0.1', 'ether').toString()
       const result = makeFunctionCallDecodedAction(
         to,
         data,
+        value,
         mockConfigArtifacts,
         myContract2FullyQualifiedName
       )
@@ -139,14 +154,17 @@ describe('Decoded Actions', () => {
         functionName: 'call',
         variables: [data],
         address: to,
+        value,
       })
     })
 
     it('returns decoded action for a call without fully qualified name', () => {
       const data = '0x1111'
+      const value = parseUnits('0.1', 'ether').toString()
       const result = makeFunctionCallDecodedAction(
         to,
         data,
+        value,
         mockConfigArtifacts
       )
       expect(result).to.deep.equal({
@@ -154,14 +172,17 @@ describe('Decoded Actions', () => {
         functionName: 'call',
         variables: [data],
         address: '',
+        value,
       })
     })
 
     it('returns decoded action for very large calldata', () => {
       const largeData = '0x' + 'ab'.repeat(501) // More than 1000 characters
+      const value = parseUnits('0.1', 'ether').toString()
       const result = makeFunctionCallDecodedAction(
         to,
         largeData,
+        value,
         mockConfigArtifacts
       )
       expect(result).to.deep.equal({
@@ -169,6 +190,7 @@ describe('Decoded Actions', () => {
         functionName: 'call',
         variables: [`Calldata is too large to display.`],
         address: '',
+        value,
       })
     })
   })

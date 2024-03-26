@@ -27,7 +27,7 @@ import {
   fetchChainIdForNetwork,
   checkSystemDeployed,
   ensureSphinxAndGnosisSafeDeployed,
-  compileAndExecuteDeployment,
+  attemptDeployment,
   signMerkleRoot,
   Deployment,
   fetchNameForNetwork,
@@ -137,7 +137,7 @@ export const startForkedAnvilNodes = async (chainIds: Array<bigint>) => {
     exec(`anvil --fork-url ${forkUrl} --port ${getAnvilPort(chainId)} &`)
   }
 
-  await sleep(3000)
+  await sleep(10000)
 }
 
 export const killAnvilNodes = async (chainIds: Array<bigint>) => {
@@ -448,6 +448,8 @@ export const makeDeployment = async (
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
         // This is currenly only used specifically on Moonbeam
         deployedContractSizes,
+        fundsRequestedForSafe: '0',
+        safeStartingBalance: '0',
       }
 
       return deploymentInfo
@@ -600,7 +602,7 @@ export const runDeployment = async (
       provider,
       wallet: signer,
     }
-    const result = await compileAndExecuteDeployment(deploymentContext)
+    const result = await attemptDeployment(deploymentContext)
 
     if (!result) {
       throw new Error('deployment failed for an unexpected reason')
@@ -1010,7 +1012,8 @@ export const makeActionInputsWithoutGas = (
         create2Address,
         initCodeWithArgs,
         configArtifacts,
-        fullyQualifiedName
+        fullyQualifiedName,
+        '0'
       )
       const contracts = [
         {
@@ -1040,6 +1043,7 @@ export const makeActionInputsWithoutGas = (
       const decodedAction = makeFunctionCallDecodedAction(
         to,
         txData,
+        '0',
         configArtifacts,
         fullyQualifiedName
       )
@@ -1072,7 +1076,8 @@ export const makeActionInputsWithoutGas = (
         contractAddress,
         initCodeWithArgs,
         configArtifacts,
-        fullyQualifiedName
+        fullyQualifiedName,
+        '0'
       )
       const contracts = [
         {
