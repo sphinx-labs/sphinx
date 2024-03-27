@@ -614,4 +614,9 @@ export const deploy = async (
 
 // TODO(later): can we do this without deploying the SphinxSimulator?
 
-// TODO(later): maybe eth_estimateGas doesn't have these two restrictions?
+// TODO(later): What are reasonable upper bounds for the calldata limit and gas limit?
+
+// TODO(later): Handle deployments that use more gas than the simulation allows.
+
+// TODO(later): Handle deployments with calldata that’s too long for the simulation. (Do we throw an
+// error or just skip the simulation?)
