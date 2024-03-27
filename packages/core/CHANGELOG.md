@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.23.9
+
+### Patch Changes
+
+- 96653d9: Do not use isVerified at all
+
 ## 0.23.8
 
 ### Patch Changes
