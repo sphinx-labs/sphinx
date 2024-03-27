@@ -195,17 +195,30 @@ contract MyImmutableContract {
     }
 }
 
-contract LimitTester {
+// contract GasLimitChecker {
+
+//     mapping(bytes32 => bool) myMapping;
+
+//     constructor(uint256 _iterations) {
+//         for (uint i = 0; i < _iterations; i++) {
+//             myMapping[keccak256(abi.encodePacked(i))] = true;
+//         }
+//     }
+// }
+
+
+contract FunctionGasLimitChecker {
 
     mapping(bytes32 => bool) myMapping;
+
+    uint256 count;
 
     function gasLimit(uint256 _iterations) external returns (uint256) {
         uint256 initial = gasleft();
         for (uint i = 0; i < _iterations; i++) {
-            myMapping[keccak256(abi.encodePacked(i, block.timestamp))] = true;
+            myMapping[keccak256(abi.encode(i, count))] = true;
+            count++;
         }
         return initial - gasleft();
     }
-
-    function calldataLimit(bytes memory) external {}
 }

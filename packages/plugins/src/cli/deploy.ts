@@ -607,4 +607,11 @@ export const deploy = async (
 
 // TODO: consider using fallback providers that we know work.
 
-// TODO(later): EthersJS throws an error when ABI decoding this
+// TODO(later): EthersJS throws an error when ABI decoding on celo alfajores w/ 3-MyLargeContract.
+
+// TODO(later):  ethersJS abi encoding may fail for very large deployments. (i forget if it's abi
+// encoding or decoding that fails).
+
+// TODO(later): can we do this without deploying the SphinxSimulator?
+
+// TODO(later): maybe eth_estimateGas doesn't have these two restrictions?

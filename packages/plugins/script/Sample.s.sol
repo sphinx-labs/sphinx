@@ -73,10 +73,6 @@ contract Sample is Sphinx, Script, SphinxConstants {
         );
     }
 
-    function limitTester() external sphinx {
-        new LimitTester{ salt: 0 }();
-    }
-
     function simulator() public sphinx {
         // vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         // new SphinxSimulator{ salt: 0 }(safeFactoryAddress, safeSingletonAddress);
