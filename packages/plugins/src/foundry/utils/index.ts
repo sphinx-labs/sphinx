@@ -1669,7 +1669,9 @@ export const validateProposalNetworks = async (
     }
 
     if (!(await isLiveNetwork(provider))) {
-      return { type: 'localNetwork', network }
+      if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
+        return { type: 'localNetwork', network }
+      }
     }
 
     return {
@@ -1738,7 +1740,9 @@ export const validateProposalNetworks = async (
   }
 
   if (localNetwork.length > 0) {
-    throw new Error(getLocalNetworkErrorMessage(localNetwork))
+    if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
+      throw new Error(getLocalNetworkErrorMessage(localNetwork))
+    }
   }
 
   // Check if the array contains a mix of test networks and production networks. We check this after
