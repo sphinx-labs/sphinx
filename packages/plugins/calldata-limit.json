@@ -1,0 +1,282 @@
+[
+  {
+    "rpcUrl
+    "calldataLimit": "14999935",
+    "networkName": "gnosis"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "14999935",
+    "networkName": "fuse"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "7864255",
+    "networkName": "moonbeam"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "rootstock_testnet"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "bnb"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "bnb_testnet"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "avalanche"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "avalanche_fuji"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "fantom"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "scroll"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "scroll_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "zora"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621375",
+    "networkName": "zora_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621361",
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2621361",
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2097087",
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2097087",
+    "networkName": "polygon"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2097087",
+    "networkName": "blast_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2097087",
+    "networkName": "scroll"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "2097087",
+    "networkName": "scroll_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1561187",
+    "networkName": "celo"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1561187",
+    "networkName": "celo_alfajores"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1561165",
+    "networkName": "evmos_testnet"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "ethereum"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "optimism"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "optimism_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "arbitrum"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "polygon"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "polygon_mumbai"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "base"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "1299935",
+    "networkName": "base_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "734985",
+    "networkName": "rootstock"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "527384",
+    "networkName": "optimism_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "gnosis_chiado"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "fantom_testnet"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "moonriver"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "moonbase_alpha"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "evmos"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "kava"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "kava_testnet"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "blast_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "524223",
+    "networkName": "blast"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "119892",
+    "networkName": "polygon_zkevm_goerli"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "119892",
+    "networkName": "polygon_zkevm_goerli"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "119883",
+    "networkName": "polygon_zkevm"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "119883",
+    "networkName": "polygon_zkevm"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "60000",
+    "networkName": "linea"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "60000",
+    "networkName": "linea"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "60000",
+    "networkName": "linea_goerli"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "56255",
+    "networkName": "rootstock"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "51135",
+    "networkName": "rari"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "51135",
+    "networkName": "rari_sepolia"
+  },
+  {
+    "rpcUrl
+    "calldataLimit": "30655",
+    "networkName": "rootstock_testnet"
+  }
+]

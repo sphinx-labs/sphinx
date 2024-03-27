@@ -30,6 +30,8 @@ import {
 import {
   SphinxLeafType,
   SphinxMerkleTree,
+  SphinxSimulatorABI,
+  getSphinxSimulatorAddress,
   makeSphinxMerkleTree,
 } from '@sphinx-labs/contracts'
 
@@ -209,6 +211,44 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       configArtifacts: undefined,
     }
   }
+
+  // TODO(later-later): mv
+  // TODO(later-later): parallelize
+  const promises = networkConfigArrayWithRpcUrls.map(
+    async ({ rpcUrl, networkConfig }) => {
+      try {
+        const provider = new SphinxJsonRpcProvider(rpcUrl)
+        const gasEstimates = await getGasEstimatesTODO(networkConfig, provider)
+        for (let i = 0; i < networkConfig.actionInputs.length; i++) {
+          networkConfig.actionInputs[i].gas = gasEstimates[i]
+        }
+        return {
+          success: true,
+          gasEstimates,
+          network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
+        }
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error
+              : new Error('An unexpected error occurred'),
+        }
+      }
+    }
+  )
+
+  const results = await Promise.allSettled(promises)
+  const final = results.map((result) =>
+    result.status === 'fulfilled'
+      ? result.value
+      : {
+          success: false,
+          error: result.reason,
+        }
+  )
+  final
 
   return {
     networkConfigArrayWithRpcUrls,

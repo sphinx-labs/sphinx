@@ -1,0 +1,322 @@
+[
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "scroll_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "scroll"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "blast_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "polygon"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "ethereum"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "optimism_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "bnb"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "bnb_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "gnosis"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 26169,
+    "networkName": "fantom"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "ethereum"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "optimism"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "optimism_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "polygon"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "polygon_mumbai"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "base"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24006,
+    "networkName": "base_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 24004,
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 23988,
+    "networkName": "arbitrum"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 21839,
+    "networkName": "fantom_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 13141,
+    "networkName": "avalanche"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 13141,
+    "networkName": "avalanche_fuji"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 8773,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 6583,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 5375,
+    "networkName": "optimism_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 4391,
+    "networkName": "gnosis_chiado"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 4391,
+    "networkName": "fuse"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 3531,
+    "networkName": "moonriver"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 3531,
+    "networkName": "moonbeam"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 3531,
+    "networkName": "moonbase_alpha"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2989,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2395,
+    "networkName": "rootstock_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2395,
+    "networkName": "rootstock_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2394,
+    "networkName": "rootstock"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2394,
+    "networkName": "rootstock"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "scroll"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "arbitrum_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "scroll"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "scroll_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "zora"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "zora_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "rari"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "rari_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "blast_sepolia"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 2195,
+    "networkName": "blast"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1316,
+    "networkName": "linea"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1316,
+    "networkName": "linea"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1316,
+    "networkName": "linea_goerli"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1316,
+    "networkName": "polygon_zkevm"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1316,
+    "networkName": "polygon_zkevm_goerli"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "evmos"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "celo"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "celo"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "celo"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "celo_alfajores"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "evmos"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "evmos_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "kava"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 1096,
+    "networkName": "kava_testnet"
+  },
+  {
+    "rpcUrl
+    "gasLimit": 436,
+    "networkName": "celo"
+  }
+]

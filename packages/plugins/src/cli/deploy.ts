@@ -43,7 +43,12 @@ import {
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  SphinxMerkleTree,
+  SphinxSimulatorABI,
+  getSphinxSimulatorAddress,
+  makeSphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
@@ -321,10 +326,19 @@ export const deploy = async (
     [] // We don't currently support linked libraries.
   )
 
+  const { safeInitData, actionInputs, newConfig } = networkConfig
+
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
+
+  await ensureSphinxAndGnosisSafeDeployed(
+    provider,
+    signer,
+    ExecutionMode.LocalNetworkCLI,
+    false
+  )
 
   const deploymentData = makeDeploymentData([networkConfig])
 
@@ -482,3 +496,39 @@ export const deploy = async (
     deploymentArtifacts,
   }
 }
+
+// TODO(later-later): error handling when the calldata is too large (e.g. new bytes(100 million))
+
+// TODO(later-later): error handling when the RPC call runs out of gas
+
+// TODO(docs): we don't call `execTransactionFromModule` directly because the SphinxSimulator isn't
+// a module.
+
+// TODO(later-later): which buffers should we keep, and which should we remove? I think we still
+// need a buffer to account for changes in on-chain state between proposal and approval. also, i
+// think we need a buffer to account for the fact that actions may be executed in separate
+// transactions on-chain, which means there are more cold SLOADs.
+
+// TODO(later-later): optimize SphinxSimulator to maximize the size of the deployment. consider not
+// ABI encoding the input array. first, check the difference in size between packing the bytes and
+// abi encoding them.
+
+// TODO(later): i think the targetContract should be the SphinxSimulator. OLD: the `targetContract`
+// input param to `simulateAndRevert` should be the safe singleton. it's redundant to delegatecall
+// the safe proxy because it's already being delegatecalled. also, delegatecalling the singleton is
+// a little cheaper than delegatecalling the Safe Proxy, which is good b/c we we want to minimize
+// gas used to increase the max deployment size.
+
+// TODO(later): check Safe v1.4.1 for differences
+
+// TODO(later): how are we going to figure out whether an `EXECUTE` action fits in a batch that doesn't exceed the value returned by `getMaxGasLimit`?
+
+// TODO: left off: puzzled by moonbeam and rootstock.
+
+// TODO: rm: eth sepolia sample.s.sol MyContract1: "736753,734003,734003"
+
+// TODO: rm: new gas estimates using Large.s.sol w/ 3 contract deployments:
+// '9117610,9114860,9114860' 11155111
+// ['9117610,9114860,9114860'] 1287
+// ['8820110,8820110,8820110'] rootstock
+// ['9117610,9114860,9114860'] optimism

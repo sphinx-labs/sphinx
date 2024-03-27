@@ -21,6 +21,7 @@ import {
   SignMessageLibArtifact,
   DrippieArtifact,
   CheckBalanceLowArtifact,
+  SphinxSimulatorArtifact,
 } from './ifaces'
 import {
   getOwnerAddress,
@@ -185,5 +186,22 @@ export const getCheckBalanceLowAddress = () => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     ZeroHash,
     solidityPackedKeccak256(['bytes'], [CheckBalanceLowArtifact.bytecode])
+  )
+}
+
+export const getSphinxSimulatorAddress = (): string => {
+  return getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    ZeroHash,
+    solidityPackedKeccak256(
+      ['bytes', 'bytes'],
+      [
+        SphinxSimulatorArtifact.bytecode,
+        AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address'],
+          [getGnosisSafeProxyFactoryAddress(), getGnosisSafeSingletonAddress()]
+        ),
+      ]
+    )
   )
 }

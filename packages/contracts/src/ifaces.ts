@@ -11,10 +11,15 @@ export const SphinxModuleArtifact = parseFoundryContractArtifact(
 export const SphinxModuleProxyFactoryArtifact = parseFoundryContractArtifact(
   require('../contract-artifacts/sphinx/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
+// TODO(later-later): put this in `contract-artifacts`?
+export const SphinxSimulatorArtifact = parseFoundryContractArtifact(
+  require('../out/SphinxSimulator.sol/SphinxSimulator.json')
+)
 
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
+export const SphinxSimulatorABI = SphinxSimulatorArtifact.abi
 
 export const sphinxBuildInfo = require(`../contract-artifacts/sphinx/build-info.json`)
 
