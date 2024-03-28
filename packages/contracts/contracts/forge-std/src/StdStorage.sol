@@ -23,12 +23,14 @@ library stdStorageSafe {
         return bytes4(keccak256(bytes(sigStr)));
     }
 
-    /// @notice find an arbitrary storage slot given a function sig, input data, address of the contract and a value to check against
+    /// @notice find an arbitrary storage slot given a function sig, input data, address of the
+    /// contract and a value to check against
     // slot complexity:
     //  if flat, will be bytes32(uint256(uint));
     //  if map, will be keccak256(abi.encode(key, uint(slot)));
     //  if deep map, will be keccak256(abi.encode(key1, keccak256(abi.encode(key0, uint(slot)))));
-    //  if map struct, will be bytes32(uint256(keccak256(abi.encode(key1, keccak256(abi.encode(key0, uint(slot)))))) + structFieldDepth);
+    //  if map struct, will be bytes32(uint256(keccak256(abi.encode(key1, keccak256(abi.encode(key0,
+    // uint(slot)))))) + structFieldDepth);
     function find(StdStorage storage self) internal returns (uint256) {
         address who = self._target;
         bytes4 fsig = self._sig;
@@ -47,7 +49,7 @@ library stdStorageSafe {
             fdat = bytesToBytes32(rdat, 32 * field_depth);
         }
 
-        (bytes32[] memory reads, ) = vm.accesses(address(who));
+        (bytes32[] memory reads,) = vm.accesses(address(who));
         if (reads.length == 1) {
             bytes32 curr = vm.load(who, reads[0]);
             if (curr == bytes32(0)) {
@@ -60,14 +62,9 @@ library stdStorageSafe {
                 );
             }
             emit SlotFound(
-                who,
-                fsig,
-                keccak256(abi.encodePacked(ins, field_depth)),
-                uint256(reads[0])
+                who, fsig, keccak256(abi.encodePacked(ins, field_depth)), uint256(reads[0])
             );
-            self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] = uint256(
-                reads[0]
-            );
+            self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] = uint256(reads[0]);
             self.finds[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] = true;
         } else if (reads.length > 1) {
             for (uint256 i = 0; i < reads.length; i++) {
@@ -91,14 +88,10 @@ library stdStorageSafe {
                 if (success && fdat == new_val) {
                     // we found which of the slots is the actual one
                     emit SlotFound(
-                        who,
-                        fsig,
-                        keccak256(abi.encodePacked(ins, field_depth)),
-                        uint256(reads[i])
+                        who, fsig, keccak256(abi.encodePacked(ins, field_depth)), uint256(reads[i])
                     );
-                    self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] = uint256(
-                        reads[i]
-                    );
+                    self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] =
+                        uint256(reads[i]);
                     self.finds[who][fsig][keccak256(abi.encodePacked(ins, field_depth))] = true;
                     vm.store(who, reads[i], prev);
                     break;
@@ -125,7 +118,10 @@ library stdStorageSafe {
     function target(
         StdStorage storage self,
         address _target
-    ) internal returns (StdStorage storage) {
+    )
+        internal
+        returns (StdStorage storage)
+    {
         self._target = _target;
         return self;
     }
@@ -138,7 +134,10 @@ library stdStorageSafe {
     function sig(
         StdStorage storage self,
         string memory _sig
-    ) internal returns (StdStorage storage) {
+    )
+        internal
+        returns (StdStorage storage)
+    {
         self._sig = sigs(_sig);
         return self;
     }
@@ -177,9 +176,7 @@ library stdStorageSafe {
         int256 v = read_int(self);
         if (v == 0) return false;
         if (v == 1) return true;
-        revert(
-            "stdStorage read_bool(StdStorage): Cannot decode. Make sure you are reading a bool."
-        );
+        revert("stdStorage read_bool(StdStorage): Cannot decode. Make sure you are reading a bool.");
     }
 
     function read_address(StdStorage storage self) internal returns (address) {
@@ -199,10 +196,8 @@ library stdStorageSafe {
         uint256 field_depth = self._depth;
         vm.startMappingRecording();
         uint256 child = find(self) - field_depth;
-        (bool found, bytes32 key, bytes32 parent_slot) = vm.getMappingKeyAndParentOf(
-            who,
-            bytes32(child)
-        );
+        (bool found, bytes32 key, bytes32 parent_slot) =
+            vm.getMappingKeyAndParentOf(who, bytes32(child));
         if (!found) {
             revert(
                 "stdStorage read_bool(StdStorage): Cannot find parent. Make sure you give a slot and startMappingRecording() has been called."
@@ -219,7 +214,7 @@ library stdStorageSafe {
         bool found;
         bytes32 root_slot;
         bytes32 parent_slot;
-        (found, , parent_slot) = vm.getMappingKeyAndParentOf(who, bytes32(child));
+        (found,, parent_slot) = vm.getMappingKeyAndParentOf(who, bytes32(child));
         if (!found) {
             revert(
                 "stdStorage read_bool(StdStorage): Cannot find parent. Make sure you give a slot and startMappingRecording() has been called."
@@ -227,7 +222,7 @@ library stdStorageSafe {
         }
         while (found) {
             root_slot = parent_slot;
-            (found, , parent_slot) = vm.getMappingKeyAndParentOf(who, bytes32(root_slot));
+            (found,, parent_slot) = vm.getMappingKeyAndParentOf(who, bytes32(root_slot));
         }
         return uint256(root_slot);
     }
@@ -270,7 +265,10 @@ library stdStorage {
     function target(
         StdStorage storage self,
         address _target
-    ) internal returns (StdStorage storage) {
+    )
+        internal
+        returns (StdStorage storage)
+    {
         return stdStorageSafe.target(self, _target);
     }
 
@@ -281,7 +279,10 @@ library stdStorage {
     function sig(
         StdStorage storage self,
         string memory _sig
-    ) internal returns (StdStorage storage) {
+    )
+        internal
+        returns (StdStorage storage)
+    {
         return stdStorageSafe.sig(self, _sig);
     }
 
@@ -332,9 +333,7 @@ library stdStorage {
         if (!self.finds[who][fsig][keccak256(abi.encodePacked(ins, field_depth))]) {
             find(self);
         }
-        bytes32 slot = bytes32(
-            self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))]
-        );
+        bytes32 slot = bytes32(self.slots[who][fsig][keccak256(abi.encodePacked(ins, field_depth))]);
 
         bytes32 fdat;
         {

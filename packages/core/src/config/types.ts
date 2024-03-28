@@ -111,7 +111,6 @@ export type DeploymentInfo = {
   arbitraryChain: boolean
   sphinxLibraryVersion: string
   accountAccesses: Array<ParsedAccountAccess>
-  gasEstimates: Array<string>
   deployedContractSizes: Array<DeployedContractSize>
 }
 

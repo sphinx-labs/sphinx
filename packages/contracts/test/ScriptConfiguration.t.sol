@@ -31,10 +31,8 @@ contract ScriptConfiguration_Test is Test, Sphinx, SphinxTestUtils {
 
     function test_sphinxConfigABIEncoded_success_primaryConfigurationMethod() external {
         bytes memory abiEncodedConfig = sphinxConfigABIEncoded();
-        (SphinxConfig memory config, address safeAddress, address moduleAddress) = abi.decode(
-            abiEncodedConfig,
-            (SphinxConfig, address, address)
-        );
+        (SphinxConfig memory config, address safeAddress, address moduleAddress) =
+            abi.decode(abiEncodedConfig, (SphinxConfig, address, address));
         assertNotEq(safeAddress, address(0));
         assertNotEq(moduleAddress, address(0));
         assertEq(config.projectName, "test_project");

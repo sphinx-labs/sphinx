@@ -26,7 +26,8 @@ interface IGnosisSafe {
         address paymentToken,
         uint256 payment,
         address payable paymentReceiver
-    ) external;
+    )
+        external;
 
     /**
      * @notice Returns if `owner` is an owner of the Safe.
@@ -52,10 +53,14 @@ interface IGnosisSafe {
     function getModulesPaginated(
         address start,
         uint256 pageSize
-    ) external view returns (address[] memory array, address next);
+    )
+        external
+        view
+        returns (address[] memory array, address next);
 
     /**
-     * @notice Returns the number of required confirmations for a Safe transaction aka the threshold.
+     * @notice Returns the number of required confirmations for a Safe transaction aka the
+     * threshold.
      * @return Threshold number.
      */
     function getThreshold() external view returns (uint256);
@@ -74,7 +79,9 @@ interface IGnosisSafe {
         uint256 value,
         bytes memory data,
         IEnum.GnosisSafeOperation operation
-    ) external returns (bool success);
+    )
+        external
+        returns (bool success);
 
     /**
      * @notice Adds the owner `owner` to the Safe and updates the threshold to `_threshold`.

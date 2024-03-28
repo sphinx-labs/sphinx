@@ -21,7 +21,7 @@ import { SphinxTestUtils } from "./SphinxTestUtils.sol";
 contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
     address dummySafeAddress = address(0x1234);
 
-    function setUp() public {}
+    function setUp() public { }
 
     function test_checkAccesses_passes() external {
         vm.startStateDiffRecording();
@@ -40,9 +40,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
 
     function test_sphinxCheckAccesses_fails_did_not_use_default_factory() external {
         address expectedAddress = vm.computeCreate2Address(
-            0,
-            keccak256(type(SphinxForkCheck).creationCode),
-            DETERMINISTIC_DEPLOYMENT_PROXY
+            0, keccak256(type(SphinxForkCheck).creationCode), DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
         Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
@@ -90,9 +88,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
 
     function test_sphinxCheckAccesses_fails_incorrect_deployed_code_in_simulation() external {
         address expectedAddress = vm.computeCreate2Address(
-            0,
-            keccak256(type(SphinxForkCheck).creationCode),
-            DETERMINISTIC_DEPLOYMENT_PROXY
+            0, keccak256(type(SphinxForkCheck).creationCode), DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
         Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
@@ -141,9 +137,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
 
     function test_sphinxCheckAccesses_fails_incorrect_depth() external {
         address expectedAddress = vm.computeCreate2Address(
-            0,
-            keccak256(type(SphinxForkCheck).creationCode),
-            DETERMINISTIC_DEPLOYMENT_PROXY
+            0, keccak256(type(SphinxForkCheck).creationCode), DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
         Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
@@ -366,12 +360,8 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
 
     function test_parseAccountAccesses_emptyInput() public {
         Vm.AccountAccess[] memory accesses;
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
-            accesses,
-            dummySafeAddress,
-            defaultCallDepth,
-            block.chainid
-        );
+        ParsedAccountAccess[] memory parsed =
+            parseAccountAccesses(accesses, dummySafeAddress, defaultCallDepth, block.chainid);
         assertEq(parsed.length, 0);
     }
 
@@ -393,12 +383,8 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
             _depth: 3
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
-            accesses,
-            dummySafeAddress,
-            defaultCallDepth,
-            block.chainid
-        );
+        ParsedAccountAccess[] memory parsed =
+            parseAccountAccesses(accesses, dummySafeAddress, defaultCallDepth, block.chainid);
         assertEq(parsed.length, 0);
     }
 
@@ -415,12 +401,8 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
             _depth: 2
         });
 
-        ParsedAccountAccess[] memory parsed = parseAccountAccesses(
-            accesses,
-            dummySafeAddress,
-            defaultCallDepth,
-            block.chainid
-        );
+        ParsedAccountAccess[] memory parsed =
+            parseAccountAccesses(accesses, dummySafeAddress, defaultCallDepth, block.chainid);
         assertEq(parsed.length, 2);
 
         assertEq(parsed[0].root.accessor, dummySafeAddress);
@@ -512,7 +494,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
             _accessor: dummySafeAddress,
             _kind: VmSafe.AccountAccessKind.Create,
             _depth: 2 // Also a root account access
-        });
+         });
         nextAccess.chainInfo.chainId = block.chainid - 1;
         accesses[1] = nextAccess;
 
@@ -542,7 +524,7 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
             _accessor: dummySafeAddress,
             _kind: VmSafe.AccountAccessKind.Create,
             _depth: 3 // Nested account access
-        });
+         });
         nextAccess.chainInfo.chainId = block.chainid - 1;
         accesses[1] = nextAccess;
 
@@ -563,7 +545,11 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
         address _accessor,
         Vm.AccountAccessKind _kind,
         uint64 _depth
-    ) private view returns (Vm.AccountAccess memory) {
+    )
+        private
+        view
+        returns (Vm.AccountAccess memory)
+    {
         Vm.AccountAccess memory access;
         access.kind = _kind;
         access.accessor = _accessor;

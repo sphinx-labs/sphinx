@@ -36,6 +36,14 @@ import {
   CreateCallArtifact,
   SphinxSimulatorABI,
   getSphinxSimulatorAddress,
+  DeploymentData,
+  isNetworkCancellationData,
+  isNetworkDeploymentData,
+  makeSphinxMerkleTree,
+  NetworkDeploymentData,
+  AccountAccess,
+  AccountAccessKind,
+  getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -48,6 +56,7 @@ import {
   Create2ActionInput,
   ActionInputType,
   CreateActionInput,
+  DeploymentInfo,
 } from './config/types'
 import {
   ProposalRequest,
@@ -69,6 +78,9 @@ import {
   isContractDeploymentArtifact,
   isExecutionArtifact,
 } from './artifacts'
+import { makeDeploymentData } from './tasks'
+import { InvariantError } from './errors'
+import { GnosisSafeTransaction, sortSigners } from './actions'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -376,6 +388,18 @@ export const fetchSphinxManagedBaseUrl = () => {
   return process.env.SPHINX_MANAGED_BASE_URL
     ? process.env.SPHINX_MANAGED_BASE_URL
     : 'https://www.sphinx.dev'
+}
+
+// TODO(docs)
+export const fetchMerkleLeafGasFieldsFromWebsite = (
+  networks: Array<{
+    deploymentInfo: DeploymentInfo
+    rpcUrl: string
+  }>
+): Promise<Array<Array<string>>> => {
+  // TODO(ryan)
+  networks
+  return [] as any
 }
 
 export const relayProposal: RelayProposal = async (
@@ -1664,63 +1688,30 @@ export const trimQuotes = (str: string): string => {
   return str.replace(/^['"]+|['"]+$/g, '')
 }
 
-export const getMerkleLeafGasFields = async (
-  networkConfig: NetworkConfig,
-  provider: SphinxJsonRpcProvider
-): Promise<Array<string>> => {
-  // TODO(later): rm:
-  // const sphinxSimulatorAddress = getSphinxSimulatorAddress()
-  const simulatorCode = await provider.getCode(getSphinxSimulatorAddress())
-  const sphinxSimulatorAddress =
-    simulatorCode !== '0x'
-      ? getSphinxSimulatorAddress()
-      : // Original SphinxSimulator:
-        '0xdF649B5d815eE23ca0264Ce7373E8538494f3b8E'
-
-  const { safeInitData, actionInputs, newConfig, safeAddress } = networkConfig
-
-  const gnosisSafeTxns = actionInputs.map((action) => {
+export const toGnosisSafeTransaction = (
+  access: AccountAccess
+): GnosisSafeTransaction => {
+  if (access.kind === AccountAccessKind.Create) {
+    // `Create` transactions are executed by delegatecalling the `CreateCall`
+    // contract from the Gnosis Safe.
     return {
-      to: action.to,
-      value: action.value,
-      txData: action.txData,
-      operation: action.operation,
+      operation: Operation.DelegateCall,
+      // The `value` field is always unused for `DelegateCall` operations.
+      // Instead, value is transferred via `performCreate` below.
+      value: '0',
+      to: getCreateCallAddress(),
+      txData: encodeCreateCall(access.value, access.data),
     }
-  })
-
-  const iface = new ethers.Interface(SphinxSimulatorABI)
-  const calldata = iface.encodeFunctionData('simulate', [
-    gnosisSafeTxns,
-    safeAddress,
-    safeInitData,
-    newConfig.saltNonce,
-  ])
-  const rawReturnData = await provider.send('eth_call', [
-    {
-      to: sphinxSimulatorAddress,
-      data: calldata,
-    },
-    'latest',
-  ])
-  const returnData = iface.decodeFunctionResult('simulate', rawReturnData)[0]
-  const [success, , encodedGasEstimates] =
-    ethers.AbiCoder.defaultAbiCoder().decode(
-      ['bool', 'uint256', 'bytes'],
-      returnData
-    )
-
-  if (!success) {
-    // TODO(docs): this can happen if there's a bug in Sphinx's logic, or if the user's transaction
-    // reverted on-chain. not sure if there are other situations.
-    throw new Error(`TODO(docs)`)
+  } else if (access.kind === AccountAccessKind.Call) {
+    return {
+      operation: Operation.Call,
+      value: access.value,
+      to: access.account,
+      txData: access.data,
+    }
+  } else {
+    throw new InvariantError('AccountAccess kind is incorrect.')
   }
-
-  const gasEstimates = ethers.AbiCoder.defaultAbiCoder().decode(
-    ['uint256[]'],
-    encodedGasEstimates
-  )
-
-  return gasEstimates.map(String)
 }
 
 /**

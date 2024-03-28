@@ -41,7 +41,7 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
     function test_sphinxModule_success_standard() external {
         IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
+        (address[] memory modules,) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
 
         address expectedAddress = this.sphinxModule();
@@ -53,7 +53,7 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
         sphinxConfig.saltNonce = 1;
         IGnosisSafe safeProxy = IGnosisSafe(deploySphinxModuleAndGnosisSafe(sphinxConfig));
 
-        (address[] memory modules, ) = safeProxy.getModulesPaginated(address(0x1), 1);
+        (address[] memory modules,) = safeProxy.getModulesPaginated(address(0x1), 1);
         address sphinxModule = modules[0];
 
         address expectedAddress = this.sphinxModule();
@@ -74,10 +74,8 @@ contract Sphinx_Test is Test, Sphinx, SphinxTestUtils {
         });
 
         assertEq(deploymentInfo.encodedAccountAccesses.length, 1);
-        ParsedAccountAccess memory access = abi.decode(
-            deploymentInfo.encodedAccountAccesses[0],
-            (ParsedAccountAccess)
-        );
+        ParsedAccountAccess memory access =
+            abi.decode(deploymentInfo.encodedAccountAccesses[0], (ParsedAccountAccess));
         assertEq(access.root.chainInfo.chainId, expectedChainId);
         assertEq(access.root.accessor, safeAddress());
         assertEq(access.root.account, CREATE2_FACTORY);

@@ -7,7 +7,6 @@ Error.stackTraceLimit = Infinity
 import {
   displayDeploymentTable,
   fundAccountMaxBalance,
-  getMerkleLeafGasFields,
   getSphinxWalletPrivateKey,
   isFile,
   readDeploymentArtifactsForNetwork,
@@ -44,16 +43,13 @@ import {
   NetworkConfig,
   DeploymentArtifacts,
   ensureSphinxAndGnosisSafeDeployed,
+  getMerkleLeafGasFields,
+  simulateExecution,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
 import { ethers } from 'ethers'
-import {
-  SphinxMerkleTree,
-  SphinxSimulatorABI,
-  getSphinxSimulatorAddress,
-  makeSphinxMerkleTree,
-} from '@sphinx-labs/contracts'
+import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
   assertNoLinkedLibraries,
@@ -69,7 +65,6 @@ import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
 import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
-import { InvalidFirstSigArgumentErrorMessage } from '../foundry/error-messages'
 
 export interface DeployArgs {
   scriptPath: string
@@ -329,16 +324,15 @@ export const deploy = async (
   )
 
   const isSystemDeployed = await checkSystemDeployed(provider)
+
+  const gasEstimates = await getMerkleLeafGasFields(deploymentInfo, provider)
+
   const networkConfig = makeNetworkConfig(
     deploymentInfo,
     isSystemDeployed,
     configArtifacts,
+    gasEstimates,
     [] // We don't currently support linked libraries.
-  )
-
-  writeFileSync(
-    `network-config-${process.env.LABEL}.json`,
-    JSON.stringify(networkConfig)
   )
 
   await ensureSphinxAndGnosisSafeDeployed(
@@ -348,16 +342,12 @@ export const deploy = async (
     false
   )
 
-  await getMerkleLeafGasFields(networkConfig, provider)
-
-  const { safeInitData, actionInputs, newConfig } = networkConfig
-
-  await getMerkleLeafGasFields(networkConfig, provider)
-
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
+
+  await simulateExecution(networkConfig, provider)
 
   await ensureSphinxAndGnosisSafeDeployed(
     provider,
@@ -536,6 +526,12 @@ export const deploy = async (
 
 // TODO(end): slither/solhint.
 
+// TODO(end): create a ticket for incorporating the simulation into the backend. we'll also need to
+// update logic in the `propose` function (link lines starting with "Running simulation"). if we
+// keep the current logic in the Deploy and Propose commands, we'll need two API endpoints: one to
+// get the Merkle leaf gas fields, and the other to run the simulation. Ideally, the simulation can
+// occur before the preview. maybe it'd fit into some sort of validation endpoint.
+
 // TODO(end): do we need to change the license of the SphinxSimulator to LGPL since i copied a
 // couple functions from the Gnosis Safe?
 
@@ -563,49 +559,44 @@ export const deploy = async (
 
 // TODO(docs): all Solidity code.
 
-// TODO(later): can you add a `value` field in `eth_call` even if the sender (i.e. i guess
-// address(0)) doesn't have value?
+// TODO(later-later): write logic to skip certain networks under certain conditions.
 
-// TODO(later): put this off-chain: 60_000 + ((startGas - finalGas) * 11) / 10;
+// TODO(later-later): test that the simulations work with the `msg.value` feature.
 
-// TODO(later): error handling when the calldata is too large (e.g. new bytes(100 million)). started
-// in `long.ts`.
+// TODO(later-later): test that you can transfer value as part of the eth_call in your tests that
+// run against the live network RPC URLs.
 
-// TODO(later): error handling when the RPC call runs out of gas
+// TODO(later-later): remove the hardhat simulation.
 
-// TODO(later): optimize SphinxSimulator to maximize the size of the deployment. consider not
+// TODO(later-later): put this off-chain: 60_000 + ((startGas - finalGas) * 11) / 10;
+
+// TODO(later-later): handle case where the calldata is too large. started in `long.ts`.
+
+// TODO(later-later): handle case where the gas limit is exceeded.
+
+// TODO(later-later): optimize SphinxSimulator to maximize the size of the deployment. consider not
 // ABI encoding the input array. first, check the difference in size between packing the bytes and
 // abi encoding them.
 
-// TODO(later): sanity check that the `gasEstimates` returned by your new logic and the old
+// TODO(later-later): sanity check that the `gasEstimates` returned by your new logic and the old
 // logic are roughly the same.
 
-// TODO(later): do we need to adjust any of our heuristics on rootstock?
+// TODO(later-later): do we need to adjust any of our heuristics on rootstock?
 
-// TODO(later): what do we currently rely on the hardhat simulation for?
-// - Making sure that the `attemptDeployment` function doesn't have a bug.
-// - Checking if a Merkle leaf gas value is too low. (If it's too low, the action will fail
-//   on-chain, causing the simulation to throw an error).
-// - Checking if a valid batch size can't be created. (i.e. a Merkle leaf gas value is too large).
-// - Getting the deployment gas estimate for proposals.
+// TODO(later-later): maybe you can run the simulations without actually deploying the
+// `SphinxSimulator`. (put the `simulate` function in its constructor).
 
-// TODO(later): how will the SphinxSimulator contract get deployed in production on the networks
-// supported by the DevOps platform?
+// TODO(later-later): (if you need to deploy the SphinxSimulator): how will the SphinxSimulator
+// contract get deployed in production on the networks supported by the DevOps platform?
 
-// TODO(later): the following RPC providers didn't work for 3-MyLargeContract:
-// - Linea Goerli
-// - celo_alfajores
-// - evmos_testnet
-// - kava_testnet
-// - rootstock_testnet
-// - rari_sepolia: {to: ethers.ZeroAddress, data: '0x' + '11'.repeat(51500)}
+// TODO(later-later): EthersJS throws an error when ABI decoding on celo alfajores w/ 3-MyLargeContract.
 
-// TODO(later): consider using fallback providers that we know work.
+// TODO(later-later): ethersJS abi encoding may fail for very large deployments. (i forget if it's
+// abi encoding or decoding that fails).
 
-// TODO(later): EthersJS throws an error when ABI decoding on celo alfajores w/ 3-MyLargeContract.
+// ----------------------------------- TODO(later) ------------------------------------
 
-// TODO(later):  ethersJS abi encoding may fail for very large deployments. (i forget if it's abi
-// encoding or decoding that fails).
+// TODO(later): remove hardhat simulation logic, and the dependency on them in package.json.
 
 // TODO(later): can we do this without deploying the SphinxSimulator?
 
@@ -615,3 +606,41 @@ export const deploy = async (
 
 // TODO(later): Handle deployments with calldata that’s too long for the simulation. (Do we throw an
 // error or just skip the simulation?)
+
+// TODO(later): is there an ABI encoding size limit for EthersJS that we need to be aware of?
+
+// TODO(later): we don't simulate via the ManagedService because we aren't using this exact logic in
+// production, so there isn't much benefit. Also, we're gas constrained. Also, it's not clear
+// how we'd use the managed service. how would we?
+
+// TODO(later): should we run the simulation through the ManagedService? if not, document why.
+
+// TODO(later): You’ll need to use the merkle leaf simulation for the deploy cli command. May as well do the second simulation too.
+
+// TODO(later): Attempt to do the simulations on anvil in the deploy command. Are you limited by the
+// gas limit or calldata limit?
+
+// TODO(later): how will we support the live network deploy CLI command in the simulations?
+
+// TODO(later): case: the deployment has already been completed.
+
+// TODO(later): case: the system contracts aren't deployed yet.
+
+// TODO(later): should we run the `attemptDeployment` function using a mock provider? maybe it's not
+// worth the additional surface area of bugs. regardless, we need to do the batch stuff.
+
+// TODO(later): handle the case where the execution process fails on an `EXECUTE` leaf. we should
+// pass back something useful.
+
+// -------------------------------- TODO(later) ------------------------------------
+
+// TODO(later): what do we currently rely on the hardhat simulation for?
+// - Making sure that the `attemptDeployment` function doesn't have a bug.
+// - Checking if a Merkle leaf gas value is too low. (If it's too low, the action will fail
+//   on-chain, causing the simulation to throw an error).
+// - Checking if a valid batch size can't be created. (i.e. a Merkle leaf gas value is too large).
+// - Getting the deployment gas estimate for proposals.
+
+// TODO(later): which API endpoint will trigger the simulation in the backend?
+
+// TODO(later): do the mock provider thing in the `attemptDeployment` function?

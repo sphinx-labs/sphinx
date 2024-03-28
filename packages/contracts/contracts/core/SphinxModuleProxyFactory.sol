@@ -47,7 +47,11 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
     function deploySphinxModuleProxy(
         address _safeProxy,
         uint256 _saltNonce
-    ) public override returns (address sphinxModuleProxy) {
+    )
+        public
+        override
+        returns (address sphinxModuleProxy)
+    {
         bytes32 salt = keccak256(abi.encode(_safeProxy, msg.sender, _saltNonce));
         // Deploy the `SphinxModuleProxy`. This call will revert if a contract already exists at its
         // `CREATE2` address.
@@ -72,15 +76,9 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
      * @inheritdoc ISphinxModuleProxyFactory
      */
     function enableSphinxModuleProxyFromSafe(uint256 _saltNonce) public override {
-        require(
-            address(this) != MODULE_FACTORY,
-            "SphinxModuleProxyFactory: must be delegatecalled"
-        );
-        address sphinxModuleProxy = computeSphinxModuleProxyAddress(
-            address(this),
-            address(this),
-            _saltNonce
-        );
+        require(address(this) != MODULE_FACTORY, "SphinxModuleProxyFactory: must be delegatecalled");
+        address sphinxModuleProxy =
+            computeSphinxModuleProxyAddress(address(this), address(this), _saltNonce);
         GnosisSafe(payable(address(this))).enableModule(sphinxModuleProxy);
     }
 
@@ -91,7 +89,12 @@ contract SphinxModuleProxyFactory is ISphinxModuleProxyFactory {
         address _safeProxy,
         address _caller,
         uint256 _saltNonce
-    ) public view override returns (address) {
+    )
+        public
+        view
+        override
+        returns (address)
+    {
         bytes32 salt = keccak256(abi.encode(_safeProxy, _caller, _saltNonce));
         return Clones.predictDeterministicAddress(SPHINX_MODULE_IMPL, salt, MODULE_FACTORY);
     }

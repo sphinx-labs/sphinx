@@ -16,13 +16,6 @@ struct SphinxMerkleTree {
     SphinxLeafWithProof[] leavesWithProofs;
 }
 
-struct GnosisSafeTransaction {
-    address to;
-    uint256 value;
-    bytes txData;
-    IEnum.GnosisSafeOperation operation;
-}
-
 struct FoundryContractConfig {
     string referenceName;
     address addr;
@@ -77,7 +70,7 @@ struct ParsedAccountAccess {
 
 struct DeployedContractSize {
     address account;
-    uint size;
+    uint256 size;
 }
 
 /**
@@ -111,7 +104,6 @@ struct FoundryDeploymentInfo {
     bool arbitraryChain;
     string sphinxLibraryVersion;
     bytes[] encodedAccountAccesses;
-    uint256[] gasEstimates;
     bytes encodedDeployedContractSizes;
 }
 
@@ -203,13 +195,13 @@ contract SphinxPluginTypes {
         external
         pure
         returns (SphinxMerkleTree memory merkleTreeType)
-    {}
+    { }
 
     function humanReadableActionsType()
         external
         pure
         returns (HumanReadableAction[] memory humanReadableActions)
-    {}
+    { }
 
     function deployTaskInputsType()
         external
@@ -218,49 +210,49 @@ contract SphinxPluginTypes {
             SphinxMerkleTree memory merkleTree,
             HumanReadableAction[] memory humanReadableActions
         )
-    {}
+    { }
 
     function parsedAccountAccessType()
         external
         view
         returns (ParsedAccountAccess memory parsedAccountAccess)
-    {}
+    { }
 
     function getDeploymentInfo()
         external
         view
         returns (FoundryDeploymentInfo memory deploymentInfo)
-    {}
+    { }
 
     function getDeploymentInfoArray()
         external
         view
         returns (FoundryDeploymentInfo[] memory deploymentInfoArray)
-    {}
+    { }
 
-    function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) {}
+    function sphinxConfigType() external view returns (SphinxConfig memory sphinxConfig) { }
 
     function systemContractInfoArrayType()
         external
         view
         returns (SystemContractInfo[] memory systemContracts)
-    {}
+    { }
 
     function sphinxLeafWithProofType()
         external
         view
         returns (SphinxLeafWithProof memory leafWithProof)
-    {}
+    { }
 
     function leafWithProofBatchesType()
         external
         view
         returns (SphinxLeafWithProof[][] memory batches)
-    {}
+    { }
 
     function deployedContractSizesType()
         external
         view
         returns (DeployedContractSize[] memory deployedContractSizes)
-    {}
+    { }
 }

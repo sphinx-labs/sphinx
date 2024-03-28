@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { SphinxLeafWithProof } from '@sphinx-labs/contracts'
+import { Operation, SphinxLeafWithProof } from '@sphinx-labs/contracts'
 
 import { SphinxPreview } from '../preview'
 import { ExecutionMode } from '../constants'
@@ -114,6 +114,13 @@ export type EstimateGasTransactionData = {
   gasPrice: string
   value: string
   chainId: string
+}
+
+export type GnosisSafeTransaction = {
+  to: string
+  value: string
+  txData: string
+  operation: Operation
 }
 
 /**

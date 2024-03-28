@@ -19,6 +19,7 @@ import {
   getMerkleLeafGasFields,
   fetchNameForNetwork,
   DEFAULT_CALL_DEPTH,
+  simulateExecution,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -198,6 +199,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
           deploymentInfo,
           true, // System contracts are deployed.
           configArtifacts,
+          net
           libraries
         ),
       }
@@ -215,8 +217,8 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     }
   }
 
-  // TODO: mv
-  // TODO: parallelize
+  // TODO(later-later): rm or mv
+  // TODO(later-later): parallelize
   // const promises = networkConfigArrayWithRpcUrls.map(
   //   async ({ rpcUrl, networkConfig }) => {
   //     try {

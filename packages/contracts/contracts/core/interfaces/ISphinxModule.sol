@@ -101,7 +101,8 @@ interface ISphinxModule {
         bytes32 _root,
         SphinxLeafWithProof memory _leafWithProof,
         bytes memory _signatures
-    ) external;
+    )
+        external;
 
     /**
      * @notice Cancel an active Merkle root. The Gnosis Safe owners(s) can cancel an active Merkle
@@ -119,7 +120,8 @@ interface ISphinxModule {
         bytes32 _root,
         SphinxLeafWithProof memory _leafWithProof,
         bytes memory _signatures
-    ) external;
+    )
+        external;
 
     /**
      * @notice The current nonce in this contract. This is incremented each time a Merkle root is
@@ -137,9 +139,7 @@ interface ISphinxModule {
     /**
      * @notice Mapping from a Merkle root to its `MerkleRootState` struct.
      */
-    function merkleRootStates(
-        bytes32
-    )
+    function merkleRootStates(bytes32)
         external
         view
         returns (
