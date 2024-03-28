@@ -573,31 +573,26 @@ export const deploy = async (
 
 // TODO(later): error handling when the RPC call runs out of gas
 
-// TODO: which buffers should we keep, and which should we remove? I think we still
-// need a buffer to account for changes in on-chain state between proposal and approval. also, i
-// think we need a buffer to account for the fact that actions may be executed in separate
-// transactions on-chain, which means there are more cold SLOADs.
-
-// TODO: optimize SphinxSimulator to maximize the size of the deployment. consider not
+// TODO(later): optimize SphinxSimulator to maximize the size of the deployment. consider not
 // ABI encoding the input array. first, check the difference in size between packing the bytes and
 // abi encoding them.
 
-// TODO: sanity check that the `gasEstimates` returned by your new logic and the old
+// TODO(later): sanity check that the `gasEstimates` returned by your new logic and the old
 // logic are roughly the same.
 
-// TODO: do we need to adjust any of our heuristics on rootstock?
+// TODO(later): do we need to adjust any of our heuristics on rootstock?
 
-// TODO: what do we currently rely on the hardhat simulation for?
+// TODO(later): what do we currently rely on the hardhat simulation for?
 // - Making sure that the `attemptDeployment` function doesn't have a bug.
 // - Checking if a Merkle leaf gas value is too low. (If it's too low, the action will fail
 //   on-chain, causing the simulation to throw an error).
 // - Checking if a valid batch size can't be created. (i.e. a Merkle leaf gas value is too large).
 // - Getting the deployment gas estimate for proposals.
 
-// TODO: how will the SphinxSimulator contract get deployed in production on the networks
+// TODO(later): how will the SphinxSimulator contract get deployed in production on the networks
 // supported by the DevOps platform?
 
-// TODO: the following RPC providers didn't work for 3-MyLargeContract:
+// TODO(later): the following RPC providers didn't work for 3-MyLargeContract:
 // - Linea Goerli
 // - celo_alfajores
 // - evmos_testnet
@@ -605,7 +600,7 @@ export const deploy = async (
 // - rootstock_testnet
 // - rari_sepolia: {to: ethers.ZeroAddress, data: '0x' + '11'.repeat(51500)}
 
-// TODO: consider using fallback providers that we know work.
+// TODO(later): consider using fallback providers that we know work.
 
 // TODO(later): EthersJS throws an error when ABI decoding on celo alfajores w/ 3-MyLargeContract.
 
