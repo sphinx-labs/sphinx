@@ -2,13 +2,18 @@ import {
   SphinxSimulatorABI,
   getSphinxSimulatorAddress,
   makeSphinxMerkleTree,
+  remove0x,
 } from '@sphinx-labs/contracts'
 import { ethers } from 'ethers'
 
 import { NetworkConfig } from './config'
 import { SphinxJsonRpcProvider } from './provider'
 import { makeDeploymentData } from './tasks'
-import { makeSphinxWalletOwners } from './utils'
+import {
+  getGenericErrorString,
+  isGenericErrorString,
+  makeSphinxWalletOwners,
+} from './utils'
 
 export const simulateExecution = async (
   networkConfig: NetworkConfig,
@@ -16,6 +21,7 @@ export const simulateExecution = async (
 ): Promise<void> => {
   const { safeAddress, moduleAddress, newConfig, chainId, safeInitData } =
     networkConfig
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
 
   const sphinxSimulatorAddress = getSphinxSimulatorAddress()
   const simulatorInterface = new ethers.Interface(SphinxSimulatorABI)
@@ -66,8 +72,22 @@ export const simulateExecution = async (
     'simulate',
     rawReturnData
   )[0]
-  const [success, , TODO] = ethers.AbiCoder.defaultAbiCoder().decode(
+  const [success, , response] = abiCoder.decode(
     ['bool', 'uint256', 'bytes'],
     returnData
   )
+
+  if (success) {
+    return
+  } else if (remove0x(response).length === 0) {
+    // e.g. `require(false)` with no reason string.
+    throw new Error(`TODO(docs): reverted without a reason string`)
+  } else if (isGenericErrorString(response)) {
+    const errorMessage = getGenericErrorString(response)
+    throw new Error(`TODO(docs): reverted with:\n` + errorMessage)
+  } else {
+    // TODO(docs): e.g. panic from assert(false) or a custom error
+
+    throw new Error(`TODO(later): ${response}`)
+  }
 }

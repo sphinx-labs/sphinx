@@ -10,6 +10,7 @@ import {
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
+import { SphinxLeafWithProof, SphinxMerkleTree } from '@sphinx-labs/contracts'
 
 export interface ProposeCommandArgs {
   scriptPath: string
@@ -45,8 +46,8 @@ export interface ArtifactsCommandArgs {
 }
 
 export type GetNetworkGasEstimate = (
-  deploymentConfig: DeploymentConfig,
-  chainId: string,
+  merkleTree: SphinxMerkleTree,
+  networkConfig: NetworkConfig,
   rpcUrl: string
 ) => Promise<NetworkGasEstimate>
 

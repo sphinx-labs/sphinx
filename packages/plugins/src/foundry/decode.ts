@@ -18,9 +18,6 @@ import {
   getMaxGasLimit,
   prettyFunctionCall,
   calculateMerkleLeafGas,
-  SphinxJsonRpcProvider,
-  getMerkleLeafGasFields,
-  fetchChainIdForNetwork,
 } from '@sphinx-labs/core'
 import { AbiCoder, ConstructorFragment, ethers } from 'ethers'
 import {
@@ -77,6 +74,8 @@ export const decodeDeploymentInfo = (
   const executionMode = abiDecodeUint256(parsed.executionMode)
   const nonce = abiDecodeUint256(parsed.nonce)
 
+  const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
+
   // ABI decode the `deployedContractSizes` array
   const deployedContractSizesResult = coder.decode(
     deployedContractSizesFragment.outputs,
@@ -127,6 +126,7 @@ export const decodeDeploymentInfo = (
     arbitraryChain,
     sphinxLibraryVersion: abiDecodeString(sphinxLibraryVersion),
     accountAccesses,
+    gasEstimates,
     deployedContractSizes,
   }
 
@@ -143,7 +143,6 @@ export const makeNetworkConfig = (
   deploymentInfo: DeploymentInfo,
   isSystemDeployed: boolean,
   configArtifacts: ConfigArtifacts,
-  gasEstimates: Array<string>,
   libraries: Array<string>
 ): NetworkConfig => {
   const {
@@ -160,6 +159,7 @@ export const makeNetworkConfig = (
     arbitraryChain,
     requireSuccess,
     accountAccesses,
+    gasEstimates,
     deployedContractSizes,
   } = deploymentInfo
 

@@ -43,7 +43,6 @@ import {
   NetworkConfig,
   DeploymentArtifacts,
   ensureSphinxAndGnosisSafeDeployed,
-  getMerkleLeafGasFields,
   simulateExecution,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
@@ -325,16 +324,6 @@ export const deploy = async (
 
   const isSystemDeployed = await checkSystemDeployed(provider)
 
-  const gasEstimates = await getMerkleLeafGasFields(deploymentInfo, provider)
-
-  const networkConfig = makeNetworkConfig(
-    deploymentInfo,
-    isSystemDeployed,
-    configArtifacts,
-    gasEstimates,
-    [] // We don't currently support linked libraries.
-  )
-
   await ensureSphinxAndGnosisSafeDeployed(
     provider,
     signer,
@@ -342,11 +331,20 @@ export const deploy = async (
     false
   )
 
+  const networkConfig = makeNetworkConfig(
+    deploymentInfo,
+    isSystemDeployed,
+    configArtifacts,
+    [] // We don't currently support linked libraries.
+  )
+
   if (networkConfig.actionInputs.length === 0) {
     spinner.info(`Nothing to deploy. Exiting early.`)
     return {}
   }
 
+  // TODO(later-later): consider removing b/c it may not be worth the trouble for the deploy
+  // command. e.g. we'll need to account for anvil nodes, and the user may have a bad RPC URL.
   await simulateExecution(networkConfig, provider)
 
   await ensureSphinxAndGnosisSafeDeployed(
@@ -530,7 +528,12 @@ export const deploy = async (
 // update logic in the `propose` function (link lines starting with "Running simulation"). if we
 // keep the current logic in the Deploy and Propose commands, we'll need two API endpoints: one to
 // get the Merkle leaf gas fields, and the other to run the simulation. Ideally, the simulation can
-// occur before the preview. maybe it'd fit into some sort of validation endpoint.
+// occur before the preview. maybe it'd fit into some sort of validation endpoint. Mention that this
+// is the current flow:
+// 1. deploymentInfo
+// 2. configArtifacts
+// 3. networkConfig
+// 4. simulation
 
 // TODO(end): do we need to change the license of the SphinxSimulator to LGPL since i copied a
 // couple functions from the Gnosis Safe?
@@ -567,8 +570,6 @@ export const deploy = async (
 // run against the live network RPC URLs.
 
 // TODO(later-later): remove the hardhat simulation.
-
-// TODO(later-later): put this off-chain: 60_000 + ((startGas - finalGas) * 11) / 10;
 
 // TODO(later-later): handle case where the calldata is too large. started in `long.ts`.
 
@@ -644,3 +645,5 @@ export const deploy = async (
 // TODO(later): which API endpoint will trigger the simulation in the backend?
 
 // TODO(later): do the mock provider thing in the `attemptDeployment` function?
+
+// TODO(later): remove entire plugins/src/hardhat directory.

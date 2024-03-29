@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// We chose not to use any remappings when importing the standard forge library. This is because
-// when our library is installed in
-// the users project we will be subject to their configured remappings. Bugs can also occur if we
-// rely on the users installation of
-// forge-std which may not be the same exact version our library expects. To resolve both of these
-// issues, we install the version of
-// forge-std we need ourself. We then reference it using a relative import instead of a remapping
-// because that prevents the user from
+// We chose not to use any remappings when importing the standard forge library. This is because when our library is installed in
+// the users project we will be subject to their configured remappings. Bugs can also occur if we rely on the users installation of
+// forge-std which may not be the same exact version our library expects. To resolve both of these issues, we install the version of
+// forge-std we need ourself. We then reference it using a relative import instead of a remapping because that prevents the user from
 // having to define a separate remapping just for our installation of forge-std.
 import { VmSafe, Vm } from "../../contracts/forge-std/src/Vm.sol";
 
@@ -55,13 +51,14 @@ abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // These are constants thare are used when signing an EIP-712 meta transaction.
-    bytes32 private constant DOMAIN_SEPARATOR = keccak256(
-        abi.encode(
-            keccak256("EIP712Domain(string name,string version)"),
-            keccak256(bytes("Sphinx")),
-            keccak256(bytes("1.0.0"))
-        )
-    );
+    bytes32 private constant DOMAIN_SEPARATOR =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256(bytes("Sphinx")),
+                keccak256(bytes("1.0.0"))
+            )
+        );
     bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
 
     /**
@@ -75,6 +72,21 @@ abstract contract Sphinx {
     SphinxUtils private sphinxUtils;
 
     bool private sphinxModifierEnabled;
+
+    /**
+     * @dev Tracks the amount of funding we need to transfer to the safe at the beginning of the deployment
+     *      We use a mapping for this and for the Safe starting balance because the user may have a complex
+     *      script that forks multiple different networks internally. See the `test_fundSafe_success_multifork`
+     *      test in Sphinx.t.sol for an example of this case.
+     *      chain => funds requested
+     */
+    mapping(uint256 => uint256) private fundsRequestedForSafe;
+
+    /**
+     * @dev Tracks the starting balance of the Safe.
+     *      chainId => starting balance
+     */
+    mapping(uint256 => uint256) private safeStartingBalance;
 
     constructor() {
         // Deploy the `SphinxUtils` and `SphinxConstants` helper contracts. We don't deploy these
@@ -107,8 +119,7 @@ abstract contract Sphinx {
      * from SphinxUtils to fetch the config. If we just called `sphinxConfig` directly, the dynamic
      * arrays would not be included in the return value.
      *
-     * This is an external function because it is only intended to be used by the SphinxUtils
-     * contract
+     * This is an external function because it is only intended to be used by the SphinxUtils contract
      * for fetching the unvalidated config from the sphinxConfig state variable.
      *
      * When fetching the config for normal usage in this contract, we should use the
@@ -147,10 +158,7 @@ abstract contract Sphinx {
         bytes memory _scriptFunctionCalldata,
         string memory _deploymentInfoPath,
         uint64 _callDepth
-    )
-        external
-        returns (FoundryDeploymentInfo memory)
-    {
+    ) external returns (FoundryDeploymentInfo memory) {
         sphinxUtils.validateProposal(address(this));
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
@@ -161,7 +169,8 @@ abstract contract Sphinx {
         );
 
         vm.writeFile(
-            _deploymentInfoPath, sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+            _deploymentInfoPath,
+            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
         );
 
         return deploymentInfo;
@@ -172,9 +181,7 @@ abstract contract Sphinx {
         ExecutionMode _executionMode,
         string memory _deploymentInfoPath,
         string memory _systemContractsFilePath
-    )
-        external
-    {
+    ) external {
         address deployer;
         if (_executionMode == ExecutionMode.LiveNetworkCLI) {
             sphinxUtils.validateLiveNetworkCLI(sphinxConfig, IGnosisSafe(safeAddress()));
@@ -188,8 +195,10 @@ abstract contract Sphinx {
             revert("Incorrect execution type.");
         }
 
-        SystemContractInfo[] memory systemContracts =
-            abi.decode(vm.parseBytes(vm.readFile(_systemContractsFilePath)), (SystemContractInfo[]));
+        SystemContractInfo[] memory systemContracts = abi.decode(
+            vm.parseBytes(vm.readFile(_systemContractsFilePath)),
+            (SystemContractInfo[])
+        );
 
         // Deploy the Sphinx system contracts. This is necessary because several Sphinx and Gnosis
         // Safe contracts are required to deploy a Gnosis Safe, which itself must be deployed
@@ -197,10 +206,15 @@ abstract contract Sphinx {
         // Gnosis Safe ensures that its nonce is treated like a contract instead of an EOA.
         sphinxUtils.deploySphinxSystem(systemContracts);
 
-        FoundryDeploymentInfo memory deploymentInfo =
-            sphinxCollect(_executionMode, deployer, _scriptFunctionCalldata, 2);
+        FoundryDeploymentInfo memory deploymentInfo = sphinxCollect(
+            _executionMode,
+            deployer,
+            _scriptFunctionCalldata,
+            2
+        );
         vm.writeFile(
-            _deploymentInfoPath, sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
+            _deploymentInfoPath,
+            sphinxUtils.serializeFoundryDeploymentInfo(deploymentInfo)
         );
     }
 
@@ -209,22 +223,25 @@ abstract contract Sphinx {
         address _executor,
         bytes memory _scriptFunctionCalldata,
         uint64 _callDepth
-    )
-        private
-        returns (FoundryDeploymentInfo memory)
-    {
+    ) private returns (FoundryDeploymentInfo memory) {
         address safe = safeAddress();
 
         FoundryDeploymentInfo memory deploymentInfo = sphinxUtils.initializeDeploymentInfo(
-            sphinxConfig, _executionMode, _executor, address(this)
+            sphinxConfig,
+            _executionMode,
+            _executor,
+            address(this)
         );
 
         // Deploy the Gnosis Safe if it's not already deployed. This is necessary because we're
         // going to call the Gnosis Safe to estimate the gas.
-        // This also also ensures that the safe's nonce is incremented as a contract instead of an
-        // EOA.
+        // This also also ensures that the safe's nonce is incremented as a contract instead of an EOA.
         if (address(safe).code.length == 0) {
-            sphinxUtils.deployModuleAndGnosisSafe(sphinxConfig.owners, sphinxConfig.threshold, safe);
+            sphinxUtils.deployModuleAndGnosisSafe(
+                sphinxConfig.owners,
+                sphinxConfig.threshold,
+                safe
+            );
         }
 
         // Take a snapshot of the current state. We'll revert to the snapshot after we run the
@@ -234,19 +251,33 @@ abstract contract Sphinx {
         // have already occurred.
         uint256 snapshotId = vm.snapshot();
 
+        // Record the starting balance of the Safe
+        safeStartingBalance[deploymentInfo.chainId] = safeAddress().balance;
+
         vm.startStateDiffRecording();
         // Delegatecall the entry point function on this contract to collect the transactions.
-        (bool success,) = address(this).delegatecall(_scriptFunctionCalldata);
+        (bool success, ) = address(this).delegatecall(_scriptFunctionCalldata);
         // Throw an error if the deployment script fails. The error message in the user's script is
         // displayed by Foundry's stack trace, so it'd be redundant to include the data returned by
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
+        // We have to copy fundsRequestedForSafe and safeStartingBalance into deploymentInfo before
+        // calling vm.revertTo because that cheatcode will clear the state variables.
+        deploymentInfo.fundsRequestedForSafe = fundsRequestedForSafe[deploymentInfo.chainId];
+        deploymentInfo.safeStartingBalance = safeStartingBalance[deploymentInfo.chainId];
+
+        // Check that the amount of funds requested for the Safe is valid
+        sphinxUtils.checkValidSafeFundingRequest(
+            deploymentInfo.fundsRequestedForSafe,
+            deploymentInfo.chainId
+        );
+
         vm.revertTo(snapshotId);
 
         return
-            sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth);
+            sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth, address(this));
     }
 
     /**
@@ -258,8 +289,9 @@ abstract contract Sphinx {
      *         location.
      */
     function _sphinxDeployModuleAndGnosisSafe() private {
-        IGnosisSafeProxyFactory safeProxyFactory =
-            IGnosisSafeProxyFactory(constants.safeFactoryAddress());
+        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(
+            constants.safeFactoryAddress()
+        );
         address singletonAddress = constants.safeSingletonAddress();
 
         bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(address(this));
@@ -267,19 +299,20 @@ abstract contract Sphinx {
         // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
         // and enables the Sphinx Module in the Gnosis Safe.
         safeProxyFactory.createProxyWithNonce(
-            singletonAddress, safeInitializerData, sphinxConfig.saltNonce
+            singletonAddress,
+            safeInitializerData,
+            sphinxConfig.saltNonce
         );
     }
 
     /**
-     * @notice A modifier that the user must include on their entry point function when using
-     * Sphinx.
+     * @notice A modifier that the user must include on their entry point function when using Sphinx.
      *         This modifier mainly performs validation on the user's configuration and environment.
      */
     modifier sphinx() {
         sphinxModifierEnabled = true;
 
-        (VmSafe.CallerMode callerMode, address msgSender,) = vm.readCallers();
+        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
             "Sphinx: You must broadcast deployments using the 'sphinx deploy' CLI command."
@@ -328,6 +361,23 @@ abstract contract Sphinx {
      */
     function safeAddress() public returns (address) {
         return sphinxUtils.getGnosisSafeProxyAddress(address(this));
+    }
+
+    /**
+     * @notice Utility function that allows the user to transfer funds to their Safe at
+     * the beginning of a deployment. A utility function is required for this (vs just
+     * using _to.call{value: _amount} or transfer()) because this features involves the
+     * DevOps platform transferring funds directly to the safe from an EOA as part of the
+     * deployment. _to.call{value: _amount} or transfer() can be used to transfer value
+     * from the Safe to other addresses.
+     */
+    function fundSafe(uint _value) public {
+        fundsRequestedForSafe[block.chainid] += _value;
+
+        // Update the balance of the safe to equal to Safe's current balance + the
+        // value that we will transfer to the Safe during the deployment.
+        address safe = safeAddress();
+        vm.deal(safe, safe.balance + _value);
     }
 
     function getSphinxNetwork(uint256 _chainId) public view returns (Network) {

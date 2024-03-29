@@ -20,6 +20,8 @@ import {
 import {
   decodeDeterministicDeploymentProxyData,
   execAsync,
+  fetchNetworkConfigFromDeploymentConfig,
+  findLeafWithProof,
   formatSolcLongVersion,
   getBytesLength,
   hasParentheses,
@@ -27,6 +29,7 @@ import {
   isDataHexString,
   isDefined,
   isNormalizedAddress,
+  makeSphinxWalletOwners,
   sortHexStrings,
   spawnAsync,
   trimQuotes,
@@ -59,6 +62,12 @@ import {
   SphinxJsonRpcProvider,
   EstimateGasTransactionData,
   TransactionEstimatedGas,
+  estimateExecutionGasViaManagedService,
+  estimateApprovalGasViaManagedService,
+  encodeApprovalViaManagedService,
+  encodeExecutionViaManagedService,
+  makeExecuteLeafBatches,
+  EstimateExecutionGas,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -75,8 +84,18 @@ import {
   ParsedAccountAccess,
   AccountAccessKind,
   AccountAccess,
+  SphinxLeaf,
+  ManagedServiceABI,
+  SphinxModuleABI,
+  getManagedServiceAddress,
+  SphinxLeafWithProof,
+  getGnosisSafeProxyFactoryAddress,
+  GnosisSafeProxyFactoryArtifact,
+  getGnosisSafeSingletonAddress,
+  SphinxMerkleTree,
+  SphinxLeafType,
 } from '@sphinx-labs/contracts'
-import { ConstructorFragment, ethers } from 'ethers'
+import { ConstructorFragment, Transaction, ethers } from 'ethers'
 
 import {
   FoundryMultiChainDryRun,
@@ -1078,20 +1097,15 @@ export const convertLibraryFormat = (
   })
 }
 
-const toSphinxTransactionEstimatedGas = (
-  response: SphinxTransactionResponse
-): EstimateGasTransactionData => {
-  return {
-    to: response.to,
-    from: response.from,
-    data: response.data,
-    gasLimit: response.gasLimit.toString(),
-    gasPrice: response.gasPrice.toString(),
-    value: response.value.toString(),
-    chainId: response.chainId.toString(),
-  }
-}
+// TODO(end): gh: toSphinxTransactionEstimatedGas:
+// - Removed `gasLimit` because it seems redundant because the `EstimateGasTransactionData` is
+//   paired with the `estimatedGas` field.
+// - Removed `value` because we never send funds through the ManagedService to the SphinxModule.
+// - Removed `gasPrice` because it can fluctuate between the time that this object is created and
+//   the time that we display the cost estimate to the user.
+// - Removed the `from` field because we don't know which EOA will call the ManagedService.
 
+// TODO(docs): update this entire function:
 /**
  * Estimates the gas used by a deployment on a single network. Includes a buffer of 30% to account
  * for variations between the local simulation and the production environment. Also adjusts the
@@ -1099,12 +1113,35 @@ const toSphinxTransactionEstimatedGas = (
  * forks.
  */
 export const getEstimatedGas = async (
-  transactions: SimulationTransactions,
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  executeLeafBatches: Array<Array<SphinxLeafWithProof>>,
+  networkConfig: NetworkConfig,
   provider: SphinxJsonRpcProvider
 ): Promise<{
   estimatedGas: string
   transactionsWithGasEstimates: Array<TransactionEstimatedGas>
 }> => {
+  const { initialState, newConfig, moduleAddress, chainId, safeInitData } =
+    networkConfig
+  const { saltNonce, threshold } = newConfig
+
+  const transactionsWithGasEstimates: Array<TransactionEstimatedGas> = []
+
+  // TODO(later): add the approve txn and gnosis safe txn (if safe isn't deployed).
+  if (!initialState.isSafeDeployed) {
+    // TODO(docs): we don't use any of the buffers that we use for approve/execute because...
+
+    // TODO(end): ask ryan: will eth_estimateGas on polygon zkEVM significantly
+    // overestimate the cost of this transaction?
+    const gnosisSafeDeployment = await getGnosisSafeDeploymentEstimatedGas(
+      safeInitData,
+      saltNonce,
+      provider
+    )
+    transactionsWithGasEstimates.push(gnosisSafeDeployment)
+  }
+
   // Estimate the minimum gas limit. On Ethereum, this will be 21k. (Technically, since
   // `eth_estimateGas` generally overestimates the gas used, it will be slightly greater than 21k.
   // It was 21001 during development). On Arbitrum and perhaps other L2s, the minimum gas limit will
@@ -1118,11 +1155,44 @@ export const getEstimatedGas = async (
   })
   const adjustedGasLimit = Number(estimatedMinGasLimit) - 21_000
 
-  const transactionsWithGasEstimates = transactions
+  const approveTransaction = await makeApprovalTransactionEstimatedGas(
+    moduleAddress,
+    merkleRoot,
+    approvalLeafWithProof,
+    threshold,
+    chainId,
+    provider
+  )
+
+  const executeTransactions: Array<TransactionEstimatedGas> =
+    executeLeafBatches.map((batch) => {
+      const estimatedExecutionGas = estimateExecutionGasViaManagedService(
+        moduleAddress,
+        batch,
+        BigInt(chainId)
+      )
+      return {
+        estimatedGas: estimatedExecutionGas.toString(),
+        transaction: {
+          to: getManagedServiceAddress(),
+          data: encodeExecutionViaManagedService(
+            batch,
+            moduleAddress,
+            provider
+          ),
+        },
+      }
+    })
+
+  const approvalAndExecutionTransactions = [approveTransaction].concat(
+    ...executeTransactions
+  )
+
+  const bufferedApprovalAndExecution = approvalAndExecutionTransactions
     .map((transaction) => {
       return {
-        transaction: toSphinxTransactionEstimatedGas(transaction.response),
-        estimatedGas: Math.round(Number(transaction.receipt.gasUsed) * 1.3),
+        transaction: transaction.transaction,
+        estimatedGas: Math.round(Number(transaction.estimatedGas) * 1.3),
       }
     })
     .map((transactionWithEstimatedGas) => {
@@ -1142,6 +1212,8 @@ export const getEstimatedGas = async (
       }
     })
 
+  transactionsWithGasEstimates.push(...bufferedApprovalAndExecution)
+
   const estimatedGas = transactionsWithGasEstimates
     .map((receiptWithEstimatedGas) => receiptWithEstimatedGas.estimatedGas)
     .map(Number)
@@ -1154,20 +1226,34 @@ export const getEstimatedGas = async (
 }
 
 export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
-  deploymentConfig: DeploymentConfig,
-  chainId: string,
+  merkleTree: SphinxMerkleTree,
+  networkConfig: NetworkConfig,
   rpcUrl: string
 ): Promise<NetworkGasEstimate> => {
-  const { transactions } = await simulate(deploymentConfig, chainId, rpcUrl)
-
+  const chainId = BigInt(networkConfig.chainId)
   const provider = new SphinxJsonRpcProvider(rpcUrl)
+  const approvalLeafWithProof = findLeafWithProof(
+    merkleTree,
+    SphinxLeafType.APPROVE,
+    chainId
+  )
+  // TODO(later): we should put this somewhere earlier and more explicit for validation.
+  const executeLeafBatches = makeExecuteLeafBatches(
+    networkConfig,
+    merkleTree,
+    estimateExecutionGasViaManagedService
+  )
+
   const { estimatedGas, transactionsWithGasEstimates } = await getEstimatedGas(
-    transactions,
+    merkleTree.root,
+    approvalLeafWithProof,
+    executeLeafBatches,
+    networkConfig,
     provider
   )
 
   return {
-    chainId: Number(chainId),
+    chainId: Number(networkConfig.chainId),
     estimatedGas,
     transactions: transactionsWithGasEstimates,
   }
@@ -1760,4 +1846,70 @@ export const validateProposalNetworks = async (
 
   const rpcUrls = valid.map(({ rpcUrl }) => rpcUrl)
   return { rpcUrls, isTestnet }
+}
+
+const makeApprovalTransactionEstimatedGas = async (
+  moduleAddress: string,
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  threshold: string,
+  chainId: string,
+  provider: SphinxJsonRpcProvider
+): Promise<TransactionEstimatedGas> => {
+  const { signatureArray } = await makeSphinxWalletOwners(
+    merkleRoot,
+    threshold,
+    provider
+  )
+  const estimatedApprovalGas = estimateApprovalGasViaManagedService(
+    merkleRoot,
+    approvalLeafWithProof,
+    moduleAddress,
+    signatureArray,
+    threshold,
+    BigInt(chainId)
+  )
+  const approveTransaction: TransactionEstimatedGas = {
+    estimatedGas: estimatedApprovalGas.toString(),
+    transaction: {
+      to: getManagedServiceAddress(),
+      data: encodeApprovalViaManagedService(
+        merkleRoot,
+        approvalLeafWithProof,
+        moduleAddress,
+        signatureArray
+      ),
+    },
+  }
+
+  return approveTransaction
+}
+
+const getGnosisSafeDeploymentEstimatedGas = async (
+  safeInitData: string,
+  saltNonce: string,
+  provider: SphinxJsonRpcProvider
+): Promise<TransactionEstimatedGas> => {
+  const gnosisSafeProxyFactoryAddress = getGnosisSafeProxyFactoryAddress()
+  const gnosisSafeProxyFactory = new ethers.Contract(
+    gnosisSafeProxyFactoryAddress,
+    GnosisSafeProxyFactoryArtifact.abi
+  )
+
+  const gnosisSafeDeploymentData =
+    gnosisSafeProxyFactory.interface.encodeFunctionData(
+      'createProxyWithNonce',
+      [getGnosisSafeSingletonAddress(), safeInitData, saltNonce]
+    )
+
+  const transaction = {
+    to: gnosisSafeProxyFactoryAddress,
+    data: gnosisSafeDeploymentData,
+  }
+  const estimatedGas = await provider.estimateGas(transaction)
+
+  return {
+    transaction,
+    estimatedGas: estimatedGas.toString(),
+  }
 }

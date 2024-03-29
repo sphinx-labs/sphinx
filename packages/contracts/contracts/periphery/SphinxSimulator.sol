@@ -6,7 +6,6 @@ import { GnosisSafeProxyFactory } from
     "@gnosis.pm/safe-contracts-1.3.0/proxies/GnosisSafeProxyFactory.sol";
 import { GnosisSafe } from "@gnosis.pm/safe-contracts-1.3.0/GnosisSafe.sol";
 import { Enum } from "@gnosis.pm/safe-contracts-1.3.0/common/Enum.sol";
-import { GnosisSafeTransaction } from "./SphinxPeripheryDataTypes.sol";
 import { SphinxLeafWithProof, MerkleRootStatus } from "../core/SphinxDataTypes.sol";
 import { ManagedService } from "../core/ManagedService.sol";
 import { ISphinxModule } from "../core/interfaces/ISphinxModule.sol";
@@ -26,7 +25,7 @@ contract SphinxSimulator {
 
     // TODO(later-later): do something with the 'payable' modifier on this function.
     function simulate(
-        GnosisSafeTransaction[] memory _txns,
+        bytes memory _simulationCalldata,
         GnosisSafe _safeProxy,
         bytes memory _safeInitializerData,
         uint256 _safeSaltNonce
@@ -43,92 +42,12 @@ contract SphinxSimulator {
 
         try _safeProxy.simulateAndRevert(
             SPHINX_SIMULATOR,
-            abi.encodeWithSelector(
-                SphinxSimulator.getMerkleLeafGasEstimates.selector, _txns, _safeProxy
-            )
+            _simulationCalldata
         ) {
             // TODO(docs): should be impossible to reach this because the `simulateAndRevert` call
             // should always revert.
             revert("SphinxSimulator: simulation never reverted");
         } catch (bytes memory retdata) {
-            return retdata;
-        }
-    }
-
-    function getMerkleLeafGasEstimates(
-        GnosisSafeTransaction[] memory _txns,
-        GnosisSafe _safeProxy
-    )
-        external
-        returns (uint256[] memory gasEstimates)
-    {
-        require(
-            address(this) == address(_safeProxy), "TODO(docs): must be delegatecalled by safe proxy"
-        );
-
-        _safeProxy.enableModule(address(this));
-
-        gasEstimates = new uint256[](_txns.length);
-
-        address to;
-        uint256 value;
-        bytes memory txData;
-        Enum.Operation operation;
-        for (uint256 i = 0; i < _txns.length; i++) {
-            GnosisSafeTransaction memory txn = _txns[i];
-
-            to = txn.to;
-            value = txn.value;
-            txData = txn.txData;
-            operation = txn.operation;
-
-            uint256 startGas = gasleft();
-            bool success =
-                GnosisSafe(_safeProxy).execTransactionFromModule(to, value, txData, operation);
-            // TODO(docs): we put the buffers off-chain to make it easier to adjust them in the
-            // future.
-            gasEstimates[i] = startGas - gasleft();
-
-            require(success, "SphinxSimulator: TODO(docs)");
-        }
-    }
-
-    function simulateExecution(
-        GnosisSafe _safeProxy,
-        ISphinxModule _sphinxModule,
-        bytes32 _root,
-        SphinxLeafWithProof memory _approveLeaf,
-        SphinxLeafWithProof[] memory _executeLeaves,
-        bytes memory _signatures,
-        address[] memory _newOwners,
-        bytes memory _safeInitializerData,
-        uint256 _safeSaltNonce
-    )
-        external
-        returns (bytes memory)
-    {
-        deployGnosisSafeIfNeeded(_safeInitializerData, _safeSaltNonce);
-
-        console.log('AAA');
-        try _safeProxy.simulateAndRevert(
-            SPHINX_SIMULATOR,
-            abi.encodeWithSelector(
-                SphinxSimulator.approveThenExecute.selector,
-                _safeProxy,
-                _sphinxModule,
-                _root,
-                _approveLeaf,
-                _executeLeaves,
-                _signatures,
-                _newOwners
-            )
-        ) {
-            console.log('BBB');
-            // TODO(docs): should be impossible to reach this because the `simulateAndRevert` call
-            // should always revert.
-            revert("SphinxSimulator: simulation never reverted");
-        } catch (bytes memory retdata) {
-            console.log('CCC');
             return retdata;
         }
     }
@@ -178,33 +97,25 @@ contract SphinxSimulator {
         ISphinxModule(_sphinxModule).execute(_executeLeaves);
         console.log('KKK');
 
-        (, uint256 leavesExecuted,,, MerkleRootStatus finalStatus,) =
+        (,,,, MerkleRootStatus finalStatus,) =
             ISphinxModule(_sphinxModule).merkleRootStates(_root);
         console.log('LLL');
         require(
             finalStatus == MerkleRootStatus.COMPLETED,
-            string(abi.encodePacked("TODO(docs): failed. leavesExecuted: ", leavesExecuted))
+            "TODO(docs): failed"
         );
         console.log('MMM');
-    }
 
-// TODO(later): remove
-    function deployGnosisSafeIfNeeded(
-        bytes memory _safeInitializerData,
-        uint256 _safeSaltNonce
-    ) private {
-        if (address(_safeProxy).code.length == 0) {
-            safeProxyFactory.createProxyWithNonce(
-                safeSingleton, _safeInitializerData, _safeSaltNonce
-            );
-        }
+        revert();
     }
 }
 
-// TODO(later-later): handle generic errors in `getMerkleLeafGasEstimates` and
-// `approveThenExecuteDeployment`.
+// TODO(later): cases:
+// - Success case
+// - Failure case w/ no error message. (I think this happened with celo).
+// - Failure case w/ error message.
 
-// TODO(later): return the `leavesExecuted`
+// TODO(later-later): handle generic errors in `simulateExecution`.
 
 // TODO(end): gh: UPDATE: the `approveThenExecute` function only accepts un-approved deployments
 // because the merkle root is different than what will actually be executed on-chain (because the

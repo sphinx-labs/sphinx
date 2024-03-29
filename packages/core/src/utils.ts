@@ -1758,4 +1758,37 @@ export const makeSphinxWalletOwners = async (
   return { wallets, signatureArray, packedSignatures }
 }
 
+const decodeGenericErrorString = (encoded: string): string | null => {
+  if (getBytesLength(encoded) < 4) {
+    return null
+  }
+  const selector = ethers.dataSlice(encoded, 0, 4)
+  const fragment = ethers.ErrorFragment.from('Error(string)')
+  if (selector.toLowerCase() === fragment.selector.toLowerCase()) {
+    const encodedErrorMessage = ethers.dataSlice(encoded, 4)
+    try {
+      const [errorMessage] = ethers.AbiCoder.defaultAbiCoder().decode(
+        ['string'],
+        encodedErrorMessage
+      )
+      return errorMessage
+    } catch {
+      // Do nothing.
+    }
+  }
+  return null
+}
+
+export const isGenericErrorString = (encoded: string): boolean => {
+  return decodeGenericErrorString(encoded) !== null
+}
+
+export const getGenericErrorString = (encoded: string): string => {
+  const errorMessage = decodeGenericErrorString(encoded)
+  if (errorMessage !== null) {
+    return errorMessage
+  }
+  throw new Error('Unable to decode error message.')
+}
+
 export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }

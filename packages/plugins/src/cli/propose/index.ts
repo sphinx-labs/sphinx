@@ -15,11 +15,7 @@ import {
   isFile,
   MAX_UINT64,
   makeDeploymentConfig,
-  fetchChainIdForNetwork,
-  getMerkleLeafGasFields,
-  fetchNameForNetwork,
   DEFAULT_CALL_DEPTH,
-  simulateExecution,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -191,20 +187,21 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     targetContract
   )
 
-  const networkConfigArrayWithRpcUrls = collected.map(
-    ({ deploymentInfo, libraries, rpcUrl }) => {
-      return {
-        rpcUrl,
-        networkConfig: makeNetworkConfig(
-          deploymentInfo,
-          true, // System contracts are deployed.
-          configArtifacts,
-          net
-          libraries
-        ),
-      }
-    }
-  )
+  // TODO(later-later): this depends on how we implement the api endpoint(s).
+  const networkConfigArrayWithRpcUrls = [] as any
+  // const networkConfigArrayWithRpcUrls = collected.map(
+  //   ({ deploymentInfo, libraries, rpcUrl }) => {
+  //     return {
+  //       rpcUrl,
+  //       networkConfig: makeNetworkConfig(
+  //         deploymentInfo,
+  //         true, // System contracts are deployed.
+  //         configArtifacts,
+  //         libraries
+  //       ),
+  //     }
+  //   }
+  // )
 
   const isEmpty = networkConfigArrayWithRpcUrls.every(
     ({ networkConfig }) => networkConfig.actionInputs.length === 0
@@ -407,11 +404,7 @@ export const propose = async (
   const gasEstimatesPromises = networkConfigArrayWithRpcUrls
     .filter(({ networkConfig }) => networkConfig.actionInputs.length > 0)
     .map(({ networkConfig, rpcUrl }) =>
-      sphinxContext.getNetworkGasEstimate(
-        deploymentConfig,
-        networkConfig.chainId,
-        rpcUrl
-      )
+      sphinxContext.getNetworkGasEstimate(merkleTree, networkConfig, rpcUrl)
     )
   const gasEstimates = await Promise.all(gasEstimatesPromises)
 
