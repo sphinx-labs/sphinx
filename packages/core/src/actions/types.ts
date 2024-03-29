@@ -108,12 +108,7 @@ export type ContractInfo = {
 
 export type EstimateGasTransactionData = {
   to: string | null
-  from: string
   data: string
-  gasLimit: string
-  gasPrice: string
-  value: string
-  chainId: string
 }
 
 export type GnosisSafeTransaction = {
@@ -198,7 +193,7 @@ export type ProjectDeployment = {
   isExecuting: boolean
 }
 
-export type EstimateGas = (
+export type EstimateExecutionGas = (
   moduleAddress: string,
   batch: Array<SphinxLeafWithProof>,
   chainId: bigint

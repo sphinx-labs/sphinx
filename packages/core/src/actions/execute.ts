@@ -11,6 +11,7 @@ import {
   getGnosisSafeProxyFactoryAddress,
   SphinxModuleABI,
   decodeExecuteLeafData,
+  SphinxLeaf,
 } from '@sphinx-labs/contracts'
 import ora from 'ora'
 import { TransactionReceipt, ethers } from 'ethers'
@@ -18,7 +19,7 @@ import { TransactionReceipt, ethers } from 'ethers'
 import { DeploymentConfig, NetworkConfig } from '../config'
 import {
   ApproveDeployment,
-  EstimateGas,
+  EstimateExecutionGas,
   ExecuteActions,
   HumanReadableAction,
   HumanReadableActions,
@@ -292,7 +293,7 @@ const findMaxBatchSize = (
   leaves: SphinxLeafWithProof[],
   maxGasLimit: bigint,
   moduleAddress: string,
-  estimateGas: EstimateGas,
+  estimateGas: EstimateExecutionGas,
   chainId: bigint
 ): number => {
   if (leaves.length === 0) {
@@ -348,7 +349,7 @@ export const executeBatchActions = async (
   humanReadableActions: HumanReadableActions,
   executionMode: ExecutionMode,
   executeActions: ExecuteActions,
-  estimateGas: EstimateGas,
+  estimateGas: EstimateExecutionGas,
   deploymentContext: DeploymentContext
 ): Promise<{
   status: bigint
@@ -464,10 +465,29 @@ export const isExecutable = (
   selected: SphinxLeafWithProof[],
   maxGasLimit: bigint,
   moduleAddress: string,
-  estimateGas: EstimateGas,
+  estimateGas: EstimateExecutionGas,
   chainid: bigint
 ): boolean => {
   return maxGasLimit > estimateGas(moduleAddress, selected, chainid)
+}
+
+export const encodeApprovalViaSphinxModule = (
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  ownerSignatures: Array<string>
+): string => {
+  const sphinxModuleInterface = new ethers.Interface(SphinxModuleABI)
+
+  const packedOwnerSignatures = ethers.solidityPacked(
+    new Array(ownerSignatures.length).fill('bytes'),
+    ownerSignatures
+  )
+  const approvalData = sphinxModuleInterface.encodeFunctionData('approve', [
+    merkleRoot,
+    approvalLeafWithProof,
+    packedOwnerSignatures,
+  ])
+  return approvalData
 }
 
 export const approveDeploymentViaSigner: ApproveDeployment = async (
@@ -478,18 +498,11 @@ export const approveDeploymentViaSigner: ApproveDeployment = async (
   deploymentContext
 ) => {
   const { moduleAddress } = deploymentContext.deployment
-  const sphinxModuleReadOnly = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI
-  )
 
-  const packedOwnerSignatures = ethers.solidityPacked(
-    new Array(ownerSignatures.length).fill('bytes'),
+  const approvalData = encodeApprovalViaSphinxModule(
+    merkleRoot,
+    approvalLeafWithProof,
     ownerSignatures
-  )
-  const approvalData = sphinxModuleReadOnly.interface.encodeFunctionData(
-    'approve',
-    [merkleRoot, approvalLeafWithProof, packedOwnerSignatures]
   )
 
   return deploymentContext.executeTransaction(
@@ -591,6 +604,29 @@ export const removeRoles: RemoveRoles = async (
   )
 }
 
+export const encodeApprovalViaManagedService = (
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  moduleAddress: string,
+  ownerSignatures: Array<string>
+): string => {
+  const managedServiceReadOnly = new ethers.Contract(
+    getManagedServiceAddress(),
+    ManagedServiceABI
+  )
+
+  const approvalData = encodeApprovalViaSphinxModule(
+    merkleRoot,
+    approvalLeafWithProof,
+    ownerSignatures
+  )
+
+  return managedServiceReadOnly.interface.encodeFunctionData('exec', [
+    moduleAddress,
+    approvalData,
+  ])
+}
+
 export const approveDeploymentViaManagedService: ApproveDeployment = async (
   merkleRoot,
   approvalLeafWithProof,
@@ -599,29 +635,12 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   deploymentContext
 ) => {
   const { moduleAddress } = deploymentContext.deployment
-  const managedServiceReadOnly = new ethers.Contract(
-    getManagedServiceAddress(),
-    ManagedServiceABI
-  )
-  const packedOwnerSignatures = ethers.solidityPacked(
-    new Array(ownerSignatures.length).fill('bytes'),
+  const execData = encodeApprovalViaManagedService(
+    merkleRoot,
+    approvalLeafWithProof,
+    moduleAddress,
     ownerSignatures
   )
-
-  const sphinxModuleReadOnly = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI
-  )
-
-  const approvalData = sphinxModuleReadOnly.interface.encodeFunctionData(
-    'approve',
-    [merkleRoot, approvalLeafWithProof, packedOwnerSignatures]
-  )
-
-  const execData = managedServiceReadOnly.interface.encodeFunctionData('exec', [
-    moduleAddress,
-    approvalData,
-  ])
 
   return deploymentContext.executeTransaction(
     deploymentContext,
@@ -634,14 +653,11 @@ export const approveDeploymentViaManagedService: ApproveDeployment = async (
   )
 }
 
-export const executeActionsViaManagedService: ExecuteActions = async (
-  batch,
-  executionMode,
-  blockGasLimit,
-  deploymentContext
-) => {
-  const { provider } = deploymentContext
-  const { moduleAddress, chainId } = deploymentContext.deployment
+export const encodeExecutionViaManagedService = (
+  batch: Array<SphinxLeafWithProof>,
+  moduleAddress: string,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): string => {
   const managedService = new ethers.Contract(
     getManagedServiceAddress(),
     ManagedServiceABI
@@ -662,9 +678,27 @@ export const executeActionsViaManagedService: ExecuteActions = async (
     [moduleAddress, executionData]
   )
 
+  return managedServiceExecData
+}
+
+export const executeActionsViaManagedService: ExecuteActions = async (
+  batch,
+  executionMode,
+  blockGasLimit,
+  deploymentContext
+) => {
+  const { provider } = deploymentContext
+  const { moduleAddress, chainId } = deploymentContext.deployment
+
+  const managedServiceExecData = encodeExecutionViaManagedService(
+    batch,
+    moduleAddress,
+    provider
+  )
+
   let minimumActionsGasLimit: number | undefined
   if (shouldBufferExecuteActionsGasLimit(BigInt(chainId))) {
-    minimumActionsGasLimit = estimateGasViaManagedService(
+    minimumActionsGasLimit = estimateExecutionGasViaManagedService(
       moduleAddress,
       batch,
       BigInt(deploymentContext.deployment.chainId)
@@ -709,7 +743,9 @@ export const executeActionsViaSigner: ExecuteActions = async (
     )
   }
 
-  const minimumActionGas = estimateGasViaSigner(
+  // TODO(later): can we remove this? if not, do we need to use this logic elsewhere? if yes, c/f
+  // shouldBufferExecuteActionsGasLimit.
+  const minimumActionGas = estimateExecutionGasViaSigner(
     moduleAddress,
     batch,
     BigInt(deploymentContext.deployment.chainId)
@@ -788,7 +824,7 @@ const getGasPerCalldata = (byte: number, chainId: bigint) => {
  * buffer also makes our estimate closer to the value that would be returned by the
  * `eth_estimateGas` RPC method, which tends to overestimate the amount of gas.
  */
-export const estimateGasViaManagedService: EstimateGas = (
+export const estimateExecutionGasViaManagedService: EstimateExecutionGas = (
   moduleAddress,
   batch,
   chainId
@@ -803,20 +839,78 @@ export const estimateGasViaManagedService: EstimateGas = (
     moduleAddress,
     moduleCallData,
   ])
+
+  const moduleGas = estimateModuleExecutionGas(batch)
+  const estimate = estimateGasViaManagedService(
+    moduleGas,
+    callDataHex,
+    moduleCallData,
+    chainId
+  )
+
+  return estimate
+}
+
+// TODO(docs): move docs from the other function
+const estimateGasViaManagedService = (
+  estimatedSphinxModuleGas: number,
+  managedServiceCalldata: string,
+  sphinxModuleCalldata: string,
+  chainId: bigint
+): number => {
   const callDataGas = ethers
-    .getBytes(callDataHex)
+    .getBytes(managedServiceCalldata)
     .map((e) => getGasPerCalldata(e, chainId))
     .reduce((a, b) => a + b, 0)
 
   const managedServiceGas =
-    0.00000191 * moduleCallData.length * moduleCallData.length +
-    0.3789 * moduleCallData.length +
+    0.00000191 * sphinxModuleCalldata.length * sphinxModuleCalldata.length +
+    0.3789 * sphinxModuleCalldata.length +
     10205.7165
 
   const estimate =
-    21_000 + callDataGas + estimateModuleExecutionGas(batch) + managedServiceGas
+    21_000 + callDataGas + estimatedSphinxModuleGas + managedServiceGas
 
   return Math.round(estimate * 1.05 + 50_000) // Include a buffer
+}
+
+export const estimateApprovalGasViaManagedService = (
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  moduleAddress: string,
+  ownerSignatures: Array<string>,
+  threshold: string,
+  chainId: bigint
+): number => {
+  const moduleCallData = encodeApprovalViaSphinxModule(
+    merkleRoot,
+    approvalLeafWithProof,
+    ownerSignatures
+  )
+
+  const callDataHex = encodeApprovalViaManagedService(
+    merkleRoot,
+    approvalLeafWithProof,
+    moduleAddress,
+    ownerSignatures
+  )
+
+  const moduleGas = estimateModuleApprovalGas(threshold)
+
+  const estimate = estimateGasViaManagedService(
+    moduleGas,
+    callDataHex,
+    moduleCallData,
+    chainId
+  )
+
+  return estimate
+}
+
+const estimateModuleApprovalGas = (threshold: string): number => {
+  // TODO(later):
+  threshold // TODO(later): rm
+  return 300_000
 }
 
 /**
@@ -837,7 +931,7 @@ export const estimateGasViaManagedService: EstimateGas = (
  * This buffer also makes our estimate closer to the value that would be returned by the
  * `eth_estimateGas` RPC method, which tends to overestimate the amount of gas.
  */
-export const estimateGasViaSigner: EstimateGas = (
+export const estimateExecutionGasViaSigner: EstimateExecutionGas = (
   moduleAddress,
   batch,
   chainId
@@ -923,18 +1017,18 @@ const executeDeployment = async (
     [chainId]: getReadableActions(actionInputs),
   }
 
-  let estimateGas: EstimateGas
+  let estimateGas: EstimateExecutionGas
   let approveDeployment: ApproveDeployment
   let executeActions: ExecuteActions
   if (
     executionMode === ExecutionMode.LocalNetworkCLI ||
     executionMode === ExecutionMode.Platform
   ) {
-    estimateGas = estimateGasViaManagedService
+    estimateGas = estimateExecutionGasViaManagedService
     approveDeployment = approveDeploymentViaManagedService
     executeActions = executeActionsViaManagedService
   } else if (executionMode === ExecutionMode.LiveNetworkCLI) {
-    estimateGas = estimateGasViaSigner
+    estimateGas = estimateExecutionGasViaSigner
     approveDeployment = approveDeploymentViaSigner
     executeActions = executeActionsViaSigner
   } else {
@@ -1309,6 +1403,44 @@ export const compileAndExecuteDeployment = async (
       failureAction,
     }
   }
+}
+
+// TODO(later-later): if you don't use the batches in the Propose command, remove the return value.
+
+export const makeExecuteLeafBatches = (
+  networkConfig: NetworkConfig,
+  merkleTree: SphinxMerkleTree,
+  estimateExecutionGas: EstimateExecutionGas
+): Array<Array<SphinxLeafWithProof>> => {
+  const { moduleAddress, blockGasLimit, chainId } = networkConfig
+
+  const leavesOnNetwork = merkleTree.leavesWithProofs.filter(
+    (leaf) => leaf.leaf.chainId === BigInt(chainId)
+  )
+  const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
+
+  let executed = 0
+  const batches: SphinxLeafWithProof[][] = []
+  while (executed < leavesOnNetwork.length) {
+    // Figure out the maximum number of actions that can be executed in a single batch.
+    const batchSize = findMaxBatchSize(
+      leavesOnNetwork.slice(executed),
+      maxGasLimit,
+      moduleAddress,
+      estimateExecutionGas,
+      BigInt(chainId)
+    )
+
+    // Pull out the next batch of actions.
+    const batch = leavesOnNetwork.slice(executed, executed + batchSize)
+
+    batches.push(batch)
+
+    // Move on to the next batch if necessary.
+    executed += batchSize
+  }
+
+  return batches
 }
 
 /**

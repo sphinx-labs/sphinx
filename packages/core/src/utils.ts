@@ -390,18 +390,6 @@ export const fetchSphinxManagedBaseUrl = () => {
     : 'https://www.sphinx.dev'
 }
 
-// TODO(docs)
-export const fetchMerkleLeafGasFieldsFromWebsite = (
-  networks: Array<{
-    deploymentInfo: DeploymentInfo
-    rpcUrl: string
-  }>
-): Promise<Array<Array<string>>> => {
-  // TODO(ryan)
-  networks
-  return [] as any
-}
-
 export const relayProposal: RelayProposal = async (
   proposalRequest: ProposalRequest
 ): Promise<void> => {
@@ -1727,6 +1715,7 @@ export const toGnosisSafeTransaction = (
  * @param {string | symbol} prop - The property name or symbol to check.
  * @returns {boolean} - `true` if the property is a public asynchronous method, `false` otherwise.
  */
+// TODO(later): remove any utility functions just used by the hardhat simulation, like this one.
 export const isPublicAsyncMethod = (
   obj: any,
   prop: string | symbol
@@ -1747,6 +1736,26 @@ export const isPublicAsyncMethod = (
   }
 
   return false
+}
+
+export const makeSphinxWalletOwners = async (
+  merkleRoot: string,
+  threshold: string,
+  provider: SphinxJsonRpcProvider
+): Promise<{
+  wallets: Array<ethers.Wallet>
+  signatureArray: Array<string>
+  packedSignatures: string
+}> => {
+  const wallets = getSphinxWalletsSortedByAddress(BigInt(threshold), provider)
+  const signatureArray = await Promise.all(
+    wallets.map(async (wallet) => signMerkleRoot(merkleRoot, wallet))
+  )
+  const packedSignatures = ethers.solidityPacked(
+    new Array(signatureArray.length).fill('bytes'),
+    signatureArray
+  )
+  return { wallets, signatureArray, packedSignatures }
 }
 
 export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }
