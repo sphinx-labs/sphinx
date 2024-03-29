@@ -14,7 +14,7 @@ contract SphinxConstants {
   address public constant safeSingletonAddress = 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
   address public constant sphinxModuleImplAddress = 0x8f4E4d51B8050B0ff713eff1F88f3dD8b5e8a530;
 
-  uint8 internal constant numSupportedNetworks = 43;
+  uint8 internal constant numSupportedNetworks = 48;
 
   function getNetworkInfoArray() public pure returns (NetworkInfo[] memory) {
     NetworkInfo[] memory all = new NetworkInfo[](numSupportedNetworks);
@@ -139,6 +139,14 @@ contract SphinxConstants {
       dripSizeString: '0.15 ETH'
     });
     all[15] = NetworkInfo({
+      network: Network.linea_sepolia,
+      name: "linea_sepolia",
+      chainId: 59141,
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
+    });
+    all[16] = NetworkInfo({
       network: Network.polygon_zkevm,
       name: "polygon_zkevm",
       chainId: 1101,
@@ -146,7 +154,7 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[16] = NetworkInfo({
+    all[17] = NetworkInfo({
       network: Network.polygon_zkevm_goerli,
       name: "polygon_zkevm_goerli",
       chainId: 1442,
@@ -154,7 +162,15 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 ETH'
     });
-    all[17] = NetworkInfo({
+    all[18] = NetworkInfo({
+      network: Network.polygon_zkevm_cardona,
+      name: "polygon_zkevm_cardona",
+      chainId: 2442,
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
+    });
+    all[19] = NetworkInfo({
       network: Network.avalanche,
       name: "avalanche",
       chainId: 43114,
@@ -162,7 +178,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 AVAX'
     });
-    all[18] = NetworkInfo({
+    all[20] = NetworkInfo({
       network: Network.avalanche_fuji,
       name: "avalanche_fuji",
       chainId: 43113,
@@ -170,7 +186,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 AVAX'
     });
-    all[19] = NetworkInfo({
+    all[21] = NetworkInfo({
       network: Network.fantom,
       name: "fantom",
       chainId: 250,
@@ -178,7 +194,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 FTM'
     });
-    all[20] = NetworkInfo({
+    all[22] = NetworkInfo({
       network: Network.fantom_testnet,
       name: "fantom_testnet",
       chainId: 4002,
@@ -186,7 +202,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 FTM'
     });
-    all[21] = NetworkInfo({
+    all[23] = NetworkInfo({
       network: Network.base,
       name: "base",
       chainId: 8453,
@@ -194,7 +210,7 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[22] = NetworkInfo({
+    all[24] = NetworkInfo({
       network: Network.base_sepolia,
       name: "base_sepolia",
       chainId: 84532,
@@ -202,7 +218,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 ETH'
     });
-    all[23] = NetworkInfo({
+    all[25] = NetworkInfo({
       network: Network.celo,
       name: "celo",
       chainId: 42220,
@@ -210,7 +226,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 CELO'
     });
-    all[24] = NetworkInfo({
+    all[26] = NetworkInfo({
       network: Network.celo_alfajores,
       name: "celo_alfajores",
       chainId: 44787,
@@ -218,7 +234,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 CELO'
     });
-    all[25] = NetworkInfo({
+    all[27] = NetworkInfo({
       network: Network.moonriver,
       name: "moonriver",
       chainId: 1285,
@@ -226,7 +242,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 MOVR'
     });
-    all[26] = NetworkInfo({
+    all[28] = NetworkInfo({
       network: Network.moonbeam,
       name: "moonbeam",
       chainId: 1284,
@@ -234,7 +250,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 GLMR'
     });
-    all[27] = NetworkInfo({
+    all[29] = NetworkInfo({
       network: Network.moonbase_alpha,
       name: "moonbase_alpha",
       chainId: 1287,
@@ -242,7 +258,7 @@ contract SphinxConstants {
       dripSize: 50000000000000000,
       dripSizeString: '0.05 GLMR'
     });
-    all[28] = NetworkInfo({
+    all[30] = NetworkInfo({
       network: Network.fuse,
       name: "fuse",
       chainId: 122,
@@ -250,7 +266,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 FUSE'
     });
-    all[29] = NetworkInfo({
+    all[31] = NetworkInfo({
       network: Network.evmos,
       name: "evmos",
       chainId: 9001,
@@ -258,7 +274,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 EVMOS'
     });
-    all[30] = NetworkInfo({
+    all[32] = NetworkInfo({
       network: Network.evmos_testnet,
       name: "evmos_testnet",
       chainId: 9000,
@@ -266,7 +282,7 @@ contract SphinxConstants {
       dripSize: 15000000000000000,
       dripSizeString: '0.015 EVMOS'
     });
-    all[31] = NetworkInfo({
+    all[33] = NetworkInfo({
       network: Network.kava,
       name: "kava",
       chainId: 2222,
@@ -274,7 +290,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 KAVA'
     });
-    all[32] = NetworkInfo({
+    all[34] = NetworkInfo({
       network: Network.kava_testnet,
       name: "kava_testnet",
       chainId: 2221,
@@ -282,7 +298,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000000,
       dripSizeString: '1 KAVA'
     });
-    all[33] = NetworkInfo({
+    all[35] = NetworkInfo({
       network: Network.scroll,
       name: "scroll",
       chainId: 534352,
@@ -290,7 +306,7 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[34] = NetworkInfo({
+    all[36] = NetworkInfo({
       network: Network.scroll_sepolia,
       name: "scroll_sepolia",
       chainId: 534351,
@@ -298,7 +314,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 ETH'
     });
-    all[35] = NetworkInfo({
+    all[37] = NetworkInfo({
       network: Network.rootstock,
       name: "rootstock",
       chainId: 30,
@@ -306,7 +322,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000,
       dripSizeString: '0.001 RBTC'
     });
-    all[36] = NetworkInfo({
+    all[38] = NetworkInfo({
       network: Network.rootstock_testnet,
       name: "rootstock_testnet",
       chainId: 31,
@@ -314,7 +330,7 @@ contract SphinxConstants {
       dripSize: 1000000000000000,
       dripSizeString: '0.001 RBTC'
     });
-    all[37] = NetworkInfo({
+    all[39] = NetworkInfo({
       network: Network.zora,
       name: "zora",
       chainId: 7777777,
@@ -322,7 +338,7 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[38] = NetworkInfo({
+    all[40] = NetworkInfo({
       network: Network.zora_sepolia,
       name: "zora_sepolia",
       chainId: 999999999,
@@ -330,7 +346,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 ETH'
     });
-    all[39] = NetworkInfo({
+    all[41] = NetworkInfo({
       network: Network.rari,
       name: "rari",
       chainId: 1380012617,
@@ -338,7 +354,7 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[40] = NetworkInfo({
+    all[42] = NetworkInfo({
       network: Network.rari_sepolia,
       name: "rari_sepolia",
       chainId: 1918988905,
@@ -346,7 +362,7 @@ contract SphinxConstants {
       dripSize: 150000000000000000,
       dripSizeString: '0.15 ETH'
     });
-    all[41] = NetworkInfo({
+    all[43] = NetworkInfo({
       network: Network.blast_sepolia,
       name: "blast_sepolia",
       chainId: 168587773,
@@ -354,10 +370,34 @@ contract SphinxConstants {
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
     });
-    all[42] = NetworkInfo({
+    all[44] = NetworkInfo({
       network: Network.blast,
       name: "blast",
       chainId: 81457,
+      networkType: NetworkType.Mainnet,
+      dripSize: 25000000000000000,
+      dripSizeString: '0.025 ETH'
+    });
+    all[45] = NetworkInfo({
+      network: Network.taiko_katla,
+      name: "taiko_katla",
+      chainId: 167008,
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
+    });
+    all[46] = NetworkInfo({
+      network: Network.mode_sepolia,
+      name: "mode_sepolia",
+      chainId: 919,
+      networkType: NetworkType.Testnet,
+      dripSize: 150000000000000000,
+      dripSizeString: '0.15 ETH'
+    });
+    all[47] = NetworkInfo({
+      network: Network.mode,
+      name: "mode",
+      chainId: 34443,
       networkType: NetworkType.Mainnet,
       dripSize: 25000000000000000,
       dripSizeString: '0.025 ETH'
@@ -382,8 +422,10 @@ enum Network {
   gnosis_chiado,
   linea,
   linea_goerli,
+  linea_sepolia,
   polygon_zkevm,
   polygon_zkevm_goerli,
+  polygon_zkevm_cardona,
   avalanche,
   avalanche_fuji,
   fantom,
@@ -409,5 +451,8 @@ enum Network {
   rari,
   rari_sepolia,
   blast_sepolia,
-  blast
+  blast,
+  taiko_katla,
+  mode_sepolia,
+  mode
 }
