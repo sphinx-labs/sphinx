@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.20.7
+
+### Patch Changes
+
+- 3446011: Support sending funds to Safe during deployment
+
 ## 0.20.6
 
 ### Patch Changes

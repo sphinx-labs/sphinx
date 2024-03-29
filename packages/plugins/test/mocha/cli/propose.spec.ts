@@ -155,29 +155,36 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               referenceName: 'GnosisSafe',
               variables: {},
+              value: '0',
             },
             {
               address: proposalRequest.moduleAddress,
               functionName: 'deploy',
               referenceName: 'SphinxModule',
               variables: {},
+              value: '0',
             },
             {
               address: expectedContractAddress,
               functionName: 'deploy',
               referenceName: 'MyContract2',
               variables: {},
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
               variables: { _num: '2' },
               address: expectedContractAddress,
+              value: '0',
             },
           ],
           skipping: [],
+          chainId: '11155111',
+          safeAddress: proposalRequest.safeAddress,
         },
-      ]
+      ],
+      networkConfigArray
     )
 
     // Check that the DeploymentConfig array contains a contract with the correct address.
@@ -258,27 +265,33 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.safeAddress,
+              value: '0',
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.moduleAddress,
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
               variables: {},
               address: expectedContractAddressEthereum,
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
               variables: { _num: '2' },
               address: expectedContractAddressEthereum,
+              value: '0',
             },
           ],
           skipping: [],
+          chainId: '1',
+          safeAddress: proposalRequest.safeAddress,
         },
         {
           networkTags: ['optimism'],
@@ -288,29 +301,36 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.safeAddress,
+              value: '0',
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.moduleAddress,
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
               variables: {},
               address: expectedContractAddressOptimism,
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'incrementMyContract2',
               variables: { _num: '2' },
               address: expectedContractAddressOptimism,
+              value: '0',
             },
           ],
           skipping: [],
+          chainId: '10',
+          safeAddress: proposalRequest.safeAddress,
         },
-      ]
+      ],
+      networkConfigArray
     )
 
     // Check that the DeploymentConfig array contains contracts with the correct addresses.
@@ -390,6 +410,7 @@ describe('Propose CLI command', () => {
         functionName: 'deploy',
         variables: {},
         address,
+        value: '0',
       }
     })
 
@@ -410,18 +431,23 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.safeAddress,
+              value: '0',
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.moduleAddress,
+              value: '0',
             },
             ...previewElements,
           ],
           skipping: [],
+          chainId: '11155111',
+          safeAddress: proposalRequest.safeAddress,
         },
-      ]
+      ],
+      networkConfigArray
     )
 
     // Check that the DeploymentConfig array contains contracts with the correct addresses.
@@ -520,11 +546,15 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               referenceName: 'MyContract2',
               variables: {},
+              value: '0',
             },
           ],
           skipping: [],
+          chainId: '11155111',
+          safeAddress: proposalRequest.safeAddress,
         },
-      ]
+      ],
+      networkConfigArray
     )
 
     // Check that the DeploymentConfig array contains a contract with the correct address.
@@ -624,28 +654,36 @@ describe('Propose CLI command', () => {
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.safeAddress,
+              value: '0',
             },
             {
               referenceName: 'SphinxModule',
               functionName: 'deploy',
               variables: {},
               address: proposalRequest.moduleAddress,
+              value: '0',
             },
             {
               referenceName: 'MyContract2',
               functionName: 'deploy',
               variables: {},
               address: expectedContractAddress,
+              value: '0',
             },
           ],
           skipping: [],
+          chainId: '1',
+          safeAddress: proposalRequest.safeAddress,
         },
         {
           networkTags: ['optimism'],
           executing: [],
           skipping: [],
+          chainId: '10',
+          safeAddress: proposalRequest.safeAddress,
         },
-      ]
+      ],
+      networkConfigArray
     )
 
     // Check that the DeploymentConfig array contains a contract with the correct address.
@@ -781,12 +819,14 @@ describe('Propose CLI command', () => {
                 functionName: 'deploy',
                 variables: {},
                 address: proposalRequest.safeAddress,
+                value: '0',
               },
               {
                 referenceName: 'SphinxModule',
                 functionName: 'deploy',
                 variables: {},
                 address: proposalRequest.moduleAddress,
+                value: '0',
               },
               {
                 referenceName: 'Owned',
@@ -795,11 +835,15 @@ describe('Propose CLI command', () => {
                   _owner: sphinxModuleAddress,
                 },
                 address: expectedContractAddress,
+                value: '0',
               },
             ],
             skipping: [],
+            chainId: '11155111',
+            safeAddress: proposalRequest.safeAddress,
           },
-        ]
+        ],
+        networkConfigArray
       )
     })
   })
@@ -886,7 +930,8 @@ const assertValidProposalRequest = (
   projectName: string,
   isTestnet: boolean,
   chainIds: Array<number>,
-  previewNetworks: SphinxPreview['networks']
+  previewNetworks: SphinxPreview['networks'],
+  networkConfigArray: Array<NetworkConfig>
 ) => {
   expect(proposalRequest.apiKey).to.equal(sphinxApiKey)
   expect(proposalRequest.orgId).to.equal('test-org-id')
@@ -896,4 +941,15 @@ const assertValidProposalRequest = (
   expect(proposalRequest.deploymentName).to.equal(projectName)
   expect(proposalRequest.chainIds).to.deep.equal(chainIds)
   expect(proposalRequest.diff.networks).to.deep.equal(previewNetworks)
+
+  // Expect funding estimate size to exactly match funding request listed in the deployment config
+  for (const estimate of proposalRequest.gasEstimates) {
+    const networkConfig = networkConfigArray.find(
+      (config) => config.chainId === estimate.chainId.toString()
+    )
+    expect(networkConfig).not.undefined
+    expect(networkConfig?.safeFundingRequest?.fundsRequested).to.eq(
+      estimate.fundsRequested
+    )
+  }
 }

@@ -76,6 +76,8 @@ export type SupportedLocalNetwork = {
   actionGasLimitBuffer: false
   useHigherMaxGasLimit: false
   eip2028: true
+  dripSize: string
+  currency: string
 }
 
 export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
@@ -87,6 +89,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
+    dripSize: '1',
+    currency: 'ETH',
   },
 ]
 
@@ -480,6 +484,30 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     eip2028: true,
   },
   {
+    name: 'linea_sepolia',
+    displayName: 'Linea Sepolia',
+    chainId: BigInt(59141),
+    rpcUrl: () => `${process.env.LINEA_SEPOLIA_RPC_URL}`,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.lineascan.build/api',
+        browserURL: 'https://sepolia.lineascan.build',
+        envKey: 'LINEA_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    requiredEnvVariables: ['LINEA_SEPOLIA_RPC_URL'],
+    networkType: 'Testnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+  },
+  {
     name: 'polygon_zkevm',
     displayName: 'Polygon zkEVM',
     chainId: BigInt(1101),
@@ -525,6 +553,30 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.15',
     requiredEnvVariables: ['POLYGON_ZKEVM_TESTNET_URL'],
+    networkType: 'Testnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+  },
+  {
+    name: 'polygon_zkevm_cardona',
+    displayName: 'Polygon zkEVM Cardona',
+    chainId: BigInt(2442),
+    rpcUrl: () => process.env.POLYGON_ZKEVM_CARDONA_URL!,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-cardona-zkevm.polygonscan.com/api',
+        browserURL: 'https://cardona-zkevm.polygonscan.com',
+        envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    requiredEnvVariables: ['POLYGON_ZKEVM_CARDONA_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -1190,5 +1242,73 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     useHigherMaxGasLimit: false,
     eip2028: true,
     requiredEnvVariables: ['BLAST_MAINNET_RPC_URL'],
+  },
+  {
+    name: 'taiko_katla',
+    displayName: 'Taiko Katla',
+    chainId: BigInt(167008),
+    rpcUrl: () => process.env.TAIKO_KATLA_RPC_URL!,
+    blockexplorers: {},
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['TAIKO_KATLA_RPC_URL'],
+  },
+  {
+    name: 'mode_sepolia',
+    displayName: 'Mode Sepolia',
+    chainId: BigInt(919),
+    rpcUrl: () => process.env.MODE_SEPOLIA_RPC_URL!,
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://sepolia.explorer.mode.network/api',
+        browserURL: 'https://sepolia.explorer.mode.network/',
+        envKey: 'MODE_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['MODE_SEPOLIA_RPC_URL'],
+  },
+  {
+    name: 'mode',
+    displayName: 'Mode',
+    chainId: BigInt(34443),
+    rpcUrl: () => process.env.MODE_MAINNET_RPC_URL!,
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://explorer.mode.network/api',
+        browserURL: 'https://explorer.mode.network/',
+        envKey: 'MODE_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['MODE_MAINNET_RPC_URL'],
   },
 ]

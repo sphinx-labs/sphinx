@@ -13,6 +13,7 @@ import {
   JsonRpcSigner,
   FunctionFragment,
   keccak256,
+  formatUnits,
 } from 'ethers'
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
@@ -655,6 +656,8 @@ export const prettyFunctionCall = (
   address: string,
   functionName: string,
   variables: ParsedVariable,
+  chainId: string,
+  value?: string,
   spaceToIndentVariables: number = 2,
   spaceToIndentClosingParenthesis: number = 0
 ): string => {
@@ -672,11 +675,17 @@ export const prettyFunctionCall = (
     removedBrackets + ' '.repeat(numSpacesForClosingParenthesis)
 
   const addressTag = address !== '' ? `<${address}>` : ''
+
+  const transferValue = value ?? 0
+  const valueString =
+    BigInt(transferValue) > BigInt(0)
+      ? `{ value: ${formatUnits(BigInt(transferValue), 'ether')} ether }`
+      : ''
   const target = ethers.isAddress(referenceNameOrAddress)
     ? `(${referenceNameOrAddress})`
     : `${referenceNameOrAddress}${addressTag}`
 
-  return `${target}.${functionName}(${addedSpaceToClosingParenthesis})`
+  return `${target}.${functionName}${valueString}(${addedSpaceToClosingParenthesis})`
 }
 
 export const prettyRawFunctionCall = (to: string, data: string): string => {
@@ -1252,16 +1261,19 @@ export const setManagedServiceRelayer = async (
 }
 
 export const getReadableActions = (
-  actionInputs: ActionInput[]
+  actionInputs: ActionInput[],
+  chainId: string
 ): HumanReadableAction[] => {
   return actionInputs.map((action) => {
-    const { referenceName, functionName, variables, address } =
+    const { referenceName, functionName, variables, address, value } =
       action.decodedAction
     const actionStr = prettyFunctionCall(
       referenceName,
       address,
       functionName,
       variables,
+      chainId,
+      value,
       5,
       3
     )

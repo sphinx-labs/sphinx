@@ -1,5 +1,19 @@
 # @sphinx-labs/core
 
+## 0.23.9
+
+### Patch Changes
+
+- 96653d9: Do not use isVerified at all
+
+## 0.23.8
+
+### Patch Changes
+
+- 3446011: Support sending funds to Safe during deployment
+- Updated dependencies [3446011]
+  - @sphinx-labs/contracts@0.20.7
+
 ## 0.23.7
 
 ### Patch Changes

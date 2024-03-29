@@ -237,8 +237,7 @@ export const attemptVerification = async (
     )
     guid = response.message
   } catch (err) {
-    const verified = await etherscan.isVerified(address)
-    if (verified) {
+    if ((err.message as string).toLowerCase().includes('already verified')) {
       console.log(
         `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
       )

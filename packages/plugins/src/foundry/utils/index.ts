@@ -1252,10 +1252,16 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     provider
   )
 
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
+  )
+
   return {
     chainId: Number(networkConfig.chainId),
     estimatedGas,
     transactions: transactionsWithGasEstimates,
+    fundsRequested: networkConfig.safeFundingRequest?.fundsRequested ?? '0',
   }
 }
 

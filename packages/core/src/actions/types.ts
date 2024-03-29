@@ -143,13 +143,17 @@ export type TransactionEstimatedGas = {
  *
  * @property {number} chainId: The id of the network this estimate is for.
  * @property {string} estimatedGas: The amount of gas we've estimated will be used for the entire deployment including a buffer.
+ * @property {string} fundsRequested: The amount of funds that the user has requested be transferred to their Safe on this network.
+ * Note that we also have this value stored on the deployment config, but we also include it hear because the deployment config is
+ * not easily accessible while the proposal is being processed by the website backend.
  * @property {array} transactions: An array of individual transactions used to generate this estimate along with their estimated
  * gas cost and estimated blob gas cost.
  */
 export type NetworkGasEstimate = {
   chainId: number
   estimatedGas: string
-  transactions: Array<TransactionEstimatedGas>
+  fundsRequested?: string
+  transactions?: Array<TransactionEstimatedGas>
 }
 
 /**

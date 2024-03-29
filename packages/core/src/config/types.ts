@@ -93,6 +93,13 @@ export type NetworkConfig = {
   arbitraryChain: boolean
   libraries: Array<string>
   gitCommit: string | null
+  // Previous versions of Sphinx did not include the option to transfer funds to the safe.
+  // To keep this feature safely backwards compatible, this type is optional. This reflects
+  // the fact that deployment configs from previous versions may not include this field.
+  safeFundingRequest?: {
+    fundsRequested: string
+    startingBalance: string
+  }
 }
 
 export type DeploymentInfo = {
@@ -113,6 +120,8 @@ export type DeploymentInfo = {
   accountAccesses: Array<ParsedAccountAccess>
   gasEstimates: Array<string>
   deployedContractSizes: Array<DeployedContractSize>
+  fundsRequestedForSafe: string
+  safeStartingBalance: string
 }
 
 export type InitialChainState = {
@@ -174,6 +183,7 @@ export type DecodedAction = {
   functionName: string
   variables: ParsedVariable
   address: string
+  value?: string
 }
 
 export interface FunctionCallActionInput extends AbstractActionInput {
