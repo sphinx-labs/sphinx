@@ -1,5 +1,14 @@
 # @sphinx-labs/plugins
 
+## 0.30.12
+
+### Patch Changes
+
+- 8e2d3fe: Add support for Support Taiko Katla, Darwinia Pangolin, Mode, Mode Sepolia, Polygon ZKEVM Cardona, Linea Sepolia
+- Updated dependencies [8e2d3fe]
+  - @sphinx-labs/contracts@0.20.8
+  - @sphinx-labs/core@0.23.10
+
 ## 0.30.11
 
 ### Patch Changes
