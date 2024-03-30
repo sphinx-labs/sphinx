@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@gnosis.pm/safe-contracts-1.4.1": "https://github.com/safe-global/safe-contracts.git#192c7dc67290940fcbc75165522bb86a37187069",
+    "@gnosis.pm/safe-contracts": "https://github.com/safe-global/safe-contracts.git#767ef36bba88bdbc0c9fe3708a4290cabef4c376",
     "@openzeppelin/merkle-tree": "1.0.5",
     "dotenv": "^16.0.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
@@ -55,7 +56,6 @@
     "sinon": "^17.0.1"
   },
   "dependencies": {
-    "@gnosis.pm/safe-contracts": "https://github.com/safe-global/safe-contracts.git#767ef36bba88bdbc0c9fe3708a4290cabef4c376",
     "@openzeppelin/contracts": "4.9.3",
     "ethers": "^6.7.0",
     "solmate": "6.2.0"

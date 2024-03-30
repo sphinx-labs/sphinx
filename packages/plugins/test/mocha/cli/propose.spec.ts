@@ -50,11 +50,11 @@ describe('Propose CLI command', () => {
     originalEnv = { ...process.env }
 
     process.env['SPHINX_API_KEY'] = sphinxApiKey
-    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
-    process.env['ETHEREUM_RPC_URL'] = getAnvilRpcUrl(
+    process.env['ETH_SEPOLIA_URL'] = sepoliaRpcUrl
+    process.env['ETH_MAINNET_URL'] = getAnvilRpcUrl(
       fetchChainIdForNetwork('ethereum')
     )
-    process.env['OPTIMISM_RPC_URL'] = getAnvilRpcUrl(
+    process.env['OPT_MAINNET_URL'] = getAnvilRpcUrl(
       fetchChainIdForNetwork('optimism')
     )
   })

@@ -89,6 +89,9 @@ export const makeMockSphinxContext = (
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  const assertNoLinkedLibraries = async () => {}
+
   return {
     isLiveNetwork,
     propose,
@@ -99,6 +102,7 @@ export const makeMockSphinxContext = (
     relayProposal,
     prompt,
     makeGetConfigArtifacts,
+    assertNoLinkedLibraries,
   }
 }
 
@@ -115,6 +119,7 @@ export const makeMockSphinxContextForIntegrationTests = (
     storeDeploymentConfig,
     isLiveNetwork,
     makeGetConfigArtifacts,
+    assertNoLinkedLibraries,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
 
@@ -123,6 +128,7 @@ export const makeMockSphinxContextForIntegrationTests = (
   context.relayProposal = relayProposal
   context.storeDeploymentConfig = storeDeploymentConfig
   context.isLiveNetwork = isLiveNetwork
+  context.assertNoLinkedLibraries = assertNoLinkedLibraries
 
   return { context, prompt }
 }
