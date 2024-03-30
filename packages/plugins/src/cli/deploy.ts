@@ -593,4 +593,5 @@ export const deploy = async (
 // TODO(later): manually check that you can transfer value as part of the eth_call in your
 // tests that run against the live network RPC URLs.
 
-// TODO(later): why does alchemy appear to have two txns in their eth_call example?
+// TODO: left off: considering using `debug_traceCall` instead of `eth_call`. i ran into an issue in
+// this PR where the `from` field has insufficient funds when transferring value in the simulation.
