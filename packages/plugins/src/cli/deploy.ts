@@ -482,3 +482,16 @@ export const deploy = async (
     deploymentArtifacts,
   }
 }
+
+// TODO(end): gh: 1 ether (or other native gas token) is the default value for geth and the other
+// evm client. i couldn't think of a reliable way to infer the tx fee cap for the RPC provider, and
+// I don't think it's available via RPC.
+
+// TODO(later): we should set it to less than 1 ether b/c the gas price could increase between the
+// time that we fetch the gas price and the time that we submit the transaction. however, if it's
+// too low, we run the risk of a batch not being executable if gas prices are high on a network.
+// this is particularly a concern when the gas token isn't denominated in ether.
+
+// TODO(later): check if we hardcode the gas value to be high anywhere. two come to mind: merkle
+// leaf gas on the Moon networks, and linea goerli/sepolia ("Could this be an issue on Linea Goerli
+// since we hardcode the gas price to be 10x the normal amount?").
