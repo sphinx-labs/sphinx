@@ -1,5 +1,5 @@
 import { join, relative } from 'path'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 
 // TODO(end): rm
 Error.stackTraceLimit = Infinity
@@ -43,7 +43,8 @@ import {
   NetworkConfig,
   DeploymentArtifacts,
   ensureSphinxAndGnosisSafeDeployed,
-  simulateExecution,
+  makeExecuteLeafBatches,
+  estimateExecutionGasViaSigner,
 } from '@sphinx-labs/core'
 import { red } from 'chalk'
 import ora from 'ora'
@@ -62,8 +63,8 @@ import {
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
-import { simulate } from '../hardhat/simulate'
 import { SphinxContext } from './context'
+import { canSimulateExecution, simulateExecution } from '../simulate'
 
 export interface DeployArgs {
   scriptPath: string
@@ -343,9 +344,10 @@ export const deploy = async (
     return {}
   }
 
-  // TODO(later-later): consider removing b/c it may not be worth the trouble for the deploy
-  // command. e.g. we'll need to account for anvil nodes, and the user may have a bad RPC URL.
-  await simulateExecution(networkConfig, provider)
+  // TODO(later): manually check that this works for very large deployment on anvil.
+  if (await canSimulateExecution(networkConfig, provider)) {
+    await simulateExecution(networkConfig, provider)
+  }
 
   await ensureSphinxAndGnosisSafeDeployed(
     provider,
@@ -365,7 +367,11 @@ export const deploy = async (
     merkleTree
   )
 
-  await simulate(deploymentConfig, chainId.toString(), forkUrl)
+  makeExecuteLeafBatches(
+    networkConfig,
+    merkleTree,
+    estimateExecutionGasViaSigner
+  )
 
   spinner.succeed(`Built deployment.`)
 
@@ -511,6 +517,9 @@ export const deploy = async (
   }
 }
 
+// TODO(end): make ticket: add a test that checks that you can use the deploy command on a network
+// currently unsupported by sphinx that doesn't have the system contracts deployed.
+
 // TODO(end): make ticket: investigate the UX of a transaction reverting in the `SphinxSimulator`
 // when we're getting the Merkle leaf gas fields. the error is probably opaque. i don't think this
 // situation will occur often because it either means there's a bug in our logic or there's some
@@ -538,6 +547,23 @@ export const deploy = async (
 // TODO(end): do we need to change the license of the SphinxSimulator to LGPL since i copied a
 // couple functions from the Gnosis Safe?
 
+// TODO(end): make ticket to investigate deployment size limit. EthersJS can't ABI encode extremely
+// large amounts of data (i.e. it'll fail for a Merkle tree that contains 250 contract deployments,
+// where the contract is near the maximum size limit).
+
+// TODO(end): make ticket for next todo (`if execution fails,`)
+
+// TODO(end): gh: SphinxSimulator: if execution fails, we could pass back the leaf that caused the
+// failure. i didn't think it was necessary for a V1, so I didn't include it in this PR, and I made
+// a ticket instead. (make ticket!). if you feel like it's important, i could add it in this pr.
+
+// TODO(end): make ticket to deploy the SphinxSimulator contracts.
+
+// TODO(end): i decided that using a mocked provider in the `attemptDeployment` function wasn't
+// worth the trouble. i don't think there's much of a risk that the `attemptDeployment` function
+// itself contains a bug. we check that the deployment contains valid batches, which is the
+// important thing.
+
 // TODO(docs): gh: we put the Merkle leaf gas buffers off-chain so that we can adjust them in the
 // future without re-deploying the `SphinxSimulator` contract.
 
@@ -562,88 +588,9 @@ export const deploy = async (
 
 // TODO(docs): all Solidity code.
 
-// TODO(later-later): write logic to skip certain networks under certain conditions.
+// TODO(later): test that the simulations work with the `msg.value` feature.
 
-// TODO(later-later): test that the simulations work with the `msg.value` feature.
+// TODO(later): manually check that you can transfer value as part of the eth_call in your
+// tests that run against the live network RPC URLs.
 
-// TODO(later-later): test that you can transfer value as part of the eth_call in your tests that
-// run against the live network RPC URLs.
-
-// TODO(later-later): remove the hardhat simulation.
-
-// TODO(later-later): handle case where the calldata is too large. started in `long.ts`.
-
-// TODO(later-later): handle case where the gas limit is exceeded.
-
-// TODO(later-later): optimize SphinxSimulator to maximize the size of the deployment. consider not
-// ABI encoding the input array. first, check the difference in size between packing the bytes and
-// abi encoding them.
-
-// TODO(later-later): sanity check that the `gasEstimates` returned by your new logic and the old
-// logic are roughly the same.
-
-// TODO(later-later): do we need to adjust any of our heuristics on rootstock?
-
-// TODO(later-later): maybe you can run the simulations without actually deploying the
-// `SphinxSimulator`. (put the `simulate` function in its constructor).
-
-// TODO(later-later): (if you need to deploy the SphinxSimulator): how will the SphinxSimulator
-// contract get deployed in production on the networks supported by the DevOps platform?
-
-// TODO(later-later): EthersJS throws an error when ABI decoding on celo alfajores w/ 3-MyLargeContract.
-
-// TODO(later-later): ethersJS abi encoding may fail for very large deployments. (i forget if it's
-// abi encoding or decoding that fails).
-
-// ----------------------------------- TODO(later) ------------------------------------
-
-// TODO(later): remove hardhat simulation logic, and the dependency on them in package.json.
-
-// TODO(later): can we do this without deploying the SphinxSimulator?
-
-// TODO(later): What are reasonable upper bounds for the calldata limit and gas limit?
-
-// TODO(later): Handle deployments that use more gas than the simulation allows.
-
-// TODO(later): Handle deployments with calldata that’s too long for the simulation. (Do we throw an
-// error or just skip the simulation?)
-
-// TODO(later): is there an ABI encoding size limit for EthersJS that we need to be aware of?
-
-// TODO(later): we don't simulate via the ManagedService because we aren't using this exact logic in
-// production, so there isn't much benefit. Also, we're gas constrained. Also, it's not clear
-// how we'd use the managed service. how would we?
-
-// TODO(later): should we run the simulation through the ManagedService? if not, document why.
-
-// TODO(later): You’ll need to use the merkle leaf simulation for the deploy cli command. May as well do the second simulation too.
-
-// TODO(later): Attempt to do the simulations on anvil in the deploy command. Are you limited by the
-// gas limit or calldata limit?
-
-// TODO(later): how will we support the live network deploy CLI command in the simulations?
-
-// TODO(later): case: the deployment has already been completed.
-
-// TODO(later): case: the system contracts aren't deployed yet.
-
-// TODO(later): should we run the `attemptDeployment` function using a mock provider? maybe it's not
-// worth the additional surface area of bugs. regardless, we need to do the batch stuff.
-
-// TODO(later): handle the case where the execution process fails on an `EXECUTE` leaf. we should
-// pass back something useful.
-
-// -------------------------------- TODO(later) ------------------------------------
-
-// TODO(later): what do we currently rely on the hardhat simulation for?
-// - Making sure that the `attemptDeployment` function doesn't have a bug.
-// - Checking if a Merkle leaf gas value is too low. (If it's too low, the action will fail
-//   on-chain, causing the simulation to throw an error).
-// - Checking if a valid batch size can't be created. (i.e. a Merkle leaf gas value is too large).
-// - Getting the deployment gas estimate for proposals.
-
-// TODO(later): which API endpoint will trigger the simulation in the backend?
-
-// TODO(later): do the mock provider thing in the `attemptDeployment` function?
-
-// TODO(later): remove entire plugins/src/hardhat directory.
+// TODO(later): why does alchemy appear to have two txns in their eth_call example?

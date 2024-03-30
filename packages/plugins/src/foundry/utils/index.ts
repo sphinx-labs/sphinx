@@ -24,12 +24,14 @@ import {
   findLeafWithProof,
   formatSolcLongVersion,
   getBytesLength,
+  getPackedOwnerSignatures,
+  getSphinxWalletsSortedByAddress,
   hasParentheses,
   isArrayMixed,
   isDataHexString,
   isDefined,
   isNormalizedAddress,
-  makeSphinxWalletOwners,
+  signMerkleRoot,
   sortHexStrings,
   spawnAsync,
   trimQuotes,
@@ -60,14 +62,13 @@ import {
   NetworkGasEstimate,
   ParsedContractDeployment,
   SphinxJsonRpcProvider,
-  EstimateGasTransactionData,
   TransactionEstimatedGas,
   estimateExecutionGasViaManagedService,
-  estimateApprovalGasViaManagedService,
-  encodeApprovalViaManagedService,
   encodeExecutionViaManagedService,
   makeExecuteLeafBatches,
-  EstimateExecutionGas,
+  estimateGasViaManagedService,
+  encodeApprovalViaManagedService,
+  encodeApprovalViaSphinxModule,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import {
@@ -103,7 +104,6 @@ import {
   FoundrySingleChainDryRun,
   FoundryToml,
 } from '../types'
-import { SimulationTransactions, simulate } from '../../hardhat/simulate'
 import { GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
@@ -1128,7 +1128,6 @@ export const getEstimatedGas = async (
 
   const transactionsWithGasEstimates: Array<TransactionEstimatedGas> = []
 
-  // TODO(later): add the approve txn and gnosis safe txn (if safe isn't deployed).
   if (!initialState.isSafeDeployed) {
     // TODO(docs): we don't use any of the buffers that we use for approve/execute because...
 
@@ -1237,7 +1236,6 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     SphinxLeafType.APPROVE,
     chainId
   )
-  // TODO(later): we should put this somewhere earlier and more explicit for validation.
   const executeLeafBatches = makeExecuteLeafBatches(
     networkConfig,
     merkleTree,
@@ -1250,11 +1248,6 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     executeLeafBatches,
     networkConfig,
     provider
-  )
-
-  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
-    BigInt(chainId),
-    deploymentConfig
   )
 
   return {
@@ -1854,44 +1847,7 @@ export const validateProposalNetworks = async (
   return { rpcUrls, isTestnet }
 }
 
-const makeApprovalTransactionEstimatedGas = async (
-  moduleAddress: string,
-  merkleRoot: string,
-  approvalLeafWithProof: SphinxLeafWithProof,
-  threshold: string,
-  chainId: string,
-  provider: SphinxJsonRpcProvider
-): Promise<TransactionEstimatedGas> => {
-  const { signatureArray } = await makeSphinxWalletOwners(
-    merkleRoot,
-    threshold,
-    provider
-  )
-  const estimatedApprovalGas = estimateApprovalGasViaManagedService(
-    merkleRoot,
-    approvalLeafWithProof,
-    moduleAddress,
-    signatureArray,
-    threshold,
-    BigInt(chainId)
-  )
-  const approveTransaction: TransactionEstimatedGas = {
-    estimatedGas: estimatedApprovalGas.toString(),
-    transaction: {
-      to: getManagedServiceAddress(),
-      data: encodeApprovalViaManagedService(
-        merkleRoot,
-        approvalLeafWithProof,
-        moduleAddress,
-        signatureArray
-      ),
-    },
-  }
-
-  return approveTransaction
-}
-
-const getGnosisSafeDeploymentEstimatedGas = async (
+export const getGnosisSafeDeploymentEstimatedGas = async (
   safeInitData: string,
   saltNonce: string,
   provider: SphinxJsonRpcProvider
@@ -1919,3 +1875,81 @@ const getGnosisSafeDeploymentEstimatedGas = async (
     estimatedGas: estimatedGas.toString(),
   }
 }
+
+export const makeApprovalTransactionEstimatedGas = async (
+  moduleAddress: string,
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  threshold: string,
+  chainId: string,
+  provider: SphinxJsonRpcProvider
+): Promise<TransactionEstimatedGas> => {
+  const wallets = getSphinxWalletsSortedByAddress(BigInt(threshold), provider)
+  const signatureArray = await Promise.all(
+    wallets.map(async (wallet) => signMerkleRoot(merkleRoot, wallet))
+  )
+  const estimatedApprovalGas = estimateApprovalGasViaManagedService(
+    merkleRoot,
+    approvalLeafWithProof,
+    moduleAddress,
+    signatureArray,
+    threshold,
+    BigInt(chainId)
+  )
+  const approveTransaction: TransactionEstimatedGas = {
+    estimatedGas: estimatedApprovalGas.toString(),
+    transaction: {
+      to: getManagedServiceAddress(),
+      data: encodeApprovalViaManagedService(
+        merkleRoot,
+        approvalLeafWithProof,
+        moduleAddress,
+        signatureArray
+      ),
+    },
+  }
+
+  return approveTransaction
+}
+
+export const estimateApprovalGasViaManagedService = (
+  merkleRoot: string,
+  approvalLeafWithProof: SphinxLeafWithProof,
+  moduleAddress: string,
+  ownerSignatures: Array<string>,
+  threshold: string,
+  chainId: bigint
+): number => {
+  const moduleCallData = encodeApprovalViaSphinxModule(
+    merkleRoot,
+    approvalLeafWithProof,
+    ownerSignatures
+  )
+
+  const callDataHex = encodeApprovalViaManagedService(
+    merkleRoot,
+    approvalLeafWithProof,
+    moduleAddress,
+    ownerSignatures
+  )
+
+  const moduleGas = estimateModuleApproveGas(threshold)
+
+  const estimate = estimateGasViaManagedService(
+    moduleGas,
+    callDataHex,
+    moduleCallData,
+    chainId
+  )
+
+  return estimate
+}
+
+export const estimateModuleApproveGas = (threshold: string): number => {
+  return 6370 * Number(threshold) + 173726
+}
+
+// TODO(end): gh: the gas estimation functions in this file should go in core imo, but it's way
+// easier to create `estimate-gas.spec.ts` in the plugins folder because it has a lot of necessary
+// helper functions. a side effect of putting this logic in the plugins package is that the
+// simulation logic is also in the plugins package. lmk if that's an issue with the microservice.

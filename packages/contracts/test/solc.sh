@@ -4,8 +4,6 @@
 # Without this, the CI process will pass even if tests in this script fail.
 set -e
 
-# TODO(later-later): update this file to include contracts/periphery?
-
 # Check if the target directory actually contains contracts. This prevents us from moving the
 # contacts to a different location and disabling this test accidentally.
 CORE_DIRECTORY="contracts/core"

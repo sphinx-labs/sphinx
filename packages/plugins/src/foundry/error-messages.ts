@@ -52,8 +52,6 @@ export const InvalidFirstSigArgumentErrorMessage =
 
 export const SigCalledWithNoArgsErrorMessage = `Expected at least one argument passed to --sig, but none were supplied.`
 
-export const HardhatResetNotAllowedErrorMessage = `Calling 'hardhat_reset' is not allowed.`
-
 export const getRpcRequestStalledErrorMessage = (ms: number): string =>
   `RPC request stalled for ${
     ms / 1000

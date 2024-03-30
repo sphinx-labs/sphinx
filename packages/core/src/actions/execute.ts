@@ -742,8 +742,6 @@ export const executeActionsViaSigner: ExecuteActions = async (
     )
   }
 
-  // TODO(later): can we remove this? if not, do we need to use this logic elsewhere? if yes, c/f
-  // shouldBufferExecuteActionsGasLimit.
   const minimumActionGas = estimateExecutionGasViaSigner(
     moduleAddress,
     batch,
@@ -851,7 +849,7 @@ export const estimateExecutionGasViaManagedService: EstimateExecutionGas = (
 }
 
 // TODO(docs): move docs from the other function
-const estimateGasViaManagedService = (
+export const estimateGasViaManagedService = (
   estimatedSphinxModuleGas: number,
   managedServiceCalldata: string,
   sphinxModuleCalldata: string,
@@ -871,45 +869,6 @@ const estimateGasViaManagedService = (
     21_000 + callDataGas + estimatedSphinxModuleGas + managedServiceGas
 
   return Math.round(estimate * 1.05 + 50_000) // Include a buffer
-}
-
-export const estimateApprovalGasViaManagedService = (
-  merkleRoot: string,
-  approvalLeafWithProof: SphinxLeafWithProof,
-  moduleAddress: string,
-  ownerSignatures: Array<string>,
-  threshold: string,
-  chainId: bigint
-): number => {
-  const moduleCallData = encodeApprovalViaSphinxModule(
-    merkleRoot,
-    approvalLeafWithProof,
-    ownerSignatures
-  )
-
-  const callDataHex = encodeApprovalViaManagedService(
-    merkleRoot,
-    approvalLeafWithProof,
-    moduleAddress,
-    ownerSignatures
-  )
-
-  const moduleGas = estimateModuleApprovalGas(threshold)
-
-  const estimate = estimateGasViaManagedService(
-    moduleGas,
-    callDataHex,
-    moduleCallData,
-    chainId
-  )
-
-  return estimate
-}
-
-const estimateModuleApprovalGas = (threshold: string): number => {
-  // TODO(later):
-  threshold // TODO(later): rm
-  return 300_000
 }
 
 /**
@@ -1449,8 +1408,6 @@ export const attemptDeployment = async (
     }
   }
 }
-
-// TODO(later-later): if you don't use the batches in the Propose command, remove the return value.
 
 export const makeExecuteLeafBatches = (
   networkConfig: NetworkConfig,

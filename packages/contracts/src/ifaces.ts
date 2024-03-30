@@ -11,15 +11,19 @@ export const SphinxModuleArtifact = parseFoundryContractArtifact(
 export const SphinxModuleProxyFactoryArtifact = parseFoundryContractArtifact(
   require('../contract-artifacts/sphinx/SphinxModuleProxyFactory.sol/SphinxModuleProxyFactory.json')
 )
-// TODO(end): change this to `contract-artifacts`.
+// TODO(end): change both of these to `contract-artifacts`.
 export const SphinxSimulatorArtifact = parseFoundryContractArtifact(
   require('../out/SphinxSimulator.sol/SphinxSimulator.json')
+)
+export const GasSpenderArtifact = parseFoundryContractArtifact(
+  require('../out/GasSpender.sol/GasSpender.json')
 )
 
 export const ManagedServiceABI = ManagedServiceArtifact.abi
 export const SphinxModuleABI = SphinxModuleArtifact.abi
 export const SphinxModuleProxyFactoryABI = SphinxModuleProxyFactoryArtifact.abi
 export const SphinxSimulatorABI = SphinxSimulatorArtifact.abi
+export const GasSpenderABI = GasSpenderArtifact.abi
 
 export const sphinxBuildInfo = require(`../contract-artifacts/sphinx/build-info.json`)
 

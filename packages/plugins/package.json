@@ -15,8 +15,7 @@
   "scripts": {
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && forge build",
-    "build:ts": "tsc -p ./tsconfig.json && yarn copy-hardhat-config && chmod +x dist/cli/index.js",
-    "copy-hardhat-config": "cp src/hardhat.config.js dist/hardhat.config.js",
+    "build:ts": "tsc -p ./tsconfig.json && chmod +x dist/cli/index.js",
     "clean": "rimraf out/ dist/ ./tsconfig.tsbuildinfo ./forge-cache",
     "test": "yarn kill-nodes && yarn test:ts",
     "test:ts": "npx mocha --require ts-node/register --timeout 500000 'test/mocha/**/*.ts'",
@@ -64,8 +63,7 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3",
     "yargs": "^17.7.2",
-    "yesno": "^0.4.0",
-    "hardhat": "2.20.1"
+    "yesno": "^0.4.0"
   },
   "devDependencies": {
     "@layerzerolabs/solidity-examples": "^0.0.13",

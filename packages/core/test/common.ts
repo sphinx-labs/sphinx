@@ -1,3 +1,6 @@
+import { exec } from 'child_process'
+import { execAsync, sleep } from '../dist'
+
 // This is the ABI that was generated for a test contract.
 export const ABI = [
   {

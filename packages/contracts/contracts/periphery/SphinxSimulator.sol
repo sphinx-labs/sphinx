@@ -23,7 +23,8 @@ contract SphinxSimulator {
         safeSingleton = _safeSingleton;
     }
 
-    // TODO(later-later): do something with the 'payable' modifier on this function.
+    // TODO(later): sanity check that the msg.value thing works.
+
     function simulate(
         bytes memory _simulationCalldata,
         GnosisSafe _safeProxy,
@@ -34,11 +35,22 @@ contract SphinxSimulator {
         payable
         returns (bytes memory)
     {
+        console.log('VVV');
         if (address(_safeProxy).code.length == 0) {
             safeProxyFactory.createProxyWithNonce(
                 safeSingleton, _safeInitializerData, _safeSaltNonce
             );
         }
+
+        console.log('ZZZ');
+        if (msg.value > 0) {
+            console.log('YYY');
+            console.log('value', msg.value);
+            (bool success, ) = address(_safeProxy).call{ value: msg.value }(hex"");
+            require(success, "TODO(docs)");
+            console.log('XXX');
+        }
+        console.log('WWW');
 
         try _safeProxy.simulateAndRevert(
             SPHINX_SIMULATOR,
@@ -105,17 +117,8 @@ contract SphinxSimulator {
             "TODO(docs): failed"
         );
         console.log('MMM');
-
-        revert();
     }
 }
-
-// TODO(later): cases:
-// - Success case
-// - Failure case w/ no error message. (I think this happened with celo).
-// - Failure case w/ error message.
-
-// TODO(later-later): handle generic errors in `simulateExecution`.
 
 // TODO(end): gh: UPDATE: the `approveThenExecute` function only accepts un-approved deployments
 // because the merkle root is different than what will actually be executed on-chain (because the
@@ -125,4 +128,4 @@ contract SphinxSimulator {
 
 // TODO(docs): this contract works with gnosis safe v1.3.0 and v1.4.1.
 
-// TODO(later-later): check that this works for Safe v1.4.1 as well as the two L2 versions.
+// TODO(later): check that this works for Safe v1.4.1 as well as the two L2 versions.

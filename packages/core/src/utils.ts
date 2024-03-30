@@ -1037,26 +1037,27 @@ export const removeGnosisSafeOwnerViaSphinxModule = async (
   }
 }
 
-export const getApproveLeaf = (
+export const getApproveLeafWithProof = (
   merkleTree: SphinxMerkleTree,
   chainId: bigint
-): SphinxLeaf => {
+): SphinxLeafWithProof => {
   const leafWithProof = merkleTree.leavesWithProofs.find(
-    ({ leaf }) => leaf.chainId === chainId
+    ({ leaf }) =>
+      leaf.chainId === chainId && leaf.leafType === SphinxLeafType.APPROVE
   )
   if (!leafWithProof) {
     throw new Error(`Could not find 'APPROVE' leaf for chain ID: ${chainId}`)
   }
-  return leafWithProof.leaf
+  return leafWithProof
 }
 
-export const getExecuteLeaves = (
+export const getExecuteLeavesWithProofs = (
   merkleTree: SphinxMerkleTree,
   chainId: bigint
-): Array<SphinxLeaf> => {
+): Array<SphinxLeafWithProof> => {
   return merkleTree.leavesWithProofs
+    .filter(({ leaf }) => leaf.leafType === SphinxLeafType.EXECUTE)
     .filter(({ leaf }) => leaf.chainId === chainId)
-    .map((leafWithProof) => leafWithProof.leaf)
 }
 
 export const findLeafWithProof = (
@@ -1221,6 +1222,10 @@ export const setBalance = async (
     // amount.
     balance.replace('0x0', '0x'),
   ])
+}
+
+export const toJsonRpcHexValue = (val: string): string => {
+  return ethers.toBeHex(val).replace('0x0', '0x')
 }
 
 export const getMappingValueSlotKey = (
@@ -1714,52 +1719,10 @@ export const toGnosisSafeTransaction = (
   }
 }
 
-/**
- * Checks if a given property of an object is a public asynchronous method.
- *
- * This function iterates over the prototype chain of the object to check if the specified property
- * is an asynchronous function that is not intended to be private (not starting with '_'). We check
- * for a leading underscore to determine whether a function is meant to be private because
- * JavaScript doesn't have a native way to check this. This function stops the search once it
- * reaches the top of the prototype chain or finds a match.
- *
- * @param {any} obj - The object to inspect.
- * @param {string | symbol} prop - The property name or symbol to check.
- * @returns {boolean} - `true` if the property is a public asynchronous method, `false` otherwise.
- */
-// TODO(later): remove any utility functions just used by the hardhat simulation, like this one.
-export const isPublicAsyncMethod = (
-  obj: any,
-  prop: string | symbol
-): boolean => {
-  let currentObj = obj
-
-  while (currentObj && currentObj !== Object.prototype) {
-    const propValue = currentObj[prop]
-    if (
-      typeof propValue === 'function' &&
-      propValue.constructor.name === 'AsyncFunction' &&
-      typeof prop === 'string' &&
-      !prop.startsWith('_')
-    ) {
-      return true
-    }
-    currentObj = Object.getPrototypeOf(currentObj)
-  }
-
-  return false
-}
-
-export const makeSphinxWalletOwners = async (
+export const getPackedOwnerSignatures = async (
   merkleRoot: string,
-  threshold: string,
-  provider: SphinxJsonRpcProvider
-): Promise<{
   wallets: Array<ethers.Wallet>
-  signatureArray: Array<string>
-  packedSignatures: string
-}> => {
-  const wallets = getSphinxWalletsSortedByAddress(BigInt(threshold), provider)
+): Promise<string> => {
   const signatureArray = await Promise.all(
     wallets.map(async (wallet) => signMerkleRoot(merkleRoot, wallet))
   )
@@ -1767,7 +1730,7 @@ export const makeSphinxWalletOwners = async (
     new Array(signatureArray.length).fill('bytes'),
     signatureArray
   )
-  return { wallets, signatureArray, packedSignatures }
+  return packedSignatures
 }
 
 const decodeGenericErrorString = (encoded: string): string | null => {
@@ -1803,4 +1766,4 @@ export const getGenericErrorString = (encoded: string): string => {
   throw new Error('Unable to decode error message.')
 }
 
-export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }
+export const sphinxCoreUtils = { sleep, callWithTimeout }

@@ -53,6 +53,7 @@ contract Sample is Sphinx, Script, SphinxConstants {
     }
 
     function run() public sphinx {
+        fundSafe(0.1 ether);
         new MyContract1(
             -1,
             2,

@@ -16,6 +16,8 @@ import {
   MAX_UINT64,
   makeDeploymentConfig,
   DEFAULT_CALL_DEPTH,
+  makeExecuteLeafBatches,
+  estimateExecutionGasViaManagedService,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -50,6 +52,7 @@ import {
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
 import { BuildNetworkConfigArray } from '../types'
+import { assertSimulationSuccess } from '../../simulate'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -187,21 +190,19 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     targetContract
   )
 
-  // TODO(later-later): this depends on how we implement the api endpoint(s).
-  const networkConfigArrayWithRpcUrls = [] as any
-  // const networkConfigArrayWithRpcUrls = collected.map(
-  //   ({ deploymentInfo, libraries, rpcUrl }) => {
-  //     return {
-  //       rpcUrl,
-  //       networkConfig: makeNetworkConfig(
-  //         deploymentInfo,
-  //         true, // System contracts are deployed.
-  //         configArtifacts,
-  //         libraries
-  //       ),
-  //     }
-  //   }
-  // )
+  const networkConfigArrayWithRpcUrls = collected.map(
+    ({ deploymentInfo, libraries, rpcUrl }) => {
+      return {
+        rpcUrl,
+        networkConfig: makeNetworkConfig(
+          deploymentInfo,
+          true, // System contracts are deployed.
+          configArtifacts,
+          libraries
+        ),
+      }
+    }
+  )
 
   const isEmpty = networkConfigArrayWithRpcUrls.every(
     ({ networkConfig }) => networkConfig.actionInputs.length === 0
@@ -213,47 +214,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       configArtifacts: undefined,
     }
   }
-
-  // TODO(later-later): rm or mv
-  // TODO(later-later): parallelize
-  // const promises = networkConfigArrayWithRpcUrls.map(
-  //   async ({ rpcUrl, networkConfig }) => {
-  //     try {
-  //       const provider = new SphinxJsonRpcProvider(rpcUrl)
-  //       const gasEstimates = await getMerkleLeafGasFields(
-  //         networkConfig,
-  //         provider
-  //       )
-  //       for (let i = 0; i < networkConfig.actionInputs.length; i++) {
-  //         networkConfig.actionInputs[i].gas = gasEstimates[i]
-  //       }
-  //       return {
-  //         success: true,
-  //         gasEstimates,
-  //         network: fetchNameForNetwork(BigInt(networkConfig.chainId)),
-  //       }
-  //     } catch (error) {
-  //       return {
-  //         success: false,
-  //         error:
-  //           error instanceof Error
-  //             ? error
-  //             : new Error('An unexpected error occurred'),
-  //       }
-  //     }
-  //   }
-  // )
-
-  // const results = await Promise.allSettled(promises)
-  // const final = results.map((result) =>
-  //   result.status === 'fulfilled'
-  //     ? result.value
-  //     : {
-  //         success: false,
-  //         error: result.reason,
-  //       }
-  // )
-  // final
 
   return {
     networkConfigArrayWithRpcUrls,
@@ -391,6 +351,15 @@ export const propose = async (
   const deploymentData = makeDeploymentData(networkConfigArray)
   const merkleTree = makeSphinxMerkleTree(deploymentData)
 
+  // TODO(docs): check valid batch sizes
+  networkConfigArray.forEach((networkConfig) =>
+    makeExecuteLeafBatches(
+      networkConfig,
+      merkleTree,
+      estimateExecutionGasViaManagedService
+    )
+  )
+
   spinner.succeed(`Built proposal.`)
   spinner.start(`Running simulation...`)
 
@@ -407,6 +376,8 @@ export const propose = async (
       sphinxContext.getNetworkGasEstimate(merkleTree, networkConfig, rpcUrl)
     )
   const gasEstimates = await Promise.all(gasEstimatesPromises)
+
+  await assertSimulationSuccess(deploymentConfig.networkConfigs)
 
   spinner.succeed(`Simulation succeeded.`)
   const preview = getPreview(networkConfigArray)
