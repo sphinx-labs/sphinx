@@ -19,9 +19,11 @@ export const calculateActionLeafGasForMoonbeam = (
   access: ParsedAccountAccess
 ): string => {
   // This is the maximum Merkle leaf gas size that fits in a batch on these networks. (The max batch
-  // size is 12M, and there's a buffer applied to 10,896,000 before we check whether it fits in a
-  // batch).
-  return (10_896_000).toString()
+  // size is 12M, and there's a buffer applied to the Merkle leaf's gas before we check whether it fits in a
+  // batch). It's possible to exceed the max batch size if the transaction's calldata is extremely large,
+  // but that's unlikely to happen. We were able to deploy a very large contract (Mean Finance's DCAHub)
+  // with this Merkle leaf gas value.
+  return (10_500_000).toString()
 }
 
 export type ExplorerName = 'Blockscout' | 'Etherscan'
