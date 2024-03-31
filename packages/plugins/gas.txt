@@ -1,0 +1,161 @@
+[
+  { gasPrice: 3, maxFeePerGas: 0, networkName: 'bnb' },
+  { gasPrice: 5, maxFeePerGas: 0, networkName: 'bnb_testnet' },
+  { gasPrice: 3.55, maxFeePerGas: 0, networkName: 'polygon_zkevm' },
+  {
+    gasPrice: 0.25,
+    maxFeePerGas: 0,
+    networkName: 'polygon_zkevm_goerli'
+  },
+  {
+    gasPrice: 0.0977,
+    maxFeePerGas: 0,
+    networkName: 'polygon_zkevm_cardona'
+  },
+  { gasPrice: 11, maxFeePerGas: 0, networkName: 'fuse' },
+  { gasPrice: 1, maxFeePerGas: 0, networkName: 'kava' },
+  { gasPrice: 1, maxFeePerGas: 0, networkName: 'kava_testnet' },
+  { gasPrice: 0.5, maxFeePerGas: 0, networkName: 'scroll' },
+  {
+    gasPrice: 0.011173952,
+    maxFeePerGas: 0,
+    networkName: 'scroll_sepolia'
+  },
+  { gasPrice: 0.06447366, maxFeePerGas: 0, networkName: 'rootstock' },
+  {
+    gasPrice: 0.065157483,
+    maxFeePerGas: 0,
+    networkName: 'rootstock_testnet'
+  },
+  { gasPrice: 1e-8, maxFeePerGas: 1.1e-8, networkName: 'taiko_katla' },
+  {
+    gasPrice: 8e-9,
+    maxFeePerGas: 2.2e-8,
+    networkName: 'gnosis_chiado'
+  },
+  {
+    gasPrice: 0.00100023,
+    maxFeePerGas: 0.00100046,
+    networkName: 'zora_sepolia'
+  },
+  {
+    gasPrice: 0.001000252,
+    maxFeePerGas: 0.001000504,
+    networkName: 'optimism_sepolia'
+  },
+  {
+    gasPrice: 0.001000252,
+    maxFeePerGas: 0.001000504,
+    networkName: 'zora'
+  },
+  {
+    gasPrice: 0.001000252,
+    maxFeePerGas: 0.001000504,
+    networkName: 'blast_sepolia'
+  },
+  {
+    gasPrice: 0.001000252,
+    maxFeePerGas: 0.001000504,
+    networkName: 'mode_sepolia'
+  },
+  {
+    gasPrice: 0.001000266,
+    maxFeePerGas: 0.001000532,
+    networkName: 'mode'
+  },
+  {
+    gasPrice: 0.001000269,
+    maxFeePerGas: 0.001000534,
+    networkName: 'base_sepolia'
+  },
+  {
+    gasPrice: 0.001000292,
+    maxFeePerGas: 0.001000584,
+    networkName: 'blast'
+  },
+  { gasPrice: 0.01, maxFeePerGas: 0.02, networkName: 'arbitrum' },
+  {
+    gasPrice: 0.01375,
+    maxFeePerGas: 0.02375,
+    networkName: 'evmos_testnet'
+  },
+  {
+    gasPrice: 0.075000007,
+    maxFeePerGas: 0.075000014,
+    networkName: 'linea_sepolia'
+  },
+  {
+    gasPrice: 0.078569067,
+    maxFeePerGas: 0.079656746,
+    networkName: 'linea'
+  },
+  {
+    gasPrice: 0.058622193,
+    maxFeePerGas: 0.116244386,
+    networkName: 'optimism'
+  },
+  { gasPrice: 0.1, maxFeePerGas: 0.2, networkName: 'arbitrum_sepolia' },
+  { gasPrice: 0.1, maxFeePerGas: 0.2, networkName: 'rari_sepolia' },
+  {
+    gasPrice: 0.125,
+    maxFeePerGas: 0.25,
+    networkName: 'moonbase_alpha'
+  },
+  {
+    gasPrice: 0.270687141,
+    maxFeePerGas: 0.540374282,
+    networkName: 'base'
+  },
+  { gasPrice: 0.3, maxFeePerGas: 0.6, networkName: 'rari' },
+  {
+    gasPrice: 0.600000007,
+    maxFeePerGas: 0.600000014,
+    networkName: 'linea_goerli'
+  },
+  {
+    gasPrice: 0.814776202,
+    maxFeePerGas: 0.826710105,
+    networkName: 'sepolia'
+  },
+  {
+    gasPrice: 1.821582399,
+    maxFeePerGas: 1.707200012,
+    networkName: 'gnosis'
+  },
+  {
+    gasPrice: 1.027913,
+    maxFeePerGas: 2.027913,
+    networkName: 'fantom_testnet'
+  },
+  { gasPrice: 1.25, maxFeePerGas: 2.5, networkName: 'moonriver' },
+  { gasPrice: 10, maxFeePerGas: 12, networkName: 'celo' },
+  { gasPrice: 10, maxFeePerGas: 12, networkName: 'celo_alfajores' },
+  {
+    gasPrice: 34.920000018,
+    maxFeePerGas: 30.000000015,
+    networkName: 'polygon_mumbai'
+  },
+  {
+    gasPrice: 23.409553252,
+    maxFeePerGas: 46.809979771,
+    networkName: 'ethereum'
+  },
+  { gasPrice: 27.5, maxFeePerGas: 47.5, networkName: 'evmos' },
+  { gasPrice: 25, maxFeePerGas: 50, networkName: 'avalanche' },
+  { gasPrice: 25, maxFeePerGas: 50, networkName: 'avalanche_fuji' },
+  {
+    gasPrice: 104.963853525,
+    maxFeePerGas: 105.577528817,
+    networkName: 'polygon'
+  },
+  {
+    gasPrice: 55.483790845,
+    maxFeePerGas: 109.595481165,
+    networkName: 'fantom'
+  },
+  {
+    gasPrice: 154.0235696,
+    maxFeePerGas: 307.928755864,
+    networkName: 'moonbeam'
+  }
+]

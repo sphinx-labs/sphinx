@@ -187,6 +187,17 @@ contract MyContractWithLibraries {
     }
 }
 
+contract GasSpender {
+
+    mapping(uint256 => uint256) public myMapping;
+
+    constructor(uint256 _iterations) {
+        for (uint256 i = 0; i < _iterations; i++) {
+            myMapping[_iterations+1] = _iterations;
+        }
+    }
+}
+
 contract MyImmutableContract {
     uint256 public immutable myFirstImmutable;
     uint8 public immutable mySecondImmutable;
