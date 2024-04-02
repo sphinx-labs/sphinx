@@ -231,9 +231,10 @@ export const fetchEtherscanConfigForNetwork = (
   }
 }
 
-// Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchCurrencyForNetwork = (chainId: bigint) => {
-  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+  const network = [...SPHINX_LOCAL_NETWORKS, ...SPHINX_NETWORKS].find(
+    (n) => n.chainId === chainId
+  )
 
   if (network) {
     return network.currency

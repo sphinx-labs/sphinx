@@ -183,7 +183,7 @@ describe('simulateDeploymentSubtask', () => {
     hre.ethers.provider = providerStub
 
     sinon
-      .stub(sphinxCoreExecute, 'compileAndExecuteDeployment')
+      .stub(sphinxCoreExecute, 'attemptDeployment')
       .throws(new InvariantError(testInvariantErrorMessage))
   })
 
@@ -191,7 +191,7 @@ describe('simulateDeploymentSubtask', () => {
     sinon.restore()
   })
 
-  it('should rethrow the InvariantError thrown by compileAndExecuteDeployment', async () => {
+  it('should rethrow the InvariantError thrown by attemptDeployment', async () => {
     const taskArgs = {
       deploymentConfig: getDummyDeploymentConfig(),
       chainId: '1',

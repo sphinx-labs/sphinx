@@ -20,6 +20,7 @@ import {
 import {
   decodeDeterministicDeploymentProxyData,
   execAsync,
+  fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
   getBytesLength,
   hasParentheses,
@@ -1166,10 +1167,16 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
     provider
   )
 
+  const networkConfig = fetchNetworkConfigFromDeploymentConfig(
+    BigInt(chainId),
+    deploymentConfig
+  )
+
   return {
     chainId: Number(chainId),
     estimatedGas,
     transactions: transactionsWithGasEstimates,
+    fundsRequested: networkConfig.safeFundingRequest?.fundsRequested ?? '0',
   }
 }
 

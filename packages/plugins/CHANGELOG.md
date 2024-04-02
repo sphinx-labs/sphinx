@@ -1,5 +1,36 @@
 # @sphinx-labs/plugins
 
+## 0.30.12
+
+### Patch Changes
+
+- 8e2d3fe: Add support for Support Taiko Katla, Darwinia Pangolin, Mode, Mode Sepolia, Polygon ZKEVM Cardona, Linea Sepolia
+- Updated dependencies [8e2d3fe]
+  - @sphinx-labs/contracts@0.20.8
+  - @sphinx-labs/core@0.23.10
+
+## 0.30.11
+
+### Patch Changes
+
+- 3446011: Support sending funds to Safe during deployment
+- Updated dependencies [3446011]
+  - @sphinx-labs/contracts@0.20.7
+  - @sphinx-labs/core@0.23.8
+
+## 0.30.10
+
+### Patch Changes
+
+- f176e46: Increase Sepolia drip size to handle gas price spikes
+- d8ffb22: Reduce Drippie interval
+- c8e5320: Drop support for OKTC
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+  - @sphinx-labs/core@0.23.7
+
 ## 0.30.9
 
 ### Patch Changes

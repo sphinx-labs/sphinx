@@ -4,4 +4,4 @@
 '@sphinx-labs/plugins': patch
 ---
 
-Reduce Drippie interval
+Update hard-coded Merkle leaf gas value on Moonbeam

@@ -418,9 +418,7 @@ export const simulateDeploymentSubtask = async (
     wallet: signer,
   }
 
-  const result = await sphinxCoreExecute.compileAndExecuteDeployment(
-    simulationContext
-  )
+  const result = await sphinxCoreExecute.attemptDeployment(simulationContext)
 
   if (!result) {
     throw new Error(

@@ -1,5 +1,37 @@
 # @sphinx-labs/core
 
+## 0.23.10
+
+### Patch Changes
+
+- 8e2d3fe: Add support for Support Taiko Katla, Darwinia Pangolin, Mode, Mode Sepolia, Polygon ZKEVM Cardona, Linea Sepolia
+- Updated dependencies [8e2d3fe]
+  - @sphinx-labs/contracts@0.20.8
+
+## 0.23.9
+
+### Patch Changes
+
+- 96653d9: Do not use isVerified at all
+
+## 0.23.8
+
+### Patch Changes
+
+- 3446011: Support sending funds to Safe during deployment
+- Updated dependencies [3446011]
+  - @sphinx-labs/contracts@0.20.7
+
+## 0.23.7
+
+### Patch Changes
+
+- d8ffb22: Reduce Drippie interval
+- Updated dependencies [f176e46]
+- Updated dependencies [d8ffb22]
+- Updated dependencies [c8e5320]
+  - @sphinx-labs/contracts@0.20.6
+
 ## 0.23.6
 
 ### Patch Changes

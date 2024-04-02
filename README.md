@@ -107,9 +107,9 @@ Please feel free to reach out to us in our [Discord](https://discord.gg/7Gc3DK33
 - Fuse
 - Evmos
 - Kava
-- OKT Chain
 - Rootstock
 - Blast
+- Mode
 
 Test networks:
 
@@ -118,10 +118,12 @@ Test networks:
 - Arbitrum Sepolia
 - Polygon Mumbai
 - Polygon zkEVM Goerli
+- Polygon zkEVM Cardona
 - BNB Smart Chain Testnet
 - Gnosis Chiado
 - Avalanche Fuji
 - Linea Goerli
+- Linea Sepolia
 - Fantom Testnet
 - Base Sepolia
 - Scroll Sepolia
@@ -133,6 +135,8 @@ Test networks:
 - Kava Testnet
 - Rootstock Testnet
 - Blast Sepolia
+- Darwinia Pangolin
+- Taiko Katla
 
 More networks are on the way! Please reach out to us in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 

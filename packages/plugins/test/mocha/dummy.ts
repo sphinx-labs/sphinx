@@ -199,6 +199,7 @@ export const getDummyNetworkConfig = (): NetworkConfig => {
           functionName: 'MockFunction',
           variables: {},
           address: '0x' + '55'.repeat(20),
+          value: '0',
         },
         to: '0x' + '66'.repeat(20),
         value: '0',

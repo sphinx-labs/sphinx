@@ -19,9 +19,11 @@ export const calculateActionLeafGasForMoonbeam = (
   access: ParsedAccountAccess
 ): string => {
   // This is the maximum Merkle leaf gas size that fits in a batch on these networks. (The max batch
-  // size is 12M, and there's a buffer applied to 10,896,000 before we check whether it fits in a
-  // batch).
-  return (10_896_000).toString()
+  // size is 12M, and there's a buffer applied to the Merkle leaf's gas before we check whether it fits in a
+  // batch). It's possible to exceed the max batch size if the transaction's calldata is extremely large,
+  // but that's unlikely to happen. We were able to deploy a very large contract (Mean Finance's DCAHub)
+  // with this Merkle leaf gas value.
+  return (10_500_000).toString()
 }
 
 export type ExplorerName = 'Blockscout' | 'Etherscan'
@@ -76,6 +78,8 @@ export type SupportedLocalNetwork = {
   actionGasLimitBuffer: false
   useHigherMaxGasLimit: false
   eip2028: true
+  dripSize: string
+  currency: string
 }
 
 export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
@@ -87,6 +91,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
+    dripSize: '1',
+    currency: 'ETH',
   },
 ]
 
@@ -146,7 +152,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       },
     },
     currency: 'ETH',
-    dripSize: '0.15',
+    dripSize: '1',
     requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
@@ -480,6 +486,30 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     eip2028: true,
   },
   {
+    name: 'linea_sepolia',
+    displayName: 'Linea Sepolia',
+    chainId: BigInt(59141),
+    rpcUrl: () => `${process.env.LINEA_SEPOLIA_RPC_URL}`,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-sepolia.lineascan.build/api',
+        browserURL: 'https://sepolia.lineascan.build',
+        envKey: 'LINEA_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    requiredEnvVariables: ['LINEA_SEPOLIA_RPC_URL'],
+    networkType: 'Testnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+  },
+  {
     name: 'polygon_zkevm',
     displayName: 'Polygon zkEVM',
     chainId: BigInt(1101),
@@ -525,6 +555,30 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     currency: 'ETH',
     dripSize: '0.15',
     requiredEnvVariables: ['POLYGON_ZKEVM_TESTNET_URL'],
+    networkType: 'Testnet',
+    dripVersion: 2,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+  },
+  {
+    name: 'polygon_zkevm_cardona',
+    displayName: 'Polygon zkEVM Cardona',
+    chainId: BigInt(2442),
+    rpcUrl: () => process.env.POLYGON_ZKEVM_CARDONA_URL!,
+    blockexplorers: {
+      etherscan: {
+        apiURL: 'https://api-cardona-zkevm.polygonscan.com/api',
+        browserURL: 'https://cardona-zkevm.polygonscan.com',
+        envKey: 'POLYGON_ZKEVM_ETHERSCAN_API_KEY',
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    requiredEnvVariables: ['POLYGON_ZKEVM_CARDONA_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -919,24 +973,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     eip2028: true,
   },
   {
-    name: 'oktc',
-    displayName: 'OKT Chain',
-    chainId: BigInt(66),
-    rpcUrl: () => process.env.OKTC_RPC_URL!,
-    blockexplorers: {},
-    currency: 'OKT',
-    dripSize: '1',
-    requiredEnvVariables: ['OKTC_RPC_URL'],
-    dripVersion: 3,
-    queryFilterBlockLimit: 500,
-    networkType: 'Mainnet',
-    legacyTx: true,
-    decimals: 18,
-    actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
-    eip2028: true,
-  },
-  {
     name: 'scroll',
     displayName: 'Scroll',
     chainId: BigInt(534352),
@@ -1208,5 +1244,73 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     useHigherMaxGasLimit: false,
     eip2028: true,
     requiredEnvVariables: ['BLAST_MAINNET_RPC_URL'],
+  },
+  {
+    name: 'taiko_katla',
+    displayName: 'Taiko Katla',
+    chainId: BigInt(167008),
+    rpcUrl: () => process.env.TAIKO_KATLA_RPC_URL!,
+    blockexplorers: {},
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['TAIKO_KATLA_RPC_URL'],
+  },
+  {
+    name: 'mode_sepolia',
+    displayName: 'Mode Sepolia',
+    chainId: BigInt(919),
+    rpcUrl: () => process.env.MODE_SEPOLIA_RPC_URL!,
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://sepolia.explorer.mode.network/api',
+        browserURL: 'https://sepolia.explorer.mode.network/',
+        envKey: 'MODE_SEPOLIA_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.15',
+    networkType: 'Testnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['MODE_SEPOLIA_RPC_URL'],
+  },
+  {
+    name: 'mode',
+    displayName: 'Mode',
+    chainId: BigInt(34443),
+    rpcUrl: () => process.env.MODE_MAINNET_RPC_URL!,
+    blockexplorers: {
+      blockscout: {
+        apiURL: 'https://explorer.mode.network/api',
+        browserURL: 'https://explorer.mode.network/',
+        envKey: 'MODE_BLOCKSCOUT_API_KEY',
+        selfHosted: false,
+      },
+    },
+    currency: 'ETH',
+    dripSize: '0.025',
+    networkType: 'Mainnet',
+    dripVersion: 0,
+    decimals: 18,
+    queryFilterBlockLimit: 2000,
+    legacyTx: false,
+    actionGasLimitBuffer: false,
+    useHigherMaxGasLimit: false,
+    eip2028: true,
+    requiredEnvVariables: ['MODE_MAINNET_RPC_URL'],
   },
 ]

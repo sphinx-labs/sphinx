@@ -1,4 +1,4 @@
-import { JsonRpcProvider, TransactionRequest } from 'ethers'
+import { JsonRpcProvider } from 'ethers'
 
 export class SphinxJsonRpcProvider extends JsonRpcProvider {
   constructor(url: string) {
@@ -11,17 +11,5 @@ export class SphinxJsonRpcProvider extends JsonRpcProvider {
       batchMaxCount: 1,
       cacheTimeout: -1,
     })
-  }
-
-  // On OKT Chain, they appear to be running an out of date geth client which is not compatible with the current spec.
-  // For shame!
-  // See this issue for more info: https://github.com/NomicFoundation/hardhat/issues/4010
-  // So on OKT Chain we have to call eth_estimateGas ourselves to handle this....
-  estimateGas(_tx: TransactionRequest): Promise<bigint> {
-    if (_tx.chainId === 66) {
-      return this.send('eth_estimateGas', [_tx])
-    }
-
-    return super.estimateGas(_tx)
   }
 }
