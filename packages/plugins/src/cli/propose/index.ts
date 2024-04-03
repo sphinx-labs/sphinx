@@ -16,6 +16,7 @@ import {
   MAX_UINT64,
   makeDeploymentConfig,
   DEFAULT_CALL_DEPTH,
+  syncSphinxLock,
 } from '@sphinx-labs/core'
 import ora from 'ora'
 import { blue } from 'chalk'
@@ -48,6 +49,7 @@ import {
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
 import { BuildNetworkConfigArray } from '../types'
+import { SPHINX_PLUGINS_VERSION } from '../version'
 
 /**
  * @param isDryRun If true, the proposal will not be relayed to the back-end.
@@ -290,6 +292,8 @@ export const propose = async (
     'SphinxPluginTypes'
   )
 
+  await syncSphinxLock(undefined, apiKey)
+
   const { safeAddress, testnets, mainnets } = await getSphinxConfigFromScript(
     scriptPath,
     sphinxPluginTypesInterface,
@@ -408,7 +412,7 @@ export const propose = async (
 
   // Since we know that the following fields are the same for each network, we get their values
   // here.
-  const { newConfig, moduleAddress, safeInitData } = networkConfigArray[0]
+  const { newConfig, moduleAddress } = networkConfigArray[0]
 
   const projectDeployments: Array<ProjectDeployment> = []
   const chainStatus: Array<{
@@ -444,18 +448,15 @@ export const propose = async (
     orgId: newConfig.orgId,
     isTestnet,
     chainIds,
-    deploymentName: newConfig.projectName,
-    owners: newConfig.owners,
-    threshold: Number(newConfig.threshold),
+    projectName: newConfig.projectName,
     safeAddress,
     moduleAddress,
-    safeInitData,
-    safeInitSaltNonce: newConfig.saltNonce,
     projectDeployments,
     gasEstimates,
     diff: preview,
     compilerConfigId: undefined,
     deploymentConfigId: undefined,
+    sphinxPluginVersion: SPHINX_PLUGINS_VERSION,
     tree: {
       root: merkleTree.root,
       chainStatus,

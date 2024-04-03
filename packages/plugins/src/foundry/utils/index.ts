@@ -10,7 +10,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
-import { spawnSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 
 import {
   BuildInfo,
@@ -29,7 +29,6 @@ import {
   isDataHexString,
   isDefined,
   isNormalizedAddress,
-  sortHexStrings,
   spawnAsync,
   trimQuotes,
   zeroOutLibraryReferences,
@@ -43,8 +42,8 @@ import {
   InitialChainState,
   NetworkConfig,
   ParsedVariable,
-  SphinxConfig,
-  SphinxConfigWithAddresses,
+  InternalSphinxConfig,
+  UserSphinxConfigWithAddresses,
   BuildInfos,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
@@ -728,14 +727,14 @@ export const getSphinxConfigFromScript = async (
   sphinxPluginTypesInterface: ethers.Interface,
   targetContract?: string,
   spinner?: ora.Ora
-): Promise<SphinxConfigWithAddresses> => {
+): Promise<UserSphinxConfigWithAddresses> => {
   const json = await callForgeScriptFunction<{
     0: {
       value: string
     }
   }>(
     scriptPath,
-    'sphinxConfigABIEncoded()',
+    'userSphinxConfigABIEncoded()',
     [],
     undefined,
     targetContract,
@@ -747,7 +746,7 @@ export const getSphinxConfigFromScript = async (
   const coder = ethers.AbiCoder.defaultAbiCoder()
   const sphinxConfigFragment = findFunctionFragment(
     sphinxPluginTypesInterface,
-    'sphinxConfigType'
+    'userSphinxConfigType'
   )
 
   const decoded = coder.decode(
@@ -755,19 +754,15 @@ export const getSphinxConfigFromScript = async (
     returned
   )
 
-  const { sphinxConfig } = recursivelyConvertResult(
+  const { userSphinxConfig } = recursivelyConvertResult(
     sphinxConfigFragment.outputs,
     decoded
   ) as any
 
-  const parsed: SphinxConfigWithAddresses = {
-    projectName: sphinxConfig.projectName,
-    owners: sortHexStrings(sphinxConfig.owners),
-    threshold: sphinxConfig.threshold.toString(),
-    orgId: sphinxConfig.orgId,
-    testnets: sphinxConfig.testnets,
-    mainnets: sphinxConfig.mainnets,
-    saltNonce: sphinxConfig.saltNonce.toString(),
+  const parsed: UserSphinxConfigWithAddresses = {
+    projectName: userSphinxConfig.projectName,
+    testnets: userSphinxConfig.testnets,
+    mainnets: userSphinxConfig.mainnets,
     safeAddress: decoded[1],
     moduleAddress: decoded[2],
   }
@@ -1455,7 +1450,7 @@ export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
     typeof obj.chainId === 'string' &&
     typeof obj.blockGasLimit === 'string' &&
     typeof obj.safeInitData === 'string' &&
-    isSphinxConfig(obj.newConfig) &&
+    isInternalSphinxConfig(obj.newConfig) &&
     isExecutionMode(obj.executionMode) &&
     isInitialChainState(obj.initialState) &&
     typeof obj.arbitraryChain === 'boolean' &&
@@ -1467,20 +1462,15 @@ export const isDeploymentInfo = (obj: any): obj is DeploymentInfo => {
   )
 }
 
-const isSphinxConfig = (obj: any): obj is SphinxConfig => {
+const isInternalSphinxConfig = (obj: any): obj is InternalSphinxConfig => {
   return (
     typeof obj === 'object' &&
     obj !== null &&
     typeof obj.projectName === 'string' &&
-    typeof obj.orgId === 'string' &&
-    Array.isArray(obj.owners) &&
-    obj.owners.every((o) => isNormalizedAddress(o)) &&
     Array.isArray(obj.mainnets) &&
     obj.mainnets.every((m) => typeof m === 'string') &&
     Array.isArray(obj.testnets) &&
-    obj.testnets.every((t) => typeof t === 'string') &&
-    typeof obj.threshold === 'string' &&
-    typeof obj.saltNonce === 'string'
+    obj.testnets.every((t) => typeof t === 'string')
   )
 }
 
@@ -1802,4 +1792,24 @@ export const assertContractSizeLimitNotExceeded = (
   if (tooLarge.length > 0) {
     throw new Error(contractsExceedSizeLimitErrorMessage(tooLarge))
   }
+}
+
+export const getCurrentGitCommitHash = (): string | null => {
+  let commitHash: string
+  try {
+    // Get the current git commit. We call this command with "2>/dev/null" to discard the `stderr`.
+    // If we don't discard the `stderr`, the following statement would be displayed to the user if
+    // they aren't in a git repository:
+    //
+    // "fatal: not a git repository (or any of the parent directories): .git".
+    commitHash = execSync('git rev-parse HEAD 2>/dev/null').toString().trim()
+  } catch {
+    return null
+  }
+
+  if (commitHash.length !== 40) {
+    throw new Error(`Git commit hash is an unexpected length: ${commitHash}`)
+  }
+
+  return commitHash
 }

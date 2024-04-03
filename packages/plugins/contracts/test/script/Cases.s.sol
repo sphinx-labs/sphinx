@@ -11,11 +11,7 @@ import { MyContract2, MyContractPayable } from "../MyContracts.sol";
 
 contract Simple is Script, Sphinx {
     function configureSphinx() public override {
-        sphinxConfig.projectName = "Deployment_Cases_Project";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-        sphinxConfig.threshold = 1;
-
-        sphinxConfig.orgId = "test-org-id";
+        sphinxConfig.projectName = "Simple_Project";
     }
 
     function deploy(uint256 _inputParam) public sphinx {

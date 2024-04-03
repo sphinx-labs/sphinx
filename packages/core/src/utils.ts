@@ -63,12 +63,15 @@ import {
   fetchNameForDeprecatedNetwork,
   fetchNameForNetwork,
 } from './networks'
-import { RelayProposal, StoreDeploymentConfig } from './types'
+import { RelayProposal, SphinxLock, StoreDeploymentConfig } from './types'
 import {
   NetworkArtifacts,
   isContractDeploymentArtifact,
   isExecutionArtifact,
 } from './artifacts'
+
+export const SPHINX_LOCK_PATH = './sphinx.lock'
+export const SPHINX_LOCK_FORMAT = 'sphinx-lock-1.0.0'
 
 export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
@@ -378,6 +381,45 @@ export const fetchSphinxManagedBaseUrl = () => {
     : 'https://www.sphinx.dev'
 }
 
+export const readSphinxLock = async (): Promise<SphinxLock> => {
+  if (!existsSync(SPHINX_LOCK_PATH)) {
+    throw new Error(
+      'Missing `sphinx.lock` file, run `npx sphinx sync --org-id <ORG_ID>` to regenerate this file. We recommend committing it to version control.'
+    )
+  }
+
+  return JSON.parse(fs.readFileSync(SPHINX_LOCK_PATH).toString())
+}
+
+export const syncSphinxLock = async (
+  orgId: string | undefined,
+  apiKey: string
+): Promise<SphinxLock | undefined> => {
+  if (process.env.SPHINX_INTERNAL__SKIP_SYNC_LOCK === 'true') {
+    return
+  }
+
+  if (orgId === undefined) {
+    const lock = await readSphinxLock()
+    orgId = lock.orgId
+  }
+
+  const response: {
+    status: number
+    data: SphinxLock
+  } = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/fetchSphinxLock`, {
+    apiKey,
+    orgId,
+    format: SPHINX_LOCK_FORMAT,
+  })
+
+  fs.writeFileSync(
+    SPHINX_LOCK_PATH,
+    JSON.stringify(response.data, undefined, 2)
+  )
+  return response.data
+}
+
 export const relayProposal: RelayProposal = async (
   proposalRequest: ProposalRequest
 ): Promise<void> => {
@@ -435,7 +477,7 @@ export const storeDeploymentConfig: StoreDeploymentConfig = async (
           )
         } else if (err.response.status === 401) {
           throw new Error(
-            `Unauthorized, please check your API key and Org Id are correct`
+            `Unauthorized, please check your API key and Org ID are correct`
           )
         } else {
           throw err
@@ -557,25 +599,6 @@ export const isEventLog = (
     eventLog.fragment !== undefined &&
     eventLog.interface !== undefined
   )
-}
-
-/**
- * Sorts an array of hex strings in ascending order and returns the sorted array. Does not mutate
- * the original array.
- *
- * @param arr The array of hex strings to sort.
- * @returns A new sorted array.
- */
-export const sortHexStrings = (arr: Array<string>): Array<string> => {
-  // Create a copy of the array
-  const arrCopy = [...arr]
-
-  // Sort the copied array
-  return arrCopy.sort((a, b) => {
-    const aBigInt = BigInt(a)
-    const bBigInt = BigInt(b)
-    return aBigInt < bBigInt ? -1 : aBigInt > bBigInt ? 1 : 0
-  })
 }
 
 /**
@@ -1110,42 +1133,6 @@ export const findStorageSlotKey = (
   }
 
   return storageObj.slot
-}
-
-/**
- * Throws an error if the input project name contains invalid characters, which would prevent Sphinx
- * from using it as a file name when writing the deployment artifacts. This function is in
- * TypeScript instead of Solidity because it's impractical to implement regular expressions in
- * Solidity.
- */
-export const assertValidProjectName = (input: string): void => {
-  const forbiddenChars = /[\/:*?"<>|]/
-
-  // Check for forbidden characters
-  if (forbiddenChars.test(input)) {
-    throw new Error('Project name contains forbidden characters: \\/:*?"<>|')
-  }
-
-  // Check for length restrictions (common maximum length is 255)
-  if (input.length === 0 || input.length > 255) {
-    throw new Error('Project name length must be between 1 and 255 characters.')
-  }
-
-  // Reserved names (commonly reserved in Windows)
-  const reservedNames = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i
-  if (reservedNames.test(input)) {
-    throw new Error('Project name uses a reserved name in Windows.')
-  }
-
-  // Check for empty names
-  if (input.length === 0) {
-    throw new Error('Project name cannot be empty.')
-  }
-
-  // Check for names that contain whitespace
-  if (input.includes(' ')) {
-    throw new Error(`Project name cannot contain whitespace.`)
-  }
 }
 
 export const isSphinxTransaction = (obj: any): obj is SphinxTransaction => {
