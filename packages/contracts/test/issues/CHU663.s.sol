@@ -8,10 +8,7 @@ contract CHU663_test is Test, Sphinx {
     address public safe;
 
     function configureSphinx() public override {
-        sphinxConfig.projectName = "CHU-663";
-        sphinxConfig.owners = [0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266];
-        sphinxConfig.threshold = 1;
-        sphinxConfig.orgId = "test-org-id";
+        sphinxConfig.projectName = "Simple_Project";
         safe = safeAddress();
     }
 
