@@ -86,7 +86,7 @@ import {
   FoundryToml,
 } from '../types'
 import { SimulationTransactions, simulate } from '../../hardhat/simulate'
-import { GetNetworkGasEstimate } from '../../cli/types'
+import { AssertNoLinkedLibraries, GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
 import { SphinxContext } from '../../cli/context'
@@ -337,7 +337,7 @@ export const compile = (
  * unpredictable due to the potentially nested structure of artifact file locations, and due to the
  * fact that we don't know the fully qualified name in advance.
  */
-export const assertNoLinkedLibraries = async (
+export const assertNoLinkedLibraries: AssertNoLinkedLibraries = async (
   scriptPath: string,
   cachePath: string,
   artifactFolder: string,

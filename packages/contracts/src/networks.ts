@@ -47,10 +47,10 @@ export type SupportedNetwork = {
   displayName: string
   chainId: bigint
   rpcUrl: () => string
+  rpcUrlId: string
   blockexplorers: BlockExplorers
   currency: string
   dripSize: string
-  requiredEnvVariables: Array<string>
   networkType: NetworkType
   dripVersion: number
   decimals: number
@@ -105,8 +105,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'ethereum',
     displayName: 'Ethereum',
     chainId: BigInt(1),
-    rpcUrl: () =>
-      `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.ETH_MAINNET_URL!,
+    rpcUrlId: 'ETH_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.etherscan.io/api',
@@ -122,7 +122,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -136,8 +135,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'sepolia',
     displayName: 'Sepolia',
     chainId: BigInt(11155111),
-    rpcUrl: () =>
-      `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.ETH_SEPOLIA_URL!,
+    rpcUrlId: 'ETH_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.etherscan.io/api',
@@ -153,7 +152,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '1',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -167,8 +165,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'optimism',
     displayName: 'Optimism',
     chainId: BigInt(10),
-    rpcUrl: () =>
-      `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.OPT_MAINNET_URL!,
+    rpcUrlId: 'OPT_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-optimistic.etherscan.io/api',
@@ -184,7 +182,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -198,8 +195,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'optimism_sepolia',
     displayName: 'Optimism Sepolia',
     chainId: BigInt(11155420),
-    rpcUrl: () =>
-      `https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.OPT_SEPOLIA_URL!,
+    rpcUrlId: 'OPT_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia-optimism.etherscan.io/api',
@@ -215,7 +212,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -229,8 +225,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'arbitrum',
     displayName: 'Arbitrum',
     chainId: BigInt(42161),
-    rpcUrl: () =>
-      `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.ARB_MAINNET_URL!,
+    rpcUrlId: 'ARB_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.arbiscan.io/api',
@@ -240,7 +236,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -254,8 +249,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'arbitrum_sepolia',
     displayName: 'Arbitrum Sepolia',
     chainId: BigInt(421614),
-    rpcUrl: () =>
-      `https://arb-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.ARB_SEPOLIA_URL!,
+    rpcUrlId: 'ARB_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.arbiscan.io/api',
@@ -265,7 +260,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -279,8 +273,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'polygon',
     displayName: 'Polygon',
     chainId: BigInt(137),
-    rpcUrl: () =>
-      `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => `${process.env.POLYGON_MAINNET_URL}`,
+    rpcUrlId: 'POLYGON_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.polygonscan.com/api',
@@ -290,7 +284,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'MATIC',
     dripSize: '1',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -304,8 +297,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'polygon_mumbai',
     displayName: 'Polygon Mumbai',
     chainId: BigInt(80001),
-    rpcUrl: () =>
-      `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => `${process.env.POLYGON_MUMBAI_URL}`,
+    rpcUrlId: 'POLYGON_MUMBAI_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-testnet.polygonscan.com/api',
@@ -315,7 +308,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'MATIC',
     dripSize: '1',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -330,6 +322,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Binance Smart Chain',
     chainId: BigInt(56),
     rpcUrl: () => process.env.BNB_MAINNET_URL!,
+    rpcUrlId: 'BNB_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.bscscan.com/api',
@@ -339,7 +332,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'BNB',
     dripSize: '0.05',
-    requiredEnvVariables: ['BNB_MAINNET_URL'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -354,6 +346,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Binance Smart Chain Testnet',
     chainId: BigInt(97),
     rpcUrl: () => process.env.BNB_TESTNET_URL!,
+    rpcUrlId: 'BNB_TESTNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-testnet.bscscan.com/api',
@@ -363,7 +356,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'BNB',
     dripSize: '0.15',
-    requiredEnvVariables: ['BNB_TESTNET_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -378,6 +370,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Gnosis',
     chainId: BigInt(100),
     rpcUrl: () => process.env.GNOSIS_MAINNET_URL!,
+    rpcUrlId: 'GNOSIS_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.gnosisscan.io/api',
@@ -393,7 +386,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'xDAI',
     dripSize: '1',
-    requiredEnvVariables: ['GNOSIS_MAINNET_URL'],
     networkType: 'Mainnet',
     dripVersion: 3,
     decimals: 18,
@@ -407,7 +399,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'gnosis_chiado',
     displayName: 'Gnosis Chiado',
     chainId: BigInt(10200),
-    rpcUrl: () => process.env.CHIADO_RPC_URL!,
+    rpcUrl: () => process.env.GNOSIS_CHIADO_URL!,
+    rpcUrlId: 'GNOSIS_CHIADO_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://gnosis-chiado.blockscout.com/api',
@@ -418,7 +411,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'xDAI',
     dripSize: '0.15',
-    requiredEnvVariables: ['CHIADO_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 3,
     decimals: 18,
@@ -432,8 +424,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'linea',
     displayName: 'Linea',
     chainId: BigInt(59144),
-    rpcUrl: () =>
-      `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.LINEA_MAINNET_URL!,
+    rpcUrlId: 'LINEA_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.lineascan.build/api',
@@ -450,7 +442,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -464,8 +455,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'linea_goerli',
     displayName: 'Linea Goerli',
     chainId: BigInt(59140),
-    rpcUrl: () =>
-      `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.LINEA_GOERLI_URL!,
+    rpcUrlId: 'LINEA_GOERLI_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-goerli.lineascan.build/api',
@@ -475,7 +466,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -489,7 +479,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'linea_sepolia',
     displayName: 'Linea Sepolia',
     chainId: BigInt(59141),
-    rpcUrl: () => `${process.env.LINEA_SEPOLIA_RPC_URL}`,
+    rpcUrl: () => process.env.LINEA_SEPOLIA_URL!,
+    rpcUrlId: 'LINEA_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.lineascan.build/api',
@@ -499,7 +490,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['LINEA_SEPOLIA_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -514,6 +504,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Polygon zkEVM',
     chainId: BigInt(1101),
     rpcUrl: () => process.env.POLYGON_ZKEVM_MAINNET_URL!,
+    rpcUrlId: 'POLYGON_ZKEVM_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-zkevm.polygonscan.com/api',
@@ -530,7 +521,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['POLYGON_ZKEVM_MAINNET_URL'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -544,7 +534,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'polygon_zkevm_goerli',
     displayName: 'Polygon zkEVM Goerli',
     chainId: BigInt(1442),
-    rpcUrl: () => process.env.POLYGON_ZKEVM_TESTNET_URL!,
+    rpcUrl: () => process.env.POLYGON_ZKEVM_GOERLI_URL!,
+    rpcUrlId: 'POLYGON_ZKEVM_GOERLI_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-testnet-zkevm.polygonscan.com/api',
@@ -554,7 +545,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['POLYGON_ZKEVM_TESTNET_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -569,6 +559,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     displayName: 'Polygon zkEVM Cardona',
     chainId: BigInt(2442),
     rpcUrl: () => process.env.POLYGON_ZKEVM_CARDONA_URL!,
+    rpcUrlId: 'POLYGON_ZKEVM_CARDONA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-cardona-zkevm.polygonscan.com/api',
@@ -578,7 +569,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['POLYGON_ZKEVM_CARDONA_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -592,8 +582,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'avalanche',
     displayName: 'Avalanche',
     chainId: BigInt(43114),
-    rpcUrl: () =>
-      `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.AVALANCHE_MAINNET_URL!,
+    rpcUrlId: 'AVALANCHE_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.snowtrace.io/api',
@@ -603,7 +593,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'AVAX',
     dripSize: '1',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -617,8 +606,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'avalanche_fuji',
     displayName: 'Avalanche Fuji',
     chainId: BigInt(43113),
-    rpcUrl: () =>
-      `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.AVALANCHE_FUJI_URL!,
+    rpcUrlId: 'AVALANCHE_FUJI_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-testnet.snowtrace.io/api',
@@ -628,7 +617,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'AVAX',
     dripSize: '1',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -642,7 +630,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'fantom',
     displayName: 'Fantom',
     chainId: BigInt(250),
-    rpcUrl: () => process.env.FANTOM_MAINNET_RPC_URL!,
+    rpcUrl: () => process.env.FANTOM_MAINNET_URL!,
+    rpcUrlId: 'FANTOM_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.ftmscan.com/api',
@@ -652,7 +641,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'FTM',
     dripSize: '1',
-    requiredEnvVariables: ['FANTOM_MAINNET_RPC_URL'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -666,11 +654,11 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'fantom_testnet',
     displayName: 'Fantom Testnet',
     chainId: BigInt(4002),
-    rpcUrl: () => process.env.FANTOM_TESTNET_RPC_URL!,
+    rpcUrl: () => process.env.FANTOM_TESTNET_URL!,
+    rpcUrlId: 'FANTOM_TESTNET_URL',
     blockexplorers: {},
     currency: 'FTM',
     dripSize: '1',
-    requiredEnvVariables: ['FANTOM_TESTNET_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -684,8 +672,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'base',
     displayName: 'Base',
     chainId: BigInt(8453),
-    rpcUrl: () =>
-      `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.BASE_MAINNET_URL!,
+    rpcUrlId: 'BASE_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.basescan.org/api',
@@ -701,7 +689,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -715,8 +702,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'base_sepolia',
     displayName: 'Base Sepolia',
     chainId: BigInt(84532),
-    rpcUrl: () =>
-      `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    rpcUrl: () => process.env.BASE_SEPOLIA_URL!,
+    rpcUrlId: 'BASE_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.basescan.org/',
@@ -732,7 +719,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['ALCHEMY_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -746,8 +732,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'celo',
     displayName: 'Celo',
     chainId: BigInt(42220),
-    rpcUrl: () =>
-      `https://celo-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.CELO_MAINNET_URL!,
+    rpcUrlId: 'CELO_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.celoscan.io/api',
@@ -757,7 +743,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'CELO',
     dripSize: '1',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -771,8 +756,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'celo_alfajores',
     displayName: 'Celo Alfajores',
     chainId: BigInt(44787),
-    rpcUrl: () =>
-      `https://celo-alfajores.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    rpcUrl: () => process.env.CELO_ALFAJORES_URL!,
+    rpcUrlId: 'CELO_ALFAJORES_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-alfajores.celoscan.io/api',
@@ -782,7 +767,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'CELO',
     dripSize: '0.15',
-    requiredEnvVariables: ['INFURA_API_KEY'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -796,7 +780,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'moonriver',
     displayName: 'Moonriver',
     chainId: BigInt(1285),
-    rpcUrl: () => process.env.MOONRIVER_RPC_URL!,
+    rpcUrl: () => process.env.MOONRIVER_MAINNET_URL!,
+    rpcUrlId: 'MOONRIVER_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-moonriver.moonscan.io/api',
@@ -806,7 +791,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'MOVR',
     dripSize: '0.15',
-    requiredEnvVariables: ['MOONRIVER_RPC_URL'],
     queryFilterBlockLimit: 500,
     dripVersion: 2,
     networkType: 'Mainnet',
@@ -821,7 +805,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'moonbeam',
     displayName: 'Moonbeam',
     chainId: BigInt(1284),
-    rpcUrl: () => process.env.MOONBEAM_RPC_URL!,
+    rpcUrl: () => process.env.MOONBEAM_MAINNET_URL!,
+    rpcUrlId: 'MOONBEAM_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-moonbeam.moonscan.io/api',
@@ -831,7 +816,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'GLMR',
     dripSize: '1',
-    requiredEnvVariables: ['MOONBEAM_RPC_URL'],
     queryFilterBlockLimit: 500,
     networkType: 'Mainnet',
     dripVersion: 2,
@@ -846,7 +830,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'moonbase_alpha',
     displayName: 'Moonbase Alpha',
     chainId: BigInt(1287),
-    rpcUrl: () => process.env.MOONBASE_ALPHA_RPC_URL!,
+    rpcUrl: () => process.env.MOONBASE_ALPHA_URL!,
+    rpcUrlId: 'MOONBASE_ALPHA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-moonbase.moonscan.io/api',
@@ -856,7 +841,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'GLMR',
     dripSize: '0.05',
-    requiredEnvVariables: ['MOONBASE_ALPHA_RPC_URL'],
     queryFilterBlockLimit: 500,
     networkType: 'Testnet',
     dripVersion: 3,
@@ -871,7 +855,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'fuse',
     displayName: 'Fuse',
     chainId: BigInt(122),
-    rpcUrl: () => process.env.FUSE_RPC_URL!,
+    rpcUrl: () => process.env.FUSE_MAINNET_URL!,
+    rpcUrlId: 'FUSE_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://explorer.fuse.io/api',
@@ -882,7 +867,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'FUSE',
     dripSize: '1',
-    requiredEnvVariables: ['FUSE_RPC_URL'],
     networkType: 'Mainnet',
     dripVersion: 2,
     legacyTx: true,
@@ -896,11 +880,11 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'evmos',
     displayName: 'Evmos',
     chainId: BigInt(9001),
-    rpcUrl: () => process.env.EVMOS_RPC_URL!,
+    rpcUrl: () => process.env.EVMOS_MAINNET_URL!,
+    rpcUrlId: 'EVMOS_MAINNET_URL',
     blockexplorers: {},
     currency: 'EVMOS',
     dripSize: '1',
-    requiredEnvVariables: ['EVMOS_RPC_URL'],
     dripVersion: 2,
     networkType: 'Mainnet',
     decimals: 18,
@@ -914,11 +898,11 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'evmos_testnet',
     displayName: 'Evmos Testnet',
     chainId: BigInt(9000),
-    rpcUrl: () => process.env.EVMOS_TESTNET_RPC_URL!,
+    rpcUrl: () => process.env.EVMOS_TESTNET_URL!,
+    rpcUrlId: 'EVMOS_TESTNET_URL',
     blockexplorers: {},
     currency: 'EVMOS',
     dripSize: '0.015',
-    requiredEnvVariables: ['EVMOS_TESTNET_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 3,
     decimals: 18,
@@ -932,7 +916,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'kava',
     displayName: 'Kava',
     chainId: BigInt(2222),
-    rpcUrl: () => process.env.KAVA_RPC_URL!,
+    rpcUrl: () => process.env.KAVA_MAINNET_URL!,
+    rpcUrlId: 'KAVA_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://kavascan.com/api',
@@ -944,7 +929,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'KAVA',
     dripSize: '1',
-    requiredEnvVariables: ['KAVA_RPC_URL'],
     dripVersion: 2,
     networkType: 'Mainnet',
     legacyTx: true,
@@ -958,11 +942,11 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'kava_testnet',
     displayName: 'Kava Testnet',
     chainId: BigInt(2221),
-    rpcUrl: () => process.env.KAVA_TESTNET_RPC_URL!,
+    rpcUrl: () => process.env.KAVA_TESTNET_URL!,
+    rpcUrlId: 'KAVA_TESTNET_URL',
     blockexplorers: {},
     currency: 'KAVA',
     dripSize: '1',
-    requiredEnvVariables: ['KAVA_TESTNET_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     legacyTx: true,
@@ -976,7 +960,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'scroll',
     displayName: 'Scroll',
     chainId: BigInt(534352),
-    rpcUrl: () => process.env.SCROLL_RPC_URL!,
+    rpcUrl: () => process.env.SCROLL_MAINNET_RPC_URL!,
+    rpcUrlId: 'SCROLL_MAINNET_RPC_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.scrollscan.com/api',
@@ -993,7 +978,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.025',
-    requiredEnvVariables: ['SCROLL_RPC_URL'],
     networkType: 'Mainnet',
     dripVersion: 2,
     decimals: 18,
@@ -1007,7 +991,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'scroll_sepolia',
     displayName: 'Scroll Sepolia',
     chainId: BigInt(534351),
-    rpcUrl: () => process.env.SCROLL_TESTNET_RPC_URL!,
+    rpcUrl: () => process.env.SCROLL_SEPOLIA_URL!,
+    rpcUrlId: 'SCROLL_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.scrollscan.com/api',
@@ -1017,7 +1002,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'ETH',
     dripSize: '0.15',
-    requiredEnvVariables: ['SCROLL_TESTNET_RPC_URL'],
     networkType: 'Testnet',
     dripVersion: 2,
     decimals: 18,
@@ -1031,7 +1015,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'rootstock',
     displayName: 'Rootstock',
     chainId: BigInt(30),
-    rpcUrl: () => process.env.ROOTSTOCK_RPC_URL!,
+    rpcUrl: () => process.env.ROOTSTOCK_MAINNET_URL!,
+    rpcUrlId: 'ROOTSTOCK_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://rootstock.blockscout.com/api',
@@ -1042,7 +1027,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'RBTC',
     dripSize: '0.001',
-    requiredEnvVariables: ['ROOTSTOCK_RPC_URL'],
     dripVersion: 4,
     networkType: 'Mainnet',
     legacyTx: true,
@@ -1056,7 +1040,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'rootstock_testnet',
     displayName: 'Rootstock Testnet',
     chainId: BigInt(31),
-    rpcUrl: () => process.env.ROOTSTOCK_TESTNET_RPC_URL!,
+    rpcUrl: () => process.env.ROOTSTOCK_TESTNET_URL!,
+    rpcUrlId: 'ROOTSTOCK_TESTNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://rootstock-testnet.blockscout.com/api',
@@ -1067,7 +1052,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     },
     currency: 'RBTC',
     dripSize: '0.001',
-    requiredEnvVariables: ['ROOTSTOCK_TESTNET_RPC_URL'],
     dripVersion: 4,
     networkType: 'Testnet',
     legacyTx: true,
@@ -1081,7 +1065,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'zora',
     displayName: 'Zora',
     chainId: BigInt(7777777),
-    rpcUrl: () => process.env.ZORA_RPC_URL!,
+    rpcUrl: () => process.env.ZORA_MAINNET_URL!,
+    rpcUrlId: 'ZORA_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://explorer.zora.energy/api',
@@ -1101,7 +1086,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['ZORA_RPC_URL'],
     rollupStack: {
       provider: 'Conduit',
       type: 'OP Stack',
@@ -1111,7 +1095,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'zora_sepolia',
     displayName: 'Zora Sepolia',
     chainId: BigInt(999999999),
-    rpcUrl: () => process.env.ZORA_SEPOLIA_RPC_URL!,
+    rpcUrl: () => process.env.ZORA_SEPOLIA_URL!,
+    rpcUrlId: 'ZORA_SEPOLIA_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://sepolia.explorer.zora.energy/api',
@@ -1131,7 +1116,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['ZORA_SEPOLIA_RPC_URL'],
     rollupStack: {
       provider: 'Conduit',
       type: 'OP Stack',
@@ -1141,7 +1125,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'rari',
     displayName: 'RARI',
     chainId: BigInt(1380012617),
-    rpcUrl: () => process.env.RARI_RPC_URL!,
+    rpcUrl: () => process.env.RARI_MAINNET_URL!,
+    rpcUrlId: 'RARI_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://mainnet.explorer.rarichain.org/api',
@@ -1161,7 +1146,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['RARI_RPC_URL'],
     rollupStack: {
       provider: 'Caldera',
       type: 'Arbitrum',
@@ -1171,7 +1155,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'rari_sepolia',
     displayName: 'RARI Sepolia',
     chainId: BigInt(1918988905),
-    rpcUrl: () => process.env.RARI_SEPOLIA_RPC_URL!,
+    rpcUrl: () => process.env.RARI_SEPOLIA_URL!,
+    rpcUrlId: 'RARI_SEPOLIA_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://explorer.rarichain.org/api',
@@ -1191,7 +1176,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['RARI_SEPOLIA_RPC_URL'],
     rollupStack: {
       provider: 'Caldera',
       type: 'Arbitrum',
@@ -1201,7 +1185,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     name: 'blast_sepolia',
     displayName: 'Blast Sepolia',
     chainId: BigInt(168587773),
-    rpcUrl: () => process.env.BLAST_SEPOLIA_RPC_URL!,
+    rpcUrl: () => process.env.BLAST_SEPOLIA_URL!,
+    rpcUrlId: 'BLAST_SEPOLIA_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api-sepolia.blastscan.io/api',
@@ -1219,13 +1204,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['BLAST_SEPOLIA_RPC_URL'],
   },
   {
     name: 'blast',
     displayName: 'Blast',
     chainId: BigInt(81457),
-    rpcUrl: () => process.env.BLAST_MAINNET_RPC_URL!,
+    rpcUrl: () => process.env.BLAST_MAINNET_URL!,
+    rpcUrlId: 'BLAST_MAINNET_URL',
     blockexplorers: {
       etherscan: {
         apiURL: 'https://api.blastscan.io/api',
@@ -1243,13 +1228,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['BLAST_MAINNET_RPC_URL'],
   },
   {
     name: 'taiko_katla',
     displayName: 'Taiko Katla',
     chainId: BigInt(167008),
-    rpcUrl: () => process.env.TAIKO_KATLA_RPC_URL!,
+    rpcUrl: () => process.env.TAIKO_KATLA_URL!,
+    rpcUrlId: 'TAIKO_KATLA_URL',
     blockexplorers: {},
     currency: 'ETH',
     dripSize: '0.15',
@@ -1261,13 +1246,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['TAIKO_KATLA_RPC_URL'],
   },
   {
     name: 'mode_sepolia',
     displayName: 'Mode Sepolia',
     chainId: BigInt(919),
-    rpcUrl: () => process.env.MODE_SEPOLIA_RPC_URL!,
+    rpcUrl: () => process.env.MODE_SEPOLIA_URL!,
+    rpcUrlId: 'MODE_SEPOLIA_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://sepolia.explorer.mode.network/api',
@@ -1286,13 +1271,13 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['MODE_SEPOLIA_RPC_URL'],
   },
   {
     name: 'mode',
     displayName: 'Mode',
     chainId: BigInt(34443),
-    rpcUrl: () => process.env.MODE_MAINNET_RPC_URL!,
+    rpcUrl: () => process.env.MODE_MAINNET_URL!,
+    rpcUrlId: 'MODE_MAINNET_URL',
     blockexplorers: {
       blockscout: {
         apiURL: 'https://explorer.mode.network/api',
@@ -1311,6 +1296,5 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: false,
     eip2028: true,
-    requiredEnvVariables: ['MODE_MAINNET_RPC_URL'],
   },
 ]

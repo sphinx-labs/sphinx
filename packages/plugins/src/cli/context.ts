@@ -17,10 +17,15 @@ import {
 import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 
-import { getNetworkGasEstimate, makeGetConfigArtifacts } from '../foundry/utils'
+import {
+  assertNoLinkedLibraries,
+  getNetworkGasEstimate,
+  makeGetConfigArtifacts,
+} from '../foundry/utils'
 import { ProposeArgs, buildNetworkConfigArray, propose } from './propose'
 import { DeployArgs, deploy } from './deploy'
 import {
+  AssertNoLinkedLibraries,
   BuildNetworkConfigArray,
   FetchRemoteArtifacts,
   GetNetworkGasEstimate,
@@ -57,6 +62,7 @@ export type SphinxContext = {
   storeDeploymentConfig: StoreDeploymentConfig
   relayProposal: RelayProposal
   fetchRemoteArtifacts: FetchRemoteArtifacts
+  assertNoLinkedLibraries: AssertNoLinkedLibraries
 }
 
 export const makeSphinxContext = (): SphinxContext => {
@@ -71,5 +77,6 @@ export const makeSphinxContext = (): SphinxContext => {
     storeDeploymentConfig,
     relayProposal,
     fetchRemoteArtifacts,
+    assertNoLinkedLibraries,
   }
 }
