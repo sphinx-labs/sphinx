@@ -369,7 +369,7 @@ export const propose = async (
   const gasEstimates = await Promise.all(gasEstimatesPromises)
 
   spinner.succeed(`Simulation succeeded.`)
-  const preview = getPreview(networkConfigArray)
+  const preview = getPreview(networkConfigArray, merkleTree.root)
   if (confirm || isDryRun) {
     if (!silent) {
       const previewString = getPreviewString(preview, false)
