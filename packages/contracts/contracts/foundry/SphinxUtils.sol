@@ -42,6 +42,12 @@ interface ISphinxScript {
 }
 
 contract SphinxUtils is SphinxConstants, StdUtils {
+    // Ensures that this contract doesn't cause `forge build --sizes` to fail if this command is
+    // executed by the user. For context, see: https://github.com/foundry-rs/foundry/issues/4615
+    // Resolves:
+    // https://linear.app/chugsplash/issue/CHU-891/prevent-the-users-forge-build-sizes-call-from-failing-due-to
+    bool public IS_SCRIPT = true;
+
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
