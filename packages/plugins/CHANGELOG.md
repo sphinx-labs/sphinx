@@ -1,5 +1,25 @@
 # @sphinx-labs/plugins
 
+## 0.31.0
+
+### Minor Changes
+
+- dead3ae: Add Merkle root to preview
+
+### Patch Changes
+
+- 2c89358: Improve rpc url setup for secret management
+- e7ff758: Update hard-coded Merkle leaf gas value on Moonbeam
+- fd5ac04: Enable caching in simulation
+- dd0cfcc: Prevent `forge build --sizes` from failing due to `SphinxUtils.sol`
+- Updated dependencies [2c89358]
+- Updated dependencies [e7ff758]
+- Updated dependencies [dd0cfcc]
+- Updated dependencies [28b6111]
+- Updated dependencies [dead3ae]
+  - @sphinx-labs/core@0.24.0
+  - @sphinx-labs/contracts@0.21.0
+
 ## 0.30.12
 
 ### Patch Changes
