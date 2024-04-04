@@ -1,5 +1,18 @@
 # @sphinx-labs/contracts
 
+## 0.21.0
+
+### Minor Changes
+
+- dead3ae: Add Merkle root to preview
+
+### Patch Changes
+
+- 2c89358: Improve rpc url setup for secret management
+- e7ff758: Update hard-coded Merkle leaf gas value on Moonbeam
+- dd0cfcc: Prevent `forge build --sizes` from failing due to `SphinxUtils.sol`
+- 28b6111: Deprecate Goerli testnets
+
 ## 0.20.8
 
 ### Patch Changes

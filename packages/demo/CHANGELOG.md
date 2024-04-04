@@ -1,5 +1,20 @@
 # @sphinx-labs/demo
 
+## 0.12.8
+
+### Patch Changes
+
+- dd0cfcc: Prevent `forge build --sizes` from failing due to `SphinxUtils.sol`
+- Updated dependencies [2c89358]
+- Updated dependencies [e7ff758]
+- Updated dependencies [fd5ac04]
+- Updated dependencies [dd0cfcc]
+- Updated dependencies [28b6111]
+- Updated dependencies [dead3ae]
+  - @sphinx-labs/plugins@0.31.0
+  - @sphinx-labs/core@0.24.0
+  - @sphinx-labs/contracts@0.21.0
+
 ## 0.12.7
 
 ### Patch Changes
