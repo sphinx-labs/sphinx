@@ -41,6 +41,7 @@ type PreviewElement =
  * contract they didn't know existed.
  */
 export type SphinxPreview = {
+  merkleRoot: string
   networks: Array<{
     networkTags: Array<string>
     executing: Array<PreviewElement>
@@ -192,6 +193,8 @@ export const getPreviewString = (
     )
   }
 
+  previewString += `Merkle Root: ${preview.merkleRoot}\n\n`
+
   if (includeConfirmQuestion) {
     previewString += `Confirm? [y/n]`
   }
@@ -236,7 +239,8 @@ const assertIsFundingCheckAction = (
 }
 
 export const getPreview = (
-  networkConfigs: Array<NetworkConfig>
+  networkConfigs: Array<NetworkConfig>,
+  merkleRoot: string
 ): SphinxPreview => {
   const networks: {
     [networkTag: string]: {
@@ -349,6 +353,7 @@ export const getPreview = (
   const preview: SphinxPreview = {
     networks: [],
     unlabeledAddresses: new Set([]),
+    merkleRoot,
   }
   for (const [
     networkTag,

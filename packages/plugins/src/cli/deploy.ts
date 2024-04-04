@@ -345,7 +345,7 @@ export const deploy = async (
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    preview = getPreview([networkConfig])
+    preview = getPreview([networkConfig], merkleTree.root)
     spinner.stop()
     const previewString = getPreviewString(preview, true)
     await sphinxContext.prompt(previewString)
