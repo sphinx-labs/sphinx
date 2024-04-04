@@ -23,8 +23,6 @@ contract Sample is Sphinx {
             "fantom_testnet",
             "bnb_testnet",
             // "gnosis_chiado",
-            "linea_goerli",
-            "polygon_zkevm_goerli",
             "base_sepolia",
             "celo_alfajores",
             // "moonbase_alpha",
