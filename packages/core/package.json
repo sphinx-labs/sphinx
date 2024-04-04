@@ -20,7 +20,8 @@
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
     "pre-commit": "lint-staged",
-    "deploy": "npx hardhat deploy-system"
+    "deploy": "npx hardhat deploy-system",
+    "sync:rpc": "infisical export --path='/RPC' --env=dev >> .env"
   },
   "homepage": "https://github.com/sphinx-labs/sphinx/tree/main/packages/core#readme",
   "license": "MIT",

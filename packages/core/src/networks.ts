@@ -252,10 +252,8 @@ export const isLiveNetworkRpcApiKeyDefined = (chainId: bigint): boolean => {
   if (!network) {
     return false
   }
-  for (const requiredEnvVariable of network.requiredEnvVariables) {
-    if (!process.env[requiredEnvVariable]) {
-      return false
-    }
+  if (!process.env[network.rpcUrlId]) {
+    return false
   }
   return true
 }
@@ -279,10 +277,8 @@ export const fetchURLForNetwork = (chainId: bigint) => {
 
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
   if (network) {
-    for (const requiredEnvVariable of network.requiredEnvVariables) {
-      if (!process.env[requiredEnvVariable]) {
-        throw new Error(`${requiredEnvVariable} key not defined`)
-      }
+    if (!process.env[network.rpcUrlId]) {
+      throw new Error(`${network.rpcUrlId} key not defined`)
     }
 
     return network.rpcUrl()

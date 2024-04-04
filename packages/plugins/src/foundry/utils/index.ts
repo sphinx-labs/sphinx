@@ -86,7 +86,7 @@ import {
   FoundryToml,
 } from '../types'
 import { SimulationTransactions, simulate } from '../../hardhat/simulate'
-import { GetNetworkGasEstimate } from '../../cli/types'
+import { AssertNoLinkedLibraries, GetNetworkGasEstimate } from '../../cli/types'
 import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
 import { SphinxContext } from '../../cli/context'
@@ -337,7 +337,7 @@ export const compile = (
  * unpredictable due to the potentially nested structure of artifact file locations, and due to the
  * fact that we don't know the fully qualified name in advance.
  */
-export const assertNoLinkedLibraries = async (
+export const assertNoLinkedLibraries: AssertNoLinkedLibraries = async (
   scriptPath: string,
   cachePath: string,
   artifactFolder: string,
@@ -1669,7 +1669,9 @@ export const validateProposalNetworks = async (
     }
 
     if (!(await isLiveNetwork(provider))) {
-      return { type: 'localNetwork', network }
+      if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
+        return { type: 'localNetwork', network }
+      }
     }
 
     return {
@@ -1738,7 +1740,9 @@ export const validateProposalNetworks = async (
   }
 
   if (localNetwork.length > 0) {
-    throw new Error(getLocalNetworkErrorMessage(localNetwork))
+    if (process.env.SPHINX_INTERNAL__ALLOW_LOCAL_NODES !== 'true') {
+      throw new Error(getLocalNetworkErrorMessage(localNetwork))
+    }
   }
 
   // Check if the array contains a mix of test networks and production networks. We check this after

@@ -41,7 +41,6 @@ import {
   compile,
   getInitCodeWithArgsArray,
   assertValidVersions,
-  assertNoLinkedLibraries,
   validateProposalNetworks,
   parseScriptFunctionCalldata,
 } from '../../foundry/utils'
@@ -74,6 +73,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   foundryToml: FoundryToml,
   projectRoot: string,
   getConfigArtifacts: GetConfigArtifacts,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
 ): Promise<{
@@ -177,7 +177,7 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     initCodeWithArgsArray
   )
 
-  await assertNoLinkedLibraries(
+  await sphinxContext.assertNoLinkedLibraries(
     scriptPath,
     foundryToml.cachePath,
     foundryToml.artifactFolder,
@@ -322,6 +322,7 @@ export const propose = async (
     foundryToml,
     projectRoot,
     getConfigArtifacts,
+    sphinxContext,
     targetContract,
     spinner
   )
