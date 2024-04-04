@@ -756,95 +756,122 @@ describe('Propose CLI command', () => {
   })
 
   describe('Issues', () => {
-    it('CHU-676: Deploys with call to safeAddress() in script', async () => {
-      const CHU676Path = './contracts/test/script/issues/CHU676.s.sol'
+    // We reuse the CHU-676 test to cover CHU-760 since they don't conflict with each other
+    describe('CHU-760: Can propose and deploy against local node with SPHINX_INTERNAL__ALLOW_LOCAL_NODES env variable', async () => {
+      let context: SphinxContext
 
-      const { context } = makeMockSphinxContextForIntegrationTests([
-        `contracts/test/script/issues/Owned.sol:Owned`,
-      ])
-      const isTestnet = true
+      beforeEach(async () => {
+        // Store the original environment variables. We'll reset them after this test suite is finished.
+        originalEnv = { ...process.env }
 
-      const {
-        proposalRequest,
-        networkConfigArray,
-        configArtifacts,
-        merkleTree,
-      } = await propose({
-        confirm: false, // Show preview
-        networks: ['sepolia'],
-        isDryRun: true,
-        silent: true,
-        scriptPath: CHU676Path,
-        sphinxContext: context,
-        targetContract: 'CHU676',
+        // Configure the SPHINX_INTERNAL__ALLOW_LOCAL_NODES env variable which allows local nodes
+        process.env['SPHINX_INTERNAL__ALLOW_LOCAL_NODES'] = 'true'
+        ;({ context } = makeMockSphinxContextForIntegrationTests([
+          `contracts/test/script/issues/Owned.sol:Owned`,
+        ]))
+
+        // Mock isLiveNetwork with a function that always returns false.
+        // In the rest of the test suite, we mock isLiveNetwork with a function that is always true which
+        // is why it's possible for us to run our integration tests against local nodes.
+        // We don't import and use the real isLiveNetwork function here because it's not necessary for this
+        // test and we don't want to accidentally use it in other parts of the test suite.
+        context.isLiveNetwork = async () => {
+          return false
+        }
       })
 
-      if (
-        !networkConfigArray ||
-        !proposalRequest ||
-        !configArtifacts ||
-        !merkleTree
-      ) {
-        throw new Error(`Expected field(s) to be defined`)
-      }
+      afterEach(() => {
+        console.log('after')
+        process.env = originalEnv
+      })
 
-      const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
-        CHU676Path,
-        sepoliaRpcUrl,
-        'CHU676'
-      )
+      it.only('CHU-676: Deploys with call to safeAddress() in script', async () => {
+        const CHU676Path = './contracts/test/script/issues/CHU676.s.sol'
+        const isTestnet = true
 
-      const expectedContractAddress = ethers.getCreate2Address(
-        DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-        ethers.ZeroHash,
-        ethers.keccak256(
-          ethers.concat([
-            Owned.bytecode.object,
-            coder.encode(['address'], [sphinxModuleAddress]),
-          ])
+        console.log('proposing')
+        const {
+          proposalRequest,
+          networkConfigArray,
+          configArtifacts,
+          merkleTree,
+        } = await propose({
+          confirm: false, // Show preview
+          networks: ['sepolia'],
+          isDryRun: true,
+          silent: true,
+          scriptPath: CHU676Path,
+          sphinxContext: context,
+          targetContract: 'CHU676',
+        })
+
+        if (
+          !networkConfigArray ||
+          !proposalRequest ||
+          !configArtifacts ||
+          !merkleTree
+        ) {
+          throw new Error(`Expected field(s) to be defined`)
+        }
+
+        const sphinxModuleAddress = await getSphinxModuleAddressFromScript(
+          CHU676Path,
+          sepoliaRpcUrl,
+          'CHU676'
         )
-      )
 
-      assertValidProposalRequest(
-        proposalRequest,
-        'CHU-676',
-        isTestnet,
-        [11155111],
-        [
-          {
-            networkTags: ['sepolia'],
-            executing: [
-              {
-                referenceName: 'GnosisSafe',
-                functionName: 'deploy',
-                variables: {},
-                address: proposalRequest.safeAddress,
-                value: '0',
-              },
-              {
-                referenceName: 'SphinxModule',
-                functionName: 'deploy',
-                variables: {},
-                address: proposalRequest.moduleAddress,
-                value: '0',
-              },
-              {
-                referenceName: 'Owned',
-                functionName: 'deploy',
-                variables: {
-                  _owner: sphinxModuleAddress,
+        const expectedContractAddress = ethers.getCreate2Address(
+          DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+          ethers.ZeroHash,
+          ethers.keccak256(
+            ethers.concat([
+              Owned.bytecode.object,
+              coder.encode(['address'], [sphinxModuleAddress]),
+            ])
+          )
+        )
+
+        assertValidProposalRequest(
+          proposalRequest,
+          'CHU-676',
+          isTestnet,
+          [11155111],
+          [
+            {
+              networkTags: ['sepolia'],
+              executing: [
+                {
+                  referenceName: 'GnosisSafe',
+                  functionName: 'deploy',
+                  variables: {},
+                  address: proposalRequest.safeAddress,
+                  value: '0',
                 },
-                address: expectedContractAddress,
-                value: '0',
-              },
-            ],
-            skipping: [],
-            chainId: '11155111',
-            safeAddress: proposalRequest.safeAddress,
-          },
-        ],
-        networkConfigArray
-      )
+                {
+                  referenceName: 'SphinxModule',
+                  functionName: 'deploy',
+                  variables: {},
+                  address: proposalRequest.moduleAddress,
+                  value: '0',
+                },
+                {
+                  referenceName: 'Owned',
+                  functionName: 'deploy',
+                  variables: {
+                    _owner: sphinxModuleAddress,
+                  },
+                  address: expectedContractAddress,
+                  value: '0',
+                },
+              ],
+              skipping: [],
+              chainId: '11155111',
+              safeAddress: proposalRequest.safeAddress,
+            },
+          ],
+          networkConfigArray
+        )
+      })
     })
   })
 })
