@@ -781,15 +781,13 @@ describe('Propose CLI command', () => {
       })
 
       afterEach(() => {
-        console.log('after')
         process.env = originalEnv
       })
 
-      it.only('CHU-676: Deploys with call to safeAddress() in script', async () => {
+      it('CHU-676: Deploys with call to safeAddress() in script', async () => {
         const CHU676Path = './contracts/test/script/issues/CHU676.s.sol'
         const isTestnet = true
 
-        console.log('proposing')
         const {
           proposalRequest,
           networkConfigArray,
