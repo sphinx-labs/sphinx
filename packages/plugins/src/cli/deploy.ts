@@ -46,7 +46,6 @@ import { ethers } from 'ethers'
 import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
-  assertNoLinkedLibraries,
   assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
@@ -305,7 +304,7 @@ export const deploy = async (
     initCodeWithArgsArray
   )
 
-  await assertNoLinkedLibraries(
+  await sphinxContext.assertNoLinkedLibraries(
     scriptPath,
     foundryToml.cachePath,
     foundryToml.artifactFolder,
@@ -345,7 +344,7 @@ export const deploy = async (
   if (skipPreview) {
     spinner.info(`Skipping preview.`)
   } else {
-    preview = getPreview([networkConfig])
+    preview = getPreview([networkConfig], merkleTree.root)
     spinner.stop()
     const previewString = getPreviewString(preview, true)
     await sphinxContext.prompt(previewString)

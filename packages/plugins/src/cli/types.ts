@@ -10,6 +10,7 @@ import {
 } from '@sphinx-labs/core'
 
 import { FoundryToml } from '../foundry/types'
+import { SphinxContext } from './context'
 
 export interface ProposeCommandArgs {
   scriptPath: string
@@ -59,6 +60,7 @@ export type BuildNetworkConfigArray = (
   foundryToml: FoundryToml,
   projectRoot: string,
   getConfigArtifacts: GetConfigArtifacts,
+  sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
 ) => Promise<{
@@ -72,3 +74,11 @@ export type BuildNetworkConfigArray = (
 }>
 
 export type FetchRemoteArtifacts = (args: FetchArtifactsArgs) => void
+
+export type AssertNoLinkedLibraries = (
+  scriptPath: string,
+  cachePath: string,
+  artifactFolder: string,
+  projectRoot: string,
+  targetContract?: string
+) => Promise<void>

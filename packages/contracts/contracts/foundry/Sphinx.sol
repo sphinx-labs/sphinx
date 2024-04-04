@@ -50,17 +50,6 @@ import { SphinxForkCheck } from "./SphinxForkCheck.sol";
 abstract contract Sphinx {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    // These are constants thare are used when signing an EIP-712 meta transaction.
-    bytes32 private constant DOMAIN_SEPARATOR =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256(bytes("Sphinx")),
-                keccak256(bytes("1.0.0"))
-            )
-        );
-    bytes32 private constant TYPE_HASH = keccak256("MerkleRoot(bytes32 root)");
-
     /**
      * @dev The configuration options for the user's project. This variable must have `internal`
      *      visibility so that the user can set fields on it.
@@ -104,7 +93,7 @@ abstract contract Sphinx {
         require(utilsAddr != address(0), "Sphinx: SphinxUtils deployment failed");
         require(constantsAddr != address(0), "Sphinx: SphinxConstants deployment failed");
         sphinxUtils = SphinxUtils(utilsAddr);
-        constants = SphinxUtils(constantsAddr);
+        constants = SphinxConstants(constantsAddr);
 
         // This ensures that these contracts stay deployed in a multi-fork environment (e.g. when
         // calling `vm.createSelectFork`).
@@ -278,31 +267,6 @@ abstract contract Sphinx {
 
         return
             sphinxUtils.finalizeDeploymentInfo(deploymentInfo, accesses, _callDepth, address(this));
-    }
-
-    /**
-     * @notice Executes a single transaction that deploys a Gnosis Safe, deploys a Sphinx Module,
-     *         and enables the Sphinx Module in the Gnosis Safe
-     *
-     * @dev    We refer to this function in Sphinx's documentation. Make sure to update the
-     *         documentation if you change the name of this function or change its file
-     *         location.
-     */
-    function _sphinxDeployModuleAndGnosisSafe() private {
-        IGnosisSafeProxyFactory safeProxyFactory = IGnosisSafeProxyFactory(
-            constants.safeFactoryAddress()
-        );
-        address singletonAddress = constants.safeSingletonAddress();
-
-        bytes memory safeInitializerData = sphinxUtils.getGnosisSafeInitializerData(address(this));
-
-        // This is the transaction that deploys the Gnosis Safe, deploys the Sphinx Module,
-        // and enables the Sphinx Module in the Gnosis Safe.
-        safeProxyFactory.createProxyWithNonce(
-            singletonAddress,
-            safeInitializerData,
-            sphinxConfig.saltNonce
-        );
     }
 
     /**

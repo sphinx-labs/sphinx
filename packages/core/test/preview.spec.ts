@@ -12,6 +12,7 @@ import { ActionInputType, FunctionCallActionInput } from '../dist'
 import { ExecutionMode } from '../src/constants'
 
 const safeAddress = '0x' + 'ff'.repeat(20)
+const dummyMerkleRoot = '0x' + 'fe'.repeat(32)
 
 const expectedGnosisSafe = {
   address: safeAddress,
@@ -205,9 +206,11 @@ describe('Preview', () => {
 
   describe('getPreview', () => {
     it('returns preview for single network that is executing everything, including Gnosis Safe and Sphinx Module', () => {
-      const { networks, unlabeledAddresses } = getPreview([
-        originalNetworkConfig,
-      ])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [originalNetworkConfig],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -235,7 +238,11 @@ describe('Preview', () => {
       const networkConfig = structuredClone(originalNetworkConfig)
       networkConfig.safeFundingRequest!.fundsRequested = '0'
       networkConfig.actionInputs.shift()
-      const { networks, unlabeledAddresses } = getPreview([networkConfig])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [networkConfig],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -256,7 +263,11 @@ describe('Preview', () => {
       networkConfig.initialState.isSafeDeployed = true
       networkConfig.initialState.isModuleDeployed = true
 
-      const { networks, unlabeledAddresses } = getPreview([networkConfig])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [networkConfig],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -285,7 +296,11 @@ describe('Preview', () => {
         }
       })
 
-      const { networks, unlabeledAddresses } = getPreview([networkConfig])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [networkConfig],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
@@ -323,11 +338,11 @@ describe('Preview', () => {
       networkConfigArbitrum.chainId = '42161'
       networkConfigPolygon.chainId = '137'
 
-      const { networks, unlabeledAddresses } = getPreview([
-        originalNetworkConfig,
-        networkConfigArbitrum,
-        networkConfigPolygon,
-      ])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [originalNetworkConfig, networkConfigArbitrum, networkConfigPolygon],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const [{ networkTags, executing }] = networks
@@ -370,11 +385,11 @@ describe('Preview', () => {
       const firstAction = networkConfigArbitrum.actionInputs[1]
       firstAction.decodedAction.variables = variablesArbitrum
 
-      const { networks, unlabeledAddresses } = getPreview([
-        originalNetworkConfig,
-        networkConfigArbitrum,
-        networkConfigPolygon,
-      ])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [originalNetworkConfig, networkConfigArbitrum, networkConfigPolygon],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(3)
       const [
@@ -464,9 +479,11 @@ describe('Preview', () => {
       )
       networkConfigWithSystemNotDeployed.isSystemDeployed = false
 
-      const { networks, unlabeledAddresses } = getPreview([
-        networkConfigWithSystemNotDeployed,
-      ])
+      const { networks, unlabeledAddresses, merkleRoot } = getPreview(
+        [networkConfigWithSystemNotDeployed],
+        dummyMerkleRoot
+      )
+      expect(merkleRoot).equals(dummyMerkleRoot)
 
       expect(networks.length).to.equal(1)
       const { networkTags, executing, skipping } = networks[0]
