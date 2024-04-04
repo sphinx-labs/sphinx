@@ -36,10 +36,11 @@ export const getSampleScriptFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Script } from "forge-std/Script.sol";
 import { HelloSphinx } from "${relativeSrcPath}/HelloSphinx.sol";
 import "@sphinx-labs/contracts/SphinxPlugin.sol";
 
-contract HelloSphinxScript is Sphinx {
+contract HelloSphinxScript is Sphinx, Script {
     HelloSphinx helloSphinx;
 
     function configureSphinx() public override {

@@ -252,10 +252,8 @@ export const isLiveNetworkRpcApiKeyDefined = (chainId: bigint): boolean => {
   if (!network) {
     return false
   }
-  for (const requiredEnvVariable of network.requiredEnvVariables) {
-    if (!process.env[requiredEnvVariable]) {
-      return false
-    }
+  if (!process.env[network.rpcUrlId]) {
+    return false
   }
   return true
 }
@@ -279,10 +277,8 @@ export const fetchURLForNetwork = (chainId: bigint) => {
 
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
   if (network) {
-    for (const requiredEnvVariable of network.requiredEnvVariables) {
-      if (!process.env[requiredEnvVariable]) {
-        throw new Error(`${requiredEnvVariable} key not defined`)
-      }
+    if (!process.env[network.rpcUrlId]) {
+      throw new Error(`${network.rpcUrlId} key not defined`)
     }
 
     return network.rpcUrl()
@@ -337,45 +333,4 @@ export const shouldUseHigherMaxGasLimit = (chainId: bigint) => {
   } else {
     throw new Error(`Unsupported network id ${chainId}`)
   }
-}
-
-/**
- * The number of blocks that Hardhat rewinds when forking the given network. Rewinding the block
- * number protects against chain reorgs. Copied from Hardhat:
- * https://github.com/NomicFoundation/hardhat/blob/caa504fe0e53c183578f42d66f4740b8ec147051/packages/hardhat-core/src/internal/hardhat-network/provider/utils/reorgs-protection.ts
- */
-export const getLargestPossibleReorg = (chainIdStr: string): bigint => {
-  const chainId = Number(chainIdStr)
-
-  // mainnet
-  if (chainId === 1) {
-    return BigInt(5)
-  }
-
-  // Kovan
-  if (chainId === 42) {
-    return BigInt(5)
-  }
-
-  // Goerli
-  if (chainId === 5) {
-    return BigInt(5)
-  }
-
-  // Rinkeby
-  if (chainId === 4) {
-    return BigInt(5)
-  }
-
-  // Ropsten
-  if (chainId === 3) {
-    return BigInt(100)
-  }
-
-  // xDai
-  if (chainId === 100) {
-    return BigInt(38)
-  }
-
-  return BigInt(30)
 }

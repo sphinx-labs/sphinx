@@ -114,8 +114,8 @@ describe('Deploy CLI command', () => {
     // Store the original environment variables. We'll reset them after this test suite is finished.
     originalEnv = { ...process.env }
 
-    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
-    process.env['OPTIMISM_RPC_URL'] = optimismRpcUrl
+    process.env['ETH_SEPOLIA_URL'] = sepoliaRpcUrl
+    process.env['OPT_MAINNET_URL'] = optimismRpcUrl
   })
 
   after(() => {
@@ -494,7 +494,7 @@ describe('Deployment Cases', () => {
     // Store the original environment variables. We'll reset them after this test suite is finished.
     originalEnv = { ...process.env }
 
-    process.env['SEPOLIA_RPC_URL'] = sepoliaRpcUrl
+    process.env['ETH_SEPOLIA_URL'] = sepoliaRpcUrl
 
     await killAnvilNodes(allChainIds)
     // Start the Anvil nodes.
