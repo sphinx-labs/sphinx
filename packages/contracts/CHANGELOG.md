@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.21.1
+
+### Patch Changes
+
+- 19370da: Add support for Darwinia Pangolin
+
 ## 0.21.0
 
 ### Minor Changes
