@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.31.1
+
+### Patch Changes
+
+- 19370da: Add support for Darwinia Pangolin
+- Updated dependencies [19370da]
+  - @sphinx-labs/contracts@0.21.1
+
 ## 0.31.0
 
 ### Minor Changes
