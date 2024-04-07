@@ -64,7 +64,7 @@ export type SimulationTransactions = Array<{
  * call sent from our provider proxy.
  */
 export const simulationConstants = {
-  maxAttempts: 10,
+  maxAttempts: 5,
   timeout: 150_000,
 }
 
