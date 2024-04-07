@@ -52,6 +52,7 @@ import {
   getSphinxConfigFromScript,
   parseScriptFunctionCalldata,
   readInterface,
+  assertContractSizeLimitNotExceeded,
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
@@ -302,6 +303,11 @@ export const deploy = async (
   )
   const { configArtifacts, buildInfos } = await getConfigArtifacts(
     initCodeWithArgsArray
+  )
+
+  assertContractSizeLimitNotExceeded(
+    deploymentInfo.accountAccesses,
+    configArtifacts
   )
 
   await sphinxContext.assertNoLinkedLibraries(
