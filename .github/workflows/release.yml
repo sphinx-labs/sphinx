@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile --network-concurrency 1
+        run: yarn --frozen-lockfile
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
