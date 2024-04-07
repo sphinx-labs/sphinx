@@ -75,11 +75,6 @@ struct ParsedAccountAccess {
     Vm.AccountAccess[] nested;
 }
 
-struct DeployedContractSize {
-    address account;
-    uint size;
-}
-
 /**
  * @notice Contains all of the information that's collected in a deployment on a single chain.
  *         The only difference between this struct and the TypeScript `DeploymentInfo` object is
@@ -112,7 +107,6 @@ struct FoundryDeploymentInfo {
     string sphinxLibraryVersion;
     bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
-    bytes encodedDeployedContractSizes;
     uint fundsRequestedForSafe;
     uint safeStartingBalance;
 }
@@ -260,11 +254,5 @@ contract SphinxPluginTypes {
         external
         view
         returns (SphinxLeafWithProof[][] memory batches)
-    {}
-
-    function deployedContractSizesType()
-        external
-        view
-        returns (DeployedContractSize[] memory deployedContractSizes)
     {}
 }

@@ -21,8 +21,7 @@ import {
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess,
-    DeployedContractSize
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";

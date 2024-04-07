@@ -26,8 +26,7 @@ import {
     ExecutionMode,
     SystemContractInfo,
     GnosisSafeTransaction,
-    ParsedAccountAccess,
-    DeployedContractSize
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 import { ICreateCall } from "./interfaces/ICreateCall.sol";
@@ -1011,11 +1010,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
             "encodedAccountAccesses",
             _deployment.encodedAccountAccesses
         );
-        vm.serializeBytes(
-            deploymentInfoKey,
-            "encodedDeployedContractSizes",
-            _deployment.encodedDeployedContractSizes
-        );
 
         // Next, we'll serialize `uint` values as ABI encoded bytes. We don't serialize them as
         // numbers to prevent the possibility that they lose precision due JavaScript's relatively
@@ -1132,35 +1126,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         return
             _access.kind == VmSafe.AccountAccessKind.Create &&
             _access.chainInfo.chainId == _chainId;
-    }
-
-    function fetchDeployedContractSizes(
-        Vm.AccountAccess[] memory _accesses,
-        uint256 _chainId
-    ) private view returns (DeployedContractSize[] memory) {
-        uint numCreateAccesses = fetchNumCreateAccesses(_accesses, _chainId);
-        DeployedContractSize[] memory deployedContractSizes = new DeployedContractSize[](
-            numCreateAccesses
-        );
-        uint deployContractSizeIndex = 0;
-        for (uint i = 0; i < _accesses.length; i++) {
-            if (isCreateAccountAccess(_accesses[i], _chainId)) {
-                // We could also read the size of the code from the AccountAccess deployedCode field
-                // We don't do that because Foundry occasionally does not populate that field when
-                // it should.
-                address account = _accesses[i].account;
-                uint size;
-                assembly {
-                    size := extcodesize(account)
-                }
-                deployedContractSizes[deployContractSizeIndex] = DeployedContractSize(
-                    account,
-                    size
-                );
-                deployContractSizeIndex += 1;
-            }
-        }
-        return deployedContractSizes;
     }
 
     function parseAccountAccesses(
@@ -1567,10 +1532,6 @@ contract SphinxUtils is SphinxConstants, StdUtils {
         );
 
         parsedAccesses = addBalanceCheckAction(_deploymentInfo, parsedAccesses, _callDepth);
-
-        _deploymentInfo.encodedDeployedContractSizes = abi.encode(
-            fetchDeployedContractSizes(_accesses, _deploymentInfo.chainId)
-        );
 
         // ABI encode each `ParsedAccountAccess` element individually. If, instead, we ABI encode
         // the entire array as a unit, the encoded bytes will be too large for EthersJS to ABI

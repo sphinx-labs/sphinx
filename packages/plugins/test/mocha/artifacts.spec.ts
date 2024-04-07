@@ -316,7 +316,6 @@ const makeThenRunThenCheckDeployment = async (
     threshold,
     executionMode,
     accountAccesses,
-    [],
     getAnvilRpcUrl
   )
 
@@ -362,7 +361,6 @@ const makeThenRunThenCheckRemoteDeployment = async (
     threshold,
     executionMode,
     accountAccesses,
-    [],
     getAnvilRpcUrl
   )
 
