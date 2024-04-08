@@ -6,8 +6,10 @@ import {
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core'
 import {
+  AccountAccessKind,
   ContractArtifact,
   Operation,
+  ParsedAccountAccess,
   SphinxModuleABI,
 } from '@sphinx-labs/contracts'
 import { EventFragment, ethers } from 'ethers'
@@ -15,6 +17,7 @@ import { EventFragment, ethers } from 'ethers'
 import {
   dummyBuildInfoId,
   dummyModuleAddress,
+  getDummyAccountAccess,
   getDummyBuildInfos,
   getDummyCompilerInput,
   getDummyEventLog,
@@ -143,5 +146,24 @@ export const getFakeDeploymentConfig = async (
     buildInfos: getDummyBuildInfos(),
     inputs: [compilerInput],
     version: '0',
+  }
+}
+
+export const getFakeParsedAccountAccess = (fields: {
+  kind: AccountAccessKind
+  data: string
+  account: string
+  deployedCode: string
+}): ParsedAccountAccess => {
+  const { kind, data, account, deployedCode } = fields
+  const root = getDummyAccountAccess()
+  root.kind = kind
+  root.data = data
+  root.account = account
+  root.deployedCode = deployedCode
+
+  return {
+    root,
+    nested: [],
   }
 }

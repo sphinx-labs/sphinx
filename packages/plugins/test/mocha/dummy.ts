@@ -1,4 +1,9 @@
-import { Operation, SphinxMerkleTree } from '@sphinx-labs/contracts'
+import {
+  AccountAccess,
+  AccountAccessKind,
+  Operation,
+  SphinxMerkleTree,
+} from '@sphinx-labs/contracts'
 import {
   ActionInputType,
   BuildInfo,
@@ -338,5 +343,25 @@ export const getDummyDeployment = (): Deployment => {
     deploymentConfig: getDummyDeploymentConfig(),
     networkName: 'dummyNetwork',
     treeSigners: [],
+  }
+}
+
+export const getDummyAccountAccess = (): AccountAccess => {
+  return {
+    chainInfo: {
+      forkId: '0x1',
+      chainId: '0x3',
+    },
+    kind: AccountAccessKind.Balance,
+    account: '0xAccount',
+    accessor: '0xAccessor',
+    initialized: true,
+    oldBalance: '1000',
+    newBalance: '1500',
+    deployedCode: '0xCode',
+    value: '500',
+    data: '0xData',
+    reverted: false,
+    storageAccesses: [],
   }
 }
