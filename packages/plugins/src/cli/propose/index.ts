@@ -135,7 +135,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
-      ETH_FROM: safeAddress,
       // We specify build info to be false so that calling the script does not cause the users entire
       // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
       // We do need the build info, but that is generated when we compile at the beginning of the script.
