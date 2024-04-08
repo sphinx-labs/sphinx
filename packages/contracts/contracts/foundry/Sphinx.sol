@@ -21,8 +21,7 @@ import {
     GnosisSafeTransaction,
     ExecutionMode,
     SystemContractInfo,
-    ParsedAccountAccess,
-    DeployedContractSize
+    ParsedAccountAccess
 } from "./SphinxPluginTypes.sol";
 import { SphinxUtils } from "./SphinxUtils.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
@@ -251,6 +250,13 @@ abstract contract Sphinx {
         // the delegatecall in our error message.
         require(success, "Sphinx: Deployment script failed.");
         Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+        // Set the `deployedCode` field for each AccountAccess of kind `Create`. There may be a bug
+        // in Foundry that causes this field to not always be populated.
+        for (uint256 i = 0; i < accesses.length; i++) {
+            if (accesses[i].kind == VmSafe.AccountAccessKind.Create) {
+                accesses[i].deployedCode = accesses[i].account.code;
+            }
+        }
 
         // We have to copy fundsRequestedForSafe and safeStartingBalance into deploymentInfo before
         // calling vm.revertTo because that cheatcode will clear the state variables.

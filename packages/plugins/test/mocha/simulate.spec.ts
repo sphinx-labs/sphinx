@@ -78,7 +78,7 @@ describe('Simulate', () => {
       threshold,
       0
     )
-    const { accountAccesses, deployedContractSizes } = makeStandardDeployment(
+    const { accountAccesses } = makeStandardDeployment(
       0,
       ExecutionMode.Platform,
       safeAddress
@@ -100,7 +100,6 @@ describe('Simulate', () => {
       threshold, // Threshold
       ExecutionMode.Platform,
       accountAccesses,
-      deployedContractSizes,
       fetchURLForNetwork
     )
     networkConfigArray = deployment.deploymentConfig.networkConfigs

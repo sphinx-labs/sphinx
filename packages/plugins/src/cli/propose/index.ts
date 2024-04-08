@@ -43,6 +43,7 @@ import {
   assertValidVersions,
   validateProposalNetworks,
   parseScriptFunctionCalldata,
+  assertContractSizeLimitNotExceeded,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -174,6 +175,13 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
 
   const { configArtifacts, buildInfos } = await getConfigArtifacts(
     initCodeWithArgsArray
+  )
+
+  collected.forEach(({ deploymentInfo }) =>
+    assertContractSizeLimitNotExceeded(
+      deploymentInfo.accountAccesses,
+      configArtifacts
+    )
   )
 
   await sphinxContext.assertNoLinkedLibraries(

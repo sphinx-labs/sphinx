@@ -10,7 +10,6 @@ import {
   ContractArtifact,
   SphinxMerkleTree,
   ParsedAccountAccess,
-  DeployedContractSize,
 } from '@sphinx-labs/contracts'
 
 import { BuildInfo, CompilerInput } from '../languages/solidity/types'
@@ -119,7 +118,6 @@ export type DeploymentInfo = {
   sphinxLibraryVersion: string
   accountAccesses: Array<ParsedAccountAccess>
   gasEstimates: Array<string>
-  deployedContractSizes: Array<DeployedContractSize>
   fundsRequestedForSafe: string
   safeStartingBalance: string
 }

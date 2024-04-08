@@ -19,6 +19,7 @@ import {
 } from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   decodeDeterministicDeploymentProxyData,
+  exceedsContractSizeLimit,
   execAsync,
   fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
@@ -101,6 +102,7 @@ import {
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
 } from '../error-messages'
+import { contractsExceedSizeLimitErrorMessage } from '../../error-messages'
 
 const readFileAsync = promisify(readFile)
 
@@ -1771,4 +1773,37 @@ export const validateProposalNetworks = async (
 
   const rpcUrls = valid.map(({ rpcUrl }) => rpcUrl)
   return { rpcUrls, isTestnet }
+}
+
+export const assertContractSizeLimitNotExceeded = (
+  accountAccesses: Array<ParsedAccountAccess>,
+  configArtifacts: ConfigArtifacts
+): void => {
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  const tooLarge: Array<{ address: string; fullyQualifiedName?: string }> = []
+
+  for (const access of flat) {
+    if (
+      access.kind === AccountAccessKind.Create &&
+      exceedsContractSizeLimit(access.deployedCode)
+    ) {
+      const initCodeWithArgs = access.data
+      // Find the fully qualified name if it exists. This call returns `undefined` if the contract
+      // is unlabeled.
+      const fullyQualifiedName = findFullyQualifiedNameForInitCode(
+        initCodeWithArgs,
+        configArtifacts
+      )
+
+      tooLarge.push({ address: access.account, fullyQualifiedName })
+    }
+  }
+
+  if (tooLarge.length > 0) {
+    throw new Error(contractsExceedSizeLimitErrorMessage(tooLarge))
+  }
 }

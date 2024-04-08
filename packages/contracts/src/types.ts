@@ -42,11 +42,6 @@ export type ParsedAccountAccess = {
   nested: Array<AccountAccess>
 }
 
-export type DeployedContractSize = {
-  account: string
-  size: string
-}
-
 export type DecodedApproveLeafData = {
   safeProxy: string
   moduleProxy: string
