@@ -13,6 +13,7 @@ import {
 } from '@sphinx-labs/contracts'
 import {
   GetConfigArtifacts,
+  sphinxCoreUtils,
   SphinxJsonRpcProvider,
   getBytesLength,
 } from '@sphinx-labs/core'
@@ -21,16 +22,19 @@ chai.use(chaiAsPromised)
 const expect = chai.expect
 
 import {
+  sphinxFoundryUtils,
   convertLibraryFormat,
+  isDeployedCodeInArtifact,
   isInitCodeMatch,
-  messageArtifactNotFound,
-  readContractArtifact,
+  readBuildInfoCache,
   replaceEnvVariables,
+  findContractArtifactForDeployedCode,
 } from '../../../src/foundry/utils'
 import { getFoundryToml } from '../../../src/foundry/options'
 import * as MyContract1Artifact from '../../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyContract2.json'
 import * as MyContractWithLibrariesArtifact from '../../../out/artifacts/MyContracts.sol/MyContractWithLibraries.json'
+import * as MyContractWithLibrariesAndImmutablesArtifact from '../../../out/artifacts/MyContracts.sol/MyContractWithLibrariesAndImmutables.json'
 import * as MyImmutableContractArtifact from '../../../out/artifacts/MyContracts.sol/MyImmutableContract.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
 import {
@@ -44,6 +48,8 @@ import {
 import { FoundryToml } from '../../../src/foundry/types'
 import {
   assertNoLinkedLibraries,
+  findContractArtifact,
+  isDeployedCodeMatch,
   makeGetConfigArtifacts,
   parseScriptFunctionCalldata,
   validateProposalNetworks,
@@ -53,12 +59,15 @@ import {
   SigCalledWithNoArgsErrorMessage,
   SphinxConfigMainnetsContainsTestnetsErrorMessage,
   SphinxConfigTestnetsContainsMainnetsErrorMessage,
+  getDetectedLinkedLibraryErrorMessage,
   getFailedRequestErrorMessage,
   getLocalNetworkErrorMessage,
   getMissingEndpointErrorMessage,
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
 } from '../../../src/foundry/error-messages'
+import { getFakeBuildInfoCache } from '../fake'
+import { getDummyBuildInfoCache } from '../dummy'
 
 describe('Utils', async () => {
   let foundryToml: FoundryToml
@@ -67,36 +76,89 @@ describe('Utils', async () => {
     foundryToml = await getFoundryToml()
   })
 
-  describe('readContractArtifact', async () => {
+  describe('findContractArtifact', async () => {
     const projectRoot = process.cwd()
+    const dummyBytecode = 'dummyBytecode'
 
     let artifactFolder: string
+    let isBytecodeInArtifactStub: sinon.SinonStub
+    let isDeployedCodeInArtifactSpy: sinon.SinonSpy
+    let existsSyncSpy: sinon.SinonSpy
 
     before(async () => {
       artifactFolder = foundryToml.artifactFolder
     })
 
-    it('Errors if artifact is not found', async () => {
+    beforeEach(() => {
+      isBytecodeInArtifactStub = sinon.stub()
+      isDeployedCodeInArtifactSpy = sinon.spy(isDeployedCodeInArtifact)
+      existsSyncSpy = sinon.spy(sphinxCoreUtils, 'existsSync')
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('Returns undefined if artifact is not found', async () => {
       const fullyQualifiedName =
         'contracts/DoesNotExist.sol:NonExistentContract'
-      await expect(
-        readContractArtifact(fullyQualifiedName, projectRoot, artifactFolder)
-      ).to.be.rejectedWith(messageArtifactNotFound(fullyQualifiedName))
+      const artifact = await findContractArtifact(
+        fullyQualifiedName,
+        projectRoot,
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
+      )
+      expect(artifact).to.be.undefined
+      expect(existsSyncSpy.called).to.be.true
+      expect(
+        existsSyncSpy.returnValues.every((value) => value === false)
+      ).equals(true)
+      expect(isBytecodeInArtifactStub.notCalled).to.be.true
+    })
+
+    it('Returns undefined if artifact is found but bytecode does not match', async () => {
+      const { sourceName, contractName } =
+        parseFoundryContractArtifact(MyContract1Artifact)
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+
+      const artifact = await findContractArtifact(
+        fullyQualifiedName,
+        projectRoot,
+        artifactFolder,
+        dummyBytecode,
+        isDeployedCodeInArtifactSpy
+      )
+      expect(artifact).to.be.undefined
+      expect(existsSyncSpy.called).to.be.true
+      expect(existsSyncSpy.returnValues.some((value) => value === true)).equals(
+        true
+      )
+      expect(isDeployedCodeInArtifactSpy.called).to.be.true
+      for (const returnValue of isDeployedCodeInArtifactSpy.returnValues) {
+        expect(returnValue).to.be.false
+      }
     })
 
     it('Gets the artifact for a fully qualified name', async () => {
-      const fullyQualifiedName = 'script/BridgeFunds.s.sol:SphinxScript'
-      const artifact = await readContractArtifact(
+      const expectedArtifact = parseFoundryContractArtifact(MyContract1Artifact)
+      const { sourceName, contractName, deployedBytecode } = expectedArtifact
+      const fullyQualifiedName = `${sourceName}:${contractName}`
+      const artifact = await findContractArtifact(
         fullyQualifiedName,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        deployedBytecode,
+        isDeployedCodeInArtifact
       )
-      expect(artifact.contractName).equals('SphinxScript')
+      expect(expectedArtifact).deep.equals(artifact)
     })
 
     // Tests scenarios where there are multiple contracts with the same name but located in
     // different directories or with different source file names.
     it('Gets artifacts for contracts with the same name', async () => {
+      isBytecodeInArtifactStub.returns(true)
+
       // The source name and contract name of this contract match.
       const contractOne =
         'contracts/test/DuplicateContractName.sol:DuplicateContractName'
@@ -117,30 +179,40 @@ describe('Utils', async () => {
       const contractFive =
         'contracts/test/deeper/DuplicateContractName.sol:DuplicateContractName'
 
-      const artifactOne = await readContractArtifact(
+      const artifactOne = await findContractArtifact(
         contractOne,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
       )
-      const artifactTwo = await readContractArtifact(
+      const artifactTwo = await findContractArtifact(
         contractTwo,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
       )
-      const artifactThree = await readContractArtifact(
+      const artifactThree = await findContractArtifact(
         contractThree,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
       )
-      const artifactFour = await readContractArtifact(
+      const artifactFour = await findContractArtifact(
         contractFour,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
       )
-      const artifactFive = await readContractArtifact(
+      const artifactFive = await findContractArtifact(
         contractFive,
         projectRoot,
-        artifactFolder
+        artifactFolder,
+        dummyBytecode,
+        isBytecodeInArtifactStub
       )
 
       // Check that the location of the artifact files is correct.
@@ -177,19 +249,19 @@ describe('Utils', async () => {
 
       // Check that we retrieved the correct artifacts.
       expect(
-        artifactOne.abi.some((e) => e.name === 'duplicateContractOne')
+        artifactOne?.abi.some((e) => e.name === 'duplicateContractOne')
       ).equals(true)
       expect(
-        artifactTwo.abi.some((e) => e.name === 'duplicateContractTwo')
+        artifactTwo?.abi.some((e) => e.name === 'duplicateContractTwo')
       ).equals(true)
       expect(
-        artifactThree.abi.some((e) => e.name === 'duplicateContractThree')
+        artifactThree?.abi.some((e) => e.name === 'duplicateContractThree')
       ).equals(true)
       expect(
-        artifactFour.abi.some((e) => e.name === 'duplicateContractFour')
+        artifactFour?.abi.some((e) => e.name === 'duplicateContractFour')
       ).equals(true)
       expect(
-        artifactFive.abi.some((e) => e.name === 'duplicateContractFive')
+        artifactFive?.abi.some((e) => e.name === 'duplicateContractFive')
       ).equals(true)
     })
   })
@@ -793,97 +865,178 @@ describe('Utils', async () => {
     })
   })
 
+  describe('isDeployedCodeMatch', () => {
+    it('returns false if bytecode length differs', () => {
+      expect(
+        isDeployedCodeMatch('0x11', {
+          deployedBytecode: '0x1111',
+          deployedLinkReferences: {},
+          immutableReferences: {},
+        })
+      ).equals(false)
+    })
+
+    it('returns true for artifact with no linked libraries or immutable variables', () => {
+      const artifact = parseFoundryContractArtifact(MyContract1Artifact)
+      const {
+        deployedBytecode,
+        deployedLinkReferences,
+        linkReferences,
+        immutableReferences,
+      } = artifact
+
+      expect(Object.keys(deployedLinkReferences).length).equals(0)
+      expect(Object.keys(linkReferences).length).equals(0)
+      expect(Object.keys(immutableReferences).length).equals(0)
+
+      // The artifact bytecode matches the actual bytecode in this scenario because the contract has
+      // no linked libraries or immutable variables.
+      expect(
+        isDeployedCodeMatch(deployedBytecode, {
+          deployedBytecode,
+          deployedLinkReferences,
+          immutableReferences,
+        })
+      ).equals(true)
+    })
+
+    it('returns true for artifact with linked libraries and immutable variables', async () => {
+      const artifact = parseFoundryContractArtifact(
+        MyContractWithLibrariesAndImmutablesArtifact
+      )
+      const {
+        deployedBytecode,
+        deployedLinkReferences,
+        linkReferences,
+        immutableReferences,
+      } = artifact
+
+      expect(Object.keys(deployedLinkReferences).length).greaterThan(0)
+      expect(Object.keys(linkReferences).length).greaterThan(0)
+      expect(Object.keys(immutableReferences).length).greaterThan(0)
+
+      // Start an Anvil node, then deploy the contract and its libraries, then kill the Anvil node.
+      // We must deploy the contract so that its bytecode contains the actual library addresses
+      // instead of placeholders.
+      const chainId = BigInt(31337)
+      await startAnvilNodes([chainId])
+      const broadcast = await runForgeScript(
+        'contracts/test/script/Libraries.s.sol',
+        foundryToml.broadcastFolder,
+        getAnvilRpcUrl(chainId),
+        'MyContractWithLibrariesAndImmutables_Script'
+      )
+      const contractAddress =
+        broadcast.transactions[broadcast.transactions.length - 1]
+          .contractAddress
+      // Narrow the TypeScript type.
+      if (!contractAddress) {
+        throw new Error(`Could not find contract address. Should never happen.`)
+      }
+      const provider = new SphinxJsonRpcProvider(`http://127.0.0.1:8545`)
+
+      const actualDeployedCode = await provider.getCode(contractAddress)
+      await killAnvilNodes([chainId])
+
+      expect(
+        isDeployedCodeMatch(actualDeployedCode, {
+          deployedBytecode,
+          deployedLinkReferences,
+          immutableReferences,
+        })
+      ).equals(true)
+    })
+  })
+
   describe('assertNoLinkedLibraries', () => {
     const projectRoot = process.cwd()
 
-    it('throws error if sourceName without targetContract contains linked library', async () => {
-      const sourceName = 'contracts/test/MyLinkedLibraryContract.sol'
+    let readBuildInfoCacheStub: sinon.SinonStub
 
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.be.rejectedWith(
-        `Detected linked library in: ${sourceName}:MyLinkedLibraryContract\n` +
-          `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
+    beforeEach(() => {
+      readBuildInfoCacheStub = sinon.stub(
+        sphinxFoundryUtils,
+        'readBuildInfoCache'
       )
     })
 
-    it('throws error if sourceName with targetContract contains linked library', async () => {
-      const sourceName = 'contracts/test/MyContracts.sol'
-      const targetContract = 'MyContractWithLibraries'
+    afterEach(() => {
+      sinon.restore()
+    })
 
-      const fullyQualifiedName = `${sourceName}:${targetContract}`
+    it('throws an error if artifact contains linked library', async () => {
+      const artifact = parseFoundryContractArtifact(
+        MyContractWithLibrariesArtifact
+      )
+      readBuildInfoCacheStub.resolves(getFakeBuildInfoCache(artifact))
 
       await expect(
         assertNoLinkedLibraries(
-          sourceName,
+          artifact.deployedBytecode,
           foundryToml.cachePath,
           foundryToml.artifactFolder,
-          projectRoot,
-          targetContract
+          projectRoot
         )
-      ).to.be.rejectedWith(
-        `Detected linked library in: ${fullyQualifiedName}\n` +
-          `You must remove all linked libraries in this file because Sphinx currently doesn't support them.`
+      ).to.eventually.be.rejectedWith(
+        getDetectedLinkedLibraryErrorMessage(
+          artifact.sourceName,
+          artifact.contractName
+        )
       )
     })
 
-    it('succeeds if sourceName without targetContract does not contain linked library', async () => {
-      const sourceName = 'contracts/test/SimpleStorage.sol'
+    it('succeeds if no linked libraries are found', async () => {
+      const artifact = parseFoundryContractArtifact(MyContract1Artifact)
+      readBuildInfoCacheStub.resolves(getFakeBuildInfoCache(artifact))
 
       await expect(
         assertNoLinkedLibraries(
-          sourceName,
+          artifact.deployedBytecode,
           foundryToml.cachePath,
           foundryToml.artifactFolder,
           projectRoot
         )
       ).to.eventually.be.fulfilled
     })
+  })
 
-    it('succeeds if sourceName with targetContract does not contain linked library', async () => {
-      const sourceName = 'contracts/test/MyContracts.sol'
-      const targetContract = 'MyContract1'
+  describe('findContractArtifactForDeployedCode', () => {
+    const projectRoot = process.cwd()
 
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot,
-          targetContract
-        )
-      ).to.eventually.be.fulfilled
+    let readBuildInfoCacheStub: sinon.SinonStub
+
+    beforeEach(() => {
+      readBuildInfoCacheStub = sinon.stub(
+        sphinxFoundryUtils,
+        'readBuildInfoCache'
+      )
     })
 
-    it('succeeds if sourceName is an absolute path and does not contain linked library', async () => {
-      const sourceName = resolve('contracts/test/SimpleStorage.sol')
-
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.eventually.be.fulfilled
+    afterEach(() => {
+      sinon.restore()
     })
 
-    it('succeeds if sourceName starts with a period and does not contain linked library', async () => {
-      const sourceName = './contracts/test/SimpleStorage.sol'
+    it('returns undefined if no contract artifact exists', async () => {
+      readBuildInfoCacheStub.returns(getDummyBuildInfoCache())
+      const result = findContractArtifactForDeployedCode(
+        'dummyDeployedCode',
+        foundryToml.cachePath,
+        projectRoot,
+        foundryToml.artifactFolder
+      )
+      await expect(result).to.eventually.be.undefined
+    })
 
-      await expect(
-        assertNoLinkedLibraries(
-          sourceName,
-          foundryToml.cachePath,
-          foundryToml.artifactFolder,
-          projectRoot
-        )
-      ).to.eventually.be.fulfilled
+    it('returns contract artifact', async () => {
+      const expectedArtifact = parseFoundryContractArtifact(MyContract1Artifact)
+      readBuildInfoCacheStub.returns(getFakeBuildInfoCache(expectedArtifact))
+      const artifact = await findContractArtifactForDeployedCode(
+        expectedArtifact.deployedBytecode,
+        foundryToml.cachePath,
+        projectRoot,
+        foundryToml.artifactFolder
+      )
+      expect(artifact).to.deep.equal(expectedArtifact)
     })
   })
 
@@ -1186,6 +1339,52 @@ describe('Utils', async () => {
 
       const actualCalldata = await parseScriptFunctionCalldata([withStrings])
       expect(actualCalldata).to.equal(calldata)
+    })
+  })
+
+  // This test suite should check for backwards compatibility between different versions of Sphinx's
+  // build info cache. This is important because our plugin may break unexpectedly if we don't
+  // gracefully handle previous cache versions.
+  describe('readBuildInfoCache', () => {
+    let readFileSyncStub: sinon.SinonStub
+    let existsSyncStub: sinon.SinonStub
+
+    beforeEach(() => {
+      readFileSyncStub = sinon.stub(sphinxCoreUtils, 'readFileSync')
+      existsSyncStub = sinon.stub(sphinxCoreUtils, 'existsSync')
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('returns empty cache if cache file does not exist', () => {
+      existsSyncStub.returns(false)
+      readFileSyncStub.throws(new Error('File does not exist'))
+      const cache = readBuildInfoCache(foundryToml.cachePath)
+      expect(cache).to.deep.equal({
+        _format: 'sphinx-build-info-cache-1',
+        entries: {},
+      })
+    })
+
+    // Test that the 'sphinx-build-info-cache-1' version is compatible with the original
+    // version, which did not have a `_format` string.
+    it('returns empty cache for original cache structure', () => {
+      const originalCache = {
+        'dummyBuildInfoId.json': {
+          name: 'dummyBuildInfoName.json',
+          time: 123,
+          contracts: [],
+        },
+      }
+      existsSyncStub.returns(true)
+      readFileSyncStub.returns(JSON.stringify(originalCache))
+      const cache = readBuildInfoCache(foundryToml.cachePath)
+      expect(cache).to.deep.equal({
+        _format: 'sphinx-build-info-cache-1',
+        entries: {},
+      })
     })
   })
 })

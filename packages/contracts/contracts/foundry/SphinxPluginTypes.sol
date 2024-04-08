@@ -113,6 +113,7 @@ struct FoundryDeploymentInfo {
     bytes[] encodedAccountAccesses;
     uint256[] gasEstimates;
     bytes encodedDeployedContractSizes;
+    bytes scriptDeployedCode;
 }
 
 enum ExecutionMode {

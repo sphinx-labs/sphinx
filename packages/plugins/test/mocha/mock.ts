@@ -9,8 +9,8 @@ import sinon from 'sinon'
 import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
-import { readContractArtifact } from '../../dist'
 import { getDummyBuildInfo, getDummyNetworkConfig } from './dummy'
+import { readContractArtifact } from './common'
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -39,6 +39,7 @@ export const makeMockSphinxContext = (
     .stub(sphinxContext, 'relayProposal')
     .returns(Promise.resolve())
   const prompt = sinon.stub().returns(Promise.resolve())
+  const assertNoLinkedLibraries = sinon.stub().returns(Promise.resolve())
   const buildNetworkConfigArray = sinon
     .stub(sphinxContext, 'buildNetworkConfigArray')
     .returns(
@@ -58,7 +59,6 @@ export const makeMockSphinxContext = (
     _buildInfoFolder: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     projectRoot: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _cachePath: string
   ): GetConfigArtifacts => {
     return async (
@@ -68,11 +68,7 @@ export const makeMockSphinxContext = (
       const configArtifacts: ConfigArtifacts = {}
       const buildInfos: BuildInfos = {}
       for (const name of mockedFullyQualifiedNames) {
-        const artifact = await readContractArtifact(
-          name,
-          projectRoot,
-          artifactFolder
-        )
+        const artifact = readContractArtifact(name, artifactFolder, _cachePath)
         const buildInfo: BuildInfo = getDummyBuildInfo()
         buildInfos[buildInfo.id] = buildInfo
         configArtifacts[name] = {
@@ -96,6 +92,7 @@ export const makeMockSphinxContext = (
     storeDeploymentConfig,
     relayProposal,
     prompt,
+    assertNoLinkedLibraries,
     makeGetConfigArtifacts,
   }
 }
@@ -112,6 +109,7 @@ export const makeMockSphinxContextForIntegrationTests = (
     relayProposal,
     storeDeploymentConfig,
     isLiveNetwork,
+    assertNoLinkedLibraries,
     makeGetConfigArtifacts,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
@@ -121,6 +119,7 @@ export const makeMockSphinxContextForIntegrationTests = (
   context.relayProposal = relayProposal
   context.storeDeploymentConfig = storeDeploymentConfig
   context.isLiveNetwork = isLiveNetwork
+  context.assertNoLinkedLibraries = assertNoLinkedLibraries
 
   return { context, prompt }
 }

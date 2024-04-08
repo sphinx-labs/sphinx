@@ -16,6 +16,7 @@ import {
 import { ethers } from 'ethers'
 
 import { makeAddress } from './common'
+import { BuildInfoCache } from '../../src/foundry/types'
 
 export const dummyChainId = '43211234'
 export const dummyMerkleRoot = '0x' + 'fe'.repeat(32)
@@ -283,5 +284,12 @@ export const getDummyDeploymentArtifacts = (): DeploymentArtifacts => {
         solcVersion,
       },
     },
+  }
+}
+
+export const getDummyBuildInfoCache = (): BuildInfoCache => {
+  return {
+    _format: 'sphinx-build-info-cache-1',
+    entries: {},
   }
 }

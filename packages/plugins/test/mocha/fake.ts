@@ -5,7 +5,11 @@ import {
   DeploymentConfig,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core'
-import { Operation, SphinxModuleABI } from '@sphinx-labs/contracts'
+import {
+  ContractArtifact,
+  Operation,
+  SphinxModuleABI,
+} from '@sphinx-labs/contracts'
 import { EventFragment, ethers } from 'ethers'
 
 import {
@@ -18,7 +22,8 @@ import {
   getDummyNetworkConfig,
   getDummySphinxTransactionReceipt,
 } from './dummy'
-import { readContractArtifact } from '../../dist'
+import { readContractArtifact } from './common'
+import { BuildInfoCache } from '../../src/foundry/types'
 
 export const getFakeActionSucceededReceipt = (
   merkleRoot: string
@@ -48,15 +53,12 @@ export const getFakeActionSucceededReceipt = (
 
 export const getFakeConfigArtifacts = async (
   fullyQualifiedNames: Array<string>,
+  cachePath: string,
   artifactFolder: string
 ): Promise<ConfigArtifacts> => {
   const configArtifacts: ConfigArtifacts = {}
   for (const name of fullyQualifiedNames) {
-    const artifact = await readContractArtifact(
-      name,
-      process.cwd(),
-      artifactFolder
-    )
+    const artifact = readContractArtifact(name, artifactFolder, cachePath)
     configArtifacts[name] = {
       buildInfoId: dummyBuildInfoId,
       artifact,
@@ -99,6 +101,7 @@ export const getFakeDeploymentConfig = async (
   fullyQualifiedName: string,
   initCodeWithArgs: string,
   artifactFolder: string,
+  cachePath: string,
   compilerInputId: string,
   merkleRoot: string
 ): Promise<DeploymentConfig> => {
@@ -119,10 +122,52 @@ export const getFakeDeploymentConfig = async (
     merkleTree,
     configArtifacts: await getFakeConfigArtifacts(
       [fullyQualifiedName],
+      cachePath,
       artifactFolder
     ),
     buildInfos: getDummyBuildInfos(),
     inputs: [compilerInput],
     version: '0',
+  }
+}
+
+export const getFakeBuildInfoCache = (
+  artifact: ContractArtifact
+): BuildInfoCache => {
+  const {
+    sourceName,
+    contractName,
+    bytecode,
+    deployedBytecode,
+    linkReferences,
+    deployedLinkReferences,
+    immutableReferences,
+    abi,
+  } = artifact
+
+  const iface = new ethers.Interface(abi)
+  const constructorFragment = iface.fragments.find(
+    ethers.ConstructorFragment.isFragment
+  )
+
+  return {
+    _format: 'sphinx-build-info-cache-1',
+    entries: {
+      dummyBuildInfoCacheEntryName: {
+        name: 'dummyBuildInfoCacheEntryName',
+        time: 0,
+        contracts: [
+          {
+            fullyQualifiedName: `${sourceName}:${contractName}`,
+            bytecode,
+            deployedBytecode,
+            linkReferences,
+            deployedLinkReferences,
+            immutableReferences,
+            constructorFragment,
+          },
+        ],
+      },
+    },
   }
 }

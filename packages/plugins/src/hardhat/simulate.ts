@@ -67,6 +67,11 @@ export type simulateDeploymentSubtaskArgs = {
  * `spawn` is prone to input size limits, and EthersJS can't ABI encode extremely large amounts
  * of data (i.e. it'll fail for a Merkle tree that contains 250 contract deployments, where the
  * contract is near the maximum size limit).
+ *
+ * It's important to use a simulation to check that the Merkle leaf gas fields are sufficiently high.
+ * If a Merkle leaf gas field is too low, the simulation will fail because the associated `EXECUTE`
+ * action should fail in the simulation. The simulation must fork the corresponding live network
+ * because the user's transactions may interact with contracts that already exist on-chain.
  */
 export const simulate = async (
   deploymentConfig: DeploymentConfig,

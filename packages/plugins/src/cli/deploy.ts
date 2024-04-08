@@ -45,7 +45,6 @@ import { ethers } from 'ethers'
 import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 
 import {
-  assertNoLinkedLibraries,
   assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
@@ -291,12 +290,11 @@ export const deploy = async (
     initCodeWithArgsArray
   )
 
-  await assertNoLinkedLibraries(
-    scriptPath,
+  await sphinxContext.assertNoLinkedLibraries(
+    deploymentInfo.scriptDeployedCode,
     foundryToml.cachePath,
     foundryToml.artifactFolder,
-    projectRoot,
-    targetContract
+    projectRoot
   )
 
   const isSystemDeployed = await checkSystemDeployed(provider)

@@ -96,6 +96,10 @@ export type LinkReferences = {
   }
 }
 
+export type ImmutableReferences = {
+  [key: string]: Array<{ start: number; length: number }>
+}
+
 export type ContractArtifact = {
   abi: Array<any>
   sourceName: string
@@ -105,6 +109,7 @@ export type ContractArtifact = {
   linkReferences: LinkReferences
   deployedLinkReferences: LinkReferences
   metadata: CompilerOutputMetadata
+  immutableReferences: ImmutableReferences
   storageLayout?: SolidityStorageLayout
   methodIdentifiers?: {
     [methodSignature: string]: string
