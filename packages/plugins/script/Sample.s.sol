@@ -38,23 +38,7 @@ contract Sample is Sphinx {
     }
 
     function run() public sphinx {
-        new MyContract1(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-        new MyContract1(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
-        new MyContract1(
-            -1,
-            2,
-            address(1),
-            address(2)
-        );
+        (bool success, ) = address(0).call(new bytes(60_000));
+        require(success, "Low-level call failed");
     }
 }

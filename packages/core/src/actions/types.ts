@@ -201,6 +201,11 @@ export type EstimateGas = (
   chainId: bigint
 ) => number
 
+export type EncodeExecutionCalldata = (
+  batch: Array<SphinxLeafWithProof>,
+  moduleAddress?: string
+) => string
+
 export type ExecuteActions = (
   batch: SphinxLeafWithProof[],
   executionMode: ExecutionMode,

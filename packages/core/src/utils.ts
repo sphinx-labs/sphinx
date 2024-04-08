@@ -1709,4 +1709,11 @@ export const isPublicAsyncMethod = (
   return false
 }
 
+export const estimateMaxCalldataLength = async (
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<number> => {
+  // TODO
+  return 2
+}
+
 export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }

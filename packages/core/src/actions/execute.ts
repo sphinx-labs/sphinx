@@ -18,6 +18,7 @@ import { TransactionReceipt, ethers } from 'ethers'
 import { DeploymentConfig, NetworkConfig } from '../config'
 import {
   ApproveDeployment,
+  EncodeExecutionCalldata,
   EstimateGas,
   ExecuteActions,
   HumanReadableAction,
@@ -29,7 +30,9 @@ import { ExecutionMode } from '../constants'
 import { SphinxJsonRpcProvider } from '../provider'
 import {
   addSphinxWalletsToGnosisSafeOwners,
+  estimateMaxCalldataLength,
   findLeafWithProof,
+  getBytesLength,
   getGasPriceOverrides,
   getMaxGasLimit,
   getReadableActions,
@@ -291,8 +294,10 @@ export type DeploymentContext = {
 const findMaxBatchSize = (
   leaves: SphinxLeafWithProof[],
   maxGasLimit: bigint,
+  maxCalldataLength: number,
   moduleAddress: string,
   estimateGas: EstimateGas,
+  encodeExecutionCalldata: EncodeExecutionCalldata,
   chainId: bigint
 ): number => {
   if (leaves.length === 0) {
@@ -308,8 +313,10 @@ const findMaxBatchSize = (
       !isExecutable(
         leaves.slice(0, i),
         maxGasLimit,
+        maxCalldataLength,
         moduleAddress,
         estimateGas,
+        encodeExecutionCalldata,
         chainId
       )
     ) {
@@ -349,6 +356,7 @@ export const executeBatchActions = async (
   executionMode: ExecutionMode,
   executeActions: ExecuteActions,
   estimateGas: EstimateGas,
+  encodeExecutionCalldata: EncodeExecutionCalldata,
   deploymentContext: DeploymentContext
 ): Promise<{
   status: bigint
@@ -393,6 +401,10 @@ export const executeBatchActions = async (
     return { status: state.status, executionReceipts, batches }
   }
 
+  const maxCalldataLength = await estimateMaxCalldataLength(
+    deploymentContext.provider
+  )
+
   const moduleAddress = await sphinxModuleReadOnly.getAddress()
   let executed = 0
   while (executed < filtered.length) {
@@ -400,8 +412,10 @@ export const executeBatchActions = async (
     const batchSize = findMaxBatchSize(
       filtered.slice(executed),
       maxGasLimit,
+      maxCalldataLength,
       moduleAddress,
       estimateGas,
+      encodeExecutionCalldata,
       BigInt(chainId)
     )
 
@@ -463,11 +477,21 @@ export const executeBatchActions = async (
 export const isExecutable = (
   selected: SphinxLeafWithProof[],
   maxGasLimit: bigint,
+  maxCalldataLength: number,
   moduleAddress: string,
   estimateGas: EstimateGas,
+  encodeExecutionCalldata: EncodeExecutionCalldata,
   chainid: bigint
 ): boolean => {
-  return maxGasLimit > estimateGas(moduleAddress, selected, chainid)
+  const encodedExecutionCalldata = encodeExecutionCalldata(
+    selected,
+    moduleAddress
+  )
+
+  return (
+    maxCalldataLength > getBytesLength(encodedExecutionCalldata) &&
+    maxGasLimit > estimateGas(moduleAddress, selected, chainid)
+  )
 }
 
 export const approveDeploymentViaSigner: ApproveDeployment = async (
@@ -640,26 +664,11 @@ export const executeActionsViaManagedService: ExecuteActions = async (
   blockGasLimit,
   deploymentContext
 ) => {
-  const { provider } = deploymentContext
   const { moduleAddress, chainId } = deploymentContext.deployment
-  const managedService = new ethers.Contract(
-    getManagedServiceAddress(),
-    ManagedServiceABI
-  )
 
-  const sphinxModuleReadOnly = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI,
-    provider
-  )
-
-  const executionData = sphinxModuleReadOnly.interface.encodeFunctionData(
-    'execute',
-    [batch]
-  )
-  const managedServiceExecData = managedService.interface.encodeFunctionData(
-    'exec',
-    [moduleAddress, executionData]
+  const managedServiceExecData = encodeExecutionCalldataViaManagedService(
+    batch,
+    moduleAddress
   )
 
   let minimumActionsGasLimit: number | undefined
@@ -689,18 +698,10 @@ export const executeActionsViaSigner: ExecuteActions = async (
   blockGasLimit,
   deploymentContext
 ) => {
-  const { provider, wallet } = deploymentContext
+  const { wallet } = deploymentContext
   const { moduleAddress, chainId } = deploymentContext.deployment
-  const sphinxModuleReadOnly = new ethers.Contract(
-    moduleAddress,
-    SphinxModuleABI,
-    provider
-  )
 
-  const executionData = sphinxModuleReadOnly.interface.encodeFunctionData(
-    'execute',
-    [batch]
-  )
+  const executionData = encodeExecutionCalldataViaSigner(batch, moduleAddress)
 
   if (!wallet) {
     throw new Error(
@@ -738,6 +739,37 @@ export const executeActionsViaSigner: ExecuteActions = async (
     },
     executionMode
   )
+}
+
+const encodeExecutionCalldataViaSigner: EncodeExecutionCalldata = (
+  batch
+): string => {
+  const sphinxModuleInterface = new ethers.Interface(SphinxModuleABI)
+
+  const executionData = sphinxModuleInterface.encodeFunctionData('execute', [
+    batch,
+  ])
+
+  return executionData
+}
+
+const encodeExecutionCalldataViaManagedService: EncodeExecutionCalldata = (
+  batch: Array<SphinxLeafWithProof>,
+  moduleAddress: string
+): string => {
+  const managedServiceInterface = new ethers.Interface(ManagedServiceABI)
+
+  const sphinxModuleInterface = new ethers.Interface(SphinxModuleABI)
+
+  const executionData = sphinxModuleInterface.encodeFunctionData('execute', [
+    batch,
+  ])
+  const managedServiceExecData = managedServiceInterface.encodeFunctionData(
+    'exec',
+    [moduleAddress, executionData]
+  )
+
+  return managedServiceExecData
 }
 
 /**
@@ -925,6 +957,7 @@ const executeDeployment = async (
   let estimateGas: EstimateGas
   let approveDeployment: ApproveDeployment
   let executeActions: ExecuteActions
+  let encodeExecutionCalldata: EncodeExecutionCalldata
   if (
     executionMode === ExecutionMode.LocalNetworkCLI ||
     executionMode === ExecutionMode.Platform
@@ -932,10 +965,12 @@ const executeDeployment = async (
     estimateGas = estimateGasViaManagedService
     approveDeployment = approveDeploymentViaManagedService
     executeActions = executeActionsViaManagedService
+    encodeExecutionCalldata = encodeExecutionCalldataViaManagedService
   } else if (executionMode === ExecutionMode.LiveNetworkCLI) {
     estimateGas = estimateGasViaSigner
     approveDeployment = approveDeploymentViaSigner
     executeActions = executeActionsViaSigner
+    encodeExecutionCalldata = encodeExecutionCalldataViaSigner
   } else {
     throw new Error(`Unknown execution mode.`)
   }
@@ -1120,6 +1155,7 @@ const executeDeployment = async (
       executionMode,
       executeActions,
       estimateGas,
+      encodeExecutionCalldata,
       deploymentContext
     )
 

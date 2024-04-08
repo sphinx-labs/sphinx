@@ -481,3 +481,40 @@ export const deploy = async (
     deploymentArtifacts,
   }
 }
+
+// TODO(end): gh: If the user has an RPC URL that allows larger calldata than our RPC URL, the
+// following edge case could happen:
+//
+// 1. Say the user proposes a transaction with calldata length 60k. Their RPC URL allows this, so
+//    the simulation passes.
+// 2. Say our RPC URL doesn't allow calldata with this length. The execution process will throw an
+//    error and stall.
+//
+// This is a practical concern if the user uses an RPC URL hosted by GetBlock on Rootstock, which
+// has a max calldata length of _. The public RPC URL, which we use, has a max calldata length of
+// TODO.
+//
+// Here are a couple potential solutions:
+// - Run the simulation in our backend using our RPC providers.
+// - Select RPC providers that have a high calldata limit. For example, we'd find a private RPC
+//   provider on Rootstock and its testnet.
+
+// TODO(later-later): attempt to execute a txn w/ very large calldata on one of the zkEVMs as a
+// sanity check.
+
+// TODO(later): consider using an RPC method that isn't eth_call.
+
+// TODO(later): consider not doing 'latest'. maybe this slows down the rpc call?
+
+// TODO(later): what's the max calldata length on anvil? you can just use
+// `estimateMaxCalldataLength`. update: it's somewhere around 1_050_000
+
+// TODO(later): anvil throws an error if the calldata is too long. do the live RPC URLs do this too?
+
+// TODO(later): if you don't use eth_call, should you check for the validity of return data? i
+// recall some network returned some null-ish value for a certain rpc method.
+
+// TODO(later): test estimateMaxCalldataLength:
+// - throws an error if all of the RPC calls _ (fail? reject?)
+// - returns the largest calldata length if all of the RPC calls succeed
+// - returns the largest calldata length that succeeds if larger RPC calls _ (throw an error? reject?)
