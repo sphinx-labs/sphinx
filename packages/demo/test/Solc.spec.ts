@@ -29,6 +29,8 @@ describe('Solidity Compiler', () => {
   let testPath: string
   let latestSolcVersion: SemVer
   before(async () => {
+    deleteForgeProject(contractPath, scriptPath, testPath)
+
     contractPath = join(srcDir, sampleContractFileName)
     scriptPath = join(scriptDir, sampleScriptFileName)
     testPath = join(testDir, sampleTestFileName)
@@ -160,11 +162,16 @@ describe('Solidity Compiler', () => {
     }
   })
 
-  // Test that we can compile the Sphinx plugin contracts for solc versions ^0.8.1 using `viaIR` and
+  // Test that we can compile the Sphinx plugin contracts for solc versions ^0.8.2 using `viaIR` and
   // the optimizer. We don't test v0.8.0 because the sample Forge project can't compile with this
-  // version and settings.
+  // version and settings. We don't test v0.8.1 because a `SIGSEGV` error is thrown when we use the
+  // `new` keyword to deploy the `SphinxUtils` and `SphinxConstants` contracts in the constructor of
+  // the `Sphinx` contract. We could support v0.8.1 by using `vm.getCode` and the low-level `CREATE`
+  // opcode to deploy `SphinxUtils` and `SphinxConstants`, but `vm.getCode` caused a couple of our
+  // users to run into a bug, "Multiple matching artifacts". ref:
+  // https://linear.app/chugsplash/issue/CHU-917/remove-use-of-vmgetcode-to-deploy-sphinxconstants-and-sphinxutils
   it('Compiles with viaIR and optimizer enabled', async () => {
-    const versions = generateSemverRange(new SemVer('0.8.1'), latestSolcVersion)
+    const versions = generateSemverRange(new SemVer('0.8.2'), latestSolcVersion)
 
     // Generate output directory names. We use separate output directories for each compilation to
     // prevent race conditions.
