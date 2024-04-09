@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.21.4
+
+### Patch Changes
+
+- ddfec4c: Update gas heuristics to support large contracts on Rootstock
+
 ## 0.21.3
 
 ### Patch Changes
