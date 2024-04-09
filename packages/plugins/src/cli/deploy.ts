@@ -49,9 +49,9 @@ import {
   assertValidVersions,
   compile,
   getInitCodeWithArgsArray,
-  getSphinxConfigFromScript,
   parseScriptFunctionCalldata,
   readInterface,
+  assertContractSizeLimitNotExceeded,
   writeSystemContracts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
@@ -225,13 +225,6 @@ export const deploy = async (
     forgeScriptCollectArgs.push('--target-contract', targetContract)
   }
 
-  const { safeAddress } = await getSphinxConfigFromScript(
-    scriptPath,
-    sphinxPluginTypesInterface,
-    targetContract,
-    spinner
-  )
-
   // Collect the transactions.
   const spawnOutput = await spawnAsync('forge', forgeScriptCollectArgs, {
     // Set the block gas limit to the max amount allowed by Foundry. This overrides lower block
@@ -239,7 +232,6 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
-    ETH_FROM: safeAddress,
     // We specify build info to be false so that calling the script does not cause the users entire
     // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
     // We do need the build info, but that is generated when we compile at the beginning of the script.
@@ -302,6 +294,11 @@ export const deploy = async (
   )
   const { configArtifacts, buildInfos } = await getConfigArtifacts(
     initCodeWithArgsArray
+  )
+
+  assertContractSizeLimitNotExceeded(
+    deploymentInfo.accountAccesses,
+    configArtifacts
   )
 
   await sphinxContext.assertNoLinkedLibraries(

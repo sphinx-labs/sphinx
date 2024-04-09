@@ -37,7 +37,6 @@ import {
   removeRoles,
   makeDeploymentConfig,
   getMaxGasLimit,
-  getBytesLength,
   Create2ActionInput,
   ActionInput,
   ActionInputType,
@@ -69,7 +68,6 @@ import {
   AccountAccess,
   AccountAccessKind,
   ParsedAccountAccess,
-  DeployedContractSize,
   getCreateCallAddress,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
@@ -355,7 +353,6 @@ export const makeDeployment = async (
   threshold: number,
   executionMode: ExecutionMode,
   accountAccesses: Array<ParsedAccountAccess>,
-  deployedContractSizes: Array<DeployedContractSize>,
   getRpcUrl: (chainId: bigint) => string
 ): Promise<{
   merkleTree: SphinxMerkleTree
@@ -446,8 +443,6 @@ export const makeDeployment = async (
         accountAccesses,
         gasEstimates: new Array(numActionInputs).fill(gasEstimateSize),
         sphinxLibraryVersion: CONTRACTS_LIBRARY_VERSION,
-        // This is currenly only used specifically on Moonbeam
-        deployedContractSizes,
         fundsRequestedForSafe: '0',
         safeStartingBalance: '0',
       }
@@ -509,27 +504,23 @@ export const makeRevertingDeployment = (
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
   expectedContractFileNames: Array<string>
-  deployedContractSizes: Array<DeployedContractSize>
 } => {
   // We use the Merkle root nonce as the `CREATE2` salt to ensure that we don't attempt to deploy a
   // contract at the same address in successive deployments.
   const salt = merkleRootNonce
 
-  const { accountAccesses, deployedContractSizes } = makeCreate2AccountAccesses(
-    safeAddress,
-    [
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(MyContract2Artifact),
-        abiEncodedConstructorArgs: '0x',
-      },
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(Reverter),
-        abiEncodedConstructorArgs: '0x',
-      },
-    ]
-  )
+  const { accountAccesses } = makeCreate2AccountAccesses(safeAddress, [
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(MyContract2Artifact),
+      abiEncodedConstructorArgs: '0x',
+    },
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(Reverter),
+      abiEncodedConstructorArgs: '0x',
+    },
+  ])
   const expectedContractFileNames = ['MyContract2.json']
 
   return {
@@ -537,7 +528,6 @@ export const makeRevertingDeployment = (
     merkleRootNonce,
     accountAccesses,
     expectedContractFileNames,
-    deployedContractSizes,
   }
 }
 
@@ -653,12 +643,10 @@ const makeCreate2AccountAccesses = (
   }>
 ): {
   accountAccesses: Array<ParsedAccountAccess>
-  deployedContractSizes: Array<DeployedContractSize>
 } => {
   const accountAccesses: Array<ParsedAccountAccess> = []
-  const deployedContractSizes: Array<DeployedContractSize> = []
   for (const { salt, artifact, abiEncodedConstructorArgs } of inputs) {
-    const { bytecode, deployedBytecode } = artifact
+    const { bytecode } = artifact
 
     const saltPadded = ethers.zeroPadValue(ethers.toBeHex(salt), 32)
     const initCodeWithArgs = ethers.concat([
@@ -671,11 +659,6 @@ const makeCreate2AccountAccesses = (
       saltPadded,
       ethers.keccak256(initCodeWithArgs)
     )
-
-    deployedContractSizes.push({
-      account: create2Address,
-      size: getBytesLength(deployedBytecode).toString(),
-    })
 
     accountAccesses.push({
       root: {
@@ -698,7 +681,7 @@ const makeCreate2AccountAccesses = (
       ],
     })
   }
-  return { accountAccesses, deployedContractSizes }
+  return { accountAccesses }
 }
 
 export const makeStandardDeployment = (
@@ -710,7 +693,6 @@ export const makeStandardDeployment = (
   merkleRootNonce: number
   accountAccesses: Array<ParsedAccountAccess>
   expectedContractFileNames: Array<string>
-  deployedContractSizes: Array<DeployedContractSize>
 } => {
   // The `CREATE2` salt is determined by the Merkle root nonce to ensure that we don't attempt to
   // deploy a contract at the same address in successive deployments. We add a constant number
@@ -720,40 +702,37 @@ export const makeStandardDeployment = (
 
   const coder = ethers.AbiCoder.defaultAbiCoder()
 
-  const { accountAccesses, deployedContractSizes } = makeCreate2AccountAccesses(
-    safeAddress,
-    [
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(MyContract2Artifact),
-        abiEncodedConstructorArgs: '0x',
-      },
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(MyContract1Artifact),
-        abiEncodedConstructorArgs: coder.encode(
-          ['int256', 'uint256', 'address', 'address'],
-          [3, 3, makeAddress(3), makeAddress(3)]
-        ),
-      },
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(MyContract1Artifact),
-        abiEncodedConstructorArgs: coder.encode(
-          ['int256', 'uint256', 'address', 'address'],
-          [4, 4, makeAddress(4), makeAddress(4)]
-        ),
-      },
-      {
-        salt,
-        artifact: parseFoundryContractArtifact(MyContract1Artifact),
-        abiEncodedConstructorArgs: coder.encode(
-          ['int256', 'uint256', 'address', 'address'],
-          [5, 5, makeAddress(5), makeAddress(5)]
-        ),
-      },
-    ]
-  )
+  const { accountAccesses } = makeCreate2AccountAccesses(safeAddress, [
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(MyContract2Artifact),
+      abiEncodedConstructorArgs: '0x',
+    },
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
+        ['int256', 'uint256', 'address', 'address'],
+        [3, 3, makeAddress(3), makeAddress(3)]
+      ),
+    },
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
+        ['int256', 'uint256', 'address', 'address'],
+        [4, 4, makeAddress(4), makeAddress(4)]
+      ),
+    },
+    {
+      salt,
+      artifact: parseFoundryContractArtifact(MyContract1Artifact),
+      abiEncodedConstructorArgs: coder.encode(
+        ['int256', 'uint256', 'address', 'address'],
+        [5, 5, makeAddress(5), makeAddress(5)]
+      ),
+    },
+  ])
   const expectedContractFileNames = [
     'MyContract2.json',
     'MyContract1.json',
@@ -766,7 +745,6 @@ export const makeStandardDeployment = (
     merkleRootNonce,
     accountAccesses,
     expectedContractFileNames,
-    deployedContractSizes,
   }
 }
 

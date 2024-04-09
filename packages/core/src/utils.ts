@@ -35,6 +35,7 @@ import {
   recursivelyConvertResult,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CreateCallArtifact,
+  MAX_CONTRACT_SIZE_LIMIT,
 } from '@sphinx-labs/contracts'
 
 import {
@@ -1707,6 +1708,15 @@ export const isPublicAsyncMethod = (
   }
 
   return false
+}
+
+/**
+ * Returns true if the given bytecode exceeds the contract size size limit as defined by:
+ * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+ */
+export const exceedsContractSizeLimit = (deployedBytecode: string): boolean => {
+  const bytesLength = remove0x(deployedBytecode).length / 2
+  return bytesLength > MAX_CONTRACT_SIZE_LIMIT
 }
 
 export const sphinxCoreUtils = { sleep, callWithTimeout, isPublicAsyncMethod }

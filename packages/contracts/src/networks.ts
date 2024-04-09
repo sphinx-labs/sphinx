@@ -1,4 +1,4 @@
-import { DeployedContractSize, ParsedAccountAccess } from './types'
+import { ParsedAccountAccess } from './types'
 
 /**
  * Return a hard-coded gas value for Moonbeam, Moonbase Alpha, and Moonriver. We hard-code this
@@ -6,15 +6,12 @@ import { DeployedContractSize, ParsedAccountAccess } from './types'
  * mechanism.
  *
  * @param baseGas The estimated gas cost according to Foundry.
- * @param deployedContractSizes The sizes of any contracts deployed during this transaction.
  * @param access The ParsedAccountAccess for the transaction.
  * @returns
  */
 export const calculateActionLeafGasForMoonbeam = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   foundryGas: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  deployedContractSizes: DeployedContractSize[],
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   access: ParsedAccountAccess
 ): string => {
@@ -65,7 +62,6 @@ export type SupportedNetwork = {
   }
   handleNetworkSpecificMerkleLeafGas?: (
     foundryGas: string,
-    deployedContractSizes: DeployedContractSize[],
     access: ParsedAccountAccess
   ) => string
 }

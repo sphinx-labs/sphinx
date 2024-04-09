@@ -70,4 +70,4 @@ If you want to avoid this behavior, we recommend designing your smart contracts 
 ## Script Environment
 When deploying with Sphinx via either the `propose` or `deploy` CLI commands, Sphinx will invoke your Forge script on your behalf. When the script runs, we configure a few options and environment variables by default.
 
-Sphinx sets the `FOUNDRY_SENDER` and `ETH_FROM` environment variables to the address of your Gnosis Safe. Sphinx also uses the `--always_use_create_2_factory` CLI flag, which causes CREATE2 deployments to occur via the default CREATE2 factory.
+Sphinx sets the `FOUNDRY_SENDER` environment variable to the address of your Gnosis Safe. Sphinx also uses the `--always_use_create_2_factory` CLI flag, which causes CREATE2 deployments to occur via the default CREATE2 factory.

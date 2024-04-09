@@ -6,8 +6,10 @@ import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { ConstructorFragment, ethers } from 'ethers'
 import {
+  AccountAccessKind,
   ContractArtifact,
   LinkReferences,
+  MAX_CONTRACT_SIZE_LIMIT,
   parseFoundryContractArtifact,
   remove0x,
 } from '@sphinx-labs/contracts'
@@ -33,6 +35,7 @@ import * as MyContract2Artifact from '../../../out/artifacts/MyContracts.sol/MyC
 import * as MyContractWithLibrariesArtifact from '../../../out/artifacts/MyContracts.sol/MyContractWithLibraries.json'
 import * as MyImmutableContractArtifact from '../../../out/artifacts/MyContracts.sol/MyImmutableContract.json'
 import * as MyLargeContractArtifact from '../../../out/artifacts/MyContracts.sol/MyLargeContract.json'
+import * as ExceedsContractMaxSizeLimitArtifact from '../../../out/artifacts/MyContracts.sol/ExceedsContractMaxSizeLimit.json'
 import {
   encodeFunctionCalldata,
   getAnvilRpcUrl,
@@ -43,6 +46,7 @@ import {
 } from '../common'
 import { FoundryToml } from '../../../src/foundry/types'
 import {
+  assertContractSizeLimitNotExceeded,
   assertNoLinkedLibraries,
   makeGetConfigArtifacts,
   parseScriptFunctionCalldata,
@@ -59,6 +63,9 @@ import {
   getMixedNetworkTypeErrorMessage,
   getUnsupportedNetworkErrorMessage,
 } from '../../../src/foundry/error-messages'
+import { contractsExceedSizeLimitErrorMessage } from '../../../src/error-messages'
+import { dummyUnlabeledAddress } from '../dummy'
+import { getFakeConfigArtifacts, getFakeParsedAccountAccess } from '../fake'
 
 describe('Utils', async () => {
   let foundryToml: FoundryToml
@@ -1186,6 +1193,75 @@ describe('Utils', async () => {
 
       const actualCalldata = await parseScriptFunctionCalldata([withStrings])
       expect(actualCalldata).to.equal(calldata)
+    })
+  })
+
+  describe('assertContractSizeLimitNotExceeded', () => {
+    it('does not throw an error when contract size is less than the size limit', async () => {
+      const artifact = parseFoundryContractArtifact(MyContract2Artifact)
+      const address = makeAddress(1)
+      const fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`
+
+      const accesses = [
+        getFakeParsedAccountAccess({
+          kind: AccountAccessKind.Create,
+          data: artifact.bytecode,
+          account: address,
+          deployedCode: artifact.deployedBytecode,
+        }),
+      ]
+      const configArtifacts = await getFakeConfigArtifacts(
+        [fullyQualifiedName],
+        foundryToml.artifactFolder
+      )
+
+      expect(() =>
+        assertContractSizeLimitNotExceeded(accesses, configArtifacts)
+      ).to.not.throw
+    })
+
+    it('throws an error when a labeled and unlabeled contract exceed the size limit', async () => {
+      const exceedsMaxSizeAddress = '0x' + '11'.repeat(20)
+      const exceedsMaxSizeArtifact = parseFoundryContractArtifact(
+        ExceedsContractMaxSizeLimitArtifact
+      )
+      const exceedsMaxSizeFullyQualifiedName = `${exceedsMaxSizeArtifact.sourceName}:${exceedsMaxSizeArtifact.contractName}`
+
+      const expectedErrorMessageInput = [
+        {
+          address: dummyUnlabeledAddress,
+        },
+        {
+          address: exceedsMaxSizeAddress,
+          fullyQualifiedName: exceedsMaxSizeFullyQualifiedName,
+        },
+      ]
+
+      const accesses = [
+        getFakeParsedAccountAccess({
+          kind: AccountAccessKind.Create,
+          data: '', // Empty so that the initCodeWithArgs doesn't match a labeled contract
+          account: dummyUnlabeledAddress,
+          deployedCode: '0x' + '00'.repeat(MAX_CONTRACT_SIZE_LIMIT + 1),
+        }),
+        getFakeParsedAccountAccess({
+          kind: AccountAccessKind.Create,
+          data: ExceedsContractMaxSizeLimitArtifact.bytecode.object,
+          account: exceedsMaxSizeAddress,
+          deployedCode:
+            ExceedsContractMaxSizeLimitArtifact.deployedBytecode.object,
+        }),
+      ]
+      const configArtifacts = await getFakeConfigArtifacts(
+        [exceedsMaxSizeFullyQualifiedName],
+        foundryToml.artifactFolder
+      )
+
+      expect(() =>
+        assertContractSizeLimitNotExceeded(accesses, configArtifacts)
+      ).to.throw(
+        contractsExceedSizeLimitErrorMessage(expectedErrorMessageInput)
+      )
     })
   })
 })

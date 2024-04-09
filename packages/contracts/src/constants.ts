@@ -42,3 +42,5 @@ export const EXECUTION_LOCK_TIME = 15 * 60
 
 export const RECOMMENDED_REMAPPING =
   '@sphinx-labs/contracts/=lib/sphinx/packages/contracts/contracts/foundry'
+
+export const MAX_CONTRACT_SIZE_LIMIT = 24576

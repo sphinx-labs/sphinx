@@ -51,11 +51,6 @@ export const decodeDeploymentInfo = (
     'parsedAccountAccessType'
   )
 
-  const deployedContractSizesFragment = findFunctionFragment(
-    sphinxPluginTypesInterface,
-    'deployedContractSizesType'
-  )
-
   const coder = AbiCoder.defaultAbiCoder()
 
   const {
@@ -77,16 +72,6 @@ export const decodeDeploymentInfo = (
   const safeStartingBalance = abiDecodeUint256(parsed.safeStartingBalance)
 
   const gasEstimates = abiDecodeUint256Array(parsed.gasEstimates)
-
-  // ABI decode the `deployedContractSizes` array
-  const deployedContractSizesResult = coder.decode(
-    deployedContractSizesFragment.outputs,
-    parsed.encodedDeployedContractSizes
-  )
-  const { deployedContractSizes } = recursivelyConvertResult(
-    deployedContractSizesFragment.outputs,
-    deployedContractSizesResult
-  ) as any
 
   // ABI decode each `ParsedAccountAccess` individually.
   const accountAccesses = parsed.encodedAccountAccesses.map((encoded) => {
@@ -129,7 +114,6 @@ export const decodeDeploymentInfo = (
     sphinxLibraryVersion: abiDecodeString(sphinxLibraryVersion),
     accountAccesses,
     gasEstimates,
-    deployedContractSizes,
     fundsRequestedForSafe,
     safeStartingBalance,
   }
@@ -164,7 +148,6 @@ export const makeNetworkConfig = (
     requireSuccess,
     accountAccesses,
     gasEstimates,
-    deployedContractSizes,
     fundsRequestedForSafe,
     safeStartingBalance,
   } = deploymentInfo
@@ -176,7 +159,6 @@ export const makeNetworkConfig = (
     const gas = calculateMerkleLeafGas(
       BigInt(chainId),
       gasEstimates[i].toString(),
-      deployedContractSizes,
       accountAccesses[i]
     )
 
