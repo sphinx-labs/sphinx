@@ -77,8 +77,22 @@ abstract contract Sphinx {
     mapping(uint256 => uint256) private safeStartingBalance;
 
     constructor() {
-        sphinxUtils = new SphinxUtils();
-        constants = new SphinxConstants();
+        // Deploy the `SphinxUtils` and `SphinxConstants` helper contracts. We don't deploy these
+        // using the `new` keyword because this causes an error when compiling with `viaIR` and the
+        // optimizer enabled using solc v0.8.1.
+        bytes memory utilsInitCode = vm.getCode("SphinxUtils.sol");
+        bytes memory constantsInitCode = vm.getCode("SphinxConstants.sol");
+        address utilsAddr;
+        address constantsAddr;
+        /// @solidity memory-safe-assembly
+        assembly {
+            utilsAddr := create(0, add(utilsInitCode, 0x20), mload(utilsInitCode))
+            constantsAddr := create(0, add(constantsInitCode, 0x20), mload(constantsInitCode))
+        }
+        require(utilsAddr != address(0), "Sphinx: SphinxUtils deployment failed");
+        require(constantsAddr != address(0), "Sphinx: SphinxConstants deployment failed");
+        sphinxUtils = SphinxUtils(utilsAddr);
+        constants = SphinxConstants(constantsAddr);
 
         // This ensures that these contracts stay deployed in a multi-fork environment (e.g. when
         // calling `vm.createSelectFork`).
