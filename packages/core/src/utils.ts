@@ -61,7 +61,6 @@ import {
   COMPILER_CONFIG_VERSION,
   LocalNetworkMetadata,
   fetchNameForNetwork,
-  shouldUseHigherMaxGasLimit,
 } from './networks'
 import { RelayProposal, StoreDeploymentConfig } from './types'
 import {
@@ -179,7 +178,7 @@ export const getGasPriceOverrides = async (
     process.env.SPHINX_INTERNAL__DISABLE_HARDCODED_GAS_LIMIT !== 'true'
   ) {
     // Get the max batch gas limit on the current network.
-    const maxGasLimit = getMaxGasLimit(block.gasLimit, network.chainId)
+    const maxGasLimit = getMaxGasLimit(block.gasLimit)
     // Hard-code the gas limit to be midway between the max batch gas limit and the block gas limit.
     // This is an optimization that significantly speeds up deployments because it removes the need
     // for EthersJS to call `eth_estimateGas`, which is a very slow operation for large
@@ -1340,17 +1339,19 @@ export const getCreate3Salt = (
  * cause transactions to be executed slowly as a result of the algorithms that miners use to select
  * which transactions to include. As a result, we restrict our total gas usage to a fraction of the
  * block gas limit.
+ *
+ * We calculate the max gas limit based on the block gas limit. For example,
+ * Rootstock has an exceptionally low block gas limit (6.8 million), so we need to set the max gas
+ * limit very high, or else large contracts won't be deployable with Sphinx.
  */
-export const getMaxGasLimit = (
-  blockGasLimit: bigint,
-  chainId: bigint
-): bigint => {
-  // On Scroll and Scroll Sepolia, set the max gas limit to be 80% of the block gas limit. We set a
-  // higher value for these networks because their block gas limit is low (10 million), which means
-  // a lower max gas limit could cause large contract deployments to be unexecutable. Transactions
-  // that use ~8.5M gas were executed quickly on Scroll Sepolia, so an 80% limit shouldn't
-  // meaningfully impact execution speed.
-  if (shouldUseHigherMaxGasLimit(chainId)) {
+export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
+  // We use a threshold of 8.5 million so that any network with a block gas limit greater than ~6.5
+  // million can execute a large contract deployment, which costs roughly 6 million gas. If we use a
+  // threshold of 7 million instead of 8.5 million, then a network with a block gas limit of 7.1
+  // million will have a max batch size of 5.68 million (= 80% * 7.1 million), which is too low.
+  if (blockGasLimit <= BigInt(8_500_000)) {
+    return blockGasLimit
+  } else if (blockGasLimit <= BigInt(13_500_000)) {
     return (blockGasLimit * BigInt(8)) / BigInt(10)
   }
 

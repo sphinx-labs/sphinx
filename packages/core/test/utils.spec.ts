@@ -11,7 +11,7 @@ import {
   formatSolcLongVersion,
 } from '../src/utils'
 import { ABI } from './common'
-import { callWithTimeout, getBytesLength } from '../dist'
+import { callWithTimeout, getBytesLength, getMaxGasLimit } from '../dist'
 
 chai.use(sinonChai)
 
@@ -480,6 +480,42 @@ describe('Utils', () => {
 
       // Assert that clearTimeout was called
       expect(clearTimeoutSpy).to.have.been.called
+    })
+  })
+
+  describe('getMaxGasLimit', () => {
+    it('returns 100% of the blockGasLimit if it is less than or equal to 8,500,000', () => {
+      const blockGasLimit = BigInt(6_000_000)
+      const expected = blockGasLimit
+      expect(getMaxGasLimit(blockGasLimit)).to.equal(expected)
+    })
+
+    it('returns 80% of the blockGasLimit if it is greater than 8,500,000 and less than or equal to 13,500,000', () => {
+      const blockGasLimit = BigInt(10_000_000)
+      const expected = (blockGasLimit * BigInt(8)) / BigInt(10)
+      expect(getMaxGasLimit(blockGasLimit)).to.equal(expected)
+    })
+
+    it('returns 50% of the blockGasLimit if it is greater than 13,500,000', () => {
+      const blockGasLimit = BigInt(14_000_000)
+      const expected = blockGasLimit / BigInt(2)
+      expect(getMaxGasLimit(blockGasLimit)).to.equal(expected)
+    })
+
+    it('handles edge cases accurately', () => {
+      const testCases = [
+        {
+          input: BigInt(8_500_000),
+          expected: BigInt(8_500_000),
+        },
+        {
+          input: BigInt(13_500_000),
+          expected: (BigInt(13_500_000) * BigInt(8)) / BigInt(10),
+        },
+      ]
+      testCases.forEach(({ input, expected }) => {
+        expect(getMaxGasLimit(input)).to.equal(expected)
+      })
     })
   })
 })

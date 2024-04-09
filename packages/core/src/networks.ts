@@ -59,6 +59,18 @@ export const fetchChainIdForNetwork = (networkName: string) => {
   }
 }
 
+export const fetchSupportedNetworkByName = (
+  networkName: string
+): SupportedNetwork => {
+  const network = SPHINX_NETWORKS.find((n) => n.name === networkName)
+
+  if (network) {
+    return network
+  } else {
+    throw new Error(`Unsupported network name: ${networkName}`)
+  }
+}
+
 export const fetchNameForNetwork = (chainId: bigint) => {
   const network = [...SPHINX_NETWORKS, ...SPHINX_LOCAL_NETWORKS].find(
     (n) => n.chainId === chainId
@@ -305,18 +317,6 @@ export const implementsEIP2028 = (chainId: bigint) => {
 
   if (network) {
     return network.eip2028 ?? true
-  } else {
-    throw new Error(`Unsupported network id ${chainId}`)
-  }
-}
-
-export const shouldUseHigherMaxGasLimit = (chainId: bigint) => {
-  const network = [...SPHINX_NETWORKS, ...SPHINX_LOCAL_NETWORKS].find(
-    (n) => n.chainId === chainId
-  )
-
-  if (network) {
-    return network.useHigherMaxGasLimit ?? false
   } else {
     throw new Error(`Unsupported network id ${chainId}`)
   }

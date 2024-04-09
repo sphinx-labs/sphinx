@@ -411,7 +411,7 @@ export const makeDeployment = async (
       // million, Rootstocks is 6.8 million). For example, A Merkle leaf gas field of 75% of the match batch size
       // on Scroll is 6 million gas and corresponds to a contract at the max size limit with a couple dozen SSTORES
       // in its constructor.
-      const maxGasLimit = getMaxGasLimit(block.gasLimit, chainId)
+      const maxGasLimit = getMaxGasLimit(block.gasLimit)
       const gasEstimateSize = (maxGasLimit * BigInt(75)) / BigInt(100)
 
       const deploymentInfo: DeploymentInfo = {
