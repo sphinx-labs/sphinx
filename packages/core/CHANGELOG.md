@@ -1,5 +1,16 @@
 # @sphinx-labs/core
 
+## 0.24.1
+
+### Patch Changes
+
+- 52ae5f1: Throw an error if contracts are above the size limit
+- c7af7ef: Remove deployedContractSizes
+- 4f5a1fc: Remove `vm.getCode` to deploy `SphinxUtils` and `SphinxConstants`
+- Updated dependencies [c7af7ef]
+- Updated dependencies [4f5a1fc]
+  - @sphinx-labs/contracts@0.21.2
+
 ## 0.24.0
 
 ### Minor Changes

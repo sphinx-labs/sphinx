@@ -1,5 +1,20 @@
 # @sphinx-labs/demo
 
+## 0.12.9
+
+### Patch Changes
+
+- af6235e: Bump timeout for demo tests
+- 4f5a1fc: Remove `vm.getCode` to deploy `SphinxUtils` and `SphinxConstants`
+- Updated dependencies [52ae5f1]
+- Updated dependencies [54b192c]
+- Updated dependencies [c7af7ef]
+- Updated dependencies [149783c]
+- Updated dependencies [4f5a1fc]
+  - @sphinx-labs/plugins@0.31.2
+  - @sphinx-labs/core@0.24.1
+  - @sphinx-labs/contracts@0.21.2
+
 ## 0.12.8
 
 ### Patch Changes
