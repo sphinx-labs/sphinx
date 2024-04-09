@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.21.2
+
+### Patch Changes
+
+- c7af7ef: Remove deployedContractSizes
+- 4f5a1fc: Remove `vm.getCode` to deploy `SphinxUtils` and `SphinxConstants`
+
 ## 0.21.1
 
 ### Patch Changes
