@@ -26,7 +26,7 @@ jobs:
           command: sh ./scripts/create-placeholder.sh
       - run:
           name: Install dependencies
-          command: yarn --frozen-lockfile --link-duplicates
+          command: yarn --frozen-lockfile
       - save_cache:
           key: v2-cache-yarn-install-{{ checksum "yarn.lock" }}
           paths:
