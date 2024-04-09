@@ -170,6 +170,21 @@ export const verifyDeploymentWithRetries = async (
   }
 }
 
+export const handleAlreadyVerifiedResponse = (
+  err: any,
+  address: string,
+  contractURL: string
+) => {
+  if ((err.message as string)?.toLowerCase().includes('already verified')) {
+    console.log(
+      `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
+    )
+    return { success: true }
+  } else {
+    return { success: false, message: err.message }
+  }
+}
+
 export const attemptVerification = async (
   address: string,
   encodedConstructorArgs: string,
@@ -237,14 +252,7 @@ export const attemptVerification = async (
     )
     guid = response.message
   } catch (err) {
-    if ((err.message as string).toLowerCase().includes('already verified')) {
-      console.log(
-        `The contract ${address} has already been verified on Etherscan:\n${contractURL}`
-      )
-      return { success: true }
-    } else {
-      return { success: false, message: err.message }
-    }
+    return handleAlreadyVerifiedResponse(err, address, contractURL)
   }
 
   const networkName = fetchNameForNetwork(BigInt(chainId))
@@ -263,7 +271,7 @@ export const attemptVerification = async (
   try {
     verificationStatus = await etherscan.getVerificationStatus(guid)
   } catch (err) {
-    return { success: false, message: err.message }
+    return handleAlreadyVerifiedResponse(err, address, contractURL)
   }
 
   if (!(verificationStatus.isFailure() || verificationStatus.isSuccess())) {

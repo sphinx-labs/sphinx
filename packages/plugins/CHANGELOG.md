@@ -1,5 +1,15 @@
 # @sphinx-labs/plugins
 
+## 0.31.3
+
+### Patch Changes
+
+- 72f363e: Hardcode merkle leaf gas on Darwinia Pangolin
+- Updated dependencies [0c375c0]
+- Updated dependencies [72f363e]
+  - @sphinx-labs/core@0.24.2
+  - @sphinx-labs/contracts@0.21.3
+
 ## 0.31.2
 
 ### Patch Changes
