@@ -29,7 +29,6 @@ export type SupportedNetwork = {
   queryFilterBlockLimit: number
   legacyTx: boolean
   actionGasLimitBuffer: boolean
-  useHigherMaxGasLimit: boolean
   eip2028: boolean
   rollupStack?: {
     provider: RollupProvider
@@ -44,7 +43,6 @@ export type SupportedLocalNetwork = {
   networkType: NetworkType
   legacyTx: false
   actionGasLimitBuffer: false
-  useHigherMaxGasLimit: false
   eip2028: true
   dripSize: string
   currency: string
@@ -57,7 +55,6 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
     networkType: 'Local',
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
     dripSize: '1',
     currency: 'ETH',
@@ -96,7 +93,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -126,7 +122,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -156,7 +151,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -186,7 +180,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -210,7 +203,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -234,7 +226,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -258,7 +249,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -282,7 +272,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -306,7 +295,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -330,7 +318,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -360,7 +347,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -385,7 +371,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -409,7 +394,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -433,7 +417,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -464,7 +447,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -488,7 +470,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -512,7 +493,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -536,7 +516,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -560,7 +539,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -578,7 +556,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -608,7 +585,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -638,7 +614,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -662,7 +637,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -686,7 +660,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -710,7 +683,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
@@ -735,7 +707,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
@@ -760,7 +731,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
@@ -786,7 +756,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -804,7 +773,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -822,7 +790,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -848,7 +815,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -866,7 +832,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -897,7 +862,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
   },
   {
@@ -921,7 +885,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
   },
   {
@@ -946,8 +909,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
-    useHigherMaxGasLimit: true,
-    eip2028: false,
+    eip2028: true,
   },
   {
     name: 'rootstock_testnet',
@@ -971,8 +933,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     decimals: 18,
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
-    useHigherMaxGasLimit: true,
-    eip2028: false,
+    eip2028: true,
   },
   {
     name: 'zora',
@@ -997,7 +958,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
     rollupStack: {
       provider: 'Conduit',
@@ -1027,7 +987,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
     rollupStack: {
       provider: 'Conduit',
@@ -1057,7 +1016,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
     rollupStack: {
       provider: 'Caldera',
@@ -1087,7 +1045,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
     rollupStack: {
       provider: 'Caldera',
@@ -1115,7 +1072,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -1139,7 +1095,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -1157,7 +1112,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -1182,7 +1136,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -1207,7 +1160,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
     eip2028: true,
   },
   {
@@ -1225,7 +1177,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: true,
     eip2028: true,
     hardcodedMerkleLeafGas: (14_000_000).toString(),
   },

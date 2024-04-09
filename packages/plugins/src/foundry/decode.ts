@@ -295,7 +295,7 @@ export const makeNetworkConfig = (
     // we check this here anyways so that we can display an error to the user earlier in the
     // process. If the estimated gas is less than the max batch gas limit but it can't fit into a
     // batch, the simulation will throw an error.
-    const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit), BigInt(chainId))
+    const maxGasLimit = getMaxGasLimit(BigInt(blockGasLimit))
     if (BigInt(gas) > maxGasLimit) {
       const networkName = fetchNameForNetwork(BigInt(chainId))
       const { referenceName, address, functionName, variables, value } =
