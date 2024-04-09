@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.24.2
+
+### Patch Changes
+
+- 0c375c0: Handle alreay verified response after successful verification submission
+- 72f363e: Hardcode merkle leaf gas on Darwinia Pangolin
+- Updated dependencies [72f363e]
+  - @sphinx-labs/contracts@0.21.3
+
 ## 0.24.1
 
 ### Patch Changes
