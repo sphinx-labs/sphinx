@@ -1,7 +1,6 @@
 // Warning: The constants in this file are commonly imported from the frontend of the Sphinx Managed website.
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
-import { ParsedAccountAccess } from '@sphinx-labs/contracts'
 import {
   ExplorerName,
   SPHINX_LOCAL_NETWORKS,
@@ -125,15 +124,11 @@ export const fetchDripVersionForNetwork = (chainId: bigint) => {
   }
 }
 
-export const calculateMerkleLeafGas = (
-  chainId: bigint,
-  foundryGas: string,
-  access: ParsedAccountAccess
-) => {
+export const calculateMerkleLeafGas = (chainId: bigint, foundryGas: string) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
-  if (network?.handleNetworkSpecificMerkleLeafGas) {
-    return network.handleNetworkSpecificMerkleLeafGas(foundryGas, access)
+  if (network?.hardcodedMerkleLeafGas) {
+    return network.hardcodedMerkleLeafGas
   } else {
     return foundryGas
   }

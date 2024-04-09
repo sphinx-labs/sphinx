@@ -158,8 +158,7 @@ export const makeNetworkConfig = (
     const { root, nested } = accountAccesses[i]
     const gas = calculateMerkleLeafGas(
       BigInt(chainId),
-      gasEstimates[i].toString(),
-      accountAccesses[i]
+      gasEstimates[i].toString()
     )
 
     const { parsedContracts, unlabeled } = parseNestedContractDeployments(
