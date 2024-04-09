@@ -362,7 +362,7 @@ export const executeBatchActions = async (
   const executionReceipts: ethers.TransactionReceipt[] = []
   const batches: SphinxLeafWithProof[][] = []
 
-  const maxGasLimit = getMaxGasLimit(blockGasLimit, BigInt(chainId))
+  const maxGasLimit = getMaxGasLimit(blockGasLimit)
 
   // Pull the Merkle root state from the contract so we're guaranteed to be up to date.
   const activeRoot = await sphinxModuleReadOnly.activeMerkleRoot()
@@ -721,7 +721,7 @@ export const executeActionsViaSigner: ExecuteActions = async (
     })
 
     let limit = BigInt(gasEstimate) + BigInt(minimumActionGas)
-    const maxGasLimit = getMaxGasLimit(blockGasLimit, BigInt(chainId))
+    const maxGasLimit = getMaxGasLimit(blockGasLimit)
     if (limit > maxGasLimit) {
       limit = maxGasLimit
     }
@@ -815,7 +815,7 @@ export const estimateGasViaManagedService: EstimateGas = (
   const estimate =
     21_000 + callDataGas + estimateModuleExecutionGas(batch) + managedServiceGas
 
-  return Math.round(estimate * 1.05 + 50_000) // Include a buffer
+  return Math.round(estimate * 1.08 + 40_000) // Include a buffer
 }
 
 /**
@@ -851,7 +851,7 @@ export const estimateGasViaSigner: EstimateGas = (
 
   const estimate = 21_000 + callDataGas + estimateModuleExecutionGas(batch)
 
-  return Math.round(estimate * 1.05 + 50_000) // Include a buffer
+  return Math.round(estimate * 1.08 + 40_000) // Include a buffer
 }
 
 /**
