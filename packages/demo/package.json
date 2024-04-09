@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@sphinx-labs/demo",
-  "version": "0.12.8",
+  "version": "0.12.9",
   "description": "Sphinx demo",
   "main": "dist/index",
   "types": "dist/index",
@@ -42,9 +42,9 @@
     "p-limit": "^3.1.0"
   },
   "dependencies": {
-    "@sphinx-labs/contracts": "^0.21.0",
-    "@sphinx-labs/core": "^0.24.0",
-    "@sphinx-labs/plugins": "^0.31.0",
+    "@sphinx-labs/contracts": "^0.21.2",
+    "@sphinx-labs/core": "^0.24.1",
+    "@sphinx-labs/plugins": "^0.31.2",
     "@types/node": "^18.0.0",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^6.7.0",

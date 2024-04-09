@@ -1,5 +1,20 @@
 # @sphinx-labs/plugins
 
+## 0.31.2
+
+### Patch Changes
+
+- 52ae5f1: Throw an error if contracts are above the size limit
+- 54b192c: Lower the number of max retries in the simulation
+- c7af7ef: Remove deployedContractSizes
+- 149783c: Stop overriding 'ETH_FROM'
+- 4f5a1fc: Remove `vm.getCode` to deploy `SphinxUtils` and `SphinxConstants`
+- Updated dependencies [52ae5f1]
+- Updated dependencies [c7af7ef]
+- Updated dependencies [4f5a1fc]
+  - @sphinx-labs/core@0.24.1
+  - @sphinx-labs/contracts@0.21.2
+
 ## 0.31.1
 
 ### Patch Changes
