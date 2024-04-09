@@ -1,28 +1,3 @@
-import { ParsedAccountAccess } from './types'
-
-/**
- * Return a hard-coded gas value for Moonbeam, Moonbase Alpha, and Moonriver. We hard-code this
- * value as a temporary solution because these networks have a non-standard gas calculation
- * mechanism.
- *
- * @param baseGas The estimated gas cost according to Foundry.
- * @param access The ParsedAccountAccess for the transaction.
- * @returns
- */
-export const calculateActionLeafGasForMoonbeam = (
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  foundryGas: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  access: ParsedAccountAccess
-): string => {
-  // This is the maximum Merkle leaf gas size that fits in a batch on these networks. (The max batch
-  // size is 12M, and there's a buffer applied to the Merkle leaf's gas before we check whether it fits in a
-  // batch). It's possible to exceed the max batch size if the transaction's calldata is extremely large,
-  // but that's unlikely to happen. We were able to deploy a very large contract (Mean Finance's DCAHub)
-  // with this Merkle leaf gas value.
-  return (10_500_000).toString()
-}
-
 export type ExplorerName = 'Blockscout' | 'Etherscan'
 
 export type BlockExplorers = {
@@ -60,10 +35,7 @@ export type SupportedNetwork = {
     provider: RollupProvider
     type: RollupType
   }
-  handleNetworkSpecificMerkleLeafGas?: (
-    foundryGas: string,
-    access: ParsedAccountAccess
-  ) => string
+  hardcodedMerkleLeafGas?: string
 }
 
 export type SupportedLocalNetwork = {
@@ -740,7 +712,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: true,
     eip2028: true,
-    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
+    hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
   {
     name: 'moonbeam',
@@ -765,7 +737,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: true,
     eip2028: true,
-    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
+    hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
   {
     name: 'moonbase_alpha',
@@ -790,7 +762,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     useHigherMaxGasLimit: true,
     eip2028: true,
-    handleNetworkSpecificMerkleLeafGas: calculateActionLeafGasForMoonbeam,
+    hardcodedMerkleLeafGas: (10_500_000).toString(),
   },
   {
     name: 'fuse',
@@ -1253,7 +1225,8 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     legacyTx: false,
     actionGasLimitBuffer: false,
-    useHigherMaxGasLimit: false,
+    useHigherMaxGasLimit: true,
     eip2028: true,
+    hardcodedMerkleLeafGas: (14_000_000).toString(),
   },
 ]
