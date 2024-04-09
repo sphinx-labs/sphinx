@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.21.3
+
+### Patch Changes
+
+- 72f363e: Hardcode merkle leaf gas on Darwinia Pangolin
+
 ## 0.21.2
 
 ### Patch Changes
