@@ -1178,6 +1178,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
-    hardcodedMerkleLeafGas: (14_000_000).toString(),
+    hardcodedMerkleLeafGas: (11200000).toString(),
   },
 ]

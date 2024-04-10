@@ -496,8 +496,8 @@ describe('Utils', () => {
       expect(getMaxGasLimit(blockGasLimit)).to.equal(expected)
     })
 
-    it('returns 50% of the blockGasLimit if it is greater than 13,500,000', () => {
-      const blockGasLimit = BigInt(14_000_000)
+    it('returns 50% of the blockGasLimit if it is greater than 20,000,000', () => {
+      const blockGasLimit = BigInt(21_000_000)
       const expected = blockGasLimit / BigInt(2)
       expect(getMaxGasLimit(blockGasLimit)).to.equal(expected)
     })
@@ -509,8 +509,8 @@ describe('Utils', () => {
           expected: BigInt(8_500_000),
         },
         {
-          input: BigInt(13_500_000),
-          expected: (BigInt(13_500_000) * BigInt(8)) / BigInt(10),
+          input: BigInt(20_000_000),
+          expected: (BigInt(20_000_000) * BigInt(8)) / BigInt(10),
         },
       ]
       testCases.forEach(({ input, expected }) => {

@@ -1351,7 +1351,7 @@ export const getMaxGasLimit = (blockGasLimit: bigint): bigint => {
   // million will have a max batch size of 5.68 million (= 80% * 7.1 million), which is too low.
   if (blockGasLimit <= BigInt(8_500_000)) {
     return blockGasLimit
-  } else if (blockGasLimit <= BigInt(13_500_000)) {
+  } else if (blockGasLimit <= BigInt(20_000_000)) {
     return (blockGasLimit * BigInt(8)) / BigInt(10)
   }
 
