@@ -389,8 +389,7 @@ export const deploy = async (
   // This object will potentially be modified when we make the new deployment artifacts.
   // Specifically, the `history` field of the contract deployment artifacts could be modified. Even
   // though we don't currently modify the execution artifacts, we include them anyways in case we
-  // add logic in the future that modifies them. We don't include the compiler input artifacts
-  // mainly as a performance optimization and because we don't expect to modify them in the future.
+  // add logic in the future that modifies them.
   const networkArtifacts = readDeploymentArtifactsForNetwork(
     projectName,
     chainId,
@@ -400,7 +399,6 @@ export const deploy = async (
     networks: {
       [chainId.toString()]: networkArtifacts,
     },
-    compilerInputs: {},
   }
 
   await makeDeploymentArtifacts(
@@ -455,6 +453,9 @@ export const deploy = async (
   }
 }
 
+// TODO(end): i think it'd make the most sense for the accountAccess.artifactPath to only be
+// defined for `Create` types.
+
 // TODO(end): notion: when this feature is released, tell every user to put
 // `use_literal_content=true` in their foundry.toml. also, tell them to remove `build_info=true`.
 
@@ -508,15 +509,10 @@ export const deploy = async (
 
 // TODO(later-later): check that you updated the TypeScript types in a backwards compatible manner.
 
-// TODO(later): remove documentation about the compiler input file, and merge its language into the
-// contract deployment artifact.
+// TODO(later): consider splitting the PR up. first PR is deleting the build info. second PR is
+// adding the 'use_literal_content' stuff.
 
-// TODO(later): c/f `compiler input`, `compilerInput`
+// TODO: left off: assertNoLinkedLibraries. do we still need the script's artifact when we've
+// supported linked libraries?
 
-// TODO(later): should we keep the user-facing documentation about the solcInputHash field?
-
-// TODO(later): make the removed fields in the deployment artifacts optional in the type.
-
-// TODO(later): i think it'd make the most sense for the accountAccess.artifactPath to only be
-// defined for `Create` types. If this is the case, the only labeling source will be contract
-// deployments. does this match with the old implementation?
+// TODO: c/f @property {SolidityStorageLayout} [storageLayout]. This doesn’t appear to be used.

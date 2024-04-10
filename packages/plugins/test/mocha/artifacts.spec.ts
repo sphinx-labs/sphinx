@@ -31,7 +31,6 @@ import {
 } from './common'
 import {
   dummyChainId,
-  dummyCompilerInputArtifactFileName,
   dummyContractArtifactFileName,
   dummyContractName,
   dummyExecutionArtifactFileName,
@@ -168,7 +167,6 @@ describe('Artifacts', () => {
   // logic must return the previous deployment artifacts in addition to the new ones.
   it('keeps previous deployment artifacts', async () => {
     const newChainId = '123'
-    const newCompilerInputId = 'newCompilerInputId'
     const newContractName = 'MyContract2'
     const newFullyQualifiedName = 'contracts/test/MyContracts.sol:MyContract2'
     const newMerkleRoot = '0x' + '42'.repeat(32)
@@ -178,7 +176,6 @@ describe('Artifacts', () => {
       newFullyQualifiedName,
       MyContract2Artifact.bytecode.object,
       foundryToml.artifactFolder,
-      newCompilerInputId,
       newMerkleRoot
     )
     const receipts = [getFakeActionSucceededReceipt(newMerkleRoot)]

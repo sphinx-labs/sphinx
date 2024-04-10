@@ -20,11 +20,6 @@ Deployment artifacts contain the information for deployments executed with Sphin
   - [Type Definition](#type-definition-1)
   - [Properties](#properties-1)
   - [Example](#example-1)
-- [Compiler Input File](#compiler-input-file)
-  - [File Path](#file-path-2)
-  - [Type Definition](#type-definition-2)
-  - [Properties](#properties-2)
-  - [Example](#example-2)
 - [Committing to Version Control](#committing-to-version-control)
 
 ## Usage
@@ -120,7 +115,6 @@ type ContractDeploymentArtifact = {
   chainId: string
   receipt: SphinxTransactionReceipt
   args: Array<any>
-  solcInputHash: string
   abi: Array<any>
   bytecode: string
   deployedBytecode: string
@@ -131,6 +125,7 @@ type ContractDeploymentArtifact = {
   gitCommit: string | null
   devdoc?: any
   userdoc?: any
+  solcInputHash?: string
 }
 ```
 
@@ -141,7 +136,6 @@ type ContractDeploymentArtifact = {
 * **contractName**: The name of the contract.
 * **address**: The address of the contract.
 * **abi**: The ABI of the contract.
-* **solcInputHash**: The hash of the Solidity compiler input that contains this contract.
 * **receipt**: The transaction receipt of the contract deployment.
 * **metadata**: The metadata of the contract as returned by the Solidity compiler.
 * **args**: The constructor arguments.
@@ -155,6 +149,8 @@ type ContractDeploymentArtifact = {
 * **history**: The history of the contract. Each element in the array is a previous contract deployment artifact with the `history` field omitted to avoid nesting. The elements are sorted chronologically from earliest to latest. Sphinx organizes the history according to the `contractName`. For example, if a project deploys a contract named "MyContract" in three separate deployments, then the first element in the `history` array will be the first deployment, the second element in the array will be the second deployment, and the top-level artifact will be the most recent deployment.
 * **devdoc** (optional): The developer documentation of the contract as returned by the Solidity compiler (optional).
 * **userdoc** (optional): The user documentation of the contract as returned by the Solidity compiler (optional).
+* **solcInputHash** (optional): The hash of the Solidity compiler input that contains this contract. Deprecated.
+
 ### Example
 
 ```json
@@ -176,7 +172,6 @@ type ContractDeploymentArtifact = {
       "stateMutability": "nonpayable"
     }
   ],
-  "solcInputHash": "4f272ce1ce80603b2d5182ac007dd7b0",
   "receipt": {
     "blockHash": "0xb423cadaeba522a2c64145a2461201ec7c8e17d4449f9e83a275820dedc93ce5",
     "blockNumber": 20,
@@ -269,7 +264,6 @@ type ExecutionArtifact = {
     receipt: SphinxTransactionReceipt
   }>
   merkleRoot: string
-  solcInputHashes: Array<string>
   safeAddress: string
   moduleAddress: string
   executorAddress: string
@@ -299,6 +293,7 @@ type ExecutionArtifact = {
   libraries: Array<string>
   gitCommit: string | null
   safeInitData: string | null
+  solcInputHashes?: Array<string>
 }
 ```
 
@@ -307,7 +302,6 @@ type ExecutionArtifact = {
 * **_format**: The format of the execution artifact.
 * **transactions**: This array includes each transaction response with its receipt, sorted in ascending order chronologically. For new Gnosis Safe deployments, the first transaction deploys the Safe, the second approves the deployment, and the rest execute the deployment. For existing Safes, the first transaction approves the deployment, and the rest execute the deployment.
 * **merkleRoot**: The Merkle root of the deployment.
-* **solcInputHashes**: The full list of Solidity compiler hashes used for the deployment.
 * **safeAddress**: The address of the Gnosis Safe.
 * **moduleAddress**: The address of the Sphinx Module.
 * **executorAddress**: The address of the executor.
@@ -322,6 +316,7 @@ type ExecutionArtifact = {
 * **libraries**: An array of libraries that were used in the deployment. These are in the format that the Solidity compiler expects. For example, `path/to/file.sol:MyLibrary=0x1234567890123456789012345678901234567890`.
 * **gitCommit**: The full git commit hash on the machine that initiated the deployment. If the deployment was executed via the DevOps Platform, this is recorded on the machine that proposed the deployment. If the deployment was executed from the user's local machine instead of the DevOps Platform, this is recorded on the user's machine when they run the `deploy` CLI command. This is null if the repository was not a git repository when the deployment was initiated.
 * **safeInitData**: The raw data that deployed and initialized the Gnosis Safe. This is null for deployments that use a previously deployed Gnosis Safe.
+* **solcInputHashes** (optional): The full list of Solidity compiler hashes used for the deployment. Deprecated.
 
 ### Example
 
@@ -386,9 +381,6 @@ type ExecutionArtifact = {
     }
   ],
   "merkleRoot": "0x82a1b9e8a08f2cb3d2e27436cd04c431e483664adea8205dcf803fdd88a933bd",
-  "solcInputHashes": [
-    "4f272ce1ce80603b2d5182ac007dd7b0"
-  ],
   "safeAddress": "0x6e667164e47986fF1108425153f32B02Fc2f5af2",
   "moduleAddress": "0xc7758246BB22B2012C81459d7084f1A890374452",
   "executorAddress": "0xB5E96127D417b1B3ef8438496a38A143167209c7",
@@ -429,59 +421,6 @@ type ExecutionArtifact = {
   "libraries": [],
   "gitCommit": "88a023502161a4be85b4b4340e1066c03f60ce54",
   "safeInitData": "0xb63e800d0000000000000000000000000000000000000..." // Truncated for conciseness
-}
-```
-
-## Compiler Input File
-
-The compiler input file contains the Solidity compiler inputs and settings of your deployment, which
-makes it possible to reproduce the exact compilation process that resulted in your deployment.
-
-This file does not include the compiler output because it can be very large.
-
-### File Path
-
-Sphinx writes compiler input files to the file system at the following location:
-```
-deployments/compiler-inputs/<SOLC_INPUT_HASH>.json
-```
-
-* `<SOLC_INPUT_HASH>`: A unique identifier for the compiler input file to distinguish between different compilations. This is autogenerated by Foundry during compilation.
-
-On Anvil, Sphinx uses the file name `compiler-inputs-local` instead of `compiler-inputs`.
-
-Example file path: `deployments/compiler-inputs/81b63eb8d29060639640c5317310fa04.json`
-
-### Type Definition
-
-```ts
-type CompilerInput = {
-  id: string
-  solcVersion: string
-  solcLongVersion: string
-  input: SolcInput
-}
-```
-
-### Properties
-
-* **id**: A unique identifier for the compiler inputs.
-* **solcVersion**: The version of the Solidity compiler used for compiling the contract, represented as a short version string like "0.8.4".
-* **solcLongVersion**: A detailed version string of the Solidity compiler, often including build and commit details to provide exact information about the compiler build used.
-* **input**: The input data provided to the Solidity compiler, including details, such as source code, optimization settings, and other configurations necessary for the compilation process. See the [Compiler Input section](https://docs.soliditylang.org/en/v0.8.23/using-the-compiler.html#input-description) of the Solidity documentation for more details.
-
-### Example
-
-```json
-{
-  "solcVersion": "0.8.21",
-  "solcLongVersion": "0.8.21+commit.d9974bed",
-  "id": "4f272ce1ce80603b2d5182ac007dd7b0",
-  "input": {
-    "language": "Solidity",
-    "settings": { ... },
-    "sources": { ... }
-  }
 }
 ```
 

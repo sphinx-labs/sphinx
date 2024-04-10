@@ -20,7 +20,6 @@ import {
   isContractDeploymentArtifact,
   isContractDeploymentArtifactExceptHistory,
   isExecutionArtifact,
-  getCompilerInputDirName,
   getNetworkNameDirectory,
   fetchURLForNetwork,
   spawnAsync,
@@ -736,7 +735,6 @@ export const makeStandardDeployment = (
 export const getEmptyDeploymentArtifacts = (): DeploymentArtifacts => {
   return {
     networks: {},
-    compilerInputs: {},
   }
 }
 

@@ -755,7 +755,6 @@ describe('Deployment Cases', () => {
 
     const artifacts: DeploymentArtifacts = {
       networks: {},
-      compilerInputs: {},
     }
     await makeDeploymentArtifacts(
       {
