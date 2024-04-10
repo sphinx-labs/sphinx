@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.31.5
+
+### Patch Changes
+
+- c0fec2d: Lower hardcoded merkle leaf gas on Pangolin
+- Updated dependencies [c0fec2d]
+  - @sphinx-labs/contracts@0.21.5
+
 ## 0.31.4
 
 ### Patch Changes
