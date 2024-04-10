@@ -140,6 +140,10 @@ export const calculateMerkleLeafGas = (chainId: bigint, foundryGas: string) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
 
   if (network?.hardcodedMerkleLeafGas) {
+    if (BigInt(foundryGas) > BigInt(network?.hardcodedMerkleLeafGas)) {
+      throw new Error('Transaction too large to be executed')
+    }
+
     return network.hardcodedMerkleLeafGas
   } else {
     return foundryGas
