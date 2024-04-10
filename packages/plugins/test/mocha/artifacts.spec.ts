@@ -32,12 +32,10 @@ import {
 import {
   dummyChainId,
   dummyCompilerInputArtifactFileName,
-  dummyBuildInfoId,
   dummyContractArtifactFileName,
   dummyContractName,
   dummyExecutionArtifactFileName,
   dummyMerkleRoot,
-  getDummyBuildInfos,
   getDummyContractDeploymentArtifact,
   getDummyDeploymentArtifacts,
   getDummyEthersTransactionResponse,
@@ -225,13 +223,6 @@ describe('Artifacts', () => {
     expect(previousExecutionArtifact.merkleRoot).equals(dummyMerkleRoot)
     expect(isExecutionArtifact(newExecutionArtifact)).equals(true)
     expect(newExecutionArtifact.merkleRoot).equals(newMerkleRoot)
-
-    const previousCompilerInput =
-      artifacts.compilerInputs[dummyCompilerInputArtifactFileName]
-    const newCompilerInput =
-      artifacts.compilerInputs[`${newCompilerInputId}.json`]
-    expect(previousCompilerInput.id).equals(dummyBuildInfoId)
-    expect(newCompilerInput.id).equals(newCompilerInputId)
   })
 })
 
@@ -275,7 +266,6 @@ describe('Contract Deployment Artifacts', () => {
     await makeContractDeploymentArtifacts(
       dummyMerkleRoot,
       networkConfig,
-      getDummyBuildInfos(),
       receipts,
       configArtifacts,
       contractArtifacts,

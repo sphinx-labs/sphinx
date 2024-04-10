@@ -1,7 +1,6 @@
 import {
   DeploymentConfig,
   ConfigArtifacts,
-  GetConfigArtifacts,
   NetworkConfig,
   ProposalRequest,
   RelayProposal,
@@ -20,7 +19,6 @@ import { SphinxMerkleTree } from '@sphinx-labs/contracts'
 import {
   assertNoLinkedLibraries,
   getNetworkGasEstimate,
-  makeGetConfigArtifacts,
 } from '../foundry/utils'
 import { ProposeArgs, buildNetworkConfigArray, propose } from './propose'
 import { DeployArgs, deploy } from './deploy'
@@ -33,12 +31,6 @@ import {
 import { fetchRemoteArtifacts } from './artifacts'
 
 export type SphinxContext = {
-  makeGetConfigArtifacts: (
-    artifactFolder: string,
-    buildInfoFolder: string,
-    projectRoot: string,
-    cachePath: string
-  ) => GetConfigArtifacts
   prompt: (question: string) => Promise<void>
   isLiveNetwork: (
     provider: SphinxJsonRpcProvider | HardhatEthersProvider
@@ -67,7 +59,6 @@ export type SphinxContext = {
 
 export const makeSphinxContext = (): SphinxContext => {
   return {
-    makeGetConfigArtifacts,
     prompt: userConfirmation,
     isLiveNetwork,
     propose,

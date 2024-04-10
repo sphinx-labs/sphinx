@@ -28,9 +28,6 @@ If you don't include this prefix in a `forge` command, Foundry will continue usi
 
 ## Errors
 
-### `Ineffective mark-compacts near heap limit allocation failed`
-This bug can occur in repositories that have a very large number of contracts in them. This causes your build info artifact files to be extremely large, which can cause memory issues when using Sphinx. You can resolve this issue by running `forge clean`, which clears the artifacts directory, including the build info files.
-
 ### `EvmError: MemoryLimitOOG`
 
 This error occurs when Foundry runs out of memory during a Forge script, which can happen for larger deployments.

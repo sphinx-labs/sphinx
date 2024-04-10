@@ -13,11 +13,7 @@ import {
   parseFoundryContractArtifact,
   remove0x,
 } from '@sphinx-labs/contracts'
-import {
-  GetConfigArtifacts,
-  SphinxJsonRpcProvider,
-  getBytesLength,
-} from '@sphinx-labs/core'
+import { SphinxJsonRpcProvider, getBytesLength } from '@sphinx-labs/core'
 
 chai.use(chaiAsPromised)
 const expect = chai.expect
@@ -48,7 +44,6 @@ import { FoundryToml } from '../../../src/foundry/types'
 import {
   assertContractSizeLimitNotExceeded,
   assertNoLinkedLibraries,
-  makeGetConfigArtifacts,
   parseScriptFunctionCalldata,
   validateProposalNetworks,
 } from '../../../dist'
@@ -613,32 +608,6 @@ describe('Utils', async () => {
         cancun: false,
       }
       expect(replaceEnvVariables(input)).to.deep.equal(expected)
-    })
-  })
-
-  describe('getConfigArtifacts', () => {
-    let getConfigArtifacts: GetConfigArtifacts
-
-    before(() => {
-      getConfigArtifacts = makeGetConfigArtifacts(
-        foundryToml.artifactFolder,
-        foundryToml.buildInfoFolder,
-        process.cwd(),
-        foundryToml.cachePath
-      )
-    })
-
-    // Test that this function returns an empty object if it can't find an artifact for the given
-    // init code. This ensures the user can deploy contracts that are defined as inline bytecode,
-    // like a `CREATE3` proxy.
-    it('returns empty object for init code that does not belong to a source file', async () => {
-      const artifacts = await getConfigArtifacts([
-        '0x67363d3d37363d34f03d5260086018f3', // `CREATE3` proxy initcode
-      ])
-      expect(artifacts).deep.equals({
-        buildInfos: {},
-        configArtifacts: {},
-      })
     })
   })
 

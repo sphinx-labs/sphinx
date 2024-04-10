@@ -6,6 +6,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { Governor } from "@openzeppelin/contracts/governance/Governor.sol";
 import { SphinxUtils } from "@sphinx-labs/contracts/contracts/foundry/SphinxUtils.sol";
+import { MyParentContract } from "../MyParentContract.sol";
 
 struct TopLevelStruct {
     int256 a;
@@ -72,6 +73,22 @@ contract MyContract1 {
 
 contract MyContract2 {
     uint256 public number;
+
+    function incrementMyContract2(uint256 _num) external {
+        number += _num;
+    }
+
+    receive() external payable {}
+}
+
+contract MyContract3 is MyParentContract {
+    uint256 public number;
+
+    bytes32 public immutable x;
+
+    constructor(bytes32 _x) {
+        x = _x;
+    }
 
     function incrementMyContract2(uint256 _num) external {
         number += _num;

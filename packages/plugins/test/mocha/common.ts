@@ -76,7 +76,7 @@ import * as Reverter from '../../out/artifacts/Reverter.sol/Reverter.json'
 import * as MyContract1Artifact from '../../out/artifacts/MyContracts.sol/MyContract1.json'
 import * as MyContract2Artifact from '../../out/artifacts/MyContracts.sol/MyContract2.json'
 import { getFoundryToml } from '../../src/foundry/options'
-import { callForgeScriptFunction, makeGetConfigArtifacts } from '../../dist'
+import { callForgeScriptFunction, makeArtifactPaths } from '../../dist'
 import {
   makeContractDecodedAction,
   makeFunctionCallDecodedAction,
@@ -85,6 +85,7 @@ import {
 import { FoundrySingleChainBroadcast } from '../../src/foundry/types'
 import {
   getInitCodeWithArgsArray,
+  makeConfigArtifacts,
   readFoundrySingleChainBroadcast,
 } from '../../src/foundry/utils'
 
@@ -455,23 +456,8 @@ export const makeDeployment = async (
 
   const deploymentInfoArray = await Promise.all(collectedPromises)
 
-  const foundryToml = await getFoundryToml()
-  const getConfigArtifacts = makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    process.cwd(),
-    foundryToml.cachePath
-  )
-
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    deploymentInfoArray.flatMap(
-      (deploymentInfo) => deploymentInfo.accountAccesses
-    )
-  )
-
-  const { configArtifacts, buildInfos } = await getConfigArtifacts(
-    initCodeWithArgsArray
-  )
+  const artifactPaths = makeArtifactPaths(accountAccesses)
+  const configArtifacts = await makeConfigArtifacts(artifactPaths)
 
   const networkConfigArray = deploymentInfoArray.map((deploymentInfo) => {
     return makeNetworkConfig(
@@ -488,7 +474,6 @@ export const makeDeployment = async (
   const deploymentConfig = makeDeploymentConfig(
     networkConfigArray,
     configArtifacts,
-    buildInfos,
     merkleTree
   )
 
@@ -848,28 +833,6 @@ export const checkArtifacts = (
         )
       ).to.be.true
     }
-  }
-
-  for (const compilerInput of deploymentConfig.inputs) {
-    const compilerInputFilePath = join(
-      `deployments`,
-      getCompilerInputDirName(executionMode),
-      `${compilerInput.id}.json`
-    )
-
-    expect(existsSync(compilerInputFilePath)).to.be.true
-
-    const writtenArtifact = JSON.parse(
-      readFileSync(compilerInputFilePath, 'utf-8')
-    )
-    // We JSON.parse then JSON.stringify the compiler inputs to remove undefined fields so that we
-    // can compare the written artifact to the expected artifact.
-    const parsedCompilerInput = JSON.parse(JSON.stringify(compilerInput))
-    expect(writtenArtifact).to.deep.equal(parsedCompilerInput)
-    expect(typeof compilerInput.id).to.equal('string')
-    expect(typeof compilerInput.solcLongVersion).to.equal('string')
-    expect(typeof compilerInput.solcVersion).to.equal('string')
-    expect(isNonNullObject(compilerInput.input)).to.be.true
   }
 }
 

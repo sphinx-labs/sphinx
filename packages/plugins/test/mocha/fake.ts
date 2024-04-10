@@ -15,11 +15,8 @@ import {
 import { EventFragment, ethers } from 'ethers'
 
 import {
-  dummyBuildInfoId,
   dummyModuleAddress,
   getDummyAccountAccess,
-  getDummyBuildInfos,
-  getDummyCompilerInput,
   getDummyEventLog,
   getDummyMerkleTree,
   getDummyNetworkConfig,
@@ -65,7 +62,6 @@ export const getFakeConfigArtifacts = async (
       artifactFolder
     )
     configArtifacts[name] = {
-      buildInfoId: dummyBuildInfoId,
       artifact,
     }
   }
@@ -79,7 +75,6 @@ export const getFakeConfigArtifactsFromContractArtifacts = async (
   for (const artifact of artifacts) {
     const fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`
     configArtifacts[fullyQualifiedName] = {
-      buildInfoId: dummyBuildInfoId,
       artifact,
     }
   }
@@ -121,7 +116,6 @@ export const getFakeDeploymentConfig = async (
   fullyQualifiedName: string,
   initCodeWithArgs: string,
   artifactFolder: string,
-  compilerInputId: string,
   merkleRoot: string
 ): Promise<DeploymentConfig> => {
   const networkConfig = getDummyNetworkConfig()
@@ -129,9 +123,6 @@ export const getFakeDeploymentConfig = async (
   networkConfig.actionInputs = [
     getFakeActionInputWithContract(fullyQualifiedName, initCodeWithArgs),
   ]
-
-  const compilerInput = getDummyCompilerInput()
-  compilerInput.id = compilerInputId
 
   const merkleTree = getDummyMerkleTree()
   merkleTree.root = merkleRoot
@@ -143,8 +134,6 @@ export const getFakeDeploymentConfig = async (
       [fullyQualifiedName],
       artifactFolder
     ),
-    buildInfos: getDummyBuildInfos(),
-    inputs: [compilerInput],
     version: '0',
   }
 }

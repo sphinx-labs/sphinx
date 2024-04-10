@@ -6,12 +6,10 @@ import {
 } from '@sphinx-labs/contracts'
 
 import {
-  BuildInfos,
   ConfigArtifacts,
   DeploymentConfig,
   NetworkConfig,
 } from '../config/types'
-import { CompilerInput, getMinimumCompilerInput } from '../languages'
 import { COMPILER_CONFIG_VERSION } from '../networks'
 
 // Load environment variables from .env
@@ -20,58 +18,10 @@ dotenv.config()
 export const makeDeploymentConfig = (
   networkConfigs: Array<NetworkConfig>,
   configArtifacts: ConfigArtifacts,
-  buildInfos: BuildInfos,
   merkleTree: SphinxMerkleTree
 ): DeploymentConfig => {
-  const sphinxInputs: Array<CompilerInput> = []
-
-  for (const networkConfig of networkConfigs) {
-    for (const actionInput of networkConfig.actionInputs) {
-      for (const { fullyQualifiedName } of actionInput.contracts) {
-        const { buildInfoId, artifact } = configArtifacts[fullyQualifiedName]
-        const buildInfo = buildInfos[buildInfoId]
-        if (!buildInfos[buildInfoId] || !artifact) {
-          throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
-        }
-
-        // Check if we've already added the current build info to the inputs array. If we have,
-        // we'll merge the new sources into the existing sources. Otherwise, we'll create a new
-        // element in the inputs array.
-        const prevSphinxInput = sphinxInputs.find(
-          (input) => input.id === buildInfo.id
-        )
-
-        const { language, settings, sources } = getMinimumCompilerInput(
-          buildInfo.input,
-          artifact.metadata
-        )
-
-        if (prevSphinxInput === undefined) {
-          const sphinxInput: CompilerInput = {
-            solcVersion: buildInfo.solcVersion,
-            solcLongVersion: buildInfo.solcLongVersion,
-            id: buildInfo.id,
-            input: {
-              language,
-              settings,
-              sources,
-            },
-          }
-          sphinxInputs.push(sphinxInput)
-        } else {
-          prevSphinxInput.input.sources = {
-            ...prevSphinxInput.input.sources,
-            ...sources,
-          }
-        }
-      }
-    }
-  }
-
   return {
     networkConfigs,
-    buildInfos,
-    inputs: sphinxInputs,
     version: COMPILER_CONFIG_VERSION,
     merkleTree,
     configArtifacts,
@@ -119,3 +69,6 @@ export const makeDeploymentData = (
 
   return data
 }
+
+// TODO(end): gh: i'm not sure if this is a breaking change to the website. Particularly, i'm not
+// sure which functions in the monorepo are used by the website.

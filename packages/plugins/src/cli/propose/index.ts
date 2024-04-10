@@ -21,10 +21,8 @@ import ora from 'ora'
 import { blue } from 'chalk'
 import { ethers } from 'ethers'
 import {
-  BuildInfos,
   ConfigArtifacts,
   DeploymentInfo,
-  GetConfigArtifacts,
   NetworkConfig,
 } from '@sphinx-labs/core/dist/config/types'
 import {
@@ -39,11 +37,12 @@ import {
   getSphinxConfigFromScript,
   readInterface,
   compile,
-  getInitCodeWithArgsArray,
   assertValidVersions,
   validateProposalNetworks,
   parseScriptFunctionCalldata,
   assertContractSizeLimitNotExceeded,
+  makeArtifactPaths,
+  makeConfigArtifacts,
 } from '../../foundry/utils'
 import { SphinxContext } from '../context'
 import { FoundryToml } from '../../foundry/types'
@@ -73,7 +72,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
-  getConfigArtifacts: GetConfigArtifacts,
   sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
@@ -83,7 +81,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
     rpcUrl: string
   }>
   configArtifacts?: ConfigArtifacts
-  buildInfos?: BuildInfos
   isEmpty: boolean
 }> => {
   const deploymentInfoPath = join(
@@ -136,10 +133,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
       // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
       // priority than `DAPP_BLOCK_GAS_LIMIT`.
       FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
-      // We specify build info to be false so that calling the script does not cause the users entire
-      // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
-      // We do need the build info, but that is generated when we compile at the beginning of the script.
-      FOUNDRY_BUILD_INFO: 'false',
     })
 
     if (spawnOutput.code !== 0) {
@@ -169,13 +162,13 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
 
   spinner?.start(`Building proposal...`)
 
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    collected.flatMap(({ deploymentInfo }) => deploymentInfo.accountAccesses)
+  const accountAccesses = collected.flatMap(
+    ({ deploymentInfo }) => deploymentInfo.accountAccesses
   )
 
-  const { configArtifacts, buildInfos } = await getConfigArtifacts(
-    initCodeWithArgsArray
-  )
+  const artifactPaths = makeArtifactPaths(accountAccesses)
+
+  const configArtifacts = await makeConfigArtifacts(artifactPaths)
 
   collected.forEach(({ deploymentInfo }) =>
     assertContractSizeLimitNotExceeded(
@@ -220,7 +213,6 @@ export const buildNetworkConfigArray: BuildNetworkConfigArray = async (
   return {
     networkConfigArrayWithRpcUrls,
     configArtifacts,
-    buildInfos,
     isEmpty: false,
   }
 }
@@ -259,16 +251,13 @@ export const propose = async (
 
   /**
    * Run the compiler. It's necessary to do this before we read any contract interfaces.
-   * We request the build info here which we need to build info to generate the compiler
-   * config.
    *
    * We do not force recompile here because the user may have a custom compilation pipeline
    * that yields additional artifacts which the standard forge compiler does not.
    */
   compile(
     silent,
-    false, // Do not force recompile
-    true // Generate build info
+    false // Do not force recompile
   )
 
   const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
@@ -308,31 +297,19 @@ export const propose = async (
   spinner.succeed(`Validated networks.`)
   spinner.start(`Collecting transactions...`)
 
-  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
-    foundryToml.artifactFolder,
-    foundryToml.buildInfoFolder,
-    projectRoot,
-    foundryToml.cachePath
-  )
-
-  const {
-    networkConfigArrayWithRpcUrls,
-    configArtifacts,
-    isEmpty,
-    buildInfos,
-  } = await sphinxContext.buildNetworkConfigArray(
-    scriptPath,
-    scriptFunctionCalldata,
-    safeAddress,
-    rpcUrls,
-    sphinxPluginTypesInterface,
-    foundryToml,
-    projectRoot,
-    getConfigArtifacts,
-    sphinxContext,
-    targetContract,
-    spinner
-  )
+  const { networkConfigArrayWithRpcUrls, configArtifacts, isEmpty } =
+    await sphinxContext.buildNetworkConfigArray(
+      scriptPath,
+      scriptFunctionCalldata,
+      safeAddress,
+      rpcUrls,
+      sphinxPluginTypesInterface,
+      foundryToml,
+      projectRoot,
+      sphinxContext,
+      targetContract,
+      spinner
+    )
 
   if (isEmpty) {
     spinner.succeed(
@@ -342,9 +319,9 @@ export const propose = async (
   }
 
   // Narrow the TypeScript type of the NetworkConfig and ConfigArtifacts.
-  if (!networkConfigArrayWithRpcUrls || !configArtifacts || !buildInfos) {
+  if (!networkConfigArrayWithRpcUrls || !configArtifacts) {
     throw new Error(
-      `NetworkConfig, ConfigArtifacts, or BuildInfos not defined. Should never happen.`
+      `NetworkConfig or ConfigArtifacts not defined. Should never happen.`
     )
   }
 
@@ -360,7 +337,6 @@ export const propose = async (
   const deploymentConfig = makeDeploymentConfig(
     networkConfigArray,
     configArtifacts,
-    buildInfos,
     merkleTree
   )
 

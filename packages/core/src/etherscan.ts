@@ -1,3 +1,5 @@
+import { writeFile, writeFileSync } from 'fs'
+
 import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
 import {
@@ -17,12 +19,12 @@ import { Etherscan } from '@nomicfoundation/hardhat-verify/etherscan'
 
 import { DeploymentConfig } from './config/types'
 import { SphinxJsonRpcProvider } from './provider'
-import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import {
   fetchNetworkConfigFromDeploymentConfig,
   formatSolcLongVersion,
   isLiveNetwork,
   sleep,
+  splitFullyQualifiedName,
 } from './utils'
 import { BuildInfo, SolcInput } from './languages'
 import {
@@ -30,6 +32,7 @@ import {
   fetchNameForNetwork,
   isVerificationSupportedForNetwork,
 } from './networks'
+import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
 // Load environment variables from .env
 dotenv.config()
@@ -54,13 +57,12 @@ export const verifySphinxConfig = async (
       fullyQualifiedName,
       initCodeWithArgs,
     } of actionInput.contracts) {
-      const { artifact, buildInfoId } =
-        deploymentConfig.configArtifacts[fullyQualifiedName]
-      const buildInfo = deploymentConfig.buildInfos[buildInfoId]
+      const { artifact } = deploymentConfig.configArtifacts[fullyQualifiedName]
 
-      const minimumCompilerInput = getMinimumCompilerInput(
-        buildInfo.input,
-        artifact.metadata
+      const minimumCompilerInput = makeTODO(artifact.metadata)
+
+      const solcLongVersion = formatSolcLongVersion(
+        artifact.metadata.compiler.version
       )
 
       // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
@@ -77,7 +79,7 @@ export const verifySphinxConfig = async (
         address,
         encodedConstructorArgs,
         fullyQualifiedName,
-        buildInfo.solcLongVersion,
+        solcLongVersion,
         minimumCompilerInput,
         provider,
         networkConfig.chainId,
@@ -116,14 +118,10 @@ export const verifyDeploymentWithRetries = async (
 
       const contractName = fullyQualifiedName.split(':')[1]
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const { artifact, buildInfoId } =
+        const { artifact } =
           deploymentConfig.configArtifacts[fullyQualifiedName]
-        const buildInfo = deploymentConfig.buildInfos[buildInfoId]
 
-        const minimumCompilerInput = getMinimumCompilerInput(
-          buildInfo.input,
-          artifact.metadata
-        )
+        const minimumCompilerInput = makeTODO(artifact.metadata)
 
         // Get the ABI encoded constructor arguments. We use the length of the `artifact.bytecode` to
         // determine where the contract's creation code ends and the constructor arguments begin. This
@@ -135,11 +133,15 @@ export const verifyDeploymentWithRetries = async (
           ethers.dataLength(artifact.bytecode)
         )
 
+        const solcLongVersion = formatSolcLongVersion(
+          artifact.metadata.compiler.version
+        )
+
         const result = await attemptVerification(
           address,
           encodedConstructorArgs,
           fullyQualifiedName,
-          buildInfo.solcLongVersion,
+          solcLongVersion,
           minimumCompilerInput,
           provider,
           networkConfig.chainId,
@@ -386,6 +388,38 @@ export const verifySphinxSystem = async (
       e
     )
   }
+}
+
+const makeTODO = (metadata: CompilerOutputMetadata): SolcInput => {
+  const libraries: SolcInput['settings']['libraries'] = {}
+  for (const [fullyQualifiedName, address] of Object.entries(
+    metadata.settings.libraries
+  )) {
+    const { sourceName, contractName: libraryName } =
+      splitFullyQualifiedName(fullyQualifiedName)
+    libraries[sourceName][libraryName] = address
+  }
+
+  const sources: SolcInput['sources'] = {}
+  for (const [sourceName, { content }] of Object.entries(metadata.sources)) {
+    sources[sourceName] = {
+      content,
+    }
+  }
+
+  const settings = {
+    ...metadata.settings,
+    libraries,
+    compilationTarget: undefined,
+  }
+
+  const solcInput: SolcInput = {
+    language: metadata.language,
+    settings,
+    sources: metadata.sources,
+  }
+
+  return solcInput
 }
 
 // An array of built-in Etherscan chain configs. This is copied from Hardhat. We don't import their

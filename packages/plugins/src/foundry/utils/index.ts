@@ -13,7 +13,6 @@ import {
 import { spawnSync } from 'child_process'
 
 import {
-  BuildInfo,
   CompilerOutputContracts,
   SphinxTransactionResponse,
 } from '@sphinx-labs/core/dist/languages/solidity/types'
@@ -29,6 +28,7 @@ import {
   isDataHexString,
   isDefined,
   isNormalizedAddress,
+  isString,
   sortHexStrings,
   spawnAsync,
   trimQuotes,
@@ -39,13 +39,11 @@ import {
   DeploymentConfig,
   ConfigArtifacts,
   DeploymentInfo,
-  GetConfigArtifacts,
   InitialChainState,
   NetworkConfig,
   ParsedVariable,
   SphinxConfig,
   SphinxConfigWithAddresses,
-  BuildInfos,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import chain from 'stream-chain'
@@ -88,7 +86,6 @@ import {
 } from '../types'
 import { SimulationTransactions, simulate } from '../../hardhat/simulate'
 import { AssertNoLinkedLibraries, GetNetworkGasEstimate } from '../../cli/types'
-import { BuildInfoTemplate, trimObjectToType } from './trim'
 import { assertValidNodeVersion } from '../../cli/utils'
 import { SphinxContext } from '../../cli/context'
 import {
@@ -105,79 +102,6 @@ import {
 import { contractsExceedSizeLimitErrorMessage } from '../../error-messages'
 
 const readFileAsync = promisify(readFile)
-
-/**
- * @field contracts An array where each element corresponds to a contract in the
- * `BuildInfo.output.contracts` object. We use this array to match collected contract init code to
- * its artifact (in the `isInitCodeMatch` function).
- */
-type BuildInfoCacheEntry = {
-  name: string
-  time: number
-  contracts: Array<{
-    fullyQualifiedName: string
-    bytecode: string
-    linkReferences: LinkReferences
-    constructorFragment?: ethers.ConstructorFragment
-  }>
-}
-
-export const streamBuildInfoCacheContracts = async (filePath: string) => {
-  const pipeline = new chain([
-    createReadStream(filePath),
-    parser(),
-    pick({ filter: 'output' }),
-    pick({ filter: 'contracts' }),
-    streamObject(),
-    (data: { key: string; value: CompilerOutputContracts[string] }) => {
-      const sourceName = data.key
-
-      const contracts: BuildInfoCacheEntry['contracts'] = []
-      for (const [contractName, contract] of Object.entries(data.value)) {
-        const iface = new ethers.Interface(contract.abi)
-        const constructorFragment = iface.fragments.find(
-          ConstructorFragment.isFragment
-        )
-
-        contracts.push({
-          fullyQualifiedName: `${sourceName}:${contractName}`,
-          bytecode: add0x(contract.evm.bytecode.object),
-          linkReferences: contract.evm.bytecode.linkReferences,
-          constructorFragment,
-        })
-      }
-      return contracts
-    },
-  ])
-
-  const buildInfoCacheContracts: BuildInfoCacheEntry['contracts'] = []
-  pipeline.on('data', (name) => {
-    buildInfoCacheContracts.push(name)
-  })
-
-  await new Promise((resolve) => pipeline.on('finish', resolve))
-  return buildInfoCacheContracts
-}
-
-export const streamBuildInfo = async (filePath: string) => {
-  const pipeline = new chain([
-    createReadStream(filePath),
-    parser(),
-    ignore({ filter: 'output' }),
-    streamValues(),
-    (data) => {
-      return data
-    },
-  ])
-
-  let buildInfo
-  pipeline.on('data', (b) => {
-    buildInfo = b.value
-  })
-
-  await new Promise((resolve) => pipeline.on('finish', resolve))
-  return buildInfo
-}
 
 export const messageArtifactNotFound = (fullyQualifiedName: string): string => {
   return (
@@ -211,6 +135,7 @@ export const messageMultipleArtifactsFound = (
  * and finally 'myRepo/artifacts/MyFile/MyContract.json' (notice that 'src/tokens/ is removed in
  * this attempt). If the artifact is still not found, it throws an error.
  */
+// TODO(later): can we remove this function?
 export const readContractArtifact = async (
   fullyQualifiedName: string,
   projectRoot: string,
@@ -275,22 +200,6 @@ export const readContractArtifact = async (
 }
 
 /**
- * Returns the init code of every contract deployment collected from a Forge script.
- */
-export const getInitCodeWithArgsArray = (
-  accountAccesses: Array<ParsedAccountAccess>
-): Array<string> => {
-  const flat = accountAccesses.flatMap((access) => [
-    access.root,
-    ...access.nested,
-  ])
-
-  return flat
-    .filter((accountAccess) => accountAccess.kind === AccountAccessKind.Create)
-    .map((accountAccess) => accountAccess.data)
-}
-
-/**
  * Compile the contracts using Forge.
  *
  * @param force Force re-compile the contracts. This ensures that we're using the most recent
@@ -303,11 +212,7 @@ export const getInitCodeWithArgsArray = (
  * It's fine for recompilation to occur after running the user's Forge script because Foundry
  * automatically compiles the necessary contracts before executing it.
  */
-export const compile = (
-  silent: boolean,
-  force: boolean,
-  buildInfo: boolean
-): void => {
+export const compile = (silent: boolean, force: boolean): void => {
   const forgeBuildArgs = ['build']
 
   if (silent) {
@@ -315,9 +220,6 @@ export const compile = (
   }
   if (force) {
     forgeBuildArgs.push('--force')
-  }
-  if (buildInfo) {
-    forgeBuildArgs.push('--build-info')
   }
 
   // We use `spawnSync` to display the compilation process to the user as it occurs. Compiler errors
@@ -331,6 +233,7 @@ export const compile = (
 }
 
 /**
+ * TODO(docs): update
  * Throws an error if there are any linked libraries in `scriptPath`. If a `targetContract` is
  * defined, this function simply builds fully qualified name, then uses it to load the script's
  * artifact. If a `targetContract` isn't defined, this function searches the build info cache to
@@ -370,244 +273,26 @@ export const assertNoLinkedLibraries: AssertNoLinkedLibraries = async (
   }
 }
 
-/**
- * Returns an array of the most recent fully qualified names for the given `sourceName`. This
- * function searches the build info cache for the most recent build info file that contains a fully
- * qualified name starting with `sourceName`. Returns an empty array if there is no such fully
- * qualified name in any of the cached build info files.
- */
-const findFullyQualifiedNames = (
-  rawSourceName: string,
-  cachePath: string,
-  projectRoot: string
-): Array<string> => {
-  const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
-
-  // Normalize the source name so that it conforms to the format of the fully qualified names in the
-  // build info cache. The normalized format is "path/to/file.sol".
-  const sourceName = relative(projectRoot, rawSourceName)
-
-  const buildInfoCache: Record<string, BuildInfoCacheEntry> = JSON.parse(
-    readFileSync(buildInfoCacheFilePath, 'utf8')
+export const makeConfigArtifacts = async (
+  artifactPaths: Array<string>
+): Promise<ConfigArtifacts> => {
+  const artifacts = await Promise.all(
+    artifactPaths.map((artifactPath) =>
+      parseFoundryContractArtifact(readFileAsync(artifactPath))
+    )
   )
 
-  // Sort the build info files from most recent to least recent.
-  const sortedCachedFiles = Object.values(buildInfoCache).sort(
-    (a, b) => b.time - a.time
-  )
-
-  for (const { contracts } of sortedCachedFiles) {
-    const fullyQualifiedNames = contracts
-      .filter((contract) => contract.fullyQualifiedName.startsWith(sourceName))
-      .map((contract) => contract.fullyQualifiedName)
-
-    if (fullyQualifiedNames.length > 0) {
-      return fullyQualifiedNames
-    }
+  const configArtifacts: ConfigArtifacts = {}
+  for (const artifact of artifacts) {
+    const { sourceName, contractName } = artifact
+    const fullyQualifiedName = `${sourceName}:${contractName}`
+    configArtifacts[fullyQualifiedName] = { artifact }
   }
 
-  return []
+  return configArtifacts
 }
 
-/**
- * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
- * config to its artifact and build info. We use a callback to create a standard interface for the
- * `getConfigArtifacts` function, which may be used by Sphinx's future Hardhat plugin.
- *
- * @dev We do not use this function directly, instead we call it via SphinxContext to facilitate
- * dependency injection.
- */
-export const makeGetConfigArtifacts = (
-  artifactFolder: string,
-  buildInfoFolder: string,
-  projectRoot: string,
-  cachePath: string
-): GetConfigArtifacts => {
-  return async (initCodeWithArgsIncludingDuplicates: Array<string>) => {
-    // Remove duplicates from the array. This is a performance optimization that prevents us from
-    // needing to search for the same artifact multiple times.
-    const initCodeWithArgsArray = Array.from(
-      new Set(initCodeWithArgsIncludingDuplicates)
-    )
-
-    const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
-    // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
-    // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
-    let buildInfoCache: Record<string, BuildInfoCacheEntry> = existsSync(
-      buildInfoCacheFilePath
-    )
-      ? JSON.parse(readFileSync(buildInfoCacheFilePath, 'utf8'))
-      : {}
-
-    const buildInfoPath = join(buildInfoFolder)
-
-    // Find all the build info files and their last modified time
-    const buildInfoFileNames = readdirSync(buildInfoPath).filter((fileName) => {
-      return fileName.endsWith('.json')
-    })
-
-    const cachedNames = Object.keys(buildInfoCache)
-    // If there is only one build info file and it is not in the cache,
-    // then clear the cache b/c the user must have force recompiled
-    if (
-      buildInfoFileNames.length === 1 &&
-      !cachedNames.includes(buildInfoFileNames[0])
-    ) {
-      buildInfoCache = {}
-    }
-
-    // Remove any files in the cache that no longer exist
-    for (const cachedName of cachedNames) {
-      if (!buildInfoFileNames.includes(cachedName)) {
-        delete buildInfoCache[cachedName]
-      }
-    }
-
-    const buildInfoFileNamesWithTime = buildInfoFileNames
-      .map((fileName) => ({
-        name: fileName,
-        time: statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
-      }))
-      .sort((a, b) => b.time - a.time)
-
-    // Read all of the new/modified files and update the cache to reflect the changes
-    // We intentionally do not cache the files we read here because we do not know if they
-    // will be used or not and storing all of them can result in memory issues if there are
-    // a lot of large build info files which can happen in large projects.
-    for (const file of buildInfoFileNamesWithTime) {
-      // If the file exists in the cache and the time has changed, then we just update the time
-      if (
-        buildInfoCache[file.name]?.time &&
-        buildInfoCache[file.name]?.time !== file.time
-      ) {
-        buildInfoCache[file.name].time = file.time
-      } else if (!buildInfoCache[file.name]) {
-        // Update the build info file dictionary in the cache
-        buildInfoCache[file.name] = {
-          name: file.name,
-          time: file.time,
-          contracts: await streamBuildInfoCacheContracts(
-            join(buildInfoFolder, file.name)
-          ),
-        }
-      }
-    }
-
-    // Just make sure the files are sorted by time
-    const sortedCachedFiles = Object.values(buildInfoCache).sort(
-      (a, b) => b.time - a.time
-    )
-
-    // Look through the cache, read all the contract artifacts, and find all of the required build
-    // info files names. We get the artifacts for every action, even if it'll be skipped, because the
-    // artifact is necessary when we're creating the deployment preview, which includes skipped actions.
-    const toReadFiles: string[] = []
-    const localBuildInfoCache = {}
-
-    const fullyQualifiedNamePromises = initCodeWithArgsArray.map(
-      async (initCodeWithArgs) => {
-        // Look through the cache for the first build info file that contains the contract
-        for (const file of sortedCachedFiles) {
-          const contract = file.contracts.find((ct) => {
-            const { bytecode, constructorFragment, linkReferences } = ct
-
-            return isInitCodeMatch(initCodeWithArgs, {
-              bytecode,
-              linkReferences,
-              constructorFragment,
-            })
-          })
-
-          if (contract) {
-            // Keep track of if we need to read the file or not
-            if (!toReadFiles.includes(file.name)) {
-              toReadFiles.push(file.name)
-            }
-
-            const artifact = await readContractArtifact(
-              contract.fullyQualifiedName,
-              projectRoot,
-              artifactFolder
-            )
-
-            return {
-              fullyQualifiedName: contract.fullyQualifiedName,
-              artifact,
-              buildInfoName: file.name,
-            }
-          }
-        }
-      }
-    )
-
-    // Resolve the promises, then filter out any that resolved to `undefined`, which will happen if
-    // we couldn't find an artifact for a contract's init code. We can fail to find the artifact
-    // either because the user defined the contract as inline bytecode (e.g. a `CREATE3` proxy) or
-    // the user deleted a build info file.
-    const resolved = (await Promise.all(fullyQualifiedNamePromises)).filter(
-      isDefined
-    )
-
-    // Read any build info files that we didn't already have in memory. This sometimes means we read
-    // files twice (above, and then again here) which is not ideal, but reduces the memory footprint
-    // of this function significantly in large projects.
-    await Promise.all(
-      toReadFiles.map(async (file) => {
-        const fullFilePath = join(buildInfoFolder, file)
-        if (!existsSync(fullFilePath)) {
-          if (existsSync(buildInfoCacheFilePath)) {
-            unlinkSync(buildInfoCacheFilePath)
-          }
-          throw new Error(
-            `Build info cache is outdated, please run 'forge build --force' then try again.`
-          )
-        } else {
-          const buildInfo = await streamBuildInfo(fullFilePath)
-          localBuildInfoCache[file] = buildInfo
-        }
-      })
-    )
-
-    // Combine the cached build infos with the contract artifacts
-    const completeArtifacts = resolved.map((artifactInfo) => {
-      return {
-        ...artifactInfo,
-        buildInfo: trimObjectToType<BuildInfo>(
-          localBuildInfoCache[artifactInfo.buildInfoName],
-          BuildInfoTemplate
-        ),
-      }
-    })
-
-    // Write the updated build info cache
-    writeFileSync(
-      buildInfoCacheFilePath,
-      JSON.stringify(buildInfoCache, null, 2)
-    )
-
-    const configArtifacts: ConfigArtifacts = {}
-    const buildInfos: BuildInfos = {}
-
-    for (const {
-      fullyQualifiedName,
-      artifact,
-      buildInfo,
-    } of completeArtifacts) {
-      buildInfo.solcLongVersion = formatSolcLongVersion(
-        buildInfo.solcLongVersion
-      )
-
-      buildInfos[buildInfo.id] = buildInfo
-
-      configArtifacts[fullyQualifiedName] = {
-        artifact,
-        buildInfoId: buildInfo.id,
-      }
-    }
-
-    return { configArtifacts, buildInfos }
-  }
-}
+// TODO(later): can we remove the bytecode matching logic?
 
 /**
  * Attempts to infer the default solc version given by `solc --version`. If this fails, it will
@@ -843,12 +528,7 @@ export const callForgeScriptFunction = async <T>(
     code: testCode,
     stdout: testOut,
     stderr: testErr,
-  } = await spawnAsync('forge', testScriptArgs, {
-    // We specify build info to be false so that calling the script does not cause the users entire
-    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
-    // We do need the build info, but that is generated when we compile at the beginning of the script.
-    FOUNDRY_BUILD_INFO: 'false',
-  })
+  } = await spawnAsync('forge', testScriptArgs)
 
   if (testCode !== 0) {
     spinner?.stop()
@@ -870,12 +550,7 @@ export const callForgeScriptFunction = async <T>(
     true
   )
 
-  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs, {
-    // We specify build info to be false so that calling the script does not cause the users entire
-    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
-    // We do need the build info, but that is generated when we compile at the beginning of the script.
-    FOUNDRY_BUILD_INFO: 'false',
-  })
+  const { code, stdout, stderr } = await spawnAsync('forge', forgeScriptArgs)
 
   // For good measure, we still read the code and error if necessary but this is unlikely to be triggered
   if (code !== 0) {
@@ -1806,4 +1481,19 @@ export const assertContractSizeLimitNotExceeded = (
   if (tooLarge.length > 0) {
     throw new Error(contractsExceedSizeLimitErrorMessage(tooLarge))
   }
+}
+
+export const makeArtifactPaths = (
+  accountAccesses: Array<ParsedAccountAccess>
+): Array<string> => {
+  const flat = accountAccesses.flatMap((access) => [
+    access.root,
+    ...access.nested,
+  ])
+
+  const artifactPaths = flat
+    .map((access) => access.artifactPath)
+    .filter(isString)
+
+  return artifactPaths
 }

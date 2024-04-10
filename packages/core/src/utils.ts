@@ -56,7 +56,6 @@ import {
 } from './actions/types'
 import { ExecutionMode, RELAYER_ROLE } from './constants'
 import { SphinxJsonRpcProvider } from './provider'
-import { BuildInfo } from './languages/solidity/types'
 import {
   COMPILER_CONFIG_VERSION,
   LocalNetworkMetadata,
@@ -254,20 +253,6 @@ export const isUserContractKind = (
   contractKind: string
 ): contractKind is UserContractKind => {
   return userContractKinds.includes(contractKind)
-}
-
-/**
- * Reads the build info from the local file system.
- *
- * @param buildInfoPath Path to the build info file.
- * @returns BuildInfo object.
- */
-export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
-  const buildInfo: BuildInfo = JSON.parse(
-    fs.readFileSync(buildInfoPath, 'utf8')
-  )
-
-  return buildInfo
 }
 
 /**
@@ -1708,6 +1693,24 @@ export const isPublicAsyncMethod = (
   }
 
   return false
+}
+
+export const splitFullyQualifiedName = (
+  fullyQualifiedName: string
+): {
+  sourceName: string
+  contractName: string
+} => {
+  const lastColonIndex = fullyQualifiedName.lastIndexOf(':')
+  if (lastColonIndex === -1) {
+    throw new Error(
+      `Colon not found in fully qualified name: ${fullyQualifiedName}`
+    )
+  }
+  return {
+    sourceName: fullyQualifiedName.substring(0, lastColonIndex),
+    contractName: fullyQualifiedName.substring(lastColonIndex + 1),
+  }
 }
 
 /**

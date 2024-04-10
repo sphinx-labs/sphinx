@@ -1,16 +1,11 @@
-import {
-  BuildInfo,
-  BuildInfos,
-  ConfigArtifacts,
-  GetConfigArtifacts,
-} from '@sphinx-labs/core'
+import { ConfigArtifacts } from '@sphinx-labs/core'
 import sinon from 'sinon'
 
 import { propose } from '../../src/cli/propose'
 import { deploy } from '../../src/cli/deploy'
 import { makeSphinxContext } from '../../src/cli/context'
 import { readContractArtifact } from '../../dist'
-import { getDummyBuildInfo, getDummyNetworkConfig } from './dummy'
+import { getDummyNetworkConfig } from './dummy'
 
 /**
  * Make a mocked `SphinxContext` object. Use this function if it's safe to assume that all of
@@ -54,41 +49,6 @@ export const makeMockSphinxContext = (
     .stub(sphinxContext, 'storeDeploymentConfig')
     .returns(Promise.resolve('mock-canonical-config-id'))
 
-  const makeGetConfigArtifacts = (
-    artifactFolder: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _buildInfoFolder: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    projectRoot: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _cachePath: string
-  ): GetConfigArtifacts => {
-    return async (
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _initCodeWithArgsArray: Array<string>
-    ) => {
-      const configArtifacts: ConfigArtifacts = {}
-      const buildInfos: BuildInfos = {}
-      for (const name of mockedFullyQualifiedNames) {
-        const artifact = await readContractArtifact(
-          name,
-          projectRoot,
-          artifactFolder
-        )
-        const buildInfo: BuildInfo = getDummyBuildInfo()
-        buildInfos[buildInfo.id] = buildInfo
-        configArtifacts[name] = {
-          buildInfoId: buildInfo.id,
-          artifact,
-        }
-      }
-      return {
-        configArtifacts,
-        buildInfos,
-      }
-    }
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   const assertNoLinkedLibraries = async () => {}
 
@@ -101,7 +61,6 @@ export const makeMockSphinxContext = (
     storeDeploymentConfig,
     relayProposal,
     prompt,
-    makeGetConfigArtifacts,
     assertNoLinkedLibraries,
   }
 }
@@ -118,12 +77,10 @@ export const makeMockSphinxContextForIntegrationTests = (
     relayProposal,
     storeDeploymentConfig,
     isLiveNetwork,
-    makeGetConfigArtifacts,
     assertNoLinkedLibraries,
   } = makeMockSphinxContext(fullyQualifiedNames)
   const context = makeSphinxContext()
 
-  context.makeGetConfigArtifacts = makeGetConfigArtifacts
   context.prompt = prompt
   context.relayProposal = relayProposal
   context.storeDeploymentConfig = storeDeploymentConfig

@@ -18,8 +18,8 @@ import { ExecutionMode } from '../../constants'
  * the Safe, the second approves the deployment, and the rest execute the deployment. For existing
  * Safes, the first transaction approves the deployment, and the rest execute the deployment.
  * @property {string} merkleRoot - The Merkle root of the deployment.
- * @property {Array<string>} solcInputHashes - The full list of Solidity compiler hashes used for
- * the deployment.
+ * @property {Array<string>} [solcInputHashes] - The full list of Solidity compiler hashes used for
+ * the deployment (deprecated).
  * @property {string} safeAddress - The address of the Gnosis Safe.
  * @property {string} moduleAddress - The address of the Sphinx Module.
  * @property {string} executorAddress - The address of the executor.
@@ -49,7 +49,7 @@ import { ExecutionMode } from '../../constants'
  * was initiated.
  * @property {string} safeInitData - The raw data that deployed and initialized the Gnosis Safe.
  * This is null for deployments that use a previously deployed Gnosis Safe.
- */
+*/
 export type ExecutionArtifact = {
   _format: 'sphinx-sol-execution-artifact-1'
   transactions: Array<{
@@ -57,7 +57,6 @@ export type ExecutionArtifact = {
     receipt: SphinxTransactionReceipt
   }>
   merkleRoot: string
-  solcInputHashes: Array<string>
   safeAddress: string
   moduleAddress: string
   executorAddress: string
@@ -87,6 +86,7 @@ export type ExecutionArtifact = {
   libraries: Array<string>
   gitCommit: string | null
   safeInitData: string | null
+  solcInputHashes?: Array<string>
 }
 
 export type SphinxTransactionResponse = {
@@ -124,8 +124,8 @@ export type SphinxTransactionResponse = {
  * @property {string} contractName - The name of the contract.
  * @property {string} address - The address of the contract.
  * @property {Array<any>} abi - The ABI of the contract.
- * @property {string} solcInputHash - The hash of the Solidity compiler input that contains this
- * contract.
+ * @property {string} [solcInputHash] - The hash of the Solidity compiler input that contains this
+ * contract (deprecated).
  * @property {SphinxTransactionReceipt} receipt - The transaction receipt of the contract
  * deployment.
  * @property {string} metadata - The metadata of the contract as returned by the Solidity compiler.
@@ -173,7 +173,6 @@ export type ContractDeploymentArtifact = {
   chainId: string
   receipt: SphinxTransactionReceipt
   args: Array<any>
-  solcInputHash: string
   abi: Array<any>
   bytecode: string
   deployedBytecode: string
@@ -184,6 +183,7 @@ export type ContractDeploymentArtifact = {
   gitCommit: string | null
   devdoc?: any
   userdoc?: any
+  solcInputHash?: string
 }
 
 /**
@@ -285,7 +285,7 @@ export interface SolcInput {
   sources: { [sourceName: string]: { content: string } }
   settings: {
     viaIR?: boolean
-    optimizer: {
+    optimizer?: {
       runs?: number
       enabled?: boolean
       details?: {
@@ -299,7 +299,7 @@ export interface SolcInput {
       bytecodeHash: string
       appendCBOR: boolean
     }
-    outputSelection: {
+    outputSelection?: {
       [sourceName: string]: {
         [contractName: string]: string[]
       }

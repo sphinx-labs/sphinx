@@ -6,9 +6,6 @@ import {
 } from '@sphinx-labs/contracts'
 import {
   ActionInputType,
-  BuildInfo,
-  BuildInfos,
-  CompilerInput,
   ContractDeploymentArtifact,
   Deployment,
   DeploymentArtifacts,
@@ -17,7 +14,6 @@ import {
   ExecutionArtifact,
   ExecutionMode,
   NetworkConfig,
-  SolcInput,
   SphinxJsonRpcProvider,
   SphinxTransactionReceipt,
 } from '@sphinx-labs/core'
@@ -33,8 +29,6 @@ export const dummyUnlabeledAddress = '0x' + 'ad'.repeat(20)
 export const dummyContractName = 'DummyContractName'
 export const dummyContractArtifactFileName = `${dummyContractName}.json`
 export const dummyExecutionArtifactFileName = `${dummyMerkleRoot}.json`
-export const dummyBuildInfoId = `dummyBuildInfoId`
-export const dummyCompilerInputArtifactFileName = `${dummyBuildInfoId}.json`
 
 export const getDummyEthersTransactionResponse =
   (): ethers.TransactionResponse => {
@@ -130,46 +124,6 @@ export const getDummyContractDeploymentArtifact =
       userdoc: {},
     }
   }
-
-export const getDummySolcInput = (): SolcInput => {
-  return {
-    language: 'Solidity',
-    settings: {
-      optimizer: {
-        runs: undefined,
-        enabled: undefined,
-        details: undefined,
-      },
-      outputSelection: {},
-    },
-    sources: {},
-  }
-}
-
-export const getDummyCompilerInput = (): CompilerInput => {
-  return {
-    id: dummyBuildInfoId,
-    solcVersion: '0.8.0',
-    solcLongVersion: '0.8.21+commit.d9974bed',
-    input: getDummySolcInput(),
-  }
-}
-
-export const getDummyBuildInfo = (): BuildInfo => {
-  return {
-    id: dummyBuildInfoId,
-    solcVersion: '0.8.0',
-    solcLongVersion: '0.8.21+commit.d9974bed',
-    input: getDummySolcInput(),
-    output: {
-      contracts: {},
-    },
-  }
-}
-
-export const getDummyBuildInfos = (): BuildInfos => {
-  return { [dummyBuildInfoId]: getDummyBuildInfo() }
-}
 
 export const getDummyEventLog = (): SphinxTransactionReceipt['logs'][0] => {
   return {
@@ -282,15 +236,11 @@ export const getDummyDeploymentConfig = (): DeploymentConfig => {
     networkConfigs: [getDummyNetworkConfig()],
     merkleTree: getDummyMerkleTree(),
     configArtifacts: {},
-    buildInfos: getDummyBuildInfos(),
-    inputs: [getDummyCompilerInput()],
     version: 'dummyVersion',
   }
 }
 
 export const getDummyDeploymentArtifacts = (): DeploymentArtifacts => {
-  const { id, input, solcVersion, solcLongVersion } = getDummyBuildInfo()
-
   return {
     networks: {
       [dummyChainId]: {
@@ -300,14 +250,6 @@ export const getDummyDeploymentArtifacts = (): DeploymentArtifacts => {
         executionArtifacts: {
           [dummyExecutionArtifactFileName]: getDummyExecutionArtifact(),
         },
-      },
-    },
-    compilerInputs: {
-      [dummyCompilerInputArtifactFileName]: {
-        id,
-        input,
-        solcLongVersion,
-        solcVersion,
       },
     },
   }
@@ -363,5 +305,6 @@ export const getDummyAccountAccess = (): AccountAccess => {
     data: '0xData',
     reverted: false,
     storageAccesses: [],
+    artifactPath: null,
   }
 }

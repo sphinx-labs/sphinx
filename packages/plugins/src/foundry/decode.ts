@@ -84,6 +84,9 @@ export const decodeDeploymentInfo = (
       parsedAccountAccessFragment.outputs,
       decodedResult
     ) as any
+
+    // TODO(later): update to include `string | null` artifactPath
+
     return parsedAccountAccess
   })
 
@@ -118,6 +121,7 @@ export const decodeDeploymentInfo = (
     safeStartingBalance,
   }
 
+  // TODO(later): update
   if (!isDeploymentInfo(deploymentInfo)) {
     throw new Error(`Invalid DeploymentInfo object. Should never happen.`)
   }

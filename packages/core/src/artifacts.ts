@@ -22,7 +22,6 @@ import {
   DeploymentConfig,
   ConfigArtifacts,
   NetworkConfig,
-  BuildInfos,
 } from './config/types'
 import {
   fetchNetworkConfigFromDeploymentConfig,
@@ -46,7 +45,8 @@ export type DeploymentArtifacts = {
   networks: {
     [chainId: string]: NetworkArtifacts
   }
-  compilerInputs: {
+  // TODO(docs): deprecated
+  compilerInputs?: {
     [fileName: string]: CompilerInput
   }
 }
@@ -280,7 +280,6 @@ export const convertEthersTransactionReceipt = (
 export const makeContractDeploymentArtifacts = async (
   merkleRoot: string,
   networkConfig: NetworkConfig,
-  buildInfos: BuildInfos,
   receipts: Array<SphinxTransactionReceipt>,
   configArtifacts: ConfigArtifacts,
   artifacts: {
@@ -305,11 +304,8 @@ export const makeContractDeploymentArtifacts = async (
   for (const action of networkConfig.actionInputs) {
     for (const contract of action.contracts) {
       const { fullyQualifiedName, initCodeWithArgs, address } = contract
-      const { artifact: compilerArtifact, buildInfoId } =
-        configArtifacts[fullyQualifiedName]
-      const buildInfo = buildInfos[buildInfoId]
-
-      if (!compilerArtifact || !buildInfo) {
+      const { artifact: compilerArtifact } = configArtifacts[fullyQualifiedName]
+      if (!compilerArtifact) {
         throw new Error(`Could not find artifact for: ${fullyQualifiedName}`)
       }
 
@@ -374,7 +370,6 @@ export const makeContractDeploymentArtifacts = async (
         contractName,
         address,
         abi,
-        solcInputHash: buildInfo.id,
         receipt,
         metadata: JSON.stringify(metadata),
         args: constructorArgValues,
@@ -428,18 +423,9 @@ export const writeDeploymentArtifacts = (
 ): void => {
   const rootArtifactDirPath = resolve('deployments')
   const projectDirPath = join(rootArtifactDirPath, projectName)
-  const compilerInputDirPath = join(
-    rootArtifactDirPath,
-    getCompilerInputDirName(executionMode)
-  )
 
   if (!existsSync(projectDirPath)) {
     mkdirSync(projectDirPath, { recursive: true })
-  }
-  if (!existsSync(compilerInputDirPath)) {
-    // Create the directory for the compiler inputs. We don't need to specify `recursive: true`
-    // because we know that the `deployments` dir has already been created.
-    mkdirSync(compilerInputDirPath)
   }
 
   for (const chainId of Object.keys(deploymentArtifacts.networks)) {
@@ -474,15 +460,6 @@ export const writeDeploymentArtifacts = (
         contractArtifactFilePath,
         JSON.stringify(contractArtifact, null, '\t')
       )
-    }
-  }
-
-  for (const [fileName, compilerInput] of Object.entries(
-    deploymentArtifacts.compilerInputs
-  )) {
-    const filePath = join(compilerInputDirPath, fileName)
-    if (!existsSync(filePath)) {
-      writeFileSync(filePath, JSON.stringify(compilerInput, null, '\t'))
     }
   }
 }
@@ -550,10 +527,7 @@ export const makeDeploymentArtifacts = async (
   artifacts: DeploymentArtifacts
 ): Promise<void> => {
   // We'll mutate these variables to update the existing artifacts.
-  const {
-    networks: allNetworkArtifacts,
-    compilerInputs: compilerInputArtifacts,
-  } = artifacts
+  const { networks: allNetworkArtifacts } = artifacts
 
   for (const chainId of Object.keys(deployments)) {
     const { provider, deploymentConfig, receipts } = deployments[chainId]
@@ -576,7 +550,6 @@ export const makeDeploymentArtifacts = async (
     await makeContractDeploymentArtifacts(
       merkleRoot,
       networkConfig,
-      deploymentConfig.buildInfos,
       receipts,
       configArtifacts,
       allNetworkArtifacts[chainId].contractDeploymentArtifacts,
@@ -594,11 +567,6 @@ export const makeDeploymentArtifacts = async (
     allNetworkArtifacts[chainId].executionArtifacts[
       `${remove0x(merkleRoot)}.json`
     ] = executionArtifact
-
-    // Make the compiler input artifacts.
-    for (const compilerInput of deploymentConfig.inputs) {
-      compilerInputArtifacts[`${compilerInput.id}.json`] = compilerInput
-    }
   }
 }
 
@@ -629,8 +597,6 @@ const makeExecutionArtifact = async (
     }
     return 0
   })
-
-  const solcInputHashes = deploymentConfig.inputs.map((input) => input.id)
 
   const {
     safeAddress,
@@ -667,7 +633,6 @@ const makeExecutionArtifact = async (
     _format: 'sphinx-sol-execution-artifact-1',
     transactions,
     merkleRoot,
-    solcInputHashes,
     safeAddress,
     moduleAddress,
     executorAddress,
@@ -796,19 +761,4 @@ export const isReceiptEarlier = (
     return true
   }
   return false
-}
-
-export const getCompilerInputDirName = (
-  executionMode: ExecutionMode
-): string => {
-  if (executionMode === ExecutionMode.LocalNetworkCLI) {
-    return 'compiler-inputs-local'
-  } else if (
-    executionMode === ExecutionMode.LiveNetworkCLI ||
-    executionMode === ExecutionMode.Platform
-  ) {
-    return 'compiler-inputs'
-  } else {
-    throw new Error(`Unknown execution mode.`)
-  }
 }

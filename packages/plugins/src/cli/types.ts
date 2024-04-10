@@ -3,9 +3,7 @@ import { ethers } from 'ethers'
 import {
   DeploymentConfig,
   ConfigArtifacts,
-  GetConfigArtifacts,
   NetworkConfig,
-  BuildInfos,
   NetworkGasEstimate,
 } from '@sphinx-labs/core'
 
@@ -59,7 +57,6 @@ export type BuildNetworkConfigArray = (
   sphinxPluginTypesInterface: ethers.Interface,
   foundryToml: FoundryToml,
   projectRoot: string,
-  getConfigArtifacts: GetConfigArtifacts,
   sphinxContext: SphinxContext,
   targetContract?: string,
   spinner?: ora.Ora
@@ -69,7 +66,6 @@ export type BuildNetworkConfigArray = (
     rpcUrl: string
   }>
   configArtifacts?: ConfigArtifacts
-  buildInfos?: BuildInfos
   isEmpty: boolean
 }>
 

@@ -48,11 +48,12 @@ import { SphinxMerkleTree, makeSphinxMerkleTree } from '@sphinx-labs/contracts'
 import {
   assertValidVersions,
   compile,
-  getInitCodeWithArgsArray,
   parseScriptFunctionCalldata,
   readInterface,
   assertContractSizeLimitNotExceeded,
   writeSystemContracts,
+  makeArtifactPaths,
+  makeConfigArtifacts,
 } from '../foundry/utils'
 import { getFoundryToml } from '../foundry/options'
 import { decodeDeploymentInfo, makeNetworkConfig } from '../foundry/decode'
@@ -105,16 +106,13 @@ export const deploy = async (
 
   /**
    * Run the compiler. It's necessary to do this before we read any contract interfaces.
-   * We request the build info here which we need to build info to generate the compiler
-   * config.
    *
    * We do not force recompile here because the user may have a custom compilation pipeline
    * that yields additional artifacts which the standard forge compiler does not.
    */
   compile(
     silent,
-    false, // Do not force recompile
-    true // Generate build info
+    false // Do not force recompile
   )
 
   const scriptFunctionCalldata = await parseScriptFunctionCalldata(sig)
@@ -123,13 +121,7 @@ export const deploy = async (
   spinner.start(`Collecting transactions...`)
 
   const foundryToml = await getFoundryToml()
-  const {
-    artifactFolder,
-    buildInfoFolder,
-    cachePath,
-    rpcEndpoints,
-    etherscan,
-  } = foundryToml
+  const { artifactFolder, cachePath, rpcEndpoints, etherscan } = foundryToml
 
   await assertValidVersions(scriptPath, targetContract)
 
@@ -169,13 +161,6 @@ export const deploy = async (
   const sphinxPluginTypesInterface = readInterface(
     artifactFolder,
     'SphinxPluginTypes'
-  )
-
-  const getConfigArtifacts = sphinxContext.makeGetConfigArtifacts(
-    artifactFolder,
-    buildInfoFolder,
-    projectRoot,
-    cachePath
   )
 
   const deploymentInfoPath = join(cachePath, 'sphinx-deployment-info.txt')
@@ -232,10 +217,6 @@ export const deploy = async (
     // gas. We use the `FOUNDRY_BLOCK_GAS_LIMIT` environment variable because it has a higher
     // priority than `DAPP_BLOCK_GAS_LIMIT`.
     FOUNDRY_BLOCK_GAS_LIMIT: MAX_UINT64.toString(),
-    // We specify build info to be false so that calling the script does not cause the users entire
-    // project to be rebuilt if they have `build_info=true` defined in their foundry.toml file.
-    // We do need the build info, but that is generated when we compile at the beginning of the script.
-    FOUNDRY_BUILD_INFO: 'false',
   })
 
   if (spawnOutput.code !== 0) {
@@ -289,12 +270,8 @@ export const deploy = async (
     throw new Error(`Unknown execution mode.`)
   }
 
-  const initCodeWithArgsArray = getInitCodeWithArgsArray(
-    deploymentInfo.accountAccesses
-  )
-  const { configArtifacts, buildInfos } = await getConfigArtifacts(
-    initCodeWithArgsArray
-  )
+  const artifactPaths = makeArtifactPaths(deploymentInfo.accountAccesses)
+  const configArtifacts = await makeConfigArtifacts(artifactPaths)
 
   assertContractSizeLimitNotExceeded(
     deploymentInfo.accountAccesses,
@@ -329,7 +306,6 @@ export const deploy = async (
   const deploymentConfig = makeDeploymentConfig(
     [networkConfig],
     configArtifacts,
-    buildInfos,
     merkleTree
   )
 
@@ -478,3 +454,69 @@ export const deploy = async (
     deploymentArtifacts,
   }
 }
+
+// TODO(end): notion: when this feature is released, tell every user to put
+// `use_literal_content=true` in their foundry.toml. also, tell them to remove `build_info=true`.
+
+// TODO(end): gh: i made this a non-breaking change by specifying an env var,
+// FOUNDRY_USE_LITERAL_CONTENT=true, every time we call a forge command.
+
+// TODO(docs): a full re-compilation will occur if the user doesn't specify
+// `use_literal_content=true` in their foundry.toml.
+
+// TODO(docs): the metadata appears to be included in the contract artifact by default in foundry.
+
+// TODO(docs): Reason: Fail - Unable to verify. Solidity Compilation Error: Unknown key
+// "compilationTarget". This field is in the artifact by default. this is a solidity field, not
+// something that's injected by foundry. the verification API should be able to handle this field,
+// but it can't.
+
+// TODO(docs): probably not necessary to say this: We could theoretically restrict the verification
+// input object to include only the necessary fields, but this opens up the possibility that we omit
+// a necessary field (e.g. recall spencer from hats viaIR). also, the solidity compiler could add
+// fields in the future. the drawback of keeping arbitrary fields on the VerificationInput is that
+// there could be fields like `compilationTarget` that break verification. it's worth mentioning
+// that compilationTarget is a solidity field, not something that's injected by foundry.
+
+// TODO(later-later): consider making a type predicate for the verification input, which should only
+// include necessary fields.
+
+// TODO(later-later): remove build info related documentation.
+
+// TODO(later-later): 'metadata' is an optional field according to the solidity docs, so you should
+// throw an error if it's not defined. also, adjust any TypeScript types if necessary.
+
+// TODO(later-later): add FOUNDRY_USE_LITERAL_CONTENT every time you call a forge command in the
+// deploy/propose logic.
+
+// TODO(later-later): remove build_info=true in foundry.tomls in the monorepo, and add
+// use_literal_content.
+
+// TODO(later-later): set `use_literal_content=false`. then, run `forge build`. then, step through a
+// proposal. there should only be one long re-compilation in the proposal process. if there isn't,
+// you didn't put `FOUNDRY_USE_LITERAL_CONTENT` somewhere.
+
+// TODO(later-later): add use_literal_content=true documentation.
+
+// TODO(later-later): display a warning if the user doesn't have `use_literal_content` enabled. make
+// sure this doesn't interfere with the spinner output. do this in Deploy and Propose commands.
+
+// TODO(later-later): make sure you didn't delete fields from the artifact object. you could
+// inadvertintely do this by deleting fields from the minimumCompilerInput if it's built from the
+// artifact. this could lead to surprising behavior with the artifact if it's used later. document
+// this.
+
+// TODO(later-later): check that you updated the TypeScript types in a backwards compatible manner.
+
+// TODO(later): remove documentation about the compiler input file, and merge its language into the
+// contract deployment artifact.
+
+// TODO(later): c/f `compiler input`, `compilerInput`
+
+// TODO(later): should we keep the user-facing documentation about the solcInputHash field?
+
+// TODO(later): make the removed fields in the deployment artifacts optional in the type.
+
+// TODO(later): i think it'd make the most sense for the accountAccess.artifactPath to only be
+// defined for `Create` types. If this is the case, the only labeling source will be contract
+// deployments. does this match with the old implementation?

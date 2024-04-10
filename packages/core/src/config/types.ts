@@ -212,15 +212,17 @@ export interface DeploymentConfig {
   networkConfigs: Array<NetworkConfig>
   merkleTree: SphinxMerkleTree
   configArtifacts: ConfigArtifacts
-  buildInfos: BuildInfos
-  inputs: Array<CompilerInput>
   version: string
+  // TODO(docs): deprecated
+  inputs?: Array<CompilerInput>
+  buildInfos?: BuildInfos
 }
 
 export type ConfigArtifacts = {
   [fullyQualifiedName: string]: {
-    buildInfoId: string
     artifact: ContractArtifact
+    // TODO(docs): deprecated
+    buildInfoId?: string
   }
 }
 
@@ -240,10 +242,6 @@ export type FoundryContractConfig = {
   kind: ContractKindEnum
   userSaltHash: string
 }
-
-export type GetConfigArtifacts = (
-  initCodeWithArgsArray: Array<string>
-) => Promise<{ configArtifacts: ConfigArtifacts; buildInfos: BuildInfos }>
 
 export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 

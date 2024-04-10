@@ -35,6 +35,7 @@ export type AccountAccess = {
     newValue: string
     reverted: boolean
   }>
+  artifactPath: string | null
 }
 
 export type ParsedAccountAccess = {
@@ -107,8 +108,22 @@ export type ContractArtifact = {
 }
 
 export interface CompilerOutputMetadata {
+  language: string
+  compiler: {
+    version: string
+  }
   sources: {
     [sourceName: string]: any
+  }
+  settings: {
+    compilationTarget: { [filePath: string]: string }
+    evmVersion: string
+    libraries: { [libraryName: string]: string }
+    remappings: string[]
+  }
+  optimizer?: {
+    enabled: boolean
+    runs: number
   }
   output: {
     abi: Array<any>

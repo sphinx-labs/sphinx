@@ -1,8 +1,6 @@
 [profile.default]
 src = 'contracts'
 out = 'out/artifacts'
-build_info_path = 'out/artifacts/build-info'
-build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "./"}]
 optimizer = false
@@ -13,8 +11,8 @@ cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../.."]
 solc = '0.8.21'
+use_literal_content=true
 memory_limit = 3355443200
-always_use_create_2_factory=true
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
@@ -63,3 +61,6 @@ blast = "${BLAST_MAINNET_URL}"
 taiko_katla = "${TAIKO_KATLA_URL}"
 mode_sepolia = "${MODE_SEPOLIA_URL}"
 mode = "${MODE_MAINNET_URL}"
+
+[etherscan]
+optimism_sepolia = { key = "${OPT_ETHERSCAN_API_KEY}", url = "https://api-sepolia-optimism.etherscan.io/api?" }
