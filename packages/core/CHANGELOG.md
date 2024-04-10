@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.24.4
+
+### Patch Changes
+
+- 957a108: Bump core package version
+
 ## 0.24.3
 
 ### Patch Changes
