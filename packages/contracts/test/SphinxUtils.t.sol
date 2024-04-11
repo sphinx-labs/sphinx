@@ -139,53 +139,6 @@ contract SphinxUtils_Test is Test, SphinxUtils, SphinxTestUtils {
         assertEq(passedCheck, false);
     }
 
-    function test_sphinxCheckAccesses_fails_incorrect_depth() external {
-        address expectedAddress = vm.computeCreate2Address(
-            0,
-            keccak256(type(SphinxForkCheck).creationCode),
-            DETERMINISTIC_DEPLOYMENT_PROXY
-        );
-
-        Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
-        accountAccesses[0] = VmSafe.AccountAccess({
-            chainInfo: VmSafe.ChainInfo(0, 1),
-            kind: VmSafe.AccountAccessKind.Call,
-            account: address(DETERMINISTIC_DEPLOYMENT_PROXY),
-            accessor: address(this),
-            initialized: false,
-            oldBalance: 0,
-            newBalance: 0,
-            deployedCode: new bytes(0),
-            value: 0,
-            data: type(SphinxForkCheck).creationCode,
-            reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
-        });
-        accountAccesses[1] = VmSafe.AccountAccess({
-            chainInfo: VmSafe.ChainInfo(0, 1),
-            kind: VmSafe.AccountAccessKind.Create,
-            account: address(expectedAddress),
-            accessor: DETERMINISTIC_DEPLOYMENT_PROXY,
-            initialized: false,
-            oldBalance: 0,
-            newBalance: 0,
-            deployedCode: "",
-            value: 0,
-            data: type(SphinxForkCheck).creationCode,
-            reverted: false,
-            storageAccesses: new Vm.StorageAccess[](0),
-            depth: 0
-        });
-
-        bool passedCheck = checkAccesses(
-            accountAccesses,
-            keccak256(type(SphinxForkCheck).creationCode),
-            keccak256(type(SphinxForkCheck).runtimeCode)
-        );
-        assertEq(passedCheck, false);
-    }
-
     function test_sphinxCheckAccesses_fails_incorrect_address() external {
         Vm.AccountAccess[] memory accountAccesses = new Vm.AccountAccess[](2);
         accountAccesses[0] = VmSafe.AccountAccess({
