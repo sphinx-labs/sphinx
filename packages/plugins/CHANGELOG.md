@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.31.7
+
+### Patch Changes
+
+- 7f8beaa: Remove depth from Sphinx validate
+- Updated dependencies [7f8beaa]
+  - @sphinx-labs/contracts@0.21.6
+
 ## 0.31.6
 
 ### Patch Changes
