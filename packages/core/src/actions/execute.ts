@@ -40,6 +40,7 @@ import {
 } from '../utils'
 import {
   implementsEIP2028,
+  isActionTransactionBatchingEnabled,
   shouldBufferExecuteActionsGasLimit,
 } from '../networks'
 import {
@@ -299,11 +300,15 @@ const findMaxBatchSize = (
     throw new Error(`Must enter at least one Merkle leaf.`)
   }
 
+  const maxBatchSize = isActionTransactionBatchingEnabled(chainId)
+    ? leaves.length
+    : 1
+
   // Start with the smallest batch size (1) and incrementally try larger batches. We don't start
   // with the largest possible batch size and incrementally try smaller batches because the gas
   // estimation logic ABI encodes the Merkle leaves, which can be very slow for large amounts of
   // data.
-  for (let i = 1; i <= leaves.length; i++) {
+  for (let i = 1; i <= maxBatchSize; i++) {
     if (
       !isExecutable(
         leaves.slice(0, i),
@@ -325,7 +330,7 @@ const findMaxBatchSize = (
   }
 
   // If all batches are executable, return the full length.
-  return leaves.length
+  return isActionTransactionBatchingEnabled(chainId) ? leaves.length : 1
 }
 
 /**

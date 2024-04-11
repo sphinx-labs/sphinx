@@ -103,6 +103,18 @@ export const isSupportedProductionNetwork = (chainId: bigint): boolean => {
   }
 }
 
+export const isActionTransactionBatchingEnabled = (
+  chainId: bigint
+): boolean => {
+  const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)
+
+  if (network) {
+    return network.actionTransactionBatching
+  } else {
+    return false
+  }
+}
+
 // Warning: Not supported on Anvil since this is expected to only be used on live networks
 export const fetchDripSizeForNetwork = (chainId: bigint) => {
   const network = SPHINX_NETWORKS.find((n) => n.chainId === chainId)

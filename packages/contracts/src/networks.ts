@@ -30,6 +30,7 @@ export type SupportedNetwork = {
   legacyTx: boolean
   actionGasLimitBuffer: boolean
   eip2028: boolean
+  actionTransactionBatching: boolean
   rollupStack?: {
     provider: RollupProvider
     type: RollupType
@@ -94,6 +95,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'sepolia',
@@ -123,6 +125,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'optimism',
@@ -152,6 +155,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'optimism_sepolia',
@@ -181,6 +185,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'arbitrum',
@@ -204,6 +209,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'arbitrum_sepolia',
@@ -227,6 +233,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'polygon',
@@ -250,6 +257,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'polygon_mumbai',
@@ -273,6 +281,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'polygon_amoy',
@@ -313,6 +322,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'bnb_testnet',
@@ -336,6 +346,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'gnosis',
@@ -365,6 +376,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'gnosis_chiado',
@@ -389,6 +401,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'linea',
@@ -412,6 +425,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'linea_sepolia',
@@ -435,6 +449,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'polygon_zkevm',
@@ -465,6 +480,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'polygon_zkevm_cardona',
@@ -488,6 +504,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'avalanche',
@@ -511,6 +528,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'avalanche_fuji',
@@ -534,6 +552,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'fantom',
@@ -557,6 +576,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'fantom_testnet',
@@ -574,6 +594,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'base',
@@ -603,6 +624,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'base_sepolia',
@@ -632,6 +654,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'celo',
@@ -655,6 +678,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'celo_alfajores',
@@ -678,6 +702,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'moonriver',
@@ -702,6 +727,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
+    actionTransactionBatching: false,
   },
   {
     name: 'moonbeam',
@@ -726,6 +752,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
+    actionTransactionBatching: false,
   },
   {
     name: 'moonbase_alpha',
@@ -750,6 +777,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     hardcodedMerkleLeafGas: (10_500_000).toString(),
+    actionTransactionBatching: false,
   },
   {
     name: 'fuse',
@@ -774,6 +802,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'evmos',
@@ -791,6 +820,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'evmos_testnet',
@@ -808,6 +838,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'kava',
@@ -833,6 +864,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'kava_testnet',
@@ -850,6 +882,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'scroll',
@@ -880,6 +913,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'scroll_sepolia',
@@ -903,6 +937,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'rootstock',
@@ -927,6 +962,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'rootstock_testnet',
@@ -951,6 +987,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     queryFilterBlockLimit: 2000,
     actionGasLimitBuffer: true,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'zora',
@@ -980,6 +1017,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       provider: 'Conduit',
       type: 'OP Stack',
     },
+    actionTransactionBatching: true,
   },
   {
     name: 'zora_sepolia',
@@ -1009,6 +1047,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       provider: 'Conduit',
       type: 'OP Stack',
     },
+    actionTransactionBatching: true,
   },
   {
     name: 'rari',
@@ -1038,6 +1077,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       provider: 'Caldera',
       type: 'Arbitrum',
     },
+    actionTransactionBatching: false,
   },
   {
     name: 'rari_sepolia',
@@ -1067,6 +1107,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
       provider: 'Caldera',
       type: 'Arbitrum',
     },
+    actionTransactionBatching: false,
   },
   {
     name: 'blast_sepolia',
@@ -1090,6 +1131,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'blast',
@@ -1113,6 +1155,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'taiko_katla',
@@ -1130,6 +1173,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'mode_sepolia',
@@ -1154,6 +1198,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'mode',
@@ -1178,6 +1223,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: true,
   },
   {
     name: 'darwinia_pangolin',
@@ -1196,5 +1242,6 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     hardcodedMerkleLeafGas: (11200000).toString(),
+    actionTransactionBatching: false,
   },
 ]
