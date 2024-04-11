@@ -117,6 +117,7 @@ Test networks:
 - Optimism Sepolia
 - Arbitrum Sepolia
 - Polygon Mumbai
+- Polygon Amoy
 - Polygon zkEVM Cardona
 - BNB Smart Chain Testnet
 - Gnosis Chiado
