@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.24.6
+
+### Patch Changes
+
+- cc5e9e6: Bump Merkle leaf gas values on networks other than Rootstock
+- Updated dependencies [cc5e9e6]
+- Updated dependencies [f6e0e06]
+  - @sphinx-labs/contracts@0.21.8
+
 ## 0.24.5
 
 ### Patch Changes
