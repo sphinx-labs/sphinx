@@ -299,6 +299,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'bnb',
