@@ -609,9 +609,10 @@ const makeExecutionArtifact = async (
   merkleRoot: string,
   provider: SphinxJsonRpcProvider
 ): Promise<ExecutionArtifact> => {
-  const ethersResponses = await Promise.all(
-    receipts.map((rcpt) => provider.getTransaction(rcpt.hash))
-  )
+  const ethersResponses: (ethers.TransactionResponse | null)[] = []
+  for (const rcpt of receipts) {
+    ethersResponses.push(await provider.getTransaction(rcpt.hash))
+  }
 
   const responses = ethersResponses.map((ethersResponse) =>
     convertEthersTransactionResponse(ethersResponse, networkConfig.chainId)
