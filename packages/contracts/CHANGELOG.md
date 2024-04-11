@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.21.7
+
+### Patch Changes
+
+- 50162e5: Disable action batching on Polygon ZKEVM
+- caf22d4: Support Polygon Amoy
+
 ## 0.21.6
 
 ### Patch Changes
