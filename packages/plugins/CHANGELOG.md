@@ -1,5 +1,16 @@
 # @sphinx-labs/plugins
 
+## 0.31.9
+
+### Patch Changes
+
+- cc5e9e6: Bump Merkle leaf gas values on networks other than Rootstock
+- f6e0e06: Deprecate Polygon Mumbai
+- Updated dependencies [cc5e9e6]
+- Updated dependencies [f6e0e06]
+  - @sphinx-labs/contracts@0.21.8
+  - @sphinx-labs/core@0.24.6
+
 ## 0.31.8
 
 ### Patch Changes
