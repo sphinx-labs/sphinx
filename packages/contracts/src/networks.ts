@@ -63,8 +63,8 @@ export const SPHINX_LOCAL_NETWORKS: Array<SupportedLocalNetwork> = [
 ]
 
 export type NetworkType = 'Testnet' | 'Mainnet' | 'Local'
-type RollupProvider = 'Conduit' | 'Caldera'
-type RollupType = 'OP Stack' | 'Arbitrum'
+type RollupProvider = 'Conduit' | 'Caldera' | 'None'
+type RollupType = 'OP Stack' | 'Arbitrum' | 'Polygon CDK'
 
 export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
   {
@@ -156,6 +156,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'optimism_sepolia',
@@ -186,6 +190,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'arbitrum',
@@ -210,6 +218,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'Arbitrum',
+    },
   },
   {
     name: 'arbitrum_sepolia',
@@ -234,6 +246,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'Arbitrum',
+    },
   },
   {
     name: 'polygon',
@@ -458,6 +474,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
   },
   {
     name: 'polygon_zkevm_cardona',
@@ -482,6 +502,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: false,
+    rollupStack: {
+      provider: 'None',
+      type: 'Polygon CDK',
+    },
   },
   {
     name: 'avalanche',
@@ -602,6 +626,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'base_sepolia',
@@ -632,6 +660,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'celo',
@@ -1109,6 +1141,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'blast',
@@ -1133,6 +1169,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'None',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'taiko_katla',
@@ -1176,6 +1216,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'mode',
@@ -1201,6 +1245,10 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     actionGasLimitBuffer: false,
     eip2028: true,
     actionTransactionBatching: true,
+    rollupStack: {
+      provider: 'Conduit',
+      type: 'OP Stack',
+    },
   },
   {
     name: 'darwinia_pangolin',

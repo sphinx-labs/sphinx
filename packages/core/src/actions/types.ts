@@ -107,11 +107,10 @@ export type ContractInfo = {
 }
 
 export type EstimateGasTransactionData = {
-  to: string | null
+  to: string
   from: string
   data: string
   gasLimit: string
-  gasPrice: string
   value: string
   chainId: string
 }

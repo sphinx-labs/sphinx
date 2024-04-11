@@ -1089,7 +1089,6 @@ const toSphinxTransactionEstimatedGas = (
     from: response.from,
     data: response.data,
     gasLimit: response.gasLimit.toString(),
-    gasPrice: response.gasPrice.toString(),
     value: response.value.toString(),
     chainId: response.chainId.toString(),
   }
