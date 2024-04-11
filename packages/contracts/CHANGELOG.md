@@ -1,5 +1,18 @@
 # @sphinx-labs/contracts
 
+## 0.21.7
+
+### Patch Changes
+
+- 50162e5: Disable action batching on Polygon ZKEVM
+- caf22d4: Support Polygon Amoy
+
+## 0.21.6
+
+### Patch Changes
+
+- 7f8beaa: Remove depth from Sphinx validate
+
 ## 0.21.5
 
 ### Patch Changes
