@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.24.5
+
+### Patch Changes
+
+- 50162e5: Disable action batching on Polygon ZKEVM
+- Updated dependencies [50162e5]
+- Updated dependencies [caf22d4]
+  - @sphinx-labs/contracts@0.21.7
+
 ## 0.24.4
 
 ### Patch Changes
