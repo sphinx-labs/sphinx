@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.21.6
+
+### Patch Changes
+
+- 7f8beaa: Remove depth from Sphinx validate
+
 ## 0.21.5
 
 ### Patch Changes
