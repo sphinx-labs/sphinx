@@ -1170,10 +1170,16 @@ contract SphinxUtils is SphinxConstants {
             // impact the Merkle leaf gas fields because we use `vm.snapshot`/`vm.revertTo`. Also,
             // state changes on one fork do not impact the gas cost on other forks.
             //
-            // We chose to multiply the gas by 1.1 because multiplying it by a higher number could
-            // make a very large transaction unexecutable on-chain. Since the 1.1x multiplier
-            // doesn't impact small transactions very much, we add a constant amount of 60k too.
-            gasEstimates[i] = 60_000 + ((startGas - finalGas) * 11) / 10;
+            // We chose to multiply the gas by 10-20% because multiplying it by a higher number
+            // could make a very large transaction unexecutable on-chain. Since this multiplier
+            // doesn't impact small transactions very much, we add a constant amount too. We use
+            // smaller buffers on Rootstock because gas costs are slightly lower on these networks
+            // compared to the EVM. Also, the block gas limit is significantly lower on Rootstock.
+            if (_deploymentInfo.chainId == 30 || _deploymentInfo.chainId == 31) {
+                gasEstimates[i] = 60_000 + ((startGas - finalGas) * 11) / 10;
+            } else {
+                gasEstimates[i] = 120_000 + ((startGas - finalGas) * 12) / 10;
+            }
         }
 
         vm.stopPrank();
