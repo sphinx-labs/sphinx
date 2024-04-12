@@ -60,6 +60,7 @@ import { BuildInfo } from './languages/solidity/types'
 import {
   COMPILER_CONFIG_VERSION,
   LocalNetworkMetadata,
+  fetchNameForDeprecatedNetwork,
   fetchNameForNetwork,
 } from './networks'
 import { RelayProposal, StoreDeploymentConfig } from './types'
@@ -497,7 +498,11 @@ export const getNetworkNameDirectory = (
   chainId: string,
   executionMode: ExecutionMode
 ): string => {
-  const networkName = fetchNameForNetwork(BigInt(chainId))
+  const deprecatedNetworkName = fetchNameForDeprecatedNetwork(BigInt(chainId))
+  const networkName = deprecatedNetworkName
+    ? deprecatedNetworkName
+    : fetchNameForNetwork(BigInt(chainId))
+
   if (
     executionMode === ExecutionMode.LiveNetworkCLI ||
     executionMode === ExecutionMode.Platform
