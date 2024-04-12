@@ -1,5 +1,14 @@
 # @sphinx-labs/plugins
 
+## 0.31.10
+
+### Patch Changes
+
+- 6656771: Allow generating artifacts for deprecated networks
+- Updated dependencies [6656771]
+  - @sphinx-labs/contracts@0.21.9
+  - @sphinx-labs/core@0.24.7
+
 ## 0.31.9
 
 ### Patch Changes
