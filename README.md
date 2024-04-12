@@ -116,7 +116,6 @@ Test networks:
 - Ethereum Sepolia
 - Optimism Sepolia
 - Arbitrum Sepolia
-- Polygon Mumbai
 - Polygon Amoy
 - Polygon zkEVM Cardona
 - BNB Smart Chain Testnet
