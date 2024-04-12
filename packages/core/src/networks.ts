@@ -2,6 +2,7 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 import {
+  DEPRECATED_SPHINX_NETWORKS,
   ExplorerName,
   SPHINX_LOCAL_NETWORKS,
   SPHINX_NETWORKS,
@@ -68,6 +69,18 @@ export const fetchSupportedNetworkByName = (
     return network
   } else {
     throw new Error(`Unsupported network name: ${networkName}`)
+  }
+}
+
+export const fetchNameForDeprecatedNetwork = (chainId: bigint) => {
+  const network = [...DEPRECATED_SPHINX_NETWORKS].find(
+    (n) => n.chainId === chainId
+  )
+
+  if (network) {
+    return network.name
+  } else {
+    return undefined
   }
 }
 
