@@ -268,7 +268,7 @@ interface AbstractFoundryTransaction {
     type: string | null
     from: string | null
     gas: string | null
-    input: string | null
+    data: string | null
     nonce: string | null
     accessList: string | null
     // Undefined if deployed a library.

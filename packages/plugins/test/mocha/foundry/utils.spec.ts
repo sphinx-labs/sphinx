@@ -770,7 +770,7 @@ describe('Utils', async () => {
 
       const initCodeWithArgs =
         broadcast.transactions[broadcast.transactions.length - 1].transaction
-          .input
+          .data
       // Narrow the TypeScript type.
       if (!initCodeWithArgs) {
         throw new Error(`Could not find init code.`)

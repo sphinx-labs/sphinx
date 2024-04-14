@@ -14,7 +14,7 @@ RUN apt-get update && \
 WORKDIR /opt/foundry
 
 RUN source $HOME/.profile && \
-    cargo install --git https://github.com/foundry-rs/foundry#89f0fb923773cf0f8f966290e579bae92f505077 \
+    cargo install --git https://github.com/foundry-rs/foundry#551bcb5c84d672670e1e3fd897089e606d808774 \
       --profile local --locked forge cast chisel anvil && \
     strip $HOME/.cargo/bin/forge && \
     strip $HOME/.cargo/bin/cast && \
