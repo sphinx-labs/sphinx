@@ -12,7 +12,7 @@
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "apt install lsof && yarn test",
+    "test:coverage": "yarn test",
     "test": "npx mocha --require ts-node/register --timeout 100000 'test/**/*.ts'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
