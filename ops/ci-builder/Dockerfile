@@ -1,4 +1,4 @@
-FROM ghcr.io/foundry-rs/foundry:latest as foundry-build
+FROM ghcr.io/foundry-rs/foundry:nightly
 RUN apk add --upgrade yarn
 RUN apk add nodejs-current --repository="http://dl-cdn.alpinelinux.org/alpine/edge/community"
 RUN apk add --update npm
