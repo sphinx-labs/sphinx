@@ -1,31 +1,12 @@
 name: Publish Docker image
-
 on:
-  push:
-    branches:
-      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
 
 jobs:
-  checkchanged:
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.step1.outputs.changed }}
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - id: step1
-        run: >
-          echo \
-            "changed=$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
-            ${{github.event.before}} ${{github.event.after}} \
-            )" >> $GITHUB_OUTPUT
-
   build-and-push-image:
     runs-on: ubuntu-latest
-    needs: checkchanged
-    if: ${{ needs.checkchanged.outputs.changed == 'true' }}
     name: Push Docker image to Docker Hub
     steps:
       - name: Check out the repo
