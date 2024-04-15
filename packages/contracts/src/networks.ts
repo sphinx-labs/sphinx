@@ -209,7 +209,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
-    actionTransactionBatching: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'arbitrum_sepolia',
@@ -233,7 +233,7 @@ export const SPHINX_NETWORKS: Array<SupportedNetwork> = [
     legacyTx: false,
     actionGasLimitBuffer: false,
     eip2028: true,
-    actionTransactionBatching: true,
+    actionTransactionBatching: false,
   },
   {
     name: 'polygon',

@@ -77,7 +77,10 @@ jobs:
 
   depcheck:
     docker:
-      - image: ethereumoptimism/ci-builder:latest
+      - image: samgoldman/ci-builder:latest
+        auth:
+          username: samgoldman
+          password: $DOCKERHUB_PASSWORD
     steps:
       - restore_cache:
           keys:
