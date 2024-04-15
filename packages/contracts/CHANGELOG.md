@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.21.10
+
+### Patch Changes
+
+- 4052629: Disable transaction batching on Arbitrum Sepolia
+
 ## 0.21.9
 
 ### Patch Changes

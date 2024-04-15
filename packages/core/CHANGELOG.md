@@ -1,5 +1,14 @@
 # @sphinx-labs/core
 
+## 0.24.8
+
+### Patch Changes
+
+- 4052629: Disable transaction batching on Arbitrum Sepolia
+- 9fa2e5c: Temporarily remove tx data from proposal requests
+- Updated dependencies [4052629]
+  - @sphinx-labs/contracts@0.21.10
+
 ## 0.24.7
 
 ### Patch Changes
