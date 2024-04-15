@@ -151,7 +151,6 @@ export type NetworkGasEstimate = {
   chainId: number
   estimatedGas: string
   fundsRequested?: string
-  transactions?: Array<TransactionEstimatedGas>
 }
 
 /**
