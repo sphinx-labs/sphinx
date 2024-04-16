@@ -34,6 +34,6 @@ jobs:
           context: ./ops/ci-builder/
           file: ./ops/ci-builder/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: samgoldman/ci-builder:${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
