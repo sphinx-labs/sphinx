@@ -22,7 +22,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: samgoldman/ci-builder
+          images: samgoldman/ci-builder:latest
           tags: |
             type=schedule,pattern={{date 'YYYYMMDD'}}
           flavor: |
@@ -34,6 +34,6 @@ jobs:
           context: ./ops/ci-builder/
           file: ./ops/ci-builder/Dockerfile
           push: true
-          tags: samgoldman/ci-builder:${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
