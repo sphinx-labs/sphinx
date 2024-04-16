@@ -1164,10 +1164,7 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   const { transactions } = await simulate(deploymentConfig, chainId, rpcUrl)
 
   const provider = new SphinxJsonRpcProvider(rpcUrl)
-  const { estimatedGas, transactionsWithGasEstimates } = await getEstimatedGas(
-    transactions,
-    provider
-  )
+  const { estimatedGas } = await getEstimatedGas(transactions, provider)
 
   const networkConfig = fetchNetworkConfigFromDeploymentConfig(
     BigInt(chainId),
@@ -1177,7 +1174,6 @@ export const getNetworkGasEstimate: GetNetworkGasEstimate = async (
   return {
     chainId: Number(chainId),
     estimatedGas,
-    transactions: transactionsWithGasEstimates,
     fundsRequested: networkConfig.safeFundingRequest?.fundsRequested ?? '0',
   }
 }
