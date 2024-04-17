@@ -92,8 +92,3 @@ enum MerkleRootStatus {
     CANCELED,
     FAILED
 }
-
-enum GnosisSafeVersion {
-    v1_3_0,
-    v1_4_1
-}

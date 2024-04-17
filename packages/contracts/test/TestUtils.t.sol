@@ -6,6 +6,7 @@ import { Vm } from "../contracts/forge-std/src/Vm.sol";
 import { StdCheats } from "../contracts/forge-std/src/StdCheats.sol";
 import { SphinxUtils } from "../contracts/foundry/SphinxUtils.sol";
 import { SphinxModule } from "../contracts/core/SphinxModule.sol";
+import { SphinxModuleProxyFactory } from "../contracts/core/SphinxModuleProxyFactory.sol";
 import { Wallet } from "../contracts/foundry/SphinxPluginTypes.sol";
 import { SphinxLeafWithProof, SphinxLeafType } from "../contracts/core/SphinxDataTypes.sol";
 import { IEnum } from "../contracts/foundry/interfaces/IEnum.sol";
@@ -655,6 +656,71 @@ contract TestUtils is SphinxUtils, IEnum, Test {
         } else {
             revert("Unknown Gnosis Safe version. Should never happen.");
         }
+    }
+
+    // TODO(docss): this is the same for gnosis v1.3.0 and v1.4.1.
+    // TODO(later): refactor SphinxModuleProxy.t.sol:initializeGnosisSafeWithModule into this.
+    function makeGnosisSafeInitializerData(
+        SphinxModuleProxyFactory _moduleProxyFactory,
+        uint256 _saltNonce,
+address[] memory _owners,
+uint256 _threshold,
+address _multiSend,
+address _fallbackHandler
+    ) internal pure returns (bytes memory) {
+        // Encode the data that will deploy the Sphinx Module proxy.
+        bytes memory encodedDeployModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.deploySphinxModuleProxyFromSafe.selector,
+            _saltNonce
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory deployModuleMultiSendData = abi.encodePacked(
+            // We use `Call` so that the Gnosis Safe proxy calls the `SphinxModuleProxyFactory` to deploy
+            // the Sphinx Module proxy. This makes it easier for off-chain tooling to calculate the
+            // deployed Sphinx Module proxy address because the `SphinxModuleProxyFactory`'s address is a
+            // known constant.
+            uint8(Enum.Operation.Call),
+            _moduleProxyFactory,
+            uint256(0), // Set the value to 0 because we never send native gas tokens in this call
+            encodedDeployModuleCall.length,
+            encodedDeployModuleCall
+        );
+
+        // Encode the data that will enable the Sphinx Module proxy in the Gnosis Safe proxy.
+        bytes memory encodedEnableModuleCall = abi.encodeWithSelector(
+            _moduleProxyFactory.enableSphinxModuleProxyFromSafe.selector,
+            _saltNonce
+        );
+        // Encode the data in a format that can be executed using `MultiSend`.
+        bytes memory enableModuleMultiSendData = abi.encodePacked(
+            // The Gnosis Safe proxy will delegatecall the SphinxModuleProxyFactory to enable the
+            // module. This is necessary because the Sphinx Module proxy's address can't be included
+            // in the Gnosis Safe proxy's initializer data.
+            uint8(Enum.Operation.DelegateCall),
+            _moduleProxyFactory,
+            uint256(0), // Set the value to 0 because we never send native gas tokens in this delegatecall.
+            encodedEnableModuleCall.length,
+            encodedEnableModuleCall
+        );
+
+        bytes memory multiSendData = abi.encodeWithSelector(
+                MultiSend_1_3_0.multiSend.selector,
+                bytes.concat(deployModuleMultiSendData, enableModuleMultiSendData)
+            );
+
+        return abi.encodeWithSelector(
+            GnosisSafe_1_3_0.setup.selector,
+            _owners,
+            _threshold,
+            _multiSend,
+            multiSendData,
+            _fallbackHandler,
+            // The following fields are for specifying an optional payment as part of the
+            // deployment. We don't use them.
+            address(0),
+            0,
+            address(0)
+        );
     }
 
     // Used off-chain to get the ABI of the `SphinxMerkleTree` struct.
