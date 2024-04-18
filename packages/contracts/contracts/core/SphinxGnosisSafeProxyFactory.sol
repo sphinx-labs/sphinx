@@ -16,20 +16,13 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         bytes memory _safeInitCode,
         bytes memory _safeInitializer,
         uint256 _saltNonce, // TODO(docs): for simplicity, we use the same salt nonce to deploy the gnosis safe proxy and the sphinx module proxy.
-        address _moduleProxyFactory
-    ) public returns (address safeProxy, address moduleProxy) {
+        address _moduleProxy
+    ) public returns (address safeProxy) {
         // Create the Gnosis Safe proxy's `CREATE2` salt. This salt ensures that the proxy's address
         // changes if its initializer data changes. This salt is created in the exact same manner as
         // the salt created in the Gnosis Safe Proxy Factory contract. The initializer data
         // is hashed because it's cheaper than concatenating it.
         bytes32 salt = keccak256(abi.encodePacked(keccak256(_safeInitializer), _saltNonce));
-
-        // Get the address of the Sphinx Module proxy that will be deployed.
-        moduleProxy = ISphinxModuleProxyFactory(_moduleProxyFactory).computeSphinxModuleProxyAddress(
-            safeProxy,
-            safeProxy,
-            _saltNonce
-        );
 
         safeProxy = Create2.deploy(0, salt, _safeInitCode);
 
@@ -41,17 +34,17 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
         // it via `CREATE2` above, which must have succeeded if we were able to make it to this
         // point.
         require(
-            moduleProxy.code.length > 0,
+            _moduleProxy.code.length > 0,
             "SphinxGnosisSafeProxyFactory: module proxy not deployed"
         );
         require(
-            GnosisSafe(payable(safeProxy)).isModuleEnabled(moduleProxy),
+            GnosisSafe(payable(safeProxy)).isModuleEnabled(_moduleProxy),
             "SphinxGnosisSafeProxyFactory: module proxy not enabled"
         );
 
         emit DeployedGnosisSafeWithSphinxModule(
             safeProxy,
-            moduleProxy,
+            _moduleProxy,
             _saltNonce
         );
     }
@@ -67,4 +60,7 @@ contract SphinxGnosisSafeProxyFactory is ISphinxGnosisSafeProxyFactory {
 
 // TODO(later-later): check for parity with Safe v1.3.0 and v1.4.1.
 
-// TODO(later): add the griefing vector as a test case.
+// TODO(later-later): add the griefing vector as a test case.
+
+// TODO(later): consider checking the inverse of the final require statements at the beginning of
+// the function.

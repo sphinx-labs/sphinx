@@ -38,6 +38,9 @@ contract SphinxGnosisSafeProxyFactory_Test is TestUtils {
             _moduleProxyFactory: address(moduleProxyFactory)
         });
     }
+
+    // TODO(docs): singleton isn't deployed
+    
 }
 
 // TODO(later): check the SphinxMOduleProxyFactory.t.sol file.
