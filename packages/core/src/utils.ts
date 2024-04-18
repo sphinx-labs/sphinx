@@ -404,9 +404,7 @@ export const relayProposal: RelayProposal = async (
         `Internal server error. Please report this to the developers.`
       )
     } else {
-      throw new Error(
-        `Unexpected response code. Please report this to the developers.`
-      )
+      throw e
     }
   }
 }
@@ -440,9 +438,7 @@ export const storeDeploymentConfig: StoreDeploymentConfig = async (
             `Unauthorized, please check your API key and Org Id are correct`
           )
         } else {
-          throw new Error(
-            `Unexpected response code, please report this to the developers`
-          )
+          throw err
         }
       } else {
         throw err
